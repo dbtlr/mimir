@@ -9,7 +9,8 @@ import { cn } from '../../lib/cn';
  * fill (slate on light, where teal reads wrong); `attention` is the violet
  * fill for an ask only the operator can settle (approving a pairing request);
  * `attentionOutline` is its hairline sibling (a decision row's Answer…); `outline` is the quiet hairline
- * alternate. Solid fills carry `text-well-950`, which flips near-black in dark
+ * alternate; `destructiveOutline` is the hairline with a red ring and label for a
+ * risky action (Unpair, Deny, Stop), since a status hue never fills a button (ADR 0019 §1). Solid fills carry `text-well-950`, which flips near-black in dark
  * and near-white in light so the label stays legible on either theme's fill.
  */
 export const actionButtonVariants = cva(
@@ -28,6 +29,8 @@ export const actionButtonVariants = cva(
         attention: 'bg-attention-solid text-well-950 hover:bg-attention-solid/90',
         attentionOutline:
           'inset-ring inset-ring-attention/45 text-attention-foreground hover:bg-attention/10',
+        destructiveOutline:
+          'inset-ring inset-ring-status-blocked/35 text-status-blocked-foreground hover:bg-line/50',
         outline:
           'inset-ring inset-ring-line-bright text-ink hover:bg-line/50 hover:text-ink-bright',
       },

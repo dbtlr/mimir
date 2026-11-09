@@ -81,8 +81,9 @@ async function newTask(title = 'Groom me') {
 
 /** A grant for `task`, connected to an MCP client; `row` decides what checkRow answers. */
 async function grant(task: string, overrides: Partial<RunGrantOptions> = {}) {
-  const state = { checks: 0, lost: 0, row: 'held' as 'held' | 'lost' };
+  const state = { cancelled: false, checks: 0, lost: 0, row: 'held' as 'held' | 'lost' };
   const server = createRunGrant({
+    cancelled: () => state.cancelled,
     checkRow: async () => {
       state.checks += 1;
       return state.row;
@@ -558,6 +559,61 @@ test('a lost row refuses every write and tells the runner', async () => {
   expect(node.grooming).toBe('not_groomed');
   // Reads need no row check.
   expect((await call('get', { id: task })).refused).toBe(false);
+});
+
+test('a cancel refuses every write and makes no Engine write; reads still answer', async () => {
+  const task = await newTask();
+  const { call, state } = await grant(task);
+  state.cancelled = true;
+  for (const [name, args] of [
+    ['annotate', { content: 'late note' }],
+    ['groom', { note: 'late', state: 'groomed' }],
+    ['attach', { content: 'x', title: 'Late plan' }],
+  ] as const) {
+    const answer = await call(name, args);
+    expect(answer.refused).toBe(true);
+    expect(answer.text).toContain('cancelled');
+  }
+  // A cancel is not a lost row.
+  expect(state.lost).toBe(0);
+  const node = await engine.getNode({ facets: ['annotations', 'artifacts'], id: task });
+  expect(node.annotations ?? []).toEqual([]);
+  expect(node.artifacts ?? []).toEqual([]);
+  expect(node.grooming).toBe('not_groomed');
+  expect((await call('get', { id: task })).refused).toBe(false);
+});
+
+test('a cancel recorded during the row check or the groom read still refuses the write', async () => {
+  const task = await newTask();
+  const state = { cancelled: false };
+  const { call } = await grant(task, {
+    cancelled: () => state.cancelled,
+    // The cancel lands while the write awaits its row check.
+    checkRow: async () => {
+      state.cancelled = true;
+      return 'held';
+    },
+  });
+  expect((await call('annotate', { content: 'late note' })).refused).toBe(true);
+  expect((await call('attach', { content: 'x', title: 'Late plan' })).refused).toBe(true);
+
+  // The cancel lands while groom reads the task before its write.
+  const groomTask = await newTask();
+  const guarded = { cancelled: false };
+  const getNode: Engine['getNode'] = async (input) => {
+    guarded.cancelled = true;
+    return engine.getNode(input);
+  };
+  const reading = new Proxy(engine, {
+    get: (target, key, receiver) =>
+      key === 'getNode' ? getNode : Reflect.get(target, key, receiver),
+  });
+  const granted = await grant(groomTask, { cancelled: () => guarded.cancelled, engine: reading });
+  expect((await granted.call('groom', { state: 'groomed' })).refused).toBe(true);
+  expect((await engine.getNode({ id: groomTask })).grooming).toBe('not_groomed');
+  const node = await engine.getNode({ facets: ['annotations', 'artifacts'], id: task });
+  expect(node.annotations ?? []).toEqual([]);
+  expect(node.artifacts ?? []).toEqual([]);
 });
 
 test('a row check that fails refuses the write without reporting the row lost', async () => {

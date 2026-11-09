@@ -6,12 +6,14 @@ import type { Run } from '@mimir/core';
 
 import { createAgentConsole } from './agent-console';
 import type { AgentConsoleOptions } from './agent-console';
-import { parseGroomTarget } from './agent-console-input';
-import type { GroomRefusal } from './agent-console-states';
+import { parseGroomCancelTarget, parseGroomTarget } from './agent-console-input';
+import type { GroomCancelResult, GroomRefusal } from './agent-console-states';
+import { CONSOLE_CANCEL_OUTCOME } from './agent-runner';
 import type {
   AgentBudgetStatus,
   AgentRunner,
   AgentStatus,
+  CancelRunResult,
   RunOutcome,
   RunRefusal,
   StartRunInput,
@@ -69,6 +71,8 @@ const runRow = (fields: Partial<Run> = {}): Run => ({
 
 /** The view of {@link runRow}'s defaults. */
 const RUN_VIEW = {
+  cancellable: false,
+  chargedTokens: 1_345,
   endedAt: new Date('2026-11-08T11:00:00.000Z'),
   heartbeatAt: new Date('2026-11-08T10:59:50.000Z'),
   id: 'run-1',
@@ -80,9 +84,15 @@ const RUN_VIEW = {
   stale: false,
   startedAt: new Date('2026-11-08T10:00:00.000Z'),
   state: 'succeeded',
+  stopDetail: null,
+  stoppedFromConsole: false,
+  stopping: false,
   task: 'ENG-7',
   usedTokens: 1_345,
 } as const;
+
+/** How this process holds a running run: not at all unless `fields` says otherwise. */
+const NOT_HELD = { ending: false, held: false, stopping: false } as const;
 
 /** The records the fake Engine knows: id to its node. */
 const NODES: Record<string, { title: string; remote?: string | null }> = {
@@ -110,14 +120,20 @@ function console_(
     status?: AgentStatus;
     lastEnded?: Run;
     start?: Awaited<ReturnType<AgentRunner['startRun']>>;
+    cancel?: CancelRunResult;
     engine?: Pick<Engine, 'getNode'>;
   } = {},
 ) {
   const starts: StartRunInput[] = [];
+  const cancels: string[] = [];
   const lastEndedFor: string[] = [];
   const lines: string[] = [];
   const options: AgentConsoleOptions = {
     agent: {
+      cancelRun: async (runId) => {
+        cancels.push(runId);
+        return fields.cancel ?? { answer: 'unknown' };
+      },
       startRun: async (input) => {
         starts.push(input);
         return fields.start ?? { reason: 'unconfigured', started: false };
@@ -133,7 +149,7 @@ function console_(
       },
     },
   };
-  return { agentConsole: createAgentConsole(options), lastEndedFor, lines, starts };
+  return { agentConsole: createAgentConsole(options), cancels, lastEndedFor, lines, starts };
 }
 
 describe('card', () => {
@@ -228,12 +244,14 @@ describe('card', () => {
       usage_settled: false,
     });
     const { agentConsole } = console_({
-      status: { ...READY, running: { run: holder, stale: true } },
+      status: { ...READY, running: { ...NOT_HELD, run: holder, stale: true } },
     });
     expect(await agentConsole.card(TARGET)).toMatchObject({
       lastRun: null,
       running: {
         ...RUN_VIEW,
+        // A running run counts its reservation or its streamed usage, whichever is larger.
+        chargedTokens: 4_000_000,
         endedAt: null,
         id: 'run-2',
         outcome: null,
@@ -274,7 +292,7 @@ describe('activity', () => {
         budget: null,
         managedPolicy: [],
         model: null,
-        running: { run: runRow({ state: 'running' }), stale: false },
+        running: { ...NOT_HELD, run: runRow({ state: 'running' }), stale: false },
       },
     });
     expect(await agentConsole.activity()).toEqual({ running: null });
@@ -283,11 +301,12 @@ describe('activity', () => {
   test("reads the running run with its task's title", async () => {
     const holder = runRow({ ended_at: null, outcome: null, state: 'running', task: 'ENG-9' });
     const { agentConsole } = console_({
-      status: { ...READY, running: { run: holder, stale: false } },
+      status: { ...READY, running: { ...NOT_HELD, run: holder, stale: false } },
     });
     expect(await agentConsole.activity()).toEqual({
       running: {
         ...RUN_VIEW,
+        chargedTokens: 4_000_000,
         endedAt: null,
         outcome: null,
         state: 'running',
@@ -300,7 +319,7 @@ describe('activity', () => {
   test('reads a null title when the task lookup is refused', async () => {
     const holder = runRow({ state: 'running', task: 'ENG-404' });
     const { agentConsole } = console_({
-      status: { ...READY, running: { run: holder, stale: false } },
+      status: { ...READY, running: { ...NOT_HELD, run: holder, stale: false } },
     });
     expect((await agentConsole.activity()).running).toMatchObject({
       task: 'ENG-404',
@@ -438,6 +457,140 @@ describe('startGroom', () => {
   });
 });
 
+/** A run holding the slot, as the cancel tests read it. */
+const HOLDER = runRow({ ended_at: null, outcome: null, state: 'running', task: 'ENG-9' });
+/** The running run's view on the card, checked to match Now's. */
+const viewOf = async (running: AgentStatus['running']) => {
+  const { agentConsole } = console_({ status: { ...READY, running } });
+  const card = await agentConsole.card(TARGET);
+  const activity = await agentConsole.activity();
+  if (card.state !== 'ready') {
+    throw new Error('the card must read ready');
+  }
+  expect(activity.running).toMatchObject({
+    cancellable: card.running?.cancellable,
+    stopping: card.running?.stopping,
+  });
+  return card.running;
+};
+
+describe('cancel', () => {
+  test('a held run whose stream runs, with no cancel and not stale, is cancellable', async () => {
+    expect(
+      await viewOf({ ending: false, held: true, run: HOLDER, stale: false, stopping: false }),
+    ).toMatchObject({ cancellable: true, stopping: false });
+  });
+
+  test('a run with a recorded cancel reads stopping and is not cancellable again', async () => {
+    expect(
+      await viewOf({ ending: false, held: true, run: HOLDER, stale: false, stopping: true }),
+    ).toMatchObject({ cancellable: false, stopping: true });
+    // Its stream ended after the cancel: it still reads stopping until its row closes.
+    expect(
+      await viewOf({ ending: true, held: true, run: HOLDER, stale: false, stopping: true }),
+    ).toMatchObject({ cancellable: false, stopping: true });
+  });
+
+  test('a run not held here, whose stream ended, or that is stale is not cancellable', async () => {
+    for (const running of [
+      { ...NOT_HELD, run: HOLDER, stale: false },
+      { ending: true, held: true, run: HOLDER, stale: false, stopping: false },
+      { ending: false, held: true, run: HOLDER, stale: true, stopping: false },
+    ]) {
+      expect(await viewOf(running)).toMatchObject({ cancellable: false, stopping: false });
+    }
+  });
+
+  test('a run stopped from the console and settled is charged what it used, with the detail after the console', async () => {
+    const { agentConsole } = console_({
+      lastEnded: runRow({
+        outcome: `${CONSOLE_CANCEL_OUTCOME} (3 turns; 0 readers; settled 1345 tokens)`,
+        state: 'cancelled',
+      }),
+    });
+    expect(await agentConsole.card(TARGET)).toMatchObject({
+      lastRun: {
+        chargedTokens: 1_345,
+        stopDetail: '3 turns; 0 readers; settled 1345 tokens',
+        stoppedFromConsole: true,
+        usedTokens: 1_345,
+      },
+    });
+  });
+
+  test('a run stopped from the console that never settled is charged its reservation', async () => {
+    const { agentConsole } = console_({
+      lastEnded: runRow({
+        outcome: `${CONSOLE_CANCEL_OUTCOME}; it did not end within its 300-second grace period and was aborted`,
+        state: 'cancelled',
+        usage_settled: false,
+      }),
+    });
+    expect(await agentConsole.card(TARGET)).toMatchObject({
+      lastRun: {
+        chargedTokens: 4_000_000,
+        stopDetail: 'it did not end within its 300-second grace period and was aborted',
+        stoppedFromConsole: true,
+        usedTokens: 1_345,
+      },
+    });
+  });
+
+  test('a run stopped from the console before its query has a detail, and one with nothing after the console has none', async () => {
+    for (const [outcome, stopDetail] of [
+      [`${CONSOLE_CANCEL_OUTCOME} before its query started`, 'before its query started'],
+      [CONSOLE_CANCEL_OUTCOME, null],
+    ] as const) {
+      const { agentConsole } = console_({ lastEnded: runRow({ outcome, state: 'cancelled' }) });
+      expect(await agentConsole.card(TARGET)).toMatchObject({
+        lastRun: { stopDetail, stoppedFromConsole: true },
+      });
+    }
+  });
+
+  test('a run a ceiling cancelled, or one that failed, was not stopped from the console', async () => {
+    for (const fields of [
+      { outcome: 'cancelled: the run reached its 4000000-token ceiling', state: 'cancelled' },
+      { outcome: `failed: ${CONSOLE_CANCEL_OUTCOME}`, state: 'failed' },
+      { outcome: CONSOLE_CANCEL_OUTCOME, state: 'failed' },
+    ] as const) {
+      const { agentConsole } = console_({
+        lastEnded: runRow({ ...fields, usage_settled: false }),
+      });
+      expect(await agentConsole.card(TARGET)).toMatchObject({
+        lastRun: { chargedTokens: 4_000_000, stopDetail: null, stoppedFromConsole: false },
+      });
+    }
+  });
+
+  test('an ended last run is neither stopping nor cancellable', async () => {
+    const { agentConsole } = console_({ lastEnded: runRow({ state: 'cancelled' }) });
+    expect(await agentConsole.card(TARGET)).toMatchObject({
+      lastRun: { cancellable: false, state: 'cancelled', stopping: false },
+    });
+  });
+
+  const answers: { name: string; answer: CancelRunResult; reads: GroomCancelResult }[] = [
+    { answer: { answer: 'cancelling' }, name: 'cancelling', reads: { state: 'cancelling' } },
+    { answer: { answer: 'ending' }, name: 'ending', reads: { state: 'ending' } },
+    { answer: { answer: 'unknown' }, name: 'unknown', reads: { state: 'unknown' } },
+    {
+      answer: { answer: 'ended', state: 'interrupted' },
+      name: 'ended',
+      reads: { runState: 'interrupted', state: 'ended' },
+    },
+    { answer: { answer: 'closing' }, name: 'closing', reads: { state: 'closing' } },
+    { answer: { answer: 'stale' }, name: 'stale', reads: { state: 'stale' } },
+    { answer: { answer: 'another-host' }, name: 'another-host', reads: { state: 'another-host' } },
+  ];
+
+  test.each(answers)("reads the runner's $name answer", async ({ answer, reads }) => {
+    const { agentConsole, cancels } = console_({ cancel: answer });
+    expect(await agentConsole.cancelGroom({ runId: 'run-2' })).toEqual(reads);
+    expect(cancels).toEqual(['run-2']);
+  });
+});
+
 describe('the server functions’ input', () => {
   test('refuses a malformed target before any handler runs', () => {
     for (const bad of [
@@ -454,6 +607,32 @@ describe('the server functions’ input', () => {
     ]) {
       expect(() => parseGroomTarget(bad)).toThrow(MimirError);
     }
+  });
+
+  test('refuses a cancel input that is not one run id shaped as the runner makes them', () => {
+    for (const bad of [
+      undefined,
+      null,
+      '3f1c2b9e-8a4d-4c2e-9b1a-7d5e6f8a9b0c',
+      {},
+      { runId: '' },
+      { runId: 42 },
+      { runId: 'run-1' },
+      { runId: '3F1C2B9E-8A4D-4C2E-9B1A-7D5E6F8A9B0C' },
+      { runId: ' 3f1c2b9e-8a4d-4c2e-9b1a-7d5e6f8a9b0c' },
+      { runId: '3f1c2b9e-8a4d-4c2e-9b1a-7d5e6f8a9b0c\n' },
+      {
+        runId: `${'a'.repeat(8)}-${'b'.repeat(4)}-${'c'.repeat(4)}-${'d'.repeat(4)}-${'e'.repeat(4096)}`,
+      },
+      { runId: '3f1c2b9e-8a4d-4c2e-9b1a-7d5e6f8a9b0c', task: 'MMR-640' },
+    ]) {
+      expect(() => parseGroomCancelTarget(bad)).toThrow(MimirError);
+    }
+  });
+
+  test('passes a run id the runner makes through unchanged', () => {
+    const runId = crypto.randomUUID();
+    expect(parseGroomCancelTarget({ runId })).toEqual({ runId });
   });
 
   test('passes a well-formed target through unchanged', () => {

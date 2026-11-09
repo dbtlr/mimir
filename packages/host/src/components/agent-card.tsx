@@ -19,6 +19,8 @@ import { projectKeyOf } from '../lib/project-key';
 import { nodeLink } from '../lib/record-url';
 import { ago } from '../lib/time';
 import { StatusDot } from './status-dot';
+import { StopRunDialog } from './stop-run-dialog';
+import type { StopTarget } from './stop-run-dialog';
 import { ActionButton } from './ui/action-button';
 
 /*
@@ -104,12 +106,15 @@ function Code({ children }: { children: ReactNode }) {
 function Frame({
   title,
   model,
+  action,
   tone = 'plain',
   dot = false,
   children,
 }: {
   title: string;
   model?: string;
+  /** A control in the header bar, after the model. */
+  action?: ReactNode;
   tone?: 'plain' | 'bad';
   dot?: boolean;
   children: ReactNode;
@@ -133,6 +138,7 @@ function Frame({
         {model !== undefined && (
           <span className="ml-auto font-mono text-mono-id text-ink-faint">{model}</span>
         )}
+        {action}
       </div>
       <div className="flex flex-col gap-2.5 px-4 py-3 text-xs text-ink-dim">{children}</div>
     </section>
@@ -152,10 +158,33 @@ function TokenAge({ modifiedAt }: { modifiedAt: Date }) {
   );
 }
 
-function RunningCard({ run }: { run: AgentRunView }) {
+/** The live run's card: Stop while the run can be stopped, and "Stopping" once a cancel is recorded. */
+function RunningCard({ run, onStop }: { run: AgentRunView; onStop: (target: StopTarget) => void }) {
   return (
-    <Frame title="Agent grooming" model={run.model} dot>
-      <Say>Reading the code. Notes appear in the timeline as the agent writes them.</Say>
+    <Frame
+      title={run.stopping ? 'Stopping the agent' : 'Agent grooming'}
+      model={run.model}
+      dot
+      action={
+        run.cancellable && (
+          <ActionButton
+            size="sm"
+            variant="destructiveOutline"
+            className="py-1"
+            onClick={() => {
+              onStop({ runId: run.id, task: run.task, usedTokens: run.usedTokens });
+            }}
+          >
+            Stop
+          </ActionButton>
+        )
+      }
+    >
+      <Say>
+        {run.stopping
+          ? 'Stopping after its current step. This usually takes seconds, and at most 5 minutes.'
+          : 'Reading the code. Notes appear in the timeline as the agent writes them.'}
+      </Say>
       <p>Started {ago(run.startedAt)}</p>
       <Meter
         used={run.usedTokens}
@@ -163,6 +192,28 @@ function RunningCard({ run }: { run: AgentRunView }) {
         label={`${formatTokens(run.usedTokens)} of its ${formatTokens(run.reservedTokens)} ceiling`}
       />
     </Frame>
+  );
+}
+
+/**
+ * What a run the operator stopped from the console ended on: what else its
+ * outcome says, and what today counts for it, which is its reservation when
+ * it ended without a usage total.
+ */
+function StoppedRun({ run }: { run: AgentRunView }) {
+  const used = formatTokens(run.usedTokens);
+  return (
+    <>
+      <Say>
+        You stopped this run {ago(run.endedAt ?? run.startedAt)}. Its notes stay on the task.
+      </Say>
+      {run.stopDetail !== null && <p className="text-meta text-ink-faint">{run.stopDetail}</p>}
+      <p>
+        {run.chargedTokens === run.usedTokens
+          ? `Used ${used} tokens, counted toward today.`
+          : `Used ${used} tokens. Today counts ${formatTokens(run.chargedTokens)}, its reservation, since it ended without a usage total.`}
+      </p>
+    </>
   );
 }
 
@@ -236,7 +287,7 @@ const isPassive = (view: AgentCardView): view is PassiveView =>
   view.kind === 'running';
 
 /** The card body for the states that offer no start. */
-function Passive({ view }: { view: PassiveView }) {
+function Passive({ view, onStop }: { view: PassiveView; onStop: (target: StopTarget) => void }) {
   switch (view.kind) {
     case 'misconfigured': {
       return (
@@ -277,7 +328,7 @@ function Passive({ view }: { view: PassiveView }) {
       );
     }
     default: {
-      return <RunningCard run={view.run} />;
+      return <RunningCard run={view.run} onStop={onStop} />;
     }
   }
 }
@@ -323,10 +374,14 @@ function Active({
     case 'failed': {
       return (
         <Frame title={ENDED_TITLE[view.run.state]} tone="bad">
-          <Say>
-            {view.run.outcome ?? 'The run ended without an outcome.'}{' '}
-            <span className="text-ink-faint">{ago(view.run.endedAt ?? view.run.startedAt)}</span>
-          </Say>
+          {view.run.stoppedFromConsole ? (
+            <StoppedRun run={view.run} />
+          ) : (
+            <Say>
+              {view.run.outcome ?? 'The run ended without an outcome.'}{' '}
+              <span className="text-ink-faint">{ago(view.run.endedAt ?? view.run.startedAt)}</span>
+            </Say>
+          )}
           <div className="flex items-center gap-3">{button}</div>
         </Frame>
       );
@@ -424,6 +479,7 @@ export function GroomWithAgentCard({ node, offline }: { node: EngineNode; offlin
   const grooming = visibleGrooming(node);
   const read = useGroomCard(project, node.id, grooming !== undefined);
   const [refusal, setRefusal] = useState<GroomRefusal | undefined>();
+  const [stopping, setStopping] = useState<StopTarget | null>(null);
   const start = useStartGroom(setRefusal);
   const data = read.data;
   if (grooming === undefined || data === undefined || data.state === 'unconfigured') {
@@ -440,7 +496,7 @@ export function GroomWithAgentCard({ node, offline }: { node: EngineNode; offlin
     </p>
   );
   const body = isPassive(view) ? (
-    <Passive view={view} />
+    <Passive view={view} onStop={setStopping} />
   ) : (
     data.state === 'ready' &&
     action !== undefined && (
@@ -461,6 +517,14 @@ export function GroomWithAgentCard({ node, offline }: { node: EngineNode; offlin
     <div className="flex flex-col gap-2">
       {body}
       {alert}
+      {stopping !== null && (
+        <StopRunDialog
+          target={stopping}
+          onClose={() => {
+            setStopping(null);
+          }}
+        />
+      )}
     </div>
   );
 }

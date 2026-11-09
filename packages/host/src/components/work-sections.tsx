@@ -16,6 +16,7 @@ import { formatTokens } from '../lib/agent-card';
 import { cn } from '../lib/cn';
 import { nodeLink } from '../lib/record-url';
 import { ago, relativeTime } from '../lib/time';
+import { PHONE_TOUCH_TARGET } from '../lib/touch-target';
 import { useRowFocusHandoff } from '../lib/use-row-focus-handoff';
 import {
   SHIPPED_DAY_CAP,
@@ -29,6 +30,9 @@ import { NewTaskButton } from './new-task-button';
 import { OpenInT3 } from './open-in-t3';
 import { StaleBadge } from './signal-badges';
 import { StatusDot } from './status-dot';
+import { StopRunDialog } from './stop-run-dialog';
+import type { StopTarget } from './stop-run-dialog';
+import { ActionButton } from './ui/action-button';
 import { Badge } from './ui/badge';
 import { NeedsYouRow, RowTail, StartAction, needsYouActions } from './work-rows';
 
@@ -61,15 +65,74 @@ function ContextPart({ children, mono = false }: { children: ReactNode; mono?: b
   );
 }
 
-/** A Now task's row; `agent` is the agent run grooming it, when one is. */
-export function NowRow({ row, agent }: { row: NowTask; agent?: AgentRun }) {
+/**
+ * A Now row's stop (ADR 0041's cancel refinement): the icon button the row
+ * offers while its agent run can be stopped, and the confirm it opens. The
+ * confirm keeps the run it opened on, so a poll that swaps the running run
+ * while it is open cannot redirect the stop. The confirm lives outside the
+ * row's actions and its section renders it, so a refusal stays readable after a
+ * refresh hides the button or removes the row of a run that just ended.
+ */
+function useRowStop(run: AgentRun | undefined): { button: ReactNode; dialog: ReactNode } {
+  const [target, setTarget] = useState<StopTarget | null>(null);
+  const button =
+    run?.cancellable === true ? (
+      <ActionButton
+        size="sm"
+        variant="destructiveOutline"
+        aria-label={`Stop run on ${run.task}`}
+        title="Stop run"
+        className={cn('min-w-8 px-2', PHONE_TOUCH_TARGET, 'max-md:min-w-11')}
+        onClick={() => {
+          setTarget({ runId: run.id, task: run.task, usedTokens: run.usedTokens });
+        }}
+      >
+        <span aria-hidden className="size-2.5 rounded-[2px] bg-current" />
+      </ActionButton>
+    ) : undefined;
+  const dialog =
+    target === null ? null : (
+      <StopRunDialog
+        target={target}
+        onClose={() => {
+          setTarget(null);
+        }}
+      />
+    );
+  return { button, dialog };
+}
+
+/** The Stopping badge of an agent run with a recorded cancel, until its row closes. */
+function StoppingBadge({ run }: { run: AgentRun | undefined }) {
+  return run?.stopping === true ? <Badge variant="outline">Stopping</Badge> : null;
+}
+
+/**
+ * A Now task's row; `agent` is the agent run grooming it, when one is, and
+ * `stopButton` the control its section offers to stop that run.
+ */
+export function NowRow({
+  row,
+  agent,
+  stopButton,
+}: {
+  row: NowTask;
+  agent?: AgentRun;
+  stopButton?: ReactNode;
+}) {
   return (
     <BrowserRow
       to={nodeLink(row.task.id)}
       id={row.task.id}
       title={row.task.title}
       leading={<StatusDot status={row.task.status} />}
-      afterTitle={<RowTail row={row} />}
+      afterTitle={
+        <>
+          <RowTail row={row} />
+          <StoppingBadge run={agent} />
+        </>
+      }
+      actions={stopButton}
       meta={
         <div className="flex flex-col gap-0.5">
           <p className="flex flex-wrap items-baseline gap-x-1.5">
@@ -93,7 +156,10 @@ export function NowRow({ row, agent }: { row: NowTask; agent?: AgentRun }) {
             {row.task.branch != null && <ContextPart mono>{row.task.branch}</ContextPart>}
             {row.scratchpads.length > 0 && <ContextPart>Scratchpad open</ContextPart>}
             {agent !== undefined && (
-              <ContextPart>Agent grooming{agent.stale ? ', stopped reporting' : ''}</ContextPart>
+              <ContextPart>
+                Agent {agent.stopping ? 'stopping after its current step' : 'grooming'}
+                {agent.stale ? ', stopped reporting' : ''}
+              </ContextPart>
             )}
             <OpenInT3 harness={row.task.harness} host={row.task.host} session={row.task.session} />
           </p>
@@ -108,24 +174,34 @@ export function NowRow({ row, agent }: { row: NowTask; agent?: AgentRun }) {
   );
 }
 
-/** The agent run grooming a task in this page's scope, as a Now row. */
-export function AgentNowRow({ run }: { run: AgentRun }) {
+/** The agent run grooming a task in this page's scope, as a Now row, with its section's stop control. */
+export function AgentNowRow({ run, stopButton }: { run: AgentRun; stopButton?: ReactNode }) {
   return (
     <BrowserRow
       to={nodeLink(run.task)}
       id={run.task}
       title={run.taskTitle ?? run.task}
       leading={<StatusDot status="in_progress" />}
-      afterTitle={<Badge variant="outline">Agent</Badge>}
+      afterTitle={
+        <>
+          <Badge variant="outline">Agent</Badge>
+          <StoppingBadge run={run} />
+        </>
+      }
       meta={
         <p className="flex flex-wrap items-baseline gap-x-1.5">
-          <span>Grooming, started {ago(run.startedAt)}</span>
+          <span>
+            {run.stopping
+              ? 'Stopping after its current step'
+              : `Grooming, started ${ago(run.startedAt)}`}
+          </span>
           {run.stale && <ContextPart>stopped reporting</ContextPart>}
           <ContextPart>
             {formatTokens(run.usedTokens)} of {formatTokens(run.reservedTokens)} tokens
           </ContextPart>
         </p>
       }
+      actions={stopButton}
     />
   );
 }
@@ -134,6 +210,8 @@ function NowSection({ rows, agentRun }: { rows: readonly NowTask[]; agentRun: Ag
   // A task already in Now (queued while the agent grooms it) carries the agent on its own row.
   const agentOnRow = agentRun !== null && rows.some((row) => row.task.id === agentRun.task);
   const agentRow = agentOnRow ? null : agentRun;
+  // The section owns the confirm, so its answer outlives the row of a run that just ended.
+  const stop = useRowStop(agentRun ?? undefined);
   const count = rows.length + (agentRow === null ? 0 : 1);
   return (
     <BrowserGroup
@@ -145,16 +223,21 @@ function NowSection({ rows, agentRun }: { rows: readonly NowTask[]; agentRun: Ag
         <Empty lead="Nothing running.">No task is queued, in progress, or in review.</Empty>
       ) : (
         <>
-          {agentRow !== null && <AgentNowRow run={agentRow} />}
-          {rows.map((row) => (
-            <NowRow
-              key={row.task.id}
-              row={row}
-              agent={agentRun?.task === row.task.id ? agentRun : undefined}
-            />
-          ))}
+          {agentRow !== null && <AgentNowRow run={agentRow} stopButton={stop.button} />}
+          {rows.map((row) => {
+            const agent = agentRun?.task === row.task.id ? agentRun : undefined;
+            return (
+              <NowRow
+                key={row.task.id}
+                row={row}
+                agent={agent}
+                stopButton={agent === undefined ? undefined : stop.button}
+              />
+            );
+          })}
         </>
       )}
+      {stop.dialog}
     </BrowserGroup>
   );
 }

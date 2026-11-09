@@ -452,3 +452,113 @@ These are two more guarantees for the list in "The SDK is pinned", re-tested
 against the real CLI before the pin moves: the gate and the tool name the same
 file, and an `Agent` call that omits the flag runs its reader in the
 foreground, so the result message arrives after every reader finishes.
+
+## Refinement (2026-11-09, MMR-635): the operator can cancel a run
+
+Until now a run ended only on its own: with its result, at its token ceiling,
+at `maxTurns`, when its clone did not sync, when its runner faulted, or when
+its runner lost the row. The console can now cancel a
+running run. A cancel stops the run at its next tool call, through the gate,
+so the run normally still ends with a result and settles on its real usage.
+
+**Who may cancel, and which runs.** The console's **Stop** cancels a run. It
+is offered wherever the console shows a running run that the serving process
+holds and that is not stale: the task page's agent card and the work page's Now. It reaches the host through a POST server
+function under Start's CSRF check, and the console stays unauthenticated on a
+single-user tailnet ("Who may start a run"). The budget and the one running
+slot do not bound a cancel. A start cancelled during its clone sync is charged
+nothing, so start-and-cancel churn (a row, a sweep of run directories, a fetch)
+is bounded only by that premise and by the one running slot, which a run
+holds through its sync. This record accepts it.
+
+Only the host process that owns a run can cancel it. A process holds a run in
+a process-local registry keyed by run id: the runner adds the entry as soon as
+admission returns the row, before any other await, and removes it in a
+`finally` that covers every exit after admission, once its last close attempt
+has settled, whether it landed, was lost, or threw. A
+cancel names a run id. The process first checks its registry, with no await
+before it, and then answers with the first of these that holds. Only a
+**cancelling** answer records a cancel:
+
+1. **cancelling**: this process holds the run, and its stream has not ended.
+   The cancel is recorded. A second cancel of the same run answers the same
+   way and changes nothing.
+2. **ending**: this process holds the run, and its stream has ended (its
+   result arrived, or it stopped without one). The cancel changes nothing, and
+   the run closes as it would have.
+3. **unknown**: no row has that id.
+4. **ended**: the row is no longer running. The answer gives the state it
+   ended in.
+5. **closing**: the row is running under this process's runner id, but this
+   process does not hold it, because its last close write failed. It is refused.
+   The row goes stale, and the next admission marks it `interrupted`.
+6. **stale**: the row's heartbeat is older than the stale window. It is
+   refused, for the same reason.
+7. **another host**: the row's `runner` is another process. It is refused,
+   since nothing reaches that process. The run finishes, or goes stale if its
+   process has stopped.
+
+No cross-host cancel channel exists, and `runs` gains no column. The console
+views read from the registry whether the serving process holds a run and
+whether it is stopping. During an overlapping deploy, a view served by the
+other process offers no Stop and shows no "Stopping".
+
+**How a cancelled run stops.** Once a cancel is recorded:
+
+- **The gate stops the next tool call.** Every tool call, the main agent's
+  and a reader's, the run grant's included, passes the one gate ("One gate,
+  deny by default, failing closed"). The gate checks for a cancel first,
+  before any check that can throw and before it charges a spawn. After a
+  cancel it denies each call and answers `continue: false`, which ends the
+  run, and its error path does the same. The run grant also refuses every
+  write once a cancel is recorded, checking immediately before the write
+  verb, with no await between them. The CLI then ends the run with a result.
+- **What the spike saw** (SDK 0.3.318 with its pinned Claude Code). The
+  result had subtype `success` and arrived 40 ms after the cancel; 4.5 s with
+  one reader running, which stopped at its next tool call before the main
+  agent did; and 27 s with two readers, one of which was writing its final
+  answer and made no further call. The main agent waited for both readers.
+  In every run `modelUsage` covered every streamed turn, readers' included.
+  The turns being generated when the cancel lands finish first, and a turn
+  that ends with no tool call ends the run on its own.
+- **Before the SDK query starts**, the runner checks for a cancel before it
+  starts the clone sync, and again immediately before it creates the query,
+  with no await between that check and the query's creation. A sync already
+  under way finishes. A run cancelled before its query closes as `cancelled`
+  with no usage, settled, so it is charged nothing.
+- **Once the query exists**, a cancel starts a `CANCEL_GRACE_MS` timer (5
+  minutes). A cancel recorded before the query exists starts none, since that
+  run closes before its query is created. If no result has arrived when the
+  timer fires, the runner aborts the run through its controller.
+  Five minutes covers a main turn and a reader's turn back to back near the
+  per-turn output allowance at typical output speed. A longer turn is aborted
+  and charged as below.
+
+**How a cancelled run closes.** A run whose cancel was recorded before its
+stream ended closes as `cancelled`, whatever ended it, the runner's fault path
+included (a run cancelled before its query is charged nothing, as above). Its usage settles under
+the existing rule ("Settlement"): `modelUsage`, summed over every model, when
+the run has a result with a valid total, and otherwise the larger of the
+reservation and the streamed usage. A run aborted after the grace period,
+stopped by its ceiling while it was stopping, or ended without a result is
+charged that larger amount. Its outcome line names the console first and keeps
+whatever else ended the run, such as a clone that did not sync with its
+reason, a refused token with the file to replace, or a stream error. A row
+lost to another host stays as that host's recovery wrote it. A run stopped by
+its ceiling alone also closes as `cancelled`, as before, and its outcome line
+names the ceiling. A run whose stream ended before the cancel closes as it
+would have. The console shows "Stopping" on a run with a recorded cancel until
+its row closes.
+
+**A write in flight can still land.** As with a lost row, a run-grant write
+that passed its cancel check before the cancel was recorded can land after it.
+It lands on the run's own task, where the operator sees it.
+
+**The pin re-tests it.** "The SDK is pinned" gains two guarantees, re-tested
+against the real CLI before the pin moves, with one reader, with two readers
+at once, and with a stop that reaches the main agent while a reader runs:
+
+- a tool call answered `continue: false` with a deny does not run, which a
+  canary read outside the clone and a grant write check;
+- after `continue: false`, the run ends with a result whose `modelUsage`
+  covers every turn, the readers' included.

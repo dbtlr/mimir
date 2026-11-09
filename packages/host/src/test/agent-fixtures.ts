@@ -11,6 +11,9 @@ import type { AgentActivity, AgentBudgetView, AgentRunView, GroomCard } from '..
 /** A run on MMR-640, started at the fixture instant, still running. */
 export function agentRun(overrides: Partial<AgentRunView> = {}): AgentRunView {
   return {
+    cancellable: false,
+    // A running run counts its reservation until it settles.
+    chargedTokens: 4_000_000,
     endedAt: null,
     heartbeatAt: new Date('2026-06-01T10:00:00.000Z'),
     id: 'run-1',
@@ -22,19 +25,23 @@ export function agentRun(overrides: Partial<AgentRunView> = {}): AgentRunView {
     stale: false,
     startedAt: new Date('2026-06-01T10:00:00.000Z'),
     state: 'running',
+    stopDetail: null,
+    stoppedFromConsole: false,
+    stopping: false,
     task: 'MMR-640',
     usedTokens: 360_000,
     ...overrides,
   };
 }
 
-/** A run that ended, with its outcome line. */
+/** A run that ended and settled, with its outcome line. */
 export function endedRun(
   state: AgentRunView['state'],
   outcome: string,
   overrides: Partial<AgentRunView> = {},
 ): AgentRunView {
   return agentRun({
+    chargedTokens: 370_000,
     endedAt: new Date('2026-06-01T10:10:00.000Z'),
     outcome,
     state,

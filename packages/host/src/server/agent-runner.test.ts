@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import { mkdir, mkdtemp, readdir, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -8,6 +8,7 @@ import type {
   McpSdkServerConfigWithInstance,
   Options,
   SDKMessage,
+  SyncHookJSONOutput,
 } from '@anthropic-ai/claude-agent-sdk';
 import {
   createInitiative,
@@ -25,11 +26,11 @@ import type { SqliteTestStore } from '@mimir/core/testing';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 
-import { createAgentRunner } from './agent-runner';
+import { CANCEL_GRACE_MS, createAgentRunner, RUNNER_TIMING } from './agent-runner';
 import type { AgentRunner, AgentRunnerOptions, RunQuery } from './agent-runner';
 import { agentState, createAgentConnection, readAgentToken } from './agent-settings';
 import type { AgentConnection, EnabledAgentSettings } from './agent-settings';
-import { PER_TURN_OUTPUT_ALLOWANCE, SPAWN_ALLOWANCE } from './agent-usage';
+import { NO_USAGE, PER_TURN_OUTPUT_ALLOWANCE, SPAWN_ALLOWANCE } from './agent-usage';
 import type { CloneSyncOptions, CloneSyncResult } from './clones';
 
 /*
@@ -49,6 +50,8 @@ type ScriptContext = {
   aborted: Promise<void>;
   /** Ask the gate about one tool call from the main agent. */
   gate: (tool: string, input: Record<string, unknown>) => Promise<'allow' | 'deny'>;
+  /** Ask the gate about one main-agent call and answer its whole output. */
+  ask: (tool: string, input: Record<string, unknown>) => Promise<SyncHookJSONOutput>;
   /** Call one grant tool through a real MCP client; whether it was refused. */
   grant: (tool: string, args: Record<string, unknown>) => Promise<{ refused: boolean }>;
 };
@@ -66,8 +69,24 @@ function scriptedQuery(script: Script) {
     const { promise: aborted, resolve: onAbort } = Promise.withResolvers<void>();
     signal.addEventListener('abort', () => onAbort(), { once: true });
     const hook = options.hooks?.PreToolUse?.[0]?.hooks[0] as HookCallback;
+    const ask: ScriptContext['ask'] = async (tool, input) =>
+      (await hook(
+        {
+          cwd: options.cwd ?? '',
+          hook_event_name: 'PreToolUse',
+          permission_mode: 'dontAsk',
+          session_id: 's',
+          tool_input: input,
+          tool_name: tool,
+          tool_use_id: 't',
+          transcript_path: '',
+        },
+        't',
+        { signal: new AbortController().signal },
+      )) as SyncHookJSONOutput;
     const context: ScriptContext = {
       aborted,
+      ask,
       gate: async (tool, input) => {
         const answer = await hook(
           {
@@ -262,7 +281,7 @@ function runner(script: Script, overrides: Partial<AgentRunnerOptions> = {}) {
       syncs.push(options);
       return syncResult();
     },
-    timing: { heartbeatMs: 60_000, recordEveryMs: 0, staleAfterMs: 120_000 },
+    timing: { cancelGraceMs: 60_000, heartbeatMs: 60_000, recordEveryMs: 0, staleAfterMs: 120_000 },
     ...overrides,
   });
   return { calls: scripted.calls, lines, runner: created };
@@ -702,7 +721,9 @@ describe('in flight', () => {
         await aborted;
         yield result();
       },
-      { timing: { heartbeatMs: 5, recordEveryMs: 0, staleAfterMs: 120_000 } },
+      {
+        timing: { cancelGraceMs: 60_000, heartbeatMs: 5, recordEveryMs: 0, staleAfterMs: 120_000 },
+      },
     );
     const start = await started(created);
     const outcome = await start.finished;
@@ -1054,3 +1075,659 @@ describe('status', () => {
     expect((await runner(never).runner.status()).managedPolicy).toEqual([]);
   });
 });
+
+/** A promise and its resolver, for a script and its test to meet at a point. */
+const signal = () => Promise.withResolvers<void>();
+
+/** The outcome line of a run cancelled from the console names the console first. */
+const CONSOLE_CANCEL = /^cancelled: [^;(]*console/;
+
+describe('cancel', () => {
+  test('the grace period is five minutes, and the default timing uses it', () => {
+    expect(CANCEL_GRACE_MS).toBe(300_000);
+    expect(RUNNER_TIMING.cancelGraceMs).toBe(CANCEL_GRACE_MS);
+  });
+
+  test('a cancel while the stream runs answers cancelling, again on a repeat, and the gate stops the next call', async () => {
+    const streaming = signal();
+    const cancelled = signal();
+    let stop: SyncHookJSONOutput | undefined;
+    const { runner: created } = runner(async function* script({ ask }) {
+      yield assistant('msg_1', { input: 100, output: 10 });
+      streaming.resolve();
+      await cancelled.promise;
+      stop = await ask('Read', { file_path: 'README.md' });
+      // The CLI ends the run with a result whose modelUsage covers every turn.
+      yield result({ modelUsage: { [MODEL]: modelUsage(400, 40) }, num_turns: 2 });
+    });
+    const start = await started(created);
+    await streaming.promise;
+    const before = await created.status();
+    expect(before.running).toMatchObject({ ending: false, held: true, stopping: false });
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+    expect((await created.status()).running).toMatchObject({ held: true, stopping: true });
+    cancelled.resolve();
+    const outcome = await start.finished;
+    expect(stop).toMatchObject({
+      continue: false,
+      hookSpecificOutput: { permissionDecision: 'deny' },
+    });
+    expect(outcome.outcome).toMatch(CONSOLE_CANCEL);
+    expect(outcome).toMatchObject({
+      state: 'cancelled',
+      usage: { cacheReadTokens: 0, cacheWriteTokens: 0, inputTokens: 400, outputTokens: 40 },
+      usageSettled: true,
+    });
+    expect(outcome.outcome).toContain('settled 440 tokens');
+    expect(await runs.get(start.runId)).toMatchObject({
+      input_tokens: 400,
+      state: 'cancelled',
+      usage_settled: true,
+    });
+    expect(await chargedToday()).toBe(440);
+  });
+
+  test('a cancel after the result arrived answers ending, and the run closes as its result says', async () => {
+    const afterResult = signal();
+    const release = signal();
+    const { runner: created } = runner(async function* script() {
+      yield assistant('msg_1', { input: 10 });
+      yield result();
+      afterResult.resolve();
+      await release.promise;
+    });
+    const start = await started(created);
+    await afterResult.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'ending' });
+    expect((await created.status()).running).toMatchObject({
+      ending: true,
+      held: true,
+      stopping: false,
+    });
+    release.resolve();
+    const outcome = await start.finished;
+    expect(outcome).toMatchObject({ state: 'succeeded', usageSettled: true });
+    expect(outcome.outcome).toStartWith('succeeded');
+  });
+
+  test('a run id with no row answers unknown', async () => {
+    const { runner: created } = runner(never);
+    expect(await created.cancelRun('no-such-run')).toEqual({ answer: 'unknown' });
+  });
+
+  test('a row that is no longer running answers ended with its state, the registry entry gone', async () => {
+    await admitOther('earlier', 'host-b');
+    await runs.close('earlier', 'host-b', {
+      costEstimateUsd: null,
+      outcome: 'failed: x',
+      state: 'failed',
+      usage: NO_USAGE,
+      usageSettled: true,
+    });
+    const { runner: created } = runner(async function* script() {
+      yield result();
+    });
+    expect(await created.cancelRun('earlier')).toEqual({ answer: 'ended', state: 'failed' });
+    // A run this process held answers ended once it has closed.
+    const start = await started(created);
+    await start.finished;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'ended', state: 'succeeded' });
+  });
+
+  test("a running row under this process's runner id that it does not hold answers closing", async () => {
+    await admitOther('orphan', 'host-a');
+    const { runner: created } = runner(never);
+    expect(await created.cancelRun('orphan')).toEqual({ answer: 'closing' });
+    expect((await created.status()).running).toMatchObject({ held: false, stopping: false });
+  });
+
+  test('a running row whose heartbeat is past the stale window answers stale', async () => {
+    await admitOther('dead', 'host-b');
+    time = new Date(time.getTime() + 120_001);
+    const { runner: created } = runner(never);
+    expect(await created.cancelRun('dead')).toEqual({ answer: 'stale' });
+  });
+
+  test("another process's running row answers another-host and records nothing", async () => {
+    await admitOther('live', 'host-b');
+    const { runner: created } = runner(never);
+    expect(await created.cancelRun('live')).toEqual({ answer: 'another-host' });
+    expect((await created.status()).running).toMatchObject({
+      held: false,
+      run: { id: 'live' },
+      stopping: false,
+    });
+    expect((await runs.get('live'))?.state).toBe('running');
+  });
+
+  test('a cancel right after admission closes the run cancelled before its clone syncs, charged nothing', async () => {
+    const { calls, runner: created } = runner(never);
+    const start = await started(created);
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+    const outcome = await start.finished;
+    expect(syncs).toEqual([]);
+    expect(calls).toEqual([]);
+    expect(outcome.outcome).toMatch(CONSOLE_CANCEL);
+    expect(outcome).toMatchObject({
+      state: 'cancelled',
+      usage: NO_USAGE,
+      usageSettled: true,
+    });
+    expect(await chargedToday()).toBe(0);
+    expect(await runDirectories()).toEqual([]);
+  });
+
+  test('a cancel during the clone sync closes the run cancelled before its query, charged nothing', async () => {
+    const syncing = signal();
+    const release = signal();
+    const synced = syncResult;
+    syncResult = async () => {
+      syncing.resolve();
+      await release.promise;
+      return synced();
+    };
+    const { calls, runner: created } = runner(never);
+    const start = await started(created);
+    await syncing.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+    release.resolve();
+    const outcome = await start.finished;
+    // A sync already under way finishes; the query is never created.
+    expect(syncs).toHaveLength(1);
+    expect(calls).toEqual([]);
+    expect(outcome.outcome).toMatch(CONSOLE_CANCEL);
+    expect(outcome).toMatchObject({
+      state: 'cancelled',
+      usage: NO_USAGE,
+      usageSettled: true,
+    });
+    expect(await runs.get(start.runId)).toMatchObject({ state: 'cancelled', usage_settled: true });
+    expect(await chargedToday()).toBe(0);
+  });
+
+  test('a cancel during a sync that then fails closes cancelled, naming the console and the sync reason', async () => {
+    const syncing = signal();
+    const release = signal();
+    syncResult = async () => {
+      syncing.resolve();
+      await release.promise;
+      return { message: 'git could not fetch github.com/acme/eng', ok: false, reason: 'fetch' };
+    };
+    const { calls, runner: created } = runner(never);
+    const start = await started(created);
+    await syncing.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+    release.resolve();
+    const outcome = await start.finished;
+    expect(calls).toEqual([]);
+    expect(outcome.outcome).toMatch(CONSOLE_CANCEL);
+    expect(outcome).toMatchObject({
+      state: 'cancelled',
+      usage: NO_USAGE,
+      usageSettled: true,
+    });
+    expect(outcome.outcome).toContain('fetch');
+    expect(await chargedToday()).toBe(0);
+  });
+
+  test('the grace timer aborts a cancelled stream that never yields a result, and the run closes cancelled, unsettled', async () => {
+    const streaming = signal();
+    let abortedAt: number | undefined;
+    const { runner: created } = runner(
+      async function* script({ aborted }) {
+        yield assistant('msg_1', { input: 10 });
+        streaming.resolve();
+        await aborted;
+        abortedAt = Date.now();
+      },
+      {
+        timing: { cancelGraceMs: 20, heartbeatMs: 60_000, recordEveryMs: 0, staleAfterMs: 120_000 },
+      },
+    );
+    const start = await started(created);
+    await streaming.promise;
+    const cancelledAt = Date.now();
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+    const outcome = await start.finished;
+    expect(abortedAt).toBeGreaterThanOrEqual(cancelledAt);
+    expect(outcome.outcome).toMatch(CONSOLE_CANCEL);
+    expect(outcome).toMatchObject({ state: 'cancelled', usageSettled: false });
+    expect(outcome.outcome).toContain('grace');
+    expect(await runs.get(start.runId)).toMatchObject({
+      input_tokens: 10,
+      state: 'cancelled',
+      usage_settled: false,
+    });
+    expect(await chargedToday()).toBe(4_000_000);
+  });
+
+  test('a cancelled run whose stream fails without a result closes cancelled, keeping the error', async () => {
+    const streaming = signal();
+    const cancelled = signal();
+    const { runner: created } = runner(async function* script() {
+      yield assistant('msg_1', { input: 10 });
+      streaming.resolve();
+      await cancelled.promise;
+      throw new Error('Claude Code process exited with code 1');
+    });
+    const start = await started(created);
+    await streaming.promise;
+    await created.cancelRun(start.runId);
+    cancelled.resolve();
+    const outcome = await start.finished;
+    expect(outcome.outcome).toMatch(CONSOLE_CANCEL);
+    expect(outcome).toMatchObject({ state: 'cancelled', usageSettled: false });
+    expect(outcome.outcome).toContain('exited with code 1');
+  });
+
+  test('a cancelled run whose close faults closes cancelled on the fault path', async () => {
+    let closes = 0;
+    const faulting: RunStore = {
+      ...runs,
+      close: async (id, owner, closing) => {
+        closes += 1;
+        if (closes === 1) {
+          throw new Error('the store went away');
+        }
+        return runs.close(id, owner, closing);
+      },
+    };
+    const streaming = signal();
+    const cancelled = signal();
+    const { runner: created } = runner(
+      async function* script() {
+        yield assistant('msg_1', { input: 10 });
+        streaming.resolve();
+        await cancelled.promise;
+        yield result();
+      },
+      { runs: faulting },
+    );
+    const start = await started(created);
+    await streaming.promise;
+    await created.cancelRun(start.runId);
+    cancelled.resolve();
+    const outcome = await start.finished;
+    expect(outcome.outcome).toMatch(CONSOLE_CANCEL);
+    expect(outcome).toMatchObject({ state: 'cancelled', usageSettled: false });
+    expect(outcome.outcome).toContain('faulted');
+    expect((await runs.get(start.runId))?.state).toBe('cancelled');
+  });
+
+  test('the registry entry is gone after a close write that throws, so a cancel answers closing', async () => {
+    const failing: RunStore = {
+      ...runs,
+      close: async () => {
+        throw new Error('the store went away');
+      },
+    };
+    const { runner: created } = runner(
+      async function* script() {
+        yield result();
+      },
+      { runs: failing },
+    );
+    const start = await started(created);
+    await start.finished;
+    expect((await runs.get(start.runId))?.state).toBe('running');
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'closing' });
+    expect((await created.status()).running).toMatchObject({ held: false, stopping: false });
+  });
+
+  test("a stale running row under this process's runner id that it does not hold answers closing, not stale", async () => {
+    await admitOther('orphan', 'host-a');
+    time = new Date(time.getTime() + 120_001);
+    const { runner: created } = runner(never);
+    expect(await created.cancelRun('orphan')).toEqual({ answer: 'closing' });
+  });
+
+  test('a cancel while the close write is pending answers ending, the run still held', async () => {
+    const slow = slowClose();
+    const { runner: created } = runner(
+      async function* script() {
+        yield result();
+      },
+      { runs: slow.store },
+    );
+    const start = await started(created);
+    await slow.writing.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'ending' });
+    expect((await created.status()).running).toMatchObject({
+      ending: true,
+      held: true,
+      stopping: false,
+    });
+    slow.release.resolve();
+    expect(await start.finished).toMatchObject({ state: 'succeeded' });
+  });
+
+  test('a cancel during the close write of a failed sync answers ending, and the run closes failed', async () => {
+    syncResult = async () => ({ message: 'git could not fetch', ok: false, reason: 'fetch' });
+    const slow = slowClose();
+    const { runner: created } = runner(never, { runs: slow.store });
+    const start = await started(created);
+    await slow.writing.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'ending' });
+    slow.release.resolve();
+    const outcome = await start.finished;
+    expect(outcome).toMatchObject({ state: 'failed', usage: NO_USAGE, usageSettled: true });
+    expect(outcome.outcome).toStartWith('failed: the clone did not sync');
+  });
+
+  test('a repeat cancel during the close write of a run cancelled before its sync answers ending', async () => {
+    const slow = slowClose();
+    const { runner: created } = runner(never, { runs: slow.store });
+    const start = await started(created);
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+    await slow.writing.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'ending' });
+    slow.release.resolve();
+    const outcome = await start.finished;
+    expect(syncs).toEqual([]);
+    expect(outcome).toMatchObject({ state: 'cancelled', usage: NO_USAGE, usageSettled: true });
+  });
+
+  test('a repeat cancel during the close write of a run cancelled during its sync answers ending', async () => {
+    const slow = slowClose();
+    const syncing = signal();
+    const proceed = signal();
+    const synced = syncResult;
+    syncResult = async () => {
+      syncing.resolve();
+      await proceed.promise;
+      return synced();
+    };
+    const { runner: created } = runner(never, { runs: slow.store });
+    const start = await started(created);
+    await syncing.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+    proceed.resolve();
+    await slow.writing.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'ending' });
+    slow.release.resolve();
+    expect(await start.finished).toMatchObject({
+      state: 'cancelled',
+      usage: NO_USAGE,
+      usageSettled: true,
+    });
+  });
+
+  test('a cancel during the close write of a run lost before its query answers ending', async () => {
+    const slow = slowClose();
+    const beat = signal();
+    const store: RunStore = {
+      ...slow.store,
+      heartbeat: async () => {
+        beat.resolve();
+        return 'lost';
+      },
+    };
+    const synced = syncResult;
+    syncResult = async () => {
+      await beat.promise;
+      return synced();
+    };
+    const { runner: created } = runner(never, {
+      runs: store,
+      timing: { ...RUNNER_TIMING, heartbeatMs: 1 },
+    });
+    const start = await started(created);
+    await slow.writing.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'ending' });
+    slow.release.resolve();
+    const outcome = await start.finished;
+    expect(outcome.outcome).toBe('failed: the runner lost the run to another host');
+  });
+
+  test('a run cancelled during its sync that then faults closes cancelled and is charged nothing', async () => {
+    const syncing = signal();
+    const proceed = signal();
+    const { runner: created } = runner(never, {
+      syncClone: async () => {
+        syncing.resolve();
+        await proceed.promise;
+        throw new Error('the disk is full');
+      },
+    });
+    const start = await started(created);
+    await syncing.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+    proceed.resolve();
+    const outcome = await start.finished;
+    expect(outcome).toMatchObject({ state: 'cancelled', usage: NO_USAGE, usageSettled: true });
+    expect(outcome.outcome).toMatch(CONSOLE_CANCEL);
+    expect(outcome.outcome).toContain('the runner faulted: the disk is full');
+    expect(await chargedToday()).toBe(0);
+  });
+
+  test('a run cancelled during a sync that succeeds, whose close write then throws, is charged nothing', async () => {
+    const syncing = signal();
+    const proceed = signal();
+    const synced = syncResult;
+    syncResult = async () => {
+      syncing.resolve();
+      await proceed.promise;
+      return synced();
+    };
+    let closes = 0;
+    const store: RunStore = {
+      ...runs,
+      close: async (id, owner, closing) => {
+        closes += 1;
+        if (closes === 1) {
+          throw new Error('the database blinked');
+        }
+        return runs.close(id, owner, closing);
+      },
+    };
+    const { calls, runner: created } = runner(never, { runs: store });
+    const start = await started(created);
+    await syncing.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+    proceed.resolve();
+    const outcome = await start.finished;
+    expect(outcome).toMatchObject({ state: 'cancelled', usage: NO_USAGE, usageSettled: true });
+    expect(calls).toEqual([]);
+    expect(await chargedToday()).toBe(0);
+  });
+
+  test('a cancel during the close write of a faulted run answers ending, and the run closes failed', async () => {
+    const slow = slowClose();
+    const { runner: created } = runner(never, {
+      runs: slow.store,
+      syncClone: async () => {
+        throw new Error('the disk is full');
+      },
+    });
+    const start = await started(created);
+    await slow.writing.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'ending' });
+    slow.release.resolve();
+    const outcome = await start.finished;
+    expect(outcome).toMatchObject({ state: 'failed', usageSettled: false });
+    expect(outcome.outcome).toStartWith('failed: the runner faulted: the disk is full');
+  });
+
+  test('a cancelled run that closed within its grace period is never aborted after it', async () => {
+    const late = lateAbortScript();
+    const { runner: created } = runner(late.script, { timing: SHORT_GRACE });
+    const start = await started(created);
+    await late.streaming.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+    late.cancelled.resolve();
+    expect(await start.finished).toMatchObject({ state: 'cancelled', usageSettled: false });
+    await Bun.sleep(3 * SHORT_GRACE.cancelGraceMs);
+    expect(late.abortedLate()).toBe(false);
+  });
+
+  test('a repeat cancel starts no second grace timer', async () => {
+    const timers = spyOn(globalThis, 'setTimeout');
+    try {
+      const late = lateAbortScript();
+      const { runner: created } = runner(late.script, { timing: SHORT_GRACE });
+      const start = await started(created);
+      await late.streaming.promise;
+      expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+      expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+      late.cancelled.resolve();
+      await start.finished;
+      await Bun.sleep(3 * SHORT_GRACE.cancelGraceMs);
+      expect(graceTimers(timers.mock.calls)).toBe(1);
+      expect(late.abortedLate()).toBe(false);
+    } finally {
+      timers.mockRestore();
+    }
+  });
+
+  test('a query whose close throws still clears the grace timer, and the run closes cancelled', async () => {
+    const late = lateAbortScript();
+    const scripted = scriptedQuery(late.script);
+    const { runner: created } = runner(never, {
+      query: (params) =>
+        Object.assign(scripted.query(params), {
+          close: () => {
+            throw new Error('the CLI would not close');
+          },
+        }),
+      timing: SHORT_GRACE,
+    });
+    const start = await started(created);
+    await late.streaming.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+    late.cancelled.resolve();
+    const outcome = await start.finished;
+    expect(outcome.outcome).toMatch(CONSOLE_CANCEL);
+    expect(outcome).toMatchObject({ state: 'cancelled', usageSettled: false });
+    await Bun.sleep(3 * SHORT_GRACE.cancelGraceMs);
+    expect(late.abortedLate()).toBe(false);
+  });
+
+  test('a query whose close throws after a valid result still settles on that result', async () => {
+    const scripted = scriptedQuery(async function* script() {
+      yield assistant('msg_1', { input: 10 });
+      yield result();
+    });
+    const { lines, runner: created } = runner(never, {
+      query: (params) =>
+        Object.assign(scripted.query(params), {
+          close: () => {
+            throw new Error('the CLI would not close');
+          },
+        }),
+    });
+    const start = await started(created);
+    const outcome = await start.finished;
+    expect(outcome).toMatchObject({ state: 'succeeded', usageSettled: true });
+    expect(outcome.outcome).toStartWith('succeeded:');
+    // Charged its settled usage, not its reservation.
+    const { cacheReadTokens, cacheWriteTokens, inputTokens, outputTokens } = outcome.usage;
+    expect(await chargedToday()).toBe(
+      cacheReadTokens + cacheWriteTokens + inputTokens + outputTokens,
+    );
+    expect(lines.some((line) => line.includes('the query did not close'))).toBe(true);
+  });
+
+  test('a cancel recorded before the query exists starts no grace timer', async () => {
+    const timers = spyOn(globalThis, 'setTimeout');
+    try {
+      const syncing = signal();
+      const release = signal();
+      const synced = syncResult;
+      syncResult = async () => {
+        syncing.resolve();
+        await release.promise;
+        return synced();
+      };
+      const { calls, runner: created } = runner(never, { timing: SHORT_GRACE });
+      const start = await started(created);
+      await syncing.promise;
+      expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+      release.resolve();
+      expect(await start.finished).toMatchObject({ state: 'cancelled', usageSettled: true });
+      expect(calls).toEqual([]);
+      expect(graceTimers(timers.mock.calls)).toBe(0);
+    } finally {
+      timers.mockRestore();
+    }
+  });
+
+  test('a cancelled run stopped by its ceiling names the console, then the ceiling, and closes unsettled', async () => {
+    const ceiling = 100_000;
+    const streaming = signal();
+    const cancelled = signal();
+    const { runner: created } = runner(
+      async function* script({ aborted }) {
+        yield assistant('msg_0', { input: 10 });
+        streaming.resolve();
+        await cancelled.promise;
+        for (let index = 1; index < 100; index += 1) {
+          yield assistant(`msg_${index}`, { input: 30_000 });
+        }
+        await aborted;
+        yield result();
+      },
+      { settings: settings({ runTokens: ceiling }) },
+    );
+    const start = await started(created);
+    await streaming.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+    cancelled.resolve();
+    const outcome = await start.finished;
+    expect(outcome.outcome).toMatch(CONSOLE_CANCEL);
+    expect(outcome.outcome).toMatch(
+      /^cancelled: [^;]*console; the run reached its 100000-token ceiling/,
+    );
+    expect(outcome).toMatchObject({ state: 'cancelled', usageSettled: false });
+    expect(await runs.get(start.runId)).toMatchObject({ state: 'cancelled', usage_settled: false });
+    expect(await chargedToday()).toBe(ceiling);
+  });
+});
+
+/** Timing with a grace period short enough to wait out. */
+const SHORT_GRACE = {
+  cancelGraceMs: 47,
+  heartbeatMs: 60_000,
+  recordEveryMs: 0,
+  staleAfterMs: 120_000,
+};
+
+/** How many of `calls` to setTimeout started a grace timer of {@link SHORT_GRACE}'s length. */
+const graceTimers = (calls: unknown[][]) =>
+  calls.filter((call) => call[1] === SHORT_GRACE.cancelGraceMs).length;
+
+/** A runs table whose close write starts, signals `writing`, and lands only on `release`. */
+function slowClose() {
+  const writing = signal();
+  const release = signal();
+  const store: RunStore = {
+    ...runs,
+    close: async (id, owner, closing) => {
+      writing.resolve();
+      await release.promise;
+      return runs.close(id, owner, closing);
+    },
+  };
+  return { release, store, writing };
+}
+
+/**
+ * A script that streams, waits for `cancelled`, then fails without a result,
+ * and records an abort that reaches it at any point: after the run closed,
+ * only a grace timer left running can abort it.
+ */
+function lateAbortScript() {
+  const streaming = signal();
+  const cancelled = signal();
+  let aborted = false;
+  const script: Script = async function* script(context) {
+    context.options.abortController?.signal.addEventListener('abort', () => {
+      aborted = true;
+    });
+    yield assistant('msg_1', { input: 10 });
+    streaming.resolve();
+    await cancelled.promise;
+    throw new Error('Claude Code process exited with code 1');
+  };
+  return { abortedLate: () => aborted, cancelled, script, streaming };
+}

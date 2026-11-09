@@ -77,12 +77,7 @@ function ConfirmCard({
         <ActionButton variant="attention" disabled={busy} onClick={onApprove}>
           Approve
         </ActionButton>
-        <ActionButton
-          variant="outline"
-          className="text-status-blocked-foreground inset-ring-status-blocked/35 hover:text-status-blocked-foreground"
-          disabled={busy}
-          onClick={onDeny}
-        >
+        <ActionButton variant="destructiveOutline" disabled={busy} onClick={onDeny}>
           Deny
         </ActionButton>
         <Link to="/devices" className="ml-auto text-xs text-ink-dim hover:text-ink-bright">

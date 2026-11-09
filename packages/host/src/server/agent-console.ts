@@ -1,4 +1,5 @@
 import type { Engine } from '@mimir/contract';
+import { chargedTokens } from '@mimir/core';
 import type { Run, RunStore } from '@mimir/core';
 
 import { isEngineRefusal } from '../api/errors';
@@ -6,11 +7,20 @@ import type {
   AgentActivity,
   AgentConsole,
   AgentRunView,
+  GroomCancelResult,
   GroomCard,
   GroomRefusal,
   GroomStartResult,
 } from './agent-console-states';
-import type { AgentRunner, AgentStatus, RunningRun, RunOutcome, RunRefusal } from './agent-runner';
+import { CONSOLE_CANCEL_OUTCOME } from './agent-runner';
+import type {
+  AgentRunner,
+  AgentStatus,
+  CancelRunResult,
+  RunningRun,
+  RunOutcome,
+  RunRefusal,
+} from './agent-runner';
 import { usageTotal } from './agent-usage';
 import { usableRemote } from './clones';
 import { groomableTarget, groomBrief } from './groom-brief';
@@ -37,9 +47,31 @@ const coversEveryRefusal: Exclude<RunRefusal['reason'], GroomRefusal['reason']> 
   : false = true;
 void coversEveryRefusal;
 
-/** One run row as the console shows it. */
-function runView(run: Run, stale: boolean): AgentRunView {
+/**
+ * What the outcome line of a run stopped from the console says after the
+ * console's prefix, without the separator or the parentheses around a usage
+ * summary; null when it says nothing more.
+ */
+function stopDetail(outcome: string): string | null {
+  const rest = outcome
+    .slice(CONSOLE_CANCEL_OUTCOME.length)
+    .replace(/^[\s;]+/, '')
+    .replace(/^\((.*)\)$/, '$1');
+  return rest === '' ? null : rest;
+}
+
+/** One run row as the console shows it; an ended run is never stopping or cancellable. */
+function runView(
+  run: Run,
+  flags: { stale: boolean; stopping: boolean; cancellable: boolean },
+): AgentRunView {
+  const { cancellable, stale, stopping } = flags;
+  // A ceiling stop also ends `cancelled`; only the console's prefix tells them apart.
+  const stoppedFromConsole =
+    run.state === 'cancelled' && (run.outcome?.startsWith(CONSOLE_CANCEL_OUTCOME) ?? false);
   return {
+    cancellable,
+    chargedTokens: chargedTokens(run),
     endedAt: run.ended_at === null ? null : new Date(run.ended_at),
     heartbeatAt: new Date(run.heartbeat_at),
     id: run.id,
@@ -51,6 +83,9 @@ function runView(run: Run, stale: boolean): AgentRunView {
     stale,
     startedAt: new Date(run.started_at),
     state: run.state,
+    stopDetail: stoppedFromConsole && run.outcome !== null ? stopDetail(run.outcome) : null,
+    stoppedFromConsole,
+    stopping,
     task: run.task,
     usedTokens: usageTotal({
       cacheReadTokens: run.cache_read_tokens,
@@ -61,8 +96,36 @@ function runView(run: Run, stale: boolean): AgentRunView {
   };
 }
 
+/** The running run as the console shows it, with what this process's registry knows of it. */
 const runningView = (running: RunningRun | null) =>
-  running === null ? null : runView(running.run, running.stale);
+  running === null
+    ? null
+    : runView(running.run, {
+        cancellable: running.held && !running.ending && !running.stopping && !running.stale,
+        stale: running.stale,
+        stopping: running.stopping,
+      });
+
+/** The runner's cancel answer as the console reads it. */
+function groomCancel(answer: CancelRunResult): GroomCancelResult {
+  switch (answer.answer) {
+    case 'cancelling':
+    case 'ending':
+    case 'unknown':
+    case 'closing':
+    case 'stale':
+    case 'another-host': {
+      return { state: answer.answer };
+    }
+    case 'ended': {
+      return { runState: answer.state, state: 'ended' };
+    }
+    default: {
+      const _exhaustive: never = answer;
+      return _exhaustive;
+    }
+  }
+}
 
 /** The runner's refusal with its instants as `Date`s, and without the `started` flag. */
 function groomRefusal(refusal: RunRefusal): GroomRefusal {
@@ -147,7 +210,9 @@ export function createAgentConsole(options: AgentConsoleOptions): AgentConsole {
 
   const lastRun = async (target: { project: string; task: string }) => {
     const run = await runs.lastEnded(target.task);
-    return run === undefined || run.project !== target.project ? null : runView(run, false);
+    return run === undefined || run.project !== target.project
+      ? null
+      : runView(run, { cancellable: false, stale: false, stopping: false });
   };
 
   const card: AgentConsole['card'] = async (target): Promise<GroomCard> => {
@@ -211,5 +276,8 @@ export function createAgentConsole(options: AgentConsoleOptions): AgentConsole {
     return { runId: start.runId, state: 'started' };
   };
 
-  return { activity, card, startGroom };
+  const cancelGroom: AgentConsole['cancelGroom'] = async (target) =>
+    groomCancel(await agent.cancelRun(target.runId));
+
+  return { activity, cancelGroom, card, startGroom };
 }

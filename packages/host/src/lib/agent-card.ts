@@ -1,6 +1,12 @@
 import type { EngineTree, Grooming } from '@mimir/contract';
 
-import type { AgentActivity, AgentRunView, GroomCard, GroomRefusal } from '../api/fns/agent';
+import type {
+  AgentActivity,
+  AgentRunView,
+  GroomCancelResult,
+  GroomCard,
+  GroomRefusal,
+} from '../api/fns/agent';
 import { ancestorsOf } from './ancestry';
 import { ago, clockTime } from './time';
 
@@ -133,6 +139,32 @@ export function refusalText(refusal: GroomRefusal): string {
       return refusal.running === null
         ? 'Another run was holding the slot and has just ended. Try again.'
         : `Agents run one at a time, and one started grooming ${refusal.running.task} ${ago(refusal.running.startedAt)}.`;
+    }
+  }
+}
+
+/** A cancel answer that recorded nothing: the sentence saying what happened instead. */
+export function cancelAnswerText(
+  answer: Exclude<GroomCancelResult, { state: 'cancelling' }>,
+): string {
+  switch (answer.state) {
+    case 'ending': {
+      return 'The run is already finishing on its own.';
+    }
+    case 'ended': {
+      return `The run already ended (${answer.runState}).`;
+    }
+    case 'unknown': {
+      return 'This run no longer exists.';
+    }
+    case 'stale': {
+      return "The run's host stopped reporting. Starting a new run clears it.";
+    }
+    case 'closing': {
+      return 'This host could not close the run. It stops reporting within two minutes, and starting a new run then clears it.';
+    }
+    default: {
+      return 'Another host is running this. Try again shortly, or wait for it to finish.';
     }
   }
 }

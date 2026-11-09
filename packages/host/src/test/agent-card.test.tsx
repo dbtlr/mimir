@@ -4,8 +4,14 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { groomCard, startGroom } from '../api/fns/agent';
-import type { GroomCard, GroomRefusal, GroomStartResult } from '../api/fns/agent';
+import { cancelGroom, groomCard, startGroom } from '../api/fns/agent';
+import type {
+  AgentRunView,
+  GroomCancelResult,
+  GroomCard,
+  GroomRefusal,
+  GroomStartResult,
+} from '../api/fns/agent';
 import { POLL_MS } from '../api/queries';
 import { GroomWithAgentCard } from '../components/agent-card';
 import { agentBudget, agentRun, endedRun, readyCard } from './agent-fixtures';
@@ -396,5 +402,175 @@ describe('polling', () => {
       expect(invalidate).toHaveBeenCalledWith({ queryKey: ['node', 'MMR-640'] });
     });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['node', 'MMR-640', 'annotations'] });
+  });
+});
+
+const cancellable = () => readyCard({ running: agentRun({ cancellable: true }) });
+
+const openDialog = async (answer: GroomCancelResult = { state: 'cancelling' }) => {
+  const shown = await show(cancellable());
+  shown.state.cancel = answer;
+  await card();
+  await userEvent.click(button('Stop'));
+  return screen.findByRole('dialog', { name: 'Stop the agent on MMR-640?' });
+};
+
+/** A card whose last run the operator stopped from the console, as the host reads it. */
+const stopped = (fields: Partial<AgentRunView>) =>
+  readyCard({
+    lastRun: endedRun('cancelled', 'cancelled: the operator stopped the run from the console', {
+      endedAt: minutesAgo(1),
+      stoppedFromConsole: true,
+      ...fields,
+    }),
+  });
+
+describe('stopping a run', () => {
+  it('offers Stop only on a cancellable run', async () => {
+    await show(readyCard({ running: agentRun() }));
+    await card();
+    expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
+  });
+
+  it('offers Stop in the header bar of a cancellable run', async () => {
+    await show(cancellable());
+    expect(within(await card()).getByRole('button', { name: 'Stop' })).toBeEnabled();
+  });
+
+  it('opens the confirm on Keep running, saying what stops and what it costs', async () => {
+    const dialog = await openDialog();
+    expect(dialog).toHaveTextContent(
+      'It finishes the step it is on, then stops: usually seconds, at most 5 minutes.',
+    );
+    expect(dialog).toHaveTextContent(
+      "Notes it already wrote stay on the task. The 0.36M tokens it has used so far count toward today's budget.",
+    );
+    expect(within(dialog).getByRole('button', { name: 'Keep running' })).toHaveFocus();
+  });
+
+  it('closes on Keep running without a call, and returns focus to Stop', async () => {
+    await openDialog();
+    await userEvent.click(screen.getByRole('button', { name: 'Keep running' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(cancelGroom).not.toHaveBeenCalled();
+    expect(button('Stop')).toHaveFocus();
+  });
+
+  it('closes on Escape without a call', async () => {
+    await openDialog();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(cancelGroom).not.toHaveBeenCalled();
+  });
+
+  it('calls cancelGroom with the run id and closes on a recorded cancel', async () => {
+    await openDialog();
+    await userEvent.click(screen.getByRole('button', { name: 'Stop run' }));
+    await waitFor(() => {
+      expect(cancelGroom).toHaveBeenCalledWith({ data: { runId: 'run-1' } });
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+  });
+
+  it.each([
+    [{ state: 'ending' }, 'The run is already finishing on its own.'],
+    [{ runState: 'succeeded', state: 'ended' }, 'The run already ended (succeeded).'],
+    [{ state: 'unknown' }, 'This run no longer exists.'],
+    [{ state: 'stale' }, "The run's host stopped reporting. Starting a new run clears it."],
+    [
+      { state: 'closing' },
+      'This host could not close the run. It stops reporting within two minutes, and starting a new run then clears it.',
+    ],
+    [
+      { state: 'another-host' },
+      'Another host is running this. Try again shortly, or wait for it to finish.',
+    ],
+  ] as const)('keeps the dialog open and says what %j meant', async (answer, sentence) => {
+    const dialog = await openDialog(answer);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Stop run' }));
+    await expect(screen.findByText(sentence)).resolves.toBeVisible();
+    expect(screen.getByRole('dialog')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Stop run' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+  });
+
+  it('refreshes the card whatever the answer', async () => {
+    const dialog = await openDialog({ state: 'unknown' });
+    expect(groomCard).toHaveBeenCalledTimes(1);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Stop run' }));
+    await waitFor(() => {
+      expect(groomCard).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('shows a stopping run with its own title and copy, no Stop, and the meter', async () => {
+    await show(readyCard({ running: agentRun({ stopping: true }) }));
+    const region = await card();
+    expect(region).toHaveTextContent('Stopping the agent');
+    expect(region).toHaveTextContent(
+      'Stopping after its current step. This usually takes seconds, and at most 5 minutes.',
+    );
+    expect(region).toHaveTextContent('0.36M of its 4M ceiling');
+    expect(within(region).queryByRole('button')).toBeNull();
+  });
+
+  it('says the operator stopped a settled run, with its summary, counting what it used', async () => {
+    await show(stopped({ stopDetail: '3 turns; 0 readers; settled 370000 tokens' }));
+    const region = await card();
+    expect(region).toHaveTextContent('Last run cancelled');
+    expect(region).toHaveTextContent('You stopped this run 1m ago. Its notes stay on the task.');
+    expect(within(region).getByText('3 turns; 0 readers; settled 370000 tokens')).toBeVisible();
+    expect(region).toHaveTextContent('Used 0.37M tokens, counted toward today.');
+    expect(region).not.toHaveTextContent('the operator stopped the run from the console');
+  });
+
+  it('says today counts the reservation of a stopped run that ended without a usage total', async () => {
+    await show(
+      stopped({
+        chargedTokens: 4_000_000,
+        stopDetail: 'it did not end within its 300-second grace period and was aborted',
+      }),
+    );
+    const region = await card();
+    expect(region).toHaveTextContent(
+      'Used 0.37M tokens. Today counts 4M, its reservation, since it ended without a usage total.',
+    );
+    expect(region).not.toHaveTextContent('counted toward today');
+    expect(
+      within(region).getByText('it did not end within its 300-second grace period and was aborted'),
+    ).toBeVisible();
+  });
+
+  it('keeps the reason a stopped run failed for, after the stop', async () => {
+    await show(
+      stopped({
+        chargedTokens: 4_000_000,
+        stopDetail: 'the run ended without a result: Claude Code process exited with code 1',
+      }),
+    );
+    const region = await card();
+    expect(region).toHaveTextContent('You stopped this run 1m ago.');
+    expect(
+      within(region).getByText(
+        'the run ended without a result: Claude Code process exited with code 1',
+      ),
+    ).toBeVisible();
+  });
+
+  it('keeps the outcome line for a run a ceiling cancelled', async () => {
+    const outcome = 'cancelled: the run reached its 4M token ceiling';
+    await show(readyCard({ lastRun: endedRun('cancelled', outcome, { endedAt: minutesAgo(4) }) }));
+    const region = await card();
+    expect(region).toHaveTextContent(outcome);
+    expect(region).not.toHaveTextContent('You stopped this run');
   });
 });

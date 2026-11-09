@@ -661,6 +661,25 @@ because a new start marks it interrupted; a stale run on another task does
 not block a start. To set the remote a project needs, run
 `mimir update <KEY> --remote <url>`.
 
+### Stop a running agent run
+
+1. Select **Stop** in the running card's header, or the stop icon on the
+   run's row in the work page's Now section.
+2. Select **Stop run** in the confirm. **Keep running** closes it and changes
+   nothing.
+
+The agent finishes the step it is on and then stops, usually within seconds.
+The card reads **Stopping the agent** until the run closes, and then **You
+stopped this run**, with the tokens it used. The run is charged what it
+really used. If it has not stopped after 5 minutes, the host aborts it, and
+it counts its reservation or its streamed usage, whichever is larger. A run
+stopped before it reached the agent, during its clone sync, is charged
+nothing. Notes the agent already wrote stay on the task.
+
+Only the host process that started a run can stop it. During a deploy, while
+an old container still runs a run, the new one shows no **Stop** for it; that
+run finishes, or stops reporting and is interrupted by the next start.
+
 ## Administer the host with mimir-host
 
 The image carries `mimir-host`, the operator CLI. Run it inside the
