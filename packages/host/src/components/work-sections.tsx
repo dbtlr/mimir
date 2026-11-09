@@ -16,6 +16,7 @@ import { formatTokens } from '../lib/agent-card';
 import { cn } from '../lib/cn';
 import { nodeLink } from '../lib/record-url';
 import { ago, relativeTime } from '../lib/time';
+import { PHONE_TOUCH_TARGET } from '../lib/touch-target';
 import { useRowFocusHandoff } from '../lib/use-row-focus-handoff';
 import {
   SHIPPED_DAY_CAP,
@@ -29,6 +30,8 @@ import { NewTaskButton } from './new-task-button';
 import { OpenInT3 } from './open-in-t3';
 import { StaleBadge } from './signal-badges';
 import { StatusDot } from './status-dot';
+import { STOP_BUTTON_CLASS, StopRunDialog } from './stop-run-dialog';
+import { ActionButton } from './ui/action-button';
 import { Badge } from './ui/badge';
 import { NeedsYouRow, RowTail, StartAction, needsYouActions } from './work-rows';
 
@@ -110,23 +113,62 @@ export function NowRow({ row, agent }: { row: NowTask; agent?: AgentRun }) {
 
 /** The agent run grooming a task in this page's scope, as a Now row. */
 export function AgentNowRow({ run }: { run: AgentRun }) {
+  const [stopping, setStopping] = useState(false);
   return (
-    <BrowserRow
-      to={nodeLink(run.task)}
-      id={run.task}
-      title={run.taskTitle ?? run.task}
-      leading={<StatusDot status="in_progress" />}
-      afterTitle={<Badge variant="outline">Agent</Badge>}
-      meta={
-        <p className="flex flex-wrap items-baseline gap-x-1.5">
-          <span>Grooming, started {ago(run.startedAt)}</span>
-          {run.stale && <ContextPart>stopped reporting</ContextPart>}
-          <ContextPart>
-            {formatTokens(run.usedTokens)} of {formatTokens(run.reservedTokens)} tokens
-          </ContextPart>
-        </p>
-      }
-    />
+    <>
+      <BrowserRow
+        to={nodeLink(run.task)}
+        id={run.task}
+        title={run.taskTitle ?? run.task}
+        leading={<StatusDot status="in_progress" />}
+        afterTitle={
+          <>
+            <Badge variant="outline">Agent</Badge>
+            {run.stopping && <Badge variant="outline">Stopping</Badge>}
+          </>
+        }
+        meta={
+          <p className="flex flex-wrap items-baseline gap-x-1.5">
+            <span>
+              {run.stopping
+                ? 'Stopping after its current step'
+                : `Grooming, started ${ago(run.startedAt)}`}
+            </span>
+            {run.stale && <ContextPart>stopped reporting</ContextPart>}
+            <ContextPart>
+              {formatTokens(run.usedTokens)} of {formatTokens(run.reservedTokens)} tokens
+            </ContextPart>
+          </p>
+        }
+        actions={
+          run.cancellable ? (
+            <ActionButton
+              size="sm"
+              variant="outline"
+              aria-label={`Stop run on ${run.task}`}
+              title="Stop run"
+              className={cn(
+                'min-w-8 px-2',
+                PHONE_TOUCH_TARGET,
+                'max-md:min-w-11',
+                STOP_BUTTON_CLASS,
+              )}
+              onClick={() => {
+                setStopping(true);
+              }}
+            >
+              <span aria-hidden className="size-2.5 rounded-[2px] bg-current" />
+            </ActionButton>
+          ) : undefined
+        }
+      />
+      <StopRunDialog
+        target={stopping ? { runId: run.id, task: run.task, usedTokens: run.usedTokens } : null}
+        onClose={() => {
+          setStopping(false);
+        }}
+      />
+    </>
   );
 }
 

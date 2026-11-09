@@ -1,7 +1,9 @@
 import { QueryClient } from '@tanstack/react-query';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { cancelGroom } from '../api/fns/agent';
 import { consoleRoutes } from '../router';
 import { agentRun, readyCard, runningActivity } from './agent-fixtures';
 import { serveAgent } from './agent-fns';
@@ -197,5 +199,38 @@ describe('Now on the work page', () => {
     await openProject({ running: { ...agentRun({ stale: true }), taskTitle: 'T' } });
     const { row } = await rowOf('T');
     expect(within(row).getByText(/stopped reporting/)).toBeVisible();
+  });
+
+  it('has no stop button on a run that cannot be stopped', async () => {
+    await openProject(runningActivity({ cancellable: false }));
+    const { row } = await rowOf('Show each clone’s last sync time');
+    expect(within(row).queryByRole('button')).toBeNull();
+  });
+
+  it('opens the stop confirm from an icon button, and stops the run', async () => {
+    await openProject(runningActivity({ cancellable: true }));
+    const { row } = await rowOf('Show each clone’s last sync time');
+    const stop = within(row).getByRole('button', { name: 'Stop run on MMR-640' });
+    expect(stop).toHaveAttribute('title', 'Stop run');
+    await userEvent.click(stop);
+    const dialog = await screen.findByRole('dialog', { name: 'Stop the agent on MMR-640?' });
+    expect(within(dialog).getByRole('button', { name: 'Keep running' })).toHaveFocus();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Stop run' }));
+    await waitFor(() => {
+      expect(cancelGroom).toHaveBeenCalledWith({ data: { runId: 'run-1' } });
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+  });
+
+  it('marks a stopping run with a badge and its meta, and offers no button', async () => {
+    await openProject(runningActivity({ stopping: true }));
+    const { row } = await rowOf('Show each clone’s last sync time');
+    expect(row).toHaveTextContent('Stopping');
+    expect(row).toHaveTextContent('Stopping after its current step');
+    expect(row).toHaveTextContent('0.36M of 4M tokens');
+    expect(row).not.toHaveTextContent('Grooming, started');
+    expect(within(row).queryByRole('button')).toBeNull();
   });
 });

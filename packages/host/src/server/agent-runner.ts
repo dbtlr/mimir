@@ -8,6 +8,7 @@ import type { Run, RunClosingState, RunStore, RunUsage } from '@mimir/core';
 
 import { isEngineRefusal } from '../api/errors';
 import { budgetDay, remainingTokens } from './agent-budget';
+import { CONSOLE_CANCEL_OUTCOME } from './agent-console-states';
 import { createAgentGate } from './agent-gate';
 import { createRunGrant, grantToolNames } from './agent-grant';
 import {
@@ -252,9 +253,6 @@ type HeldRun = {
   onCancel: (() => void) | undefined;
 };
 
-/** What a cancelled run's outcome line names first. */
-const CONSOLE_CANCEL = 'cancelled: the operator stopped the run from the console';
-
 /** The SDK's assistant errors that mean the API refused the token. */
 const TOKEN_REJECTIONS = new Set(['authentication_failed', 'oauth_org_not_allowed']);
 
@@ -313,14 +311,14 @@ function describeResult(input: {
   const summary = facts.join('; ');
   // A cancelled run names the console first and keeps what else ended it.
   const failed = (detail: string) =>
-    input.cancelled ? `${CONSOLE_CANCEL}; ${detail}` : `failed: ${detail}`;
+    input.cancelled ? `${CONSOLE_CANCEL_OUTCOME}; ${detail}` : `failed: ${detail}`;
   if (input.tokenRejected) {
     return failed(
       `the API refused the agent token; replace the file MIMIR_AGENT_TOKEN_FILE names (${summary})`,
     );
   }
   if (result.subtype === 'success' && !result.is_error) {
-    return input.cancelled ? `${CONSOLE_CANCEL} (${summary})` : `succeeded: ${summary}`;
+    return input.cancelled ? `${CONSOLE_CANCEL_OUTCOME} (${summary})` : `succeeded: ${summary}`;
   }
   const detail =
     result.subtype === 'success' ? `ended on an API error: ${result.result}` : result.subtype;
@@ -380,7 +378,7 @@ function describeUnsettled(
   }
   const detail = unsettledDetail(input);
   if (input.cancelled) {
-    return { outcome: oneLine(`${CONSOLE_CANCEL}; ${detail}`), state: 'cancelled' };
+    return { outcome: oneLine(`${CONSOLE_CANCEL_OUTCOME}; ${detail}`), state: 'cancelled' };
   }
   if (input.aborted === 'ceiling') {
     return { outcome: `cancelled: ${detail}`, state: 'cancelled' };
@@ -398,8 +396,8 @@ function cancelledBeforeQuery(detail?: string) {
     costEstimateUsd: null,
     outcome: oneLine(
       detail === undefined
-        ? `${CONSOLE_CANCEL} before its query started`
-        : `${CONSOLE_CANCEL}; ${detail}`,
+        ? `${CONSOLE_CANCEL_OUTCOME} before its query started`
+        : `${CONSOLE_CANCEL_OUTCOME}; ${detail}`,
     ),
     state: 'cancelled' as const,
     usage: NO_USAGE,
@@ -642,7 +640,7 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
       const closing = {
         costEstimateUsd: null,
         outcome: oneLine(
-          `${held.cancelled ? `${CONSOLE_CANCEL};` : 'failed:'} the runner faulted: ${message}`,
+          `${held.cancelled ? `${CONSOLE_CANCEL_OUTCOME};` : 'failed:'} the runner faulted: ${message}`,
         ),
         state: held.cancelled ? ('cancelled' as const) : ('failed' as const),
         usage: meter.streamed(),

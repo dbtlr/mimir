@@ -2,8 +2,8 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 
-import { agentActivity, groomCard, startGroom } from './fns/agent';
-import type { GroomRefusal, GroomTarget } from './fns/agent';
+import { agentActivity, cancelGroom, groomCard, startGroom } from './fns/agent';
+import type { GroomCancelResult, GroomCancelTarget, GroomRefusal, GroomTarget } from './fns/agent';
 import { annotationsQuery, nodeQuery } from './node-queries';
 import { POLL_MS } from './queries';
 
@@ -96,6 +96,24 @@ export function useStartGroom(onRefused: (refusal: GroomRefusal | undefined) => 
     onError: (err: Error) => toast.error(err.message),
     onSuccess: (answer) => {
       onRefused(answer.state === 'refused' ? answer.refusal : undefined);
+      void qc.invalidateQueries({ queryKey: ['agent'] });
+    },
+  });
+}
+
+/**
+ * Stop a running run. Every answer is a state handed to `onAnswer`; whatever it
+ * is, the card and the work pages' activity refresh, since a refusal says they
+ * were stale. A run recorded as stopping keeps polling at the running rate,
+ * because it is still a live run until its row closes.
+ */
+export function useCancelGroom(onAnswer: (answer: GroomCancelResult) => void) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (target: GroomCancelTarget) => cancelGroom({ data: target }),
+    onError: (err: Error) => toast.error(err.message),
+    onSuccess: (answer) => {
+      onAnswer(answer);
       void qc.invalidateQueries({ queryKey: ['agent'] });
     },
   });
