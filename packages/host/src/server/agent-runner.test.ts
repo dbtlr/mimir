@@ -1551,6 +1551,25 @@ describe('cancel', () => {
     expect(late.abortedLate()).toBe(false);
   });
 
+  test('a query whose close throws after a valid result still settles on that result', async () => {
+    const scripted = scriptedQuery(async function* script() {
+      yield assistant('msg_1', { input: 10 });
+      yield result();
+    });
+    const { runner: created } = runner(never, {
+      query: (params) =>
+        Object.assign(scripted.query(params), {
+          close: () => {
+            throw new Error('the CLI would not close');
+          },
+        }),
+    });
+    const start = await started(created);
+    const outcome = await start.finished;
+    expect(outcome).toMatchObject({ state: 'succeeded', usageSettled: true });
+    expect(outcome.outcome).toStartWith('succeeded:');
+  });
+
   test('a cancel recorded before the query exists starts no grace timer', async () => {
     const timers = spyOn(globalThis, 'setTimeout');
     try {

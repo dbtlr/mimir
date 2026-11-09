@@ -796,7 +796,13 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
       } finally {
         // Before the close, which may throw.
         streamEnded();
-        query?.close?.();
+        // A close that throws must not discard a result that already arrived.
+        try {
+          query?.close?.();
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'unknown error';
+          log(`⚠ host: agent run ${run.runId}: the query did not close: ${message}`);
+        }
       }
     }
     streamEnded();
