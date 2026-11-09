@@ -603,6 +603,15 @@ async function exclusive<T>(key: string, task: () => Promise<T>): Promise<T> {
 }
 
 /**
+ * Whether a project's remote is one the host can clone: set and not blank.
+ * A sync writes nothing for any other, the runner refuses a start on it, and
+ * the console's card says so.
+ */
+export function usableRemote(remote: string | null | undefined): remote is string {
+  return remote !== null && remote !== undefined && remote.trim() !== '';
+}
+
+/**
  * Sync a project's clone before a run: clone it again when its `origin` no
  * longer normalizes to the project's remote, empty the work tree, fetch,
  * follow the remote's default branch, check `origin/HEAD` out into the empty
@@ -616,7 +625,7 @@ export async function syncClone(options: CloneSyncOptions): Promise<CloneSyncRes
   if (!PROJECT_KEY_PATTERN.test(key)) {
     throw new Error(`not a project key: ${JSON.stringify(key)}`);
   }
-  if (remote === null || remote === undefined || remote.trim() === '') {
+  if (!usableRemote(remote)) {
     return failed(
       'no-remote',
       `project ${key} has no remote, so the host has no repository to clone; set one with mimir update ${key} --remote <url>`,

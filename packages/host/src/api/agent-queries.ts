@@ -37,12 +37,16 @@ export const groomCardQuery = (project: string, task: string) =>
     },
   });
 
-/** The running run, for a work page's Now. */
+/** The running run, for a work page's Now; polled fast only while a live run holds the slot. */
 export const agentActivityQuery = queryOptions({
   queryFn: () => agentActivity(),
   queryKey: ['agent', 'activity'],
-  refetchInterval: (query) =>
-    query.state.data?.running ? RUNNING_ACTIVITY_POLL_MS : IDLE_ACTIVITY_POLL_MS,
+  refetchInterval: (query) => {
+    const running = query.state.data?.running;
+    return running !== null && running !== undefined && !running.stale
+      ? RUNNING_ACTIVITY_POLL_MS
+      : IDLE_ACTIVITY_POLL_MS;
+  },
 });
 
 /**

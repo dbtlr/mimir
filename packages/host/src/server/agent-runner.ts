@@ -29,6 +29,7 @@ import {
   usageTotal,
 } from './agent-usage';
 import type { UsageMeter } from './agent-usage';
+import { usableRemote } from './clones';
 import type { CloneSyncOptions, CloneSyncResult } from './clones';
 import type { GitCredentialsSetting } from './git-credentials';
 
@@ -132,14 +133,6 @@ export type RunOutcome = {
 export type StartRunResult =
   | { started: true; runId: string; finished: Promise<RunOutcome> }
   | ({ started: false } & RunRefusal);
-
-/**
- * Whether a project's remote is one the host can clone: set and not blank.
- * The runner refuses a start on any other, and the console's card says so.
- */
-export function usableRemote(remote: string | null | undefined): remote is string {
-  return remote !== null && remote !== undefined && remote.trim() !== '';
-}
 
 /** The day's budget as the console shows it. */
 export type AgentBudgetStatus = {

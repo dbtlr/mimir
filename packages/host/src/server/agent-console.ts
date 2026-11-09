@@ -10,9 +10,9 @@ import type {
   GroomRefusal,
   GroomStartResult,
 } from './agent-console-states';
-import { usableRemote } from './agent-runner';
 import type { AgentRunner, AgentStatus, RunningRun, RunOutcome, RunRefusal } from './agent-runner';
 import { usageTotal } from './agent-usage';
+import { usableRemote } from './clones';
 import { groomableTarget, groomBrief } from './groom-brief';
 
 /*
