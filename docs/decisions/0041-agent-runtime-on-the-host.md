@@ -444,9 +444,9 @@ the runner guards against both:
   code, never discovery" gains one variable,
   `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`, so every reader runs in the
   foreground. As a backstop, the gate denies a spawn that asks for the
-  background. This disables background tasks only. The CLI's own side calls
-  on other models still happen, and "The budget is a token count Mimir keeps"
-  counts them as before.
+  background. This disables background tasks only. The CLI's own background
+  calls on other models are not background tasks: they still happen, and "The
+  budget is a token count Mimir keeps" counts them as before.
 
 These are two more guarantees for the list in "The SDK is pinned", re-tested
 against the real CLI before the pin moves: the gate and the tool name the same

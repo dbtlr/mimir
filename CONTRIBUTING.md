@@ -76,8 +76,9 @@ A new store migration also changes the host image checks, and `bun run verify`
 does not run them. `packages/host/scripts/container.integration.test.ts`
 asserts the latest migration's name in the SQLite and Postgres container logs.
 It also rolls a Postgres store back to schema 4 by dropping every table,
-column, and constraint a later migration adds, so the host can apply them
-again. Update both with each migration, and run `bun run test:host` before
+column, and constraint a later migration creates, so the host can apply them
+again. A constraint that a migration replaces stays, because the migration
+drops it first. Update both with each migration, and run `bun run test:host` before
 pushing.
 
 ## Tests that time out
