@@ -502,12 +502,14 @@ export function GroomWithAgentCard({ node, offline }: { node: EngineNode; offlin
     <div className="flex flex-col gap-2">
       {body}
       {alert}
-      <StopRunDialog
-        target={stopping}
-        onClose={() => {
-          setStopping(null);
-        }}
-      />
+      {stopping !== null && (
+        <StopRunDialog
+          target={stopping}
+          onClose={() => {
+            setStopping(null);
+          }}
+        />
+      )}
     </div>
   );
 }

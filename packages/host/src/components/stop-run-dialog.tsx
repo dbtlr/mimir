@@ -26,7 +26,7 @@ const POPUP =
 
 type Refusal = Exclude<GroomCancelResult, { state: 'cancelling' }>;
 
-/** The dialog's content; it mounts with the popup, so each opening starts with the question. */
+/** The dialog's content: the question, or the answer that says why nothing changed. */
 function StopRunContent({ target, onClose }: { target: StopTarget; onClose: () => void }) {
   const [refusal, setRefusal] = useState<Refusal | undefined>();
   const keepRunning = useRef<HTMLButtonElement>(null);
@@ -92,17 +92,16 @@ function StopRunContent({ target, onClose }: { target: StopTarget; onClose: () =
   );
 }
 
-/** The stop confirm; open while `target` names a run. */
-export function StopRunDialog({
-  target,
-  onClose,
-}: {
-  target: StopTarget | null;
-  onClose: () => void;
-}) {
+/**
+ * The stop confirm, for the run `target` names. The caller mounts it only
+ * while it is open, as the grooming dialog's callers do: closing unmounts the
+ * whole dialog, so no backdrop outlives it and each opening starts with the
+ * question.
+ */
+export function StopRunDialog({ target, onClose }: { target: StopTarget; onClose: () => void }) {
   return (
     <Dialog.Root
-      open={target !== null}
+      open
       onOpenChange={(next) => {
         if (!next) {
           onClose();
@@ -111,7 +110,7 @@ export function StopRunDialog({
     >
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-[60] bg-well-950/70 backdrop-blur-[2px]" />
-        {target !== null && <StopRunContent target={target} onClose={onClose} />}
+        <StopRunContent target={target} onClose={onClose} />
       </Dialog.Portal>
     </Dialog.Root>
   );

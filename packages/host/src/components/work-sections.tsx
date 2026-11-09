@@ -162,12 +162,14 @@ export function AgentNowRow({ run }: { run: AgentRun }) {
           ) : undefined
         }
       />
-      <StopRunDialog
-        target={stopping ? { runId: run.id, task: run.task, usedTokens: run.usedTokens } : null}
-        onClose={() => {
-          setStopping(false);
-        }}
-      />
+      {stopping && (
+        <StopRunDialog
+          target={{ runId: run.id, task: run.task, usedTokens: run.usedTokens }}
+          onClose={() => {
+            setStopping(false);
+          }}
+        />
+      )}
     </>
   );
 }
