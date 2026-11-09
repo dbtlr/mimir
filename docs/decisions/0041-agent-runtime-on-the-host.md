@@ -522,9 +522,10 @@ cancel sent there answers **another host**.
   the runner checks for a cancel before it creates the query. A sync already
   under way finishes, and the run closes as `cancelled` with no usage,
   settled, so it is charged nothing.
-- **Once the query exists**, the runner starts a `CANCEL_GRACE_MS` timer (5
-  minutes, or the query's start if the cancel came first). If no result has
-  arrived when it fires, the runner aborts the run through its controller.
+- **Once the query exists**, a cancel starts a `CANCEL_GRACE_MS` timer (5
+  minutes). A cancel recorded before the query exists starts none, since that
+  run closes before its query is created. If no result has arrived when the
+  timer fires, the runner aborts the run through its controller.
   Five minutes covers a main turn and a reader's turn back to back near the
   per-turn output allowance at typical output speed. A longer turn is aborted
   and charged as below.
