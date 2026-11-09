@@ -130,7 +130,7 @@ function PairedRow({ device }: { device: PairedDevice }) {
           <ActionButton
             ref={unpairButton}
             size="sm"
-            className="text-ink-dim hover:text-ink-bright"
+            variant="destructiveOutline"
             onClick={() => {
               setConfirming(true);
             }}

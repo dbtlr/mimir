@@ -1556,7 +1556,7 @@ describe('cancel', () => {
       yield assistant('msg_1', { input: 10 });
       yield result();
     });
-    const { runner: created } = runner(never, {
+    const { lines, runner: created } = runner(never, {
       query: (params) =>
         Object.assign(scripted.query(params), {
           close: () => {
@@ -1568,6 +1568,12 @@ describe('cancel', () => {
     const outcome = await start.finished;
     expect(outcome).toMatchObject({ state: 'succeeded', usageSettled: true });
     expect(outcome.outcome).toStartWith('succeeded:');
+    // Charged its settled usage, not its reservation.
+    const { cacheReadTokens, cacheWriteTokens, inputTokens, outputTokens } = outcome.usage;
+    expect(await chargedToday()).toBe(
+      cacheReadTokens + cacheWriteTokens + inputTokens + outputTokens,
+    );
+    expect(lines.some((line) => line.includes('the query did not close'))).toBe(true);
   });
 
   test('a cancel recorded before the query exists starts no grace timer', async () => {
