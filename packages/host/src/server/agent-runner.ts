@@ -250,6 +250,8 @@ type HeldRun = {
   ended: boolean;
   /** Called when a cancel is recorded once the query exists: starts the grace timer. */
   onCancel: (() => void) | undefined;
+  /** The SDK query has been created, so the run may have used tokens. */
+  queryStarted: boolean;
 };
 
 /**
@@ -535,7 +537,12 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
     }
     // Held before any other await, so a cancel can reach the run from here on;
     // `execute` removes the entry once its last close attempt has settled.
-    const held: HeldRun = { cancelled: false, ended: false, onCancel: undefined };
+    const held: HeldRun = {
+      cancelled: false,
+      ended: false,
+      onCancel: undefined,
+      queryStarted: false,
+    };
     registry.set(runId, held);
     const finished = execute({
       held,
@@ -650,16 +657,18 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
       held.ended = true;
       const message = error instanceof Error ? error.message : 'unknown error';
       log(`⚠ host: agent run ${runId} faulted: ${message}`);
-      const closing = {
-        costEstimateUsd: null,
-        outcome: endedBadly({
-          cancelled: held.cancelled,
-          detail: `the runner faulted: ${message}`,
-        }),
-        state: held.cancelled ? ('cancelled' as const) : ('failed' as const),
-        usage: meter.streamed(),
-        usageSettled: false,
-      };
+      const detail = `the runner faulted: ${message}`;
+      // A run cancelled before its query never reached the SDK, so it is charged nothing.
+      const closing =
+        held.cancelled && !held.queryStarted
+          ? cancelledBeforeQuery(detail)
+          : {
+              costEstimateUsd: null,
+              outcome: endedBadly({ cancelled: held.cancelled, detail }),
+              state: held.cancelled ? ('cancelled' as const) : ('failed' as const),
+              usage: meter.streamed(),
+              usageSettled: false,
+            };
       try {
         return await close(closing);
       } catch {
@@ -755,6 +764,7 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
     if (context.aborted() === undefined) {
       let query: ReturnType<RunQuery> | undefined;
       try {
+        held.queryStarted = true;
         query = options.query({ options: sdkOptions, prompt: run.input.brief.prompt });
         // Once the query exists, a cancel gives the run its grace period to end with a result.
         held.onCancel = () => {

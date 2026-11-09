@@ -1480,6 +1480,27 @@ describe('cancel', () => {
     expect(outcome.outcome).toBe('failed: the runner lost the run to another host');
   });
 
+  test('a run cancelled during its sync that then faults closes cancelled and is charged nothing', async () => {
+    const syncing = signal();
+    const proceed = signal();
+    const { runner: created } = runner(never, {
+      syncClone: async () => {
+        syncing.resolve();
+        await proceed.promise;
+        throw new Error('the disk is full');
+      },
+    });
+    const start = await started(created);
+    await syncing.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+    proceed.resolve();
+    const outcome = await start.finished;
+    expect(outcome).toMatchObject({ state: 'cancelled', usage: NO_USAGE, usageSettled: true });
+    expect(outcome.outcome).toMatch(CONSOLE_CANCEL);
+    expect(outcome.outcome).toContain('the runner faulted: the disk is full');
+    expect(await chargedToday()).toBe(0);
+  });
+
   test('a cancel during the close write of a faulted run answers ending, and the run closes failed', async () => {
     const slow = slowClose();
     const { runner: created } = runner(never, {

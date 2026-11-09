@@ -271,6 +271,22 @@ describe('Now on the work page', () => {
     expect(cancelGroom).not.toHaveBeenCalledWith({ data: { runId: 'run-2' } });
   });
 
+  it('keeps the refusal readable when the run it answers for has left Now', async () => {
+    const state = await openProject(runningActivity({ cancellable: true }));
+    const { row } = await rowOf('Show each clone’s last sync time');
+    await userEvent.click(within(row).getByRole('button', { name: 'Stop run on MMR-640' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Stop the agent on MMR-640?' });
+    // The run ended on its own: the stop answers ended, and the refresh empties Now.
+    state.cancel = { runState: 'succeeded', state: 'ended' };
+    state.activity = { running: null };
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Stop run' }));
+    await vi.advanceTimersByTimeAsync(10_500);
+    const answered = await screen.findByRole('dialog', { name: 'Stop the agent on MMR-640?' });
+    await expect(
+      within(answered).findByText('The run already ended (succeeded).'),
+    ).resolves.toBeInTheDocument();
+  });
+
   it('marks a stopping run with a badge and its meta, and offers no button', async () => {
     await openProject(runningActivity({ stopping: true }));
     const { row } = await rowOf('Show each clone’s last sync time');
