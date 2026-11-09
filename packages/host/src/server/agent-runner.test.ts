@@ -1501,6 +1501,37 @@ describe('cancel', () => {
     expect(await chargedToday()).toBe(0);
   });
 
+  test('a run cancelled during a sync that succeeds, whose close write then throws, is charged nothing', async () => {
+    const syncing = signal();
+    const proceed = signal();
+    const synced = syncResult;
+    syncResult = async () => {
+      syncing.resolve();
+      await proceed.promise;
+      return synced();
+    };
+    let closes = 0;
+    const store: RunStore = {
+      ...runs,
+      close: async (id, owner, closing) => {
+        closes += 1;
+        if (closes === 1) {
+          throw new Error('the database blinked');
+        }
+        return runs.close(id, owner, closing);
+      },
+    };
+    const { calls, runner: created } = runner(never, { runs: store });
+    const start = await started(created);
+    await syncing.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+    proceed.resolve();
+    const outcome = await start.finished;
+    expect(outcome).toMatchObject({ state: 'cancelled', usage: NO_USAGE, usageSettled: true });
+    expect(calls).toEqual([]);
+    expect(await chargedToday()).toBe(0);
+  });
+
   test('a cancel during the close write of a faulted run answers ending, and the run closes failed', async () => {
     const slow = slowClose();
     const { runner: created } = runner(never, {

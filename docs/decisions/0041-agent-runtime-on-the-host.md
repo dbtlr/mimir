@@ -536,7 +536,7 @@ other process offers no Stop and shows no "Stopping".
 
 **How a cancelled run closes.** A run whose cancel was recorded before its
 stream ended closes as `cancelled`, whatever ended it, the runner's fault path
-included. Its usage settles under
+included (a run cancelled before its query is charged nothing, as above). Its usage settles under
 the existing rule ("Settlement"): `modelUsage`, summed over every model, when
 the run has a result with a valid total, and otherwise the larger of the
 reservation and the streamed usage. A run aborted after the grace period,

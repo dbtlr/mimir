@@ -175,6 +175,29 @@ describe('Now on the work page', () => {
     await expect(nowGroup()).resolves.toHaveTextContent('1');
   });
 
+  it.each([
+    ['its own row', [nowRow({ id: 'MMR-11', title: 'Wire the dialect' })]],
+    [
+      'the task’s row',
+      [
+        nowRow({ id: 'MMR-11', title: 'Wire the dialect' }),
+        nowRow({ id: 'MMR-640', status: 'queued', title: 'Show each clone’s last sync' }),
+      ],
+    ],
+  ])('offers Stop only on the row that carries the agent, on %s', async (_where, now) => {
+    serveShell({ trees: { MMR: TREE } });
+    serveNodes({ nodes: [PROJECT] });
+    serveViews({ projects: { MMR: engineWork({ now }) } });
+    serveAgent({
+      activity: runningActivity({ cancellable: true }, 'Show each clone’s last sync'),
+    });
+    await renderRoute(consoleRoutes, '/p/MMR', quietClient());
+    await screen.findByRole('button', { name: 'Stop run on MMR-640' });
+    expect(screen.getAllByRole('button', { name: /^Stop run on / })).toHaveLength(1);
+    const { row } = await rowOf('Wire the dialect');
+    expect(within(row).queryByRole('button', { name: /^Stop run on / })).toBeNull();
+  });
+
   it('offers Stop on the task’s own row when the task is already in Now, and marks it stopping after', async () => {
     serveShell({ trees: { MMR: TREE } });
     serveNodes({ nodes: [PROJECT] });
