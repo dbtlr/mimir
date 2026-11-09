@@ -8,7 +8,7 @@ export type {
   AgentActivity,
   AgentBudgetView,
   AgentRunView,
-  GroomPanel,
+  GroomCard,
   GroomRefusal,
   GroomStartResult,
   GroomTarget,
@@ -23,9 +23,9 @@ export type {
  */
 
 /** One task's agent card: the runtime's state, the day's budget, the running run, and the task's last run. */
-export const groomPanel = createServerFn({ method: 'GET' })
+export const groomCard = createServerFn({ method: 'GET' })
   .validator((input: GroomTarget) => parseGroomTarget(input))
-  .handler(async ({ data }) => (await agentConsole()).panel(data));
+  .handler(async ({ data }) => (await agentConsole()).card(data));
 
 /** The running run, if any, with its task's title, for a work page's Now. */
 export const agentActivity = createServerFn({ method: 'GET' }).handler(async () =>

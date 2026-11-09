@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { grantToolNames } from './agent-grant';
+import { ATTACH_LIMITS, grantToolNames, NOTE_CHARACTERS, NOTES_PER_RUN } from './agent-grant';
 import { READER_AGENT, RUN_TOOLS } from './agent-options';
 import { groomableTarget, groomBrief } from './groom-brief';
 
@@ -11,6 +11,9 @@ const briefText = (target = TARGET) => {
   const brief = groomBrief(target);
   return `${brief.systemPrompt}\n${brief.prompt}`;
 };
+
+/** A limit as the brief words it. */
+const atMost = (limit: number) => `at most ${limit.toLocaleString('en-US')}`;
 
 /** A text with the target's ids swapped for WVY's. */
 const renamed = (text: string) => text.replaceAll('QZX-7', 'WVY-12').replaceAll('QZX', 'WVY');
@@ -43,6 +46,24 @@ describe('groomBrief', () => {
     for (const tool of named) {
       expect(grantToolNames).toContain(tool);
     }
+  });
+
+  test("states the grant's write limits, read from the grant itself", () => {
+    const text = briefText();
+    expect(text).toContain(`${atMost(NOTE_CHARACTERS)} characters`);
+    expect(text).toContain(`${atMost(NOTES_PER_RUN)} notes`);
+    expect(text).toContain(`title of ${atMost(ATTACH_LIMITS.titleCharacters)} characters`);
+    expect(text).toContain(`content of ${atMost(ATTACH_LIMITS.contentCharacters)} characters`);
+    expect(text).toContain(`attaches ${atMost(ATTACH_LIMITS.perRun)}`);
+    expect(text).toContain('cannot contain a Markdown image (`![`)');
+  });
+
+  test('allows one corrected retry after a size or image refusal, and none after any other', () => {
+    const text = briefText();
+    expect(text).toContain(
+      'If a write is refused because it is too long or contains a Markdown image, correct it and try once more.',
+    );
+    expect(text).toMatch(/refused for any other reason[^.]*another task[^.]*, do not retry it/);
   });
 
   test("names the run's built-in tools and its reader agent", () => {

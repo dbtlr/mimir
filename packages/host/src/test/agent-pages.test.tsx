@@ -3,7 +3,7 @@ import { screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { consoleRoutes } from '../router';
-import { agentRun, readyPanel, runningActivity } from './agent-fixtures';
+import { agentRun, readyCard, runningActivity } from './agent-fixtures';
 import { serveAgent } from './agent-fns';
 import { serveBrowse } from './browse-fns';
 import { engineTree, engineProject } from './engine-fixtures';
@@ -74,7 +74,7 @@ describe('the task page', () => {
     serveShell({ trees: { MMR: TREE } });
     serveNodes({ nodes: [task], notes: { 'MMR-640': [] } });
     serveViews();
-    serveAgent({ panel: readyPanel() });
+    serveAgent({ card: readyCard() });
     await renderRoute(consoleRoutes, '/p/MMR/640', quietClient());
     const card = await screen.findByRole('region', { name: 'Groom with agent' });
     const description = screen.getByRole('heading', { name: 'Description' });
@@ -90,7 +90,7 @@ describe('the task page', () => {
       notes: { 'MMR-640': [] },
     });
     serveViews();
-    serveAgent({ panel: readyPanel() });
+    serveAgent({ card: readyCard() });
     await renderRoute(consoleRoutes, '/p/MMR/640', quietClient());
     await screen.findByRole('heading', { level: 1, name: 'Show sync times' });
     expect(screen.queryByRole('region', { name: 'Groom with agent' })).toBeNull();
@@ -150,6 +150,26 @@ describe('Now on the work page', () => {
     await rowOf('Show each clone’s last sync time');
     await expect(nowGroup()).resolves.toHaveTextContent('2');
     expect(screen.getByRole('link', { name: 'Wire the dialect' })).toBeVisible();
+  });
+
+  // A task queued while the agent grooms it is in Now on its own: it gets one row, with the agent on it.
+  it('puts the agent on the task’s own row when the task is already in Now', async () => {
+    serveShell({ trees: { MMR: TREE } });
+    serveNodes({ nodes: [PROJECT] });
+    serveViews({
+      projects: {
+        MMR: engineWork({
+          now: [nowRow({ id: 'MMR-640', status: 'queued', title: 'Show each clone’s last sync' })],
+        }),
+      },
+    });
+    serveAgent({ activity: runningActivity({}, 'Show each clone’s last sync') });
+    await renderRoute(consoleRoutes, '/p/MMR', quietClient());
+    const { row } = await rowOf('Show each clone’s last sync');
+    expect(screen.getAllByRole('link', { name: 'Show each clone’s last sync' })).toHaveLength(1);
+    expect(row).toHaveTextContent('Queued');
+    expect(row).toHaveTextContent('Agent grooming');
+    await expect(nowGroup()).resolves.toHaveTextContent('1');
   });
 
   it('says nothing is running when no agent run is active', async () => {

@@ -1,7 +1,7 @@
 import { parseIdentity } from '@mimir/core';
 
 import type { GroomTarget } from './agent-console-states';
-import { GRANT_SERVER, NOTES_PER_RUN } from './agent-grant';
+import { ATTACH_LIMITS, GRANT_SERVER, NOTE_CHARACTERS, NOTES_PER_RUN } from './agent-grant';
 import { READER_AGENT } from './agent-options';
 import type { RunBrief } from './agent-runner';
 import { SPAWN_ALLOWANCE } from './agent-usage';
@@ -33,10 +33,10 @@ Rules:
 - Act only on ${task}. Never act on any other task. Never change a task's status.
 - The repository is a read-only copy of ${project}'s code. You can use Read, Grep, and Glob inside it. You have no shell, no network, and no git.
 - The board tools read ${project}: ${mimir('get')}, ${mimir('list')}, ${mimir('tree')}, ${mimir('search')}, ${mimir('artifacts')}, ${mimir('artifact')}, and ${mimir('seeds')}. The write tools act on ${task} only: ${mimir('annotate')} adds a note, ${mimir('groom')} sets its grooming state with a note, and ${mimir('attach')} attaches a planning document.
-- A run writes at most ${NOTES_PER_RUN} notes and grooming states, and notes cannot be deleted. Write one or two substantial notes, not many small ones.
-- Attach a planning document only when your findings are too long for a note.
+- A note, from ${mimir('annotate')} or ${mimir('groom')}, is at most ${count(NOTE_CHARACTERS)} characters. A run writes at most ${count(NOTES_PER_RUN)} notes and grooming states, and notes cannot be deleted. Write one or two substantial notes, not many small ones.
+- Attach a planning document only when your findings are too long for a note. A document has a title of at most ${count(ATTACH_LIMITS.titleCharacters)} characters and content of at most ${count(ATTACH_LIMITS.contentCharacters)} characters, and a run attaches at most ${count(ATTACH_LIMITS.perRun)}. Its title, summary, and content cannot contain a Markdown image (\`![\`).
 - Each reader subagent is charged about ${count(SPAWN_ALLOWANCE)} tokens against the run's token ceiling, and the run is stopped when it reaches the ceiling. Start a reader only for a survey that would take you many reads yourself, and start few.
-- If a write is refused, do not retry it in another form. Say so in your final summary.`;
+- If a write is refused because it is too long or contains a Markdown image, correct it and try once more. If a write is refused for any other reason, such as naming another task or another id, or the task no longer being todo, do not retry it in any form. Say so in your final summary.`;
 }
 
 /** The run's first message: the work, step by step. */

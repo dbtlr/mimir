@@ -545,8 +545,10 @@ Agent runs let the host run a Claude agent against one task of its own
 board, such as grooming a `todo` task. The host runs the agent itself, on
 your own Claude subscription, as personal automation for the operator who
 deploys it (ADR 0041). Once it is set up, a `todo` task's page shows a
-**Groom with agent** card. The host checks the settings at startup and again
-before each run.
+**Groom with agent** card. When the setup has a problem, such as a missing
+setting, a refused token, or Claude Code managed settings on the host, the
+card names the problem; it is absent only while `MIMIR_AGENT_TOKEN_FILE` is
+unset. The host checks the settings at startup and again before each run.
 
 Use a token from a personal Claude plan. A token from a Team or Enterprise
 organization makes Claude Code apply that organization's server-managed
@@ -569,8 +571,9 @@ the file's age. A `setup-token` token lasts one year.
 When `MIMIR_AGENT_TOKEN_FILE` is set but the file is missing, unreadable, or
 empty, or when `MIMIR_HOSTS` is unset or `MIMIR_DATA_DIR` is not writable, the
 host starts and logs a warning that names the setting, and agent runs stay off
-until it is fixed. Once runs can start, an API refusal of the token will keep
-agent runs disconnected until you replace the file.
+until it is fixed. When the API refuses the token, agent runs stay
+disconnected until you replace the file, and the card shows the refused
+file's age.
 
 These settings tune agent runs. Each one is optional. A value that is not
 valid logs a warning that names the setting, and the host uses the default.
@@ -650,9 +653,13 @@ a run that ended without a total.
    the task's grooming: **groomed**, or **needs answers** with each question
    and a recommended answer. It never changes the task's status.
 
-When a run cannot start, the card says why, using the reasons above. A run
-that failed shows its outcome on the card, with **Try again**. To set the
-remote a project needs, run `mimir update <KEY> --remote <url>`.
+When a run cannot start, the card says why, using the reasons above. Managed
+settings on the host show on the card before you select anything, with their
+paths. A run that failed shows its outcome on the card, with **Try again**. A
+stale run on the task shows that it stopped reporting, with **Try again**,
+because a new start marks it interrupted; a stale run on another task does
+not block a start. To set the remote a project needs, run
+`mimir update <KEY> --remote <url>`.
 
 ## Administer the host with mimir-host
 

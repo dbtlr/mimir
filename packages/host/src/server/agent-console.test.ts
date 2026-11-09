@@ -37,6 +37,7 @@ const BUDGET: AgentBudgetStatus = {
 const READY: AgentStatus = {
   agent: { state: 'ready', tokenModifiedAt: new Date('2026-11-01T00:00:00.000Z') },
   budget: BUDGET,
+  managedPolicy: [],
   model: MODEL,
   running: null,
 };
@@ -134,17 +135,23 @@ function console_(
   return { agentConsole: createAgentConsole(options), lastEndedFor, lines, starts };
 }
 
-describe('panel', () => {
+describe('card', () => {
   test('reads unconfigured while agent runs are off', async () => {
     const { agentConsole } = console_({
-      status: { agent: { state: 'unconfigured' }, budget: null, model: null, running: null },
+      status: {
+        agent: { state: 'unconfigured' },
+        budget: null,
+        managedPolicy: [],
+        model: null,
+        running: null,
+      },
     });
-    expect(await agentConsole.panel(TARGET)).toEqual({ state: 'unconfigured' });
+    expect(await agentConsole.card(TARGET)).toEqual({ state: 'unconfigured' });
   });
 
   test('reads unconfigured when the runtime is ready but reports no budget', async () => {
     const { agentConsole } = console_({ status: { ...READY, budget: null, model: null } });
-    expect(await agentConsole.panel(TARGET)).toEqual({ state: 'unconfigured' });
+    expect(await agentConsole.card(TARGET)).toEqual({ state: 'unconfigured' });
   });
 
   test('passes a misconfigured setting through, naming the setting and its problem', async () => {
@@ -154,23 +161,51 @@ describe('panel', () => {
         agent: { problem: 'unset', setting: 'MIMIR_HOSTS', state: 'misconfigured' },
       },
     });
-    expect(await agentConsole.panel(TARGET)).toEqual({
+    expect(await agentConsole.card(TARGET)).toEqual({
       problem: 'unset',
       setting: 'MIMIR_HOSTS',
       state: 'misconfigured',
     });
   });
 
-  test('passes a rejected token through as disconnected', async () => {
+  test('passes a rejected token through as disconnected, with the token file’s age', async () => {
+    const tokenModifiedAt = new Date('2025-11-01T00:00:00.000Z');
     const { agentConsole } = console_({
-      status: { ...READY, agent: { reason: 'rejected', state: 'disconnected' } },
+      status: { ...READY, agent: { reason: 'rejected', state: 'disconnected', tokenModifiedAt } },
     });
-    expect(await agentConsole.panel(TARGET)).toEqual({ reason: 'rejected', state: 'disconnected' });
+    expect(await agentConsole.card(TARGET)).toEqual({
+      reason: 'rejected',
+      state: 'disconnected',
+      tokenModifiedAt,
+    });
+  });
+
+  test('reads managed policy, naming its paths, before a start is tried', async () => {
+    const paths = ['/etc/claude-code/managed-settings.json'];
+    const { agentConsole, starts } = console_({ status: { ...READY, managedPolicy: paths } });
+    expect(await agentConsole.card(TARGET)).toEqual({ paths, state: 'managed-policy' });
+    expect(starts).toEqual([]);
+  });
+
+  test('reads a misconfigured or refused runtime ahead of managed policy, and unconfigured ahead of it too', async () => {
+    const managedPolicy = ['/etc/claude-code/managed-settings.json'];
+    const misconfigured = console_({
+      status: {
+        ...READY,
+        agent: { problem: 'unset', setting: 'MIMIR_HOSTS', state: 'misconfigured' },
+        managedPolicy,
+      },
+    });
+    expect(await misconfigured.agentConsole.card(TARGET)).toMatchObject({ state: 'misconfigured' });
+    const unconfigured = console_({
+      status: { ...READY, budget: null, managedPolicy, model: null },
+    });
+    expect(await unconfigured.agentConsole.card(TARGET)).toEqual({ state: 'unconfigured' });
   });
 
   test('reads ready with the model, the token file’s age, the budget, the free slot, the last run, and the remote', async () => {
     const { agentConsole, lastEndedFor } = console_({ lastEnded: runRow() });
-    expect(await agentConsole.panel(TARGET)).toEqual({
+    expect(await agentConsole.card(TARGET)).toEqual({
       budget: BUDGET,
       hasRemote: true,
       lastRun: RUN_VIEW,
@@ -194,7 +229,7 @@ describe('panel', () => {
     const { agentConsole } = console_({
       status: { ...READY, running: { run: holder, stale: true } },
     });
-    expect(await agentConsole.panel(TARGET)).toMatchObject({
+    expect(await agentConsole.card(TARGET)).toMatchObject({
       lastRun: null,
       running: {
         ...RUN_VIEW,
@@ -211,13 +246,13 @@ describe('panel', () => {
 
   test("leaves out a last run recorded under another project's key", async () => {
     const { agentConsole } = console_({ lastEnded: runRow({ project: 'OTH' }) });
-    expect(await agentConsole.panel(TARGET)).toMatchObject({ lastRun: null, state: 'ready' });
+    expect(await agentConsole.card(TARGET)).toMatchObject({ lastRun: null, state: 'ready' });
   });
 
   test('reads no remote for a blank or missing remote, and for an unknown project', async () => {
     for (const project of ['LOC', 'SPC', 'NOPE']) {
       const { agentConsole } = console_();
-      expect(await agentConsole.panel({ project, task: `${project}-1` })).toMatchObject({
+      expect(await agentConsole.card({ project, task: `${project}-1` })).toMatchObject({
         hasRemote: false,
         state: 'ready',
       });
@@ -236,6 +271,7 @@ describe('activity', () => {
       status: {
         agent: { state: 'unconfigured' },
         budget: null,
+        managedPolicy: [],
         model: null,
         running: { run: runRow({ state: 'running' }), stale: false },
       },
@@ -365,6 +401,7 @@ describe('startGroom', () => {
         reason: 'budget',
         resetsAt: new Date('2026-11-09T00:00:00.000Z'),
         runTokens: 4_000_000,
+        timezone: 'America/New_York',
         usedTokens: 8_000_000,
       },
       refusal: {
@@ -372,6 +409,7 @@ describe('startGroom', () => {
         reason: 'budget',
         resetsAt: new Date('2026-11-09T00:00:00.000Z'),
         runTokens: 4_000_000,
+        timezone: 'America/New_York',
         usedTokens: 8_000_000,
       },
     },

@@ -3,22 +3,30 @@ import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 
-import { useGroomPanel, useStartGroom } from '../api/agent-queries';
+import { useGroomCard, useStartGroom } from '../api/agent-queries';
 import type { AgentBudgetView, AgentRunView, GroomRefusal } from '../api/fns/agent';
-import { deriveAgentCard, formatTokens, refusalText, sharePercent } from '../lib/agent-card';
-import type { AgentCardView, ReadyPanel } from '../lib/agent-card';
+import {
+  deriveAgentCard,
+  formatTokens,
+  refusalText,
+  resetText,
+  sharePercent,
+} from '../lib/agent-card';
+import type { AgentCardView, ReadyCard } from '../lib/agent-card';
 import { cn } from '../lib/cn';
 import { visibleGrooming } from '../lib/grooming';
 import { projectKeyOf } from '../lib/project-key';
 import { nodeLink } from '../lib/record-url';
-import { ago, clockTime } from '../lib/time';
+import { ago } from '../lib/time';
 import { StatusDot } from './status-dot';
 import { ActionButton } from './ui/action-button';
 
 /*
  * The Groom with agent card on a task's page (ADR 0041, MMR-633): what the
  * agent will do, the page's one solid button, and the day's token budget. The
- * card is absent unless the task shows grooming and the runtime is configured.
+ * card shows only on a task that shows grooming (a todo task). It is absent
+ * while agent runs are unconfigured; when they are set up wrongly, the token
+ * was refused, or managed settings are on the host, it says what is wrong.
  */
 
 const HATCH: CSSProperties = {
@@ -83,7 +91,7 @@ function BudgetMeter({ budget, over = false }: { budget: AgentBudgetView; over?:
       total={budget.dailyTokens}
       over={over}
       label={`${formatTokens(budget.usedTokens)} of ${formatTokens(budget.dailyTokens)} used today · this run reserves ${formatTokens(budget.runTokens)}`}
-      trailing={`resets ${clockTime(budget.resetsAt)}`}
+      trailing={`resets ${resetText(budget.resetsAt, budget.timezone)}`}
     />
   );
 }
@@ -135,17 +143,16 @@ function Say({ children }: { children: ReactNode }) {
   return <p className="text-body leading-[1.55] text-ink">{children}</p>;
 }
 
+/** The token file's age, since a setup-token token lasts one year. */
+function TokenAge({ modifiedAt }: { modifiedAt: Date }) {
+  return (
+    <p className="text-tag text-ink-faint">
+      Token file updated {ago(modifiedAt)}. A setup-token token lasts one year.
+    </p>
+  );
+}
+
 function RunningCard({ run }: { run: AgentRunView }) {
-  if (run.stale) {
-    return (
-      <Frame title="Agent stopped reporting" tone="bad">
-        <Say>
-          The agent stopped reporting {ago(run.heartbeatAt)}. The host probably restarted mid-run.
-          The run is marked interrupted at the next start or boot, and counts its full reservation.
-        </Say>
-      </Frame>
-    );
-  }
   return (
     <Frame title="Agent grooming" model={run.model} dot>
       <Say>Reading the code. Notes appear in the timeline as the agent writes them.</Say>
@@ -176,7 +183,8 @@ function actionFor(view: AgentCardView): Action | undefined {
     case 'ready': {
       return { disabled: false, label: 'Groom with agent', solid: true };
     }
-    case 'failed': {
+    case 'failed':
+    case 'stale': {
       return { disabled: false, label: 'Try again', solid: true };
     }
     case 'groomed':
@@ -215,12 +223,20 @@ function StartButton({
   );
 }
 
-/** The card body for the states that offer no start: the runtime is off, or the run is live. */
-function Passive({
-  view,
-}: {
-  view: Extract<AgentCardView, { kind: 'misconfigured' | 'disconnected' | 'running' }>;
-}) {
+/** The card states that offer no start: the runtime is off or blocked, or the run is live. */
+type PassiveView = Extract<
+  AgentCardView,
+  { kind: 'misconfigured' | 'disconnected' | 'managed-policy' | 'running' }
+>;
+
+const isPassive = (view: AgentCardView): view is PassiveView =>
+  view.kind === 'misconfigured' ||
+  view.kind === 'disconnected' ||
+  view.kind === 'managed-policy' ||
+  view.kind === 'running';
+
+/** The card body for the states that offer no start. */
+function Passive({ view }: { view: PassiveView }) {
   switch (view.kind) {
     case 'misconfigured': {
       return (
@@ -239,6 +255,24 @@ function Passive({
             Anthropic rejected the agent token. Replace the file <Code>MIMIR_AGENT_TOKEN_FILE</Code>{' '}
             names with a fresh <Code>claude setup-token</Code>.
           </Say>
+          <TokenAge modifiedAt={view.tokenModifiedAt} />
+        </Frame>
+      );
+    }
+    case 'managed-policy': {
+      return (
+        <Frame title="Managed settings on the host" tone="bad">
+          <Say>
+            Claude Code managed settings exist on the host and would override the run&rsquo;s
+            limits, so agent runs stay off. Remove them to run agents:
+          </Say>
+          <ul className="flex flex-col gap-0.5">
+            {view.paths.map((path) => (
+              <li key={path}>
+                <Code>{path}</Code>
+              </li>
+            ))}
+          </ul>
         </Frame>
       );
     }
@@ -251,14 +285,14 @@ function Passive({
 /** The card body for the states that carry a start button. */
 function Active({
   view,
-  panel,
+  card,
   project,
   action,
   busy,
   onStart,
 }: {
   view: AgentCardView;
-  panel: ReadyPanel;
+  card: ReadyCard;
   project: string;
   action: Action;
   busy: boolean;
@@ -273,13 +307,12 @@ function Active({
           className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-well-850 px-4 py-2.5 text-xs text-ink-dim"
         >
           <span>
-            {view.run === null ? (
-              <b className="font-semibold text-ink">Groomed</b>
-            ) : (
+            <b className="font-semibold text-ink">Groomed</b>
+            {view.run !== null && (
               <>
-                Agent set <b className="font-semibold text-ink">Groomed</b>{' '}
-                {ago(view.run.endedAt ?? view.run.startedAt)} · {formatTokens(view.run.usedTokens)}{' '}
-                tokens
+                {' '}
+                · last agent run {ago(view.run.endedAt ?? view.run.startedAt)} ·{' '}
+                {formatTokens(view.run.usedTokens)} tokens
               </>
             )}
           </span>
@@ -300,10 +333,22 @@ function Active({
     }
     case 'answers': {
       return (
-        <Frame title="Agent has a question" model={panel.model}>
+        <Frame title="Groom with agent" model={card.model}>
           <Say>
-            The agent stopped on a question; its question and recommended answer are in the
-            timeline.
+            Needs answers. The last agent run ended {ago(view.run.endedAt ?? view.run.startedAt)};
+            its notes are in the timeline.
+          </Say>
+          <div className="flex items-center gap-3">{button}</div>
+        </Frame>
+      );
+    }
+    case 'stale': {
+      return (
+        <Frame title="Agent stopped reporting" tone="bad">
+          <Say>
+            The agent stopped reporting {ago(view.run.heartbeatAt)}. The host probably restarted
+            mid-run. A new start marks it interrupted; it counts its reservation or its streamed
+            usage, whichever is larger.
           </Say>
           <div className="flex items-center gap-3">{button}</div>
         </Frame>
@@ -313,14 +358,14 @@ function Active({
       return (
         <Frame title="Another run is going">
           <Say>
-            Agents run one at a time. An agent has been grooming{' '}
+            Agents run one at a time. An agent started grooming{' '}
             <Link
               {...nodeLink(view.run.task)}
               className="text-accent-foreground hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
             >
               {view.run.task}
             </Link>{' '}
-            since {ago(view.run.startedAt)}.
+            {ago(view.run.startedAt)}.
           </Say>
           <div className="flex items-center gap-3">{button}</div>
         </Frame>
@@ -331,7 +376,11 @@ function Active({
         <Frame title="No code to read">
           <Say>
             The agent reads the project&apos;s code from its remote, and {project} has none. Set one
-            with <code className="font-mono text-mono-id">mimir update {project} --remote &lt;url&gt;</code>.
+            with{' '}
+            <code className="font-mono text-mono-id">
+              mimir update {project} --remote &lt;url&gt;
+            </code>
+            .
           </Say>
           <div className="flex items-center gap-3">{button}</div>
         </Frame>
@@ -341,18 +390,18 @@ function Active({
       return (
         <Frame title="Daily budget reached">
           <Say>
-            A run reserves {formatTokens(panel.budget.runTokens)} tokens and only{' '}
-            {formatTokens(panel.budget.remainingTokens)} are left today. The budget resets at{' '}
-            {clockTime(panel.budget.resetsAt)}.
+            A run reserves {formatTokens(card.budget.runTokens)} tokens and only{' '}
+            {formatTokens(card.budget.remainingTokens)} are left today. The budget resets at{' '}
+            {resetText(card.budget.resetsAt, card.budget.timezone)}.
           </Say>
-          <BudgetMeter budget={panel.budget} over />
+          <BudgetMeter budget={card.budget} over />
           <div className="flex items-center gap-3">{button}</div>
         </Frame>
       );
     }
     default: {
       return (
-        <Frame title="Groom with agent" model={panel.model}>
+        <Frame title="Groom with agent" model={card.model}>
           <Say>
             An agent reads this task and the project&apos;s code, writes what it finds as notes, and
             sets grooming. If it stops on a question, it leaves a recommended answer. It never
@@ -360,25 +409,23 @@ function Active({
           </Say>
           <div className="flex flex-wrap items-center gap-3">
             {button}
-            <BudgetMeter budget={panel.budget} />
+            <BudgetMeter budget={card.budget} />
           </div>
-          <p className="text-tag text-ink-faint">
-            Token file updated {ago(panel.tokenModifiedAt)}. A setup-token token lasts one year.
-          </p>
+          <TokenAge modifiedAt={card.tokenModifiedAt} />
         </Frame>
       );
     }
   }
 }
 
-/** The Groom with agent card, or nothing when the task shows no grooming or the runtime is off. */
+/** The Groom with agent card, or nothing when the task shows no grooming or agent runs are unconfigured. */
 export function GroomWithAgentCard({ node, offline }: { node: EngineNode; offline: boolean }) {
   const project = projectKeyOf(node.id);
   const grooming = visibleGrooming(node);
-  const panel = useGroomPanel(project, node.id, grooming !== undefined);
+  const read = useGroomCard(project, node.id, grooming !== undefined);
   const [refusal, setRefusal] = useState<GroomRefusal | undefined>();
   const start = useStartGroom(setRefusal);
-  const data = panel.data;
+  const data = read.data;
   if (grooming === undefined || data === undefined || data.state === 'unconfigured') {
     return null;
   }
@@ -392,25 +439,24 @@ export function GroomWithAgentCard({ node, offline }: { node: EngineNode; offlin
       {refusalText(refusal)}
     </p>
   );
-  const body =
-    view.kind === 'misconfigured' || view.kind === 'disconnected' || view.kind === 'running' ? (
-      <Passive view={view} />
-    ) : (
-      data.state === 'ready' &&
-      action !== undefined && (
-        <Active
-          view={view}
-          panel={data}
-          project={project}
-          action={action}
-          busy={start.isPending || offline}
-          onStart={() => {
-            setRefusal(undefined);
-            start.mutate({ project, task: node.id });
-          }}
-        />
-      )
-    );
+  const body = isPassive(view) ? (
+    <Passive view={view} />
+  ) : (
+    data.state === 'ready' &&
+    action !== undefined && (
+      <Active
+        view={view}
+        card={data}
+        project={project}
+        action={action}
+        busy={start.isPending || offline}
+        onStart={() => {
+          setRefusal(undefined);
+          start.mutate({ project, task: node.id });
+        }}
+      />
+    )
+  );
   return (
     <div className="flex flex-col gap-2">
       {body}

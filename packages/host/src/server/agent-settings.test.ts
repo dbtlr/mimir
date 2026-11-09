@@ -173,7 +173,7 @@ test('the token is read again at the point of use, so a fixed or broken file sho
   expect((await agentState(settings, connection)).state).toBe('misconfigured');
 });
 
-test('a rejected token reads disconnected until the file is replaced', async () => {
+test('a rejected token reads disconnected, with the file’s age, until the file is replaced', async () => {
   const { dataDirectory, tokenFile } = await fixture();
   const settings = await readAgentSettings(
     { MIMIR_AGENT_TOKEN_FILE: tokenFile },
@@ -186,9 +186,11 @@ test('a rejected token reads disconnected until the file is replaced', async () 
     throw new Error('expected a ready runtime');
   }
   connection.reject(first.tokenIdentity);
+  // The console says to replace the file, and shows how old the refused one is.
   expect(await agentState(settings, connection)).toEqual({
     reason: 'rejected',
     state: 'disconnected',
+    tokenModifiedAt: first.tokenModifiedAt,
   });
   await writeFile(tokenFile, 'a-new-token-of-another-length');
   expect(await currentAgent(settings, connection)).toMatchObject({

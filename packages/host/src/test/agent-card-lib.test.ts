@@ -6,12 +6,13 @@ import {
   deriveAgentCard,
   formatTokens,
   refusalText,
+  resetText,
   runInScope,
   scopedRun,
   sharePercent,
 } from '../lib/agent-card';
 import { clockTime } from '../lib/time';
-import { agentBudget, agentRun, endedRun, readyPanel, runningActivity } from './agent-fixtures';
+import { agentBudget, agentRun, endedRun, readyCard, runningActivity } from './agent-fixtures';
 import { engineTree } from './engine-fixtures';
 
 describe('formatTokens', () => {
@@ -35,8 +36,8 @@ describe('clockTime', () => {
   });
 });
 
-const derive = (panel: Parameters<typeof deriveAgentCard>[0], grooming: Grooming = 'not_groomed') =>
-  deriveAgentCard(panel, 'MMR-640', grooming).kind;
+const derive = (card: Parameters<typeof deriveAgentCard>[0], grooming: Grooming = 'not_groomed') =>
+  deriveAgentCard(card, 'MMR-640', grooming).kind;
 
 describe('deriveAgentCard', () => {
   it('puts a misconfigured runtime first, with the setting and problem', () => {
@@ -49,46 +50,79 @@ describe('deriveAgentCard', () => {
     ).toEqual({ kind: 'misconfigured', problem: 'unset', setting: 'MIMIR_HOSTS' });
   });
 
-  it('puts a refused token next', () => {
-    expect(derive({ reason: 'rejected', state: 'disconnected' })).toBe('disconnected');
+  it('puts a refused token next, with the token file’s age', () => {
+    const tokenModifiedAt = new Date('2025-11-01T00:00:00.000Z');
+    expect(
+      deriveAgentCard(
+        { reason: 'rejected', state: 'disconnected', tokenModifiedAt },
+        'MMR-640',
+        'not_groomed',
+      ),
+    ).toEqual({ kind: 'disconnected', tokenModifiedAt });
   });
 
-  it('reads a run on this task as running, even when its heartbeat is stale', () => {
-    const run = agentRun({ stale: true });
-    expect(deriveAgentCard(readyPanel({ running: run }), 'MMR-640', 'not_groomed')).toEqual({
+  it('reads managed settings on the host as managed policy, naming the paths', () => {
+    const paths = ['/etc/claude-code/managed-settings.json'];
+    expect(deriveAgentCard({ paths, state: 'managed-policy' }, 'MMR-640', 'groomed')).toEqual({
+      kind: 'managed-policy',
+      paths,
+    });
+  });
+
+  it('reads a live run on this task as running', () => {
+    const run = agentRun();
+    expect(deriveAgentCard(readyCard({ running: run }), 'MMR-640', 'not_groomed')).toEqual({
       kind: 'running',
       run,
     });
   });
 
+  it('reads a stale run on this task as stale, which a start recovers', () => {
+    const run = agentRun({ stale: true });
+    expect(deriveAgentCard(readyCard({ running: run }), 'MMR-640', 'not_groomed')).toEqual({
+      kind: 'stale',
+      run,
+    });
+  });
+
+  it('lets a stale run on another task fall through, since a start recovers it', () => {
+    const stale = agentRun({ stale: true, task: 'MMR-612' });
+    expect(derive(readyCard({ running: stale }))).toBe('ready');
+    expect(derive(readyCard({ hasRemote: false, running: stale }))).toBe('no-remote');
+    expect(derive(readyCard({ budget: agentBudget({ remainingTokens: 0 }), running: stale }))).toBe(
+      'budget',
+    );
+    expect(derive(readyCard({ running: stale }), 'groomed')).toBe('groomed');
+  });
+
   it('reads a run on another task as busy, ahead of every later state', () => {
-    const panel = readyPanel({
+    const card = readyCard({
       budget: agentBudget({ remainingTokens: 0 }),
       hasRemote: false,
       running: agentRun({ task: 'MMR-612' }),
     });
-    expect(derive(panel)).toBe('busy');
+    expect(derive(card)).toBe('busy');
   });
 
   it('reads a missing remote ahead of the budget and the last run', () => {
-    const panel = readyPanel({
+    const card = readyCard({
       budget: agentBudget({ remainingTokens: 0 }),
       hasRemote: false,
       lastRun: endedRun('failed', 'x'),
     });
-    expect(derive(panel)).toBe('no-remote');
+    expect(derive(card)).toBe('no-remote');
   });
 
   it('reads a budget short of one run as budget, ahead of the last run', () => {
-    const panel = readyPanel({
+    const card = readyCard({
       budget: agentBudget({ remainingTokens: 3_999_999 }),
       lastRun: endedRun('failed', 'x'),
     });
-    expect(derive(panel)).toBe('budget');
+    expect(derive(card)).toBe('budget');
   });
 
   it('lets a budget of exactly one run start', () => {
-    expect(derive(readyPanel({ budget: agentBudget({ remainingTokens: 4_000_000 }) }))).toBe(
+    expect(derive(readyCard({ budget: agentBudget({ remainingTokens: 4_000_000 }) }))).toBe(
       'ready',
     );
   });
@@ -96,34 +130,34 @@ describe('deriveAgentCard', () => {
   it.each(['failed', 'cancelled', 'interrupted'] as const)(
     'reads a %s last run as failed',
     (state) => {
-      expect(derive(readyPanel({ lastRun: endedRun(state, 'x') }), 'groomed')).toBe('failed');
+      expect(derive(readyCard({ lastRun: endedRun(state, 'x') }), 'groomed')).toBe('failed');
     },
   );
 
   it('reads a groomed task as groomed, with the succeeded run when there is one', () => {
     const run = endedRun('succeeded', 'Groomed');
-    expect(deriveAgentCard(readyPanel({ lastRun: run }), 'MMR-640', 'groomed')).toEqual({
+    expect(deriveAgentCard(readyCard({ lastRun: run }), 'MMR-640', 'groomed')).toEqual({
       kind: 'groomed',
       run,
     });
-    expect(deriveAgentCard(readyPanel(), 'MMR-640', 'groomed')).toEqual({
+    expect(deriveAgentCard(readyCard(), 'MMR-640', 'groomed')).toEqual({
       kind: 'groomed',
       run: null,
     });
   });
 
   it('reads needs answers after a succeeded run as answers', () => {
-    expect(derive(readyPanel({ lastRun: endedRun('succeeded', 'Asked') }), 'needs_answers')).toBe(
+    expect(derive(readyCard({ lastRun: endedRun('succeeded', 'Asked') }), 'needs_answers')).toBe(
       'answers',
     );
   });
 
   it('offers a start when answers are needed but no run asked', () => {
-    expect(derive(readyPanel(), 'needs_answers')).toBe('ready');
+    expect(derive(readyCard(), 'needs_answers')).toBe('ready');
   });
 
   it('is ready otherwise', () => {
-    expect(derive(readyPanel({ lastRun: endedRun('succeeded', 'Done') }))).toBe('ready');
+    expect(derive(readyCard({ lastRun: endedRun('succeeded', 'Done') }))).toBe('ready');
   });
 });
 
@@ -145,13 +179,14 @@ describe('refusalText', () => {
         reason: 'budget',
         resetsAt: new Date('2026-06-02T00:00:00.000Z'),
         runTokens: 4_000_000,
+        timezone: 'UTC',
         usedTokens: 7_100_000,
       },
-      /reserves 4M tokens and only 2\.9M are left.*8:00 PM/,
+      /reserves 4M tokens and only 2\.9M are left.*resets at 8:00 PM \(midnight UTC\)/,
     ],
     [
       { reason: 'busy', running: { id: 'r', startedAt: new Date(), task: 'MMR-612' } },
-      /grooming MMR-612/,
+      /one started grooming MMR-612 just now\.$/,
     ],
     [{ reason: 'busy', running: null }, /Try again/],
   ];
@@ -191,6 +226,14 @@ describe('work page scope', () => {
     expect(scopedRun({ running: null }, 'MMR')).toBeNull();
     expect(scopedRun(runningActivity(), 'MMR')?.task).toBe('MMR-640');
     expect(scopedRun(runningActivity(), 'OTH')).toBeNull();
+  });
+});
+
+describe('resetText', () => {
+  it('reads the reset in the reader’s zone and names the budget day’s zone', () => {
+    expect(resetText(new Date('2026-06-02T04:00:00.000Z'), 'America/New_York')).toBe(
+      '12:00 AM (midnight America/New_York)',
+    );
   });
 });
 

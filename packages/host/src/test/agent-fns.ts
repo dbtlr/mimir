@@ -1,7 +1,7 @@
 // Shared test seam module, not a test body.
 // oxlint-disable vitest/require-hook
-import { agentActivity, groomPanel, startGroom } from '../api/fns/agent';
-import type { AgentActivity, GroomPanel, GroomStartResult } from '../api/fns/agent';
+import { agentActivity, groomCard, startGroom } from '../api/fns/agent';
+import type { AgentActivity, GroomCard, GroomStartResult } from '../api/fns/agent';
 
 /*
  * The agent server functions served from one state (ADR 0041). A test file
@@ -11,7 +11,7 @@ import type { AgentActivity, GroomPanel, GroomStartResult } from '../api/fns/age
  */
 
 export type AgentWorld = {
-  panel: GroomPanel;
+  card: GroomCard;
   activity: AgentActivity;
   start: GroomStartResult;
 };
@@ -20,11 +20,11 @@ export type AgentWorld = {
 export function serveAgent(world: Partial<AgentWorld> = {}): AgentWorld {
   const state: AgentWorld = {
     activity: { running: null },
-    panel: { state: 'unconfigured' },
+    card: { state: 'unconfigured' },
     start: { runId: 'run-2', state: 'started' },
     ...world,
   };
-  vi.mocked(groomPanel).mockImplementation(async () => state.panel);
+  vi.mocked(groomCard).mockImplementation(async () => state.card);
   vi.mocked(agentActivity).mockImplementation(async () => state.activity);
   vi.mocked(startGroom).mockImplementation(async () => state.start);
   return state;

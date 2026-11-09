@@ -566,6 +566,7 @@ describe('refusals', () => {
       resetsAt: new Date('2026-11-08T05:00:00.000Z'),
       runTokens: 4_000_000,
       started: false,
+      timezone: 'America/New_York',
       usedTokens: 6_500_000,
     });
     expect(zoned.calls).toEqual([]);
@@ -751,6 +752,7 @@ describe('in flight', () => {
     expect(await agentState(settings(), connection)).toEqual({
       reason: 'rejected',
       state: 'disconnected',
+      tokenModifiedAt: expect.any(Date),
     });
   });
 
@@ -816,6 +818,7 @@ describe('in flight', () => {
     expect(await agentState(settings(), connection)).toEqual({
       reason: 'rejected',
       state: 'disconnected',
+      tokenModifiedAt: expect.any(Date),
     });
     expect(await chargedToday()).toBe(0);
   });
@@ -1012,6 +1015,7 @@ describe('status', () => {
         timezone: 'UTC',
         usedTokens: 0,
       },
+      managedPolicy: [],
       model: MODEL,
       running: null,
     });
@@ -1033,8 +1037,20 @@ describe('status', () => {
     expect(await created.status()).toEqual({
       agent: { state: 'unconfigured' },
       budget: null,
+      managedPolicy: [],
       model: null,
       running: null,
     });
+  });
+
+  test('reports the managed settings paths a start would refuse on, before any start', async () => {
+    const managed = runner(never, {
+      managedPolicy: async () => ['/etc/claude-code/managed-settings.json'],
+    });
+    expect((await managed.runner.status()).managedPolicy).toEqual([
+      '/etc/claude-code/managed-settings.json',
+    ]);
+    expect(await runs.running()).toBeUndefined();
+    expect((await runner(never).runner.status()).managedPolicy).toEqual([]);
   });
 });

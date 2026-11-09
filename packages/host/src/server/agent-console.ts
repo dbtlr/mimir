@@ -6,10 +6,11 @@ import type {
   AgentActivity,
   AgentConsole,
   AgentRunView,
-  GroomPanel,
+  GroomCard,
   GroomRefusal,
   GroomStartResult,
 } from './agent-console-states';
+import { usableRemote } from './agent-runner';
 import type { AgentRunner, AgentStatus, RunningRun, RunOutcome, RunRefusal } from './agent-runner';
 import { usageTotal } from './agent-usage';
 import { groomableTarget, groomBrief } from './groom-brief';
@@ -87,6 +88,7 @@ function groomRefusal(refusal: RunRefusal): GroomRefusal {
         reason: 'budget',
         resetsAt: refusal.resetsAt,
         runTokens: refusal.runTokens,
+        timezone: refusal.timezone,
         usedTokens: refusal.usedTokens,
       };
     }
@@ -135,7 +137,7 @@ export function createAgentConsole(options: AgentConsoleOptions): AgentConsole {
   };
 
   const hasRemote = async (project: string) =>
-    ((await lookup(project, (node) => node.remote?.trim())) ?? '') !== '';
+    (await lookup(project, (node) => usableRemote(node.remote))) ?? false;
 
   /** Log the run's outcome line once it settles; `finished` never rejects. */
   const logOutcome = async (task: string, finished: Promise<RunOutcome>) => {
@@ -148,18 +150,26 @@ export function createAgentConsole(options: AgentConsoleOptions): AgentConsole {
     return run === undefined || run.project !== target.project ? null : runView(run, false);
   };
 
-  const panel: AgentConsole['panel'] = async (target): Promise<GroomPanel> => {
+  const card: AgentConsole['card'] = async (target): Promise<GroomCard> => {
     const status = await agent.status();
     const { agent: state } = status;
     if (state.state === 'misconfigured') {
       return { problem: state.problem, setting: state.setting, state: 'misconfigured' };
     }
     if (state.state === 'disconnected') {
-      return { reason: state.reason, state: 'disconnected' };
+      return {
+        reason: state.reason,
+        state: 'disconnected',
+        tokenModifiedAt: state.tokenModifiedAt,
+      };
     }
     const ready = configured(status);
     if (ready === null) {
       return { state: 'unconfigured' };
+    }
+    // Shown before a click: a start would be refused on it.
+    if (status.managedPolicy.length > 0) {
+      return { paths: status.managedPolicy, state: 'managed-policy' };
     }
     return {
       budget: ready.budget,
@@ -201,5 +211,5 @@ export function createAgentConsole(options: AgentConsoleOptions): AgentConsole {
     return { runId: start.runId, state: 'started' };
   };
 
-  return { activity, panel, startGroom };
+  return { activity, card, startGroom };
 }

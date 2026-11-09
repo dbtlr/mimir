@@ -105,6 +105,8 @@ export type RunRefusal =
       dailyTokens: number;
       /** When the budget day resets. */
       resetsAt: Date;
+      /** The budget day's IANA time zone, whose midnight `resetsAt` is. */
+      timezone: string;
     }
   /**
    * Another run holds the one running slot. `running` is null when that run
@@ -130,6 +132,14 @@ export type RunOutcome = {
 export type StartRunResult =
   | { started: true; runId: string; finished: Promise<RunOutcome> }
   | ({ started: false } & RunRefusal);
+
+/**
+ * Whether a project's remote is one the host can clone: set and not blank.
+ * The runner refuses a start on any other, and the console's card says so.
+ */
+export function usableRemote(remote: string | null | undefined): remote is string {
+  return remote !== null && remote !== undefined && remote.trim() !== '';
+}
 
 /** The day's budget as the console shows it. */
 export type AgentBudgetStatus = {
@@ -160,6 +170,11 @@ export type AgentStatus = {
   budget: AgentBudgetStatus | null;
   /** The model a new run uses; null while agent runs are unconfigured. */
   model: string | null;
+  /**
+   * The Claude Code managed settings paths present on the host, which a start
+   * refuses on; empty when there are none or agent runs are unconfigured.
+   */
+  managedPolicy: string[];
   running: RunningRun | null;
 };
 
@@ -321,9 +336,7 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
       return { lifecycle: String(node.lifecycle), reason: 'task-not-todo' };
     }
     const { remote } = await engine.getNode({ id: input.project });
-    return remote === null || remote === undefined || remote.trim() === ''
-      ? { reason: 'no-remote' }
-      : { remote };
+    return usableRemote(remote) ? { remote } : { reason: 'no-remote' };
   };
 
   /**
@@ -385,6 +398,7 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
           reason: 'budget',
           resetsAt: day.resetsAt,
           runTokens: budget.runTokens,
+          timezone: budget.timezone,
           usedTokens: admitted.used,
         });
       }
@@ -663,7 +677,7 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
         ? null
         : { run: holder, stale: new Date(holder.heartbeat_at).getTime() < staleBefore };
     if (!settings.enabled) {
-      return { agent, budget: null, model: null, running };
+      return { agent, budget: null, managedPolicy: [], model: null, running };
     }
     const { budget } = settings;
     const day = budgetDay(clock(), budget.timezone);
@@ -678,6 +692,7 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
         timezone: budget.timezone,
         usedTokens,
       },
+      managedPolicy: await managedPolicy(),
       model: settings.model,
       running,
     };

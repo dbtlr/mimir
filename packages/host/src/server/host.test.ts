@@ -456,11 +456,12 @@ test('the host interrupts a stale run at boot and exposes the runs, the agent ru
     expect(await host.agent.status()).toEqual({
       agent: { state: 'unconfigured' },
       budget: null,
+      managedPolicy: [],
       model: null,
       running: null,
     });
     // The console reads the same runner: no card, and no running run for Now.
-    expect(await host.agentConsole.panel({ project: 'TST', task: 'TST-1' })).toEqual({
+    expect(await host.agentConsole.card({ project: 'TST', task: 'TST-1' })).toEqual({
       state: 'unconfigured',
     });
     expect(await host.agentConsole.activity()).toEqual({ running: null });

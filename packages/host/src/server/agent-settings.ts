@@ -345,7 +345,7 @@ export async function currentAgent(
     return { state: 'misconfigured', ...token.problem };
   }
   if (connection.rejected(token.identity)) {
-    return { reason: 'rejected', state: 'disconnected' };
+    return { reason: 'rejected', state: 'disconnected', tokenModifiedAt: token.modifiedAt };
   }
   return {
     state: 'ready',

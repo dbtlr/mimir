@@ -51,10 +51,13 @@ export type AgentBudgetView = {
  * The agent card on one task's page. `unconfigured` hides the card. The card
  * shows only on `todo` tasks; the page decides that from the task itself.
  */
-export type GroomPanel =
+export type GroomCard =
   | { state: 'unconfigured' }
   | ({ state: 'misconfigured' } & AgentMisconfiguration)
-  | { state: 'disconnected'; reason: AgentDisconnection }
+  /** The API refused the token; `tokenModifiedAt` is the refused file's modification time. */
+  | { state: 'disconnected'; reason: AgentDisconnection; tokenModifiedAt: Date }
+  /** Claude Code managed settings exist on the host, so every start would be refused. */
+  | { state: 'managed-policy'; paths: string[] }
   | {
       state: 'ready';
       /** The model a new run uses. */
@@ -91,6 +94,8 @@ export type GroomRefusal =
       runTokens: number;
       dailyTokens: number;
       resetsAt: Date;
+      /** The budget day's IANA time zone, whose midnight `resetsAt` is. */
+      timezone: string;
     }
   /** Another run holds the slot; `running` is null when it ended before it could be read. */
   | { reason: 'busy'; running: { id: string; task: string; startedAt: Date } | null };
@@ -108,7 +113,7 @@ export type GroomTarget = { project: string; task: string };
  * the T3 adapter. Each method answers a tagged state.
  */
 export type AgentConsole = {
-  panel: (target: GroomTarget) => Promise<GroomPanel>;
+  card: (target: GroomTarget) => Promise<GroomCard>;
   activity: () => Promise<AgentActivity>;
   startGroom: (target: GroomTarget) => Promise<GroomStartResult>;
 };

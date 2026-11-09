@@ -617,6 +617,38 @@ describe.each([
     expect((await runs.lastEnded('MMR-2'))?.id).toBe('other');
   });
 
+  test("a task's last ended run orders by start, whatever the insertion or id order", async () => {
+    const { advance, runs } = await fixture();
+    const closing = {
+      costEstimateUsd: null,
+      outcome: 'done',
+      state: 'succeeded' as const,
+      usage: USAGE,
+      usageSettled: true,
+    };
+    const ran = async (id: string, task: string) => {
+      await runs.admit({ ...admission(id), task });
+      await runs.close(id, 'host-a', closing);
+    };
+    // Inserted first with the largest id, then the latest start with the
+    // smallest id, then one between: only the start order picks `r-a`.
+    await ran('r-c', 'MMR-1');
+    advance(1_000);
+    await ran('r-a', 'MMR-1');
+    advance(-500);
+    await ran('r-b', 'MMR-1');
+    expect((await runs.lastEnded('MMR-1'))?.id).toBe('r-a');
+    // A tie on start goes to the larger id, inserted last on one task and
+    // first on the other, so no insertion order breaks both ties right.
+    advance(10_000);
+    await ran('t-a', 'MMR-2');
+    await ran('t-b', 'MMR-2');
+    await ran('u-b', 'MMR-3');
+    await ran('u-a', 'MMR-3');
+    expect((await runs.lastEnded('MMR-2'))?.id).toBe('t-b');
+    expect((await runs.lastEnded('MMR-3'))?.id).toBe('u-b');
+  });
+
   test('usage since refuses an instant that is not a date', async () => {
     const { runs } = await fixture();
     expect(await failureOf(runs.tokensUsedSince('yesterday'))).toMatchObject({

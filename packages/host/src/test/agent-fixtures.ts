@@ -1,6 +1,6 @@
 // Shared test fixtures module, not a test body.
 // oxlint-disable vitest/require-hook
-import type { AgentActivity, AgentBudgetView, AgentRunView, GroomPanel } from '../api/fns/agent';
+import type { AgentActivity, AgentBudgetView, AgentRunView, GroomCard } from '../api/fns/agent';
 
 /*
  * The agent runtime's console reads as the host answers them, with `Date`
@@ -57,9 +57,9 @@ export function agentBudget(overrides: Partial<AgentBudgetView> = {}): AgentBudg
 }
 
 /** A ready runtime with a free slot and a remote; override the slot, last run, or budget. */
-export function readyPanel(
-  overrides: Partial<Extract<GroomPanel, { state: 'ready' }>> = {},
-): Extract<GroomPanel, { state: 'ready' }> {
+export function readyCard(
+  overrides: Partial<Extract<GroomCard, { state: 'ready' }>> = {},
+): Extract<GroomCard, { state: 'ready' }> {
   return {
     budget: agentBudget(),
     hasRemote: true,

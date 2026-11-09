@@ -61,7 +61,8 @@ function ContextPart({ children, mono = false }: { children: ReactNode; mono?: b
   );
 }
 
-export function NowRow({ row }: { row: NowTask }) {
+/** A Now task's row; `agent` is the agent run grooming it, when one is. */
+export function NowRow({ row, agent }: { row: NowTask; agent?: AgentRun }) {
   return (
     <BrowserRow
       to={nodeLink(row.task.id)}
@@ -91,6 +92,9 @@ export function NowRow({ row }: { row: NowTask }) {
             )}
             {row.task.branch != null && <ContextPart mono>{row.task.branch}</ContextPart>}
             {row.scratchpads.length > 0 && <ContextPart>Scratchpad open</ContextPart>}
+            {agent !== undefined && (
+              <ContextPart>Agent grooming{agent.stale ? ', stopped reporting' : ''}</ContextPart>
+            )}
             <OpenInT3 harness={row.task.harness} host={row.task.host} session={row.task.session} />
           </p>
           {row.latestNote !== null && (
@@ -127,7 +131,10 @@ export function AgentNowRow({ run }: { run: AgentRun }) {
 }
 
 function NowSection({ rows, agentRun }: { rows: readonly NowTask[]; agentRun: AgentRun | null }) {
-  const count = rows.length + (agentRun === null ? 0 : 1);
+  // A task already in Now (queued while the agent grooms it) carries the agent on its own row.
+  const agentOnRow = agentRun !== null && rows.some((row) => row.task.id === agentRun.task);
+  const agentRow = agentOnRow ? null : agentRun;
+  const count = rows.length + (agentRow === null ? 0 : 1);
   return (
     <BrowserGroup
       label="Now"
@@ -138,9 +145,13 @@ function NowSection({ rows, agentRun }: { rows: readonly NowTask[]; agentRun: Ag
         <Empty lead="Nothing running.">No task is queued, in progress, or in review.</Empty>
       ) : (
         <>
-          {agentRun !== null && <AgentNowRow run={agentRun} />}
+          {agentRow !== null && <AgentNowRow run={agentRow} />}
           {rows.map((row) => (
-            <NowRow key={row.task.id} row={row} />
+            <NowRow
+              key={row.task.id}
+              row={row}
+              agent={agentRun?.task === row.task.id ? agentRun : undefined}
+            />
           ))}
         </>
       )}

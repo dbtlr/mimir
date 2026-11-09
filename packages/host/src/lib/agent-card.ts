@@ -1,6 +1,6 @@
 import type { EngineTree, Grooming } from '@mimir/contract';
 
-import type { AgentActivity, AgentRunView, GroomPanel, GroomRefusal } from '../api/fns/agent';
+import type { AgentActivity, AgentRunView, GroomCard, GroomRefusal } from '../api/fns/agent';
 import { ancestorsOf } from './ancestry';
 import { ago, clockTime } from './time';
 
@@ -20,17 +20,20 @@ export function formatTokens(tokens: number): string {
   return `${String(Number((tokens / 1_000_000).toFixed(2)))}M`;
 }
 
-/** A panel with the runtime ready: it carries the budget, the slot, and the last run. */
-export type ReadyPanel = Extract<GroomPanel, { state: 'ready' }>;
+/** A card read with the runtime ready: it carries the budget, the slot, and the last run. */
+export type ReadyCard = Extract<GroomCard, { state: 'ready' }>;
 
-/** A panel that shows a card: everything but `unconfigured`. */
-export type ShownPanel = Exclude<GroomPanel, { state: 'unconfigured' }>;
+/** A card read that shows a card: everything but `unconfigured`. */
+export type ShownCard = Exclude<GroomCard, { state: 'unconfigured' }>;
 
 /** Which card to draw, in the order the states take priority. */
 export type AgentCardView =
   | { kind: 'misconfigured'; setting: string; problem: string }
-  | { kind: 'disconnected' }
+  | { kind: 'disconnected'; tokenModifiedAt: Date }
+  | { kind: 'managed-policy'; paths: string[] }
   | { kind: 'running'; run: AgentRunView }
+  /** This task's run stopped reporting; a start marks it interrupted and takes the slot. */
+  | { kind: 'stale'; run: AgentRunView }
   | { kind: 'busy'; run: AgentRunView }
   | { kind: 'no-remote' }
   | { kind: 'budget' }
@@ -47,33 +50,35 @@ const ENDED_BADLY: ReadonlySet<AgentRunView['state']> = new Set([
 
 /**
  * The card for one task: the runtime's state first, then the slot, the remote,
- * the budget, and the task's own last run and grooming.
+ * the budget, and the task's own last run and grooming. A stale run holds the
+ * slot only until the next start, which marks it interrupted, so it blocks
+ * nothing: on another task the card reads on as if the slot were free.
  */
-export function deriveAgentCard(
-  panel: ShownPanel,
-  task: string,
-  grooming: Grooming,
-): AgentCardView {
-  if (panel.state === 'misconfigured') {
+export function deriveAgentCard(card: ShownCard, task: string, grooming: Grooming): AgentCardView {
+  if (card.state === 'misconfigured') {
     return {
       kind: 'misconfigured',
-      problem: panel.problem,
-      setting: panel.setting,
+      problem: card.problem,
+      setting: card.setting,
     };
   }
-  if (panel.state === 'disconnected') {
-    return { kind: 'disconnected' };
+  if (card.state === 'disconnected') {
+    return { kind: 'disconnected', tokenModifiedAt: card.tokenModifiedAt };
   }
-  const { running, lastRun } = panel;
-  if (running !== null) {
-    return running.task === task
-      ? { kind: 'running', run: running }
-      : { kind: 'busy', run: running };
+  if (card.state === 'managed-policy') {
+    return { kind: 'managed-policy', paths: card.paths };
   }
-  if (!panel.hasRemote) {
+  const { running, lastRun } = card;
+  if (running !== null && running.task === task) {
+    return { kind: running.stale ? 'stale' : 'running', run: running };
+  }
+  if (running !== null && !running.stale) {
+    return { kind: 'busy', run: running };
+  }
+  if (!card.hasRemote) {
     return { kind: 'no-remote' };
   }
-  if (panel.budget.remainingTokens < panel.budget.runTokens) {
+  if (card.budget.remainingTokens < card.budget.runTokens) {
     return { kind: 'budget' };
   }
   if (lastRun !== null && ENDED_BADLY.has(lastRun.state)) {
@@ -87,6 +92,14 @@ export function deriveAgentCard(
     return { kind: 'answers', run: succeeded };
   }
   return { kind: 'ready' };
+}
+
+/**
+ * When the budget day resets: the time in the reader's zone, and the budget
+ * day's own zone, whose midnight it is. "7:00 PM (midnight UTC)".
+ */
+export function resetText(resetsAt: Date, timezone: string): string {
+  return `${clockTime(resetsAt)} (midnight ${timezone})`;
 }
 
 /** The worded reason a start did not happen. */
@@ -111,15 +124,15 @@ export function refusalText(refusal: GroomRefusal): string {
       return `Only a todo task can be groomed, and this one is ${refusal.lifecycle}.`;
     }
     case 'no-remote': {
-      return "The project has no remote for the agent to read. Set one with mimir update and --remote.";
+      return 'The project has no remote for the agent to read. Set one with mimir update and --remote.';
     }
     case 'budget': {
-      return `A run reserves ${formatTokens(refusal.runTokens)} tokens and only ${formatTokens(Math.max(0, refusal.dailyTokens - refusal.usedTokens))} are left today. The budget resets at ${clockTime(refusal.resetsAt)}.`;
+      return `A run reserves ${formatTokens(refusal.runTokens)} tokens and only ${formatTokens(Math.max(0, refusal.dailyTokens - refusal.usedTokens))} are left today. The budget resets at ${resetText(refusal.resetsAt, refusal.timezone)}.`;
     }
     default: {
       return refusal.running === null
         ? 'Another run was holding the slot and has just ended. Try again.'
-        : `Agents run one at a time, and one has been grooming ${refusal.running.task} since ${ago(refusal.running.startedAt)}.`;
+        : `Agents run one at a time, and one started grooming ${refusal.running.task} ${ago(refusal.running.startedAt)}.`;
     }
   }
 }

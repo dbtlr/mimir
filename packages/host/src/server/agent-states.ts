@@ -21,11 +21,12 @@ export type AgentMisconfiguration = { setting: AgentSetting; problem: AgentProbl
 export type AgentDisconnection = 'rejected';
 
 /**
- * The agent runtime's state. `ready` carries the token file's modification
- * time, which the console shows as the token's age.
+ * The agent runtime's state. `ready` and `disconnected` carry the token
+ * file's modification time, which the console shows as the token's age: a
+ * refused token is replaced by replacing the file.
  */
 export type AgentState =
   | { state: 'unconfigured' }
   | ({ state: 'misconfigured' } & AgentMisconfiguration)
-  | { state: 'disconnected'; reason: AgentDisconnection }
+  | { state: 'disconnected'; reason: AgentDisconnection; tokenModifiedAt: Date }
   | { state: 'ready'; tokenModifiedAt: Date };
