@@ -54,9 +54,10 @@ import { loadWorkingSet } from './working-set';
  *
  * **The export never refuses.** A backup holding a damaged row can be repaired
  * and imported, while a refused export leaves the store with no backup at all.
- * The schema makes most corrupt states unrepresentable, but not every one: an
- * open task with no hold and a `hold_reason` exports as stored, and the import
- * refuses it with a message that names the task (MMR-621).
+ * The keys make orphans, colliders, and dangling edges unrepresentable, but the
+ * columns do not encode every cross-field rule. For example, an open task with
+ * no hold and a `hold_reason` exports as stored, and the import refuses it with
+ * a message that names the task (MMR-621).
  *
  * **Import compares through the export.** A `resume` must skip a record a prior
  * run already wrote and refuse one that differs, which means deciding whether
