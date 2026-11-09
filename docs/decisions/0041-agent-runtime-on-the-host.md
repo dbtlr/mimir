@@ -452,3 +452,70 @@ These are two more guarantees for the list in "The SDK is pinned", re-tested
 against the real CLI before the pin moves: the gate and the tool name the same
 file, and an `Agent` call that omits the flag runs its reader in the
 foreground, so the result message arrives after every reader finishes.
+
+## Refinement (2026-11-09, MMR-635): the operator can cancel a run
+
+Until now a run ended only on its own, at its token ceiling, at `maxTurns`,
+or when its runner lost the row. The console can now cancel a running run.
+
+**Who may cancel, and which runs.** Cancel is a console action, offered
+wherever the console shows the running run: the task page's agent card and
+the work page's Now. It reaches the host through a POST server function, so
+the same-origin guard and `MIMIR_HOSTS` that bound a start also bound a
+cancel ("Who may start a run"). Only the host process that owns a run can
+cancel it, because only that process holds the run's SDK query. A cancel
+names a run id and answers one of four ways:
+
+- **cancelling**: this process is running that run, and the runner has begun
+  to stop it;
+- **another host**: a live run whose `runner` is another process, as in an
+  overlapping deploy. It is refused, since nothing reaches the other process;
+  that run finishes, or its row goes stale;
+- **stale**: a running row whose heartbeat is older than the stale window. It
+  is refused, since a new start already marks it `interrupted`;
+- **ended**: the run is no longer running, and the answer gives the state it
+  ended in. A cancel that races the run's own end lands here.
+
+No cross-host cancel channel exists, and `runs` gains no cancel-request
+column.
+
+**How a run stops.** A run's prompt goes to the SDK in streaming-input
+mode, as an input stream that stays open until the run's result arrives,
+because the SDK's `interrupt()` works only in that mode. A cancel calls
+`interrupt()`. The ceiling and lost-row aborts still use the run's
+`AbortController`. If no result arrives within a short grace period after the
+interrupt, the runner aborts the run through the controller as well.
+
+**What a cancel charges.** On SDK 0.3.318 with its pinned Claude Code, the
+interrupt resolves in under 100 ms, and the stream then yields a result with
+subtype `error_during_execution`. That result's `modelUsage` covers every
+completed turn, the readers' completed turns included, but leaves out the main
+turn that was in flight, whose input the API had already processed (in one
+spike run, about 33k tokens). So the interrupt result is a lower bound, and
+"Settlement" (in "The budget is a token count Mimir keeps") cannot take it as
+the total. A cancelled run is charged instead:
+
+- **with a result**: the larger of its `modelUsage` total and the runner's
+  in-flight estimate, which is the main agent's streamed usage (the in-flight
+  turn included) plus the per-turn output allowance and the per-reader spawn
+  allowance. That is the same estimate that enforces the ceiling. The row's
+  four usage counts record `modelUsage` as reported, and the charge is
+  recorded separately (below). A run with no readers is charged close to its
+  real usage, and a run with readers is charged each reader's allowance, still
+  below its reservation;
+- **with no result** (the grace period ran out): as any run with no valid
+  total, the larger of its reservation and its streamed usage.
+
+**Migration 0014 records the charge.** `runs` gains `charged_tokens`, a
+nullable count. When it is set it is the run's charge against the day's
+budget, in place of the rule that reads the usage counts and the
+reservation. Only a cancel that ended with a result sets it. Every other run
+leaves it null and is charged as before. The schema moves to version 14.
+`runs` stays host transport data, so the contract, the wire, the CLI, and MCP
+do not change.
+
+**The pin re-tests it.** "The SDK is pinned" gains one more guarantee,
+re-tested against the real CLI before the pin moves: after `interrupt()` the
+run yields a result within the grace period. If a later CLI starts counting
+the in-flight turn in `modelUsage`, the larger-of rule still charges
+correctly, and the pin note records the change.
