@@ -52,6 +52,7 @@ vi.mock('@tanstack/react-start', async (importOriginal) => {
 // environment; no stubbed server function reaches it.
 // oxlint-disable-next-line vitest/require-hook
 vi.mock('../api/fns/engine', () => ({
+  agentConsole: vi.fn(),
   deviceTokens: vi.fn(),
   engine: vi.fn(),
   requestOrigin: vi.fn(),

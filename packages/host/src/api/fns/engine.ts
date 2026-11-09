@@ -1,6 +1,7 @@
 import type { Engine } from '@mimir/contract';
 import { getRequest } from '@tanstack/react-start/server';
 
+import type { AgentConsole } from '../../server/agent-console-states';
 import type { DeviceTokens } from '../../server/devices';
 import { hostRuntime } from '../../server/runtime';
 import type { T3Adapter } from '../../server/t3';
@@ -43,6 +44,16 @@ export async function deviceTokens(): Promise<DeviceTokens> {
  */
 export async function t3Integration(): Promise<T3Adapter> {
   return (await hostRuntime()).t3;
+}
+
+/**
+ * The agent runtime's console surface (ADR 0041, MMR-633): the task card's
+ * read, the running run for Now, and Groom with agent. Like
+ * {@link t3Integration}, a host concern beside the Engine; the token and the
+ * runs table stay on the host.
+ */
+export async function agentConsole(): Promise<AgentConsole> {
+  return (await hostRuntime()).agentConsole;
 }
 
 /**
