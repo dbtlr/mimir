@@ -457,105 +457,77 @@ foreground, so the result message arrives after every reader finishes.
 
 Until now a run ended only on its own: with its result, at its token ceiling,
 at `maxTurns`, or when its runner lost the row. The console can now cancel a
-running run.
+running run. A cancel stops the run at its next tool call, through the gate,
+so the run still ends with a result and settles on its real usage.
 
 **Who may cancel, and which runs.** Cancel is a console action, offered
-wherever the console shows the running run: the task page's agent card and
-the work page's Now. It reaches the host through a POST server function under
-Start's CSRF check, so what bounds a start bounds a cancel ("Who may start a
-run"). Only the host process that owns a run can cancel it, because only that
-process holds the run. A cancel names a run id, and the answer is the first of
-these that holds:
+wherever the console shows a running run that is not stale: the task page's
+agent card and the work page's Now. It reaches the host through a POST server
+function under Start's CSRF check, so what bounds a start bounds a cancel
+("Who may start a run"). Only the host process that owns a run can cancel it.
+A process holds a run from admission until its close write, in a process-local
+registry keyed by run id. A cancel names a run id. The process first checks
+its registry and records the cancel there, with no await in between, and then
+answers with the first of these that holds:
 
-1. **unknown**: no row has that id.
-2. **ended**: the row is no longer running. The answer gives the state it
+1. **cancelling**: this process holds the run, and no result has arrived. The
+   cancel is recorded. A second cancel of the same run answers the same way
+   and changes nothing.
+2. **ending**: this process holds the run, and its result has already
+   arrived. The cancel changes nothing, and the run closes as its result
+   says.
+3. **unknown**: no row has that id.
+4. **ended**: the row is no longer running. The answer gives the state it
    ended in.
-3. **cancelling**: this process holds the run, whatever its heartbeat says.
-   The runner has begun to stop it. A second cancel of the same run answers
-   the same way and changes nothing.
-4. **stale**: the row's heartbeat is older than the stale window. It is
-   refused, since a new start already marks it `interrupted`.
-5. **another host**: the run belongs to another live process, as in an
-   overlapping deploy. It is refused, since nothing reaches the other
-   process. That run finishes or goes stale. The console says that a retry
-   may reach the owning host.
+5. **stale**: the row's heartbeat is older than the stale window. This
+   includes a row this process owns but no longer holds, because its close
+   write failed. It is refused, since the next admission marks it
+   `interrupted`.
+6. **another host**: the row's `runner` is another process. It is refused,
+   since nothing reaches that process. The run finishes, or goes stale if its
+   process has stopped.
 
-No cross-host cancel channel exists, and `runs` gains no cancel-request
-column.
+No cross-host cancel channel exists, and `runs` gains no column.
 
-**How a run stops.** A run's prompt goes to the SDK in streaming-input mode,
-as an input stream that the runner closes once the result arrives and on every
-other exit path, because the SDK's `interrupt()` works only in that mode. The
-ceiling and lost-row aborts still use the run's `AbortController`, and the
-first reason to stop a run, cancel included, is the one its outcome records.
-A cancel stops a run in one of three ways:
+**How a cancelled run stops.** Once a cancel is recorded:
 
-- **Before the SDK query starts** (during the clone sync or the run's setup),
-  the cancel is recorded, and the runner checks it before it creates the
-  query. A sync already under way finishes, and the run closes as
-  `cancelled` with no usage, settled, so it is charged nothing.
-- **Once the query exists**, the runner calls `interrupt()`. If the interrupt
-  rejects, or no result arrives within `CANCEL_GRACE_MS` (10 seconds, well
-  inside the 2-minute stale window), the runner aborts the run through its
-  controller.
-- **If the run's own result arrives first**, that result decides the row:
-  a `success` result settles as `succeeded` under the existing rule, and
-  only the interrupt's result takes the cancel rule below.
+- **The gate stops the next tool call.** Every tool call, the main agent's
+  and a reader's, the run grant's included, passes the one gate ("One gate,
+  deny by default, failing closed"). After a cancel the gate denies each call
+  and answers `continue: false`, which ends the run. The run grant also refuses
+  every write once a cancel is recorded. The CLI then ends the run with a
+  result. In the spike (SDK 0.3.318 with its pinned Claude Code) the result
+  had subtype `success` and arrived 40 ms after the cancel, or 4.5 s when a
+  reader was running, because the reader stopped first and then the main
+  agent. Its `modelUsage` matched the sum of every streamed turn, the reader's
+  included. The turn being generated when the cancel lands finishes first, so
+  a cancel takes effect at the end of that turn. A turn that ends with no tool
+  call ends the run on its own.
+- **Before the SDK query starts**, during the clone sync or the run's setup,
+  the runner checks for a cancel before it creates the query. A sync already
+  under way finishes, and the run closes as `cancelled` with no usage,
+  settled, so it is charged nothing, whatever the sync's result.
+- **If no result arrives within `CANCEL_GRACE_MS`** (2 minutes) of the
+  cancel, the runner aborts the run through its controller.
 
-**What a cancel charges.** On SDK 0.3.318 with its pinned Claude Code, the
-interrupt resolves in under 100 ms, and the stream then yields a result with
-subtype `error_during_execution`. After that result the SDK's iterator throws,
-and the runner treats the throw as the stream's end. That result's
-`modelUsage` covers every completed turn, readers' completed turns included,
-but leaves out the main turn in flight, whose input the API had already
-processed (about 33k tokens in one spike run). An assistant message streams
-only once its first content block completes, so a turn cancelled earlier than
-that appears in neither `modelUsage` nor the streamed usage. The interrupt
-result is therefore a lower bound, and the existing check that rejects a
-total below the streamed usage does not apply to it. A cancelled run closes as
-`cancelled`, with an outcome line that names the console as the reason, and is
-charged:
-
-- **with a result whose `modelUsage` entries are all valid counts**: the
-  larger of the `modelUsage` total and the runner's in-flight estimate (the
-  main agent's streamed usage plus the per-turn output allowance and the
-  per-reader spawn allowance, the estimate that enforces the ceiling), plus
-  one in-flight turn allowance. That allowance is the last streamed main
-  turn's input-side tokens (input, cache reads, and cache writes) plus the
-  per-turn output allowance, or `FIRST_TURN_ALLOWANCE` (40,000 tokens) when no
-  main turn has streamed. The row's four usage counts record `modelUsage` as
-  reported, `usage_settled` is true, and the charge is recorded separately
-  (below). The allowance may count a turn twice; it errs toward charging
-  more;
-- **with no result, or a result with an invalid entry**: as any run with no
-  valid total, the larger of its reservation and its streamed usage,
-  unsettled.
-
-A cancel during the first turn is therefore charged at least the first-turn
-allowance, so starting and cancelling runs in a loop cannot spend tokens the
-budget does not count. A later turn's input is at least the last one's, so
-the allowance can still undercount the turn in flight by that turn's growth: a
-small error on a run already charged most of its usage.
-
-**Migration 0014 records the charge.** The table in "A run is a host-owned
-record" gains `charged_tokens`, a nullable count. When it is set it is the
-run's charge against the day's budget, and the rule that reads the usage
-counts and the reservation does not apply; admission's sum and the console's
-budget both read it through the one charge function. Only a cancel with a
-valid result sets it. Every other run leaves it null and is charged as
-before. The console shows a cancelled run's charge beside what it reports
-used. The schema moves to version 14. `runs` stays host transport data, so
-the contract, the wire, the CLI, and MCP do not change.
+**How a cancelled run closes.** A run whose cancel was recorded before its
+result arrived closes as `cancelled`, whatever the result's subtype. Its usage
+settles under the existing rule ("Settlement"): `modelUsage`, summed over
+every model, when it is a valid total, and otherwise the larger of the
+reservation and the streamed usage. A run aborted after the grace period, or
+stopped by its ceiling while it was stopping, has no result, so it is charged
+the larger of its reservation and its streamed usage. The first reason to stop
+a run is the one its outcome records, so a cancelled run's outcome line names
+the console. A run stopped by its ceiling also closes as `cancelled`, and its
+outcome line names the ceiling. A run whose result arrived before the cancel
+closes as that result says. The console shows "Stopping" on a run with a
+recorded cancel until its row closes.
 
 **A write in flight can still land.** As with a lost row, a run-grant write
-whose row check passed before the cancel can land after the row reads
-`cancelled`. It lands on the run's own task, where the operator sees it.
+whose check passed before the cancel was recorded can land after it. It lands
+on the run's own task, where the operator sees it.
 
-**The pin re-tests it.** Streaming-input mode is now the path every run takes,
-so the whole list in "The SDK is pinned" is re-tested in that mode before the
-pin moves: the gate's coverage, `onFailure: "block"`, the managed-settings
-check, the subagent limits, the usage fields, and a reader finishing before
-the result. The list gains one guarantee: after `interrupt()`, the run yields
-a result within `CANCEL_GRACE_MS`. If a later CLI counts the in-flight turn in
-`modelUsage`, the charge above still covers it, and the pin note records the
-change.
+**The pin re-tests it.** "The SDK is pinned" gains one guarantee, re-tested
+against the real CLI before the pin moves: a `PreToolUse` hook that answers
+`continue: false` ends the run with a result whose `modelUsage` covers every
+turn, a reader's included.
