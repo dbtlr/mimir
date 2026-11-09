@@ -141,7 +141,8 @@ describe('no start', () => {
     await show(readyPanel({ hasRemote: false }));
     const region = await card();
     expect(region).toHaveTextContent(/MMR has none/);
-    expect(region).toHaveTextContent(/project's settings/);
+    // The console has no remote field; the CLI sets it.
+    expect(region).toHaveTextContent('mimir update MMR --remote <url>');
     expect(button('Groom with agent')).toBeDisabled();
   });
 

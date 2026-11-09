@@ -330,8 +330,8 @@ function Active({
       return (
         <Frame title="No code to read">
           <Say>
-            The agent reads the project&apos;s code from its remote, and {project} has none. Add a
-            remote in the project&apos;s settings.
+            The agent reads the project&apos;s code from its remote, and {project} has none. Set one
+            with <code className="font-mono text-mono-id">mimir update {project} --remote &lt;url&gt;</code>.
           </Say>
           <div className="flex items-center gap-3">{button}</div>
         </Frame>

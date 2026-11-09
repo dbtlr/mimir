@@ -111,7 +111,7 @@ export function refusalText(refusal: GroomRefusal): string {
       return `Only a todo task can be groomed, and this one is ${refusal.lifecycle}.`;
     }
     case 'no-remote': {
-      return "The project has no remote for the agent to read. Add one in the project's settings.";
+      return "The project has no remote for the agent to read. Set one with mimir update and --remote.";
     }
     case 'budget': {
       return `A run reserves ${formatTokens(refusal.runTokens)} tokens and only ${formatTokens(Math.max(0, refusal.dailyTokens - refusal.usedTokens))} are left today. The budget resets at ${clockTime(refusal.resetsAt)}.`;
