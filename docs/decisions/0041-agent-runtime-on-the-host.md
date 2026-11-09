@@ -461,9 +461,9 @@ its runner lost the row. The console can now cancel a
 running run. A cancel stops the run at its next tool call, through the gate,
 so the run normally still ends with a result and settles on its real usage.
 
-**Who may cancel, and which runs.** Cancel is a console action, offered
-wherever the console shows a running run that the serving process holds: the
-task page's agent card and the work page's Now. It reaches the host through a POST server
+**Who may cancel, and which runs.** The console's **Stop** cancels a run. It
+is offered wherever the console shows a running run that the serving process
+holds and that is not stale: the task page's agent card and the work page's Now. It reaches the host through a POST server
 function under Start's CSRF check, and the console stays unauthenticated on a
 single-user tailnet ("Who may start a run"). The budget and the one running
 slot do not bound a cancel. A start cancelled during its clone sync is charged
@@ -501,7 +501,7 @@ before it, and then answers with the first of these that holds. Only a
 No cross-host cancel channel exists, and `runs` gains no column. The console
 views read from the registry whether the serving process holds a run and
 whether it is stopping. During an overlapping deploy, a view served by the
-other process offers no Cancel and shows no "Stopping".
+other process offers no Stop and shows no "Stopping".
 
 **How a cancelled run stops.** Once a cancel is recorded:
 

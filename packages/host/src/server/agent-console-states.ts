@@ -4,16 +4,8 @@ import type { AgentDisconnection, AgentMisconfiguration } from './agent-states';
  * What the console reads from and gets back from the agent runtime (ADR 0041,
  * MMR-633), in the T3 integration's pattern: tagged states, never a thrown
  * failure for something the operator can fix. The console's client bundle
- * loads this file, so it imports types only and holds no runtime value but
- * the outcome prefix both sides read.
+ * loads this file, so it imports types only.
  */
-
-/**
- * What the outcome line of a run the operator cancelled from the console
- * starts with. The runner writes it; the console reads it to tell that run
- * from one a ceiling stopped, whose `cancelled:` line names the ceiling.
- */
-export const CONSOLE_CANCEL_OUTCOME = 'cancelled: the operator stopped the run from the console';
 
 /** A run's lifecycle as the runs table records it. */
 export type AgentRunState = 'running' | 'succeeded' | 'failed' | 'cancelled' | 'interrupted';
@@ -34,17 +26,31 @@ export type AgentRunView = {
   usedTokens: number;
   /** The run's token ceiling, reserved against the day's budget at admission. */
   reservedTokens: number;
+  /**
+   * What the run counts against the day's budget: its settled total, or,
+   * while it runs or when its usage never settled, the larger of its
+   * reservation and its streamed usage.
+   */
+  chargedTokens: number;
   startedAt: Date;
   endedAt: Date | null;
   heartbeatAt: Date;
   /** The one line the runner recorded when the run ended; null while it runs. */
   outcome: string | null;
+  /** The run ended cancelled because the operator stopped it from the console, not at its ceiling. */
+  stoppedFromConsole: boolean;
+  /**
+   * What a run stopped from the console ended on besides the stop, such as
+   * its usage summary or a failure's reason; null for any other run, or when
+   * its outcome says nothing more.
+   */
+  stopDetail: string | null;
   /** A running run whose heartbeat is older than the stale window: its host most likely stopped. */
   stale: boolean;
   /** A cancel is recorded on the running run: the console shows "Stopping" until its row closes. */
   stopping: boolean;
   /**
-   * The console may offer Cancel: the serving process holds the run, its
+   * The console may offer Stop: the serving process holds the run, its
    * stream has not ended, no cancel is recorded yet, and it is not stale.
    */
   cancellable: boolean;

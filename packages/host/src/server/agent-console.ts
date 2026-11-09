@@ -1,4 +1,5 @@
 import type { Engine } from '@mimir/contract';
+import { chargedTokens } from '@mimir/core';
 import type { Run, RunStore } from '@mimir/core';
 
 import { isEngineRefusal } from '../api/errors';
@@ -11,6 +12,7 @@ import type {
   GroomRefusal,
   GroomStartResult,
 } from './agent-console-states';
+import { CONSOLE_CANCEL_OUTCOME } from './agent-runner';
 import type {
   AgentRunner,
   AgentStatus,
@@ -45,14 +47,31 @@ const coversEveryRefusal: Exclude<RunRefusal['reason'], GroomRefusal['reason']> 
   : false = true;
 void coversEveryRefusal;
 
+/**
+ * What the outcome line of a run stopped from the console says after the
+ * console's prefix, without the separator or the parentheses around a usage
+ * summary; null when it says nothing more.
+ */
+function stopDetail(outcome: string): string | null {
+  const rest = outcome
+    .slice(CONSOLE_CANCEL_OUTCOME.length)
+    .replace(/^[\s;]+/, '')
+    .replace(/^\((.*)\)$/, '$1');
+  return rest === '' ? null : rest;
+}
+
 /** One run row as the console shows it; an ended run is never stopping or cancellable. */
 function runView(
   run: Run,
   flags: { stale: boolean; stopping: boolean; cancellable: boolean },
 ): AgentRunView {
   const { cancellable, stale, stopping } = flags;
+  // A ceiling stop also ends `cancelled`; only the console's prefix tells them apart.
+  const stoppedFromConsole =
+    run.state === 'cancelled' && (run.outcome?.startsWith(CONSOLE_CANCEL_OUTCOME) ?? false);
   return {
     cancellable,
+    chargedTokens: chargedTokens(run),
     endedAt: run.ended_at === null ? null : new Date(run.ended_at),
     heartbeatAt: new Date(run.heartbeat_at),
     id: run.id,
@@ -64,6 +83,8 @@ function runView(
     stale,
     startedAt: new Date(run.started_at),
     state: run.state,
+    stopDetail: stoppedFromConsole && run.outcome !== null ? stopDetail(run.outcome) : null,
+    stoppedFromConsole,
     stopping,
     task: run.task,
     usedTokens: usageTotal({

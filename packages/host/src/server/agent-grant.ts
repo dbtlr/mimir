@@ -9,6 +9,8 @@ import type { Engine, EngineNode, EngineTree, FacetName } from '@mimir/contract'
 import { parseIdentity } from '@mimir/core';
 import { z } from 'zod';
 
+import { CANCELLED_REASON } from './agent-gate';
+
 /** The grant's MCP server name; its tools reach the gate as `mcp__mimir__<tool>`. */
 export const GRANT_SERVER = 'mimir';
 
@@ -318,7 +320,7 @@ export function createRunGrant(options: RunGrantOptions): McpSdkServerConfigWith
    */
   const notCancelled = () => {
     if (options.cancelled()) {
-      refuse('the operator cancelled this run from the console; nothing was written');
+      refuse(`${CANCELLED_REASON}; nothing was written`);
     }
   };
 

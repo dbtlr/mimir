@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import { mkdir, mkdtemp, readdir, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -1374,4 +1374,231 @@ describe('cancel', () => {
     expect(await created.cancelRun(start.runId)).toEqual({ answer: 'closing' });
     expect((await created.status()).running).toMatchObject({ held: false, stopping: false });
   });
+
+  test("a stale running row under this process's runner id that it does not hold answers closing, not stale", async () => {
+    await admitOther('orphan', 'host-a');
+    time = new Date(time.getTime() + 120_001);
+    const { runner: created } = runner(never);
+    expect(await created.cancelRun('orphan')).toEqual({ answer: 'closing' });
+  });
+
+  test('a cancel while the close write is pending answers ending, the run still held', async () => {
+    const slow = slowClose();
+    const { runner: created } = runner(
+      async function* script() {
+        yield result();
+      },
+      { runs: slow.store },
+    );
+    const start = await started(created);
+    await slow.writing.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'ending' });
+    expect((await created.status()).running).toMatchObject({
+      ending: true,
+      held: true,
+      stopping: false,
+    });
+    slow.release.resolve();
+    expect(await start.finished).toMatchObject({ state: 'succeeded' });
+  });
+
+  test('a cancel during the close write of a failed sync answers ending, and the run closes failed', async () => {
+    syncResult = async () => ({ message: 'git could not fetch', ok: false, reason: 'fetch' });
+    const slow = slowClose();
+    const { runner: created } = runner(never, { runs: slow.store });
+    const start = await started(created);
+    await slow.writing.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'ending' });
+    slow.release.resolve();
+    const outcome = await start.finished;
+    expect(outcome).toMatchObject({ state: 'failed', usage: NO_USAGE, usageSettled: true });
+    expect(outcome.outcome).toStartWith('failed: the clone did not sync');
+  });
+
+  test('a repeat cancel during the close write of a run cancelled before its sync answers ending', async () => {
+    const slow = slowClose();
+    const { runner: created } = runner(never, { runs: slow.store });
+    const start = await started(created);
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+    await slow.writing.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'ending' });
+    slow.release.resolve();
+    const outcome = await start.finished;
+    expect(syncs).toEqual([]);
+    expect(outcome).toMatchObject({ state: 'cancelled', usage: NO_USAGE, usageSettled: true });
+  });
+
+  test('a cancel during the close write of a faulted run answers ending, and the run closes failed', async () => {
+    const slow = slowClose();
+    const { runner: created } = runner(never, {
+      runs: slow.store,
+      syncClone: async () => {
+        throw new Error('the disk is full');
+      },
+    });
+    const start = await started(created);
+    await slow.writing.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'ending' });
+    slow.release.resolve();
+    const outcome = await start.finished;
+    expect(outcome).toMatchObject({ state: 'failed', usageSettled: false });
+    expect(outcome.outcome).toStartWith('failed: the runner faulted: the disk is full');
+  });
+
+  test('a cancelled run that closed within its grace period is never aborted after it', async () => {
+    const late = lateAbortScript();
+    const { runner: created } = runner(late.script, { timing: SHORT_GRACE });
+    const start = await started(created);
+    await late.streaming.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+    late.cancelled.resolve();
+    expect(await start.finished).toMatchObject({ state: 'cancelled', usageSettled: false });
+    await Bun.sleep(3 * SHORT_GRACE.cancelGraceMs);
+    expect(late.abortedLate()).toBe(false);
+  });
+
+  test('a repeat cancel starts no second grace timer', async () => {
+    const timers = spyOn(globalThis, 'setTimeout');
+    try {
+      const late = lateAbortScript();
+      const { runner: created } = runner(late.script, { timing: SHORT_GRACE });
+      const start = await started(created);
+      await late.streaming.promise;
+      expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+      expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+      late.cancelled.resolve();
+      await start.finished;
+      await Bun.sleep(3 * SHORT_GRACE.cancelGraceMs);
+      expect(graceTimers(timers.mock.calls)).toBe(1);
+      expect(late.abortedLate()).toBe(false);
+    } finally {
+      timers.mockRestore();
+    }
+  });
+
+  test('a query whose close throws still clears the grace timer, and the run closes cancelled', async () => {
+    const late = lateAbortScript();
+    const scripted = scriptedQuery(late.script);
+    const { runner: created } = runner(never, {
+      query: (params) =>
+        Object.assign(scripted.query(params), {
+          close: () => {
+            throw new Error('the CLI would not close');
+          },
+        }),
+      timing: SHORT_GRACE,
+    });
+    const start = await started(created);
+    await late.streaming.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+    late.cancelled.resolve();
+    const outcome = await start.finished;
+    expect(outcome.outcome).toMatch(CONSOLE_CANCEL);
+    expect(outcome).toMatchObject({ state: 'cancelled', usageSettled: false });
+    await Bun.sleep(3 * SHORT_GRACE.cancelGraceMs);
+    expect(late.abortedLate()).toBe(false);
+  });
+
+  test('a cancel recorded before the query exists starts no grace timer', async () => {
+    const timers = spyOn(globalThis, 'setTimeout');
+    try {
+      const syncing = signal();
+      const release = signal();
+      const synced = syncResult;
+      syncResult = async () => {
+        syncing.resolve();
+        await release.promise;
+        return synced();
+      };
+      const { calls, runner: created } = runner(never, { timing: SHORT_GRACE });
+      const start = await started(created);
+      await syncing.promise;
+      expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+      release.resolve();
+      expect(await start.finished).toMatchObject({ state: 'cancelled', usageSettled: true });
+      expect(calls).toEqual([]);
+      expect(graceTimers(timers.mock.calls)).toBe(0);
+    } finally {
+      timers.mockRestore();
+    }
+  });
+
+  test('a cancelled run stopped by its ceiling names the console, then the ceiling, and closes unsettled', async () => {
+    const ceiling = 100_000;
+    const streaming = signal();
+    const cancelled = signal();
+    const { runner: created } = runner(
+      async function* script({ aborted }) {
+        yield assistant('msg_0', { input: 10 });
+        streaming.resolve();
+        await cancelled.promise;
+        for (let index = 1; index < 100; index += 1) {
+          yield assistant(`msg_${index}`, { input: 30_000 });
+        }
+        await aborted;
+        yield result();
+      },
+      { settings: settings({ runTokens: ceiling }) },
+    );
+    const start = await started(created);
+    await streaming.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+    cancelled.resolve();
+    const outcome = await start.finished;
+    expect(outcome.outcome).toMatch(CONSOLE_CANCEL);
+    expect(outcome.outcome).toMatch(
+      /^cancelled: [^;]*console; the run reached its 100000-token ceiling/,
+    );
+    expect(outcome).toMatchObject({ state: 'cancelled', usageSettled: false });
+    expect(await runs.get(start.runId)).toMatchObject({ state: 'cancelled', usage_settled: false });
+    expect(await chargedToday()).toBe(ceiling);
+  });
 });
+
+/** Timing with a grace period short enough to wait out. */
+const SHORT_GRACE = {
+  cancelGraceMs: 47,
+  heartbeatMs: 60_000,
+  recordEveryMs: 0,
+  staleAfterMs: 120_000,
+};
+
+/** How many of `calls` to setTimeout started a grace timer of {@link SHORT_GRACE}'s length. */
+const graceTimers = (calls: unknown[][]) =>
+  calls.filter((call) => call[1] === SHORT_GRACE.cancelGraceMs).length;
+
+/** A runs table whose close write starts, signals `writing`, and lands only on `release`. */
+function slowClose() {
+  const writing = signal();
+  const release = signal();
+  const store: RunStore = {
+    ...runs,
+    close: async (id, owner, closing) => {
+      writing.resolve();
+      await release.promise;
+      return runs.close(id, owner, closing);
+    },
+  };
+  return { release, store, writing };
+}
+
+/**
+ * A script that streams, waits for `cancelled`, then fails without a result,
+ * and records an abort that reaches it at any point: after the run closed,
+ * only a grace timer left running can abort it.
+ */
+function lateAbortScript() {
+  const streaming = signal();
+  const cancelled = signal();
+  let aborted = false;
+  const script: Script = async function* script(context) {
+    context.options.abortController?.signal.addEventListener('abort', () => {
+      aborted = true;
+    });
+    yield assistant('msg_1', { input: 10 });
+    streaming.resolve();
+    await cancelled.promise;
+    throw new Error('Claude Code process exited with code 1');
+  };
+  return { abortedLate: () => aborted, cancelled, script, streaming };
+}

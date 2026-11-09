@@ -113,9 +113,10 @@ describe('Now on the work page', () => {
     serveShell({ trees: { MMR: TREE } });
     serveNodes({ nodes: [PROJECT] });
     serveViews();
-    serveAgent({ activity });
+    const state = serveAgent({ activity });
     await renderRoute(consoleRoutes, '/p/MMR', quietClient());
     await screen.findByRole('heading', { level: 1, name: 'Mimir' });
+    return state;
   }
 
   async function openPhase(activity = runningActivity(), id = PHASE_A.id) {
@@ -174,6 +175,36 @@ describe('Now on the work page', () => {
     await expect(nowGroup()).resolves.toHaveTextContent('1');
   });
 
+  it('offers Stop on the task’s own row when the task is already in Now, and marks it stopping after', async () => {
+    serveShell({ trees: { MMR: TREE } });
+    serveNodes({ nodes: [PROJECT] });
+    serveViews({
+      projects: {
+        MMR: engineWork({
+          now: [nowRow({ id: 'MMR-640', status: 'queued', title: 'Show each clone’s last sync' })],
+        }),
+      },
+    });
+    const state = serveAgent({
+      activity: runningActivity({ cancellable: true }, 'Show each clone’s last sync'),
+    });
+    await renderRoute(consoleRoutes, '/p/MMR', quietClient());
+    const { row } = await rowOf('Show each clone’s last sync');
+    await userEvent.click(within(row).getByRole('button', { name: 'Stop run on MMR-640' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Stop the agent on MMR-640?' });
+    state.activity = runningActivity({ stopping: true }, 'Show each clone’s last sync');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Stop run' }));
+    await waitFor(() => {
+      expect(cancelGroom).toHaveBeenCalledWith({ data: { runId: 'run-1' } });
+    });
+    await waitFor(() => {
+      expect(within(row).getByText('Stopping')).toBeVisible();
+    });
+    expect(row).toHaveTextContent('Agent stopping after its current step');
+    expect(row).not.toHaveTextContent('Agent grooming');
+    expect(within(row).queryByRole('button')).toBeNull();
+  });
+
   it('says nothing is running when no agent run is active', async () => {
     await openProject({ running: null });
     await expect(screen.findByText('Nothing running.')).resolves.toBeVisible();
@@ -222,6 +253,22 @@ describe('Now on the work page', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
     });
+  });
+
+  it('stops the run the confirm opened on, though a poll swapped the running run under it', async () => {
+    const state = await openProject(runningActivity({ cancellable: true }));
+    const { row } = await rowOf('Show each clone’s last sync time');
+    await userEvent.click(within(row).getByRole('button', { name: 'Stop run on MMR-640' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Stop the agent on MMR-640?' });
+    state.activity = runningActivity({ cancellable: true, id: 'run-2', task: 'MMR-641' }, 'Next');
+    await vi.advanceTimersByTimeAsync(10_500);
+    // The modal hides the page behind it from the accessibility tree.
+    await screen.findByRole('link', { hidden: true, name: 'Next' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Stop run' }));
+    await waitFor(() => {
+      expect(cancelGroom).toHaveBeenCalledWith({ data: { runId: 'run-1' } });
+    });
+    expect(cancelGroom).not.toHaveBeenCalledWith({ data: { runId: 'run-2' } });
   });
 
   it('marks a stopping run with a badge and its meta, and offers no button', async () => {

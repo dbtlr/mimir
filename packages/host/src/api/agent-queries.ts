@@ -103,9 +103,10 @@ export function useStartGroom(onRefused: (refusal: GroomRefusal | undefined) => 
 
 /**
  * Stop a running run. Every answer is a state handed to `onAnswer`; whatever it
- * is, the card and the work pages' activity refresh, since a refusal says they
- * were stale. A run recorded as stopping keeps polling at the running rate,
- * because it is still a live run until its row closes.
+ * is, the card and the work pages' activity refresh once, since a refusal says
+ * they were stale. The fast polling after that is the reads' own: a run
+ * recorded as stopping still holds the slot until its row closes, so the card's
+ * and the activity's `refetchInterval` keep it at the running rate.
  */
 export function useCancelGroom(onAnswer: (answer: GroomCancelResult) => void) {
   const qc = useQueryClient();

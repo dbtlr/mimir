@@ -30,7 +30,8 @@ import { NewTaskButton } from './new-task-button';
 import { OpenInT3 } from './open-in-t3';
 import { StaleBadge } from './signal-badges';
 import { StatusDot } from './status-dot';
-import { STOP_BUTTON_CLASS, StopRunDialog } from './stop-run-dialog';
+import { StopRunDialog } from './stop-run-dialog';
+import type { StopTarget } from './stop-run-dialog';
 import { ActionButton } from './ui/action-button';
 import { Badge } from './ui/badge';
 import { NeedsYouRow, RowTail, StartAction, needsYouActions } from './work-rows';
@@ -64,56 +65,114 @@ function ContextPart({ children, mono = false }: { children: ReactNode; mono?: b
   );
 }
 
+/**
+ * A Now row's stop (ADR 0041's cancel refinement): the icon button the row
+ * offers while its agent run can be stopped, and the confirm it opens. The
+ * confirm keeps the run it opened on, so a poll that swaps the running run
+ * while it is open cannot redirect the stop. The confirm lives outside the
+ * row's actions, so a refusal stays readable after a refresh hides the button.
+ */
+function useRowStop(run: AgentRun | undefined): { button: ReactNode; dialog: ReactNode } {
+  const [target, setTarget] = useState<StopTarget | null>(null);
+  const button =
+    run?.cancellable === true ? (
+      <ActionButton
+        size="sm"
+        variant="destructiveOutline"
+        aria-label={`Stop run on ${run.task}`}
+        title="Stop run"
+        className={cn('min-w-8 px-2', PHONE_TOUCH_TARGET, 'max-md:min-w-11')}
+        onClick={() => {
+          setTarget({ runId: run.id, task: run.task, usedTokens: run.usedTokens });
+        }}
+      >
+        <span aria-hidden className="size-2.5 rounded-[2px] bg-current" />
+      </ActionButton>
+    ) : undefined;
+  const dialog =
+    target === null ? null : (
+      <StopRunDialog
+        target={target}
+        onClose={() => {
+          setTarget(null);
+        }}
+      />
+    );
+  return { button, dialog };
+}
+
+/** The Stopping badge of an agent run with a recorded cancel, until its row closes. */
+function StoppingBadge({ run }: { run: AgentRun | undefined }) {
+  return run?.stopping === true ? <Badge variant="outline">Stopping</Badge> : null;
+}
+
 /** A Now task's row; `agent` is the agent run grooming it, when one is. */
 export function NowRow({ row, agent }: { row: NowTask; agent?: AgentRun }) {
+  const stop = useRowStop(agent);
   return (
-    <BrowserRow
-      to={nodeLink(row.task.id)}
-      id={row.task.id}
-      title={row.task.title}
-      leading={<StatusDot status={row.task.status} />}
-      afterTitle={<RowTail row={row} />}
-      meta={
-        <div className="flex flex-col gap-0.5">
-          <p className="flex flex-wrap items-baseline gap-x-1.5">
-            {row.task.status === 'under_review' ? (
-              <>
-                <span>In review</span>
-                <ContextPart>submitted {ago(row.submittedAt ?? row.startedAt)}</ContextPart>
-              </>
-            ) : (
-              <span>
-                {row.task.status === 'queued' ? 'Queued' : 'Started'} {ago(row.startedAt)}
-              </span>
-            )}
-            {row.task.harness != null && <ContextPart>{row.task.harness}</ContextPart>}
-            {row.task.workerSession != null && (
-              <ContextPart>
-                worker {row.task.workerHarness != null && `${row.task.workerHarness} `}
-                {row.task.workerSession}
-              </ContextPart>
-            )}
-            {row.task.branch != null && <ContextPart mono>{row.task.branch}</ContextPart>}
-            {row.scratchpads.length > 0 && <ContextPart>Scratchpad open</ContextPart>}
-            {agent !== undefined && (
-              <ContextPart>Agent grooming{agent.stale ? ', stopped reporting' : ''}</ContextPart>
-            )}
-            <OpenInT3 harness={row.task.harness} host={row.task.host} session={row.task.session} />
-          </p>
-          {row.latestNote !== null && (
-            <p className="line-clamp-2 text-meta text-ink-dim">
-              Latest note, {ago(row.latestNote.createdAt)}: “{row.latestNote.content}”
+    <>
+      <BrowserRow
+        to={nodeLink(row.task.id)}
+        id={row.task.id}
+        title={row.task.title}
+        leading={<StatusDot status={row.task.status} />}
+        afterTitle={
+          <>
+            <RowTail row={row} />
+            <StoppingBadge run={agent} />
+          </>
+        }
+        actions={stop.button}
+        meta={
+          <div className="flex flex-col gap-0.5">
+            <p className="flex flex-wrap items-baseline gap-x-1.5">
+              {row.task.status === 'under_review' ? (
+                <>
+                  <span>In review</span>
+                  <ContextPart>submitted {ago(row.submittedAt ?? row.startedAt)}</ContextPart>
+                </>
+              ) : (
+                <span>
+                  {row.task.status === 'queued' ? 'Queued' : 'Started'} {ago(row.startedAt)}
+                </span>
+              )}
+              {row.task.harness != null && <ContextPart>{row.task.harness}</ContextPart>}
+              {row.task.workerSession != null && (
+                <ContextPart>
+                  worker {row.task.workerHarness != null && `${row.task.workerHarness} `}
+                  {row.task.workerSession}
+                </ContextPart>
+              )}
+              {row.task.branch != null && <ContextPart mono>{row.task.branch}</ContextPart>}
+              {row.scratchpads.length > 0 && <ContextPart>Scratchpad open</ContextPart>}
+              {agent !== undefined && (
+                <ContextPart>
+                  Agent {agent.stopping ? 'stopping after its current step' : 'grooming'}
+                  {agent.stale ? ', stopped reporting' : ''}
+                </ContextPart>
+              )}
+              <OpenInT3
+                harness={row.task.harness}
+                host={row.task.host}
+                session={row.task.session}
+              />
             </p>
-          )}
-        </div>
-      }
-    />
+            {row.latestNote !== null && (
+              <p className="line-clamp-2 text-meta text-ink-dim">
+                Latest note, {ago(row.latestNote.createdAt)}: “{row.latestNote.content}”
+              </p>
+            )}
+          </div>
+        }
+      />
+      {stop.dialog}
+    </>
   );
 }
 
 /** The agent run grooming a task in this page's scope, as a Now row. */
 export function AgentNowRow({ run }: { run: AgentRun }) {
-  const [stopping, setStopping] = useState(false);
+  const stop = useRowStop(run);
   return (
     <>
       <BrowserRow
@@ -124,7 +183,7 @@ export function AgentNowRow({ run }: { run: AgentRun }) {
         afterTitle={
           <>
             <Badge variant="outline">Agent</Badge>
-            {run.stopping && <Badge variant="outline">Stopping</Badge>}
+            <StoppingBadge run={run} />
           </>
         }
         meta={
@@ -140,36 +199,9 @@ export function AgentNowRow({ run }: { run: AgentRun }) {
             </ContextPart>
           </p>
         }
-        actions={
-          run.cancellable ? (
-            <ActionButton
-              size="sm"
-              variant="outline"
-              aria-label={`Stop run on ${run.task}`}
-              title="Stop run"
-              className={cn(
-                'min-w-8 px-2',
-                PHONE_TOUCH_TARGET,
-                'max-md:min-w-11',
-                STOP_BUTTON_CLASS,
-              )}
-              onClick={() => {
-                setStopping(true);
-              }}
-            >
-              <span aria-hidden className="size-2.5 rounded-[2px] bg-current" />
-            </ActionButton>
-          ) : undefined
-        }
+        actions={stop.button}
       />
-      {stopping && (
-        <StopRunDialog
-          target={{ runId: run.id, task: run.task, usedTokens: run.usedTokens }}
-          onClose={() => {
-            setStopping(false);
-          }}
-        />
-      )}
+      {stop.dialog}
     </>
   );
 }

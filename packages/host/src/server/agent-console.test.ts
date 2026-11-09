@@ -8,6 +8,7 @@ import { createAgentConsole } from './agent-console';
 import type { AgentConsoleOptions } from './agent-console';
 import { parseGroomCancelTarget, parseGroomTarget } from './agent-console-input';
 import type { GroomCancelResult, GroomRefusal } from './agent-console-states';
+import { CONSOLE_CANCEL_OUTCOME } from './agent-runner';
 import type {
   AgentBudgetStatus,
   AgentRunner,
@@ -71,6 +72,7 @@ const runRow = (fields: Partial<Run> = {}): Run => ({
 /** The view of {@link runRow}'s defaults. */
 const RUN_VIEW = {
   cancellable: false,
+  chargedTokens: 1_345,
   endedAt: new Date('2026-11-08T11:00:00.000Z'),
   heartbeatAt: new Date('2026-11-08T10:59:50.000Z'),
   id: 'run-1',
@@ -82,6 +84,8 @@ const RUN_VIEW = {
   stale: false,
   startedAt: new Date('2026-11-08T10:00:00.000Z'),
   state: 'succeeded',
+  stopDetail: null,
+  stoppedFromConsole: false,
   stopping: false,
   task: 'ENG-7',
   usedTokens: 1_345,
@@ -246,6 +250,8 @@ describe('card', () => {
       lastRun: null,
       running: {
         ...RUN_VIEW,
+        // A running run counts its reservation or its streamed usage, whichever is larger.
+        chargedTokens: 4_000_000,
         endedAt: null,
         id: 'run-2',
         outcome: null,
@@ -300,6 +306,7 @@ describe('activity', () => {
     expect(await agentConsole.activity()).toEqual({
       running: {
         ...RUN_VIEW,
+        chargedTokens: 4_000_000,
         endedAt: null,
         outcome: null,
         state: 'running',
@@ -491,6 +498,68 @@ describe('cancel', () => {
       { ending: false, held: true, run: HOLDER, stale: true, stopping: false },
     ]) {
       expect(await viewOf(running)).toMatchObject({ cancellable: false, stopping: false });
+    }
+  });
+
+  test('a run stopped from the console and settled is charged what it used, with the detail after the console', async () => {
+    const { agentConsole } = console_({
+      lastEnded: runRow({
+        outcome: `${CONSOLE_CANCEL_OUTCOME} (3 turns; 0 readers; settled 1345 tokens)`,
+        state: 'cancelled',
+      }),
+    });
+    expect(await agentConsole.card(TARGET)).toMatchObject({
+      lastRun: {
+        chargedTokens: 1_345,
+        stopDetail: '3 turns; 0 readers; settled 1345 tokens',
+        stoppedFromConsole: true,
+        usedTokens: 1_345,
+      },
+    });
+  });
+
+  test('a run stopped from the console that never settled is charged its reservation', async () => {
+    const { agentConsole } = console_({
+      lastEnded: runRow({
+        outcome: `${CONSOLE_CANCEL_OUTCOME}; it did not end within its 300-second grace period and was aborted`,
+        state: 'cancelled',
+        usage_settled: false,
+      }),
+    });
+    expect(await agentConsole.card(TARGET)).toMatchObject({
+      lastRun: {
+        chargedTokens: 4_000_000,
+        stopDetail: 'it did not end within its 300-second grace period and was aborted',
+        stoppedFromConsole: true,
+        usedTokens: 1_345,
+      },
+    });
+  });
+
+  test('a run stopped from the console before its query has a detail, and one with nothing after the console has none', async () => {
+    for (const [outcome, stopDetail] of [
+      [`${CONSOLE_CANCEL_OUTCOME} before its query started`, 'before its query started'],
+      [CONSOLE_CANCEL_OUTCOME, null],
+    ] as const) {
+      const { agentConsole } = console_({ lastEnded: runRow({ outcome, state: 'cancelled' }) });
+      expect(await agentConsole.card(TARGET)).toMatchObject({
+        lastRun: { stopDetail, stoppedFromConsole: true },
+      });
+    }
+  });
+
+  test('a run a ceiling cancelled, or one that failed, was not stopped from the console', async () => {
+    for (const fields of [
+      { outcome: 'cancelled: the run reached its 4000000-token ceiling', state: 'cancelled' },
+      { outcome: `failed: ${CONSOLE_CANCEL_OUTCOME}`, state: 'failed' },
+      { outcome: CONSOLE_CANCEL_OUTCOME, state: 'failed' },
+    ] as const) {
+      const { agentConsole } = console_({
+        lastEnded: runRow({ ...fields, usage_settled: false }),
+      });
+      expect(await agentConsole.card(TARGET)).toMatchObject({
+        lastRun: { chargedTokens: 4_000_000, stopDetail: null, stoppedFromConsole: false },
+      });
     }
   });
 

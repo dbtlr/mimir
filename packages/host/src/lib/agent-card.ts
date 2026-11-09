@@ -7,7 +7,6 @@ import type {
   GroomCard,
   GroomRefusal,
 } from '../api/fns/agent';
-import { CONSOLE_CANCEL_OUTCOME } from '../server/agent-console-states';
 import { ancestorsOf } from './ancestry';
 import { ago, clockTime } from './time';
 
@@ -144,11 +143,6 @@ export function refusalText(refusal: GroomRefusal): string {
   }
 }
 
-/** Whether the operator stopped this ended run from the console (a ceiling stop also ends `cancelled`). */
-export function stoppedFromConsole(run: AgentRunView): boolean {
-  return run.state === 'cancelled' && (run.outcome?.startsWith(CONSOLE_CANCEL_OUTCOME) ?? false);
-}
-
 /** A cancel answer that recorded nothing: the sentence saying what happened instead. */
 export function cancelAnswerText(
   answer: Exclude<GroomCancelResult, { state: 'cancelling' }>,
@@ -167,7 +161,7 @@ export function cancelAnswerText(
       return "The run's host stopped reporting. Starting a new run clears it.";
     }
     case 'closing': {
-      return 'This host could not close the run. It will be cleared within two minutes.';
+      return 'This host could not close the run. It stops reporting within two minutes, and starting a new run then clears it.';
     }
     default: {
       return 'Another host is running this. Try again shortly, or wait for it to finish.';

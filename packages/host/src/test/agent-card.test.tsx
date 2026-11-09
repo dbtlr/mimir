@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { cancelGroom, groomCard, startGroom } from '../api/fns/agent';
 import type {
+  AgentRunView,
   GroomCancelResult,
   GroomCard,
   GroomRefusal,
@@ -13,7 +14,6 @@ import type {
 } from '../api/fns/agent';
 import { POLL_MS } from '../api/queries';
 import { GroomWithAgentCard } from '../components/agent-card';
-import { CONSOLE_CANCEL_OUTCOME } from '../server/agent-console-states';
 import { agentBudget, agentRun, endedRun, readyCard } from './agent-fixtures';
 import { serveAgent } from './agent-fns';
 import { engineContainer, engineTask } from './node-fixtures';
@@ -415,6 +415,16 @@ const openDialog = async (answer: GroomCancelResult = { state: 'cancelling' }) =
   return screen.findByRole('dialog', { name: 'Stop the agent on MMR-640?' });
 };
 
+/** A card whose last run the operator stopped from the console, as the host reads it. */
+const stopped = (fields: Partial<AgentRunView>) =>
+  readyCard({
+    lastRun: endedRun('cancelled', 'cancelled: the operator stopped the run from the console', {
+      endedAt: minutesAgo(1),
+      stoppedFromConsole: true,
+      ...fields,
+    }),
+  });
+
 describe('stopping a run', () => {
   it('offers Stop only on a cancellable run', async () => {
     await show(readyCard({ running: agentRun() }));
@@ -475,7 +485,7 @@ describe('stopping a run', () => {
     [{ state: 'stale' }, "The run's host stopped reporting. Starting a new run clears it."],
     [
       { state: 'closing' },
-      'This host could not close the run. It will be cleared within two minutes.',
+      'This host could not close the run. It stops reporting within two minutes, and starting a new run then clears it.',
     ],
     [
       { state: 'another-host' },
@@ -513,19 +523,47 @@ describe('stopping a run', () => {
     expect(within(region).queryByRole('button')).toBeNull();
   });
 
-  it('says the operator stopped a run cancelled from the console', async () => {
-    await show(
-      readyCard({
-        lastRun: endedRun('cancelled', `${CONSOLE_CANCEL_OUTCOME}; the agent had 2 notes`, {
-          endedAt: minutesAgo(1),
-        }),
-      }),
-    );
+  it('says the operator stopped a settled run, with its summary, counting what it used', async () => {
+    await show(stopped({ stopDetail: '3 turns; 0 readers; settled 370000 tokens' }));
     const region = await card();
     expect(region).toHaveTextContent('Last run cancelled');
     expect(region).toHaveTextContent('You stopped this run 1m ago. Its notes stay on the task.');
+    expect(within(region).getByText('3 turns; 0 readers; settled 370000 tokens')).toBeVisible();
     expect(region).toHaveTextContent('Used 0.37M tokens, counted toward today.');
     expect(region).not.toHaveTextContent('the operator stopped the run from the console');
+  });
+
+  it('says today counts the reservation of a stopped run that ended without a usage total', async () => {
+    await show(
+      stopped({
+        chargedTokens: 4_000_000,
+        stopDetail: 'it did not end within its 300-second grace period and was aborted',
+      }),
+    );
+    const region = await card();
+    expect(region).toHaveTextContent(
+      'Used 0.37M tokens. Today counts 4M, its reservation, since it ended without a usage total.',
+    );
+    expect(region).not.toHaveTextContent('counted toward today');
+    expect(
+      within(region).getByText('it did not end within its 300-second grace period and was aborted'),
+    ).toBeVisible();
+  });
+
+  it('keeps the reason a stopped run failed for, after the stop', async () => {
+    await show(
+      stopped({
+        chargedTokens: 4_000_000,
+        stopDetail: 'the run ended without a result: Claude Code process exited with code 1',
+      }),
+    );
+    const region = await card();
+    expect(region).toHaveTextContent('You stopped this run 1m ago.');
+    expect(
+      within(region).getByText(
+        'the run ended without a result: Claude Code process exited with code 1',
+      ),
+    ).toBeVisible();
   });
 
   it('keeps the outcome line for a run a ceiling cancelled', async () => {

@@ -17,10 +17,6 @@ import { ActionButton } from './ui/action-button';
 /** The run a stop acts on, as it read when the operator opened the dialog. */
 export type StopTarget = { runId: string; task: string; usedTokens: number };
 
-/** The hairline destructive look of a risky action's trigger, as the devices page's Unpair confirm wears it. */
-export const STOP_BUTTON_CLASS =
-  'text-status-blocked-foreground inset-ring-status-blocked/35 hover:text-status-blocked-foreground';
-
 const POPUP =
   'fixed top-1/2 left-1/2 z-[60] flex max-h-[90dvh] w-[min(92vw,380px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 overflow-y-auto rounded-lg border border-line bg-well-900 p-4 shadow-2xl outline-none light:shadow-overlay';
 
@@ -66,7 +62,7 @@ function StopRunContent({ target, onClose }: { target: StopTarget; onClose: () =
             </ActionButton>
             <ActionButton
               size="sm"
-              className="bg-status-blocked text-well-950 hover:bg-status-blocked/90"
+              variant="destructiveOutline"
               disabled={stop.isPending}
               onClick={() => {
                 stop.mutate({ runId: target.runId });

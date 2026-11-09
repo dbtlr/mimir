@@ -112,8 +112,7 @@ function PairedRow({ device }: { device: PairedDevice }) {
             </span>
             <ActionButton
               size="sm"
-              variant="outline"
-              className="text-status-blocked-foreground inset-ring-status-blocked/35 hover:text-status-blocked-foreground"
+              variant="destructiveOutline"
               disabled={unpair.isPending}
               onClick={() => {
                 unpair.mutate(device.device, {

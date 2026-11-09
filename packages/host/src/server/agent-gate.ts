@@ -253,15 +253,18 @@ function output(decision: Decision): SyncHookJSONOutput {
   };
 }
 
-/** Why a cancelled run's call is denied, and why the run stops. */
-const CANCELLED = 'the operator cancelled this run from the console';
+/**
+ * Why a cancelled run's call is denied and the run stops, and why the run
+ * grant refuses a write once the run is cancelled.
+ */
+export const CANCELLED_REASON = 'the operator cancelled this run from the console';
 
 /**
  * The answer to every call once the run is cancelled: deny it, and end the
  * run with `continue: false` (ADR 0041's 2026-11-09 refinement).
  */
 function stopped(): SyncHookJSONOutput {
-  return { ...output(deny(CANCELLED)), continue: false, stopReason: CANCELLED };
+  return { ...output(deny(CANCELLED_REASON)), continue: false, stopReason: CANCELLED_REASON };
 }
 
 /**

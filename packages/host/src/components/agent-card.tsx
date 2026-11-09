@@ -11,7 +11,6 @@ import {
   refusalText,
   resetText,
   sharePercent,
-  stoppedFromConsole,
 } from '../lib/agent-card';
 import type { AgentCardView, ReadyCard } from '../lib/agent-card';
 import { cn } from '../lib/cn';
@@ -20,7 +19,7 @@ import { projectKeyOf } from '../lib/project-key';
 import { nodeLink } from '../lib/record-url';
 import { ago } from '../lib/time';
 import { StatusDot } from './status-dot';
-import { STOP_BUTTON_CLASS, StopRunDialog } from './stop-run-dialog';
+import { StopRunDialog } from './stop-run-dialog';
 import type { StopTarget } from './stop-run-dialog';
 import { ActionButton } from './ui/action-button';
 
@@ -170,8 +169,8 @@ function RunningCard({ run, onStop }: { run: AgentRunView; onStop: (target: Stop
         run.cancellable && (
           <ActionButton
             size="sm"
-            variant="outline"
-            className={cn('py-1', STOP_BUTTON_CLASS)}
+            variant="destructiveOutline"
+            className="py-1"
             onClick={() => {
               onStop({ runId: run.id, task: run.task, usedTokens: run.usedTokens });
             }}
@@ -193,6 +192,28 @@ function RunningCard({ run, onStop }: { run: AgentRunView; onStop: (target: Stop
         label={`${formatTokens(run.usedTokens)} of its ${formatTokens(run.reservedTokens)} ceiling`}
       />
     </Frame>
+  );
+}
+
+/**
+ * What a run the operator stopped from the console ended on: what else its
+ * outcome says, and what today counts for it, which is its reservation when
+ * it ended without a usage total.
+ */
+function StoppedRun({ run }: { run: AgentRunView }) {
+  const used = formatTokens(run.usedTokens);
+  return (
+    <>
+      <Say>
+        You stopped this run {ago(run.endedAt ?? run.startedAt)}. Its notes stay on the task.
+      </Say>
+      {run.stopDetail !== null && <p className="text-meta text-ink-faint">{run.stopDetail}</p>}
+      <p>
+        {run.chargedTokens === run.usedTokens
+          ? `Used ${used} tokens, counted toward today.`
+          : `Used ${used} tokens. Today counts ${formatTokens(run.chargedTokens)}, its reservation, since it ended without a usage total.`}
+      </p>
+    </>
   );
 }
 
@@ -353,14 +374,8 @@ function Active({
     case 'failed': {
       return (
         <Frame title={ENDED_TITLE[view.run.state]} tone="bad">
-          {stoppedFromConsole(view.run) ? (
-            <>
-              <Say>
-                You stopped this run {ago(view.run.endedAt ?? view.run.startedAt)}. Its notes stay
-                on the task.
-              </Say>
-              <p>Used {formatTokens(view.run.usedTokens)} tokens, counted toward today.</p>
-            </>
+          {view.run.stoppedFromConsole ? (
+            <StoppedRun run={view.run} />
           ) : (
             <Say>
               {view.run.outcome ?? 'The run ended without an outcome.'}{' '}

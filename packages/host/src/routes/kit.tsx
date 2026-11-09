@@ -184,6 +184,7 @@ export function KitPage() {
           <ActionButton variant="action">Primary action</ActionButton>
           <ActionButton variant="attention">Approve</ActionButton>
           <ActionButton variant="outline">Cancel</ActionButton>
+          <ActionButton variant="destructiveOutline">Stop run</ActionButton>
           <ActionButton variant="action" disabled>
             Disabled
           </ActionButton>
