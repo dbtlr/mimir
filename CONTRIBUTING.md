@@ -72,6 +72,12 @@ ports, then removes its containers, network, volume, and image. `test:pwa` is a 
 browser lane outside `verify` and CI. Browser checks need Chromium:
 `bun run --cwd packages/host playwright install chromium`.
 
+A new store migration also changes the host image checks, and `bun run verify`
+does not run them. `packages/host/scripts/container.integration.test.ts`
+asserts the latest migration's name in the container log and rolls a Postgres
+store back by dropping every table added after schema 4. Update both with each
+migration, and run `bun run test:host` before pushing.
+
 ## Tests that time out
 
 When a test times out under load, find and fix what makes it slow. Do not raise

@@ -423,3 +423,13 @@ discovery" therefore holds only for a token from a personal plan, which the
 personal-automation premise above already assumes. A run on an
 organization's token takes that organization's settings, which come from the
 credential owner's administrators, not from repository content.
+
+## Refinement (2026-11-08, MMR-632): two CLI behaviours the pin must re-prove
+
+Claude Code 2.1.318 changes two things after the `PreToolUse` hook decides. It
+trims and NFC-normalizes a Grep or Glob path, so the gate denies any path or
+pattern the CLI would respell. It runs an `Agent` call that omits
+`run_in_background` in the background, where a reader can outlive settlement,
+so the runner sets `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` and every reader
+runs in the foreground. A pin bump re-tests both against the real CLI, beside
+the guarantees listed in "The SDK is pinned".

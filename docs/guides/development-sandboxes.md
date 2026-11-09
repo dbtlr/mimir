@@ -71,6 +71,13 @@ reset, and then run `mimir store import <file> --apply`; without `--apply`,
 import only previews. It can also use a copied build, which has a `.dev` of its
 own.
 
+A view that depends on age, such as a stale task or a project going cold, needs
+old timestamps that no command writes. Export a smoke store, edit `updated_at`
+and the transition timestamps in the document, and import it into an empty
+store. For the console, run `bun src/admin/main.ts store import <file> --apply`
+from `packages/host`: the host admin CLI opens the store under `.dev/host` in
+its working directory, which there is the development host's store.
+
 A run inside a bound clone takes this repository's project as its default
 scope, and a seed filed on another project records this one as its requester.
 A smoke store does not hold this project. Run from a directory outside a bound
