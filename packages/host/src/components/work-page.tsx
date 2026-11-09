@@ -4,9 +4,11 @@ import { Link } from '@tanstack/react-router';
 import { useRef } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 
+import { agentActivityQuery } from '../api/agent-queries';
 import { HostFaultError, isEngineRefusal } from '../api/errors';
 import { browserTimeZone } from '../api/queries';
 import { workQuery } from '../api/view-queries';
+import { scopedRun } from '../lib/agent-card';
 import { cn } from '../lib/cn';
 import { projectKeyOf } from '../lib/project-key';
 import { STATUS_META, STATUS_ORDER } from '../lib/status';
@@ -264,17 +266,20 @@ function WorkBody({
   projectKey,
   isProject,
   offline,
+  tree,
 }: {
   record: EngineNode;
   projectKey: string;
   isProject: boolean;
   offline: boolean;
+  tree?: EngineTree;
 }) {
   const work = useQuery(
     workQuery(
       isProject ? { key: record.id, kind: 'project' } : { id: record.id, kind: 'container' },
     ),
   );
+  const activity = useQuery(agentActivityQuery);
   if (work.data === undefined) {
     return work.isError ? (
       <p className="text-xs text-status-blocked">
@@ -299,6 +304,11 @@ function WorkBody({
       home={isProject ? undefined : record.id}
       zone={browserTimeZone()}
       offline={offline}
+      agentRun={scopedRun(
+        activity.data,
+        projectKey,
+        isProject ? undefined : { id: record.id, tree },
+      )}
     />
   );
 }
@@ -354,7 +364,13 @@ export function WorkPage({
   );
 
   const work = (
-    <WorkBody record={record} projectKey={projectKey} isProject={isProject} offline={offline} />
+    <WorkBody
+      record={record}
+      projectKey={projectKey}
+      isProject={isProject}
+      offline={offline}
+      tree={tree}
+    />
   );
   const body =
     container === undefined ? (

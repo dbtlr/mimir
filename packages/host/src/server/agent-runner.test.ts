@@ -995,7 +995,7 @@ describe('status', () => {
     expect((await runs.get('live'))?.state).toBe('running');
   });
 
-  test('reads the agent state, the day so far, the next reset, and the running run', async () => {
+  test('reads the agent state, the model, the day so far, the next reset, and the running run', async () => {
     const { promise: held, resolve: release } = Promise.withResolvers<void>();
     const { runner: created } = runner(async function* script() {
       await held;
@@ -1012,6 +1012,7 @@ describe('status', () => {
         timezone: 'UTC',
         usedTokens: 0,
       },
+      model: MODEL,
       running: null,
     });
     const start = await started(created);
@@ -1025,13 +1026,14 @@ describe('status', () => {
     await start.finished;
   });
 
-  test('reads no budget while agents are unconfigured', async () => {
+  test('reads no budget and no model while agents are unconfigured', async () => {
     const { runner: created } = runner(async function* script() {}, {
       settings: { enabled: false },
     });
     expect(await created.status()).toEqual({
       agent: { state: 'unconfigured' },
       budget: null,
+      model: null,
       running: null,
     });
   });

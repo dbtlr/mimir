@@ -59,6 +59,8 @@ export type GroomPanel =
       state: 'ready';
       /** The model a new run uses. */
       model: string;
+      /** When the token file last changed: the card shows its age, since a setup-token token lasts one year. */
+      tokenModifiedAt: Date;
       budget: AgentBudgetView;
       /** The run holding the one running slot, on this task or another; null when the slot is free. */
       running: AgentRunView | null;

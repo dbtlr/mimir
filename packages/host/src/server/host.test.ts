@@ -425,7 +425,7 @@ test('a misconfigured agent runtime warns by setting name at boot and still open
   }
 });
 
-test('the host interrupts a stale run at boot and exposes the runs and the agent runner', async () => {
+test('the host interrupts a stale run at boot and exposes the runs, the agent runner, and its console', async () => {
   const root = await mkdtemp(join(tmpdir(), 'mimir-host-runs-'));
   roots.push(root);
   const config = await readHostConfig({ MIMIR_DATA_DIR: root });
@@ -456,8 +456,14 @@ test('the host interrupts a stale run at boot and exposes the runs and the agent
     expect(await host.agent.status()).toEqual({
       agent: { state: 'unconfigured' },
       budget: null,
+      model: null,
       running: null,
     });
+    // The console reads the same runner: no card, and no running run for Now.
+    expect(await host.agentConsole.panel({ project: 'TST', task: 'TST-1' })).toEqual({
+      state: 'unconfigured',
+    });
+    expect(await host.agentConsole.activity()).toEqual({ running: null });
     expect(
       await host.agent.startRun({
         brief: { prompt: 'p', systemPrompt: 's' },

@@ -153,11 +153,13 @@ export type RunningRun = {
   stale: boolean;
 };
 
-/** What the console reads (MMR-633): the agent state, the day's budget, and the running run. */
+/** What the console reads (MMR-633): the agent state, the day's budget, the model, and the running run. */
 export type AgentStatus = {
   agent: AgentState;
   /** Null while agent runs are unconfigured. */
   budget: AgentBudgetStatus | null;
+  /** The model a new run uses; null while agent runs are unconfigured. */
+  model: string | null;
   running: RunningRun | null;
 };
 
@@ -661,7 +663,7 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
         ? null
         : { run: holder, stale: new Date(holder.heartbeat_at).getTime() < staleBefore };
     if (!settings.enabled) {
-      return { agent, budget: null, running };
+      return { agent, budget: null, model: null, running };
     }
     const { budget } = settings;
     const day = budgetDay(clock(), budget.timezone);
@@ -676,6 +678,7 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
         timezone: budget.timezone,
         usedTokens,
       },
+      model: settings.model,
       running,
     };
   };

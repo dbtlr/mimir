@@ -82,6 +82,11 @@ export type RunStore = {
   /** The run holding the single running slot, if any. */
   running: () => Promise<Run | undefined>;
   /**
+   * The task's most recent run that is no longer running: the latest
+   * `started_at`, the larger id breaking a tie.
+   */
+  lastEnded: (task: string) => Promise<Run | undefined>;
+  /**
    * The tokens charged to runs that started at or after `since`, an ISO
    * instant: each run counts {@link chargedTokens}. The host's console reads
    * this with the instant its budget day began; admission makes the same sum
@@ -185,6 +190,17 @@ export function createRunStore({
       .selectFrom('runs')
       .selectAll()
       .where('state', '=', 'running')
+      .executeTakeFirst();
+    return row === undefined ? undefined : toRun(row);
+  };
+  const lastEnded: RunStore['lastEnded'] = async (task) => {
+    const row = await db
+      .selectFrom('runs')
+      .selectAll()
+      .where('task', '=', task)
+      .where('state', '!=', 'running')
+      .orderBy('started_at', 'desc')
+      .orderBy('id', 'desc')
       .executeTakeFirst();
     return row === undefined ? undefined : toRun(row);
   };
@@ -315,6 +331,7 @@ export function createRunStore({
     },
     get,
     heartbeat: (id, runner) => ownedWrite(id, runner, { heartbeat_at: instant() }),
+    lastEnded,
     recordUsage: async (id, runner, usage) => {
       assertUsage(usage);
       return ownedWrite(id, runner, usageColumns(usage));

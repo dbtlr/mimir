@@ -11,6 +11,8 @@ import type {
   WaitingTask,
   WorkReport,
 } from '../api/view-queries';
+import type { AgentRun } from '../lib/agent-card';
+import { formatTokens } from '../lib/agent-card';
 import { cn } from '../lib/cn';
 import { nodeLink } from '../lib/record-url';
 import { ago, relativeTime } from '../lib/time';
@@ -102,17 +104,45 @@ export function NowRow({ row }: { row: NowTask }) {
   );
 }
 
-function NowSection({ rows }: { rows: readonly NowTask[] }) {
+/** The agent run grooming a task in this page's scope, as a Now row. */
+export function AgentNowRow({ run }: { run: AgentRun }) {
+  return (
+    <BrowserRow
+      to={nodeLink(run.task)}
+      id={run.task}
+      title={run.taskTitle ?? run.task}
+      leading={<StatusDot status="in_progress" />}
+      afterTitle={<Badge variant="outline">Agent</Badge>}
+      meta={
+        <p className="flex flex-wrap items-baseline gap-x-1.5">
+          <span>Grooming, started {ago(run.startedAt)}</span>
+          {run.stale && <ContextPart>stopped reporting</ContextPart>}
+          <ContextPart>
+            {formatTokens(run.usedTokens)} of {formatTokens(run.reservedTokens)} tokens
+          </ContextPart>
+        </p>
+      }
+    />
+  );
+}
+
+function NowSection({ rows, agentRun }: { rows: readonly NowTask[]; agentRun: AgentRun | null }) {
+  const count = rows.length + (agentRun === null ? 0 : 1);
   return (
     <BrowserGroup
       label="Now"
-      count={rows.length > 0 ? rows.length : undefined}
+      count={count > 0 ? count : undefined}
       hint="What’s going on right now?"
     >
-      {rows.length === 0 ? (
+      {count === 0 ? (
         <Empty lead="Nothing running.">No task is queued, in progress, or in review.</Empty>
       ) : (
-        rows.map((row) => <NowRow key={row.task.id} row={row} />)
+        <>
+          {agentRun !== null && <AgentNowRow run={agentRun} />}
+          {rows.map((row) => (
+            <NowRow key={row.task.id} row={row} />
+          ))}
+        </>
       )}
     </BrowserGroup>
   );
@@ -307,7 +337,8 @@ function ShippedRow({ row, zone }: { row: ShippedTask; zone: string }) {
       meta={
         abandoned ? (
           <span className="text-meta text-ink-dim">
-            Abandoned{row.abandonReason === null ? '' : `: ${row.abandonReason}`}
+            Abandoned
+            {row.abandonReason === null ? '' : `: ${row.abandonReason}`}
           </span>
         ) : undefined
       }
@@ -436,16 +467,19 @@ export function WorkSections({
   home,
   zone,
   offline,
+  agentRun = null,
 }: {
   report: WorkReport;
   projectKey: string;
   home?: string;
   zone: string;
   offline: boolean;
+  /** The running agent run in this page's scope, if any. */
+  agentRun?: AgentRun | null;
 }) {
   return (
     <div className="flex flex-col">
-      <NowSection rows={report.now} />
+      <NowSection rows={report.now} agentRun={agentRun} />
       <NeedsYouSection rows={report.needsYou} offline={offline} />
       <FrontierSection
         frontier={report.frontier}
