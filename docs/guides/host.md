@@ -495,14 +495,14 @@ repository in `MIMIR_DATA_DIR`
 ([ADR 0041](../decisions/0041-agent-runtime-on-the-host.md#the-host-syncs-clones-the-agent-never-runs-git)).
 Each clone has two directories:
 
-- `clones/<PROJECT_KEY>` holds the checked-out files that agent runs will
+- `clones/<PROJECT_KEY>` holds the checked-out files that agent runs
   read. It contains no `.git`.
 - `git/<PROJECT_KEY>` holds the clone's git directory. It sits beside
   `clones`, outside every checkout, and only the host's own git calls write it.
 
 Each sync empties the checkout, then checks the remote's default branch out
-into it, so nothing left in the checkout since the last sync survives. Until agent runs ship, the
-host creates no clones. The host fetches the project's remote over HTTPS only, as
+into it, so nothing left in the checkout since the last sync survives. The host syncs a
+project's clone before each agent run and creates no clone otherwise. The host fetches the project's remote over HTTPS only, as
 `https://<host>/<path>.git`. A remote that needs SSH or a port other than 443
 is not supported, and a project without a remote has nothing to clone.
 
