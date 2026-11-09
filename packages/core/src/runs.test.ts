@@ -587,6 +587,68 @@ describe.each([
     expect(await runs.tokensUsedSince('2026-11-02T00:00:00.000Z')).toBe(0);
   });
 
+  test("a task's last ended run is its latest by start that is not running, the id breaking a tie", async () => {
+    const { advance, runs } = await fixture();
+    const closing = {
+      costEstimateUsd: null,
+      outcome: 'done',
+      state: 'succeeded' as const,
+      usage: USAGE,
+      usageSettled: true,
+    };
+    expect(await runs.lastEnded('MMR-1')).toBeUndefined();
+    // Two runs of MMR-1 started at one instant: the larger id wins the tie.
+    await runs.admit(admission('r-b'));
+    await runs.close('r-b', 'host-a', closing);
+    await runs.admit(admission('r-a'));
+    await runs.close('r-a', 'host-a', closing);
+    expect((await runs.lastEnded('MMR-1'))?.id).toBe('r-b');
+    // A later run on another task is not this task's.
+    advance(1_000);
+    await runs.admit({ ...admission('other'), task: 'MMR-2' });
+    await runs.close('other', 'host-a', closing);
+    expect((await runs.lastEnded('MMR-1'))?.id).toBe('r-b');
+    // An interrupted run has ended; a running one has not.
+    await runs.admit(admission('stale'));
+    advance(STALE_MS + 1);
+    await runs.recoverStale(STALE_MS);
+    await runs.admit(admission('live'));
+    expect(await runs.lastEnded('MMR-1')).toMatchObject({ id: 'stale', state: 'interrupted' });
+    expect((await runs.lastEnded('MMR-2'))?.id).toBe('other');
+  });
+
+  test("a task's last ended run orders by start, whatever the insertion or id order", async () => {
+    const { advance, runs } = await fixture();
+    const closing = {
+      costEstimateUsd: null,
+      outcome: 'done',
+      state: 'succeeded' as const,
+      usage: USAGE,
+      usageSettled: true,
+    };
+    const ran = async (id: string, task: string) => {
+      await runs.admit({ ...admission(id), task });
+      await runs.close(id, 'host-a', closing);
+    };
+    // Inserted first with the largest id, then the latest start with the
+    // smallest id, then one between: only the start order picks `r-a`.
+    await ran('r-c', 'MMR-1');
+    advance(1_000);
+    await ran('r-a', 'MMR-1');
+    advance(-500);
+    await ran('r-b', 'MMR-1');
+    expect((await runs.lastEnded('MMR-1'))?.id).toBe('r-a');
+    // A tie on start goes to the larger id, inserted last on one task and
+    // first on the other, so no insertion order breaks both ties right.
+    advance(10_000);
+    await ran('t-a', 'MMR-2');
+    await ran('t-b', 'MMR-2');
+    await ran('u-b', 'MMR-3');
+    await ran('u-a', 'MMR-3');
+    expect((await runs.lastEnded('MMR-2'))?.id).toBe('t-b');
+    expect((await runs.lastEnded('MMR-3'))?.id).toBe('u-b');
+  });
+
   test('usage since refuses an instant that is not a date', async () => {
     const { runs } = await fixture();
     expect(await failureOf(runs.tokensUsedSince('yesterday'))).toMatchObject({

@@ -56,3 +56,14 @@ export function shortDate(at: Instant): string {
   const full = calendarDate(at);
   return full === '—' ? full : full.slice(5);
 }
+
+/** Wall-clock time of day in the reader's zone, e.g. "7:00 PM". */
+export function clockTime(at: Instant): string {
+  const instant = new Date(at);
+  return Number.isNaN(instant.getTime())
+    ? '—'
+    : // ICU may put a narrow no-break space before the meridiem; read it as a plain space.
+      instant
+        .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+        .replaceAll(/\s/g, ' ');
+}

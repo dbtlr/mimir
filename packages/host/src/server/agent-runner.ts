@@ -29,6 +29,7 @@ import {
   usageTotal,
 } from './agent-usage';
 import type { UsageMeter } from './agent-usage';
+import { usableRemote } from './clones';
 import type { CloneSyncOptions, CloneSyncResult } from './clones';
 import type { GitCredentialsSetting } from './git-credentials';
 
@@ -105,6 +106,8 @@ export type RunRefusal =
       dailyTokens: number;
       /** When the budget day resets. */
       resetsAt: Date;
+      /** The budget day's IANA time zone, whose midnight `resetsAt` is. */
+      timezone: string;
     }
   /**
    * Another run holds the one running slot. `running` is null when that run
@@ -153,11 +156,18 @@ export type RunningRun = {
   stale: boolean;
 };
 
-/** What the console reads (MMR-633): the agent state, the day's budget, and the running run. */
+/** What the console reads (MMR-633): the agent state, the day's budget, the model, and the running run. */
 export type AgentStatus = {
   agent: AgentState;
   /** Null while agent runs are unconfigured. */
   budget: AgentBudgetStatus | null;
+  /** The model a new run uses; null while agent runs are unconfigured. */
+  model: string | null;
+  /**
+   * The Claude Code managed settings paths present on the host, which a start
+   * refuses on; empty when there are none or agent runs are unconfigured.
+   */
+  managedPolicy: string[];
   running: RunningRun | null;
 };
 
@@ -319,9 +329,7 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
       return { lifecycle: String(node.lifecycle), reason: 'task-not-todo' };
     }
     const { remote } = await engine.getNode({ id: input.project });
-    return remote === null || remote === undefined || remote.trim() === ''
-      ? { reason: 'no-remote' }
-      : { remote };
+    return usableRemote(remote) ? { remote } : { reason: 'no-remote' };
   };
 
   /**
@@ -383,6 +391,7 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
           reason: 'budget',
           resetsAt: day.resetsAt,
           runTokens: budget.runTokens,
+          timezone: budget.timezone,
           usedTokens: admitted.used,
         });
       }
@@ -661,7 +670,7 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
         ? null
         : { run: holder, stale: new Date(holder.heartbeat_at).getTime() < staleBefore };
     if (!settings.enabled) {
-      return { agent, budget: null, running };
+      return { agent, budget: null, managedPolicy: [], model: null, running };
     }
     const { budget } = settings;
     const day = budgetDay(clock(), budget.timezone);
@@ -676,6 +685,8 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
         timezone: budget.timezone,
         usedTokens,
       },
+      managedPolicy: await managedPolicy(),
+      model: settings.model,
       running,
     };
   };

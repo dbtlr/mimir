@@ -544,9 +544,11 @@ repository's sync fails with a message that names the setting.
 Agent runs let the host run a Claude agent against one task of its own
 board, such as grooming a `todo` task. The host runs the agent itself, on
 your own Claude subscription, as personal automation for the operator who
-deploys it (ADR 0041). The console cannot start a run yet; you can set the
-feature up now, and the host checks the settings at startup and again before
-each run.
+deploys it (ADR 0041). Once it is set up, a `todo` task's page shows a
+**Groom with agent** card. When the setup has a problem, such as a missing
+setting, a refused token, or Claude Code managed settings on the host, the
+card names the problem; it is absent only while `MIMIR_AGENT_TOKEN_FILE` is
+unset. The host checks the settings at startup and again before each run.
 
 Use a token from a personal Claude plan. A token from a Team or Enterprise
 organization makes Claude Code apply that organization's server-managed
@@ -563,14 +565,15 @@ settings to every run, and the host cannot detect or turn them off.
    deletes a run's directory when the run ends, so it keeps no transcripts.
 
 The host reads the token file at each use, so to rotate the token, replace
-the file. The console never accepts a token; when its agent view arrives, it
-will show the file's age. A `setup-token` token lasts one year.
+the file. The console never accepts a token; the Groom with agent card shows
+the file's age. A `setup-token` token lasts one year.
 
 When `MIMIR_AGENT_TOKEN_FILE` is set but the file is missing, unreadable, or
 empty, or when `MIMIR_HOSTS` is unset or `MIMIR_DATA_DIR` is not writable, the
 host starts and logs a warning that names the setting, and agent runs stay off
-until it is fixed. Once runs can start, an API refusal of the token will keep
-agent runs disconnected until you replace the file.
+until it is fixed. When the API refuses the token, agent runs stay
+disconnected until you replace the file, and the card shows the refused
+file's age.
 
 These settings tune agent runs. Each one is optional. A value that is not
 valid logs a warning that names the setting, and the host uses the default.
@@ -637,6 +640,26 @@ A host that stops while a run is running leaves the run's record behind.
 After two minutes without a heartbeat from its host, the run shows as stale,
 and the next host start or run start marks it interrupted. It then counts as
 a run that ended without a total.
+
+### Groom a task with an agent
+
+1. Open a `todo` task's page. The **Groom with agent** card sits above the
+   description and shows the model, the day's budget with the run's
+   reservation, and the token file's age.
+2. Select **Groom with agent**. The card, and the work page's Now section,
+   show the run and its token use while it works.
+3. Read the agent's notes in the task's timeline when the run ends. The agent
+   checks the description against the code, cites files and lines, and sets
+   the task's grooming: **groomed**, or **needs answers** with each question
+   and a recommended answer. It never changes the task's status.
+
+When a run cannot start, the card says why, using the reasons above. Managed
+settings on the host show on the card before you select anything, with their
+paths. A run that failed shows its outcome on the card, with **Try again**. A
+stale run on the task shows that it stopped reporting, with **Try again**,
+because a new start marks it interrupted; a stale run on another task does
+not block a start. To set the remote a project needs, run
+`mimir update <KEY> --remote <url>`.
 
 ## Administer the host with mimir-host
 

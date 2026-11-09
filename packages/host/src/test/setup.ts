@@ -45,13 +45,18 @@ vi.mock('@tanstack/react-start', async (importOriginal) => {
       'an unmocked server function was called: mock its module by function (see test/setup.ts)',
     );
   };
-  const builder = { handler: refuse, middleware: () => builder, validator: () => builder };
+  const builder = {
+    handler: refuse,
+    middleware: () => builder,
+    validator: () => builder,
+  };
   return { ...actual, createServerFn: () => builder };
 });
 // The host's server graph (its store and core) never loads in the browser test
 // environment; no stubbed server function reaches it.
 // oxlint-disable-next-line vitest/require-hook
 vi.mock('../api/fns/engine', () => ({
+  agentConsole: vi.fn(),
   deviceTokens: vi.fn(),
   engine: vi.fn(),
   requestOrigin: vi.fn(),
@@ -67,6 +72,15 @@ vi.mock('../api/fns/t3', () => ({
   t3Catalog: vi.fn(),
   t3Origin: vi.fn(async () => ({ origin: null })),
   t3Status: vi.fn(),
+}));
+// The agent card and the work pages' Now read the agent runtime, so every file
+// gets the unconfigured runtime with nothing running by default; an agent test
+// mocks the module itself (`vi.mock('../api/fns/agent')`) and serves its own state.
+// oxlint-disable-next-line vitest/require-hook
+vi.mock('../api/fns/agent', () => ({
+  agentActivity: vi.fn(async () => ({ running: null })),
+  groomCard: vi.fn(async () => ({ state: 'unconfigured' })),
+  startGroom: vi.fn(),
 }));
 // oxlint-disable-next-line vitest/require-hook
 vi.mock('../api/health', () => ({

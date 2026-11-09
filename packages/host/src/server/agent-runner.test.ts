@@ -566,6 +566,7 @@ describe('refusals', () => {
       resetsAt: new Date('2026-11-08T05:00:00.000Z'),
       runTokens: 4_000_000,
       started: false,
+      timezone: 'America/New_York',
       usedTokens: 6_500_000,
     });
     expect(zoned.calls).toEqual([]);
@@ -751,6 +752,7 @@ describe('in flight', () => {
     expect(await agentState(settings(), connection)).toEqual({
       reason: 'rejected',
       state: 'disconnected',
+      tokenModifiedAt: expect.any(Date),
     });
   });
 
@@ -816,6 +818,7 @@ describe('in flight', () => {
     expect(await agentState(settings(), connection)).toEqual({
       reason: 'rejected',
       state: 'disconnected',
+      tokenModifiedAt: expect.any(Date),
     });
     expect(await chargedToday()).toBe(0);
   });
@@ -995,7 +998,7 @@ describe('status', () => {
     expect((await runs.get('live'))?.state).toBe('running');
   });
 
-  test('reads the agent state, the day so far, the next reset, and the running run', async () => {
+  test('reads the agent state, the model, the day so far, the next reset, and the running run', async () => {
     const { promise: held, resolve: release } = Promise.withResolvers<void>();
     const { runner: created } = runner(async function* script() {
       await held;
@@ -1012,6 +1015,8 @@ describe('status', () => {
         timezone: 'UTC',
         usedTokens: 0,
       },
+      managedPolicy: [],
+      model: MODEL,
       running: null,
     });
     const start = await started(created);
@@ -1025,14 +1030,27 @@ describe('status', () => {
     await start.finished;
   });
 
-  test('reads no budget while agents are unconfigured', async () => {
+  test('reads no budget and no model while agents are unconfigured', async () => {
     const { runner: created } = runner(async function* script() {}, {
       settings: { enabled: false },
     });
     expect(await created.status()).toEqual({
       agent: { state: 'unconfigured' },
       budget: null,
+      managedPolicy: [],
+      model: null,
       running: null,
     });
+  });
+
+  test('reports the managed settings paths a start would refuse on, before any start', async () => {
+    const managed = runner(never, {
+      managedPolicy: async () => ['/etc/claude-code/managed-settings.json'],
+    });
+    expect((await managed.runner.status()).managedPolicy).toEqual([
+      '/etc/claude-code/managed-settings.json',
+    ]);
+    expect(await runs.running()).toBeUndefined();
+    expect((await runner(never).runner.status()).managedPolicy).toEqual([]);
   });
 });

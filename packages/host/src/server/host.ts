@@ -7,6 +7,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { buildStore, findingsProviderOf, LocalEngine, MimirError, SQLITE_FILE } from '@mimir/core';
 import { assertHostVersion, createEngineHandler } from '@mimir/wire/server';
 
+import { createAgentConsole } from './agent-console';
 import { createAgentRunner, RUNNER_TIMING } from './agent-runner';
 import { agentStartupWarnings, createAgentConnection } from './agent-settings';
 import { syncClone } from './clones';
@@ -92,6 +93,8 @@ export async function openHost(
     });
     return {
       agent,
+      // The agent runtime's console surface (MMR-633): the task card, Now, and Groom with agent.
+      agentConsole: createAgentConsole({ agent, engine, log, runs: built.runs }),
       close: built.close,
       // The record-health facet: a host concern, not an Engine method (ADR 0034).
       doctor: built.doctor.facet,

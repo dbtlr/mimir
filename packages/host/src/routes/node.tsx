@@ -6,6 +6,7 @@ import { Fragment, useState } from 'react';
 import { isNotFound } from '../api/errors';
 import { annotationsQuery, nodeQuery, scratchpadsQuery } from '../api/node-queries';
 import { treeQuery } from '../api/shell-queries';
+import { GroomWithAgentCard } from '../components/agent-card';
 import { AnnotationComposer } from '../components/annotation-composer';
 import { GroomingBadge, GroomingChip } from '../components/grooming-chip';
 import { GroomingDialog } from '../components/grooming-dialog';
@@ -223,7 +224,12 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
   const navigate = useNavigate({ from: nodeRoute.fullPath });
   const conn = connectivity([node, annotations]);
   useRememberRecord(
-    node.data && { id: nodeId, kind: node.data.type, project: projectKey, title: node.data.title },
+    node.data && {
+      id: nodeId,
+      kind: node.data.type,
+      project: projectKey,
+      title: node.data.title,
+    },
   );
 
   if (isNotFound(node.error)) {
@@ -253,7 +259,9 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
       </>
     );
     const onTab = (next: WorkTab) => {
-      void navigate({ search: { tab: next === 'timeline' ? 'timeline' : undefined } });
+      void navigate({
+        search: { tab: next === 'timeline' ? 'timeline' : undefined },
+      });
     };
     return (
       <>
@@ -262,7 +270,12 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
           record={data}
           tree={tree.data}
           offline={offline}
-          container={{ onTab, tab: tab ?? 'work', timeline, timelineCount: feed.length }}
+          container={{
+            onTab,
+            tab: tab ?? 'work',
+            timeline,
+            timelineCount: feed.length,
+          }}
         />
       </>
     );
@@ -390,6 +403,7 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
               />
             )}
             <HoldCallout node={data} />
+            <GroomWithAgentCard node={data} offline={offline} />
             <DescriptionSection description={data.description} />
             <section className="flex flex-col gap-3">
               <h2 className="microlabel border-b border-line pb-1.5 text-ink-faint">
