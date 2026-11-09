@@ -298,7 +298,8 @@ test('a symlink that resolves outside the clone refuses the sync, absolute or re
     expect(refused, remote).toMatchObject({ ok: false, reason: 'escaping-symlink' });
     expect(refused.ok ? '' : refused.message).toContain(Object.keys(links)[0] ?? '');
   }
-});
+  // Twelve publish-and-sync rounds; a slow macOS runner passed the 5-second default.
+}, 30_000);
 
 test('a symlink that stays inside the clone is allowed', async () => {
   const { options, remotes } = await fixture();
