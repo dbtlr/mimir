@@ -201,6 +201,7 @@ export function createRunStore({
       .where('state', '!=', 'running')
       .orderBy('started_at', 'desc')
       .orderBy('id', 'desc')
+      .limit(1)
       .executeTakeFirst();
     return row === undefined ? undefined : toRun(row);
   };
