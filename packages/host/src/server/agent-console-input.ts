@@ -2,7 +2,7 @@
 import { parseEngineInput } from '@mimir/contract';
 import { z } from 'zod';
 
-import type { GroomTarget } from './agent-console-states';
+import type { GroomCancelTarget, GroomTarget } from './agent-console-states';
 
 const targetSchema = z.strictObject({
   project: z.string().min(1),
@@ -16,3 +16,18 @@ const targetSchema = z.strictObject({
  */
 export const parseGroomTarget = (input: unknown): GroomTarget =>
   parseEngineInput(targetSchema, input);
+
+/** The shape `randomUUID` gives a run id: lowercase hex in 8-4-4-4-12 groups. */
+const RUN_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+const cancelSchema = z.strictObject({
+  runId: z.string().min(1).max(36).regex(RUN_ID),
+});
+
+/**
+ * The cancel's input: one run id in the shape the runner makes. A malformed
+ * input is a thrown validation error; whether a run has that id is the
+ * runner's to answer.
+ */
+export const parseGroomCancelTarget = (input: unknown): GroomCancelTarget =>
+  parseEngineInput(cancelSchema, input);

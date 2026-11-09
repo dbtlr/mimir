@@ -15,6 +15,8 @@ export type AgentGateOptions = {
   readerAgentName: string;
   /** Charge one subagent's allowance against the run; false denies the spawn. */
   chargeSpawn: () => boolean;
+  /** Whether the operator has cancelled the run; once true, every call stops the run. */
+  cancelled: () => boolean;
 };
 
 type Decision = { allow: true; reason: string } | { allow: false; reason: string };
@@ -251,17 +253,33 @@ function output(decision: Decision): SyncHookJSONOutput {
   };
 }
 
+/** Why a cancelled run's call is denied, and why the run stops. */
+const CANCELLED = 'the operator cancelled this run from the console';
+
+/**
+ * The answer to every call once the run is cancelled: deny it, and end the
+ * run with `continue: false` (ADR 0041's 2026-11-09 refinement).
+ */
+function stopped(): SyncHookJSONOutput {
+  return { ...output(deny(CANCELLED)), continue: false, stopReason: CANCELLED };
+}
+
 /**
  * The run's one gate (ADR 0041): a PreToolUse hook, deny by default. It allows
  * Read, Grep, and Glob on real paths inside the clone, spawns of the reader
  * agent from the main agent, and the run grant's tools from the main agent.
- * The options builder registers it with `onFailure: 'block'`; an exception
- * inside it also denies.
+ * Once the run is cancelled it denies every call and stops the run. The
+ * options builder registers it with `onFailure: 'block'`; an exception inside
+ * it also denies.
  */
 export function createAgentGate(options: AgentGateOptions): HookCallback {
   const gitDirectory = resolve(options.dataDirectory, 'git');
   const grantTools = new Set(options.grantToolNames);
   return async (input) => {
+    // First, before anything that can throw and before a spawn is charged.
+    if (options.cancelled()) {
+      return stopped();
+    }
     try {
       // Resolved per call: a clone root that does not resolve throws, and so denies.
       const realGit = await realpath(gitDirectory).catch(() => gitDirectory);
@@ -269,9 +287,11 @@ export function createAgentGate(options: AgentGateOptions): HookCallback {
         clone: await realpath(options.cloneRoot),
         forbidden: [...new Set([gitDirectory, realGit])],
       };
-      return output(await decide(input, options, roots, grantTools));
+      const decision = await decide(input, options, roots, grantTools);
+      // A cancel recorded while the gate decided stops this call too.
+      return options.cancelled() ? stopped() : output(decision);
     } catch {
-      return output(deny('the gate could not decide this call'));
+      return options.cancelled() ? stopped() : output(deny('the gate could not decide this call'));
     }
   };
 }

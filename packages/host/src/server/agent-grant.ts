@@ -94,6 +94,8 @@ export type RunGrantOptions = {
   checkRow: () => Promise<'held' | 'lost'>;
   /** Called when a write finds the row lost, so the runner aborts the run. */
   onLost: () => void;
+  /** Whether the operator has cancelled the run; checked immediately before every write. */
+  cancelled: () => boolean;
 };
 
 /** The reads' note on references to other projects. */
@@ -309,6 +311,17 @@ export function createRunGrant(options: RunGrantOptions): McpSdkServerConfigWith
     }
   };
 
+  /**
+   * Refuse once the run is cancelled. Called immediately before each write
+   * verb, with no await between, so a write that passes it was not cancelled
+   * when it was sent.
+   */
+  const notCancelled = () => {
+    if (options.cancelled()) {
+      refuse('the operator cancelled this run from the console; nothing was written');
+    }
+  };
+
   /** Refuse unless every id names the run's task. */
   const ownTask = (ids: readonly string[]) => {
     const stray = ids.find((record) => record !== task);
@@ -411,6 +424,7 @@ export function createRunGrant(options: RunGrantOptions): McpSdkServerConfigWith
         ownTask(args.id === undefined ? [] : [args.id]);
         countNote();
         await holdRow();
+        notCancelled();
         return engine.annotate({ content: args.content, id: task });
       },
     ),
@@ -429,6 +443,7 @@ export function createRunGrant(options: RunGrantOptions): McpSdkServerConfigWith
         if (current.lifecycle !== 'todo') {
           refuse(`${task} is no longer todo; its grooming state was not changed`);
         }
+        notCancelled();
         return engine.groom({
           ids: [task],
           state: args.state,
@@ -459,6 +474,7 @@ export function createRunGrant(options: RunGrantOptions): McpSdkServerConfigWith
         attaching += 1;
         try {
           await holdRow();
+          notCancelled();
           const artifact = await engine.attach({
             content: args.content,
             links: [task],

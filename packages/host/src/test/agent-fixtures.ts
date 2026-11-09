@@ -11,6 +11,7 @@ import type { AgentActivity, AgentBudgetView, AgentRunView, GroomCard } from '..
 /** A run on MMR-640, started at the fixture instant, still running. */
 export function agentRun(overrides: Partial<AgentRunView> = {}): AgentRunView {
   return {
+    cancellable: false,
     endedAt: null,
     heartbeatAt: new Date('2026-06-01T10:00:00.000Z'),
     id: 'run-1',
@@ -22,6 +23,7 @@ export function agentRun(overrides: Partial<AgentRunView> = {}): AgentRunView {
     stale: false,
     startedAt: new Date('2026-06-01T10:00:00.000Z'),
     state: 'running',
+    stopping: false,
     task: 'MMR-640',
     usedTokens: 360_000,
     ...overrides,

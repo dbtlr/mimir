@@ -69,6 +69,7 @@ afterAll(async () => {
 function gate(overrides: Partial<AgentGateOptions> = {}) {
   const spawns = { charged: 0 };
   const hook = createAgentGate({
+    cancelled: () => false,
     chargeSpawn: () => {
       spawns.charged += 1;
       return true;
@@ -365,4 +366,95 @@ test('a hook event other than PreToolUse is denied', async () => {
     { signal: new AbortController().signal },
   )) as SyncHookJSONOutput;
   expect(output.hookSpecificOutput).toMatchObject({ permissionDecision: 'deny' });
+});
+
+/** Ask the gate about one main-agent call and answer its whole output. */
+async function answer(hook: ReturnType<typeof gate>['hook'], toolName: string, toolInput: unknown) {
+  return (await hook(
+    {
+      cwd: clone,
+      hook_event_name: 'PreToolUse',
+      session_id: 'session',
+      tool_input: toolInput,
+      tool_name: toolName,
+      tool_use_id: 'tool-use',
+      transcript_path: join(root, 'transcript.jsonl'),
+    },
+    'tool-use',
+    { signal: new AbortController().signal },
+  )) as SyncHookJSONOutput;
+}
+
+test('after a cancel every call is denied and stops the run, and no spawn is charged', async () => {
+  const cancel = { recorded: false };
+  const { hook, spawns } = gate({ cancelled: () => cancel.recorded });
+  const spawn = { description: 'survey', prompt: 'read src', subagent_type: 'reader' };
+  // Before the cancel, the same calls are allowed and do not stop the run.
+  expect(await answer(hook, 'Read', { file_path: join(clone, 'README.md') })).not.toHaveProperty(
+    'continue',
+  );
+  cancel.recorded = true;
+  for (const [tool, input] of [
+    ['Read', { file_path: join(clone, 'README.md') }],
+    ['Agent', spawn],
+    ['mcp__mimir__annotate', { content: 'note' }],
+    ['Bash', { command: 'ls' }],
+  ] as const) {
+    expect(await answer(hook, tool, input)).toEqual({
+      continue: false,
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        permissionDecision: 'deny',
+        permissionDecisionReason: expect.stringContaining('console'),
+      },
+      stopReason: expect.stringContaining('console'),
+    });
+  }
+  expect(spawns.charged).toBe(0);
+});
+
+test('a cancel recorded while the gate decides stops the call it answers', async () => {
+  const cancel = { recorded: false };
+  const { hook } = gate({
+    cancelled: () => cancel.recorded,
+    chargeSpawn: () => {
+      cancel.recorded = true;
+      return true;
+    },
+  });
+  expect(
+    await answer(hook, 'Agent', { description: 'survey', prompt: 'x', subagent_type: 'reader' }),
+  ).toMatchObject({ continue: false, hookSpecificOutput: { permissionDecision: 'deny' } });
+});
+
+test('the error path stops the run once a cancel is recorded', async () => {
+  const cancel = { recorded: false };
+  const { hook } = gate({
+    cancelled: () => cancel.recorded,
+    chargeSpawn: () => {
+      // The cancel lands while the gate decides, and the decision throws.
+      cancel.recorded = true;
+      throw new Error('budget store unavailable');
+    },
+  });
+  expect(
+    await answer(hook, 'Agent', { description: 'survey', prompt: 'x', subagent_type: 'reader' }),
+  ).toMatchObject({
+    continue: false,
+    hookSpecificOutput: { permissionDecision: 'deny' },
+    stopReason: expect.stringContaining('console'),
+  });
+  // Without a cancel, a throw denies but does not stop the run.
+  const plain = gate({
+    chargeSpawn: () => {
+      throw new Error('budget store unavailable');
+    },
+  });
+  expect(
+    await answer(plain.hook, 'Agent', {
+      description: 'survey',
+      prompt: 'x',
+      subagent_type: 'reader',
+    }),
+  ).not.toHaveProperty('continue');
 });

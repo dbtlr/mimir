@@ -79,6 +79,7 @@ vi.mock('../api/fns/t3', () => ({
 // oxlint-disable-next-line vitest/require-hook
 vi.mock('../api/fns/agent', () => ({
   agentActivity: vi.fn(async () => ({ running: null })),
+  cancelGroom: vi.fn(),
   groomCard: vi.fn(async () => ({ state: 'unconfigured' })),
   startGroom: vi.fn(),
 }));

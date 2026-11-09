@@ -33,6 +33,13 @@ export type AgentRunView = {
   outcome: string | null;
   /** A running run whose heartbeat is older than the stale window: its host most likely stopped. */
   stale: boolean;
+  /** A cancel is recorded on the running run: the console shows "Stopping" until its row closes. */
+  stopping: boolean;
+  /**
+   * The console may offer Cancel: the serving process holds the run, its
+   * stream has not ended, no cancel is recorded yet, and it is not stale.
+   */
+  cancellable: boolean;
 };
 
 /** The day's agent budget. */
@@ -108,6 +115,29 @@ export type GroomStartResult =
 /** One task in one project: what the card reads and what a start acts on. */
 export type GroomTarget = { project: string; task: string };
 
+/** The run a cancel names. */
+export type GroomCancelTarget = { runId: string };
+
+/**
+ * What Cancel answers (ADR 0041's 2026-11-09 refinement). Only `cancelling`
+ * recorded a cancel; every other answer changed nothing.
+ */
+export type GroomCancelResult =
+  /** The serving process holds the run and recorded the cancel; a repeat answers the same. */
+  | { state: 'cancelling' }
+  /** The run's stream already ended; it closes as it would have. */
+  | { state: 'ending' }
+  /** No run has that id. */
+  | { state: 'unknown' }
+  /** The run is no longer running; `runState` is the state it ended in. */
+  | { state: 'ended'; runState: Exclude<AgentRunState, 'running'> }
+  /** The serving process's close of the run failed; the row goes stale and is interrupted. */
+  | { state: 'closing' }
+  /** The run's host stopped reporting; the next admission interrupts it. */
+  | { state: 'stale' }
+  /** Another host process holds the run, which this one cannot reach. */
+  | { state: 'another-host' };
+
 /**
  * The host's console-facing agent surface (MMR-633), beside the Engine like
  * the T3 adapter. Each method answers a tagged state.
@@ -116,4 +146,5 @@ export type AgentConsole = {
   card: (target: GroomTarget) => Promise<GroomCard>;
   activity: () => Promise<AgentActivity>;
   startGroom: (target: GroomTarget) => Promise<GroomStartResult>;
+  cancelGroom: (target: GroomCancelTarget) => Promise<GroomCancelResult>;
 };

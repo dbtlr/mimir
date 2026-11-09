@@ -51,7 +51,17 @@ export type RunnerTiming = {
   staleAfterMs: number;
   /** The least time between streamed usage writes. */
   recordEveryMs: number;
+  /** How long a cancelled run's query may run on before the runner aborts it. */
+  cancelGraceMs: number;
 };
+
+/**
+ * How long a run cancelled after its query exists may take to end with a
+ * result before the runner aborts it (ADR 0041's 2026-11-09 refinement): a
+ * main turn and a reader's turn back to back near the per-turn output
+ * allowance at typical output speed.
+ */
+export const CANCEL_GRACE_MS = 300_000;
 
 /**
  * The runner's timing. A heartbeat every 15 seconds against a 2-minute stale
@@ -62,6 +72,7 @@ export type RunnerTiming = {
  * streaming many messages a second does not write on each.
  */
 export const RUNNER_TIMING: RunnerTiming = {
+  cancelGraceMs: CANCEL_GRACE_MS,
   heartbeatMs: 15_000,
   recordEveryMs: 5_000,
   staleAfterMs: 120_000,
@@ -154,7 +165,33 @@ export type RunningRun = {
    * interrupts it; reading status never does.
    */
   stale: boolean;
+  /** This process holds the run in its registry, so a cancel here can reach it. */
+  held: boolean;
+  /** This process holds the run and its stream has ended: a cancel would change nothing. */
+  ending: boolean;
+  /** A cancel is recorded on the run, which this process holds. */
+  stopping: boolean;
 };
+
+/**
+ * What a cancel answers (ADR 0041's 2026-11-09 refinement), the first that
+ * holds. Only `cancelling` records a cancel.
+ */
+export type CancelRunResult =
+  /** This process holds the run and its stream has not ended; the cancel is recorded. */
+  | { answer: 'cancelling' }
+  /** This process holds the run and its stream has ended; the run closes as it would have. */
+  | { answer: 'ending' }
+  /** No row has that id. */
+  | { answer: 'unknown' }
+  /** The row is no longer running; `state` is the state it ended in. */
+  | { answer: 'ended'; state: Exclude<Run['state'], 'running'> }
+  /** The row runs under this process's runner id, which no longer holds it: its close write failed. */
+  | { answer: 'closing' }
+  /** The row's heartbeat is older than the stale window. */
+  | { answer: 'stale' }
+  /** The row's runner is another process, which nothing here reaches. */
+  | { answer: 'another-host' };
 
 /** What the console reads (MMR-633): the agent state, the day's budget, the model, and the running run. */
 export type AgentStatus = {
@@ -174,6 +211,8 @@ export type AgentStatus = {
 export type AgentRunner = {
   startRun: (input: StartRunInput) => Promise<StartRunResult>;
   status: () => Promise<AgentStatus>;
+  /** Cancel a run by its id: recorded only when this process holds it and its stream runs. */
+  cancelRun: (runId: string) => Promise<CancelRunResult>;
 };
 
 export type AgentRunnerOptions = {
@@ -194,8 +233,27 @@ export type AgentRunnerOptions = {
   timing?: RunnerTiming;
 };
 
-/** Why the runner aborted a run. */
-type AbortReason = 'ceiling' | 'lost';
+/** Why the runner aborted a run. `cancel-grace`: a cancelled run's grace period ran out. */
+type AbortReason = 'ceiling' | 'lost' | 'cancel-grace';
+
+/**
+ * One run this process holds, from its admission until its last close attempt
+ * settles (the registry of ADR 0041's 2026-11-09 refinement).
+ */
+type HeldRun = {
+  /** A cancel is recorded. */
+  cancelled: boolean;
+  /**
+   * Its stream has ended: its result arrived, it stopped without one, or the
+   * runner has settled on how it closes. A cancel no longer changes anything.
+   */
+  ended: boolean;
+  /** Called when a cancel is recorded once the query exists: starts the grace timer. */
+  onCancel: (() => void) | undefined;
+};
+
+/** What a cancelled run's outcome line names first. */
+const CONSOLE_CANCEL = 'cancelled: the operator stopped the run from the console';
 
 /** The SDK's assistant errors that mean the API refused the token. */
 const TOKEN_REJECTIONS = new Set(['authentication_failed', 'oauth_org_not_allowed']);
@@ -236,6 +294,8 @@ function describeResult(input: {
   ceiling: number;
   spawns: number;
   tokenRejected: boolean;
+  /** A cancel was recorded before the stream ended. */
+  cancelled: boolean;
 }): string {
   const { result } = input;
   const total = usageTotal(input.settled);
@@ -251,49 +311,99 @@ function describeResult(input: {
     facts.push(`past its ${input.ceiling}-token ceiling`);
   }
   const summary = facts.join('; ');
+  // A cancelled run names the console first and keeps what else ended it.
+  const failed = (detail: string) =>
+    input.cancelled ? `${CONSOLE_CANCEL}; ${detail}` : `failed: ${detail}`;
   if (input.tokenRejected) {
-    return `failed: the API refused the agent token; replace the file MIMIR_AGENT_TOKEN_FILE names (${summary})`;
+    return failed(
+      `the API refused the agent token; replace the file MIMIR_AGENT_TOKEN_FILE names (${summary})`,
+    );
   }
   if (result.subtype === 'success' && !result.is_error) {
-    return `succeeded: ${summary}`;
+    return input.cancelled ? `${CONSOLE_CANCEL} (${summary})` : `succeeded: ${summary}`;
   }
   const detail =
     result.subtype === 'success' ? `ended on an API error: ${result.result}` : result.subtype;
-  return oneLine(`failed: ${detail} (${summary})`);
+  return oneLine(failed(`${detail} (${summary})`));
 }
 
-/** The outcome line for a run that ended with no result, or none with a valid total. */
-function describeUnsettled(input: {
+/** How a run that ended with a result and a valid total closes. */
+function resultState(input: {
+  result: SDKResultMessage;
+  tokenRejected: boolean;
+  cancelled: boolean;
+}): RunClosingState {
+  if (input.cancelled) {
+    return 'cancelled';
+  }
+  const { result } = input;
+  return result.subtype === 'success' && !result.is_error && !input.tokenRejected
+    ? 'succeeded'
+    : 'failed';
+}
+
+/** What ended a run with no result, or none with a valid total, as an outcome detail. */
+function unsettledDetail(input: {
   aborted: AbortReason | undefined;
   failure: unknown;
   hadResult: boolean;
   tokenRejected: boolean;
   ceiling: number;
   estimate: number;
-}): { state: RunClosingState; outcome: string } {
-  if (input.aborted === 'ceiling') {
-    return {
-      outcome: `cancelled: the run reached its ${input.ceiling}-token ceiling (estimated ${input.estimate} tokens) and was stopped`,
-      state: 'cancelled',
-    };
+  graceMs: number;
+}): string {
+  if (input.aborted === 'cancel-grace') {
+    return `it did not end within its ${Math.round(input.graceMs / 1000)}-second grace period and was aborted`;
   }
+  if (input.aborted === 'ceiling') {
+    return `the run reached its ${input.ceiling}-token ceiling (estimated ${input.estimate} tokens) and was stopped`;
+  }
+  if (input.tokenRejected) {
+    return 'the API refused the agent token; replace the file MIMIR_AGENT_TOKEN_FILE names';
+  }
+  if (input.hadResult) {
+    return 'the run ended with no valid usage total';
+  }
+  const message = input.failure instanceof Error ? input.failure.message : 'the stream ended';
+  return `the run ended without a result: ${message}`;
+}
+
+/** The outcome line for a run that ended with no result, or none with a valid total. */
+function describeUnsettled(
+  input: Parameters<typeof unsettledDetail>[0] & {
+    /** A cancel was recorded before the stream ended. */
+    cancelled: boolean;
+  },
+): { state: RunClosingState; outcome: string } {
   if (input.aborted === 'lost') {
     return { outcome: 'failed: the runner lost the run to another host', state: 'failed' };
   }
-  if (input.tokenRejected) {
-    return {
-      outcome:
-        'failed: the API refused the agent token; replace the file MIMIR_AGENT_TOKEN_FILE names',
-      state: 'failed',
-    };
+  const detail = unsettledDetail(input);
+  if (input.cancelled) {
+    return { outcome: oneLine(`${CONSOLE_CANCEL}; ${detail}`), state: 'cancelled' };
   }
-  if (input.hadResult) {
-    return { outcome: 'failed: the run ended with no valid usage total', state: 'failed' };
+  if (input.aborted === 'ceiling') {
+    return { outcome: `cancelled: ${detail}`, state: 'cancelled' };
   }
-  const message = input.failure instanceof Error ? input.failure.message : 'the stream ended';
+  return { outcome: oneLine(`failed: ${detail}`), state: 'failed' };
+}
+
+/**
+ * The close of a run cancelled before its query was created: it never reached
+ * the SDK, so it used nothing and is charged nothing. `detail` keeps what else
+ * ended it, such as a clone that did not sync.
+ */
+function cancelledBeforeQuery(detail?: string) {
   return {
-    outcome: oneLine(`failed: the run ended without a result: ${message}`),
-    state: 'failed',
+    costEstimateUsd: null,
+    outcome: oneLine(
+      detail === undefined
+        ? `${CONSOLE_CANCEL} before its query started`
+        : `${CONSOLE_CANCEL}; ${detail}`,
+    ),
+    state: 'cancelled' as const,
+    usage: NO_USAGE,
+    usageSettled: true,
   };
 }
 
@@ -310,6 +420,14 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
     newRunId = randomUUID,
     timing = RUNNER_TIMING,
   } = options;
+
+  /**
+   * The runs this process holds, by run id: process-local, so only the
+   * process that owns a run can cancel it. An entry is added as soon as
+   * admission returns the row and removed once the run's last close attempt
+   * has settled.
+   */
+  const registry = new Map<string, HeldRun>();
 
   /** The task and its project's remote, or why the run cannot act on it. */
   const checkTask = async (input: StartRunInput): Promise<{ remote: string } | RunRefusal> => {
@@ -404,8 +522,12 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
             : { id: running.id, startedAt: running.started_at, task: running.task },
       });
     }
-    await sweepRunDirectories(settings.dataDirectory, runId);
+    // Held before any other await, so a cancel can reach the run from here on;
+    // `execute` removes the entry once its last close attempt has settled.
+    const held: HeldRun = { cancelled: false, ended: false, onCancel: undefined };
+    registry.set(runId, held);
     const finished = execute({
+      held,
       input,
       remote: target.remote,
       runId,
@@ -418,6 +540,7 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
 
   /** One admitted run, from the clone sync to its closed row. Never rejects. */
   const execute = async (run: {
+    held: HeldRun;
     input: StartRunInput;
     remote: string;
     runId: string;
@@ -425,7 +548,7 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
     token: string;
     tokenIdentity: string;
   }): Promise<RunOutcome> => {
-    const { input, runId } = run;
+    const { held, input, runId } = run;
     const { budget, dataDirectory } = run.settings;
     const runDirectory = runDirectoryFor(dataDirectory, runId);
     const abortController = new AbortController();
@@ -451,11 +574,11 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
       usageSettled: boolean;
       costEstimateUsd: number | null;
     }): Promise<RunOutcome> => {
-      const held = await runs.close(runId, options.runnerId, closing);
+      const write = await runs.close(runId, options.runnerId, closing);
       return {
         outcome: closing.outcome,
         runId,
-        state: held === 'held' ? closing.state : 'lost',
+        state: write === 'held' ? closing.state : 'lost',
         usage: closing.usage,
         usageSettled: closing.usageSettled,
       };
@@ -470,6 +593,12 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
       spawnAllowance: SPAWN_ALLOWANCE,
     });
     try {
+      // The slot is this run's now, so no other run directory belongs to a live run.
+      await sweepRunDirectories(dataDirectory, runId);
+      if (held.cancelled) {
+        held.ended = true;
+        return await close(cancelledBeforeQuery());
+      }
       const sync = await options.syncClone({
         credentials: options.gitCredentials,
         dataDirectory,
@@ -477,14 +606,20 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
         project: { key: input.project, remote: run.remote },
       });
       if (!sync.ok) {
+        held.ended = true;
         // The run never reached the SDK, so it used nothing.
-        return await close({
-          costEstimateUsd: null,
-          outcome: oneLine(`failed: the clone did not sync (${sync.reason}): ${sync.message}`),
-          state: 'failed',
-          usage: NO_USAGE,
-          usageSettled: true,
-        });
+        const reason = `the clone did not sync (${sync.reason}): ${sync.message}`;
+        return await close(
+          held.cancelled
+            ? cancelledBeforeQuery(reason)
+            : {
+                costEstimateUsd: null,
+                outcome: oneLine(`failed: ${reason}`),
+                state: 'failed',
+                usage: NO_USAGE,
+                usageSettled: true,
+              },
+        );
       }
       const paths = runPaths(runDirectory);
       for (const directory of [paths.configDirectory, paths.home, paths.tmpDirectory]) {
@@ -501,12 +636,15 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
         sync,
       });
     } catch (error) {
+      held.ended = true;
       const message = error instanceof Error ? error.message : 'unknown error';
       log(`⚠ host: agent run ${runId} faulted: ${message}`);
       const closing = {
         costEstimateUsd: null,
-        outcome: oneLine(`failed: the runner faulted: ${message}`),
-        state: 'failed' as const,
+        outcome: oneLine(
+          `${held.cancelled ? `${CONSOLE_CANCEL};` : 'failed:'} the runner faulted: ${message}`,
+        ),
+        state: held.cancelled ? ('cancelled' as const) : ('failed' as const),
         usage: meter.streamed(),
         usageSettled: false,
       };
@@ -519,6 +657,8 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
       }
     } finally {
       clearInterval(heartbeat);
+      // Every close attempt has settled: landed, lost, or thrown.
+      registry.delete(runId);
       // Transcripts are not kept: the run's config, home, and temp go with it.
       await removeDirectory(runDirectory, log);
     }
@@ -539,6 +679,7 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
     meter: UsageMeter;
     owned: (write: Promise<'held' | 'lost'>, what: string) => Promise<void>;
     run: {
+      held: HeldRun;
       input: StartRunInput;
       runId: string;
       settings: EnabledAgentSettings;
@@ -548,8 +689,11 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
     sync: Extract<CloneSyncResult, { ok: true }>;
   }): Promise<RunOutcome> => {
     const { abort, meter, owned, run } = context;
+    const { held } = run;
     const { budget, dataDirectory } = run.settings;
+    const cancelled = () => held.cancelled;
     const gate = createAgentGate({
+      cancelled,
       // Not refunded when the CLI then rejects the spawn (past its concurrency
       // limit, say): the allowance stays charged, which only errs toward stopping early.
       chargeSpawn: () => meter.chargeSpawn(),
@@ -559,6 +703,7 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
       readerAgentName: READER_AGENT,
     });
     const grant = createRunGrant({
+      cancelled,
       // The owner check is the heartbeat write: it matches id, runner, and running.
       checkRow: () => runs.heartbeat(run.runId, options.runnerId),
       engine,
@@ -583,10 +728,24 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
     let tokenRejected = false;
     let failure: unknown;
     let recordedAt = Number.NEGATIVE_INFINITY;
+    let grace: ReturnType<typeof setTimeout> | undefined;
+    // The last check before the query: no await stands between it and the query's creation.
+    if (held.cancelled) {
+      held.ended = true;
+      return context.close(cancelledBeforeQuery());
+    }
     if (context.aborted() === undefined) {
       let query: ReturnType<RunQuery> | undefined;
       try {
         query = options.query({ options: sdkOptions, prompt: run.input.brief.prompt });
+        // Once the query exists, a cancel gives the run its grace period to end with a result.
+        held.onCancel = () => {
+          grace = setTimeout(() => {
+            if (result === undefined) {
+              abort('cancel-grace');
+            }
+          }, timing.cancelGraceMs);
+        };
         for await (const message of query) {
           meter.observe(message);
           if (
@@ -599,6 +758,7 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
           }
           if (message.type === 'result') {
             result = message;
+            held.ended = true;
           }
           const now = clock().getTime();
           if (result === undefined && now - recordedAt >= timing.recordEveryMs) {
@@ -619,6 +779,10 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
         query?.close?.();
       }
     }
+    // The stream has ended: a cancel from here on changes nothing.
+    held.ended = true;
+    held.onCancel = undefined;
+    clearTimeout(grace);
 
     const settled =
       result === undefined ? undefined : settledUsage(result.modelUsage, meter.streamed());
@@ -626,6 +790,7 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
       return context.close({
         costEstimateUsd: Number.isFinite(result.total_cost_usd) ? result.total_cost_usd : null,
         outcome: describeResult({
+          cancelled: held.cancelled,
           ceiling: budget.runTokens,
           estimate: meter.total(),
           result,
@@ -633,10 +798,7 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
           spawns: meter.spawns(),
           tokenRejected,
         }),
-        state:
-          result.subtype === 'success' && !result.is_error && !tokenRejected
-            ? 'succeeded'
-            : 'failed',
+        state: resultState({ cancelled: held.cancelled, result, tokenRejected }),
         usage: settled,
         usageSettled: true,
       });
@@ -645,9 +807,11 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
     // larger of that and its reservation, which is the run's ceiling.
     const unsettled = describeUnsettled({
       aborted: context.aborted(),
+      cancelled: held.cancelled,
       ceiling: budget.runTokens,
       estimate: meter.total(),
       failure,
+      graceMs: timing.cancelGraceMs,
       hadResult: result !== undefined,
       tokenRejected,
     });
@@ -665,10 +829,17 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
     const holder = await runs.running();
     const staleBefore = clock().getTime() - timing.staleAfterMs;
     // Stale as recovery judges it: a heartbeat strictly before the cut-off.
+    const held = holder === undefined ? undefined : registry.get(holder.id);
     const running =
       holder === undefined
         ? null
-        : { run: holder, stale: new Date(holder.heartbeat_at).getTime() < staleBefore };
+        : {
+            ending: held?.ended ?? false,
+            held: held !== undefined,
+            run: holder,
+            stale: new Date(holder.heartbeat_at).getTime() < staleBefore,
+            stopping: held?.cancelled ?? false,
+          };
     if (!settings.enabled) {
       return { agent, budget: null, managedPolicy: [], model: null, running };
     }
@@ -691,5 +862,35 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
     };
   };
 
-  return { startRun, status };
+  const cancelRun: AgentRunner['cancelRun'] = async (runId) => {
+    // The registry first, with no await before it.
+    const held = registry.get(runId);
+    if (held !== undefined) {
+      if (held.ended) {
+        return { answer: 'ending' };
+      }
+      if (!held.cancelled) {
+        held.cancelled = true;
+        held.onCancel?.();
+      }
+      return { answer: 'cancelling' };
+    }
+    const row = await runs.get(runId);
+    if (row === undefined) {
+      return { answer: 'unknown' };
+    }
+    if (row.state !== 'running') {
+      return { answer: 'ended', state: row.state };
+    }
+    if (row.runner === options.runnerId) {
+      return { answer: 'closing' };
+    }
+    // Stale as recovery judges it: a heartbeat strictly before the cut-off.
+    if (new Date(row.heartbeat_at).getTime() < clock().getTime() - timing.staleAfterMs) {
+      return { answer: 'stale' };
+    }
+    return { answer: 'another-host' };
+  };
+
+  return { cancelRun, startRun, status };
 }

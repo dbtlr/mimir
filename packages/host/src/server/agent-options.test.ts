@@ -26,6 +26,7 @@ afterEach(async () => {
 });
 
 const gate: HookCallback = createAgentGate({
+  cancelled: () => false,
   chargeSpawn: () => true,
   cloneRoot: '/data/clones/ENG',
   dataDirectory: '/data',
