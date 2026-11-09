@@ -1428,6 +1428,58 @@ describe('cancel', () => {
     expect(outcome).toMatchObject({ state: 'cancelled', usage: NO_USAGE, usageSettled: true });
   });
 
+  test('a repeat cancel during the close write of a run cancelled during its sync answers ending', async () => {
+    const slow = slowClose();
+    const syncing = signal();
+    const proceed = signal();
+    const synced = syncResult;
+    syncResult = async () => {
+      syncing.resolve();
+      await proceed.promise;
+      return synced();
+    };
+    const { runner: created } = runner(never, { runs: slow.store });
+    const start = await started(created);
+    await syncing.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+    proceed.resolve();
+    await slow.writing.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'ending' });
+    slow.release.resolve();
+    expect(await start.finished).toMatchObject({
+      state: 'cancelled',
+      usage: NO_USAGE,
+      usageSettled: true,
+    });
+  });
+
+  test('a cancel during the close write of a run lost before its query answers ending', async () => {
+    const slow = slowClose();
+    const beat = signal();
+    const store: RunStore = {
+      ...slow.store,
+      heartbeat: async () => {
+        beat.resolve();
+        return 'lost';
+      },
+    };
+    const synced = syncResult;
+    syncResult = async () => {
+      await beat.promise;
+      return synced();
+    };
+    const { runner: created } = runner(never, {
+      runs: store,
+      timing: { ...RUNNER_TIMING, heartbeatMs: 1 },
+    });
+    const start = await started(created);
+    await slow.writing.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'ending' });
+    slow.release.resolve();
+    const outcome = await start.finished;
+    expect(outcome.outcome).toBe('failed: the runner lost the run to another host');
+  });
+
   test('a cancel during the close write of a faulted run answers ending, and the run closes failed', async () => {
     const slow = slowClose();
     const { runner: created } = runner(never, {

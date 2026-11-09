@@ -625,7 +625,7 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
             ? cancelledBeforeQuery(reason)
             : {
                 costEstimateUsd: null,
-                outcome: oneLine(`failed: ${reason}`),
+                outcome: endedBadly({ cancelled: false, detail: reason }),
                 state: 'failed',
                 usage: NO_USAGE,
                 usageSettled: true,

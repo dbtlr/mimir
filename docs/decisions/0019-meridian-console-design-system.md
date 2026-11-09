@@ -502,3 +502,24 @@ the status misreading MMR-617, MMR-619, and MMR-620 removed elsewhere.
   two kinds draw differently. The authoring sheet's and seed capture's tests
   fail if a selected priority or kind pill carries a `status-` class or
   loses the `bg-line` fill or `ink-bright` text.
+
+## Refinement (2026-11-09, MMR-635): a destructive action wears a red hairline
+
+"Status hues never fill buttons" (§1) and the rejected "status hues on
+controls" leave one case open: the control that ends something, such as
+unpairing a device, denying a pairing request, or stopping an agent run. These
+controls use one `ActionButton` variant, `destructiveOutline`: an outline whose
+hairline and label take the `blocked` red, on a neutral hover. Nothing fills,
+so a destructive control never reads as the page's one solid action or as a
+state. The red marks the consequence of the click, and the label names it.
+
+- The hairline is the only status hue a control may wear, and only for an
+  action that ends or removes something. A confirm keeps the destructive
+  button an outline too, beside a neutral safe choice that takes focus first.
+- Unpair (`/devices`), Deny (`/pair`), and the agent card's Stop and its
+  confirm's **Stop run** (MMR-635) use the variant. They no longer carry their
+  own copies of the classes.
+- **Considered and rejected.** A red-filled confirm button, the common
+  pattern elsewhere: it is a status hue filling a button, which §1 rules
+  out. A neutral outline for destructive actions: the hairline is the only
+  cue before the click that the action cannot be undone.
