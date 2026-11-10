@@ -31,7 +31,12 @@ jobs:
         run: bun run check
 
       - name: Test
-        run: bun run test
+        run: bun run test --reporter=junit --reporter-outfile="$RUNNER_TEMP/bun-junit.xml"
+
+      # The default lane's time budget (CONTRIBUTING.md, "Tests that run slow
+      # or time out"), calibrated on this runner: a test over the limit fails.
+      - name: Check the test budget
+        run: bun run test:budget "$RUNNER_TEMP/bun-junit.xml"
 
       - name: Test disposable Postgres
         run: bun run test:postgres

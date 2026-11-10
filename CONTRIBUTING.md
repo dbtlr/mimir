@@ -81,16 +81,50 @@ again. A constraint that a migration replaces stays, because the migration
 drops it first. Update both with each migration, and run `bun run test:host` before
 pushing.
 
-## Tests that time out
+## Tests that run slow or time out
 
-When a test times out under load, find and fix what makes it slow. Do not raise
-Testing Library's `asyncUtilTimeout`, a per-call timeout, or the Vitest test
-timeout, even as a backstop: a longer timeout hides the cost until the next load
-spike fails the test again. Time the queries and the render separately. A
-role query with a name walks the accessibility tree, so over a large DOM use a
-text query or mount a narrower fixture instead (MMR-500 traced one timeout to a
-named-role query over more than 100 links). Confirm the fix with a stress run
-under the default timeouts.
+The default lanes, `bun run test` and `bun run test:ui`, keep Bun's and
+Vitest's default timeouts. When a test runs slow or times out, find and fix
+what makes it slow. Do not raise a per-test timeout, a file's
+`setDefaultTimeout`, Testing Library's `asyncUtilTimeout`, a per-call timeout,
+or the Vitest test timeout, even as a backstop. A longer timeout hides the cost
+until the next load spike, or a slower platform, fails the test again: the
+v0.28.0 macOS release failed on a git-driven test that took half a second on
+Linux and over 5 s on macOS.
+
+The usual causes, and their fixes:
+
+- **Real processes for logic that needs none.** A test that starts git, a CLI,
+  or a server to check a path rule or a parser costs a process start per case,
+  and process starts cost several times more on macOS. Unit-test the function
+  directly, and keep one end-to-end case for the path that does need the
+  process.
+- **Setup rebuilt identically for every case.** Build a read-only fixture once
+  in `beforeAll`, or copy a seeded template per case instead of reseeding it.
+  Keep what each test proves; change only how it is set up.
+- **Real waits.** Inject the delay or the clock instead of sleeping it out.
+- **Queries over a large DOM.** Time the queries and the render separately. A
+  role query with a name walks the accessibility tree, so over a large DOM use a
+  text query or mount a narrower fixture (MMR-500 traced one timeout to a
+  named-role query over more than 100 links).
+
+Confirm a fix with a stress run under the default timeouts.
+
+CI's gate checks the default bun lane's timings with `bun run test:budget`
+(`packages/cli/scripts/test-budget.ts`). A test over 3 s fails the gate, and a
+test over 1 s or a file over 15 s is reported in the log. A test over the limit
+may be exempted only against the task that will make it fast; remove the
+exemption in that task. To check a local run, write a report and pass it:
+
+```sh
+bun run test --reporter=junit --reporter-outfile=.scratch/bun-junit.xml
+bun run test:budget .scratch/bun-junit.xml
+```
+
+The opt-in integration lanes (`test:host`, `test:sandbox`, and `test:postgres`)
+build images, install releases, or start real
+hosts. They may set explicit timeouts, each with a comment naming what the time
+is spent on.
 
 ## Project shape
 
