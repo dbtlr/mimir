@@ -90,48 +90,50 @@ test('pull requests validate every native release target, including Bun upgrades
   expect(workflow.on.pull_request.paths).toContain('.tool-versions');
 });
 
-// Pull requests take the other branch, and every pull request runs it.
-test.each([{ code: 17, event: 'push', suite: 'test' }])(
-  '$event selects $suite and propagates exit $code',
-  async ({ code, event, suite }) => {
-    const workflow = workflowSchema.parse(Bun.YAML.parse(await Bun.file(workflowPath).text()));
-    const step = workflow.jobs.build.steps.find((candidate) => candidate.id === 'tests');
-    expect(step?.if).toBeUndefined();
-    expect(step?.['continue-on-error']).toBeUndefined();
-    const script = step?.run;
-    if (script === undefined) {
-      throw new Error('missing source test selection script');
-    }
-    const directory = await mkdtemp(join(tmpdir(), 'mimir-release-tests-'));
-    try {
-      await writeFile(
-        join(directory, 'bun'),
-        '#!/bin/sh\nprintf "%s\\n" "$*"\nexit "$MIMIR_TEST_EXIT"\n',
-        { mode: 0o755 },
-      );
-      const child = Bun.spawn(['bash', '-euo', 'pipefail', '-c', script], {
-        cwd: directory,
-        env: {
-          ...process.env,
-          GITHUB_EVENT_NAME: event,
-          MIMIR_TEST_EXIT: String(code),
-          PATH: `${directory}:${process.env.PATH ?? ''}`,
-        },
-        stderr: 'pipe',
-        stdout: 'pipe',
-      });
-      const [exit, stdout, stderr] = await Promise.all([
-        child.exited,
-        new Response(child.stdout).text(),
-        new Response(child.stderr).text(),
-      ]);
-      expect(exit, stderr).toBe(code);
-      expect(stdout).toBe(`run ${suite}\n`);
-    } finally {
-      await rm(directory, { force: true, recursive: true });
-    }
-  },
-);
+// One row per event that starts the workflow. The failing pull_request row
+// proves the native branch does not swallow the suite's exit code.
+test.each([
+  { code: 17, event: 'pull_request', suite: 'test:native' },
+  { code: 17, event: 'push', suite: 'test' },
+  { code: 0, event: 'workflow_dispatch', suite: 'test' },
+])('$event selects $suite and propagates exit $code', async ({ code, event, suite }) => {
+  const workflow = workflowSchema.parse(Bun.YAML.parse(await Bun.file(workflowPath).text()));
+  const step = workflow.jobs.build.steps.find((candidate) => candidate.id === 'tests');
+  expect(step?.if).toBeUndefined();
+  expect(step?.['continue-on-error']).toBeUndefined();
+  const script = step?.run;
+  if (script === undefined) {
+    throw new Error('missing source test selection script');
+  }
+  const directory = await mkdtemp(join(tmpdir(), 'mimir-release-tests-'));
+  try {
+    await writeFile(
+      join(directory, 'bun'),
+      '#!/bin/sh\nprintf "%s\\n" "$*"\nexit "$MIMIR_TEST_EXIT"\n',
+      { mode: 0o755 },
+    );
+    const child = Bun.spawn(['bash', '-euo', 'pipefail', '-c', script], {
+      cwd: directory,
+      env: {
+        ...process.env,
+        GITHUB_EVENT_NAME: event,
+        MIMIR_TEST_EXIT: String(code),
+        PATH: `${directory}:${process.env.PATH ?? ''}`,
+      },
+      stderr: 'pipe',
+      stdout: 'pipe',
+    });
+    const [exit, stdout, stderr] = await Promise.all([
+      child.exited,
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+    ]);
+    expect(exit, stderr).toBe(code);
+    expect(stdout).toBe(`run ${suite}\n`);
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});
 
 /**
  * Run a build step's script in a fresh directory that `setup` fills, with
@@ -216,6 +218,24 @@ test.each([
   });
 });
 
+// The target derives from the asset name with no branch, so one asset proves
+// the command; `--release` bakes in the facts self-update needs.
+test('a mimir asset compiles with loom build --release for its bun target, into dist', async () => {
+  const result = await runStep('Compile', {
+    env: { ASSET: 'mimir-linux-arm64', GITHUB_WORKSPACE: '/work' },
+    read: (directory) => readFile(join(directory, 'bun.log'), 'utf8'),
+    setup: async (directory) => {
+      await writeFile(join(directory, 'bun'), '#!/bin/sh\nprintf "%s\\n" "$*" >> bun.log\n', {
+        mode: 0o755,
+      });
+    },
+  });
+  expect(result.exit, result.stderr).toBe(0);
+  expect(result.read).toBe(
+    'run --cwd packages/cli loom build --release --target bun-linux-arm64 --out /work/dist/mimir-linux-arm64\n',
+  );
+});
+
 test('the compiled release artifact passes CLI and MCP checks before upload', async () => {
   const workflow = workflowSchema.parse(Bun.YAML.parse(await Bun.file(workflowPath).text()));
   const { steps } = workflow.jobs.build;
@@ -231,6 +251,7 @@ test('the compiled release artifact passes CLI and MCP checks before upload', as
     MIMIR_SANDBOX_LIFECYCLE_TEST: '1',
     MIMIR_TEST_BINARY: `\${{ github.workspace }}/dist/\${{ matrix.asset }}`,
   });
+  expect(steps[smoke]?.run).toBe('bun test packages/sandbox/src/mcp-binding.integration.test.ts');
 });
 
 test('binary test or build failure prevents image publication', async () => {

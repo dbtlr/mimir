@@ -237,6 +237,7 @@ test.each(['{"result":{}}', '{"error":{"json":{}}}'])(
 // not the wire's envelope.
 test.each([
   [404, '{"message":"Not Found"}'],
+  [500, '{"error":"boom"}'],
   [200, '{"result":5}'],
   [200, 'null'],
 ])(
@@ -398,7 +399,7 @@ test('remote doctor reports missing credentials before reaching the host', async
   expect(requests).toEqual([]);
 });
 
-test.each([0o644, 0o400])(
+test.each([0o644, 0o400, 0o700])(
   'remote doctor requires credentials at exactly 0600, not %i',
   async (mode) => {
     chmodSync(credentialsFile, mode);

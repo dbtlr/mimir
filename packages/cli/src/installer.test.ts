@@ -35,6 +35,12 @@ test('install.sh is the installer loom init manages, undrifted', () => {
   expect(statSync(script).mode & 0o111).toBe(0o111);
 });
 
+// loom.config.json decides where `loom init` writes install.sh; the install URL
+// serves the root copy.
+test('loom init renders the installer at the repository root', () => {
+  expect(loomConfig.paths?.installer).toBe('../../install.sh');
+});
+
 // The header checksum only proves the script is unedited; this proves it was
 // rendered from the declaration loom.config.json holds now. The declaration
 // registers the MCP server with every agent that starts: Claude Code and Codex,
