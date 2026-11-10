@@ -179,6 +179,13 @@ Apply these rules when you add a test and when you review one.
    in sync by hand, and an assertion that a feature is absent all belong to
    this group. Pins that an ADR commits to stay, such as the CLI's reviewed
    output snapshots and the help pages (ADR 0037).
+7. **Retire a Postgres step-migration test once every Postgres store has applied
+   its release.** Postgres runs only behind a host, so a step test has no
+   further reader after that. The from-empty upgrade test and the newest step's
+   test always stay. SQLite step tests stay: SQLite is the default backend of
+   every CLI install, and its table rebuilds can lose rows or ids. Retiring a
+   Postgres step test gives up one proof: that a Postgres database restored from
+   a backup older than the current schema upgrades step by step.
 
 ## Project shape
 
