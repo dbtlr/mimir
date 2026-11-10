@@ -10,6 +10,8 @@ import {
   recordLink,
   seedLink,
 } from '../lib/record-url';
+import { recordStanding } from '../lib/status';
+import { engineNode } from './engine-fixtures';
 
 describe('nodeLink (ADR 0013 v0.23)', () => {
   it('splits a node id at its hyphen into the project and the record suffix', () => {
@@ -113,5 +115,12 @@ describe('recordLink (MMR-455)', () => {
     expect(recordLink({ id: 'MMR-a219', kind: 'artifact' })).toStrictEqual(
       artifactLink('MMR-a219'),
     );
+  });
+});
+
+describe('recordStanding', () => {
+  it('gives a container or an unsettled task its word alone, with no date', () => {
+    expect(recordStanding(engineNode({ status: 'done', type: 'phase' }))).toBe('done');
+    expect(recordStanding(engineNode({ status: 'ready', type: 'task' }))).toBe('ready');
   });
 });

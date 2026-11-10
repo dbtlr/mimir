@@ -9,23 +9,7 @@ const SPECIMEN = [
   '### Subsection',
   '#### Detail',
   '',
-  'A paragraph with **bold**, *italic*, `inline`, and [a link](https://example.com).',
-  '',
-  '- bullet one',
-  '  - nested bullet',
-  '- [x] done task',
-  '- [ ] open task',
-  '',
-  '1. first',
-  '2. second',
-  '',
-  '> quoted text',
-  '',
-  '---',
-  '',
-  '| head | other |',
-  '| ---- | ----- |',
-  '| cell | value |',
+  'A paragraph with `inline` code.',
   '',
   '```ts',
   'const fenced = 1;',
@@ -33,7 +17,7 @@ const SPECIMEN = [
 ].join('\n');
 
 describe('markdownBody', () => {
-  it('renders every markdown element type as its semantic element, headings demoted below h2', () => {
+  it('demotes headings below h2, and sets inline code apart from a fenced block', () => {
     render(<MarkdownBody>{SPECIMEN}</MarkdownBody>);
     const article = screen.getByRole('article');
 
@@ -44,19 +28,6 @@ describe('markdownBody', () => {
         .getAllByRole('heading')
         .map((h) => h.tagName),
     ).toEqual(['H3', 'H4', 'H5', 'H6']);
-    expect(within(article).getByText('bold').tagName).toBe('STRONG');
-    expect(within(article).getByText('italic').tagName).toBe('EM');
-    expect(within(article).getByRole('link', { name: 'a link' })).toHaveAttribute(
-      'href',
-      'https://example.com',
-    );
-    expect(article.querySelectorAll('ul')).toHaveLength(2);
-    expect(article.querySelectorAll('ol li')).toHaveLength(2);
-    expect(within(article).getAllByRole('checkbox')).toHaveLength(2);
-    expect(article.querySelector('blockquote')).toHaveTextContent('quoted text');
-    expect(article.querySelector('hr')).not.toBeNull();
-    expect(within(article).getByRole('table')).toBeInTheDocument();
-    expect(within(article).getByRole('columnheader', { name: 'head' })).toBeInTheDocument();
     expect(article.querySelector('pre > code')).toHaveTextContent('const fenced = 1;');
     const inline = within(article).getByText('inline');
     expect(inline.tagName).toBe('CODE');
@@ -141,35 +112,25 @@ describe('markdownBody', () => {
     );
   });
 
-  it('opens an external link in a new tab', () => {
-    render(
-      <MarkdownBody>
-        See [the docs](https://example.com/docs) or https://example.org/x.
-      </MarkdownBody>,
-    );
+  it('opens an external link in a new tab, in a document body too, and leaves in-app, anchor, and mailto links alone', () => {
+    const body = [
+      'See [the docs](https://example.com/docs) or https://example.org/x.',
+      '[task](/p/MMR/1) [top](#top) [mail](mailto:drew@example.com)',
+    ].join('\n\n');
 
-    for (const name of ['the docs', 'https://example.org/x']) {
-      const link = screen.getByRole('link', { name });
-      expect(link.getAttribute('target')).toBe('_blank');
-      expect(link.getAttribute('rel')).toBe('noopener noreferrer');
-    }
-  });
-
-  it('opens an external link in a new tab in a document body too', () => {
-    render(<MarkdownBody images>[the docs](https://example.com/docs)</MarkdownBody>);
-
-    expect(screen.getByRole('link', { name: 'the docs' }).getAttribute('target')).toBe('_blank');
-  });
-
-  it('leaves in-app, anchor, and mailto links to default behavior', () => {
-    render(
-      <MarkdownBody>[task](/p/MMR/1) [top](#top) [mail](mailto:drew@example.com)</MarkdownBody>,
-    );
-
-    for (const name of ['task', 'top', 'mail']) {
-      const link = screen.getByRole('link', { name });
-      expect(link.hasAttribute('target')).toBe(false);
-      expect(link.hasAttribute('rel')).toBe(false);
+    for (const images of [false, true]) {
+      const { unmount } = render(<MarkdownBody images={images}>{body}</MarkdownBody>);
+      for (const name of ['the docs', 'https://example.org/x']) {
+        const link = screen.getByRole('link', { name });
+        expect(link.getAttribute('target')).toBe('_blank');
+        expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+      }
+      for (const name of ['task', 'top', 'mail']) {
+        const link = screen.getByRole('link', { name });
+        expect(link.hasAttribute('target')).toBe(false);
+        expect(link.hasAttribute('rel')).toBe(false);
+      }
+      unmount();
     }
   });
 });

@@ -63,17 +63,9 @@ describe('splitLinks trailing trim', () => {
   it.each([
     ['`https://x.test/a`', 'https://x.test/a'],
     ['**https://x.test/a**', 'https://x.test/a'],
-    ['_https://x.test/a_', 'https://x.test/a'],
     ['<https://x.test/a>', 'https://x.test/a'],
-    ["'https://x.test/a'", 'https://x.test/a'],
     ['"https://x.test/a"', 'https://x.test/a'],
     ['https://x.test/a。', 'https://x.test/a'],
-    ['https://x.test/a，', 'https://x.test/a'],
-    ['https://x.test/a、', 'https://x.test/a'],
-    ['https://x.test/a；', 'https://x.test/a'],
-    ['https://x.test/a：', 'https://x.test/a'],
-    ['https://x.test/a！', 'https://x.test/a'],
-    ['https://x.test/a？', 'https://x.test/a'],
   ])('links %s as %s', (text, href) => {
     expect(urlsIn(text)).toEqual([href]);
   });

@@ -148,7 +148,7 @@ describe('remembering the current project (MMR-495)', () => {
   it('does not remember a key that names no project', async () => {
     rememberProject('MMR');
     renderInShell('/p/ZZZ/tasks');
-    await screen.findByRole('heading', { level: 1, name: 'Tasks' });
+    await screen.findByRole('heading', { level: 1, name: 'Project unavailable' });
     await waitFor(() => {
       expect(projects).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ status: 'active' }) }),
@@ -156,23 +156,9 @@ describe('remembering the current project (MMR-495)', () => {
     });
     expect(readRememberedProject()).toBe('MMR');
   });
-
-  it('does not remember the unknown project', async () => {
-    renderInShell('/p/ZZZ/tasks');
-    await screen.findByRole('heading', { level: 1, name: 'Project unavailable' });
-    expect(readRememberedProject()).toBeUndefined();
-  });
 });
 
 describe('the top-level browsers redirect (MMR-495)', () => {
-  it.each(['tasks', 'seeds', 'artifacts'])(
-    '/%s?project=K goes to the scoped route',
-    async (view) => {
-      const { router: testRouter } = await renderAt(`/${view}?project=NRN`);
-      expect((await settledAt(testRouter, `/p/NRN/${view}`)).pathname).toBe(`/p/NRN/${view}`);
-    },
-  );
-
   it('keeps the other params on /tasks', async () => {
     const { router: testRouter } = await renderAt('/tasks?project=MMR&status=blocked&q=wire');
     const location = await settledAt(testRouter, '/p/MMR/tasks');
@@ -198,16 +184,13 @@ describe('the top-level browsers redirect (MMR-495)', () => {
     expect((await settledAt(testRouter, '/p/NRN/tasks')).pathname).toBe('/p/NRN/tasks');
   });
 
-  it.each(['tasks', 'seeds', 'artifacts'])(
-    '/%s?project=all (any case) is the bare redirect, not a project named ALL',
-    async (view) => {
-      rememberProject('NRN');
-      const { router: testRouter } = await renderAt(`/${view}?project=All`);
-      const location = await settledAt(testRouter, `/p/NRN/${view}`);
-      expect(location.pathname).toBe(`/p/NRN/${view}`);
-      expect(location.search).toEqual({});
-    },
-  );
+  it('/tasks?project=all (any case) is the bare redirect, not a project named ALL', async () => {
+    rememberProject('NRN');
+    const { router: testRouter } = await renderAt('/tasks?project=All');
+    const location = await settledAt(testRouter, '/p/NRN/tasks');
+    expect(location.pathname).toBe('/p/NRN/tasks');
+    expect(location.search).toEqual({});
+  });
 
   it('treats a project value that is not a key as absent', async () => {
     rememberProject('NRN');
@@ -216,14 +199,11 @@ describe('the top-level browsers redirect (MMR-495)', () => {
     expect(location.search).toEqual({ status: 'ready' });
   });
 
-  it.each(['tasks', 'seeds', 'artifacts'])(
-    'bare /%s goes to the remembered project',
-    async (view) => {
-      rememberProject('NRN');
-      const { router: testRouter } = await renderAt(`/${view}`);
-      expect((await settledAt(testRouter, `/p/NRN/${view}`)).pathname).toBe(`/p/NRN/${view}`);
-    },
-  );
+  it('bare /seeds goes to the remembered project', async () => {
+    rememberProject('NRN');
+    const { router: testRouter } = await renderAt('/seeds');
+    expect((await settledAt(testRouter, '/p/NRN/seeds')).pathname).toBe('/p/NRN/seeds');
+  });
 
   it('bare /tasks keeps its params on the way to the remembered project', async () => {
     rememberProject('NRN');

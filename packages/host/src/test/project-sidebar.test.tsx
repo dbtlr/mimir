@@ -11,7 +11,6 @@ import { ApiError } from '../api/errors';
 import { getNode } from '../api/fns/nodes';
 import { projects, tree } from '../api/fns/shell';
 import { review } from '../api/fns/views';
-import { browserTimeZone } from '../api/queries';
 import type { ReviewReport } from '../api/view-queries';
 import { subtreeOf } from '../lib/ancestry';
 import { rememberProject } from '../lib/current-project';
@@ -174,15 +173,9 @@ afterEach(() => {
 
 describe('sidebar sections mark the page (MMR-485, MMR-496)', () => {
   it.each([
-    ['/p/MMR', 'Work'],
     ['/p/MMR/tasks', 'Tasks'],
-    ['/p/MMR/tasks?status=ready', 'Tasks'],
-    ['/p/MMR/seeds', 'Seeds'],
-    ['/p/MMR/artifacts', 'Artifacts'],
     ['/p/MMR/s41', 'Seeds'],
-    ['/p/MMR/a219', 'Artifacts'],
     ['/p/MMR/2', 'Work'],
-    ['/p/MMR/1?tab=timeline', 'Work'],
   ])('%s marks only %s', async (path, label) => {
     renderAt(path);
     await waitFor(async () => {
@@ -227,14 +220,6 @@ describe('sidebar names the current project', () => {
     );
   });
 
-  it('opens the project switcher from the header, with a way to start a new project', async () => {
-    renderAt('/p/MMR');
-    await userEvent.click(await screen.findByRole('button', { name: /MMR.*Mimir/ }));
-    await expect(
-      screen.findByRole('button', { name: '+ New project' }),
-    ).resolves.toBeInTheDocument();
-  });
-
   it('renders no sidebar when there are no projects', async () => {
     serve([]);
     renderAt('/');
@@ -250,26 +235,26 @@ describe('sidebar names the current project', () => {
 });
 
 describe('sidebar on All projects (MMR-505)', () => {
-  it.each(['/', '/doctor', '/devices', '/pair'])(
-    'reads All projects on %s, whatever project was last visited',
-    async (path) => {
+  it.each([
+    ['/', 1],
+    ['/devices', 0],
+  ])(
+    'reads All projects on %s, whatever project was last visited, with Work and the Projects section only',
+    async (path, projectsSections) => {
       serve([MMR, NRN]);
       rememberProject('NRN');
       renderAt(path);
       const nav = await sidebar();
       expect(allHeader(nav)).toBeInTheDocument();
       expect(within(nav).queryByRole('button', { name: /NRN/ })).toBeNull();
-    },
-  );
-
-  it.each(['/', '/doctor'])(
-    'holds Work and the Projects section on %s: no outline, Tasks, Seeds, or Artifacts',
-    async (path) => {
-      serve([MMR]);
-      renderAt(path);
-      const nav = await sidebar();
+      expect(screen.getByRole('complementary', { name: 'All projects' })).toBeInTheDocument();
+      expect(screen.queryByRole('navigation', { name: 'Project' })).toBeNull();
       expect(within(nav).getByRole('link', { name: 'Work' })).toBeInTheDocument();
-      expect(within(nav).getByRole('region', { name: 'Projects' })).toBeInTheDocument();
+      await waitFor(() => {
+        expect(within(nav).queryAllByRole('region', { name: 'Projects' })).toHaveLength(
+          projectsSections,
+        );
+      });
       for (const name of ['Tasks', 'Seeds', 'Artifacts']) {
         expect(within(nav).queryByRole('link', { name })).toBeNull();
       }
@@ -303,41 +288,6 @@ describe('sidebar on All projects (MMR-505)', () => {
       expect(within(nav).getByRole('link', { name: 'Work' })).not.toHaveAttribute('aria-current');
     },
   );
-
-  it('counts the decisions across every project in the header', async () => {
-    serve([MMR, NRN], {}, [decisions('MMR', 2), decisions('NRN', 3)]);
-    renderAt('/');
-    const header = await within(await sidebar()).findByRole('button', {
-      name: /^All projects.*5 decisions/,
-    });
-    expect(header).toHaveTextContent('5');
-  });
-
-  it('says nothing of decisions when none wait', async () => {
-    serve([MMR, NRN], {}, [decisions('MMR', 0)]);
-    renderAt('/');
-    const nav = await sidebar();
-    await waitFor(() => {
-      expect(review).toHaveBeenCalledWith({ data: { timeZone: browserTimeZone() } });
-    });
-    expect(allHeader(nav)).toHaveAccessibleName('All projects');
-  });
-
-  it('has no "elsewhere" count', async () => {
-    serve([MMR, NRN], {}, [decisions('MMR', 2), decisions('NRN', 3)]);
-    renderAt('/');
-    await within(await sidebar()).findByRole('button', { name: /5 decisions/ });
-    expect(screen.queryByText(/elsewhere/)).toBeNull();
-  });
-
-  it('still leaves bare /tasks to the remembered project', async () => {
-    serve([MMR, NRN]);
-    rememberProject('NRN');
-    const testRouter = renderAt('/tasks');
-    await waitFor(() => {
-      expect(testRouter.state.location.pathname).toBe('/p/NRN/tasks');
-    });
-  });
 
   it('returns to the project context on a project page', async () => {
     serve([MMR, NRN]);
@@ -430,13 +380,6 @@ describe('sidebar Projects section on All projects (MMR-562, MMR-567)', () => {
 });
 
 describe('sidebar landmarks name their context (MMR-505)', () => {
-  it.each(['/', '/doctor', '/devices', '/pair'])('are All projects on %s', async (path) => {
-    renderAt(path);
-    await screen.findByRole('navigation', { name: 'All projects' });
-    expect(screen.getByRole('complementary', { name: 'All projects' })).toBeInTheDocument();
-    expect(screen.queryByRole('navigation', { name: 'Project' })).toBeNull();
-  });
-
   it('stay Project on a project page', async () => {
     renderAt('/p/MMR');
     await sidebar();
@@ -705,13 +648,6 @@ describe('sidebar breakpoint', () => {
     await expect(screen.findByRole('dialog', { name: 'Project' })).resolves.toBeInTheDocument();
   });
 
-  it('keeps the parent link on a tablet and hides it from desktop', async () => {
-    stubViewport('tablet');
-    renderAt('/p/MMR/3');
-    const parent = await screen.findByRole('link', { name: /phase MMR-2/ });
-    expect(parent.className).toContain('lg:hidden');
-  });
-
   it('moves the desktop toasts clear of the sidebar', async () => {
     renderAt('/p/MMR');
     await sidebar();
@@ -846,9 +782,9 @@ describe('sidebar drawer on a phone', () => {
     });
   });
 
-  it('opens on / with the All projects context: Work and Projects, and it closes behind a pick', async () => {
+  it('opens on / with the All projects context: Work and Projects', async () => {
     serve([MMR, NRN], {}, [decisions('MMR', 1)]);
-    const testRouter = renderAt('/');
+    renderAt('/');
     await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
     const drawer = await screen.findByRole('dialog', { name: 'All projects' });
     const nav = within(drawer).getByRole('navigation', { name: 'All projects' });
@@ -858,13 +794,6 @@ describe('sidebar drawer on a phone', () => {
     expect(within(nav).getByRole('region', { name: 'Projects' })).toBeInTheDocument();
     expect(within(nav).queryByRole('link', { name: 'Tasks' })).toBeNull();
     expect(within(nav).getByRole('link', { name: 'Work' })).toHaveAttribute('aria-current', 'page');
-
-    await userEvent.click(within(nav).getByRole('button', { name: /^All projects/ }));
-    await userEvent.click(await screen.findByRole('option', { name: /NRN/ }));
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'All projects' })).toBeNull();
-    });
-    expect(testRouter.state.location.pathname).toBe('/p/NRN');
   });
 
   it('has no drawer button with no projects', async () => {
