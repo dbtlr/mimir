@@ -7,13 +7,17 @@ import { boardTemplate, openCopy, stateChanges } from './testing/writes';
 import type { BoardTemplate, OpenBoard, Tokens } from './testing/writes';
 
 /**
- * MCP structured-content parity (ADR 0037): "equal capability and equal
- * structured content, not identical schemas". Each case calls Loom's generated
- * server and must answer its pin: the structured content, the first
- * `application/json` view. The pins were recorded while the old SDK server
- * answered the same calls over a twin board and were proven equal to its
- * content, parsed from its one JSON text part. A case name that names both
- * servers records how the call was respelled for Loom.
+ * The MCP tools' own surface (ADR 0037). A tool's structured content is its
+ * command's `application/json` view, which the command's `-f json` CLI pin
+ * owns, so these cases prove what only MCP does: the argument spellings a
+ * tool call takes (a filter as a list, ids as one comma-separated string,
+ * `pinned: false`, free text as a list of words, an inline body) reach the
+ * command, and the answer is a successful call that carries structured
+ * content. A case asserts the fields that show its arguments arrived. A view
+ * no `-f json` CLI pin owns has its whole structured content pinned by at
+ * least one case. Every tool's input names and types are pinned too: no CLI
+ * pin sees an input that only MCP names or drops, such as a positional's
+ * declared name or an option under `mcpInput({ exclude: true })`.
  *
  * Normalization: the Scratchpad UUID, random by design, reads `<uuid>`. The
  * cases run in order against one board, each write on it, so a later case reads
@@ -21,15 +25,30 @@ import type { BoardTemplate, OpenBoard, Tokens } from './testing/writes';
  */
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
 
-type Call = { tool: string; args: Record<string, unknown> };
+/** One tool call, the fields its answer must hold, and whether its whole answer is pinned. */
+type McpCase = {
+  name: string;
+  tool: string;
+  args: Record<string, unknown>;
+  holds: Record<string, unknown>;
+  pinned: boolean;
+};
 
-/** One call to Loom's server. */
-type McpCase = { name: string; loom: Call };
+/** A call whose command's `-f json` CLI pin owns the rest of its answer. */
+const holding = (
+  name: string,
+  tool: string,
+  args: Record<string, unknown>,
+  holds: Record<string, unknown>,
+): McpCase => ({ args, holds, name, pinned: false, tool });
 
-const same = (name: string, tool: string, args: Record<string, unknown> = {}): McpCase => ({
-  loom: { args, tool },
-  name,
-});
+/** A call whose command has no `-f json` CLI pin for this view, so its whole answer is pinned. */
+const pinned = (
+  name: string,
+  tool: string,
+  args: Record<string, unknown>,
+  holds: Record<string, unknown>,
+): McpCase => ({ args, holds, name, pinned: true, tool });
 
 /** `{token}` placeholders in a string argument, filled with the board's value. */
 function filled(value: unknown, tokens: Tokens): unknown {
@@ -47,143 +66,123 @@ const filledArgs = (args: Record<string, unknown>, tokens: Tokens): Record<strin
 
 const named = (value: unknown): string => JSON.stringify(value, null, 2).replaceAll(UUID, '<uuid>');
 
+/** The rows a list answer names, by id. */
+const rows = (...ids: string[]) => ({ tasks: ids.map((id) => ({ id })), total: ids.length });
+
+/** The receipt a Scratchpad write answers, by its open agenda count. */
+const padReceipt = (openAgenda: number) => ({ open_agenda: openAgenda, project: 'MMR' });
+
 const CASES: readonly McpCase[] = [
-  same('next, scoped', 'next', { scope: 'MMR' }),
-  same('next, from the clone binding', 'next'),
-  same('get a task', 'get', { id: 'MMR-3' }),
-  {
-    loom: { args: { id: 'MMR-s2' }, tool: 'get' },
-    name: 'get a seed: get_seed on the old server, get on Loom',
-  },
-  same('overview', 'overview', { scope: 'MMR' }),
-  same('list', 'list', { scope: 'MMR', status: 'all' }),
-  same('search', 'search', { query: 'store', scope: 'MMR' }),
-  same('status', 'status', { id: 'MMR-3' }),
-  same('projects', 'projects'),
-  same('scratch_list', 'scratch_list'),
-  same('scratch_get', 'scratch_get', { id: '{pad}' }),
-  // A lifecycle verb: start, then done, the task in rank order's last.
-  same('start', 'start', { id: 'MMR-8' }),
-  same('done', 'done', { id: 'MMR-8' }),
-  {
-    loom: { args: { id: 'MMR-3', text: 'From the parity run.' }, tool: 'annotate' },
-    name: 'annotate: content on the old server, text on Loom',
-  },
-  // Writes: structure, fields, rank, tags, and the seed queue.
-  {
-    loom: {
-      args: { desc: 'Made over MCP.', parent: 'MMR-2', title: 'New task' },
-      tool: 'create_task',
+  // Every record was created at 2026-10-01T12:00Z. On Kiritimati (UTC+14), 2 October begins
+  // at 2026-10-01T10:00Z, so the bound admits every row in that zone and none in UTC. MMR-3
+  // blocks MMR-4, so `not-is: blocking` leaves it out.
+  holding(
+    'list takes kebab-case filters as lists, and a tz',
+    'list',
+    {
+      'at-or-after': ['created_at:2026-10-02'],
+      'not-is': ['blocking'],
+      scope: 'MMR',
+      tz: 'Pacific/Kiritimati',
     },
-    name: 'create a task: create with a type on the old server, create_task on Loom',
-  },
-  {
-    loom: { args: { parent: 'MMR-1', title: 'New phase' }, tool: 'create_phase' },
-    name: 'create a phase: create_phase on Loom',
-  },
-  {
-    loom: { args: { desc: 'Reworded.', id: 'MMR-3', priority: 'p1' }, tool: 'update' },
-    name: 'update a task: description is desc',
-  },
-  same('update pins a project', 'update', { id: 'MMR', pinned: true }),
-  same('update unpins a project with pinned false', 'update', { id: 'MMR', pinned: false }),
-  {
-    loom: { args: { id: 'MMR-10', top: true }, tool: 'reorder' },
-    name: 'reorder: position top on the old server, top on Loom',
-  },
-  {
-    loom: { args: { before: 'MMR-4', id: 'MMR-10' }, tool: 'reorder' },
-    name: 'reorder: position before with ref, before with the sibling on Loom',
-  },
-  {
-    loom: { args: { ids: 'MMR-3,MMR-4', tags: ['beta'] }, tool: 'tag' },
-    name: 'tag: ids is one comma-separated string on Loom',
-  },
-  same('seeds', 'seeds', { project: 'MMR' }),
-  {
-    loom: { args: { id: 'MMR-s2', parent: 'MMR-2', title: 'From a seed' }, tool: 'promote' },
-    name: 'promote a seed',
-  },
-  {
-    loom: { args: { board: 'MMR', 'dry-run': true }, tool: 'triage' },
-    name: 'triage: dryRun is dry-run',
-  },
-  {
-    loom: {
-      args: {
-        'at-or-after': ['created_at:2026-01-01'],
-        'not-is': ['stale'],
-        scope: 'MMR',
-        tz: 'UTC',
-      },
-      tool: 'list',
+    rows('MMR-4', 'MMR-5', 'MMR-8', 'MMR-6'),
+  ),
+  holding(
+    'list drops the rows a kebab-case date bound excludes',
+    'list',
+    { 'at-or-after': ['created_at:2026-10-02'], scope: 'MMR', tz: 'UTC' },
+    rows(),
+  ),
+  // MMR-3 is the p1 task, so `not-eq: priority:p1` leaves only the other ready task.
+  holding(
+    'next takes kebab-case filters as lists',
+    'next',
+    {
+      'at-or-before': ['created_at:2026-10-01T12:00:00Z'],
+      'not-eq': ['priority:p1'],
+      scope: 'MMR',
     },
-    name: 'list with kebab-case filters and a tz',
-  },
-  {
-    loom: {
-      args: {
-        'at-or-before': ['created_at:2026-12-31T00:00:00Z'],
-        'not-eq': ['priority:p3'],
-        scope: 'MMR',
-      },
-      tool: 'next',
+    rows('MMR-8'),
+  ),
+  holding(
+    'next drops the tasks a kebab-case date bound excludes',
+    'next',
+    { 'at-or-before': ['created_at:2026-10-01T11:59:59Z'], scope: 'MMR' },
+    rows(),
+  ),
+  // `done` and `create phase` have no `-f json` CLI pin for a successful write.
+  pinned('done', 'done', { id: 'MMR-8' }, { id: 'MMR-8', lifecycle: 'done' }),
+  pinned(
+    'create_phase',
+    'create_phase',
+    { parent: 'MMR-1', title: 'New phase' },
+    { parent: 'MMR-1', type: 'phase' },
+  ),
+  // The CLI pins `update -f json` on a task, a seed, and an artifact, not a project. The next
+  // case pins the project view whole, so this one holds only the field it set.
+  holding('update pins a project', 'update', { id: 'MMR', pinned: true }, { pinned: true }),
+  pinned(
+    'update unpins a project with pinned false',
+    'update',
+    { id: 'MMR', pinned: false },
+    { id: 'MMR', pinned: false },
+  ),
+  // `reorder` has no `-f json` CLI pin. Its answer carries no rank, so the final state shows
+  // that MMR-4 moved to the top and then MMR-5 above it.
+  pinned('reorder takes top', 'reorder', { id: 'MMR-4', top: true }, { id: 'MMR-4' }),
+  pinned('reorder takes before as the sibling id', 'reorder', { before: 'MMR-4', id: 'MMR-5' }, {}),
+  holding(
+    'tag takes ids as one comma-separated string',
+    'tag',
+    { ids: 'MMR-3,MMR-4', tags: ['beta'] },
+    { tagged: { ids: ['MMR-3', 'MMR-4'], tags: ['beta'] } },
+  ),
+  // `scratch agenda` and `scratch checkpoint` have no `-f json` CLI pin.
+  pinned(
+    'scratch_agenda add takes the item as words',
+    'scratch_agenda',
+    { action: 'add', 'expected-updated-at': '{token}', id: '{pad}', words: ['A', 'new', 'item'] },
+    padReceipt(3),
+  ),
+  pinned(
+    'scratch_agenda complete takes the number as a word',
+    'scratch_agenda',
+    { action: 'complete', 'expected-updated-at': '{token}', id: '{pad}', words: ['1'] },
+    padReceipt(2),
+  ),
+  pinned(
+    'scratch_agenda supersede takes the number as a word and keeps the reason',
+    'scratch_agenda',
+    {
+      action: 'supersede',
+      'expected-updated-at': '{token}',
+      id: '{pad}',
+      reason: 'folded',
+      words: ['2'],
     },
-    name: 'next with kebab-case filters',
-  },
-  {
-    loom: {
-      args: {
-        action: 'add',
-        'expected-updated-at': '{token}',
-        id: '{pad}',
-        words: ['A', 'new', 'item'],
-      },
-      tool: 'scratch_agenda',
-    },
-    name: 'scratch_agenda add: content is words',
-  },
-  {
-    loom: {
-      args: { action: 'complete', 'expected-updated-at': '{token}', id: '{pad}', words: ['1'] },
-      tool: 'scratch_agenda',
-    },
-    name: 'scratch_agenda complete: number is a word',
-  },
-  {
-    loom: {
-      args: {
-        action: 'supersede',
-        'expected-updated-at': '{token}',
-        id: '{pad}',
-        reason: 'folded',
-        words: ['2'],
-      },
-      tool: 'scratch_agenda',
-    },
-    name: 'scratch_agenda supersede: number is a word, reason stays',
-  },
-  {
-    loom: {
-      args: { 'expected-updated-at': '{token}', id: '{pad}', text: ['Checkpoint', 'text.'] },
-      tool: 'scratch_checkpoint',
-    },
-    name: 'scratch_checkpoint: content on the old server, text words on Loom',
-  },
-  {
-    loom: {
-      args: { content: '# Notes\n\nInline body.', id: 'MMR-3', summary: 'inline', title: 'Inline' },
-      tool: 'attach',
-    },
-    name: 'attach with an inline body: node on the old server, id on Loom',
-  },
+    padReceipt(1),
+  ),
+  pinned(
+    'scratch_checkpoint takes the text as words',
+    'scratch_checkpoint',
+    { 'expected-updated-at': '{token}', id: '{pad}', text: ['Checkpoint', 'text.'] },
+    padReceipt(1),
+  ),
+  holding(
+    'attach takes an inline body',
+    'attach',
+    { content: '# Notes\n\nInline body.', id: 'MMR-3', summary: 'inline', title: 'Inline' },
+    { artifact: { id: 'MMR-a2' } },
+  ),
 ];
 
 const FINAL_STATE =
   'the board ends holding the records the cases changed, including every record the answers name';
+const INPUTS = 'every tool takes its inputs under these names and types';
 const pins = pinsOf(import.meta.url);
-const keys = new Map(CASES.map((c) => [c, pins.claim(c.name)]));
+const keys = new Map(CASES.filter((c) => c.pinned).map((c) => [c, pins.claim(c.name)]));
 const finalKey = pins.claim(FINAL_STATE);
+const inputsKey = pins.claim(INPUTS);
 
 let template: BoardTemplate;
 let open: OpenBoard;
@@ -210,16 +209,31 @@ function advanceToken(structured: unknown): void {
   }
 }
 
-test.each(CASES)('$name answers its pinned structured content', async (c) => {
-  const answer = await loomServer.call(c.loom.tool, filledArgs(c.loom.args, tokens));
+test.each(CASES)('$name answers structured content that shows its arguments arrived', async (c) => {
+  const answer = await loomServer.call(c.tool, filledArgs(c.args, tokens));
   expect(answer.isError, answer.text).toBe(false);
-  expect(answer.structured).toBeDefined();
+  expect(answer.structured).toMatchObject(c.holds);
   advanceToken(answer.structured);
-  pins.check(keys.get(c)!, quoted(`${named(answer.structured)}\n`));
+  const key = keys.get(c);
+  if (key !== undefined) {
+    pins.check(key, quoted(`${named(answer.structured)}\n`));
+  }
 });
 
 test(FINAL_STATE, async () => {
   pins.check(finalKey, `--- state\n${await stateChanges(open.board, tokens, template)}`);
+});
+
+test(INPUTS, async () => {
+  const lines: string[] = [];
+  for (const tool of (await loomServer.tools()).toSorted()) {
+    const { properties } = await loomServer.schema(tool);
+    const inputs = Object.entries(properties)
+      .map(([name, schema]) => `${name}: ${schema.type ?? 'any'}`)
+      .toSorted();
+    lines.push(`${tool}(${inputs.join(', ')})`);
+  }
+  pins.check(inputsKey, quoted(`${lines.join('\n')}\n`));
 });
 
 test('a refusal is a failed call whose structured content is the failure form', async () => {

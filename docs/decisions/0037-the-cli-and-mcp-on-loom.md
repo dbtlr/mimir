@@ -140,7 +140,8 @@ command's parity test, so the list does not go stale.
 > live counterpart and is retired. The MCP structured-content cases are
 > pinned the same way, and the old server's tool list and input schemas are
 > frozen in `src/parity/retired-mcp-tools.ts` so the capability map is still
-> diffed against the retired contract.
+> diffed against the retired contract. (Both were retired on 2026-11-10; see
+> the MMR-665 note below.)
 
 > 2026-11-10: A shared renderer, parser, or validator is pinned once, and each
 > command keeps one case per distinct input. The full format, `--ascii`, and
@@ -177,6 +178,28 @@ command's parity test, so the list does not go stale.
 > `requester` read as null, so a change to how core works those out still
 > re-records the seed pins. `doctor` only reads, so its cases run on one shared
 > board as read cases (MMR-650).
+
+> 2026-11-10: The MCP structured-content pins and the retired-tool ledger are
+> retired. A tool's structured content is its command's `application/json`
+> view, so each command's `-f json` CLI pin owns that content. The old server's
+> frozen tool list (`src/parity/retired-mcp-tools.ts`) and the capability map
+> diffed against it (`src/parity/mcp-capabilities.ts`) are removed with the
+> tests that read them. `mcp-parity.test.ts` keeps cases for the argument
+> spellings a tool call takes: the kebab-case filters as lists on `list` and
+> `next`, each with a bound that admits rows and one that excludes them, and
+> a `tz` on `list`; ids as one comma-separated string on `tag`; `top` and
+> `before` on `reorder`; `pinned: false` on `update`; words on
+> `scratch_agenda` and `scratch_checkpoint`; and an inline body on `attach`.
+> Each asserts a successful call and the fields that show its arguments
+> arrived, and the board's final state stays pinned. Each view that no
+> `-f json` CLI pin owns is still pinned whole by at least one case: `done`,
+> `create_phase`, `reorder`, `update` unpinning a project, `scratch_agenda`,
+> and `scratch_checkpoint`. One pin holds every tool's input names and types
+> from `tools/list`, because no CLI pin sees an input that only MCP names or
+> drops, such as a positional's declared name or an option under
+> `mcpInput({ exclude: true })`. `engine-surface.test.ts` proves every Engine
+> method is reachable as a tool or a command, and `mcp-capabilities.test.ts`
+> keeps the machine-local and installer commands off MCP (MMR-665).
 
 ### Loom generates the MCP contract
 
@@ -276,3 +299,4 @@ starts.
 - 2026-10-29: `store upgrade` is removed in every mode; in remote mode `store` refuses export and import only (MMR-582).
 - 2026-11-10: Noted that a shared renderer, parser, or validator is pinned once, and each command keeps one case per distinct input (MMR-663).
 - 2026-11-10: Noted that a write pin holds only the records the store keeps, and that `doctor` runs as read cases (MMR-650).
+- 2026-11-10: Noted that the MCP structured-content pins and the retired-tool ledger are retired, and that the CLI's `-f json` pins own a tool's content (MMR-665).

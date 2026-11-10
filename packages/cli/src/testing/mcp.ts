@@ -1,6 +1,6 @@
 /**
  * Loom's generated MCP server, driven in process over an Application on piped
- * stdio, for the capability and structured-content parity tests. Test-only.
+ * stdio, for the tests of the MCP surface. Test-only.
  *
  * It runs on `processHandle` with piped streams rather than `mockProcess`: the
  * mock's stdin is fixed text that ends, while an MCP session writes each
