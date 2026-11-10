@@ -5,12 +5,19 @@
  * whole board, never the ids a case's output happens to name: an output format
  * changes what a write prints, never what it stores, so every format of one
  * write must pin the same records, and a write that touches a record other
- * than its subject shows. It holds what the store keeps and nothing core
- * derives from it: no status word, rollup, list row, or reverse edge, which
- * core's own tests prove, so a change to how core derives them re-records no
- * write pin. Test-only.
+ * than its subject shows, an archived project's records included. Of the
+ * nodes and projects it holds what the store keeps and nothing core derives
+ * from it: no status word, rollup, list row, or reverse edge, which core's own
+ * tests prove, so a change to how core derives them re-records no write pin.
+ * Seeds are the exception: each reads as its queue row, which also carries
+ * what core works out at read time (`readyToResolve`, the description's
+ * `lede`, `spawned` pruned to the work that still resolves, and an unknown
+ * `requester` read as null), so a change to how core works those out still
+ * re-records the seed pins. Test-only.
  */
 import type { FacetName } from '@mimir/contract';
+import { LocalEngine } from '@mimir/core';
+import type { Store } from '@mimir/core';
 
 import type { ParityBoard } from './fixture';
 
@@ -42,13 +49,46 @@ const DERIVED_FIELDS: ReadonlySet<string> = new Set(['lastActivityAt', 'status']
 const byId = (ids: Iterable<string>): string[] =>
   [...new Set(ids)].toSorted((a, b) => a.localeCompare(b, 'en', { numeric: true }));
 
-/** A read's value, or the way it failed, so a record a CLI wrongly removed (or a project it archived, which refuses reads) still compares. */
+/** A read's value, or the way it failed, so a record a CLI wrongly removed still compares. */
 async function read(ask: () => Promise<unknown>): Promise<unknown> {
   try {
     return await ask();
   } catch (error) {
     return { failed: error instanceof Error ? error.message : String(error) };
   }
+}
+
+type Projects = Awaited<ReturnType<Store['loadProjects']>>;
+
+/** The projects with none archived. */
+const allActive = (projects: Projects): Projects =>
+  projects.map((p) => (p.archived_at === null ? p : { ...p, archived_at: null }));
+
+/**
+ * An Engine over `store` that reads every project as active, so the records of
+ * an archived project read back as the store keeps them. Archiving hides them
+ * from every read (ADR 0015), which core's own tests prove; it does not change
+ * them, and a write that does must still show. Project rows are read through
+ * the board's own Engine, which reports when a project was archived.
+ */
+function recordReader(store: Store): LocalEngine {
+  return new LocalEngine(
+    new Proxy(store, {
+      get(target, property) {
+        if (property === 'loadWorkingSet') {
+          return async () => {
+            const set = await target.loadWorkingSet();
+            return { ...set, projects: allActive(set.projects) };
+          };
+        }
+        if (property === 'loadProjects') {
+          return async () => allActive(await target.loadProjects());
+        }
+        const value: unknown = Reflect.get(target, property);
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    }),
+  );
 }
 
 /** A node or project view as the Engine returns it, read only for its edges. */
@@ -92,7 +132,7 @@ export async function boardSnapshot(
   board: ParityBoard,
   tokens: Readonly<Record<string, string>>,
 ): Promise<string> {
-  const { engine } = board;
+  const engine = recordReader(board.store);
   const ids = await heldIds(board);
   const named = Object.entries(tokens).filter(([, value]) => IS_UUID.test(value));
   const unnamed = ids.pads.filter((id) => !named.some(([, value]) => value === id));
@@ -134,7 +174,9 @@ export async function boardSnapshot(
         await read(async () => stored(await engine.getNode({ facets: [...NODE_FACETS], id }))),
       ]),
     ),
-    projects: (await engine.projects({ facets: [...PROJECT_FACETS], status: 'all' })).map(stored),
+    projects: (await board.engine.projects({ facets: [...PROJECT_FACETS], status: 'all' })).map(
+      stored,
+    ),
     scratchpads: [
       ...(await Promise.all(
         named.map(async ([name, id]) => [name, await read(() => engine.scratchGet({ id }))]),

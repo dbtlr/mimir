@@ -44,3 +44,13 @@ test('a dependency is pinned on its dependent as the prerequisite id alone', asy
   // MMR-3's blocking set is the same edge read from the other end.
   expect(changes).not.toContain('nodes[MMR-3]');
 });
+
+test('a record in a project the write archived still shows as stored', async () => {
+  const changes = await changesOf(async (engine) => {
+    await engine.park({ id: 'XX-3', reason: 'archived with its project' });
+    await engine.archive({ id: 'XX' });
+  });
+  expect(changes).toContain('~ nodes[XX-3].hold: "none" -> "parked"');
+  // Archiving hides the project's records from reads; the store still holds them.
+  expect(changes).not.toContain('failed');
+});

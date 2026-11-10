@@ -2002,112 +2002,49 @@ exit 0
 --- stdout
 | [ok] archived XX
 --- state
-- board.XX.nodes.items[XX-3]: {"id":"XX-3"}
-- board.XX.nodes.items[XX-4]: {"id":"XX-4"}
-~ nodes[XX-1]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"XX-1","open_ended":null,"parent":null,"summary":null,"tags":[],"title":"Elsewhere","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"XX-1 doesn't exist"}
-~ nodes[XX-2]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"XX-2","open_ended":null,"parent":"XX-1","summary":null,"tags":[],"target":null,"title":"Far","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"XX-2 doesn't exist"}
-~ nodes[XX-3]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"XX-3","lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null} -> {"failed":"XX-3 doesn't exist"}
-~ nodes[XX-4]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"XX-4","lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","workerHarness":null,"workerSession":null} -> {"failed":"XX-4 doesn't exist"}
 + projects[XX].archivedAt: "2026-10-01T12:00:00.000Z"
-~ seeds.MMR[MMR-s1].requester: "XX" -> null
-~ seeds.MMR[MMR-s3].requester: "XX" -> null
-~ seeds.XX: [{"createdAt":"2026-10-01T12:00:00.000Z","id":"XX-s1","kind":"bug","lifecycle":"resolved","project":"XX","readyToResolve":false,"requester":"MMR","spawned":[],"title":"Their bug","updatedAt":"2026-10-01T12:00:00.000Z"}] -> {"failed":"XX doesn't exist"}
 
 ### archive argv: XX superseded by XX2
 exit 0
 --- stdout
 | [ok] archived XX · superseded by XX2
 --- state
-- board.XX.nodes.items[XX-3]: {"id":"XX-3"}
-- board.XX.nodes.items[XX-4]: {"id":"XX-4"}
-~ nodes[XX-1]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"XX-1","open_ended":null,"parent":null,"summary":null,"tags":[],"title":"Elsewhere","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"XX-1 doesn't exist"}
-~ nodes[XX-2]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"XX-2","open_ended":null,"parent":"XX-1","summary":null,"tags":[],"target":null,"title":"Far","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"XX-2 doesn't exist"}
-~ nodes[XX-3]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"XX-3","lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null} -> {"failed":"XX-3 doesn't exist"}
-~ nodes[XX-4]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"XX-4","lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","workerHarness":null,"workerSession":null} -> {"failed":"XX-4 doesn't exist"}
 + projects[XX].archivedAt: "2026-10-01T12:00:00.000Z"
-~ seeds.MMR[MMR-s1].requester: "XX" -> null
-~ seeds.MMR[MMR-s3].requester: "XX" -> null
-~ seeds.XX: [{"createdAt":"2026-10-01T12:00:00.000Z","id":"XX-s1","kind":"bug","lifecycle":"resolved","project":"XX","readyToResolve":false,"requester":"MMR","spawned":[],"title":"Their bug","updatedAt":"2026-10-01T12:00:00.000Z"}] -> {"failed":"XX doesn't exist"}
 
 ### archive argv: XX -f json
 exit 0
 --- stdout
 | {"project":{"archived_at":"2026-10-01T12:00:00.000Z","key":"XX"}}
 --- state
-- board.XX.nodes.items[XX-3]: {"id":"XX-3"}
-- board.XX.nodes.items[XX-4]: {"id":"XX-4"}
-~ nodes[XX-1]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"XX-1","open_ended":null,"parent":null,"summary":null,"tags":[],"title":"Elsewhere","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"XX-1 doesn't exist"}
-~ nodes[XX-2]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"XX-2","open_ended":null,"parent":"XX-1","summary":null,"tags":[],"target":null,"title":"Far","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"XX-2 doesn't exist"}
-~ nodes[XX-3]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"XX-3","lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null} -> {"failed":"XX-3 doesn't exist"}
-~ nodes[XX-4]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"XX-4","lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","workerHarness":null,"workerSession":null} -> {"failed":"XX-4 doesn't exist"}
 + projects[XX].archivedAt: "2026-10-01T12:00:00.000Z"
-~ seeds.MMR[MMR-s1].requester: "XX" -> null
-~ seeds.MMR[MMR-s3].requester: "XX" -> null
-~ seeds.XX: [{"createdAt":"2026-10-01T12:00:00.000Z","id":"XX-s1","kind":"bug","lifecycle":"resolved","project":"XX","readyToResolve":false,"requester":"MMR","spawned":[],"title":"Their bug","updatedAt":"2026-10-01T12:00:00.000Z"}] -> {"failed":"XX doesn't exist"}
 
 ### archive argv: XX -f jsonl
 exit 0
 --- stdout
 | {"project":{"archived_at":"2026-10-01T12:00:00.000Z","key":"XX"}}
 --- state
-- board.XX.nodes.items[XX-3]: {"id":"XX-3"}
-- board.XX.nodes.items[XX-4]: {"id":"XX-4"}
-~ nodes[XX-1]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"XX-1","open_ended":null,"parent":null,"summary":null,"tags":[],"title":"Elsewhere","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"XX-1 doesn't exist"}
-~ nodes[XX-2]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"XX-2","open_ended":null,"parent":"XX-1","summary":null,"tags":[],"target":null,"title":"Far","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"XX-2 doesn't exist"}
-~ nodes[XX-3]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"XX-3","lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null} -> {"failed":"XX-3 doesn't exist"}
-~ nodes[XX-4]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"XX-4","lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","workerHarness":null,"workerSession":null} -> {"failed":"XX-4 doesn't exist"}
 + projects[XX].archivedAt: "2026-10-01T12:00:00.000Z"
-~ seeds.MMR[MMR-s1].requester: "XX" -> null
-~ seeds.MMR[MMR-s3].requester: "XX" -> null
-~ seeds.XX: [{"createdAt":"2026-10-01T12:00:00.000Z","id":"XX-s1","kind":"bug","lifecycle":"resolved","project":"XX","readyToResolve":false,"requester":"MMR","spawned":[],"title":"Their bug","updatedAt":"2026-10-01T12:00:00.000Z"}] -> {"failed":"XX doesn't exist"}
 
 ### archive argv: XX -f ids
 exit 0
 --- stdout
 | XX
 --- state
-- board.XX.nodes.items[XX-3]: {"id":"XX-3"}
-- board.XX.nodes.items[XX-4]: {"id":"XX-4"}
-~ nodes[XX-1]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"XX-1","open_ended":null,"parent":null,"summary":null,"tags":[],"title":"Elsewhere","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"XX-1 doesn't exist"}
-~ nodes[XX-2]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"XX-2","open_ended":null,"parent":"XX-1","summary":null,"tags":[],"target":null,"title":"Far","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"XX-2 doesn't exist"}
-~ nodes[XX-3]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"XX-3","lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null} -> {"failed":"XX-3 doesn't exist"}
-~ nodes[XX-4]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"XX-4","lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","workerHarness":null,"workerSession":null} -> {"failed":"XX-4 doesn't exist"}
 + projects[XX].archivedAt: "2026-10-01T12:00:00.000Z"
-~ seeds.MMR[MMR-s1].requester: "XX" -> null
-~ seeds.MMR[MMR-s3].requester: "XX" -> null
-~ seeds.XX: [{"createdAt":"2026-10-01T12:00:00.000Z","id":"XX-s1","kind":"bug","lifecycle":"resolved","project":"XX","readyToResolve":false,"requester":"MMR","spawned":[],"title":"Their bug","updatedAt":"2026-10-01T12:00:00.000Z"}] -> {"failed":"XX doesn't exist"}
 
 ### archive argv: XX -f table
 exit 0
 --- stdout
 | [ok] archived XX
 --- state
-- board.XX.nodes.items[XX-3]: {"id":"XX-3"}
-- board.XX.nodes.items[XX-4]: {"id":"XX-4"}
-~ nodes[XX-1]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"XX-1","open_ended":null,"parent":null,"summary":null,"tags":[],"title":"Elsewhere","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"XX-1 doesn't exist"}
-~ nodes[XX-2]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"XX-2","open_ended":null,"parent":"XX-1","summary":null,"tags":[],"target":null,"title":"Far","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"XX-2 doesn't exist"}
-~ nodes[XX-3]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"XX-3","lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null} -> {"failed":"XX-3 doesn't exist"}
-~ nodes[XX-4]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"XX-4","lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","workerHarness":null,"workerSession":null} -> {"failed":"XX-4 doesn't exist"}
 + projects[XX].archivedAt: "2026-10-01T12:00:00.000Z"
-~ seeds.MMR[MMR-s1].requester: "XX" -> null
-~ seeds.MMR[MMR-s3].requester: "XX" -> null
-~ seeds.XX: [{"createdAt":"2026-10-01T12:00:00.000Z","id":"XX-s1","kind":"bug","lifecycle":"resolved","project":"XX","readyToResolve":false,"requester":"MMR","spawned":[],"title":"Their bug","updatedAt":"2026-10-01T12:00:00.000Z"}] -> {"failed":"XX doesn't exist"}
 
 ### archive argv: XX superseded (terminal)
 exit 0
 --- stdout
 | ␛[32m✓␛[39m archived XX · superseded
 --- state
-- board.XX.nodes.items[XX-3]: {"id":"XX-3"}
-- board.XX.nodes.items[XX-4]: {"id":"XX-4"}
-~ nodes[XX-1]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"XX-1","open_ended":null,"parent":null,"summary":null,"tags":[],"title":"Elsewhere","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"XX-1 doesn't exist"}
-~ nodes[XX-2]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"XX-2","open_ended":null,"parent":"XX-1","summary":null,"tags":[],"target":null,"title":"Far","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"XX-2 doesn't exist"}
-~ nodes[XX-3]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"XX-3","lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null} -> {"failed":"XX-3 doesn't exist"}
-~ nodes[XX-4]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"XX-4","lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","workerHarness":null,"workerSession":null} -> {"failed":"XX-4 doesn't exist"}
 + projects[XX].archivedAt: "2026-10-01T12:00:00.000Z"
-~ seeds.MMR[MMR-s1].requester: "XX" -> null
-~ seeds.MMR[MMR-s3].requester: "XX" -> null
-~ seeds.XX: [{"createdAt":"2026-10-01T12:00:00.000Z","id":"XX-s1","kind":"bug","lifecycle":"resolved","project":"XX","readyToResolve":false,"requester":"MMR","spawned":[],"title":"Their bug","updatedAt":"2026-10-01T12:00:00.000Z"}] -> {"failed":"XX doesn't exist"}
 
 ### archive argv: XX #2
 exit 1
@@ -2127,29 +2064,7 @@ exit 0
 | [ok] archived MMR
 | [warn] released 1 dependent(s): XX-3
 --- state
-~ artifacts[MMR-a1]: {"content":"# Notes\n\nThe body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a1","links":["MMR-3"],"project":"MMR","summary":"design notes","tags":["design"],"title":"Store notes"} -> {"failed":"MMR-a1 doesn't exist"}
-- board.MMR.nodes.items[MMR-3]: {"id":"MMR-3"}
-- board.MMR.nodes.items[MMR-4]: {"id":"MMR-4"}
-- board.MMR.nodes.items[MMR-5]: {"id":"MMR-5"}
-- board.MMR.nodes.items[MMR-8]: {"id":"MMR-8"}
-- board.MMR.nodes.items[MMR-6]: {"id":"MMR-6"}
-- board.MMR.nodes.items[MMR-7]: {"id":"MMR-7"}
-- board.MMR.nodes.items[MMR-9]: {"id":"MMR-9"}
-~ nodes[MMR-1]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"MMR-1","open_ended":null,"parent":null,"summary":null,"tags":[],"title":"Platform","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"MMR-1 doesn't exist"}
-~ nodes[MMR-2]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"MMR-2","open_ended":null,"parent":"MMR-1","summary":null,"tags":[],"target":"2026-11","title":"Skeleton","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"MMR-2 doesn't exist"}
-~ nodes[MMR-3]: {"annotations":[{"content":"First pass.\nSecond line.","createdAt":"2026-10-01T12:00:00.000Z"},{"content":"Settled; one; store.","createdAt":"2026-10-01T12:00:00.000Z"}],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":"Open the store once.\n\nKeep it open.","externalRef":null,"grooming":"groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-3","lifecycle":"todo","parent":"MMR-2","priority":"p1","session":null,"size":"small","summary":"one store per run","tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}],"title":"Wire the store","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null} -> {"failed":"MMR-3 doesn't exist"}
-~ nodes[MMR-4]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[{"id":"MMR-3"}]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[{"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-3"}],"hold":"none","holdReason":null,"host":null,"id":"MMR-4","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}],"title":"Render views","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null} -> {"failed":"MMR-4 doesn't exist"}
-~ nodes[MMR-5]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":"codex","history":[{"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"in_progress"}],"hold":"none","holdReason":null,"host":null,"id":"MMR-5","lifecycle":"in_progress","parent":"MMR-2","priority":"p0","session":"main-session","size":null,"summary":null,"tags":[],"title":"Ship it","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":"claude","workerSession":"task-worker-session"} -> {"failed":"MMR-5 doesn't exist"}
-~ nodes[MMR-6]: {"annotations":[],"blockOwner":"you","branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[{"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"needs a reviewer","to":"blocked"}],"hold":"blocked","holdReason":"needs a reviewer","host":null,"id":"MMR-6","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Wait on review","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null} -> {"failed":"MMR-6 doesn't exist"}
-~ nodes[MMR-7]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":"2026-10-01T12:00:00.000Z","createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[{"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"},{"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"done"}],"hold":"none","holdReason":null,"host":null,"id":"MMR-7","lifecycle":"done","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Spike","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null} -> {"failed":"MMR-7 doesn't exist"}
-~ nodes[MMR-8]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-8","lifecycle":"todo","parent":"MMR-2","priority":"p2","session":null,"size":null,"summary":null,"tags":[],"title":"Tidy docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null} -> {"failed":"MMR-8 doesn't exist"}
-~ nodes[MMR-9]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":"2026-10-01T12:00:00.000Z","createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[{"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"},{"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"done"}],"hold":"none","holdReason":null,"host":null,"id":"MMR-9","lifecycle":"done","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Export","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null} -> {"failed":"MMR-9 doesn't exist"}
-- nodes[XX-3].deps.dependsOn[MMR-3]: {"id":"MMR-3"}
 + projects[MMR].archivedAt: "2026-10-01T12:00:00.000Z"
-~ scratchpads[blank]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"Blank","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"<uuid> doesn't exist"}
-~ scratchpads[pad]: {"agenda":[{"content":"Port the verbs","number":1,"reason":null,"state":"open"},{"content":"Wire the host","number":2,"reason":null,"state":"open"},{"content":"Spike it","number":3,"reason":null,"state":"done"}],"anchors":["MMR-3"],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[{"at":"2026-10-01T12:00:00.000Z","content":"Found the cause.","number":1}],"project":"MMR","title":"Index rewrite","updatedAt":"2026-10-01T12:00:00.005Z"} -> {"failed":"<uuid> doesn't exist"}
-~ seeds.MMR: [{"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s1","kind":"feature","lede":"Ask the other board for a hook.","lifecycle":"new","project":"MMR","readyToResolve":false,"requester":"XX","spawned":[],"title":"A hook","updatedAt":"2026-10-01T12:00:00.000Z"},{"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s2","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Cache the plan","updatedAt":"2026-10-01T12:00:00.000Z"},{"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s3","kind":"bug","lifecycle":"rejected","project":"MMR","readyToResolve":false,"requester":"XX","spawned":[],"title":"Flaky retry","updatedAt":"2026-10-01T12:00:00.000Z"},{"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s4","kind":"feature","lede":null,"lifecycle":"promoted","project":"MMR","readyToResolve":true,"requester":null,"spawned":["MMR-9"],"title":"Export","updatedAt":"2026-10-01T12:00:00.000Z"},{"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s5","kind":"idea","lede":null,"lifecycle":"parked","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Parked one","updatedAt":"2026-10-01T12:00:00.000Z"}] -> {"failed":"MMR doesn't exist"}
-~ seeds.XX[XX-s1].requester: "MMR" -> null
 
 ### archive argv: MMR (terminal)
 exit 0
@@ -2157,29 +2072,7 @@ exit 0
 | ␛[32m✓␛[39m archived MMR
 | ␛[33m⚠␛[39m released 1 dependent(s): XX-3
 --- state
-~ artifacts[MMR-a1]: {"content":"# Notes\n\nThe body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a1","links":["MMR-3"],"project":"MMR","summary":"design notes","tags":["design"],"title":"Store notes"} -> {"failed":"MMR-a1 doesn't exist"}
-- board.MMR.nodes.items[MMR-3]: {"id":"MMR-3"}
-- board.MMR.nodes.items[MMR-4]: {"id":"MMR-4"}
-- board.MMR.nodes.items[MMR-5]: {"id":"MMR-5"}
-- board.MMR.nodes.items[MMR-8]: {"id":"MMR-8"}
-- board.MMR.nodes.items[MMR-6]: {"id":"MMR-6"}
-- board.MMR.nodes.items[MMR-7]: {"id":"MMR-7"}
-- board.MMR.nodes.items[MMR-9]: {"id":"MMR-9"}
-~ nodes[MMR-1]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"MMR-1","open_ended":null,"parent":null,"summary":null,"tags":[],"title":"Platform","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"MMR-1 doesn't exist"}
-~ nodes[MMR-2]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"MMR-2","open_ended":null,"parent":"MMR-1","summary":null,"tags":[],"target":"2026-11","title":"Skeleton","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"MMR-2 doesn't exist"}
-~ nodes[MMR-3]: {"annotations":[{"content":"First pass.\nSecond line.","createdAt":"2026-10-01T12:00:00.000Z"},{"content":"Settled; one; store.","createdAt":"2026-10-01T12:00:00.000Z"}],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":"Open the store once.\n\nKeep it open.","externalRef":null,"grooming":"groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-3","lifecycle":"todo","parent":"MMR-2","priority":"p1","session":null,"size":"small","summary":"one store per run","tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}],"title":"Wire the store","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null} -> {"failed":"MMR-3 doesn't exist"}
-~ nodes[MMR-4]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[{"id":"MMR-3"}]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[{"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-3"}],"hold":"none","holdReason":null,"host":null,"id":"MMR-4","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}],"title":"Render views","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null} -> {"failed":"MMR-4 doesn't exist"}
-~ nodes[MMR-5]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":"codex","history":[{"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"in_progress"}],"hold":"none","holdReason":null,"host":null,"id":"MMR-5","lifecycle":"in_progress","parent":"MMR-2","priority":"p0","session":"main-session","size":null,"summary":null,"tags":[],"title":"Ship it","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":"claude","workerSession":"task-worker-session"} -> {"failed":"MMR-5 doesn't exist"}
-~ nodes[MMR-6]: {"annotations":[],"blockOwner":"you","branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[{"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"needs a reviewer","to":"blocked"}],"hold":"blocked","holdReason":"needs a reviewer","host":null,"id":"MMR-6","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Wait on review","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null} -> {"failed":"MMR-6 doesn't exist"}
-~ nodes[MMR-7]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":"2026-10-01T12:00:00.000Z","createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[{"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"},{"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"done"}],"hold":"none","holdReason":null,"host":null,"id":"MMR-7","lifecycle":"done","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Spike","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null} -> {"failed":"MMR-7 doesn't exist"}
-~ nodes[MMR-8]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-8","lifecycle":"todo","parent":"MMR-2","priority":"p2","session":null,"size":null,"summary":null,"tags":[],"title":"Tidy docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null} -> {"failed":"MMR-8 doesn't exist"}
-~ nodes[MMR-9]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":"2026-10-01T12:00:00.000Z","createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[{"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"},{"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"done"}],"hold":"none","holdReason":null,"host":null,"id":"MMR-9","lifecycle":"done","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Export","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null} -> {"failed":"MMR-9 doesn't exist"}
-- nodes[XX-3].deps.dependsOn[MMR-3]: {"id":"MMR-3"}
 + projects[MMR].archivedAt: "2026-10-01T12:00:00.000Z"
-~ scratchpads[blank]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"Blank","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"<uuid> doesn't exist"}
-~ scratchpads[pad]: {"agenda":[{"content":"Port the verbs","number":1,"reason":null,"state":"open"},{"content":"Wire the host","number":2,"reason":null,"state":"open"},{"content":"Spike it","number":3,"reason":null,"state":"done"}],"anchors":["MMR-3"],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[{"at":"2026-10-01T12:00:00.000Z","content":"Found the cause.","number":1}],"project":"MMR","title":"Index rewrite","updatedAt":"2026-10-01T12:00:00.005Z"} -> {"failed":"<uuid> doesn't exist"}
-~ seeds.MMR: [{"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s1","kind":"feature","lede":"Ask the other board for a hook.","lifecycle":"new","project":"MMR","readyToResolve":false,"requester":"XX","spawned":[],"title":"A hook","updatedAt":"2026-10-01T12:00:00.000Z"},{"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s2","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Cache the plan","updatedAt":"2026-10-01T12:00:00.000Z"},{"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s3","kind":"bug","lifecycle":"rejected","project":"MMR","readyToResolve":false,"requester":"XX","spawned":[],"title":"Flaky retry","updatedAt":"2026-10-01T12:00:00.000Z"},{"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s4","kind":"feature","lede":null,"lifecycle":"promoted","project":"MMR","readyToResolve":true,"requester":null,"spawned":["MMR-9"],"title":"Export","updatedAt":"2026-10-01T12:00:00.000Z"},{"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s5","kind":"idea","lede":null,"lifecycle":"parked","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Parked one","updatedAt":"2026-10-01T12:00:00.000Z"}] -> {"failed":"MMR doesn't exist"}
-~ seeds.XX[XX-s1].requester: "MMR" -> null
 
 ### archive argv: MMR-3
 exit 1
@@ -2228,32 +2121,14 @@ exit 0
 --- stdout
 | [ok] archived XX
 --- state
-- board.XX.nodes.items[XX-3]: {"id":"XX-3"}
-- board.XX.nodes.items[XX-4]: {"id":"XX-4"}
-~ nodes[XX-1]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"XX-1","open_ended":null,"parent":null,"summary":null,"tags":[],"title":"Elsewhere","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"XX-1 doesn't exist"}
-~ nodes[XX-2]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"XX-2","open_ended":null,"parent":"XX-1","summary":null,"tags":[],"target":null,"title":"Far","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"XX-2 doesn't exist"}
-~ nodes[XX-3]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"XX-3","lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null} -> {"failed":"XX-3 doesn't exist"}
-~ nodes[XX-4]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"XX-4","lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","workerHarness":null,"workerSession":null} -> {"failed":"XX-4 doesn't exist"}
 + projects[XX].archivedAt: "2026-10-01T12:00:00.000Z"
-~ seeds.MMR[MMR-s1].requester: "XX" -> null
-~ seeds.MMR[MMR-s3].requester: "XX" -> null
-~ seeds.XX: [{"createdAt":"2026-10-01T12:00:00.000Z","id":"XX-s1","kind":"bug","lifecycle":"resolved","project":"XX","readyToResolve":false,"requester":"MMR","spawned":[],"title":"Their bug","updatedAt":"2026-10-01T12:00:00.000Z"}] -> {"failed":"XX doesn't exist"}
 
 ### archive argv: XX -- --weird
 exit 0
 --- stdout
 | [ok] archived XX · --weird
 --- state
-- board.XX.nodes.items[XX-3]: {"id":"XX-3"}
-- board.XX.nodes.items[XX-4]: {"id":"XX-4"}
-~ nodes[XX-1]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"XX-1","open_ended":null,"parent":null,"summary":null,"tags":[],"title":"Elsewhere","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"XX-1 doesn't exist"}
-~ nodes[XX-2]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"XX-2","open_ended":null,"parent":"XX-1","summary":null,"tags":[],"target":null,"title":"Far","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"XX-2 doesn't exist"}
-~ nodes[XX-3]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"XX-3","lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null} -> {"failed":"XX-3 doesn't exist"}
-~ nodes[XX-4]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"XX-4","lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","workerHarness":null,"workerSession":null} -> {"failed":"XX-4 doesn't exist"}
 + projects[XX].archivedAt: "2026-10-01T12:00:00.000Z"
-~ seeds.MMR[MMR-s1].requester: "XX" -> null
-~ seeds.MMR[MMR-s3].requester: "XX" -> null
-~ seeds.XX: [{"createdAt":"2026-10-01T12:00:00.000Z","id":"XX-s1","kind":"bug","lifecycle":"resolved","project":"XX","readyToResolve":false,"requester":"MMR","spawned":[],"title":"Their bug","updatedAt":"2026-10-01T12:00:00.000Z"}] -> {"failed":"XX doesn't exist"}
 
 ### archive argv: ZZ
 exit 1
@@ -2274,16 +2149,7 @@ exit 0
 --- stdout
 | [ok] unarchived XX
 --- state
-+ board.XX.nodes.items[XX-3]: {"id":"XX-3"}
-+ board.XX.nodes.items[XX-4]: {"id":"XX-4"}
-~ nodes[XX-1]: {"failed":"XX-1 doesn't exist"} -> {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"XX-1","open_ended":null,"parent":null,"summary":null,"tags":[],"title":"Elsewhere","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z"}
-~ nodes[XX-2]: {"failed":"XX-2 doesn't exist"} -> {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"XX-2","open_ended":null,"parent":"XX-1","summary":null,"tags":[],"target":null,"title":"Far","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z"}
-~ nodes[XX-3]: {"failed":"XX-3 doesn't exist"} -> {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"XX-3","lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
-~ nodes[XX-4]: {"failed":"XX-4 doesn't exist"} -> {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"XX-4","lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","workerHarness":null,"workerSession":null}
 - projects[XX].archivedAt: "2026-10-01T12:00:00.000Z"
-~ seeds.MMR[MMR-s1].requester: null -> "XX"
-~ seeds.MMR[MMR-s3].requester: null -> "XX"
-~ seeds.XX: {"failed":"XX doesn't exist"} -> [{"createdAt":"2026-10-01T12:00:00.000Z","id":"XX-s1","kind":"bug","lifecycle":"resolved","project":"XX","readyToResolve":false,"requester":"MMR","spawned":[],"title":"Their bug","updatedAt":"2026-10-01T12:00:00.000Z"}]
 
 ### unarchive argv: XX #2
 exit 1
