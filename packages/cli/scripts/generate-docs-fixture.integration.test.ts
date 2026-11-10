@@ -31,7 +31,7 @@ beforeAll(async () => {
   await generateDocsFixture(file);
   built = await buildSqliteStore(file);
   store = built.store;
-}, 60_000);
+});
 
 afterAll(async () => {
   try {
@@ -139,7 +139,7 @@ test('regenerating over a previous fixture replaces it', async () => {
   } finally {
     rmSync(dir, { force: true, recursive: true });
   }
-}, 60_000);
+});
 
 test('refuses a store holding a project the fixture does not own', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'mimir-fixture-guard-'));

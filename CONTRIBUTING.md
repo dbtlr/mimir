@@ -106,8 +106,7 @@ and fix what makes it slow. Do not raise a per-test timeout, a file's
 or the Vitest test timeout, even as a backstop. A longer timeout hides the cost
 until the next load spike, or a slower platform, fails the test again: the
 v0.28.0 macOS release failed on a git-driven test that took half a second on
-Linux and over 5 s on macOS. Some default-lane files still raise their
-timeouts; MMR-644 removes them, so do not copy them.
+Linux and over 5 s on macOS.
 
 The usual causes, and their fixes:
 

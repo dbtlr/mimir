@@ -27,6 +27,7 @@ let unbound: string;
 
 /** A CLI subprocess, bounded and fully drained by the shared sandbox helper. */
 function run(args: string[], cwd: string): Promise<string> {
+  // 60 s: one compiled-CLI or git process, which can start slowly on a cold CI runner.
   return command(args, { cwd, timeout: 60_000 });
 }
 
@@ -52,6 +53,7 @@ beforeAll(async () => {
   await run([binary, 'create', 'project', 'Other', '--key', 'OTHR', '-y'], root);
   await run([binary, 'create', 'initiative', 'Work', '--parent', 'OTHR'], root);
   await run([binary, 'create', 'task', 'the other task', '--parent', 'OTHR-1'], root);
+  // 60 s: the hook runs eight compiled-CLI and git processes in sequence.
 }, 60_000);
 
 afterAll(async () => {
@@ -145,6 +147,7 @@ test.skipIf(!enabled)(
     expect(result.text).toContain('the bound task');
     expect(result.text).not.toContain('the other task');
   },
+  // 30 s: the case starts the compiled CLI as an MCP server process and talks to it over stdio.
   30_000,
 );
 
@@ -156,6 +159,7 @@ test.skipIf(!enabled)(
     expect(result.text).toContain('the bound task');
     expect(result.text).not.toContain('the other task');
   },
+  // 30 s: the case starts the compiled CLI as an MCP server process and talks to it over stdio.
   30_000,
 );
 
@@ -168,6 +172,7 @@ test.skipIf(!enabled)(
     expect(result.text).toContain('the other task');
     expect(result.text).not.toContain('the bound task');
   },
+  // 30 s: the case starts the compiled CLI as an MCP server process and talks to it over stdio.
   30_000,
 );
 
@@ -184,5 +189,6 @@ test.skipIf(!enabled)(
       expect(result.structured, tool).toMatchObject({ failure: { code: 'usage', exitCode: 2 } });
     }
   },
+  // 30 s: the case starts the compiled CLI as an MCP server process and talks to it over stdio.
   30_000,
 );
