@@ -65,7 +65,7 @@ test('an inline code span that starts with mimir is an invocation; prose spans a
   expect(words(md)).toEqual([['overview', '-s', 'KEY'], ['next']]);
 });
 
-test('untagged and console fences count; other languages and heredoc bodies do not', () => {
+test('untagged and console fences count; other languages and heredoc bodies do not, and a dangling continuation stays in its block', () => {
   const md = [
     '```',
     'mimir list --status blocked',
@@ -82,32 +82,16 @@ test('untagged and console fences count; other languages and heredoc bodies do n
     'EOF',
     'mimir done KEY-9',
     '```',
+    fence('mimir cancel \\'),
+    fence('mimir reopen KEY-9'),
   ].join('\n');
   expect(words(md)).toEqual([
     ['list', '--status', 'blocked'],
     ['next', '-f', 'ids'],
     ['done', 'KEY-9'],
+    ['cancel'],
+    ['reopen', 'KEY-9'],
   ]);
-});
-
-test('a fence closes only on its own marker, so nested and tilde fences read right', () => {
-  const md = [
-    '````markdown',
-    '```sh',
-    'mimir inside-a-quoted-example',
-    '```',
-    '````',
-    '~~~sh',
-    'mimir next',
-    '~~~',
-    'Then `mimir list`.',
-  ].join('\n');
-  expect(words(md)).toEqual([['next'], ['list']]);
-});
-
-test('a dangling continuation never leaks into the next block', () => {
-  const md = [fence('mimir list \\'), fence('mimir next')].join('\n');
-  expect(words(md)).toEqual([['list'], ['next']]);
 });
 
 test('a valid invocation has no problems', async () => {

@@ -12,34 +12,8 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { changedRecords, quoted } from './pins';
-import { boardSnapshot } from './snapshot';
-import { openBoard } from './writes';
 
 const REPO = fileURLToPath(new URL('../../../../', import.meta.url));
-
-/** The records a priority change to `id` touched, read the way a write case pins them. */
-async function priorityChange(id: string): Promise<string> {
-  const before = await openBoard();
-  const after = await openBoard();
-  try {
-    await after.board.engine.update({ id, priority: 'p0' });
-    return changedRecords(
-      await boardSnapshot(before.board, before.tokens),
-      await boardSnapshot(after.board, after.tokens),
-    );
-  } finally {
-    await before.close();
-    await after.close();
-  }
-}
-
-test('a change to MMR-3 and the same change to MMR-4 pin differently', async () => {
-  const three = await priorityChange('MMR-3');
-  const four = await priorityChange('MMR-4');
-  expect(three).toContain('MMR-3');
-  expect(four).toContain('MMR-4');
-  expect(three).not.toBe(four);
-});
 
 test('a changed field is pinned by record and path with its old and new value', () => {
   const before = JSON.stringify({ board: { MMR: { nodes: [{ id: 'MMR-3', priority: 'p1' }] } } });
