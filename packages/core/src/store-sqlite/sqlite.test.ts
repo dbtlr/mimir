@@ -787,7 +787,7 @@ test('two processes writing one file lose no identity and no update', async () =
   } finally {
     await handle.close();
   }
-}, 60_000);
+});
 
 test.each([6, 7])(
   'upgrading version %i preserves node references, records, indexes, and handed-out log ids',

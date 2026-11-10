@@ -51,7 +51,6 @@ test('the CLI entry refuses a [store] that names Postgres instead of connecting'
     const run = Bun.spawnSync(['bun', join(REPO, 'packages/cli/src/main.ts'), 'list'], {
       cwd: REPO,
       env: { ...inherited, ...sandbox.env },
-      timeout: 60_000,
     });
     const output = `${run.stdout.toString()}${run.stderr.toString()}`;
     expect(run.exitCode).not.toBe(0);
@@ -60,4 +59,4 @@ test('the CLI entry refuses a [store] that names Postgres instead of connecting'
   } finally {
     sandbox.close();
   }
-}, 90_000);
+});

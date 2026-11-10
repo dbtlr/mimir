@@ -94,6 +94,7 @@ beforeAll(async () => {
   });
   releases.feed(['1.2.0-next.1', '1.1.0', '1.0.0']);
   releases.latest('1.1.0');
+  // 120 s: this hook compiles the CLI with `bun build --compile` and seeds the fake release feed.
 }, 120_000);
 
 afterAll(async () => {
@@ -115,6 +116,8 @@ async function run(args: string[], env: Record<string, string>): Promise<Run> {
     stdin: 'ignore',
     stdout: 'pipe',
   });
+  // A kill timer, not a wait: it stops a child that hangs, while the installer and the compiled CLI
+  // spawn real processes and a download.
   const timer = setTimeout(() => child.kill('SIGKILL'), 30_000);
   try {
     const [code, stdout, stderr] = await Promise.all([
@@ -284,6 +287,7 @@ test.skipIf(!enabled)(
     expect(swapped.code).not.toBe(0);
     expect(swapped.out, `exit ${String(swapped.code)}`).toContain('does not match its receipt');
   },
+  // 120 s: the case runs the shell installer and the compiled CLI as real processes, several times.
   120_000,
 );
 
@@ -310,6 +314,7 @@ test.skipIf(!enabled)(
       sha256: sha256(builds.get('1.1.0') ?? new Uint8Array()),
     });
   },
+  // 120 s: the case runs the shell installer and the compiled CLI as real processes, several times.
   120_000,
 );
 
@@ -363,6 +368,7 @@ test.skipIf(!enabled)(
     expect(await Bun.file(join(agents, 'claude.log')).exists()).toBe(false);
     expect(await Bun.file(join(agents, 'codex.log')).exists()).toBe(false);
   },
+  // 120 s: the case runs the shell installer and the compiled CLI as real processes, several times.
   120_000,
 );
 
@@ -403,5 +409,6 @@ test.skipIf(!enabled)(
       sha256: sha256(builds.get('1.1.0') ?? new Uint8Array()),
     });
   },
+  // 120 s: the case runs the shell installer and the compiled CLI as real processes, several times.
   120_000,
 );
