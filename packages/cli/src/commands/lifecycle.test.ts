@@ -162,14 +162,46 @@ const t3Shell = {
   T3CODE_THREAD_ID: 't3-thread',
 };
 
-test('start with no handle flags inside T3 records the T3 environment as the host', async () => {
-  const run = await onFreshBoard(['start', 'MMR-3', '-f', 'json'], t3Shell);
+// The flags reach the shell fill: an explicit harness or session is never replaced by the shell's.
+test('start with a different harness records the harness without the shell session', async () => {
+  const run = await onFreshBoard(
+    ['start', 'MMR-3', '--harness', 'codex', '-f', 'json'],
+    claudeShell,
+  );
+  expect(JSON.parse(run.stdout)).toMatchObject({ harness: 'codex', session: null });
+});
+
+test('start with a blank session records no harness from the shell', async () => {
+  const run = await onFreshBoard(['start', 'MMR-3', '--session', '', '-f', 'json'], claudeShell);
+  expect(JSON.parse(run.stdout)).toMatchObject({ harness: null, session: null });
+});
+
+test('queue with a different session records it without the shell harness', async () => {
+  const run = await onFreshBoard(
+    ['queue', 'MMR-3', '--session', 'run-1', '-f', 'json'],
+    claudeShell,
+  );
+  expect(run.exitCode, run.stderr).toBe(0);
+  expect(JSON.parse(run.stdout)).toMatchObject({ harness: null, session: 'run-1' });
+});
+
+test.each([
+  ['queue', ['queue', 'MMR-3']],
+  ['start', ['start', 'MMR-3']],
+])('%s with no handle flags inside T3 records the T3 environment as the host', async (_, argv) => {
+  const run = await onFreshBoard([...argv, '-f', 'json'], t3Shell);
   expect(run.exitCode, run.stderr).toBe(0);
   expect(JSON.parse(run.stdout)).toMatchObject({
     harness: 't3',
     host: 't3-env',
     session: 't3-thread',
   });
+});
+
+test('start inside T3 keeps a passed host', async () => {
+  const run = await onFreshBoard(['start', 'MMR-3', '--host', 'laptop', '-f', 'json'], t3Shell);
+  expect(run.exitCode, run.stderr).toBe(0);
+  expect(JSON.parse(run.stdout)).toMatchObject({ harness: 't3', host: 'laptop' });
 });
 
 test('starting a task queued elsewhere inside T3 records no T3 host', async () => {
@@ -194,6 +226,16 @@ test('start in nested harnesses leaves the handles empty and explains the flags 
   expect(JSON.parse(run.stdout)).toMatchObject({ harness: null, session: null });
   expect(run.stderr).toContain('detected multiple harnesses (claude, codex)');
   expect(run.stderr).toContain('--harness and --session explicitly');
+});
+
+test('an explicit harness and session resolve nested harnesses without a note', async () => {
+  const run = await onFreshBoard(
+    ['start', 'MMR-3', '--harness', 'codex', '--session', 'chosen', '-f', 'json'],
+    nestedShell,
+  );
+  expect(run.exitCode, run.stderr).toBe(0);
+  expect(JSON.parse(run.stdout)).toMatchObject({ harness: 'codex', session: 'chosen' });
+  expect(run.stderr).not.toContain('multiple harnesses');
 });
 
 test('an ordinary update does not infer handles from the shell', async () => {

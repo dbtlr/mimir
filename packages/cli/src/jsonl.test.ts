@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { parseJson } from '@mimir/helpers';
 
 import { argvCase } from './testing/argv-case';
+import { FROZEN_AT } from './testing/clock';
 import type { ParityBoard } from './testing/fixture';
 import { runNew } from './testing/parity';
 import type { ParityRun } from './testing/parity';
@@ -13,7 +14,10 @@ import type { BoardTemplate } from './testing/writes';
 
 /**
  * The `jsonl` view against the `json` view of the same command (ADR 0037), for
- * every command that declares a `jsonl` view, writes included. A command that
+ * one command of each command builder that declares a `jsonl` view, writes
+ * included. Each builder passes its views on its own `.result` line, so a
+ * sample proves only the commands that builder makes; a builder with no sample
+ * here has its `-f jsonl` bytes pinned elsewhere (see ELSEWHERE). A command that
  * answers with a list prints each record as a line, and every line is the
  * compact form of a record in the `json` document. A command that answers with
  * one document prints it in one of two ways: status, overview, tree, triage,
@@ -52,12 +56,27 @@ const FINDING = {
   where: 'edge · to_id',
 } as const;
 
-/** One sample per distinct view declaration, keyed by its path. */
+const GUARD = ['--expected-updated-at', '{token}'];
+
+/** One sample per command builder not pinned elsewhere, keyed by its path. */
 const SAMPLES: Readonly<Record<string, Sample>> = {
   annotate: { relation: 'same', words: ['annotate', 'MMR-3', 'a note'] },
   archive: { relation: 'same', words: ['archive', 'XX'] },
-  artifacts: { records: 'artifacts', relation: 'records', words: ['artifacts', '-s', 'MMR'] },
+  artifacts: {
+    records: 'artifacts',
+    relation: 'records',
+    words: ['artifacts', '-s', 'MMR'],
+  },
   bind: { relation: 'same', words: ['bind', 'MMR'] },
+  block: { relation: 'same', words: ['block', 'MMR-3', 'upstream down'] },
+  'create initiative': {
+    relation: 'same',
+    words: ['create', 'initiative', 'Growth', '--parent', 'MMR'],
+  },
+  'create phase': {
+    relation: 'same',
+    words: ['create', 'phase', 'Next', '--parent', 'MMR-1'],
+  },
   doctor: {
     before: (board) => {
       board.findings.push(FINDING);
@@ -69,16 +88,54 @@ const SAMPLES: Readonly<Record<string, Sample>> = {
   get: { relation: 'same', words: ['get', 'MMR-3'] },
   list: { records: 'tasks', relation: 'records', words: ['list', '-s', 'MMR'] },
   overview: { relation: 'compact', words: ['overview', '-s', 'MMR'] },
-  'scratch create': { relation: 'compact', words: ['scratch', 'create', 'Index', '-s', 'MMR'] },
+  promote: {
+    relation: 'same',
+    words: ['promote', 'MMR-s1', '--parent', 'MMR-2'],
+  },
+  reject: { relation: 'same', words: ['reject', 'MMR-s1', 'no'] },
+  reorder: { relation: 'same', words: ['reorder', 'MMR-3', '--bottom'] },
+  'scratch agenda': {
+    relation: 'compact',
+    words: ['scratch', 'agenda', 'add', '{pad}', 'item', ...GUARD],
+  },
+  'scratch checkpoint': {
+    relation: 'compact',
+    words: ['scratch', 'checkpoint', '{pad}', 'note', ...GUARD],
+  },
+  'scratch create': {
+    relation: 'compact',
+    words: ['scratch', 'create', 'Index', '-s', 'MMR'],
+  },
+  'scratch discard': {
+    relation: 'compact',
+    // The blank pad was never written after its creation, so its guard is the frozen instant.
+    words: ['scratch', 'discard', '{blank}', '--expected-updated-at', FROZEN_AT.toISOString()],
+  },
+  'scratch freeze': {
+    relation: 'same',
+    words: ['scratch', 'freeze', '{pad}', '--summary', 's', ...GUARD],
+  },
   'scratch get': { relation: 'compact', words: ['scratch', 'get', '{pad}'] },
   'scratch list': {
     records: 'scratchpads',
     relation: 'records',
     words: ['scratch', 'list', '-s', 'MMR'],
   },
-  search: { records: 'results', relation: 'records', words: ['search', 'store', '-s', 'MMR'] },
+  'scratch update': {
+    relation: 'compact',
+    words: ['scratch', 'update', '{pad}', '--title', 'T', ...GUARD],
+  },
+  search: {
+    records: 'results',
+    relation: 'records',
+    words: ['search', 'store', '-s', 'MMR'],
+  },
   seed: { relation: 'same', words: ['seed', 'Cache it', '-k', 'idea'] },
-  seeds: { records: 'seeds', relation: 'records', words: ['seeds', '-p', 'MMR'] },
+  seeds: {
+    records: 'seeds',
+    relation: 'records',
+    words: ['seeds', '-p', 'MMR'],
+  },
   status: { relation: 'compact', words: ['status', 'MMR-3'] },
   'store export': { relation: 'same', words: ['store', 'export', '-'] },
   'store import': {
@@ -91,55 +148,52 @@ const SAMPLES: Readonly<Record<string, Sample>> = {
   tag: { relation: 'same', words: ['tag', 'MMR-5', 'design'] },
   tree: { relation: 'compact', words: ['tree', 'MMR'] },
   triage: { relation: 'compact', words: ['triage', 'MMR'] },
+  unarchive: {
+    before: (board) => board.engine.archive({ id: 'XX' }),
+    relation: 'same',
+    words: ['unarchive', 'XX'],
+  },
   update: { relation: 'same', words: ['update', 'MMR-3', '--title', 'x'] },
 };
 
 /**
- * Commands whose `jsonl` view is declared once with a sampled command's, so
- * the sample proves both. The key is the command, the value the sampled
- * command that shares its view declaration.
+ * Commands made by the same builder function as a sampled command, so they
+ * run its one `.result` declaration and the sample proves both. The key is the
+ * command, the value the sampled command.
  */
-const SHARES_VIEW_WITH: Readonly<Record<string, string>> = {
-  abandon: 'done',
-  attach: 'tag',
-  block: 'done',
-  'create initiative': 'annotate',
-  'create phase': 'annotate',
-  'create project': 'tag',
-  'create task': 'annotate',
-  depend: 'annotate',
-  groom: 'tag',
-  move: 'annotate',
-  next: 'list',
-  park: 'done',
-  projects: 'list',
-  promote: 'seed',
-  queue: 'done',
-  reject: 'seed',
-  reopen: 'done',
-  reorder: 'annotate',
-  resolve: 'seed',
-  return: 'done',
-  'scratch agenda': 'scratch create',
-  'scratch checkpoint': 'scratch create',
-  'scratch discard': 'scratch create',
-  'scratch freeze': 'scratch create',
-  'scratch update': 'scratch create',
-  start: 'done',
+const SAME_BUILDER_AS: Readonly<Record<string, string>> = {
+  resolve: 'reject',
   submit: 'done',
-  unarchive: 'archive',
   unblock: 'done',
-  undepend: 'annotate',
   unpark: 'done',
-  unqueue: 'done',
   untag: 'tag',
 };
 
-/** Commands with a `jsonl` view this file does not run, each with where its output is held instead. */
+/**
+ * Commands with a `jsonl` view this file does not run, each with where its
+ * output is held instead: most by a parity pin of `-f jsonl` on the command or
+ * on another made by the same builder.
+ */
 const ELSEWHERE: Readonly<Record<string, string>> = {
+  abandon: 'same builder as park; lifecycle.parity.test.ts pins `park MMR-s1 -f jsonl`',
+  attach: 'attach.parity.test.ts pins `attach MMR-5 --file <file> -f jsonl`',
+  'create project': 'create.parity.test.ts pins `create project Gamma --key GAM -y -f jsonl`',
+  'create task': 'create.parity.test.ts pins `create task "Ship docs" --parent MMR-2 -f jsonl`',
+  depend: 'depend.parity.test.ts pins `depend MMR-5 --on MMR-3 -f jsonl`',
+  groom: 'groom.parity.test.ts pins `groom MMR-4 groomed -f jsonl`',
   'installation-protocol':
     'prints the protocol line core probes for under every format (installation.test.ts)',
+  move: 'place.parity.test.ts pins `move MMR-5 --to MMR-1 -f jsonl`',
+  next: 'next.parity.test.ts pins `next -s MMR -f jsonl`',
   pair: 'needs a pairing host; pair.test.ts holds its jsonl to one record',
+  park: 'lifecycle.parity.test.ts pins `park MMR-s1 -f jsonl`',
+  projects: 'projects.parity.test.ts pins `projects -f jsonl`',
+  queue: 'same builder as start; lifecycle.parity.test.ts pins `start MMR-3 -f jsonl`',
+  reopen: 'same builder as park; lifecycle.parity.test.ts pins `park MMR-s1 -f jsonl`',
+  return: 'same builder as park; lifecycle.parity.test.ts pins `park MMR-s1 -f jsonl`',
+  start: 'lifecycle.parity.test.ts pins `start MMR-3 -f jsonl`',
+  undepend: 'same builder as depend; depend.parity.test.ts pins `depend MMR-5 --on MMR-3 -f jsonl`',
+  unqueue: 'same builder as park; lifecycle.parity.test.ts pins `park MMR-s1 -f jsonl`',
   version: 'prints the bare version under every format (version.parity.test.ts)',
 };
 
@@ -196,17 +250,17 @@ test('every command with a jsonl view is sampled here or held elsewhere', async 
   expect(declared.toSorted()).toEqual(
     [
       ...Object.keys(SAMPLES),
-      ...Object.keys(SHARES_VIEW_WITH),
+      ...Object.keys(SAME_BUILDER_AS),
       ...Object.keys(ELSEWHERE),
     ].toSorted(),
   );
   const sampledAndHeldElsewhere = Object.keys(SAMPLES).filter(
-    (path) => path in ELSEWHERE || path in SHARES_VIEW_WITH,
+    (path) => path in ELSEWHERE || path in SAME_BUILDER_AS,
   );
   expect(sampledAndHeldElsewhere).toEqual([]);
-  expect(Object.keys(SHARES_VIEW_WITH).filter((path) => path in ELSEWHERE)).toEqual([]);
-  // A shared view names a command this file samples.
-  expect(Object.values(SHARES_VIEW_WITH).filter((path) => !(path in SAMPLES))).toEqual([]);
+  expect(Object.keys(SAME_BUILDER_AS).filter((path) => path in ELSEWHERE)).toEqual([]);
+  // A shared builder names a command this file samples.
+  expect(Object.values(SAME_BUILDER_AS).filter((path) => !(path in SAMPLES))).toEqual([]);
 });
 
 test.each(Object.entries(SAMPLES))(

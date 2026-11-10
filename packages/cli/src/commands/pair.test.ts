@@ -864,7 +864,7 @@ test('a config pairing cannot edit in place refuses before any request is filed'
   await seedConfig(config);
   const run = await pair([ORIGIN, '--device', 'laptop']);
   expect(run.exitCode).toBe(1);
-  expect(run.stderr).toMatch(/cannot be edited in place|is not valid TOML/);
+  expect(run.stderr).toContain('cannot be edited in place');
   expect(host.paths).toEqual([]);
   expectUntouched(config);
 });
