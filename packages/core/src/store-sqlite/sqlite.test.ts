@@ -1,5 +1,6 @@
 import { Database } from 'bun:sqlite';
-import { afterEach, beforeEach, expect, test } from 'bun:test';
+import type { Changes, Statement } from 'bun:sqlite';
+import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -578,6 +579,112 @@ test('a writer that never gets the lock fails with a conflict, not a raw SQLite 
     await handle.close();
   }
 });
+
+/**
+ * Another connection to the file, standing in for another opener. It never
+ * waits for a lock, so taking one it cannot get fails at once instead of
+ * blocking the test's only thread.
+ */
+function otherOpener(file: string): Database {
+  const other = new Database(file);
+  other.run('pragma busy_timeout = 0');
+  return other;
+}
+
+/**
+ * The two `bun:sqlite` methods an open runs its statements through, as it calls
+ * them: with the SQL text alone. The tests below wrap them to set up another
+ * opener's lock at one exact statement.
+ */
+type Statements = {
+  run: (this: Database, query: string) => Changes;
+  prepare: (this: Database, query: string) => Statement;
+};
+const statements: Statements = Database.prototype;
+
+test("an opener's switch to WAL waits out another opener's write lock", async () => {
+  // On a fresh file still in rollback mode, SQLite refuses the switch at once,
+  // without its busy wait, while another opener holds the write lock.
+  const other = otherOpener(path);
+  const run = statements.run;
+  let switches = 0;
+  let release: Timer | undefined;
+  const spy = spyOn(statements, 'run').mockImplementation(function runAfterOtherLocks(query) {
+    if (this !== other && query === 'pragma journal_mode = wal') {
+      switches += 1;
+      if (switches === 1) {
+        // The other opener takes the lock just as this one switches, and
+        // gives it up only once the event loop runs again.
+        other.run('begin immediate');
+        release = setTimeout(() => other.run('commit'), 50);
+      }
+    }
+    return run.call(this, query);
+  });
+  try {
+    const handle = await openSqlite(path);
+    try {
+      const mode = await sql<{ journal_mode: string }>`pragma journal_mode`.execute(handle.db);
+      expect(mode.rows[0]?.journal_mode).toBe('wal');
+    } finally {
+      await handle.close();
+    }
+    // The first switch met the held lock; a later one got through.
+    expect(switches).toBeGreaterThan(1);
+  } finally {
+    spy.mockRestore();
+    clearTimeout(release);
+    if (other.inTransaction) {
+      other.run('rollback');
+    }
+    other.close();
+  }
+});
+
+test('an opener holds the write lock while it decides whether a file is foreign', async () => {
+  // Apart, another opener could create the schema between the read of the
+  // version and the read of the tables, and the fresh file would read as some
+  // other program's database.
+  const other = otherOpener(path);
+  const prepare = statements.prepare;
+  let interloper: 'locked out' | 'took the lock' | undefined;
+  const spy = spyOn(statements, 'prepare').mockImplementation(function prepareAfterOther(query) {
+    // The read of the tables comes after the read of the version: the moment
+    // another opener's schema would have to land.
+    if (this !== other && interloper === undefined && query.includes("name not like 'sqlite_%'")) {
+      interloper = landSchema(other);
+    }
+    return prepare.call(this, query);
+  });
+  try {
+    const handle = await openSqlite(path);
+    await handle.close();
+    expect(interloper).toBe('locked out');
+  } finally {
+    spy.mockRestore();
+    other.close();
+  }
+});
+
+/**
+ * Write a schema to the file as another opener would, if it can take the write
+ * lock at once; whatever it cannot commit is rolled back.
+ */
+function landSchema(other: Database): 'locked out' | 'took the lock' {
+  try {
+    other.run('begin immediate');
+  } catch {
+    return 'locked out';
+  }
+  try {
+    other.run('create table schema_version (version integer not null)');
+    other.run('insert into schema_version (version) values (1)');
+    other.run('commit');
+  } catch {
+    other.run('rollback');
+  }
+  return 'took the lock';
+}
 
 /** Open (and so create and migrate) the store at `path` in a separate process. */
 const OPENER = `
