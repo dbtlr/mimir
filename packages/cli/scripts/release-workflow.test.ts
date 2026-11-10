@@ -46,10 +46,28 @@ test('every pull request retains the full Linux suite, including stacked branche
   expect(workflow.on.pull_request).toBeNull();
   expect(workflow.jobs.gate.if).toBeUndefined();
   expect(workflow.jobs.gate['continue-on-error']).toBeUndefined();
-  const step = workflow.jobs.gate.steps.find((candidate) => candidate.run === 'bun run test');
+  // Flags may follow (the junit report the budget reads), but no paths narrow it.
+  const step = workflow.jobs.gate.steps.find((candidate) =>
+    /^bun run test( --[\w-]+(=\S+)?)*$/.test(candidate.run ?? ''),
+  );
   expect(step).toBeDefined();
   expect(step?.if).toBeUndefined();
   expect(step?.['continue-on-error']).toBeUndefined();
+});
+
+test('the gate checks the test budget on the report its test step writes', async () => {
+  const path = new URL('../../../.github/workflows/ci.yml', import.meta.url);
+  const { steps } = z
+    .object({ jobs: z.object({ gate: jobSchema }) })
+    .parse(Bun.YAML.parse(await Bun.file(path).text())).jobs.gate;
+  const report = steps
+    .map((candidate) => /^bun run test .*--reporter-outfile=(\S+)/.exec(candidate.run ?? '')?.[1])
+    .find(Boolean);
+  expect(report).toBeDefined();
+  const budget = steps.find((candidate) => candidate.run === `bun run test:budget ${report}`);
+  expect(budget).toBeDefined();
+  expect(budget?.if).toBeUndefined();
+  expect(budget?.['continue-on-error']).toBeUndefined();
 });
 
 test('pull requests validate every native release target, including Bun upgrades', async () => {
