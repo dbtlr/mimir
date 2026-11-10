@@ -398,6 +398,11 @@ describe.each([
     instant = '2026-10-20T12:20:00.499Z';
     expect(await tokens.approve(late.user_code)).toBeNull();
     expect((await tokens.poll(late.poll_secret)).status).toBe('expired');
+    // One millisecond past expiry: a compare that refused only the exact instant would pass above.
+    const later = await tokens.request('later');
+    instant = '2026-10-20T12:30:00.500Z';
+    expect(await tokens.approve(later.user_code)).toBeNull();
+    expect((await tokens.poll(later.poll_secret)).status).toBe('expired');
   });
 
   test('enforces one active token per device and unique hashes even for revoked tokens', async () => {
