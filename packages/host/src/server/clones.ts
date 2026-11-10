@@ -288,7 +288,7 @@ async function removeTree(path: string): Promise<void> {
  * Leave `workTree` an empty, real directory the host can write. Anything else
  * at its path, a symlink included, is removed rather than followed.
  */
-async function emptyWorkTree(workTree: string): Promise<void> {
+export async function emptyWorkTree(workTree: string): Promise<void> {
   const stats = await lstatIfPresent(workTree);
   if (stats?.isDirectory() === true) {
     await emptyDirectory(workTree, stats);
@@ -362,7 +362,7 @@ async function lstatOrMissing(path: string): Promise<Stats | null | undefined> {
  * stay inside it (see {@link staysInside}): into the host's git directories,
  * another project's clone, or anywhere else, now or once a missing path appears.
  */
-async function findEscapingSymlink(workTree: string): Promise<string | undefined> {
+export async function findEscapingSymlink(workTree: string): Promise<string | undefined> {
   const root = await realpath(workTree);
   const search = async (directory: string, prefix: string): Promise<string | undefined> => {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
