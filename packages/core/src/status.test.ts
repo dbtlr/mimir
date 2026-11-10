@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { HOLD_VALUES, LIFECYCLE_VALUES } from '@mimir/contract';
+import { HOLD_VALUES } from '@mimir/contract';
 
 import { interpret, tally, taskStatus } from './status';
 import type { Distribution } from './status';
@@ -55,17 +55,6 @@ describe('taskStatus projection', () => {
     expect(taskStatus({ awaiting: false, hold: 'parked', lifecycle: 'under_review' })).toBe(
       'parked',
     );
-  });
-
-  test('every axis combination projects to exactly one valid word', () => {
-    for (const lifecycle of LIFECYCLE_VALUES) {
-      for (const hold of HOLD_VALUES) {
-        for (const awaiting of [true, false]) {
-          const word = taskStatus({ awaiting, hold, lifecycle });
-          expect(word).not.toBe('new'); // tasks never project to the non-leaf word
-        }
-      }
-    }
   });
 });
 

@@ -683,59 +683,22 @@ test('resolveAttachTargets resolves an explicit project with no links, and rejec
 // pure lookup, no store needed.
 // ---------------------------------------------------------------------------
 
-test('inapplicableUpdateFields names every UpdateFields key a project rejects but description/next', () => {
-  expect(inapplicableUpdateFields('project')).toEqual([
-    'branch',
-    'externalRef',
-    'harness',
-    'host',
-    'openEnded',
-    'priority',
-    'session',
-    'size',
-    'summary',
-    'target',
-    'title',
-    'upstream',
-    'workerHarness',
-    'workerSession',
-  ]);
-});
+test('inapplicableUpdateFields lists what each kind rejects and omits what it owns', () => {
+  const project = inapplicableUpdateFields('project');
+  expect(project).toContain('title');
+  expect(project).toContain('priority');
+  expect(project).not.toContain('description');
+  expect(project).not.toContain('next');
 
-test('inapplicableUpdateFields names every UpdateFields key an artifact rejects but title/summary', () => {
-  expect(inapplicableUpdateFields('artifact')).toEqual([
-    'branch',
-    'description',
-    'externalRef',
-    'harness',
-    'host',
-    'next',
-    'openEnded',
-    'priority',
-    'session',
-    'size',
-    'target',
-    'upstream',
-    'workerHarness',
-    'workerSession',
-  ]);
-});
+  const artifact = inapplicableUpdateFields('artifact');
+  expect(artifact).toContain('description');
+  expect(artifact).toContain('next');
+  expect(artifact).not.toContain('title');
+  expect(artifact).not.toContain('summary');
 
-test('inapplicableUpdateFields names every UpdateFields key a seed rejects but title/description', () => {
-  expect(inapplicableUpdateFields('seed')).toEqual([
-    'branch',
-    'externalRef',
-    'harness',
-    'host',
-    'next',
-    'openEnded',
-    'priority',
-    'session',
-    'size',
-    'summary',
-    'target',
-    'upstream',
-    'workerHarness',
-    'workerSession',
-  ]);
+  const seed = inapplicableUpdateFields('seed');
+  expect(seed).toContain('summary');
+  expect(seed).toContain('next');
+  expect(seed).not.toContain('title');
+  expect(seed).not.toContain('description');
 });

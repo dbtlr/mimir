@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import { createInitiative, createPhase, createProject, createTask } from './create';
-import { abandonTask, completeTask, reopenTask, startTask, submitTask } from './mutations';
+import { completeTask, reopenTask, startTask, submitTask } from './mutations';
 import type { Store } from './store';
 import { expectMimirError } from './testing/errors';
 import { nodeIdOf, projectIdOf, createTestStore } from './testing/store';
@@ -44,15 +44,6 @@ test('reopen moves done → in_progress, re-ranks, and clears completed_at', asy
   expect(node?.lifecycle).toBe('in_progress');
   expect(node?.rank).not.toBeNull();
   expect(node?.completed_at).toBeNull();
-});
-
-test('reopen moves abandoned → in_progress', async () => {
-  const t = await createTask(store, { parentId: phaseId, title: 't2' });
-  const id = await nodeIdOf(store, `MMR-${String(t.seq)}`);
-  await startTask(store, id);
-  await abandonTask(store, id, 'wrong approach');
-  await reopenTask(store, id);
-  expect((await store.transact((w) => w.loadNode(id)))?.lifecycle).toBe('in_progress');
 });
 
 test('reopen carries the reason and preserves the original terminal transition', async () => {

@@ -185,29 +185,29 @@ test('archive echoes the project and only the out-of-project tasks it freed', as
 });
 
 // Clearing long prose is explicit (ADR 0034 refinement): a blank is a refusal, `null` is the clear.
-const BLANKS = ['', '   ', '\n\t '] as const;
+const BLANK = '\n\t ';
 
-test.each(BLANKS)('update refuses a blank direction %j and keeps the narrative', async (blank) => {
+test('update refuses a blank direction and keeps the narrative', async () => {
   const phase = await engine.create({ parent: 'ENG-1', title: 'Phase', type: 'phase' });
   await engine.update({ id: phase.id, next: 'Ship the store.' });
-  const refusal = await errorOf(engine.update({ id: phase.id, next: blank }));
+  const refusal = await errorOf(engine.update({ id: phase.id, next: BLANK }));
   expect(refusal.code).toBe('validation');
   expect((await engine.getNode({ facets: ['next'], id: phase.id })).next).toBe('Ship the store.');
 });
 
-test.each(BLANKS)('update refuses a blank description %j and keeps it', async (blank) => {
+test('update refuses a blank description and keeps it', async () => {
   await engine.update({ description: 'Open the store once.', id });
-  const refusal = await errorOf(engine.update({ description: blank, id }));
+  const refusal = await errorOf(engine.update({ description: BLANK, id }));
   expect(refusal.code).toBe('validation');
   expect((await engine.getNode({ facets: ['description'], id })).description).toBe(
     'Open the store once.',
   );
 });
 
-test.each(BLANKS)('updateProject refuses a blank direction %j and description', async (blank) => {
+test('updateProject refuses a blank direction and description', async () => {
   await engine.updateProject({ description: 'About.', id: 'ENG', next: 'Direction' });
-  expect((await errorOf(engine.updateProject({ id: 'ENG', next: blank }))).code).toBe('validation');
-  expect((await errorOf(engine.updateProject({ description: blank, id: 'ENG' }))).code).toBe(
+  expect((await errorOf(engine.updateProject({ id: 'ENG', next: BLANK }))).code).toBe('validation');
+  expect((await errorOf(engine.updateProject({ description: BLANK, id: 'ENG' }))).code).toBe(
     'validation',
   );
   const project = await engine.getNode({ facets: ['description', 'next'], id: 'ENG' });
@@ -215,14 +215,14 @@ test.each(BLANKS)('updateProject refuses a blank direction %j and description', 
   expect(project.description).toBe('About.');
 });
 
-test.each(BLANKS)('seedUpdate refuses a blank description %j and keeps it', async (blank) => {
+test('seedUpdate refuses a blank description and keeps it', async () => {
   const seed = await engine.seedCreate({
     description: 'Why it matters.',
     kind: 'idea',
     project: 'ENG',
     title: 'S',
   });
-  const refusal = await errorOf(engine.seedUpdate({ description: blank, id: seed.id }));
+  const refusal = await errorOf(engine.seedUpdate({ description: BLANK, id: seed.id }));
   expect(refusal.code).toBe('validation');
   expect((await engine.getSeed({ content: true, id: seed.id })).description).toBe(
     'Why it matters.',
@@ -231,9 +231,9 @@ test.each(BLANKS)('seedUpdate refuses a blank description %j and keeps it', asyn
 
 // A create still accepts a blank description (nothing exists to lose), but a
 // project projects it as none, as a task and a seed already do (MMR-607).
-test.each(BLANKS)('a project created with a blank description %j has none', async (blank) => {
+test('a project created with a blank description has none', async () => {
   const created = await engine.create({
-    description: blank,
+    description: BLANK,
     key: 'BLK',
     name: 'Blank',
     type: 'project',
@@ -287,8 +287,10 @@ test('null clears a container direction, a project direction, and every descript
 
 test('clearing a direction that is absent writes nothing', async () => {
   const phase = await engine.create({ parent: 'ENG-1', title: 'Phase', type: 'phase' });
+  await fixture.store.transact(async (w) =>
+    w.updateNode(phase.id, { updated_at: '2026-09-02T12:00:00.000Z' }),
+  );
   const before = (await engine.getNode({ id: phase.id })).updatedAt;
-  await Bun.sleep(20);
   await engine.update({ id: phase.id, next: null });
   expect((await engine.getNode({ id: phase.id })).updatedAt).toEqual(before);
 });

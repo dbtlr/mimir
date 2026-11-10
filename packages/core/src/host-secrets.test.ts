@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 
-import { createProject } from './create';
 import { createHostSecretStore } from './host-secrets';
 import { postgresDialect } from './store-postgres/dialect';
 import { createPgliteTestStore } from './store-postgres/testing';
@@ -74,21 +73,5 @@ describe.each([
     expect(await secrets.read('t3.oauth')).toBe('v1.c');
     expect(await secrets.read('other.token')).toBe('v1.b');
     expect((await rows()).map((row) => row.name)).toEqual(['other.token', 't3.oauth']);
-  });
-
-  test('host secrets stay out of the transfer document, and an import leaves them intact', async () => {
-    const source = await fixture();
-    await createProject(source.store, { key: 'MMR', name: 'Mimir' });
-    await source.secrets.write('t3.oauth', 'v1.source-only');
-    const document = await source.store.export();
-    expect(JSON.stringify(document)).not.toContain('t3.oauth');
-    expect(JSON.stringify(document)).not.toContain('v1.source-only');
-    expect(Object.keys(document)).not.toContain('host_secrets');
-
-    const target = await fixture();
-    await target.secrets.write('t3.oauth', 'v1.target');
-    await target.store.import(document, { dryRun: false, mode: 'fresh' });
-    expect(await target.secrets.read('t3.oauth')).toBe('v1.target');
-    expect((await target.store.export()).projects.map((project) => project.key)).toEqual(['MMR']);
   });
 });

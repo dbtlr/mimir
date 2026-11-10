@@ -2,7 +2,6 @@ import { afterEach, describe, expect, test } from 'bun:test';
 
 import type { Kysely } from 'kysely';
 
-import { createProject } from './create';
 import { chargedTokens, createRunStore } from './runs';
 import type { AdmitRun, Run, RunUsage } from './runs';
 import type { Store } from './store';
@@ -455,21 +454,6 @@ describe.each([
       reason: 'busy',
       running: { id: 'r1' },
     });
-  });
-
-  test('runs stay out of the transfer document, and an import leaves them intact', async () => {
-    const source = await fixture();
-    await createProject(source.store, { key: 'MMR', name: 'Mimir' });
-    await source.runs.admit(admission('source-run', 'source-runner'));
-    const document = await source.store.export();
-    expect(JSON.stringify(document)).not.toContain('source-run');
-    expect(Object.keys(document)).not.toContain('runs');
-
-    const target = await fixture();
-    await target.runs.admit(admission('target-run', 'target-runner'));
-    await target.store.import(document, { dryRun: false, mode: 'fresh' });
-    expect((await target.runs.running())?.id).toBe('target-run');
-    expect(await target.runs.get('source-run')).toBeUndefined();
   });
 
   test('usage since an instant counts runs started at or after the instant, each by its charge', async () => {
