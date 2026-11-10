@@ -380,60 +380,6 @@ describe('startGroom', () => {
 
   const refusals: { name: string; refusal: RunRefusal; reads: GroomRefusal }[] = [
     {
-      name: 'unconfigured',
-      reads: { reason: 'unconfigured' },
-      refusal: { reason: 'unconfigured' },
-    },
-    {
-      name: 'misconfigured',
-      reads: { problem: 'unreadable', reason: 'misconfigured', setting: 'MIMIR_AGENT_TOKEN_FILE' },
-      refusal: {
-        problem: 'unreadable',
-        reason: 'misconfigured',
-        setting: 'MIMIR_AGENT_TOKEN_FILE',
-      },
-    },
-    {
-      name: 'disconnected',
-      reads: { reason: 'disconnected' },
-      refusal: { reason: 'disconnected' },
-    },
-    {
-      name: 'managed-policy',
-      reads: { paths: ['/etc/claude-code/managed-settings.json'], reason: 'managed-policy' },
-      refusal: { paths: ['/etc/claude-code/managed-settings.json'], reason: 'managed-policy' },
-    },
-    {
-      name: 'task-not-found',
-      reads: { reason: 'task-not-found' },
-      refusal: { reason: 'task-not-found' },
-    },
-    {
-      name: 'task-not-todo',
-      reads: { lifecycle: 'started', reason: 'task-not-todo' },
-      refusal: { lifecycle: 'started', reason: 'task-not-todo' },
-    },
-    { name: 'no-remote', reads: { reason: 'no-remote' }, refusal: { reason: 'no-remote' } },
-    {
-      name: 'budget',
-      reads: {
-        dailyTokens: 10_000_000,
-        reason: 'budget',
-        resetsAt: new Date('2026-11-09T00:00:00.000Z'),
-        runTokens: 4_000_000,
-        timezone: 'America/New_York',
-        usedTokens: 8_000_000,
-      },
-      refusal: {
-        dailyTokens: 10_000_000,
-        reason: 'budget',
-        resetsAt: new Date('2026-11-09T00:00:00.000Z'),
-        runTokens: 4_000_000,
-        timezone: 'America/New_York',
-        usedTokens: 8_000_000,
-      },
-    },
-    {
       name: 'busy',
       reads: {
         reason: 'busy',
@@ -454,6 +400,33 @@ describe('startGroom', () => {
   test.each(refusals)("reads the runner's $name refusal", async ({ reads, refusal }) => {
     const { agentConsole } = console_({ start: { started: false, ...refusal } });
     expect(await agentConsole.startGroom(TARGET)).toEqual({ refusal: reads, state: 'refused' });
+  });
+
+  test("passes the runner's other refusals through unchanged", async () => {
+    const unchanged: Exclude<RunRefusal, { reason: 'busy' }>[] = [
+      { reason: 'unconfigured' },
+      { problem: 'unreadable', reason: 'misconfigured', setting: 'MIMIR_AGENT_TOKEN_FILE' },
+      { reason: 'disconnected' },
+      { paths: ['/etc/claude-code/managed-settings.json'], reason: 'managed-policy' },
+      { reason: 'task-not-found' },
+      { lifecycle: 'started', reason: 'task-not-todo' },
+      { reason: 'no-remote' },
+      {
+        dailyTokens: 10_000_000,
+        reason: 'budget',
+        resetsAt: new Date('2026-11-09T00:00:00.000Z'),
+        runTokens: 4_000_000,
+        timezone: 'America/New_York',
+        usedTokens: 8_000_000,
+      },
+    ];
+    for (const refusal of unchanged) {
+      const { agentConsole } = console_({ start: { started: false, ...refusal } });
+      expect(await agentConsole.startGroom(TARGET), refusal.reason).toEqual({
+        refusal,
+        state: 'refused',
+      });
+    }
   });
 });
 
@@ -571,23 +544,32 @@ describe('cancel', () => {
   });
 
   const answers: { name: string; answer: CancelRunResult; reads: GroomCancelResult }[] = [
-    { answer: { answer: 'cancelling' }, name: 'cancelling', reads: { state: 'cancelling' } },
-    { answer: { answer: 'ending' }, name: 'ending', reads: { state: 'ending' } },
-    { answer: { answer: 'unknown' }, name: 'unknown', reads: { state: 'unknown' } },
     {
       answer: { answer: 'ended', state: 'interrupted' },
       name: 'ended',
       reads: { runState: 'interrupted', state: 'ended' },
     },
-    { answer: { answer: 'closing' }, name: 'closing', reads: { state: 'closing' } },
-    { answer: { answer: 'stale' }, name: 'stale', reads: { state: 'stale' } },
-    { answer: { answer: 'another-host' }, name: 'another-host', reads: { state: 'another-host' } },
   ];
 
   test.each(answers)("reads the runner's $name answer", async ({ answer, reads }) => {
     const { agentConsole, cancels } = console_({ cancel: answer });
     expect(await agentConsole.cancelGroom({ runId: 'run-2' })).toEqual(reads);
     expect(cancels).toEqual(['run-2']);
+  });
+
+  test("reads the runner's other answers as their state", async () => {
+    for (const answer of [
+      'cancelling',
+      'ending',
+      'unknown',
+      'closing',
+      'stale',
+      'another-host',
+    ] as const) {
+      const { agentConsole, cancels } = console_({ cancel: { answer } });
+      expect(await agentConsole.cancelGroom({ runId: 'run-2' })).toEqual({ state: answer });
+      expect(cancels).toEqual(['run-2']);
+    }
   });
 });
 

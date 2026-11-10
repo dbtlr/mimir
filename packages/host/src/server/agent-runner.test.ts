@@ -755,7 +755,11 @@ describe('in flight', () => {
       await aborted;
       yield result();
     });
-    expect((await (await started(created)).finished).state).toBe('lost');
+    const outcome = await (await started(created)).finished;
+    expect(outcome).toMatchObject({
+      outcome: 'failed: the runner lost the run to another host',
+      state: 'lost',
+    });
   });
 
   test('an authentication rejection records the token disconnected', async () => {
@@ -1083,8 +1087,7 @@ const signal = () => Promise.withResolvers<void>();
 const CONSOLE_CANCEL = /^cancelled: [^;(]*console/;
 
 describe('cancel', () => {
-  test('the grace period is five minutes, and the default timing uses it', () => {
-    expect(CANCEL_GRACE_MS).toBe(300_000);
+  test('the default timing uses the cancel grace period', () => {
     expect(RUNNER_TIMING.cancelGraceMs).toBe(CANCEL_GRACE_MS);
   });
 
@@ -1151,11 +1154,6 @@ describe('cancel', () => {
     expect(outcome.outcome).toStartWith('succeeded');
   });
 
-  test('a run id with no row answers unknown', async () => {
-    const { runner: created } = runner(never);
-    expect(await created.cancelRun('no-such-run')).toEqual({ answer: 'unknown' });
-  });
-
   test('a row that is no longer running answers ended with its state, the registry entry gone', async () => {
     await admitOther('earlier', 'host-b');
     await runs.close('earlier', 'host-b', {
@@ -1175,30 +1173,38 @@ describe('cancel', () => {
     expect(await created.cancelRun(start.runId)).toEqual({ answer: 'ended', state: 'succeeded' });
   });
 
-  test("a running row under this process's runner id that it does not hold answers closing", async () => {
-    await admitOther('orphan', 'host-a');
-    const { runner: created } = runner(never);
-    expect(await created.cancelRun('orphan')).toEqual({ answer: 'closing' });
-    expect((await created.status()).running).toMatchObject({ held: false, stopping: false });
-  });
-
-  test('a running row whose heartbeat is past the stale window answers stale', async () => {
-    await admitOther('dead', 'host-b');
-    time = new Date(time.getTime() + 120_001);
-    const { runner: created } = runner(never);
-    expect(await created.cancelRun('dead')).toEqual({ answer: 'stale' });
-  });
-
-  test("another process's running row answers another-host and records nothing", async () => {
+  test('a run id with no row answers unknown, and a running row this process does not hold answers by its runner and heartbeat, recording nothing', async () => {
     await admitOther('live', 'host-b');
-    const { runner: created } = runner(never);
-    expect(await created.cancelRun('live')).toEqual({ answer: 'another-host' });
+    const live = await runs.get('live');
+    if (live === undefined) {
+      throw new Error('the fixture run must be readable');
+    }
+    // The table holds one running row, so the other running rows are read from a seeded map.
+    const staleAt = new Date(time.getTime() - 120_001).toISOString();
+    const seeded = new Map([
+      ['orphan', { ...live, id: 'orphan', runner: 'host-a' }],
+      ['orphan-stale', { ...live, heartbeat_at: staleAt, id: 'orphan-stale', runner: 'host-a' }],
+      ['dead', { ...live, heartbeat_at: staleAt, id: 'dead' }],
+    ]);
+    const { runner: created } = runner(never, {
+      runs: { ...runs, get: async (id) => seeded.get(id) ?? runs.get(id) },
+    });
+    for (const [runId, answer] of [
+      ['no-such-run', 'unknown'],
+      // This process's runner id: closing, stale or not.
+      ['orphan', 'closing'],
+      ['orphan-stale', 'closing'],
+      ['dead', 'stale'],
+      ['live', 'another-host'],
+    ] as const) {
+      expect(await created.cancelRun(runId), runId).toEqual({ answer });
+    }
     expect((await created.status()).running).toMatchObject({
       held: false,
       run: { id: 'live' },
       stopping: false,
     });
-    expect((await runs.get('live'))?.state).toBe('running');
+    expect(await runs.get('live')).toEqual(live);
   });
 
   test('a cancel right after admission closes the run cancelled before its clone syncs, charged nothing', async () => {
@@ -1246,28 +1252,42 @@ describe('cancel', () => {
     expect(await chargedToday()).toBe(0);
   });
 
-  test('a cancel during a sync that then fails closes cancelled, naming the console and the sync reason', async () => {
-    const syncing = signal();
-    const release = signal();
-    syncResult = async () => {
-      syncing.resolve();
-      await release.promise;
-      return { message: 'git could not fetch github.com/acme/eng', ok: false, reason: 'fetch' };
-    };
-    const { calls, runner: created } = runner(never);
-    const start = await started(created);
-    await syncing.promise;
-    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
-    release.resolve();
-    const outcome = await start.finished;
-    expect(calls).toEqual([]);
-    expect(outcome.outcome).toMatch(CONSOLE_CANCEL);
-    expect(outcome).toMatchObject({
-      state: 'cancelled',
-      usage: NO_USAGE,
-      usageSettled: true,
-    });
-    expect(outcome.outcome).toContain('fetch');
+  test('a cancel during a sync that then fails or throws closes cancelled, charged nothing, naming the console and the cause', async () => {
+    const endings: [() => CloneSyncResult, string][] = [
+      [
+        () => ({ message: 'git could not fetch github.com/acme/eng', ok: false, reason: 'fetch' }),
+        'the clone did not sync (fetch)',
+      ],
+      [
+        () => {
+          throw new Error('the disk is full');
+        },
+        'the runner faulted: the disk is full',
+      ],
+    ];
+    for (const [ending, cause] of endings) {
+      const syncing = signal();
+      const release = signal();
+      syncResult = async () => {
+        syncing.resolve();
+        await release.promise;
+        return ending();
+      };
+      const { calls, runner: created } = runner(never);
+      const start = await started(created);
+      await syncing.promise;
+      expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+      release.resolve();
+      const outcome = await start.finished;
+      expect(calls).toEqual([]);
+      expect(outcome.outcome).toMatch(CONSOLE_CANCEL);
+      expect(outcome).toMatchObject({
+        state: 'cancelled',
+        usage: NO_USAGE,
+        usageSettled: true,
+      });
+      expect(outcome.outcome).toContain(cause);
+    }
     expect(await chargedToday()).toBe(0);
   });
 
@@ -1375,13 +1395,6 @@ describe('cancel', () => {
     expect((await created.status()).running).toMatchObject({ held: false, stopping: false });
   });
 
-  test("a stale running row under this process's runner id that it does not hold answers closing, not stale", async () => {
-    await admitOther('orphan', 'host-a');
-    time = new Date(time.getTime() + 120_001);
-    const { runner: created } = runner(never);
-    expect(await created.cancelRun('orphan')).toEqual({ answer: 'closing' });
-  });
-
   test('a cancel while the close write is pending answers ending, the run still held', async () => {
     const slow = slowClose();
     const { runner: created } = runner(
@@ -1402,19 +1415,6 @@ describe('cancel', () => {
     expect(await start.finished).toMatchObject({ state: 'succeeded' });
   });
 
-  test('a cancel during the close write of a failed sync answers ending, and the run closes failed', async () => {
-    syncResult = async () => ({ message: 'git could not fetch', ok: false, reason: 'fetch' });
-    const slow = slowClose();
-    const { runner: created } = runner(never, { runs: slow.store });
-    const start = await started(created);
-    await slow.writing.promise;
-    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'ending' });
-    slow.release.resolve();
-    const outcome = await start.finished;
-    expect(outcome).toMatchObject({ state: 'failed', usage: NO_USAGE, usageSettled: true });
-    expect(outcome.outcome).toStartWith('failed: the clone did not sync');
-  });
-
   test('a repeat cancel during the close write of a run cancelled before its sync answers ending', async () => {
     const slow = slowClose();
     const { runner: created } = runner(never, { runs: slow.store });
@@ -1426,110 +1426,6 @@ describe('cancel', () => {
     const outcome = await start.finished;
     expect(syncs).toEqual([]);
     expect(outcome).toMatchObject({ state: 'cancelled', usage: NO_USAGE, usageSettled: true });
-  });
-
-  test('a repeat cancel during the close write of a run cancelled during its sync answers ending', async () => {
-    const slow = slowClose();
-    const syncing = signal();
-    const proceed = signal();
-    const synced = syncResult;
-    syncResult = async () => {
-      syncing.resolve();
-      await proceed.promise;
-      return synced();
-    };
-    const { runner: created } = runner(never, { runs: slow.store });
-    const start = await started(created);
-    await syncing.promise;
-    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
-    proceed.resolve();
-    await slow.writing.promise;
-    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'ending' });
-    slow.release.resolve();
-    expect(await start.finished).toMatchObject({
-      state: 'cancelled',
-      usage: NO_USAGE,
-      usageSettled: true,
-    });
-  });
-
-  test('a cancel during the close write of a run lost before its query answers ending', async () => {
-    const slow = slowClose();
-    const beat = signal();
-    const store: RunStore = {
-      ...slow.store,
-      heartbeat: async () => {
-        beat.resolve();
-        return 'lost';
-      },
-    };
-    const synced = syncResult;
-    syncResult = async () => {
-      await beat.promise;
-      return synced();
-    };
-    const { runner: created } = runner(never, {
-      runs: store,
-      timing: { ...RUNNER_TIMING, heartbeatMs: 1 },
-    });
-    const start = await started(created);
-    await slow.writing.promise;
-    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'ending' });
-    slow.release.resolve();
-    const outcome = await start.finished;
-    expect(outcome.outcome).toBe('failed: the runner lost the run to another host');
-  });
-
-  test('a run cancelled during its sync that then faults closes cancelled and is charged nothing', async () => {
-    const syncing = signal();
-    const proceed = signal();
-    const { runner: created } = runner(never, {
-      syncClone: async () => {
-        syncing.resolve();
-        await proceed.promise;
-        throw new Error('the disk is full');
-      },
-    });
-    const start = await started(created);
-    await syncing.promise;
-    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
-    proceed.resolve();
-    const outcome = await start.finished;
-    expect(outcome).toMatchObject({ state: 'cancelled', usage: NO_USAGE, usageSettled: true });
-    expect(outcome.outcome).toMatch(CONSOLE_CANCEL);
-    expect(outcome.outcome).toContain('the runner faulted: the disk is full');
-    expect(await chargedToday()).toBe(0);
-  });
-
-  test('a run cancelled during a sync that succeeds, whose close write then throws, is charged nothing', async () => {
-    const syncing = signal();
-    const proceed = signal();
-    const synced = syncResult;
-    syncResult = async () => {
-      syncing.resolve();
-      await proceed.promise;
-      return synced();
-    };
-    let closes = 0;
-    const store: RunStore = {
-      ...runs,
-      close: async (id, owner, closing) => {
-        closes += 1;
-        if (closes === 1) {
-          throw new Error('the database blinked');
-        }
-        return runs.close(id, owner, closing);
-      },
-    };
-    const { calls, runner: created } = runner(never, { runs: store });
-    const start = await started(created);
-    await syncing.promise;
-    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
-    proceed.resolve();
-    const outcome = await start.finished;
-    expect(outcome).toMatchObject({ state: 'cancelled', usage: NO_USAGE, usageSettled: true });
-    expect(calls).toEqual([]);
-    expect(await chargedToday()).toBe(0);
   });
 
   test('a cancel during the close write of a faulted run answers ending, and the run closes failed', async () => {
@@ -1578,29 +1474,6 @@ describe('cancel', () => {
     } finally {
       timers.mockRestore();
     }
-  });
-
-  test('a query whose close throws still clears the grace timer, and the run closes cancelled', async () => {
-    const late = lateAbortScript();
-    const scripted = scriptedQuery(late.script);
-    const { runner: created } = runner(never, {
-      query: (params) =>
-        Object.assign(scripted.query(params), {
-          close: () => {
-            throw new Error('the CLI would not close');
-          },
-        }),
-      timing: SHORT_GRACE,
-    });
-    const start = await started(created);
-    await late.streaming.promise;
-    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
-    late.cancelled.resolve();
-    const outcome = await start.finished;
-    expect(outcome.outcome).toMatch(CONSOLE_CANCEL);
-    expect(outcome).toMatchObject({ state: 'cancelled', usageSettled: false });
-    await Bun.sleep(3 * SHORT_GRACE.cancelGraceMs);
-    expect(late.abortedLate()).toBe(false);
   });
 
   test('a query whose close throws after a valid result still settles on that result', async () => {

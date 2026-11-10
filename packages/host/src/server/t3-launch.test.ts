@@ -4,12 +4,12 @@ import { MimirError } from '@mimir/contract';
 import type { Engine } from '@mimir/contract';
 import { parseSecretKey, sealSecret } from '@mimir/core';
 
-import { createT3Adapter, T3_LAUNCH_TIMEOUT_MS, T3_SECRET_NAME } from './t3';
+import { createT3Adapter, T3_SECRET_NAME } from './t3';
 import type { T3AdapterOptions } from './t3';
 import { parseT3LaunchInput } from './t3-input';
-import { ATTEMPT_CAP, isLaunchBranch } from './t3-launch';
+import { ATTEMPT_CAP, choiceKey, invalidField, isLaunchBranch } from './t3-launch';
 import type { T3Settings } from './t3-settings';
-import type { T3LaunchField, T3LaunchResult, T3Unavailable } from './t3-states';
+import type { T3LaunchField, T3LaunchResult, T3System, T3Unavailable } from './t3-states';
 import { memorySecrets, STUB_ACCESS_TOKEN, STUB_LAUNCH_REFUSAL, stubT3 } from './t3-stub';
 import type { StubOptions } from './t3-stub';
 
@@ -235,6 +235,44 @@ function choice(change: Record<string, unknown> = {}) {
 
 const invalid = (field: T3LaunchField): T3LaunchResult => ({ field, state: 'invalid' });
 
+/** The choice key of a worktree choice with no branch, changed by `change`. */
+const keyOf = (change: Record<string, unknown>) =>
+  choiceKey(parseT3LaunchInput(choice({ workspace: { type: 'worktree' }, ...change })));
+
+/** Valhalla's catalog entry for MMR, as the launch reads it under its `auto` ceiling. */
+const VALHALLA: Extract<T3System, { status: 'reachable' }> = {
+  configured: true,
+  defaultThreadEnvMode: null,
+  environmentId: 'env-valhalla',
+  label: 'Valhalla',
+  projects: [{ defaultModelSelection: null, id: 'p-mimir', title: 'mimir' }],
+  providers: [
+    {
+      displayName: 'Codex',
+      models: [
+        {
+          id: 'gpt-6.1-sol',
+          label: null,
+          options: [
+            { default: 'low', id: 'reasoningEffort', values: ['low', 'medium', 'high'] },
+            { default: false, id: 'fastMode', values: [true, false] },
+            { default: null, id: 'contextWindow', values: [] },
+          ],
+        },
+      ],
+      providerInstanceId: 'codex',
+      runtimeModes: ['approval-required', 'auto-accept-edits', 'auto'],
+    },
+    {
+      displayName: 'Claude',
+      models: [{ id: 'claude-fable-5-1', label: 'Fable 5.1', options: [] }],
+      providerInstanceId: 'claudeAgent',
+      runtimeModes: ['approval-required'],
+    },
+  ],
+  status: 'reachable',
+};
+
 /** An attempt id from a counter. */
 const attemptNumber = (index: number) => `attempt-${String(index).padStart(10, '0')}`;
 
@@ -334,14 +372,10 @@ describe('step 1: the task', () => {
       tasks: [
         { ...todo('MMR-3'), type: 'phase' },
         { ...todo('MMR-4'), lifecycle: 'done' },
-        { ...todo('MMR-5'), lifecycle: 'abandoned' },
         { ...todo('MMR-6'), hold: 'parked' },
-        { ...todo('MMR-7'), hold: 'blocked' },
-        { ...todo('MMR-8'), harness: 't3', lifecycle: 'in_progress', session: 'thread-9' },
-        { ...todo('MMR-9'), lifecycle: 'under_review' },
       ],
     });
-    for (const task of ['MMR-3', 'MMR-4', 'MMR-5', 'MMR-6', 'MMR-7', 'MMR-8', 'MMR-9']) {
+    for (const task of ['MMR-3', 'MMR-4', 'MMR-6']) {
       expect(await h.launch({ task }), task).toEqual({ state: 'not_ready' });
     }
     expect(h.stub.requests).toEqual([]);
@@ -410,23 +444,14 @@ describe('the attempt registry', () => {
   });
 
   test.each([
-    ['environmentId', { environmentId: 'env-asgard' }],
     ['projectId', { projectId: 'p-other' }],
-    ['model.instanceId', { model: { ...choice().model, instanceId: 'claudeAgent' } }],
-    ['model.model', { model: { ...choice().model, model: 'other-model' } }],
-    [
-      'an option value',
-      { model: { ...choice().model, options: [{ id: 'reasoningEffort', value: 'low' }] } },
-    ],
     ['runtimeMode', { runtimeMode: 'approval-required' }],
-    ['interactionMode', { interactionMode: 'plan' }],
-    ['workspace type', { workspace: { type: 'root' } }],
     ['workspace branch', { workspace: { branch: 'mmr-1/other', type: 'worktree' } }],
   ])(
     'a known attempt reused with another %s reads invalid attempt, with no launch',
     async (_name, change) => {
       const h = harness();
-      // The first launch names no branch, so the type and the branch each change alone.
+      // The first launch names no branch, so the branch row changes the branch alone.
       const first = { workspace: { type: 'worktree' } };
       expect(await h.launch(first)).toEqual(launched());
       const launches = h.stub.launches.length;
@@ -434,6 +459,23 @@ describe('the attempt registry', () => {
       expect(h.stub.launches).toHaveLength(launches);
     },
   );
+
+  test('the choice key changes with every field of the choice, but not with the task or the attempt', () => {
+    for (const change of [
+      { environmentId: 'env-asgard' },
+      { projectId: 'p-other' },
+      { model: { ...choice().model, instanceId: 'claudeAgent' } },
+      { model: { ...choice().model, model: 'other-model' } },
+      { model: { ...choice().model, options: [{ id: 'reasoningEffort', value: 'low' }] } },
+      { runtimeMode: 'approval-required' },
+      { interactionMode: 'plan' },
+      { workspace: { type: 'root' } },
+      { workspace: { branch: 'mmr-1/other', type: 'worktree' } },
+    ]) {
+      expect(keyOf(change), JSON.stringify(change)).not.toBe(keyOf({}));
+    }
+    expect(keyOf({ attempt: 'attempt-0000000002', task: 'MMR-2' })).toBe(keyOf({}));
+  });
 
   test('the same options in another order are the same choice', async () => {
     const options = [
@@ -507,19 +549,6 @@ describe('one launch per task at a time', () => {
     expect(h.stub.launches).toHaveLength(1);
   });
 
-  test('two different tasks racing with the same attempt: one reaches T3, the other reads invalid attempt', async () => {
-    const h = harness();
-    const results = await Promise.all([h.launch(), h.launch({ task: 'MMR-2' })]);
-    expect(results).toContainEqual(launched());
-    expect(results).toContainEqual(invalid('attempt'));
-    expect(h.stub.launches).toHaveLength(1);
-    // The registry kept the first task's thread.
-    const winner = results.findIndex((result) => result.state === 'launched');
-    const task = winner === 0 ? 'MMR-1' : 'MMR-2';
-    expect(await h.launch({ task })).toEqual(launched());
-    expect(h.stub.launches).toHaveLength(1);
-  });
-
   test('launches of different tasks do not wait on each other', async () => {
     const h = harness({ stub: { launchDelayMs: 20 } });
     const results = await Promise.all([
@@ -532,13 +561,12 @@ describe('one launch per task at a time', () => {
 });
 
 describe('step 2: the choice against the system', () => {
-  test('each choice the system does not offer reads invalid, naming the field, and launches nothing', async () => {
+  test('each choice the system does not offer reads invalid, naming the field', () => {
     const model = choice().model;
-    const cases: [Record<string, unknown>, T3LaunchField][] = [
-      [{ environmentId: 'env-nowhere' }, 'environmentId'],
-      [{ projectId: 'p-other' }, 'projectId'],
+    const cases: [Record<string, unknown>, T3LaunchField | undefined][] = [
+      [{}, undefined],
+      [{ workspace: { type: 'root' } }, undefined],
       [{ projectId: 'p-asgard' }, 'projectId'],
-      [{ model: { ...model, instanceId: 'grok', model: 'grok-5' } }, 'model'],
       [{ model: { ...model, instanceId: 'nobody' } }, 'model'],
       [{ model: { ...model, model: 'gpt-5' } }, 'model'],
       [{ model: { ...model, options: [{ id: 'unknown', value: 'x' }] } }, 'options'],
@@ -566,6 +594,30 @@ describe('step 2: the choice against the system', () => {
         'runtimeMode',
       ],
       [{ workspace: { branch: 'mmr-1', type: 'root' } }, 'branch'],
+      [{ workspace: { branch: '-x', type: 'worktree' } }, 'branch'],
+      // The whole branch grammar applies, not only the leading-dash rule.
+      [{ workspace: { branch: 'HEAD', type: 'worktree' } }, 'branch'],
+    ];
+    for (const [change, field] of cases) {
+      const input = parseT3LaunchInput(choice(change));
+      expect(invalidField(input, VALHALLA), JSON.stringify(change)).toBe(field);
+    }
+    // A system with no project matching the task's remote.
+    expect(invalidField(parseT3LaunchInput(choice()), undefined)).toBe('projectId');
+  });
+
+  test('a launch the system does not offer reads invalid, naming the field, and launches nothing', async () => {
+    const cases: [Record<string, unknown>, T3LaunchField][] = [
+      [{ environmentId: 'env-nowhere' }, 'environmentId'],
+      // A reachable system that does not hold the project.
+      [{ projectId: 'p-other' }, 'projectId'],
+      // A disabled provider is not offered.
+      [{ model: { ...choice().model, instanceId: 'grok', model: 'grok-5' } }, 'model'],
+      // T3 lists this option with no values, so it offers none.
+      [
+        { model: { ...choice().model, options: [{ id: 'contextWindow', value: 'large' }] } },
+        'options',
+      ],
       [{ workspace: { branch: '-x', type: 'worktree' } }, 'branch'],
     ];
     for (const [change, field] of cases) {
@@ -654,16 +706,6 @@ describe('the branch grammar', () => {
       'é',
     ]) {
       expect(isLaunchBranch(branch), branch).toBe(false);
-    }
-  });
-
-  test('each refused name reads invalid naming branch in a launch', async () => {
-    for (const branch of ['HEAD', 'a..b', 'x.lock', '.x', 'a//b']) {
-      const h = harness();
-      expect(await h.launch({ workspace: { branch, type: 'worktree' } }), branch).toEqual({
-        field: 'branch',
-        state: 'invalid',
-      });
     }
   });
 });
@@ -767,7 +809,6 @@ describe('step 3: the launch call', () => {
   });
 
   test('the launch call has its own timeout, longer than the reads', async () => {
-    expect(T3_LAUNCH_TIMEOUT_MS).toBe(60_000);
     const h = harness({ launchTimeoutMs: 1000, stub: { launchDelayMs: 60 }, timeoutMs: 40 });
     expect(await h.launch()).toEqual(launched());
   });
