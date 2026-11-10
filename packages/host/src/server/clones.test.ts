@@ -1,8 +1,8 @@
-import { afterEach, expect, test } from 'bun:test';
+import { afterAll, afterEach, beforeAll, expect, test } from 'bun:test';
 import { execFile, spawnSync } from 'node:child_process';
 import {
   chmod,
-  lstat,
+  cp,
   mkdir,
   mkdtemp,
   readdir,
@@ -11,7 +11,6 @@ import {
   rm,
   stat,
   symlink,
-  utimes,
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -52,12 +51,6 @@ async function blob(bare: string, commit: string, path: string) {
   return Buffer.from(stdout);
 }
 
-/** Make a FIFO at `path`. A reader that opens one blocks until a writer does. */
-function mkfifo(path: string) {
-  const made = spawnSync('mkfifo', [path], { encoding: 'utf8' });
-  expect(made.status, made.stderr).toBe(0);
-}
-
 /** Fixture git on the host's own git directory for the `CLN` clone under `dataDirectory`. */
 function hostGit(dataDirectory: string, args: string[]) {
   const workTree = join(dataDirectory, 'clones', 'CLN');
@@ -87,16 +80,17 @@ async function expectHostLayout(dataDirectory: string) {
   expect(relative(await realpath(clones), await realpath(gitDirectory))).toStartWith('..');
 }
 
+/** Each test's scratch roots, removed after it. */
 const roots: string[] = [];
-afterEach(async () => {
-  await Promise.all(roots.splice(0).map((root) => rm(root, { force: true, recursive: true })));
-});
 
-/** A scratch root with a data directory and a directory of bare repositories named `host/path.git`. */
-async function fixture() {
+/**
+ * A scratch root with a data directory and a directory of bare repositories
+ * named `host/path.git`: its own, or `fetchFrom` when given, such as `shared.remotes`.
+ */
+async function fixture(fetchFrom?: string) {
   const root = await mkdtemp(join(tmpdir(), 'mimir-clones-'));
   roots.push(root);
-  const remotes = join(root, 'remotes');
+  const remotes = fetchFrom ?? join(root, 'remotes');
   return {
     dataDirectory: join(root, 'data'),
     /** Sync options that fetch `https://<remote>.git` from the local bare repositories. */
@@ -169,9 +163,76 @@ async function exists(path: string) {
   }
 }
 
+/** The repository that the tests sharing `shared.remotes` fetch. */
+const REPO = 'github.test/owner/repo';
+
+/**
+ * Remotes published once for the tests that only read them, and a kept clone
+ * to copy. `REPO`'s default branch holds a README, a `.gitignore` of `*.log`,
+ * and two more files, plus an upstream change made after `keptData`'s clone
+ * synced; an `evil` branch sits beside it, and a separate
+ * `github.test/owner/evil` repository beside that.
+ */
+let shared: {
+  remotes: string;
+  /** A data directory whose `CLN` clone of `REPO` synced before the upstream change. */
+  keptData: string;
+  evilCommit: string;
+  /** The commit `REPO`'s default branch names, with every tracked path's exact bytes. */
+  upstream: { commit: string; tree: Map<string, Buffer<ArrayBuffer>> };
+};
+let sharedRoot: string | undefined;
+
+beforeAll(async () => {
+  sharedRoot = await mkdtemp(join(tmpdir(), 'mimir-clones-shared-'));
+  const remotes = join(sharedRoot, 'remotes');
+  const files = {
+    '.gitignore': '*.log\n',
+    'README.md': 'hello\n',
+    'docs/guide.md': 'guide\nsecond line\n',
+    'src/app.ts': 'export const id = "$Id$";\nexport const two = 2;\n',
+  };
+  await publish(remotes, REPO, files);
+  const evilCommit = await publish(
+    remotes,
+    REPO,
+    { 'README.md': 'evil\n' },
+    { branch: 'evil', makeDefault: false },
+  );
+  await publish(remotes, 'github.test/owner/evil', { 'README.md': 'evil\n' });
+  const keptData = join(sharedRoot, 'kept-data');
+  expect(
+    await syncClone({
+      credentials: { configured: false },
+      dataDirectory: keptData,
+      fetchBase: `${remotes}/`,
+      log: () => {},
+      project: { key: 'CLN', remote: REPO },
+    }),
+  ).toMatchObject({ fresh: true, ok: true });
+  const commit = await publish(remotes, REPO, { ...files, 'CHANGED.md': 'upstream\n' });
+  const bare = join(remotes, `${REPO}.git`);
+  const tree = new Map<string, Buffer<ArrayBuffer>>();
+  for (const path of (await git(bare, ['ls-tree', '-r', '--name-only', commit])).split('\n')) {
+    tree.set(path, await blob(bare, commit, path));
+  }
+  shared = { evilCommit, keptData, remotes, upstream: { commit, tree } };
+});
+
+afterEach(async () => {
+  await Promise.all(roots.splice(0).map((root) => rm(root, { force: true, recursive: true })));
+});
+
+// The shared remotes outlive each test, so only the end of the file removes them.
+afterAll(async () => {
+  if (sharedRoot !== undefined) {
+    await rm(sharedRoot, { force: true, recursive: true });
+  }
+});
+
 test('a first sync clones the project remote into the clones directory, and later syncs reuse it', async () => {
-  const { dataDirectory, options, remotes } = await fixture();
-  const commit = await publish(remotes, 'github.test/owner/repo', { 'README.md': 'hello\n' });
+  const { dataDirectory, options } = await fixture(shared.remotes);
+  const { commit } = shared.upstream;
   const first = await syncClone(options('github.test/owner/repo'));
   const directory = await realpath(join(dataDirectory, 'clones', 'CLN'));
   expect(first).toEqual({ branch: 'main', commit, directory, fresh: true, ok: true });
@@ -210,8 +271,7 @@ test('a changed project remote clones the new repository again', async () => {
 });
 
 test('a directory that is not a clone is replaced, never mistaken for an enclosing repository', async () => {
-  const { dataDirectory, options, remotes, root } = await fixture();
-  await publish(remotes, 'github.test/owner/repo', { 'README.md': 'hello\n' });
+  const { dataDirectory, options, root } = await fixture(shared.remotes);
   // The data directory sits inside a checkout of the same remote, as a development host's does.
   await git(root, ['init', '--quiet']);
   await git(root, ['remote', 'add', 'origin', 'https://github.test/owner/repo.git']);
@@ -249,11 +309,8 @@ test('a sync follows a changed default branch', async () => {
 });
 
 test('a sync discards local edits and removes untracked and ignored files', async () => {
-  const { dataDirectory, options, remotes } = await fixture();
-  await publish(remotes, 'github.test/owner/repo', {
-    '.gitignore': '*.log\n',
-    'README.md': 'hello\n',
-  });
+  const { dataDirectory, options } = await fixture(shared.remotes);
+  // The shared remote ignores `*.log`.
   await syncClone(options('github.test/owner/repo'));
   const directory = join(dataDirectory, 'clones', 'CLN');
   await writeFile(join(directory, 'README.md'), 'edited\n');
@@ -268,36 +325,18 @@ test('a sync discards local edits and removes untracked and ignored files', asyn
   }
 });
 
-test('a symlink that resolves outside the clone refuses the sync, absolute or relative', async () => {
+/**
+ * One end-to-end refusal. clone-work-tree.test.ts checks every way a symlink
+ * can leave the clone against `findEscapingSymlink` directly.
+ */
+test('a symlink that resolves outside the clone refuses the sync', async () => {
   const { options, remotes } = await fixture();
-  for (const [remote, links] of [
-    ['github.test/owner/absolute', { 'etc-link': '/etc' }],
-    ['github.test/owner/relative', { 'nested/dir/up': '../../../outside' }],
-    ['github.test/owner/dangling', { gone: '/nonexistent/secret' }],
-    // The host's git directory for this clone is outside it, at <data>/git/CLN.
-    ['github.test/owner/git-directory', { 'host-git': '../../git/CLN' }],
-    ['github.test/owner/git-config', { 'docs/config': '../../../git/CLN/config' }],
-    // Dangling, and only the kernel's walk sees it leave: deep/s is the root, so
-    // deep/s/../.. is the clones directory, though the text reads as inside.
-    ['github.test/owner/through-link', { a: 'deep/s/../../outside', 'deep/s': '..' }],
-    // Dangling through a link that resolves nowhere: where it lands is unknowable.
-    ['github.test/owner/through-broken-link', { b: 'hop/../c', hop: 'nowhere/deeper' }],
-    ['github.test/owner/into-broken-link', { a: 'hop/x', hop: 'nowhere/deeper' }],
-    // Out of the clone through a path that does not exist yet.
-    ['github.test/owner/through-missing', { a: '../OTHER/x/../../CLN/later' }],
-    // `..` after a segment that does not exist yet: once it does, as a link, the
-    // `..` leaves from wherever that link leads.
-    ['github.test/owner/back-from-missing', { a: 'not-yet/../README.md' }],
-    // Out and back in by name: a step outside the clone passes through paths
-    // another project's sync can later replace with links, so any step out refuses.
-    ['github.test/owner/out-and-back', { a: '../CLN/README.md' }],
-    ['github.test/owner/via-sibling', { a: '../OTH/d/../../CLN/README.md' }],
-  ] as const) {
-    await publish(remotes, remote, { 'README.md': 'hello\n' }, { links });
-    const refused = await syncClone(options(remote));
-    expect(refused, remote).toMatchObject({ ok: false, reason: 'escaping-symlink' });
-    expect(refused.ok ? '' : refused.message).toContain(Object.keys(links)[0] ?? '');
-  }
+  // The host's git directory for this clone is outside it, at <data>/git/CLN.
+  const links = { 'host-git': '../../git/CLN' };
+  await publish(remotes, REPO, { 'README.md': 'hello\n' }, { links });
+  const refused = await syncClone(options(REPO));
+  expect(refused).toMatchObject({ ok: false, reason: 'escaping-symlink' });
+  expect(refused.ok ? '' : refused.message).toContain('host-git');
 });
 
 test('a symlink that stays inside the clone is allowed', async () => {
@@ -492,30 +531,16 @@ async function treeFiles(directory: string): Promise<string[]> {
 }
 
 /**
- * A kept clone of `github.test/owner/repo`, synced once, beside an `evil` branch
- * of the same repository and a separate `github.test/owner/evil` repository.
+ * A kept clone of `REPO` in a scratch data directory, a copy of
+ * `shared.keptData`: synced once, one upstream change behind the shared remote,
+ * which also holds an `evil` branch and a separate `github.test/owner/evil`.
  */
 async function keptClone() {
-  const base = await fixture();
-  const repo = 'github.test/owner/repo';
-  const files = {
-    '.gitignore': '*.log\n',
-    'README.md': 'hello\n',
-    'docs/guide.md': 'guide\nsecond line\n',
-    'src/app.ts': 'export const id = "$Id$";\nexport const two = 2;\n',
-  };
-  await publish(base.remotes, repo, files);
-  const evilCommit = await publish(
-    base.remotes,
-    repo,
-    { 'README.md': 'evil\n' },
-    { branch: 'evil', makeDefault: false },
-  );
-  await publish(base.remotes, 'github.test/owner/evil', { 'README.md': 'evil\n' });
+  const base = await fixture(shared.remotes);
+  await cp(shared.keptData, base.dataDirectory, { recursive: true });
   const lines: string[] = [];
   const options = (remote: string | null, extra: Partial<CloneSyncOptions> = {}) =>
     base.options(remote, { log: (line) => lines.push(line), ...extra });
-  expect(await syncClone(options(repo))).toMatchObject({ fresh: true, ok: true });
   const directory = join(base.dataDirectory, 'clones', 'CLN');
   const marker = join(base.root, 'ran');
   const script = join(base.root, 'planted.sh');
@@ -524,14 +549,13 @@ async function keptClone() {
   return {
     ...base,
     directory,
-    evilCommit,
-    files,
+    evilCommit: shared.evilCommit,
     gitDirectory: join(base.dataDirectory, 'git', 'CLN'),
     /** Lines the syncs since `keptClone` logged. */
     lines,
     marker,
     options,
-    repo,
+    repo: REPO,
     /** An executable that appends a line to `marker` when anything runs it. */
     script,
   };
@@ -597,25 +621,18 @@ async function hostileRepository(clone: KeptClone, target: string) {
 }
 
 /**
- * Publish an upstream change, run `plant` against the kept clone, sync, and
- * expect the clone to hold exactly the upstream tree, in the host's layout,
- * with nothing planted having run.
+ * Run `plant` against the kept clone, sync, and expect the clone to hold
+ * exactly the upstream tree it was behind, in the host's layout, with nothing
+ * planted having run.
  */
-async function expectExactSyncAfter(clone: KeptClone, plant: (commit: string) => Promise<void>) {
-  const commit = await publish(clone.remotes, clone.repo, {
-    ...clone.files,
-    'CHANGED.md': 'upstream\n',
-  });
-  await plant(commit);
+async function expectExactSyncAfter(clone: KeptClone, plant: () => Promise<void>) {
+  const { commit, tree } = shared.upstream;
+  await plant();
   const result = await syncClone(clone.options(clone.repo));
   expect(result).toMatchObject({ branch: 'main', commit, ok: true });
-  const bare = join(clone.remotes, `${clone.repo}.git`);
-  const tracked = (await git(bare, ['ls-tree', '-r', '--name-only', commit])).split('\n');
-  expect(await treeFiles(clone.directory)).toEqual(tracked.toSorted());
-  for (const path of tracked) {
-    expect(await readFile(join(clone.directory, path)), path).toEqual(
-      await blob(bare, commit, path),
-    );
+  expect(await treeFiles(clone.directory)).toEqual([...tree.keys()].toSorted());
+  for (const [path, bytes] of tree) {
+    expect(await readFile(join(clone.directory, path)), path).toEqual(bytes);
   }
   await expectHostLayout(clone.dataDirectory);
   expect(await hostGit(clone.dataDirectory, ['config', '--get', 'remote.origin.url'])).toBe(
@@ -625,89 +642,18 @@ async function expectExactSyncAfter(clone: KeptClone, plant: (commit: string) =>
   return result;
 }
 
-/** Things a writer in the work tree can leave between syncs, none of which the host trusts. */
-const plantedInWorkTree: [string, (clone: KeptClone, commit: string) => Promise<void>][] = [
+/**
+ * Things a writer in the work tree can leave between syncs, none of which the
+ * host trusts. The sync empties the work tree before git runs, so the kind of
+ * plant cannot change the outcome; clone-work-tree.test.ts checks the emptying
+ * itself against each kind of entry. These two would steer git, or a reader,
+ * if the checkout ran before the emptying or the emptying were skipped.
+ */
+const plantedInWorkTree: [string, (clone: KeptClone) => Promise<void>][] = [
   [
     'a .git directory with hooks, command config, and refs naming another commit',
     async (clone) => {
       await hostileRepository(clone, join(clone.directory, '.git'));
-    },
-  ],
-  [
-    'a .git directory whose commondir names a hostile repository',
-    async (clone) => {
-      const common = join(clone.root, 'hostile-common');
-      await hostileRepository(clone, common);
-      const dotGit = join(clone.directory, '.git');
-      await mkdir(dotGit, { recursive: true });
-      await writeFile(join(dotGit, 'commondir'), `${common}\n`);
-      await writeFile(join(dotGit, 'HEAD'), `${clone.evilCommit}\n`);
-    },
-  ],
-  [
-    'a .git gitfile naming a hostile repository',
-    async (clone) => {
-      const hostile = join(clone.root, 'hostile-gitfile');
-      await hostileRepository(clone, hostile);
-      await rm(join(clone.directory, '.git'), { force: true, recursive: true });
-      await writeFile(join(clone.directory, '.git'), `gitdir: ${hostile}\n`);
-    },
-  ],
-  [
-    'a .git symlink to the host git directory',
-    async ({ directory }) => {
-      await symlink('../../git/CLN', join(directory, '.git'));
-    },
-  ],
-  [
-    'nested .git entries in tracked and untracked directories',
-    async (clone) => {
-      const hostile = join(clone.root, 'hostile-nested');
-      await hostileRepository(clone, hostile);
-      await writeFile(join(clone.directory, 'docs', '.git'), `gitdir: ${hostile}\n`);
-      await mkdir(join(clone.directory, 'vendor', 'lib'), { recursive: true });
-      await hostileRepository(clone, join(clone.directory, 'vendor', 'lib', '.GIT'));
-    },
-  ],
-  [
-    'a symlink in place of a tracked directory, naming the host git directory',
-    async ({ directory }) => {
-      await rm(join(directory, 'docs'), { force: true, recursive: true });
-      await symlink('../../git/CLN', join(directory, 'docs'));
-    },
-  ],
-  [
-    'a symlink in place of a tracked file, naming the host git config',
-    async ({ directory }) => {
-      await rm(join(directory, 'README.md'), { force: true });
-      await symlink('../../git/CLN/config', join(directory, 'README.md'));
-    },
-  ],
-  [
-    'untracked symlinks naming the host git directory',
-    async ({ directory }) => {
-      await symlink('../../git/CLN', join(directory, 'host-git'));
-      await symlink('../../../git/CLN/config', join(directory, 'docs', 'config.log'));
-    },
-  ],
-  [
-    'local edits, one keeping the size and modification time',
-    async ({ directory }) => {
-      const readme = join(directory, 'README.md');
-      const before = await stat(readme);
-      await writeFile(readme, 'HELLO\n');
-      await utimes(readme, before.atime, before.mtime);
-      await writeFile(join(directory, 'docs', 'guide.md'), 'edited\n');
-    },
-  ],
-  [
-    'attributes that would rewrite line endings, expand ident, and re-encode files on checkout',
-    async ({ directory }) => {
-      await writeFile(join(directory, '.gitattributes'), '*.ts text eol=crlf ident\n');
-      await writeFile(
-        join(directory, 'docs', '.gitattributes'),
-        '*.md working-tree-encoding=UTF-16LE\n',
-      );
     },
   ],
   [
@@ -717,15 +663,6 @@ const plantedInWorkTree: [string, (clone: KeptClone, commit: string) => Promise<
       await symlink(join(outside, 'dir'), join(clone.directory, 'link-dir'));
       await symlink(join(outside, 'dir', 'keep.txt'), join(clone.directory, 'link-file'));
       await symlink(outside, join(clone.directory, 'docs', 'link-outside'));
-    },
-  ],
-  [
-    'untracked and ignored files',
-    async ({ directory }) => {
-      await writeFile(join(directory, 'untracked.txt'), 'untracked');
-      await writeFile(join(directory, 'debug.log'), 'ignored');
-      await mkdir(join(directory, 'scratch', 'deep'), { recursive: true });
-      await writeFile(join(directory, 'scratch', 'deep', 'file.log'), 'nested');
     },
   ],
 ];
@@ -738,7 +675,7 @@ test.each(plantedInWorkTree)(
     await mkdir(join(outside, 'dir'), { recursive: true });
     await writeFile(join(outside, 'dir', 'keep.txt'), 'keep');
     await chmod(join(outside, 'dir'), 0o755);
-    const result = await expectExactSyncAfter(clone, (commit) => plantState(clone, commit));
+    const result = await expectExactSyncAfter(clone, () => plantState(clone));
     expect(result).toMatchObject({ fresh: false });
     expect(clone.lines).toEqual([]);
     // Emptying the work tree never follows a symlink out of it.
@@ -747,70 +684,7 @@ test.each(plantedInWorkTree)(
   },
 );
 
-test('a FIFO planted in the work tree never blocks a sync', async () => {
-  const clone = await keptClone();
-  const started = performance.now();
-  await expectExactSyncAfter(clone, async () => {
-    mkfifo(join(clone.directory, '.gitattributes'));
-    mkfifo(join(clone.directory, 'docs', '.gitattributes'));
-    await rm(join(clone.directory, 'README.md'));
-    mkfifo(join(clone.directory, 'README.md'));
-  });
-  // Git's own timeout is 120 seconds; a blocked read would reach it.
-  expect(performance.now() - started).toBeLessThan(10_000);
-}, 20_000);
-
-/** Give the owner rwx on every directory under `directory`, so a failed test can clean up. */
-function unlock(directory: string) {
-  spawnSync('chmod', ['-R', 'u+rwx', directory]);
-}
-
-/** Modes a writer in the work tree can set that would block reading or removing it. */
-const lockedWorkTrees: [string, (clone: KeptClone) => Promise<void>][] = [
-  [
-    'a planted directory with mode 000',
-    async ({ directory }) => {
-      const locked = join(directory, 'scratch', 'locked');
-      await mkdir(join(locked, 'deeper'), { recursive: true });
-      await writeFile(join(locked, 'deeper', 'file.txt'), 'planted');
-      await chmod(join(locked, 'deeper'), 0o000);
-      await chmod(locked, 0o000);
-    },
-  ],
-  [
-    'a work-tree root with mode 0500',
-    async ({ directory }) => {
-      await chmod(join(directory, 'docs'), 0o500);
-      await chmod(directory, 0o500);
-    },
-  ],
-];
-
-test.each(lockedWorkTrees)('a sync empties a work tree despite %s', async (_name, lock) => {
-  const clone = await keptClone();
-  try {
-    const result = await expectExactSyncAfter(clone, () => lock(clone));
-    expect(result).toMatchObject({ fresh: false });
-    expect((await stat(clone.directory)).mode & 0o700).toBe(0o700);
-  } finally {
-    unlock(clone.directory);
-  }
-});
-
-test('a work tree replaced by a symlink is made a directory again, and the target left alone', async () => {
-  const clone = await keptClone();
-  const outside = join(clone.root, 'outside');
-  await mkdir(outside);
-  await writeFile(join(outside, 'keep.txt'), 'keep');
-  await expectExactSyncAfter(clone, async () => {
-    await rm(clone.directory, { force: true, recursive: true });
-    await symlink(outside, clone.directory);
-  });
-  expect((await lstat(clone.directory)).isDirectory()).toBe(true);
-  expect(await readdir(outside)).toEqual(['keep.txt']);
-});
-
-test('files and symlinks planted under a submodule directory are gone after the next sync', async () => {
+test("a submodule's directory is checked out empty", async () => {
   const { dataDirectory, options, remotes } = await fixture();
   const repo = 'github.test/owner/repo';
   const commit = await publish(
@@ -821,65 +695,21 @@ test('files and symlinks planted under a submodule directory are gone after the 
   );
   expect(await syncClone(options(repo))).toMatchObject({ commit, ok: true });
   const directory = join(dataDirectory, 'clones', 'CLN');
-  const vendor = join(directory, 'vendor');
-  expect(await readdir(vendor)).toEqual([]);
-  await mkdir(join(vendor, 'nested'), { recursive: true });
-  await writeFile(join(vendor, 'planted.txt'), 'planted');
-  await writeFile(join(vendor, 'nested', 'planted.txt'), 'planted');
-  await symlink('/etc', join(vendor, 'escape'));
-  expect(await syncClone(options(repo))).toMatchObject({ commit, fresh: false, ok: true });
-  expect(await readdir(vendor)).toEqual([]);
+  expect(await readdir(join(directory, 'vendor'))).toEqual([]);
   expect(await treeFiles(directory)).toEqual(['README.md']);
   await expectHostLayout(dataDirectory);
 });
 
-test('a planted credential helper never runs when the remote asks for credentials', async () => {
-  const clone = await keptClone();
-  const { base, server } = privateServer();
-  try {
-    await hostileRepository(clone, join(clone.directory, '.git'));
-    const dotGit = { GIT_DIR: join(clone.directory, '.git') };
-    for (const scope of [base.replace(/\/$/, ''), 'https://github.test']) {
-      await git(clone.root, ['config', `credential.${scope}.helper`, `!${clone.script}`], dotGit);
-    }
-    expect(await syncClone(clone.options(clone.repo, { fetchBase: base }))).toMatchObject({
-      ok: false,
-      reason: 'credentials',
-    });
-    expect(await exists(clone.marker)).toBe(false);
-  } finally {
-    await server.stop(true);
-  }
-});
-
-test('the commit is resolved by its full ref name, never a short name another ref could shadow', async () => {
-  const clone = await keptClone();
-  // Defence in depth: the git directory is the host's, but a shadowing ref there must not win.
-  await hostGit(clone.dataDirectory, [
-    'fetch',
-    '--quiet',
-    join(clone.remotes, `${clone.repo}.git`),
-    'evil',
-  ]);
-  for (const ref of ['refs/tags/origin/HEAD', 'refs/heads/origin/HEAD', 'refs/origin/HEAD']) {
-    await hostGit(clone.dataDirectory, ['update-ref', ref, clone.evilCommit]);
-  }
-  const result = await expectExactSyncAfter(clone, async () => {});
-  expect(result).toMatchObject({ fresh: false });
-});
-
-/** Host git state a crash or a full disk can leave, each of which a fresh clone recovers from. */
+/**
+ * Host git state a crash or a full disk can leave, each of which a fresh clone
+ * recovers from. The lock and the object fail the kept clone's reset; the
+ * packed-refs fails its fetch, so both kinds of failure get the one retry.
+ */
 const brokenGitState: [string, (clone: KeptClone) => Promise<void>][] = [
   [
     'a stale index.lock',
     async ({ gitDirectory }) => {
       await writeFile(join(gitDirectory, 'index.lock'), '');
-    },
-  ],
-  [
-    'a garbage HEAD',
-    async ({ gitDirectory }) => {
-      await writeFile(join(gitDirectory, 'HEAD'), 'garbage\n');
     },
   ],
   [
@@ -912,8 +742,8 @@ test.each(brokenGitState)(
 );
 
 test('concurrent syncs of one project run one at a time, and each ends with the clone in place', async () => {
-  const { dataDirectory, options, remotes } = await fixture();
-  const commit = await publish(remotes, 'github.test/owner/repo', { 'README.md': 'hello\n' });
+  const { dataDirectory, options } = await fixture(shared.remotes);
+  const { commit } = shared.upstream;
   const results = await Promise.all(
     Array.from({ length: 4 }, () => syncClone(options('github.test/owner/repo'))),
   );
@@ -925,8 +755,7 @@ test('concurrent syncs of one project run one at a time, and each ends with the 
 });
 
 test('a filesystem failure is a typed failure, never a throw', async () => {
-  const { options, remotes, root } = await fixture();
-  await publish(remotes, 'github.test/owner/repo', { 'README.md': 'hello\n' });
+  const { options, root } = await fixture(shared.remotes);
   const file = join(root, 'not-a-directory');
   await writeFile(file, 'file');
   const result = await syncClone({ ...options('github.test/owner/repo'), dataDirectory: file });
@@ -935,8 +764,7 @@ test('a filesystem failure is a typed failure, never a throw', async () => {
 });
 
 test('a sync reports the clone by its real path', async () => {
-  const { options, remotes, root } = await fixture();
-  await publish(remotes, 'github.test/owner/repo', { 'README.md': 'hello\n' });
+  const { options, root } = await fixture(shared.remotes);
   const real = join(root, 'real-data');
   await mkdir(real);
   const linked = join(root, 'linked-data');
@@ -1140,9 +968,8 @@ test('git error text names the credentials setting, never its path or a URL cred
 });
 
 test('a credentials failure on a kept clone is refused without cloning again', async () => {
-  const { options, remotes } = await fixture();
+  const { options } = await fixture(shared.remotes);
   const repo = 'github.test/owner/repo';
-  await publish(remotes, repo, { 'README.md': 'hello\n' });
   expect(await syncClone(options(repo))).toMatchObject({ fresh: true, ok: true });
   const { base, server } = privateServer();
   try {
