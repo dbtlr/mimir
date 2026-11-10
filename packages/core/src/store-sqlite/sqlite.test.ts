@@ -647,19 +647,28 @@ test('an opener holds the write lock while it decides whether a file is foreign'
   // other program's database.
   const other = otherOpener(path);
   const prepare = statements.prepare;
-  let interloper: 'locked out' | 'took the lock' | undefined;
+  let span: 'before' | 'between the reads' | 'after' = 'before';
+  const tries: ('locked out' | 'took the lock')[] = [];
   const spy = spyOn(statements, 'prepare').mockImplementation(function prepareAfterOther(query) {
-    // The read of the tables comes after the read of the version: the moment
-    // another opener's schema would have to land.
-    if (this !== other && interloper === undefined && query.includes("name not like 'sqlite_%'")) {
-      interloper = landSchema(other);
+    // Another opener tries to land its schema before every statement this one
+    // prepares after the version probe, up to the read of the tables. A commit
+    // and a new begin in that span leave a moment it can take.
+    if (this !== other && span === 'between the reads' && !tries.includes('took the lock')) {
+      tries.push(landSchema(other));
+    }
+    if (this !== other && span === 'before' && query.includes("name = 'schema_version'")) {
+      span = 'between the reads';
+    }
+    if (this !== other && query.includes("name not like 'sqlite_%'")) {
+      span = 'after';
     }
     return prepare.call(this, query);
   });
   try {
     const handle = await openSqlite(path);
     await handle.close();
-    expect(interloper).toBe('locked out');
+    expect(tries).toContain('locked out');
+    expect(tries).not.toContain('took the lock');
   } finally {
     spy.mockRestore();
     other.close();
