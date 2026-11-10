@@ -53,7 +53,7 @@ beforeAll(async () => {
   await run([binary, 'create', 'project', 'Other', '--key', 'OTHR', '-y'], root);
   await run([binary, 'create', 'initiative', 'Work', '--parent', 'OTHR'], root);
   await run([binary, 'create', 'task', 'the other task', '--parent', 'OTHR-1'], root);
-  // 60 s: the hook runs about a dozen compiled-CLI and git processes in sequence.
+  // 60 s: the hook runs eight compiled-CLI and git processes in sequence.
 }, 60_000);
 
 afterAll(async () => {

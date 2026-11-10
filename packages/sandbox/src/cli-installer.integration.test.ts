@@ -314,7 +314,7 @@ test.skipIf(!enabled)(
       sha256: sha256(builds.get('1.1.0') ?? new Uint8Array()),
     });
   },
-  // 120 s: the case runs the shell installer and the compiled CLI as real processes, several times.
+  // 120 s: the case runs the shell installer, which downloads a release, and the compiled CLI as real processes, once each.
   120_000,
 );
 
