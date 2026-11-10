@@ -305,7 +305,9 @@ test('retrying a freeze after its project is archived reads as absent on both En
   }
 });
 
-// One refusal that crosses the wire with a Date input; core owns the other refusal rules.
+// The stale guard carries a Date input across the wire. The archived-project rows pin
+// LocalEngine's assertScratchpadWritable, which core's Scratchpad service tests do not reach.
+// Core owns the other refusal rules.
 const refusals: [string, WriteMethod, () => Promise<unknown>, ErrorCode][] = [
   [
     'a stale Scratchpad guard',
@@ -316,6 +318,18 @@ const refusals: [string, WriteMethod, () => Promise<unknown>, ErrorCode][] = [
       id: ids.pad,
     }),
     'validation',
+  ],
+  [
+    'a Scratchpad in an archived project',
+    'scratchCheckpoint',
+    async () => ({ content: 'x', expectedUpdatedAt: new Date(), id: ids.archivedPad }),
+    'not_found',
+  ],
+  [
+    'discarding a Scratchpad in an archived project',
+    'scratchDiscard',
+    async () => ({ expectedUpdatedAt: new Date(), id: ids.archivedPad }),
+    'not_found',
   ],
 ];
 

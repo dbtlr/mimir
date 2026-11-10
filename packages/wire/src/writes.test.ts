@@ -525,11 +525,14 @@ describe.each(writes)('$method ($label)', (entry) => {
 type Refusal = {
   method: WriteMethod;
   label: string;
-  code: 'conflict' | 'not_found' | 'validation';
+  code: 'not_found' | 'validation';
   input: (ids: Ids) => unknown;
 };
 
-// One refusal per error path the wire maps; core owns the rules that raise them.
+// The first two rows carry a validation and a not_found refusal through the explicit
+// procedures; engine.test.ts proves the code mapping, conflict included. The rest pin the
+// guards in core's Engine adapter (engine-node-writes.ts), which core's mutation tests do not
+// reach. Core owns every other refusal rule.
 const refusals: Refusal[] = [
   {
     code: 'validation',
@@ -542,6 +545,36 @@ const refusals: Refusal[] = [
     input: () => ({ id: 'ENG-99', title: 'x' }),
     label: 'an unknown node',
     method: 'update',
+  },
+  {
+    code: 'validation',
+    input: (ids: Ids) => ({ parent: ids.phase, title: 'U', type: 'task', upstream: 'none' }),
+    label: 'the none upstream sentinel',
+    method: 'create',
+  },
+  {
+    code: 'validation',
+    input: (ids: Ids) => ({ id: ids.todoTask, upstream: 'garbage' }),
+    label: 'a malformed upstream',
+    method: 'update',
+  },
+  {
+    code: 'validation',
+    input: () => ({ id: 'ENG', title: 'x' }),
+    label: 'a project key',
+    method: 'update',
+  },
+  {
+    code: 'validation',
+    input: () => ({ id: 'ENG' }),
+    label: 'a project key on a task verb',
+    method: 'done',
+  },
+  {
+    code: 'validation',
+    input: () => ({ content: 'x', title: 'No home' }),
+    label: 'neither a project nor a link',
+    method: 'attach',
   },
 ];
 

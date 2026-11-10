@@ -145,6 +145,10 @@ test('the async headers hook runs on every call alongside the build version', as
   ]);
 });
 
+test('the window admits an older minor still above the minimum client', async () => {
+  expect(await client('0.27.1', false, '0.28.0').projects({})).toEqual([]);
+});
+
 test('an invalid host version cannot silently disable the upper bound', () => {
   expect(() =>
     createEngineHandler(local, { verifyToken: fixture.tokens.verify, version: 'unknown' }),

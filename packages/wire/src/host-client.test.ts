@@ -206,8 +206,9 @@ const definiteFailures: [string, () => Promise<Response>][] = [
   ['a JSON 404', async () => Response.json({ error: 'nope' }, { status: 404 })],
 ];
 
-// #answer classifies a status the same on every route, so each list runs on the poll route;
-// the 429 tests above pin the one place the routes differ.
+// A definite 4xx reads the same on every route, so that list runs on the poll route; the 429
+// tests above pin the one place the routes differ. The transient list runs on every route,
+// since a route that reads a 5xx or 408 as definite would stop `mimir pair` from retrying.
 test.each(definiteFailures)('%s is definite on a poll', async (_name, answer) => {
   expect((await refusal(clientFor(answer).pollPairing('secret'))).transient).toBe(false);
 });
@@ -251,9 +252,17 @@ test('a redirect whose target is not an http origin names no target', async () =
   expect(`${error.message} ${String(error.hint)}`).not.toContain('\u001B');
 });
 
-test.each(transientFailures)('%s is transient on a poll', async (_name, answer) => {
-  const error = await refusal(clientFor(answer).pollPairing('secret'));
-  expect(error).toMatchObject({ code: 'invariant', transient: true });
+test.each(transientFailures)('%s is transient on every route', async (_name, answer) => {
+  for (const call of [
+    (client: HostClient) => client.health(),
+    (client: HostClient) => client.requestPairing('laptop'),
+    (client: HostClient) => client.pollPairing('secret'),
+  ]) {
+    expect(await refusal(call(clientFor(answer)))).toMatchObject({
+      code: 'invariant',
+      transient: true,
+    });
+  }
 });
 
 test('a request that exceeds its timeout is a transient failure', async () => {
@@ -370,7 +379,9 @@ test('a server-cut 401 body remains a definite health refusal', async () => {
 test.each([
   [307, 'health', false],
   [400, 'request', false],
+  [409, 'request', false],
   [429, 'poll', true],
+  [503, 'health', true],
 ] satisfies [number, 'health' | 'request' | 'poll', boolean][])(
   'an unreadable %i body preserves the %s status refusal',
   async (status, route, transient) => {
