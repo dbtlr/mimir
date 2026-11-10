@@ -52,6 +52,7 @@ describe('announceLaunch (ADR 0040, Launch)', () => {
   });
 
   it('not_queued: carries the message, Retry as the action, and Open in T3 as the second button', () => {
+    const open = vi.spyOn(globalThis, 'open').mockReturnValue(null);
     const retry = announce({ ...LAUNCHED, message: 'no longer ready', state: 'not_queued' });
     const { message, options } = raised(toast.error);
     expect(message).toBe(
@@ -61,6 +62,10 @@ describe('announceLaunch (ADR 0040, Launch)', () => {
     options?.action?.onClick();
     expect(retry).toHaveBeenCalledOnce();
     expect(options?.cancel?.label).toBe('Open in T3');
+    // The second button opens the thread that started, not a retry.
+    options?.cancel?.onClick();
+    expect(open).toHaveBeenCalledWith(LINK, '_self');
+    open.mockRestore();
   });
 
   it('unreachable: says T3 did not answer, with Retry and no Open in T3', () => {
@@ -108,6 +113,14 @@ describe('announceLaunch (ADR 0040, Launch)', () => {
       expect((options as ToastOptions | undefined)?.action?.label).toBe(actionLabel);
     },
   );
+
+  it('taken by a T3 thread: Open in T3 opens the thread that holds the task', () => {
+    const open = vi.spyOn(globalThis, 'open').mockReturnValue(null);
+    announce({ harness: 't3', host: 'env-9', session: 'th-9', state: 'taken' });
+    raised(toast.error).options?.action?.onClick();
+    expect(open).toHaveBeenCalledWith('t3code://threads/env-9/th-9', '_self');
+    open.mockRestore();
+  });
 
   it.each<[string, T3LaunchResult, string]>([
     ['not_ready', { state: 'not_ready' }, 'This task can no longer be launched'],
