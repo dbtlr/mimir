@@ -174,6 +174,7 @@ afterEach(() => {
 describe('sidebar sections mark the page (MMR-485, MMR-496)', () => {
   it.each([
     ['/p/MMR/tasks', 'Tasks'],
+    ['/p/MMR/tasks?status=ready', 'Tasks'],
     ['/p/MMR/s41', 'Seeds'],
     ['/p/MMR/2', 'Work'],
   ])('%s marks only %s', async (path, label) => {
@@ -235,12 +236,9 @@ describe('sidebar names the current project', () => {
 });
 
 describe('sidebar on All projects (MMR-505)', () => {
-  it.each([
-    ['/', 1],
-    ['/devices', 0],
-  ])(
+  it.each(['/', '/devices'])(
     'reads All projects on %s, whatever project was last visited, with Work and the Projects section only',
-    async (path, projectsSections) => {
+    async (path) => {
       serve([MMR, NRN]);
       rememberProject('NRN');
       renderAt(path);
@@ -250,11 +248,9 @@ describe('sidebar on All projects (MMR-505)', () => {
       expect(screen.getByRole('complementary', { name: 'All projects' })).toBeInTheDocument();
       expect(screen.queryByRole('navigation', { name: 'Project' })).toBeNull();
       expect(within(nav).getByRole('link', { name: 'Work' })).toBeInTheDocument();
-      await waitFor(() => {
-        expect(within(nav).queryAllByRole('region', { name: 'Projects' })).toHaveLength(
-          projectsSections,
-        );
-      });
+      await expect(
+        within(nav).findByRole('region', { name: 'Projects' }),
+      ).resolves.toBeInTheDocument();
       for (const name of ['Tasks', 'Seeds', 'Artifacts']) {
         expect(within(nav).queryByRole('link', { name })).toBeNull();
       }

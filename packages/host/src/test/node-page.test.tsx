@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  annotate,
   done,
   getNode,
   groom,
@@ -103,7 +104,7 @@ async function openTask(node: EngineNode, extra: Extra = {}) {
 }
 
 describe('task page (MMR-449)', () => {
-  it('opens a task directly at its URL', async () => {
+  it('opens a task directly at its URL, and appends a note to it', async () => {
     serve(sqlite);
     await renderRoute(consoleRoutes, '/p/MMR/417', quietClient());
 
@@ -118,6 +119,12 @@ describe('task page (MMR-449)', () => {
     });
     await waitFor(() => {
       expect(scratchList).toHaveBeenCalledWith({ data: { project: 'MMR' } });
+    });
+
+    await userEvent.type(screen.getByRole('textbox', { name: /note/i }), 'next steps');
+    await userEvent.click(screen.getByRole('button', { name: 'Append note' }));
+    await waitFor(() => {
+      expect(annotate).toHaveBeenCalledWith({ data: { content: 'next steps', id: 'MMR-417' } });
     });
   });
 
@@ -405,6 +412,7 @@ describe('task page (MMR-449)', () => {
     expect(link.getAttribute('href')).toBe('https://example.com/pull/9');
     expect(link.getAttribute('target')).toBe('_blank');
     expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+    expect(link.closest('p')?.textContent).toContain(' — Shipped in https://example.com/pull/9.');
   });
 
   it('sets the actions aside while the edit form is open', async () => {
@@ -599,6 +607,18 @@ describe('task page edit (MMR-453)', () => {
       }),
     );
     expect(tags).toHaveValue('ui, release:v0.5');
+  });
+
+  it('saving with a removed tag removes exactly that tag', async () => {
+    await userEvent.clear(
+      await openEdit(engineTask({ id: 'MMR-92', status: 'ready', tags: [engineTag('ui', stamp)] })),
+    );
+    await userEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => {
+      expect(untag).toHaveBeenCalledWith({ data: { ids: ['MMR-92'], tags: ['ui'] } });
+    });
+    expect(tagWrites('MMR-92')).toHaveLength(1);
   });
 
   it('saving with unchanged tags fires no tag request, but the scalars still update', async () => {

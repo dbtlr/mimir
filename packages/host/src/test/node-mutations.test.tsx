@@ -68,7 +68,8 @@ describe('mutation hooks', () => {
     });
   });
 
-  // done and return are proven through the task page's Approve and Send back; block has no rendered caller.
+  // done and return are proven through the task page's Approve and Send back; no rendered
+  // test drives block, though the task page offers it as Mark blocked.
   it('useTransition reaches the Engine method the block verb names', async () => {
     const client = new QueryClient();
     const { result } = renderHook(() => useTransition('MMR-9'), { wrapper: wrapper(client) });

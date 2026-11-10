@@ -184,13 +184,16 @@ describe('the top-level browsers redirect (MMR-495)', () => {
     expect((await settledAt(testRouter, '/p/NRN/tasks')).pathname).toBe('/p/NRN/tasks');
   });
 
-  it('/tasks?project=all (any case) is the bare redirect, not a project named ALL', async () => {
-    rememberProject('NRN');
-    const { router: testRouter } = await renderAt('/tasks?project=All');
-    const location = await settledAt(testRouter, '/p/NRN/tasks');
-    expect(location.pathname).toBe('/p/NRN/tasks');
-    expect(location.search).toEqual({});
-  });
+  it.each(['tasks', 'seeds', 'artifacts'])(
+    '/%s?project=all (any case) is the bare redirect, not a project named ALL',
+    async (view) => {
+      rememberProject('NRN');
+      const { router: testRouter } = await renderAt(`/${view}?project=All`);
+      const location = await settledAt(testRouter, `/p/NRN/${view}`);
+      expect(location.pathname).toBe(`/p/NRN/${view}`);
+      expect(location.search).toEqual({});
+    },
+  );
 
   it('treats a project value that is not a key as absent', async () => {
     rememberProject('NRN');

@@ -11,13 +11,17 @@ const SPECIMEN = [
   '',
   'A paragraph with `inline` code.',
   '',
+  '| head | other |',
+  '| ---- | ----- |',
+  '| cell | value |',
+  '',
   '```ts',
   'const fenced = 1;',
   '```',
 ].join('\n');
 
 describe('markdownBody', () => {
-  it('demotes headings below h2, and sets inline code apart from a fenced block', () => {
+  it('demotes headings below h2, renders a table through its scrolling wrapper, and sets inline code apart from a fenced block', () => {
     render(<MarkdownBody>{SPECIMEN}</MarkdownBody>);
     const article = screen.getByRole('article');
 
@@ -28,6 +32,8 @@ describe('markdownBody', () => {
         .getAllByRole('heading')
         .map((h) => h.tagName),
     ).toEqual(['H3', 'H4', 'H5', 'H6']);
+    expect(within(article).getByRole('table')).toBeInTheDocument();
+    expect(within(article).getByRole('columnheader', { name: 'head' })).toBeInTheDocument();
     expect(article.querySelector('pre > code')).toHaveTextContent('const fenced = 1;');
     const inline = within(article).getByText('inline');
     expect(inline.tagName).toBe('CODE');
