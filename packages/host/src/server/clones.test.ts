@@ -684,7 +684,7 @@ test.each(plantedInWorkTree)(
   },
 );
 
-test("a submodule's directory is checked out empty, and its commit never fetched", async () => {
+test("a submodule's directory is checked out empty", async () => {
   const { dataDirectory, options, remotes } = await fixture();
   const repo = 'github.test/owner/repo';
   const commit = await publish(
@@ -700,12 +700,22 @@ test("a submodule's directory is checked out empty, and its commit never fetched
   await expectHostLayout(dataDirectory);
 });
 
-/** Host git state a crash or a full disk can leave, each of which a fresh clone recovers from. */
+/**
+ * Host git state a crash or a full disk can leave, each of which a fresh clone
+ * recovers from. The lock and the object fail the kept clone's reset; the
+ * packed-refs fails its fetch, so both kinds of failure get the one retry.
+ */
 const brokenGitState: [string, (clone: KeptClone) => Promise<void>][] = [
   [
     'a stale index.lock',
     async ({ gitDirectory }) => {
       await writeFile(join(gitDirectory, 'index.lock'), '');
+    },
+  ],
+  [
+    'a garbage packed-refs',
+    async ({ gitDirectory }) => {
+      await writeFile(join(gitDirectory, 'packed-refs'), 'garbage\n');
     },
   ],
   [

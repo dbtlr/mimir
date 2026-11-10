@@ -82,7 +82,8 @@ const escaping: [string, Record<string, string>, string][] = [
   ['the host git directory', { 'host-git': '../../git/CLN' }, 'host-git'],
   ['the host git config', { 'docs/config': '../../../git/CLN/config' }, 'docs/config'],
   // Dangling, and only the kernel's walk sees it leave: deep/s is the root, so
-  // deep/s/../.. is the clones directory, though the text reads as inside.
+  // deep/s/.. is the clones directory and deep/s/../.. the data directory,
+  // though the text reads as inside.
   ['a walk through a link', { a: 'deep/s/../../outside', 'deep/s': '..' }, 'a'],
   // Dangling through a link that resolves nowhere: where it lands is unknowable.
   ['a walk through a broken link', { b: 'hop/../c', hop: 'nowhere/deeper' }, 'b'],
