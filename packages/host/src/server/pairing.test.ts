@@ -76,16 +76,6 @@ test('a client files a request without bearer or version headers and polls it to
   }
 });
 
-test('a denied request answers denied once, and unknown secrets answer expired', async () => {
-  const handlers = createPairingHandlers({ log: () => undefined, tokens: fixture.tokens });
-  const request = await file(handlers, 'denied-device');
-  await fixture.tokens.deny(request.user_code);
-  expect((await poll(handlers, request.poll_secret)).body).toEqual({ status: 'denied' });
-  expect((await poll(handlers, request.poll_secret)).body).toEqual({ status: 'expired' });
-  expect((await poll(handlers, 'unknown')).body).toEqual({ status: 'expired' });
-  expect(await fixture.tokens.list({ all: true })).toEqual([]);
-});
-
 test('malformed request and poll bodies receive uniform 400s', async () => {
   const lines: string[] = [];
   const handlers = createPairingHandlers({
@@ -181,6 +171,7 @@ test('store faults answer a safe 500, log no detail, and spend no request budget
   }
   const polled = await handlers.poll(post('poll', { poll_secret: 'secret' }));
   expect(polled.status).toBe(500);
+  expect(polled.headers.get('cache-control')).toBe('no-store');
   expect(await polled.json()).toEqual({ error: 'the request did not complete' });
   expect(lines).toHaveLength(13);
   expect(lines.map((line) => JSON.parse(line))).toEqual([

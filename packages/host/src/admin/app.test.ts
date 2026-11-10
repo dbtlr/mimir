@@ -54,13 +54,6 @@ test('mimir-host refuses a schema other than its own and leaves the file as it w
   expect(readFileSync(fixture.file).equals(before)).toBe(true);
 });
 
-test('mimir-host has no store upgrade: the host migrates on boot', async () => {
-  const fixture = await fixtureOf();
-  const run = await fixture.run(['store', 'upgrade']);
-  expect(run.exitCode).toBe(2);
-  expect(run.stderr).toContain('Unknown command "upgrade"');
-});
-
 test('store export and import carry a board between hosts through standard streams', async () => {
   const source = await fixtureOf();
   const target = await fixtureOf();

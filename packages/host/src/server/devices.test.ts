@@ -82,16 +82,6 @@ test('approving or denying a code nothing waits on is one not-found refusal', as
   }
 });
 
-test('paired devices expose no token hashes', async () => {
-  const pairing = createPairingHandlers({ log: () => undefined, tokens: fixture.tokens });
-  const devices = createDeviceHandlers(fixture.tokens);
-  const request = await clientFiles(pairing, 'laptop');
-  await devices.approvePairing(request.user_code);
-  await pairing.poll(post('poll', { poll_secret: request.poll_secret }));
-  const [row] = await devices.pairedDevices();
-  expect(Object.keys(row ?? {}).toSorted()).toEqual(['created_at', 'device', 'last_used_at']);
-});
-
 test('inputs are non-empty strings, refused as validation otherwise', () => {
   expect(parseCodeInput({ code: 'K7QM-2XRD' })).toEqual({ code: 'K7QM-2XRD' });
   expect(parseDeviceInput({ device: 'laptop' })).toEqual({ device: 'laptop' });

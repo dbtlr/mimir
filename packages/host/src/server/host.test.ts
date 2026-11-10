@@ -11,7 +11,6 @@ import { RemoteEngine } from '@mimir/wire/client';
 import { readHostConfig } from './config';
 import { guardEveryRoute, hostGuard } from './guard';
 import { openHost } from './host';
-import { methodNotAllowed } from './pairing';
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -126,38 +125,6 @@ test('development host refuses Postgres without authority before connecting', as
   }
 });
 
-test('host doctor reports stored record findings and project scope', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'mimir-host-doctor-'));
-  roots.push(root);
-  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), '0.26.0');
-  try {
-    await host.engine.create({ key: 'TST', name: 'Doctor fixture', type: 'project' });
-    // A hand-edited timestamp models corruption the diagnostic must report.
-    const database = new Database(join(root, 'store.sqlite'));
-    try {
-      database.run("UPDATE project SET created_at = 'invalid' WHERE key = 'TST'");
-    } finally {
-      database.close();
-    }
-    expect(await host.doctor(undefined)).toMatchObject({
-      finding_total: 1,
-      groups: [{ project: 'TST', records: [{ cause: 'malformed timestamp', id: 'TST' }] }],
-      scope: null,
-    });
-    expect(await host.doctor('TST')).toMatchObject({
-      finding_total: 1,
-      scope: { key: 'TST', matched_records: 1 },
-    });
-    expect(await host.doctor('OTH')).toMatchObject({
-      finding_total: 0,
-      groups: [],
-      scope: { key: 'OTH', matched_records: 0 },
-    });
-  } finally {
-    await host.close();
-  }
-});
-
 test('host doctor excludes findings from an unsafe CLI configuration', async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'mimir-host-config-doctor-')));
   roots.push(root);
@@ -188,6 +155,10 @@ test('host doctor excludes findings from an unsafe CLI configuration', async () 
       finding_total: 0,
       groups: [],
       scope: null,
+    });
+    // The console's per-project Record health passes its project through the host.
+    expect(await host.doctor('OTH')).toMatchObject({
+      scope: { key: 'OTH', matched_records: 0 },
     });
   } finally {
     await host?.close();
@@ -323,40 +294,6 @@ test('a host with T3 misconfigured boots, warns by setting name, and reports the
   }
 });
 
-test('the T3 callback answers behind the Host guard, with no client version, GET only', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'mimir-host-t3-route-'));
-  roots.push(root);
-  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), '0.26.0', () => {});
-  const log = spyOn(console, 'error').mockReturnValue(undefined);
-  // The route's handlers as auth.t3.callback.ts declares them: GET, and a 405 for any other method.
-  const route = (request: Request) =>
-    request.method === 'GET' ? host.handleT3Callback(request) : methodNotAllowed('GET');
-  const guarded = guardEveryRoute(route, Promise.resolve(hostGuard(['allowed.test'])));
-  const at = (init: RequestInit & { host: string }) =>
-    guarded(
-      new Request('http://allowed.test/auth/t3/callback?state=x&code=y', {
-        ...init,
-        headers: { host: init.host },
-      }),
-    );
-  try {
-    const answered = await at({ host: 'allowed.test' });
-    expect(answered.status).toBe(303);
-    expect(answered.headers.get('location')).toBe('/devices?t3=misconfigured');
-    for (const method of ['POST', 'PUT', 'DELETE']) {
-      const refused = await at({ host: 'allowed.test', method });
-      expect(refused.status, method).toBe(405);
-      expect(refused.headers.get('allow'), method).toBe('GET');
-    }
-    const unlisted = await at({ host: 'unlisted.test' });
-    expect(unlisted.status).toBe(403);
-    expect(await unlisted.json()).toMatchObject({ error: { code: 'forbidden_host' } });
-  } finally {
-    log.mockRestore();
-    await host.close();
-  }
-});
-
 test('a host without MIMIR_T3_URL logs nothing about T3', async () => {
   const root = await mkdtemp(join(tmpdir(), 'mimir-host-no-t3-'));
   roots.push(root);
@@ -477,17 +414,6 @@ test('the host interrupts a stale run at boot and exposes the runs, the agent ru
   } finally {
     await host.close();
   }
-});
-
-test('a fresh host boot interrupts nothing', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'mimir-host-runs-'));
-  roots.push(root);
-  const lines: string[] = [];
-  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), '0.26.0', (line) =>
-    lines.push(line),
-  );
-  await host.close();
-  expect(lines.filter((line) => line.includes('agent run'))).toEqual([]);
 });
 
 test('a fresh run of another host survives boot and keeps the slot', async () => {

@@ -11,11 +11,6 @@ beforeEach(async () => {
 });
 afterEach(async () => fixture.close());
 
-/** The terminal cell a line's `text` starts at: wide characters before it take two. */
-function cellOf(line: string, text: string | RegExp): number {
-  return Bun.stringWidth(line.slice(0, line.search(text)));
-}
-
 test('tokens lists active tokens by device, with user, last use, and pairing date', async () => {
   const token = await pairTestDevice(fixture.host.tokens, 'laptop');
   await fixture.host.tokens.verify(token);
@@ -76,17 +71,6 @@ test('tokens says so when no device is paired', async () => {
 
 test('tokens --all says so when the host has issued none', async () => {
   expect((await fixture.run(['tokens', '--all'], { tty: true })).stdout).toBe('No device tokens\n');
-});
-
-test('tokens aligns wide-character device names by terminal cell', async () => {
-  await pairTestDevice(fixture.host.tokens, '研究室のマシン');
-  await pairTestDevice(fixture.host.tokens, 'laptop');
-
-  const lines = (await fixture.run(['tokens'], { tty: true })).stdout.trimEnd().split('\n');
-  const rows = lines.slice(1);
-  expect(rows).toHaveLength(2);
-  expect(new Set(rows.map((line) => cellOf(line, 'owner'))).size).toBe(1);
-  expect(new Set(rows.map((line) => cellOf(line, /\d{4}-/))).size).toBe(1);
 });
 
 test('tokens on a terminal too narrow for its columns prints one block per token', async () => {

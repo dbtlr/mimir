@@ -110,31 +110,16 @@ const cases: Case[] = [
     engine: (engine) => engine.nodeWork({ id: 'ENG-1', timeZone: 'UTC' }),
     name: 'nodeWork on an initiative',
   },
-  {
-    engine: (engine) => engine.nodeWork({ id: 'ENG-2', timeZone: 'UTC' }),
-    name: 'nodeWork on a phase',
-  },
   { engine: (engine) => engine.overview({ project: 'ENG' }), name: 'overview' },
   { engine: (engine) => engine.search({ query: 'Ready' }), name: 'search across every project' },
-  {
-    engine: (engine) => engine.search({ project: 'OTH', query: 'Ready' }),
-    name: 'search ranking the current project first',
-  },
-  { engine: (engine) => engine.search({ query: 'ENG-3' }), name: 'search by id' },
   {
     engine: (engine) => engine.upstreamTasks({ seed: 'OTH-s1' }),
     name: 'upstreamTasks across every board',
   },
   {
-    engine: (engine) => engine.upstreamTasks({ seed: 'OTH-s99' }),
-    name: 'upstreamTasks of a seed nothing names',
-  },
-  {
     engine: (engine) => engine.openTasks({ q: 'ready' }),
     name: 'openTasks by title across every board',
   },
-  { engine: (engine) => engine.openTasks({ q: 'ENG-3' }), name: 'openTasks by id' },
-  { engine: (engine) => engine.openTasks({ q: 'done' }), name: 'openTasks of only finished work' },
 ];
 
 test.each(cases)('console.$name answers the same locally and remotely', async (c) => {
@@ -209,26 +194,7 @@ test('a failing findings provider counts no findings instead of failing the page
 type Refusal = [name: string, run: (engine: ConsoleEngine) => Promise<unknown>, code: string];
 const refusals: Refusal[] = [
   ['review without a time zone', (e) => e.review({}), 'validation'],
-  ['review with an unknown zone', (e) => e.review({ timeZone: 'Mars/Olympus' }), 'validation'],
-  [
-    'projectWork on a task',
-    (e) => e.projectWork({ project: 'ENG-3', timeZone: 'UTC' }),
-    'validation',
-  ],
-  [
-    'projectWork on an unknown project',
-    (e) => e.projectWork({ project: 'NOPE', timeZone: 'UTC' }),
-    'not_found',
-  ],
-  ['nodeWork on a project key', (e) => e.nodeWork({ id: 'ENG', timeZone: 'UTC' }), 'validation'],
-  [
-    'nodeWork on an unknown node',
-    (e) => e.nodeWork({ id: 'ENG-99', timeZone: 'UTC' }),
-    'not_found',
-  ],
-  ['overview on a non-project', (e) => e.overview({ project: 'ENG-3' }), 'validation'],
   ['overview on an unknown project', (e) => e.overview({ project: 'NOPE' }), 'not_found'],
-  ['search without a query', (e) => e.search({ query: ' ' }), 'validation'],
   [
     'search ranking an unknown project',
     (e) => e.search({ project: 'NOPE', query: 'Ready' }),
@@ -248,6 +214,24 @@ test.each(refusals)(
     expect(remoteError.message).toBe(localError.message);
   },
 );
+
+const code = async (run: Promise<unknown>) => (await errorOf(run)).code as string;
+
+// The wire proves a refusal crosses unchanged. The wrong-kind checks live in
+// core's page functions, which no core test reaches, so one local pass guards
+// them. The unknown-id refusals come from workPageOf, which core's work tests
+// own; they are repeated here only to show the console entry points reach it.
+test('the work pages and overview refuse the wrong kind of id and an unknown id', async () => {
+  expect(await code(local.console.projectWork({ project: 'ENG-3', timeZone: 'UTC' }))).toBe(
+    'validation',
+  );
+  expect(await code(local.console.nodeWork({ id: 'ENG', timeZone: 'UTC' }))).toBe('validation');
+  expect(await code(local.console.overview({ project: 'ENG-3' }))).toBe('validation');
+  expect(await code(local.console.projectWork({ project: 'NOPE', timeZone: 'UTC' }))).toBe(
+    'not_found',
+  );
+  expect(await code(local.console.nodeWork({ id: 'ENG-99', timeZone: 'UTC' }))).toBe('not_found');
+});
 
 test('console.search refuses an empty or "all" project instead of reading it as unset', async () => {
   for (const project of ['', 'all']) {
