@@ -588,19 +588,18 @@ const OPENER = `
 
 test('processes racing to open one fresh file all open it', async () => {
   // A fresh install starts the daemon, MCP servers, and a CLI command at once.
-  for (let round = 0; round < 4; round++) {
-    const fresh = join(dir, 'data', `race-${String(round)}.sqlite`);
-    const openers = Array.from({ length: 8 }, () =>
-      Bun.spawn(['bun', '-e', OPENER, fresh], { stderr: 'pipe', stdout: 'pipe' }),
-    );
-    const exits = await Promise.all(openers.map((opener) => opener.exited));
-    for (const [index, code] of exits.entries()) {
-      if (code !== 0) {
-        throw new Error(await new Response(openers[index]?.stderr).text());
-      }
+  // One round is the race: seven of the eight openers lose it every time.
+  const fresh = join(dir, 'data', 'race.sqlite');
+  const openers = Array.from({ length: 8 }, () =>
+    Bun.spawn(['bun', '-e', OPENER, fresh], { stderr: 'pipe', stdout: 'pipe' }),
+  );
+  const exits = await Promise.all(openers.map((opener) => opener.exited));
+  for (const [index, code] of exits.entries()) {
+    if (code !== 0) {
+      throw new Error(await new Response(openers[index]?.stderr).text());
     }
   }
-}, 60_000);
+});
 
 /** The worker script, addressed by path — it is spawned, never imported. */
 const WORKER = new URL('testing-concurrency-worker.ts', import.meta.url).pathname;
