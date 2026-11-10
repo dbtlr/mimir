@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { judge, readJunit } from './test-budget';
+import { judge, passes, readJunit } from './test-budget';
 import type { Budget, Exemption } from './test-budget';
 
 /** A bun junit report: one file with a describe block, one flat file. */
@@ -74,21 +74,33 @@ describe('judge', () => {
     const verdict = judge(timings, budget, [exemption]);
     expect(verdict.over).toEqual([]);
     expect(verdict.exempt.map((e) => e.exemption.task)).toEqual(['MMR-1']);
-    expect(verdict.staleExemptions).toEqual([]);
+    expect(verdict.unusedExemptions).toEqual([]);
+    expect(passes(verdict)).toBe(true);
   });
 
-  test('an exemption whose test runs under the limit, or did not run, is stale', () => {
+  test('an exemption whose test ran under the limit only warns, since runner speed varies', () => {
     const fast: Exemption = {
       file: 'packages/wire/src/b.test.ts',
       name: "it's quick",
       task: 'MMR-2',
     };
+    const verdict = judge(timings, budget, [fast]);
+    expect(verdict.unusedExemptions.map((e) => e.task)).toEqual(['MMR-2']);
+    expect(verdict.missingExemptions).toEqual([]);
+  });
+
+  test('an exemption whose test did not run fails, so a renamed test cannot leave it behind', () => {
     const gone: Exemption = {
       file: 'packages/wire/src/b.test.ts',
       name: 'renamed away',
       task: 'MMR-3',
     };
-    const verdict = judge(timings, budget, [fast, gone]);
-    expect(verdict.staleExemptions.map((e) => e.task)).toEqual(['MMR-2', 'MMR-3']);
+    const verdict = judge(timings, budget, [gone]);
+    expect(verdict.missingExemptions.map((e) => e.task)).toEqual(['MMR-3']);
+    expect(passes(verdict)).toBe(false);
+  });
+
+  test('a test over the limit fails the budget', () => {
+    expect(passes(judge(timings, budget, []))).toBe(false);
   });
 });

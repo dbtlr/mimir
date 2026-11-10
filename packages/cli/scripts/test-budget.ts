@@ -2,7 +2,8 @@
  * Check a `bun test` junit report against the default lane's time budget.
  * CI's gate writes the report while it runs `bun run test`, then runs this.
  * A test over the limit fails the check unless it is exempted below against
- * the task that will make it fast. A test over the warning threshold, or a
+ * the task that will make it fast, and so does an exemption whose test did
+ * not run. A test over the warning threshold, or a
  * file over the file threshold, is reported without failing. CONTRIBUTING.md
  * ("Tests that run slow or time out") states the rule. Usage:
  *
@@ -111,15 +112,24 @@ export type Verdict = {
   /** Tests over the warning threshold and under the limit. */
   slow: TestTiming[];
   slowFiles: FileTiming[];
-  /** Exemptions whose test ran under the limit or did not run. */
-  staleExemptions: Exemption[];
+  /** Exemptions whose test ran under the limit: reported, since runner speed varies. */
+  unusedExemptions: Exemption[];
+  /** Exemptions whose test did not run, as after a rename: these fail the check. */
+  missingExemptions: Exemption[];
 };
 
 const sameTest = (exemption: Exemption, test: TestTiming) =>
   exemption.file === test.file && exemption.name === test.name;
 
 export function judge(timings: Timings, budget: Budget, exemptions: readonly Exemption[]): Verdict {
-  const verdict: Verdict = { exempt: [], over: [], slow: [], slowFiles: [], staleExemptions: [] };
+  const verdict: Verdict = {
+    exempt: [],
+    missingExemptions: [],
+    over: [],
+    slow: [],
+    slowFiles: [],
+    unusedExemptions: [],
+  };
   for (const test of timings.tests) {
     if (test.ms > budget.testLimitMs) {
       const exemption = exemptions.find((candidate) => sameTest(candidate, test));
@@ -133,14 +143,22 @@ export function judge(timings: Timings, budget: Budget, exemptions: readonly Exe
     }
   }
   verdict.slowFiles = timings.files.filter((file) => file.ms > budget.fileWarnMs);
-  verdict.staleExemptions = exemptions.filter(
-    (exemption) => !verdict.exempt.some((entry) => entry.exemption === exemption),
-  );
+  for (const exemption of exemptions) {
+    if (verdict.exempt.some((entry) => entry.exemption === exemption)) {
+      continue;
+    }
+    const ran = timings.tests.some((test) => sameTest(exemption, test));
+    (ran ? verdict.unusedExemptions : verdict.missingExemptions).push(exemption);
+  }
   for (const list of [verdict.over, verdict.slow, verdict.slowFiles]) {
     list.sort((a, b) => b.ms - a.ms);
   }
   return verdict;
 }
+
+/** Whether the report clears the budget: nothing over the limit unexempted, and no exemption left naming a test that did not run. */
+export const passes = (verdict: Verdict) =>
+  verdict.over.length === 0 && verdict.missingExemptions.length === 0;
 
 const seconds = (ms: number) => `${(ms / 1000).toFixed(2)} s`;
 
@@ -163,15 +181,20 @@ export function describeVerdict(verdict: Verdict, budget: Budget): string {
   for (const file of verdict.slowFiles) {
     lines.push(`slow file, over ${seconds(budget.fileWarnMs)}: ${seconds(file.ms)}  ${file.file}`);
   }
-  for (const exemption of verdict.staleExemptions) {
+  for (const exemption of verdict.unusedExemptions) {
     lines.push(
-      `stale exemption (${exemption.task}), under the limit or not run: ${exemption.file} > ${exemption.name}`,
+      `unused exemption (${exemption.task}), under the limit this run: ${exemption.file} > ${exemption.name}`,
+    );
+  }
+  for (const exemption of verdict.missingExemptions) {
+    lines.push(
+      `exemption for a test that did not run (${exemption.task}); remove or rename it: ${exemption.file} > ${exemption.name}`,
     );
   }
   lines.push(
-    verdict.over.length === 0
+    passes(verdict)
       ? 'test budget: ok'
-      : `test budget: ${verdict.over.length} test(s) over ${seconds(budget.testLimitMs)}. Make them fast; see CONTRIBUTING.md, "Tests that run slow or time out".`,
+      : `test budget: failed, ${verdict.over.length} test(s) over ${seconds(budget.testLimitMs)} and ${verdict.missingExemptions.length} exemption(s) for tests that did not run. See CONTRIBUTING.md, "Tests that run slow or time out".`,
   );
   return lines.join('\n');
 }
@@ -184,5 +207,5 @@ if (import.meta.main) {
   }
   const verdict = judge(readJunit(readFileSync(path, 'utf8')), BUDGET, EXEMPTIONS);
   console.log(describeVerdict(verdict, BUDGET));
-  process.exit(verdict.over.length === 0 ? 0 : 1);
+  process.exit(passes(verdict) ? 0 : 1);
 }

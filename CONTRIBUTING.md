@@ -83,14 +83,15 @@ pushing.
 
 ## Tests that run slow or time out
 
-The default lanes, `bun run test` and `bun run test:ui`, keep Bun's and
-Vitest's default timeouts. When a test runs slow or times out, find and fix
-what makes it slow. Do not raise a per-test timeout, a file's
+Tests in the default lanes, `bun run test` and `bun run test:ui`, run under
+Bun's and Vitest's default timeouts. When a test runs slow or times out, find
+and fix what makes it slow. Do not raise a per-test timeout, a file's
 `setDefaultTimeout`, Testing Library's `asyncUtilTimeout`, a per-call timeout,
 or the Vitest test timeout, even as a backstop. A longer timeout hides the cost
 until the next load spike, or a slower platform, fails the test again: the
 v0.28.0 macOS release failed on a git-driven test that took half a second on
-Linux and over 5 s on macOS.
+Linux and over 5 s on macOS. Some default-lane files still raise their
+timeouts; MMR-644 removes them, so do not copy them.
 
 The usual causes, and their fixes:
 
@@ -114,17 +115,21 @@ CI's gate checks the default bun lane's timings with `bun run test:budget`
 (`packages/cli/scripts/test-budget.ts`). A test over 3 s fails the gate, and a
 test over 1 s or a file over 15 s is reported in the log. A test over the limit
 may be exempted only against the task that will make it fast; remove the
-exemption in that task. To check a local run, write a report and pass it:
+exemption in that task. An exemption that names a test the run did not
+include, as after a rename, fails the gate. To check a local run, write a
+report and pass it:
 
 ```sh
 bun run test --reporter=junit --reporter-outfile=.scratch/bun-junit.xml
 bun run test:budget .scratch/bun-junit.xml
 ```
 
-The opt-in integration lanes (`test:host`, `test:sandbox`, and `test:postgres`)
-build images, install releases, or start real
-hosts. They may set explicit timeouts, each with a comment naming what the time
-is spent on.
+The integration lanes outside `bun run verify` (`test:host`, `test:sandbox`,
+and `test:postgres`) build images, install releases, or start real hosts. Tests
+that only those lanes run may set explicit timeouts, each with a comment naming
+what the time is spent on. The exception follows the lane, not the file name:
+an `*.integration.test.ts` file under a path `bun run test` covers is a
+default-lane test.
 
 ## Project shape
 
