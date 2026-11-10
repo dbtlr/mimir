@@ -444,6 +444,7 @@ describe('the attempt registry', () => {
   });
 
   test.each([
+    ['projectId', { projectId: 'p-other' }],
     ['runtimeMode', { runtimeMode: 'approval-required' }],
     ['workspace branch', { workspace: { branch: 'mmr-1/other', type: 'worktree' } }],
   ])(
@@ -608,6 +609,8 @@ describe('step 2: the choice against the system', () => {
   test('a launch the system does not offer reads invalid, naming the field, and launches nothing', async () => {
     const cases: [Record<string, unknown>, T3LaunchField][] = [
       [{ environmentId: 'env-nowhere' }, 'environmentId'],
+      // A reachable system that does not hold the project.
+      [{ projectId: 'p-other' }, 'projectId'],
       // A disabled provider is not offered.
       [{ model: { ...choice().model, instanceId: 'grok', model: 'grok-5' } }, 'model'],
       // T3 lists this option with no values, so it offers none.

@@ -621,7 +621,15 @@ describe('the catalog', () => {
   });
 
   test('a failed links read is a failed read of the configured server, not an absent tool', async () => {
-    for (const linksError of ['is_error', 'internal'] as const) {
+    // The -32602 rows each miss the unknown-tool match a different way: another
+    // message, another code under the same message, and another tool's name.
+    for (const linksError of [
+      'is_error',
+      'internal',
+      'invalid_params',
+      'other_not_found',
+      'other_tool_not_found',
+    ] as const) {
       const h = harness({ stub: { linksError } });
       await connected(h);
       expect(await h.adapter.catalog('MMR')).toEqual({ state: 'unreachable' });
@@ -793,6 +801,15 @@ const LOG_KEYS: Record<string, string[]> = {
   t3_request_failed: ['endpoint', 'event', 'method', 'status', 'time', 'tool'],
 };
 
+/** The keys an event must carry to say what happened; the rest are optional. */
+const LOG_REQUIRED_KEYS: Record<string, readonly string[]> = {
+  host_secret_unopenable: ['cause', 'name'],
+  host_secret_unreadable: ['name'],
+  host_secret_write_fault: ['name'],
+  t3_connect_callback: ['outcome'],
+  t3_request_failed: ['endpoint'],
+};
+
 test('no secret value or T3 reply body ever appears in the logs', async () => {
   const h = harness();
   const url = await connected(h);
@@ -842,6 +859,11 @@ test('no secret value or T3 reply body ever appears in the logs', async () => {
     const allowed = LOG_KEYS[String(entry.event)] ?? [];
     expect(
       Object.keys(entry).every((key) => allowed.includes(key)),
+      line,
+    ).toBe(true);
+    const required = ['event', 'time', ...(LOG_REQUIRED_KEYS[String(entry.event)] ?? [])];
+    expect(
+      required.every((key) => Object.hasOwn(entry, key)),
       line,
     ).toBe(true);
   }
