@@ -59,6 +59,19 @@ export async function openSqlite(
     readwrite: true,
     strict: true,
   });
+  return readySqlite(database, path, options);
+}
+
+/**
+ * Ready `database`, opened from `path`, as the store: set its connection,
+ * refuse a foreign file, and migrate it, as {@link openSqlite} does. Closing
+ * the handle closes `database`; a failure closes it before it rethrows.
+ */
+export async function readySqlite(
+  database: Database,
+  path: string,
+  options: BunSqliteOptions & { onMigration?: (name: string) => void } = {},
+): Promise<SqliteHandle> {
   // Foreign keys and the busy timeout are per connection and must be set on
   // every open; neither writes to the file.
   database.run('pragma foreign_keys = on');

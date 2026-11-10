@@ -3,8 +3,8 @@ import { afterAll, beforeAll, expect, test } from 'bun:test';
 import { loomMcpSession } from './testing/mcp';
 import type { McpSession } from './testing/mcp';
 import { pinsOf, quoted } from './testing/pins';
-import { openBoard, stateChanges } from './testing/writes';
-import type { OpenBoard, Tokens } from './testing/writes';
+import { boardTemplate, openCopy, stateChanges } from './testing/writes';
+import type { BoardTemplate, OpenBoard, Tokens } from './testing/writes';
 
 /**
  * MCP structured-content parity (ADR 0037): "equal capability and equal
@@ -185,12 +185,14 @@ const pins = pinsOf(import.meta.url);
 const keys = new Map(CASES.map((c) => [c, pins.claim(c.name)]));
 const finalKey = pins.claim(FINAL_STATE);
 
+let template: BoardTemplate;
 let open: OpenBoard;
 let tokens: Record<string, string>;
 let loomServer: McpSession;
 
 beforeAll(async () => {
-  open = await openBoard();
+  template = await boardTemplate();
+  open = await openCopy(template);
   tokens = { ...open.tokens };
   loomServer = loomMcpSession(open.board.app('MMR'));
 });
@@ -217,7 +219,7 @@ test.each(CASES)('$name answers its pinned structured content', async (c) => {
 });
 
 test(FINAL_STATE, async () => {
-  pins.check(finalKey, `--- state\n${await stateChanges(open.board, tokens)}`);
+  pins.check(finalKey, `--- state\n${await stateChanges(open.board, tokens, template)}`);
 });
 
 test('a refusal is a failed call whose structured content is the failure form', async () => {

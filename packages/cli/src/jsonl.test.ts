@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test';
+import { beforeAll, expect, test } from 'bun:test';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -9,7 +9,8 @@ import { FROZEN_AT } from './testing/clock';
 import type { ParityBoard } from './testing/fixture';
 import { runNew } from './testing/parity';
 import type { ParityRun } from './testing/parity';
-import { bindCase, openBoard } from './testing/writes';
+import { bindCase, boardTemplate, openCopy } from './testing/writes';
+import type { BoardTemplate } from './testing/writes';
 
 /**
  * The `jsonl` view against the `json` view of the same command (ADR 0037), for
@@ -21,9 +22,10 @@ import { bindCase, openBoard } from './testing/writes';
  * other one, get and the writes that answer with a node or a receipt, as the
  * same indented document `json` prints. That second form is the old CLI's
  * `jsonl` bytes, which ADR 0037 keeps unchanged, so a change to it is a change
- * of contract and not a fix here. Each sample runs on its own fresh board per
- * format, both boards built the same way; the random Scratchpad ids read as
- * `<uuid>`, since they differ between the two boards by design.
+ * of contract and not a fix here. Each sample runs on its own copy of one
+ * board per format, so neither run sees the other's write; the random
+ * Scratchpad ids read as `<uuid>`, as a write that creates a pad draws a new
+ * one on each copy.
  */
 type Relation = 'compact' | 'same' | 'records';
 
@@ -187,9 +189,15 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const recordsOf = (document: unknown, key: string): unknown =>
   isRecord(document) ? document[key] : undefined;
 
-/** A sample run under one format, on a fresh board, its random ids named `<uuid>`. */
+/** The board every sample copies, built once. */
+let template: BoardTemplate;
+beforeAll(async () => {
+  template = await boardTemplate();
+});
+
+/** A sample run under one format, on its own copy of the board, its random ids named `<uuid>`. */
 async function under(sample: Sample, format: string): Promise<ParityRun> {
-  const open = await openBoard();
+  const open = await openCopy(template);
   try {
     await sample.before?.(open.board);
     const c = bindCase(argvCase([...sample.words, '-f', format]), {
@@ -204,7 +212,7 @@ async function under(sample: Sample, format: string): Promise<ParityRun> {
 }
 
 test('every command with a jsonl view is sampled here or held elsewhere', async () => {
-  const open = await openBoard();
+  const open = await openCopy(template);
   const declared: string[] = [];
   try {
     const visit = (

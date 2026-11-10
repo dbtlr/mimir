@@ -95,7 +95,7 @@ const CASES: DoctorCase[] = [
   argv('doctor -s MMR', { found: true, tty: true }),
 ];
 
-// Doctor reads, but a case adds findings to the board it runs on, so each runs on a fresh board.
+// Doctor reads, but a case adds findings to the board it runs on, so each runs on its own copy.
 writeCases(import.meta.url, CASES, undefined, (board, c) => {
   board.findings.push(...(c.found ? FINDINGS : []));
 });

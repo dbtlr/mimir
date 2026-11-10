@@ -26,15 +26,19 @@ export type TestStore = {
   /** The SQL doctor over this store. */
   doctor: DoctorBackend;
   tokens: TokenStore;
+  /** The database's bytes as they stand, which a later `createTestStore` copies. */
+  image: () => Uint8Array;
   close: () => Promise<void>;
 };
 
-export async function createTestStore(): Promise<TestStore> {
-  const test_ = await createSqliteTestStore();
+/** A fresh store, or with `image` a copy of the store whose `image` it is. */
+export async function createTestStore(image?: Uint8Array): Promise<TestStore> {
+  const test_ = await createSqliteTestStore(image);
   return {
     artifacts: test_.store.artifacts,
     close: test_.close,
     doctor: createSqlDoctorBackend(test_.db, sqliteDialect),
+    image: test_.image,
     seeds: test_.store.seeds,
     store: test_.store,
     tokens: createTokenStore({ db: test_.db, dialect: sqliteDialect }),
