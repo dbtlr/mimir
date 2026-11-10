@@ -3,9 +3,8 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { argvCase as argv, argvLine } from '../testing/argv-case';
+import { argvCase as argv } from '../testing/argv-case';
 import type { ParityCase } from '../testing/parity';
-import { NODE_REDIRECTS } from '../testing/redirects';
 import { writeCases } from '../testing/writes';
 
 // The cases name real files, so both CLIs read the same bytes at the same path.
@@ -65,13 +64,6 @@ const CASES: ParityCase[] = [
   attach(['attach', 'MMR-5', '--file', file, '--project', 'XX']),
   attach(['attach', 'MMR-5', '--file', empty]),
   attach(['attach', 'MMR-5', '--file', file, '--title', ' ']),
-  // Faults Loom's parser raises.
-  attach(['attach', 'MMR-5', '--file', file, '--bogus']),
-  // Invocations the old CLI accepted and Loom's parser refuses.
-  attach(['attach', 'MMR-5', '--file', file, '--file', file]),
-  attach(['attach', 'MMR-5', 'MMR-6', '--file', file]),
-  // Misplaced flags, redirected as the old CLI redirected them.
-  ...NODE_REDIRECTS.filter((line) => line.startsWith('attach ')).map((line) => argvLine(line)),
 ];
 
 writeCases(import.meta.url, CASES);

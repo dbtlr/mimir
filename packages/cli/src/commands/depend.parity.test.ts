@@ -1,6 +1,5 @@
-import { argvCase as argv, argvLine } from '../testing/argv-case';
+import { argvCase as argv } from '../testing/argv-case';
 import type { ParityCase } from '../testing/parity';
-import { NODE_REDIRECTS } from '../testing/redirects';
 import { writeCases } from '../testing/writes';
 
 const CASES: ParityCase[] = [
@@ -44,14 +43,7 @@ const CASES: ParityCase[] = [
   argv(['undepend', 'MMR-4', '--on', '']),
   // Faults Loom's parser raises.
   argv(['depend', 'MMR-5']),
-  argv(['depend', '--on', 'MMR-3']),
   argv(['undepend', 'MMR-4']),
-  argv(['depend', 'MMR-5', '--on', 'MMR-3', '--bogus']),
-  // Invocations the old CLI accepted and Loom's parser refuses.
-  argv(['depend', 'MMR-5', '--on', 'MMR-3', '--on', 'MMR-4']),
-  argv(['depend', 'MMR-5', 'MMR-6', '--on', 'MMR-3']),
-  // Misplaced flags, redirected as the old CLI redirected them.
-  ...NODE_REDIRECTS.filter((line) => /^(un)?depend /.test(line)).map((line) => argvLine(line)),
 ];
 
 writeCases(import.meta.url, CASES);

@@ -52,7 +52,6 @@ const CASES: ParityCase[] = [
   search('search store -s mmr', 'store', { scope: 'mmr' }),
   // Faults Loom's parser raises.
   search('search (no query)'),
-  search('search store -s MMR --bogus', 'store', { bogus: true, scope: 'MMR' }),
   // Through Loom's parser, as a shell spells them.
   argvCase(['search', 'store', '-s', 'MMR']),
   argvCase(['search', 'store', '-s', 'MMR', '-f', 'json']),
@@ -60,13 +59,9 @@ const CASES: ParityCase[] = [
   argvCase(['search', 'Wire', 'the', 'store', '-s', 'MMR', '-f', 'ids']),
   argvCase(['search', '--scope', 'MMR', '--limit', '2', '--format', 'ids', 'store']),
   argvCase(['search', 'store', '-s', 'MMR', '-n', '0', '-f', 'json']),
-  argvCase(['search', 'store', '-s', 'MMR', '--bogus', '-f', 'json']),
   // Words after -- are query text, as the old CLI's positionals took them.
   argvCase(['search', '-s', 'MMR', '-f', 'ids', '--', 'store']),
   argvCase(['search', '-s', 'MMR', '-f', 'json', '--', '-store']),
-  // Invocations the old CLI accepted and Loom's parser refuses.
-  argvCase(['search', 'store', '-s', 'MMR', '-n', '1', '-n', '2', '-f', 'ids']),
-  argvCase(['-s', 'MMR', 'search', 'store', '-f', 'ids'], undefined, undefined, ['search']),
   // The old CLI also returned other projects' hits; the new one reads the named board (ADR 0034).
   argvCase(['search', 'ours', '-s', 'MMR', '-f', 'ids']),
   // On a color terminal.

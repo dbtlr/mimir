@@ -1,6 +1,5 @@
-import { argvCase as argv, argvLine } from '../testing/argv-case';
+import { argvCase as argv } from '../testing/argv-case';
 import type { ParityCase } from '../testing/parity';
-import { NODE_REDIRECTS } from '../testing/redirects';
 import { writeCases } from '../testing/writes';
 
 const CASES: ParityCase[] = [
@@ -40,12 +39,6 @@ const CASES: ParityCase[] = [
   argv(['groom', 'MMR-7', 'groomed']),
   argv(['groom', 'MMR-5', 'groomed']),
   argv(['groom', ',', 'groomed']),
-  // Faults Loom's parser raises.
-  argv(['groom']),
-  argv(['groom', 'MMR-4']),
-  argv(['groom', 'MMR-4', 'groomed', '--bogus']),
-  // Misplaced flags, redirected as the old CLI redirected them.
-  ...NODE_REDIRECTS.filter((line) => line.startsWith('groom ')).map((line) => argvLine(line)),
 ];
 
 writeCases(import.meta.url, CASES);

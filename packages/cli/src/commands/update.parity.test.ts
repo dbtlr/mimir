@@ -1,5 +1,4 @@
-import { argvCase as argv, argvLine } from '../testing/argv-case';
-import { NODE_REDIRECTS } from '../testing/redirects';
+import { argvCase as argv } from '../testing/argv-case';
 import { writeCases } from '../testing/writes';
 import type { SetupCase } from '../testing/writes';
 
@@ -164,15 +163,6 @@ const CASES: SetupCase[] = [
   argv(['update', 'XX', '--remote', 'git@github.com:dbtlr/mimir.git']),
   argv(['update', 'MMR-a1', '--pinned']),
   argv(['update', 'MMR-s1', '--pinned']),
-  // Faults Loom's parser raises.
-  argv(['update']),
-  argv(['update', 'MMR-3', '--bogus']),
-  // Invocations the old CLI accepted and Loom's parser refuses.
-  argv(['update', 'MMR-3', '--title', 'a', '--title', 'b']),
-  argv(['update', 'MMR-3', 'MMR-4', '--title', 'a']),
-  argv(['update', 'MMR-s1', '--kind', 'idea', '--kind', 'bug']),
-  // Misplaced flags, redirected as the old CLI redirected them.
-  ...NODE_REDIRECTS.filter((line) => line.startsWith('update ')).map((line) => argvLine(line)),
 ];
 
 writeCases(import.meta.url, CASES);

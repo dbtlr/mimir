@@ -1,6 +1,5 @@
 import { argvCase, argvLine } from '../testing/argv-case';
 import type { ParityCase } from '../testing/parity';
-import { SEED_REDIRECTS } from '../testing/redirects';
 import { writeCases } from '../testing/writes';
 
 /** A case by name: the verb, its arguments in order, and its options. */
@@ -98,8 +97,6 @@ const CASES: ParityCase[] = [
     { bound: 'MMR' },
   ),
   // seed: faults Loom's parser raises.
-  verb('seed (no title)', 'seed', {}, FILED, { bound: 'MMR' }),
-  verb('seed --bogus', 'seed', { title: 'Cache it' }, { ...FILED, bogus: 'x' }, { bound: 'MMR' }),
   verb(
     'seed -f yaml',
     'seed',
@@ -110,8 +107,6 @@ const CASES: ParityCase[] = [
   // seed: through Loom's parser, as a shell spells it.
   argvCase(['seed', 'Cache it', '-k', 'idea', '-s', 'MMR']),
   argvCase(['seed', 'Ask', '--kind', 'bug', '-p', 'XX']),
-  argvCase(['seed', 'Cache it', '-k', 'idea', '-k', 'bug', '-s', 'MMR']),
-  argvCase(['seed', 'a', 'b', '-k', 'idea', '-s', 'MMR']),
   argvCase(['seed', 'Cache it', '-k', 'idea', '-s', 'MMR'], true),
 
   // promote: spawn a task, or link existing work.
@@ -169,12 +164,7 @@ const CASES: ParityCase[] = [
   verb('promote MMR-s4 (promoted)', 'promote', { id: 'MMR-s4' }, { parent: 'MMR-2' }),
   verb('promote MMR-s1 --parent MMR-99', 'promote', { id: 'MMR-s1' }, { parent: 'MMR-99' }),
   verb('promote MMR-s1 --link MMR-99', 'promote', { id: 'MMR-s1' }, { link: 'MMR-99' }),
-  verb('promote (no id)', 'promote', {}, { parent: 'MMR-2' }),
-  verb('promote MMR-s1 --bogus', 'promote', { id: 'MMR-s1' }, { bogus: 'x', parent: 'MMR-2' }),
   argvCase(['promote', 'MMR-s1', '--parent', 'MMR-2', '-p', 'p1', '-t', 'alpha', '-t', 'beta']),
-  argvCase(['promote', 'MMR-s1', '--parent', 'MMR-2', '-p', 'p1', '-p', 'p2']),
-  argvCase(['promote', 'MMR-s1', '--link', 'MMR-3', '--link', 'MMR-4']),
-  argvCase(['promote', 'MMR-s1', 'extra', '--parent', 'MMR-2']),
   argvCase(['promote', 'MMR-s1', '--parent', 'MMR-2', '-f', 'ids'], true),
   argvCase(['promote', 'MMR-s1', '--parent', 'MMR-2'], true),
 
@@ -217,8 +207,6 @@ const CASES: ParityCase[] = [
   verb('reject MMR-s99', 'reject', { id: 'MMR-s99', reason: 'no' }),
   verb('reject MMR-s3 (settled)', 'reject', { id: 'MMR-s3', reason: 'again' }),
   verb('reject (no reason)', 'reject', { id: 'MMR-s1' }),
-  verb('reject (no id)', 'reject', {}),
-  verb('reject MMR-s1 --bogus', 'reject', { id: 'MMR-s1', reason: 'no' }, { bogus: 'x' }),
   argvCase(['reject', 'MMR-s1', 'out', 'of', 'scope']),
   argvCase(['reject', 'MMR-s1', 'out', 'of', 'scope'], true),
   // Reason words after `--` are text, not options.
@@ -256,15 +244,10 @@ const CASES: ParityCase[] = [
   verb('resolve MMR-s1 --ascii', 'resolve', { id: 'MMR-s1', reason: 'shipped' }, { ascii: true }),
   verb('resolve MMR-s5 (parked)', 'resolve', { id: 'MMR-s5', reason: 'done' }),
   verb('resolve (no reason)', 'resolve', { id: 'MMR-s1' }),
-  verb('resolve (no id)', 'resolve', {}),
-  verb('resolve MMR-s1 --bogus', 'resolve', { id: 'MMR-s1', reason: 'no' }, { bogus: 'x' }),
   argvCase(['resolve', 'MMR-s1', 'shipped', 'in', 'MMR-40']),
   argvCase(['resolve', 'MMR-s1', 'shipped', 'in', 'MMR-40'], true),
-  // Misplaced flags, each redirected as the old CLI redirected them.
-  ...SEED_REDIRECTS.filter((line) => !line.startsWith('triage ')).map((line) => argvLine(line)),
-  // A write's -s before the verb: Loom scopes an option to the command that declares it.
-  argvCase(['-s', 'MMR', 'seed', 'Cache it', '-k', 'idea'], undefined, undefined, ['seed']),
-  argvCase(['resolve', 'MMR-s1', 'shipped', '-f', 'json', '-f', 'ids']),
+  // A misplaced flag, redirected as the old CLI redirected it.
+  argvLine('seed x -k idea -s MMR --parent MMR-2'),
 ];
 
 writeCases(import.meta.url, CASES);

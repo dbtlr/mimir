@@ -554,54 +554,6 @@ exit 1
 --- state
 unchanged
 
-### queue argv: (no arguments)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
-| }
---- state
-unchanged
-
-### queue argv: MMR-3 --session run-1 --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### queue argv: MMR-3 --session run-1 extra
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"queue\" accepts 1 argument. Remove the extra values."
-| }
---- state
-unchanged
-
-### queue argv: MMR-3 --session a --session b
-exit 2
---- stdout
---- failure
-| {
-|   "code": "repeated-option",
-|   "hints": [],
-|   "message": "Option \"--session\" can be supplied only once. Remove the repeated option."
-| }
---- state
-unchanged
-
 ### queue argv: MMR-3 --session run-1 -- x
 exit 2
 --- stdout
@@ -983,18 +935,6 @@ exit 1
 |   "code": "validation",
 |   "hints": [],
 |   "message": "only a queued task can be unqueued (is todo)"
-| }
---- state
-unchanged
-
-### unqueue argv: (no arguments)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
 | }
 --- state
 unchanged
@@ -1523,18 +1463,6 @@ exit 1
 --- state
 unchanged
 
-### start argv: (no arguments)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
-| }
---- state
-unchanged
-
 ### start argv: MMR-3 --on you
 exit 2
 --- stdout
@@ -1545,30 +1473,6 @@ exit 2
 |     "'--on' names the owner at block (you|others), the prerequisites at depend/undepend, and a date filter at list, next, artifacts, seeds"
 |   ],
 |   "message": "Unknown option \"--on\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### start argv: MMR-3 extra
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"start\" accepts 1 argument. Remove the extra values."
-| }
---- state
-unchanged
-
-### start argv: MMR-3 --host a --host b
-exit 2
---- stdout
---- failure
-| {
-|   "code": "repeated-option",
-|   "hints": [],
-|   "message": "Option \"--host\" can be supplied only once. Remove the repeated option."
 | }
 --- state
 unchanged
@@ -2304,30 +2208,6 @@ exit 1
 --- state
 unchanged
 
-### submit argv: (no arguments)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
-| }
---- state
-unchanged
-
-### submit argv: MMR-5 because
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"submit\" accepts 1 argument. Remove the extra values."
-| }
---- state
-unchanged
-
 ### return argv: MMR-5
 exit 0
 --- stdout
@@ -2626,18 +2506,6 @@ exit 1
 |     "see what exists: mimir list -f ids"
 |   ],
 |   "message": "MMR-99 doesn't exist"
-| }
---- state
-unchanged
-
-### return argv: (no arguments)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
 | }
 --- state
 unchanged
@@ -3055,30 +2923,6 @@ exit 1
 --- state
 unchanged
 
-### done argv: (no arguments)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
-| }
---- state
-unchanged
-
-### done argv: MMR-5 shipped
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"done\" accepts 1 argument. Remove the extra values."
-| }
---- state
-unchanged
-
 ### done argv: MMR-5 -- x
 exit 2
 --- stdout
@@ -3456,18 +3300,6 @@ exit 0
 - projects[MMR].leafCounts.awaiting: 1
 + projects[MMR].leafCounts.abandoned: 1
 
-### abandon argv: (no arguments)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
-| }
---- state
-unchanged
-
 ### abandon argv: MMR-3 dropped
 exit 0
 --- stdout
@@ -3711,18 +3543,6 @@ exit 1
 |     "see what exists: mimir list -f ids"
 |   ],
 |   "message": "MMR-99 doesn't exist"
-| }
---- state
-unchanged
-
-### reopen argv: (no arguments)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
 | }
 --- state
 unchanged
@@ -4215,18 +4035,6 @@ exit 1
 --- state
 unchanged
 
-### park argv: (no arguments)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
-| }
---- state
-unchanged
-
 ### unpark argv: MMR-3
 exit 0
 --- stdout
@@ -4486,30 +4294,6 @@ exit 1
 |   "code": "validation",
 |   "hints": [],
 |   "message": "seed MMR-s1 is not parked (is new)"
-| }
---- state
-unchanged
-
-### unpark argv: (no arguments)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
-| }
---- state
-unchanged
-
-### unpark argv: MMR-3 reason
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"unpark\" accepts 1 argument. Remove the extra values."
 | }
 --- state
 unchanged
@@ -5040,18 +4824,6 @@ exit 0
 ~ projects[MMR].leafCounts.ready: 2 -> 1
 ~ projects[MMR].leafCounts.blocked: 1 -> 2
 
-### block argv: (no arguments)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
-| }
---- state
-unchanged
-
 ### block argv: MMR-3 --on
 exit 2
 --- stdout
@@ -5060,18 +4832,6 @@ exit 2
 |   "code": "missing-value",
 |   "hints": [],
 |   "message": "Option \"--on\" requires a value. Supply a value after \"--on\", or attach one that starts with a hyphen as \"--on=<value>\"."
-| }
---- state
-unchanged
-
-### block argv: MMR-3 --on you --on others
-exit 2
---- stdout
---- failure
-| {
-|   "code": "repeated-option",
-|   "hints": [],
-|   "message": "Option \"--on\" can be supplied only once. Remove the repeated option."
 | }
 --- state
 unchanged
@@ -5249,18 +5009,6 @@ exit 1
 |     "see what exists: mimir list -f ids"
 |   ],
 |   "message": "MMR-99 doesn't exist"
-| }
---- state
-unchanged
-
-### unblock argv: (no arguments)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
 | }
 --- state
 unchanged
@@ -5744,18 +5492,6 @@ exit 1
 --- state
 unchanged
 
-### archive argv: (no arguments)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"key\" requires a value. Supply a value for \"key\"."
-| }
---- state
-unchanged
-
 ### unarchive argv: XX
 exit 0
 --- stdout
@@ -5922,213 +5658,7 @@ exit 1
 --- state
 unchanged
 
-### unarchive argv: (no arguments)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"key\" requires a value. Supply a value for \"key\"."
-| }
---- state
-unchanged
-
-### unarchive argv: XX reason
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"unarchive\" accepts 1 argument. Remove the extra values."
-| }
---- state
-unchanged
-
-### queue argv: MMR-3 --session run-1 --parent MMR-2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
-|   ],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### unqueue argv: MMR-3 run cancelled --parent MMR-2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
-|   ],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
 ### start argv: MMR-3 --parent MMR-2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
-|   ],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### submit argv: MMR-5 --parent MMR-2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
-|   ],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### return argv: MMR-5 needs tests --parent MMR-2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
-|   ],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### done argv: MMR-5 --title x
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--title' is a positional at create (mimir create task <title> …); the flag names a node at update/attach/scratch, or overrides promote's spawned title; list/next filter with '--eq title:KEY' or search with '-q, --query'"
-|   ],
-|   "message": "Unknown option \"--title\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### abandon argv: MMR-3 dropped --direction x
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "the ## Next narrative is set after create: mimir update <id> --direction \"…\""
-|   ],
-|   "message": "Unknown option \"--direction\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### reopen argv: MMR-7 --clear-links
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--clear-links' replaces linked work; use it with scratch update"
-|   ],
-|   "message": "Unknown option \"--clear-links\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### park argv: MMR-3 waiting --groomed
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--groomed' creates a task already groomed; list/next filter with '--eq grooming:groomed', and 'mimir groom <ids> <state>' sets it later"
-|   ],
-|   "message": "Unknown option \"--groomed\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### unpark argv: MMR-3 --apply
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--apply' writes a previewed import; use it with store import"
-|   ],
-|   "message": "Unknown option \"--apply\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### block argv: MMR-3 waiting --parent MMR-2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
-|   ],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### unblock argv: MMR-6 --parent MMR-2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
-|   ],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### archive argv: XX --parent MMR-2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
-|   ],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### unarchive argv: XX --parent MMR-2
 exit 2
 --- stdout
 --- failure

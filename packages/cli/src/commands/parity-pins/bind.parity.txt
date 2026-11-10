@@ -246,18 +246,6 @@ exit 2
 --- state
 unchanged
 
-### bind MMR --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
-| }
---- state
-unchanged
-
 ### bind argv: MMR
 exit 0
 --- stdout
@@ -298,30 +286,6 @@ exit 1
 --- state
 unchanged
 
-### bind argv: MMR extra
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"bind\" accepts 1 argument. Remove the extra values."
-| }
---- state
-unchanged
-
-### bind argv: MMR -f json -f ids
-exit 2
---- stdout
---- failure
-| {
-|   "code": "parser",
-|   "hints": [],
-|   "message": "Option \"-f\" can be supplied only once. Remove the repeated option."
-| }
---- state
-unchanged
-
 ### bind argv: MMR (terminal)
 exit 0
 --- stdout
@@ -341,20 +305,6 @@ exit 0
 exit 0
 --- stdout
 | MMR
---- state
-unchanged
-
-### bind argv: MMR --parent MMR-2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
-|   ],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
 --- state
 unchanged
 

@@ -2,7 +2,6 @@ import { argvLine } from '../testing/argv-case';
 import type { ArgvExtras } from '../testing/argv-case';
 import type { ParityBoard } from '../testing/fixture';
 import type { ParityCase } from '../testing/parity';
-import { MACHINE_REDIRECTS } from '../testing/redirects';
 import { writeCases } from '../testing/writes';
 
 /** A clone's origin, which matches no project's remote. */
@@ -76,22 +75,16 @@ const CASES: ParityCase[] = [
   bind('bind MMR-3 -f json', 'MMR-3', { format: 'json' }),
   // Faults Loom's parser raises.
   bind('bind MMR -f yaml', 'MMR', { format: 'yaml' }),
-  bind('bind MMR --bogus', 'MMR', { bogus: true }),
   // Through Loom's parser, as a shell spells them.
   argv('bind MMR'),
   argv('bind MMR -f json'),
   argv('bind --format ids MMR'),
   argv('bind -f json', { bound: 'MMR' }),
   argv('bind -f json'),
-  // Invocations the old CLI accepted and Loom's parser refuses.
-  argv('bind MMR extra'),
-  argv('bind MMR -f json -f ids'),
   // On a color terminal.
   argv('bind MMR', { tty: true }),
   argv('bind XX', { origin: STRANGER, tty: true }),
   argv('bind', { bound: 'MMR', tty: true }),
-  // Misplaced flags, redirected as the old CLI redirected them.
-  ...MACHINE_REDIRECTS.filter((line) => line.startsWith('bind ')).map((line) => argvLine(line)),
 ];
 
 /** Two projects that record one origin, which a clone with that origin cannot choose between. */

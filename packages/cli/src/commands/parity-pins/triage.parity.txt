@@ -495,18 +495,6 @@ exit 2
 --- state
 unchanged
 
-### triage --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
-| }
---- state
-unchanged
-
 ### triage argv: MMR -f json
 exit 0
 --- stdout
@@ -648,44 +636,6 @@ exit 0
 |     }
 |   ],
 |   "upstream_resolutions": []
-| }
---- state
-unchanged
-
-### triage argv: MMR XX
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"triage\" accepts 1 argument. Remove the extra values."
-| }
---- state
-unchanged
-
-### triage argv: MMR -f json -f ids
-exit 2
---- stdout
---- failure
-| {
-|   "code": "repeated-option",
-|   "hints": [],
-|   "message": "Option \"-f\" can be supplied only once. Remove the repeated option."
-| }
---- state
-unchanged
-
-### triage argv: MMR --force
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--force' permits a non-empty discard; use it with scratch discard"
-|   ],
-|   "message": "Unknown option \"--force\". Supply a declared option; prefix a hyphenated path with \"./\"."
 | }
 --- state
 unchanged

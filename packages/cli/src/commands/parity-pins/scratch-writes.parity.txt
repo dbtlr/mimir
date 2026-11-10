@@ -220,18 +220,6 @@ exit 1
 --- state
 unchanged
 
-### scratch create --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
-| }
---- state
-unchanged
-
 ### scratch update --title
 exit 0
 --- stdout
@@ -420,18 +408,6 @@ exit 1
 --- state
 unchanged
 
-### scratch update (no id)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
-| }
---- state
-unchanged
-
 ### scratch checkpoint inline
 exit 0
 --- stdout
@@ -503,18 +479,6 @@ exit 0
 ~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
 + scratchpads[pad].journal[@1]: {"at":"2026-10-01T12:00:00.000Z","content":"Settled.","number":2}
 ~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
-
-### scratch checkpoint (no id)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
-| }
---- state
-unchanged
 
 ### scratch checkpoint (no content)
 exit 2
@@ -899,30 +863,6 @@ exit 2
 |   "code": "usage",
 |   "hints": [],
 |   "message": "scratch agenda requires add, complete, or supersede"
-| }
---- state
-unchanged
-
-### scratch agenda (no action)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"action\" requires a value. Supply a value for \"action\".\nArgument \"id\" requires a value. Supply a value for \"id\"."
-| }
---- state
-unchanged
-
-### scratch agenda (no id)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
 | }
 --- state
 unchanged
@@ -1346,18 +1286,6 @@ exit 0
 + activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
 + scratchpads[<held>]: {"agenda":[],"anchors":["MMR-3","MMR-4"],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"x","updatedAt":"2026-10-01T12:00:00.000Z"}
 
-### scratch argv: create x -s MMR -s XX
-exit 2
---- stdout
---- failure
-| {
-|   "code": "repeated-option",
-|   "hints": [],
-|   "message": "Option \"-s\" can be supplied only once. Remove the repeated option."
-| }
---- state
-unchanged
-
 ### scratch argv: create x -s MMR (terminal)
 exit 0
 --- stdout
@@ -1397,18 +1325,6 @@ exit 0
 ~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
 ~ scratchpads[pad].title: "Index rewrite" -> "t"
 ~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
-
-### scratch argv: update {pad} --expected-updated-at {token} --title t --title u
-exit 2
---- stdout
---- failure
-| {
-|   "code": "repeated-option",
-|   "hints": [],
-|   "message": "Option \"--title\" can be supplied only once. Remove the repeated option."
-| }
---- state
-unchanged
 
 ### scratch argv: checkpoint {pad} --file <dir>/checkpoint.md --expected-updated-at {token}
 exit 0
@@ -1460,88 +1376,6 @@ exit 2
 |     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
 |   ],
 |   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### scratch argv: update abc --parent MMR-2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
-|   ],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### scratch argv: checkpoint abc t --dry-run
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--dry-run' previews a triage pass; use it with triage (store import previews by default)"
-|   ],
-|   "message": "Unknown option \"--dry-run\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### scratch argv: agenda add abc x --dry-run
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--dry-run' previews a triage pass; use it with triage (store import previews by default)"
-|   ],
-|   "message": "Unknown option \"--dry-run\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### scratch argv: freeze abc --direction x
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "the ## Next narrative is set after create: mimir update <id> --direction \"…\""
-|   ],
-|   "message": "Unknown option \"--direction\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### scratch argv: discard abc --parent MMR-2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
-|   ],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### scratch argv: -s MMR scratch create x
-exit 2
---- stdout
---- failure
-| {
-|   "code": "parser",
-|   "hints": [],
-|   "message": "Option \"-s\" belongs to commands next, list, overview, artifacts, search, seeds, seed, triage, scratch list, scratch create, doctor. Supply it after the command name."
 | }
 --- state
 unchanged

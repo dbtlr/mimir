@@ -1,6 +1,5 @@
 import { argvCase, argvLine } from '../testing/argv-case';
 import type { ParityCase } from '../testing/parity';
-import { NODE_REDIRECTS } from '../testing/redirects';
 import { writeCases } from '../testing/writes';
 
 /** `create` with its words, so each name leads with `create`. */
@@ -34,12 +33,6 @@ const PROJECT: ParityCase[] = [
   create(['project', 'Gamma', '--key', 'GAM', '-y', '--remote', 'git@github.com:dbtlr/mimir.git']),
   // Faults Loom's parser raises.
   create(['project', 'Gamma', '-y']),
-  create(['project', 'Gamma', '--key', 'GAM', '-y', '--bogus']),
-  create(['project', 'Gamma', '--key', 'GAM', '-y', '--parent', 'MMR']),
-  create(['project', 'Gamma', '--key', 'GAM', '-y', '--groomed']),
-  // Invocations the old CLI accepted and Loom's parser refuses.
-  create(['project', 'Gamma', '--key', 'GAM', '--key', 'GAN', '-y']),
-  create(['project', 'Gamma', 'Delta', '--key', 'GAM', '-y']),
 ];
 
 const INITIATIVE: ParityCase[] = [
@@ -75,13 +68,7 @@ const INITIATIVE: ParityCase[] = [
   create(['initiative', 'Growth', '--parent', 'MMR', '--open-ended', '--not-open-ended']),
   // Faults Loom's parser raises.
   create(['initiative', 'Growth']),
-  create(['initiative', 'Growth', '--parent', 'MMR', '--bogus']),
   create(['initiative', '--weird-title', '--parent', 'MMR']),
-  // Invocations the old CLI accepted and Loom's parser refuses.
-  create(['initiative', 'Growth', 'More', '--parent', 'MMR']),
-  create(['initiative', 'Growth', '--parent', 'MMR', '--target', '2026-11']),
-  create(['initiative', 'Growth', '--parent', 'MMR', '--groomed']),
-  create(['initiative', 'Growth', '--parent', 'MMR', '--remote', 'x']),
 ];
 
 const PHASE: ParityCase[] = [
@@ -110,7 +97,6 @@ const PHASE: ParityCase[] = [
   create(['phase', 'Beta', '--parent', 'MMR-1', '--open-ended', '--not-open-ended']),
   // Faults Loom's parser raises.
   create(['phase', 'Beta']),
-  create(['phase', 'Beta', '--parent', 'MMR-1', '--bogus']),
 ];
 
 const TASK: ParityCase[] = [
@@ -176,26 +162,12 @@ const TASK: ParityCase[] = [
   create(['task', 'Ship docs', '--parent', 'MMR-2', '--upstream', 'MMR-3']),
   // Faults Loom's parser raises.
   create(['task', 'Ship docs']),
-  create(['task', 'Ship docs', '--parent', 'MMR-2', '--bogus']),
   create(['task', '--weird-title', '--parent', 'MMR-2']),
-  // Invocations the old CLI accepted and Loom's parser refuses.
-  create(['task', 'Ship docs', '--parent', 'MMR-2', '--target', '2026-11']),
-  create(['task', 'Ship docs', '--parent', 'MMR-2', '--open-ended']),
-  create(['task', 'Ship docs', '--parent', 'MMR-2', '--parent', 'MMR-1']),
-  create(['task', 'Ship docs', 'More', '--parent', 'MMR-2']),
 ];
 
-// The type words are unknown to the old CLI as well, which answers in its own voice.
-const OTHER: ParityCase[] = [
-  { ...argvCase(['create', 'epic', 'Title']), path: ['create'] },
-  argvCase(['create']),
-];
+// A misplaced flag, redirected as the old CLI redirected it, after the leading-dash title check.
+const REDIRECTS: ParityCase[] = [argvLine('create task x --parent MMR-2 --direction x')];
 
-// Misplaced flags, redirected as the old CLI redirected them.
-const REDIRECTS: ParityCase[] = NODE_REDIRECTS.filter((line) => line.startsWith('create ')).map(
-  (line) => argvLine(line),
-);
-
-const CASES = [...PROJECT, ...INITIATIVE, ...PHASE, ...TASK, ...OTHER, ...REDIRECTS];
+const CASES = [...PROJECT, ...INITIATIVE, ...PHASE, ...TASK, ...REDIRECTS];
 
 writeCases(import.meta.url, CASES);

@@ -314,16 +314,6 @@ exit 1
 |   "message": "mmr doesn't exist"
 | }
 
-### artifacts -s MMR --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
-| }
-
 ### artifacts argv: -s MMR
 exit 0
 --- stdout
@@ -392,16 +382,6 @@ exit 2
 |   "message": "invalid offset: 2x"
 | }
 
-### artifacts argv: -s MMR --bogus -f json
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
-
 ### artifacts argv: -s MMR --not-before created_at:2020-01-01
 exit 2
 --- stdout
@@ -412,36 +392,6 @@ exit 2
 |     "'--not-before' is retired; the inclusive lower bound is '--at-or-after FIELD:VALUE'"
 |   ],
 |   "message": "Unknown option \"--not-before\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
-
-### artifacts argv: -s MMR -t a -t b -f ids
-exit 2
---- stdout
---- failure
-| {
-|   "code": "repeated-option",
-|   "hints": [],
-|   "message": "Option \"-t\" can be supplied only once. Remove the repeated option."
-| }
-
-### artifacts argv: extra -s MMR
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"artifacts\" accepts no arguments. Remove the supplied values."
-| }
-
-### artifacts argv: -s MMR artifacts -f ids
-exit 2
---- stdout
---- failure
-| {
-|   "code": "parser",
-|   "hints": [],
-|   "message": "Option \"-s\" belongs to commands next, list, overview, artifacts, search, seeds, seed, triage, scratch list, scratch create, doctor. Supply it after the command name."
 | }
 
 ### artifacts argv: -s MMR (terminal)

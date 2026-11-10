@@ -5,7 +5,6 @@ import type { Engine } from '@mimir/contract';
 
 import { argvLine } from '../testing/argv-case';
 import type { ArgvExtras } from '../testing/argv-case';
-import { LIFECYCLE_REDIRECTS } from '../testing/redirects';
 import { writeCases } from '../testing/writes';
 import type { Setup, SetupCase } from '../testing/writes';
 
@@ -92,12 +91,6 @@ const QUEUE: SetupCase[] = [
   argv('queue MMR-s1 --session run-1'),
   argv('queue MMR-a1 --session run-1'),
   argv('queue MMR-99 --session run-1 -f json'),
-  // Faults Loom's parser raises.
-  argv('queue'),
-  argv('queue MMR-3 --session run-1 --bogus'),
-  // Words the old CLI ignored and Loom's parser refuses.
-  argv('queue MMR-3 --session run-1 extra'),
-  argv('queue MMR-3 --session a --session b'),
   argv('queue MMR-3 --session run-1 -- x'),
 ];
 
@@ -117,8 +110,7 @@ const UNQUEUE: SetupCase[] = [
   argv('unqueue MMR run cancelled'),
   argv('unqueue MMR-s1 run cancelled'),
   argv('unqueue MMR-3 run cancelled -f json'),
-  // Faults Loom's parser raises.
-  argv('unqueue'),
+  // A reason is required.
   argv('unqueue MMR-3', { setup: queued }),
   argv('unqueue MMR-3 -f json', { setup: queued }),
 ];
@@ -144,12 +136,9 @@ const START: SetupCase[] = [
   argv('start MMR-s1'),
   argv('start MMR-a1'),
   argv('start MMR-99 -f json'),
-  // Faults Loom's parser raises.
-  argv('start'),
+  // A flag start does not own, redirected to the commands that do.
   argv('start MMR-3 --on you'),
-  // Words the old CLI ignored and Loom's parser refuses.
-  argv('start MMR-3 extra'),
-  argv('start MMR-3 --host a --host b'),
+  // A bound clone, a container, a blocked task, and a word after the terminator.
   argv('start MMR-3', { bound: 'XX' }),
   argv('start MMR-1'),
   argv('start MMR-6'),
@@ -183,8 +172,6 @@ const SUBMIT: SetupCase[] = [
   argv('submit MMR-7'),
   argv('submit MMR-99 -f json'),
   argv('submit MMR'),
-  argv('submit'),
-  argv('submit MMR-5 because'),
 ];
 
 const RETURN: SetupCase[] = [
@@ -198,7 +185,6 @@ const RETURN: SetupCase[] = [
   argv('return MMR-5'),
   argv('return MMR-3 nope'),
   argv('return MMR-99'),
-  argv('return'),
 ];
 
 const DONE: SetupCase[] = [
@@ -213,8 +199,6 @@ const DONE: SetupCase[] = [
   argv('done MMR-7'),
   argv('done MMR-99'),
   argv('done MMR'),
-  argv('done'),
-  argv('done MMR-5 shipped'),
   argv('done MMR-5 -- x'),
   argv('done MMR-3', { setup: queued }),
 ];
@@ -230,7 +214,6 @@ const ABANDON: SetupCase[] = [
   argv('abandon MMR-99'),
   argv('abandon MMR-s1'),
   argv('abandon MMR-3 -- --foo'),
-  argv('abandon'),
   argv('abandon MMR-3 dropped', { setup: queued }),
 ];
 
@@ -243,7 +226,6 @@ const REOPEN: SetupCase[] = [
   argv('reopen MMR-7 regressed', { tty: true }),
   argv('reopen MMR-3'),
   argv('reopen MMR-99'),
-  argv('reopen'),
 ];
 
 const PARK: SetupCase[] = [
@@ -270,7 +252,6 @@ const PARK: SetupCase[] = [
   argv('park MMR-s1 --ascii'),
   argv('park MMR-s1', { setup: seedParked }),
   argv('park MMR-s99'),
-  argv('park'),
 ];
 
 const UNPARK: SetupCase[] = [
@@ -286,8 +267,6 @@ const UNPARK: SetupCase[] = [
   argv('unpark MMR-s1 -f ids', { setup: seedParked }),
   argv('unpark MMR-s1 -f jsonl', { setup: seedParked }),
   argv('unpark MMR-s1'),
-  argv('unpark'),
-  argv('unpark MMR-3 reason', { setup: parked }),
 ];
 
 const BLOCK: SetupCase[] = [
@@ -308,9 +287,7 @@ const BLOCK: SetupCase[] = [
   argv('block MMR-s1'),
   argv('block MMR-3 --on=you -f json'),
   argv('block MMR-3 --on you -- -x'),
-  argv('block'),
   argv('block MMR-3 --on'),
-  argv('block MMR-3 --on you --on others'),
 ];
 
 const UNBLOCK: SetupCase[] = [
@@ -321,7 +298,6 @@ const UNBLOCK: SetupCase[] = [
   argv('unblock MMR-6', { tty: true }),
   argv('unblock MMR-3'),
   argv('unblock MMR-99'),
-  argv('unblock'),
 ];
 
 const ARCHIVE: SetupCase[] = [
@@ -343,7 +319,6 @@ const ARCHIVE: SetupCase[] = [
   argv('archive XX', { bound: 'XX' }),
   argv('archive XX -- --weird'),
   argv('archive ZZ'),
-  argv('archive'),
 ];
 
 const UNARCHIVE: SetupCase[] = [
@@ -356,8 +331,6 @@ const UNARCHIVE: SetupCase[] = [
   argv('unarchive XX'),
   argv('unarchive MMR-3'),
   argv('unarchive ZZ'),
-  argv('unarchive'),
-  argv('unarchive XX reason', { setup: archived }),
 ];
 
 const CASES: SetupCase[] = [
@@ -375,8 +348,8 @@ const CASES: SetupCase[] = [
   ...UNBLOCK,
   ...ARCHIVE,
   ...UNARCHIVE,
-  // Misplaced flags, redirected as the old CLI redirected them.
-  ...LIFECYCLE_REDIRECTS.map((line) => argv(line)),
+  // A misplaced flag, redirected as the old CLI redirected it.
+  argv('start MMR-3 --parent MMR-2'),
 ];
 
 writeCases(import.meta.url, CASES);

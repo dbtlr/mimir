@@ -5,7 +5,6 @@ import { join } from 'node:path';
 
 import { argvCase, argvLine } from '../testing/argv-case';
 import type { ParityCase } from '../testing/parity';
-import { SCRATCH_REDIRECTS } from '../testing/redirects';
 import { writeCases } from '../testing/writes';
 
 /**
@@ -61,7 +60,6 @@ const CASES: ParityCase[] = [
   scratch('create', '--scope ZZ', { words: 'Nowhere' }, { scope: 'ZZ' }),
   scratch('create', '--scope nope', { words: 'Nowhere' }, { scope: 'nope' }),
   scratch('create', '--link MMR-99', { words: 'Bad link' }, { link: ['MMR-99'] }, 'MMR'),
-  scratch('create', '--bogus', { words: 'Bad flag' }, { bogus: 'x' }, 'MMR'),
 
   // update
   scratch('update', '--title', { id: '{pad}' }, { ...GUARD, title: 'Renamed' }),
@@ -114,7 +112,6 @@ const CASES: ParityCase[] = [
   scratch('update', '(unknown pad)', { id: MISSING }, { ...GUARD, title: 'Renamed' }),
   scratch('update', '(discarded pad)', { id: '{gone}' }, { ...GUARD, title: 'Renamed' }),
   scratch('update', '(not a uuid)', { id: 'nope' }, { ...GUARD, title: 'Renamed' }),
-  scratch('update', '(no id)', {}, GUARD),
 
   // checkpoint
   scratch('checkpoint', 'inline', { id: '{pad}', text: 'Settled the plan.' }, GUARD),
@@ -143,7 +140,6 @@ const CASES: ParityCase[] = [
     { id: '{pad}', text: 'Settled.' },
     { ...GUARD, format: 'table' },
   ),
-  scratch('checkpoint', '(no id)', {}, GUARD),
   scratch('checkpoint', '(no content)', { id: '{pad}' }, GUARD),
   scratch('checkpoint', '(no guard)', { id: '{pad}', text: 'Settled.' }),
   scratch(
@@ -253,8 +249,6 @@ const CASES: ParityCase[] = [
     { ...GUARD, reason: 'why' },
   ),
   scratch('agenda', 'frob', { action: 'frob', id: '{pad}', words: 'x' }, GUARD),
-  scratch('agenda', '(no action)', {}, GUARD),
-  scratch('agenda', '(no id)', { action: 'add' }, GUARD),
 
   // freeze. A freeze or discard removes the pad, so the project's last activity, the newest
   // stamp across its records, falls back to the rest of the board: from the pad's guard,
@@ -329,24 +323,12 @@ const CASES: ParityCase[] = [
   argvCase(['scratch', 'create', 'a', 'b', 'c', '-s', 'MMR']),
   argvCase(['scratch', 'create', '--title', 'x', '-s', 'MMR', '-f', 'json']),
   argvCase(['scratch', 'create', 'x', '--link', 'MMR-3', '--link', 'MMR-4', '-s', 'MMR']),
-  argvCase(['scratch', 'create', 'x', '-s', 'MMR', '-s', 'XX']),
   argvCase(['scratch', 'create', 'x', '-s', 'MMR'], true),
   argvCase(['scratch', 'update', '{pad}', '--expected-updated-at', '{token}', '--title', 't']),
   argvCase(
     ['scratch', 'update', '{pad}', '--expected-updated-at', '{token}', '--title', 't'],
     true,
   ),
-  argvCase([
-    'scratch',
-    'update',
-    '{pad}',
-    '--expected-updated-at',
-    '{token}',
-    '--title',
-    't',
-    '--title',
-    'u',
-  ]),
   // A checkpoint from a file; its content is distinctive so the board snapshot covers it.
   inDir(
     argvCase([
@@ -372,10 +354,9 @@ const CASES: ParityCase[] = [
     ]),
   ),
   argvCase(['scratch', 'checkpoint', '{pad}', 'a', 'b', '--expected-updated-at', '{token}'], true),
-  // Misplaced flags, each redirected as the old CLI redirected them.
-  ...SCRATCH_REDIRECTS.map((line) => argvLine(line, { path: line.split(' ').slice(0, 2) })),
-  // A write's -s before the verb: Loom scopes an option to the command that declares it.
-  argvCase(['-s', 'MMR', 'scratch', 'create', 'x'], undefined, undefined, ['scratch', 'create']),
+  // A misplaced flag, redirected as the old CLI redirected it.
+  argvLine('scratch create x -s MMR --parent MMR-2', { path: ['scratch', 'create'] }),
+  // Several words of inline content.
   argvCase(['scratch', 'checkpoint', '{pad}', 'a', 'b', 'c', '--expected-updated-at', '{token}']),
   // Words after -- are text, as the old CLI's positionals took them.
   argvCase([

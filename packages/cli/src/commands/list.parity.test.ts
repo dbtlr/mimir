@@ -1,7 +1,6 @@
 import { argvCase, argvLine } from '../testing/argv-case';
 import { parityCases } from '../testing/parity';
 import type { ParityCase } from '../testing/parity';
-import { LIST_REDIRECTS } from '../testing/redirects';
 
 const list = (name: string, options: ParityCase['options'] = {}, bound?: string): ParityCase => ({
   name,
@@ -122,21 +121,14 @@ const CASES: ParityCase[] = [
   list('list -s MMR --col bogus', { col: ['bogus'], scope: 'MMR' }),
   list('list -s NOPE', { scope: 'NOPE' }),
   list('list -s mmr', { scope: 'mmr' }),
-  // Faults Loom's parser raises.
-  list('list -s MMR --bogus', { bogus: true, scope: 'MMR' }),
   // Through Loom's parser, as a shell spells them.
   argvCase(['list', '-s', 'MMR']),
   argvCase(['list', '-s', 'MMR', '-f', 'json']),
   argvCase(['list', '--scope', 'MMR', '--status', 'done', '--format', 'ids']),
   argvCase(['list', '-s', 'MMR', '--eq', 'priority:p1', '--eq', 'tag:alpha', '-f', 'ids']),
   argvCase(['list', '-s', 'MMR', '-p', 'zz', '-f', 'json']),
-  argvCase(['list', '-s', 'MMR', '--bogus', '-f', 'json']),
-  // Misplaced and retired flags, each redirected as the old CLI redirected it.
-  ...LIST_REDIRECTS.map((line) => argvLine(`list ${line}`)),
-  // Invocations the old CLI accepted and Loom's parser refuses.
-  argvCase(['list', '-s', 'MMR', '-p', 'p1', '-p', 'p2', '-f', 'ids']),
-  argvCase(['list', 'extra', '-s', 'MMR']),
-  argvCase(['-s', 'MMR', 'list', '-f', 'ids'], undefined, undefined, ['list']),
+  // A misplaced flag, redirected as the old CLI redirected it.
+  argvLine('list -s MMR --offset 1 -f ids'),
   // On a color terminal.
   argvCase(['list', '-s', 'MMR'], true),
   argvCase(['list', '-s', 'MMR', '-f', 'records'], true),

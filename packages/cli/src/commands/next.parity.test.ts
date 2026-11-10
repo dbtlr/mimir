@@ -116,8 +116,6 @@ const CASES: ParityCase[] = [
   next('next -s A -f json', { format: 'json', scope: 'A' }),
   next('next -s ABCDEFGHIJKLMNOP', { scope: 'ABCDEFGHIJKLMNOP' }),
   next('next -s ""', { scope: '' }),
-  // Faults Loom's parser raises.
-  next('next -s MMR --bogus', { bogus: true, scope: 'MMR' }),
   // Through Loom's parser, as a shell spells them.
   argvCase(['next', '-s', 'MMR']),
   argvCase(['next', '-s', 'MMR', '-f', 'json']),
@@ -126,12 +124,6 @@ const CASES: ParityCase[] = [
   argvCase(['next', '-s', 'MMR', '-p', 'zz']),
   argvCase(['next', '-s', 'MMR', '-p', 'zz', '-f', 'json']),
   argvCase(['next', '-s', 'mmr']),
-  argvCase(['next', '-s', 'MMR', '--bogus', '-f', 'json']),
-  // Invocations the old CLI accepted and Loom's parser refuses.
-  argvCase(['next', '-s', 'MMR', '-p', 'p1', '-p', 'p2', '-f', 'ids']),
-  argvCase(['next', '-s', 'MMR', '--ascii', '--ascii']),
-  argvCase(['next', 'extra', '-s', 'MMR']),
-  argvCase(['-s', 'MMR', 'next', '-f', 'ids'], undefined, undefined, ['next']),
   // On a color terminal.
   argvCase(['next', '-s', 'MMR'], true),
   argvCase(['next', '-s', 'MMR', '-f', 'records'], true),

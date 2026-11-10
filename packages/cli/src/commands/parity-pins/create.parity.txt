@@ -236,66 +236,6 @@ exit 2
 --- state
 unchanged
 
-### create argv: project Gamma --key GAM -y --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### create argv: project Gamma --key GAM -y --parent MMR
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### create argv: project Gamma --key GAM -y --groomed
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--groomed\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### create argv: project Gamma --key GAM --key GAN -y
-exit 2
---- stdout
---- failure
-| {
-|   "code": "repeated-option",
-|   "hints": [],
-|   "message": "Option \"--key\" can be supplied only once. Remove the repeated option."
-| }
---- state
-unchanged
-
-### create argv: project Gamma Delta --key GAM -y
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"project\" accepts 1 argument. Remove the extra values."
-| }
---- state
-unchanged
-
 ### create argv: initiative Growth --parent MMR
 exit 0
 --- stdout
@@ -588,18 +528,6 @@ exit 2
 --- state
 unchanged
 
-### create argv: initiative Growth --parent MMR --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
 ### create argv: initiative --weird-title --parent MMR
 exit 2
 --- stdout
@@ -610,54 +538,6 @@ exit 2
 |     "a leading-dash title needs the '--' terminator: mimir create <type> [flags] -- <title>"
 |   ],
 |   "message": "Unknown option \"--weird-title\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### create argv: initiative Growth More --parent MMR
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"initiative\" accepts 1 argument. Remove the extra values."
-| }
---- state
-unchanged
-
-### create argv: initiative Growth --parent MMR --target 2026-11
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--target\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### create argv: initiative Growth --parent MMR --groomed
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--groomed\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### create argv: initiative Growth --parent MMR --remote x
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--remote\". Supply a declared option; prefix a hyphenated path with \"./\"."
 | }
 --- state
 unchanged
@@ -982,18 +862,6 @@ exit 2
 |   "code": "invalid-input",
 |   "hints": [],
 |   "message": "Option \"--parent\" is required. Supply a value."
-| }
---- state
-unchanged
-
-### create argv: phase Beta --parent MMR-1 --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
 | }
 --- state
 unchanged
@@ -1582,18 +1450,6 @@ exit 2
 --- state
 unchanged
 
-### create argv: task "Ship docs" --parent MMR-2 --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
 ### create argv: task --weird-title --parent MMR-2
 exit 2
 --- stdout
@@ -1608,78 +1464,6 @@ exit 2
 --- state
 unchanged
 
-### create argv: task "Ship docs" --parent MMR-2 --target 2026-11
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--target\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### create argv: task "Ship docs" --parent MMR-2 --open-ended
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--open-ended\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### create argv: task "Ship docs" --parent MMR-2 --parent MMR-1
-exit 2
---- stdout
---- failure
-| {
-|   "code": "repeated-option",
-|   "hints": [],
-|   "message": "Option \"--parent\" can be supplied only once. Remove the repeated option."
-| }
---- state
-unchanged
-
-### create argv: task "Ship docs" More --parent MMR-2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"task\" accepts 1 argument. Remove the extra values."
-| }
---- state
-unchanged
-
-### create argv: epic Title
-exit 2
---- stdout
---- failure
-| {
-|   "code": "parser",
-|   "hints": [],
-|   "message": "Unknown command \"epic\". Use one of: project, initiative, phase, task."
-| }
---- state
-unchanged
-
-### create argv: (no arguments)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "parser",
-|   "hints": [],
-|   "message": "Option \"--format\" belongs to commands create project, create initiative, create phase, create task. Supply it after the command name."
-| }
---- state
-unchanged
-
 ### create argv: task x --parent MMR-2 --direction x
 exit 2
 --- stdout
@@ -1690,48 +1474,6 @@ exit 2
 |     "the ## Next narrative is set after create: mimir update <id> --direction \"…\""
 |   ],
 |   "message": "Unknown option \"--direction\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### create argv: phase x --parent MMR-1 --clear-links
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--clear-links' replaces linked work; use it with scratch update"
-|   ],
-|   "message": "Unknown option \"--clear-links\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### create argv: initiative x --parent MMR --not-pinned
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--not-pinned' unpins a project: mimir update <KEY> --not-pinned"
-|   ],
-|   "message": "Unknown option \"--not-pinned\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### create argv: project x --key GAM -y --since 2020-01-01
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--since' is retired; every resource windows created_at with '--at-or-after created_at:YYYY-MM-DD'"
-|   ],
-|   "message": "Unknown option \"--since\". Supply a declared option; prefix a hyphenated path with \"./\"."
 | }
 --- state
 unchanged

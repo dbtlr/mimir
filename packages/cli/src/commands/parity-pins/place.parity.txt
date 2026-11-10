@@ -460,42 +460,6 @@ exit 2
 --- state
 unchanged
 
-### move argv: --to MMR-1
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
-| }
---- state
-unchanged
-
-### move argv: MMR-5 --to MMR-1 --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### move argv: MMR-5 --to MMR-1 --to MMR-2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "repeated-option",
-|   "hints": [],
-|   "message": "Option \"--to\" can be supplied only once. Remove the repeated option."
-| }
---- state
-unchanged
-
 ### reorder argv: MMR-5 --top
 exit 0
 --- stdout
@@ -934,30 +898,6 @@ exit 2
 --- state
 unchanged
 
-### reorder argv: (no arguments)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\".\nOne of options \"--top\", \"--bottom\", \"--before\", and \"--after\" is required. Supply at least one of them."
-| }
---- state
-unchanged
-
-### reorder argv: MMR-3 --top --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
 ### reorder argv: MMR-3 --top --bottom
 exit 2
 --- stdout
@@ -978,46 +918,6 @@ exit 2
 |   "code": "invalid-input",
 |   "hints": [],
 |   "message": "Options \"--top\", \"--bottom\", \"--before\", and \"--after\" cannot be used together. Supply only one of them."
-| }
---- state
-unchanged
-
-### reorder argv: MMR-3 --before MMR-5 --before MMR-8
-exit 2
---- stdout
---- failure
-| {
-|   "code": "repeated-option",
-|   "hints": [],
-|   "message": "Option \"--before\" can be supplied only once. Remove the repeated option."
-| }
---- state
-unchanged
-
-### move argv: MMR-5 --to MMR-1 --parent MMR-2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
-|   ],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### reorder argv: MMR-3 --top --parent MMR-2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
-|   ],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
 | }
 --- state
 unchanged

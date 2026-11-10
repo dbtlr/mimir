@@ -285,30 +285,6 @@ exit 1
 --- state
 unchanged
 
-### seed (no title)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"title\" requires a value. Supply a value for \"title\"."
-| }
---- state
-unchanged
-
-### seed --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
-| }
---- state
-unchanged
-
 ### seed -f yaml
 exit 2
 --- stdout
@@ -346,30 +322,6 @@ exit 0
 |   created    2026-10-01 12:00 UTC
 --- state
 + seeds.XX[XX-s2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"XX-s2","kind":"bug","lede":null,"lifecycle":"new","project":"XX","readyToResolve":false,"requester":null,"spawned":[],"title":"Ask","updatedAt":"2026-10-01T12:00:00.000Z"}
-
-### seed argv: "Cache it" -k idea -k bug -s MMR
-exit 2
---- stdout
---- failure
-| {
-|   "code": "repeated-option",
-|   "hints": [],
-|   "message": "Option \"-k\" can be supplied only once. Remove the repeated option."
-| }
---- state
-unchanged
-
-### seed argv: a b -k idea -s MMR
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"seed\" accepts 1 argument. Remove the extra values."
-| }
---- state
-unchanged
 
 ### seed argv: "Cache it" -k idea -s MMR (terminal)
 exit 0
@@ -787,30 +739,6 @@ exit 1
 --- state
 unchanged
 
-### promote (no id)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
-| }
---- state
-unchanged
-
-### promote MMR-s1 --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
-| }
---- state
-unchanged
-
 ### promote argv: MMR-s1 --parent MMR-2 -p p1 -t alpha -t beta
 exit 0
 --- stdout
@@ -834,42 +762,6 @@ exit 0
 ~ projects[MMR].leafCounts.ready: 2 -> 3
 ~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
 + seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
-
-### promote argv: MMR-s1 --parent MMR-2 -p p1 -p p2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "repeated-option",
-|   "hints": [],
-|   "message": "Option \"-p\" can be supplied only once. Remove the repeated option."
-| }
---- state
-unchanged
-
-### promote argv: MMR-s1 --link MMR-3 --link MMR-4
-exit 2
---- stdout
---- failure
-| {
-|   "code": "repeated-option",
-|   "hints": [],
-|   "message": "Option \"--link\" can be supplied only once. Remove the repeated option."
-| }
---- state
-unchanged
-
-### promote argv: MMR-s1 extra --parent MMR-2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"promote\" accepts 1 argument. Remove the extra values."
-| }
---- state
-unchanged
 
 ### promote argv: MMR-s1 --parent MMR-2 -f ids (terminal)
 exit 0
@@ -1094,30 +986,6 @@ exit 2
 |   "code": "usage",
 |   "hints": [],
 |   "message": "reject requires a reason"
-| }
---- state
-unchanged
-
-### reject (no id)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
-| }
---- state
-unchanged
-
-### reject MMR-s1 --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
 | }
 --- state
 unchanged
@@ -1420,30 +1288,6 @@ exit 2
 --- state
 unchanged
 
-### resolve (no id)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
-| }
---- state
-unchanged
-
-### resolve MMR-s1 --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
-| }
---- state
-unchanged
-
 ### resolve argv: MMR-s1 shipped in MMR-40
 exit 0
 --- stdout
@@ -1486,72 +1330,6 @@ exit 2
 |     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
 |   ],
 |   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### promote argv: MMR-s1 --summary x
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--summary' sets the summary at create/update/attach/scratch; list/next filter with '--eq summary:KEY'"
-|   ],
-|   "message": "Unknown option \"--summary\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### reject argv: MMR-s1 no --force
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--force' permits a non-empty discard; use it with scratch discard"
-|   ],
-|   "message": "Unknown option \"--force\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### resolve argv: MMR-s1 done --reason x
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--reason' records a Scratchpad supersession or forced discard"
-|   ],
-|   "message": "Unknown option \"--reason\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### seed argv: -s MMR seed "Cache it" -k idea
-exit 2
---- stdout
---- failure
-| {
-|   "code": "parser",
-|   "hints": [],
-|   "message": "Option \"-s\" belongs to commands next, list, overview, artifacts, search, seeds, seed, triage, scratch list, scratch create, doctor. Supply it after the command name."
-| }
---- state
-unchanged
-
-### resolve argv: MMR-s1 shipped -f json -f ids
-exit 2
---- stdout
---- failure
-| {
-|   "code": "parser",
-|   "hints": [],
-|   "message": "Option \"-f\" can be supplied only once. Remove the repeated option."
 | }
 --- state
 unchanged

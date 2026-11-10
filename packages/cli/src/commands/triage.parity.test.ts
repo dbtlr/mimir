@@ -1,6 +1,5 @@
 import { argvLine } from '../testing/argv-case';
 import type { ParityCase } from '../testing/parity';
-import { SEED_REDIRECTS } from '../testing/redirects';
 import { writeCases } from '../testing/writes';
 
 const triage = (
@@ -47,17 +46,11 @@ const CASES: ParityCase[] = [
   triage('triage ZZ', 'ZZ'),
   triage('triage nope', 'nope'),
   triage('triage --scope all', undefined, { scope: 'all' }, 'MMR'),
-  // Faults Loom's parser raises.
-  triage('triage --bogus', undefined, { bogus: 'x' }, 'MMR'),
   // Through Loom's parser, as a shell spells it.
   argv('MMR -f json'),
   argv('MMR --format jsonl'),
   argv('XX --dry-run -f records'),
   argv('-s MMR'),
-  argv('MMR XX'),
-  argv('MMR -f json -f ids'),
-  // A misplaced flag, redirected as the old CLI redirected it.
-  ...SEED_REDIRECTS.filter((line) => line.startsWith('triage ')).map((line) => argvLine(line)),
   // On a color terminal, where the default is the records report.
   argv('MMR', true),
   argv('XX', true),

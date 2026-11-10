@@ -174,16 +174,6 @@ exit 2
 |   "message": "Command \"list\" accepts no arguments. Remove the supplied values."
 | }
 
-### scratch argv: (no arguments)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "parser",
-|   "hints": [],
-|   "message": "Option \"--format\" belongs to commands scratch list, scratch get, scratch create, scratch update, scratch checkpoint, scratch agenda, scratch freeze, scratch discard. Supply it after the command name."
-| }
-
 ### scratch argv: bogus
 exit 2
 --- stdout

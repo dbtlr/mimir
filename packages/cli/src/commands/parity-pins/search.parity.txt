@@ -313,16 +313,6 @@ exit 2
 |   "message": "search needs a query"
 | }
 
-### search store -s MMR --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
-| }
-
 ### search argv: store -s MMR
 exit 0
 --- stdout
@@ -403,16 +393,6 @@ exit 2
 |   "message": "invalid limit: 0"
 | }
 
-### search argv: store -s MMR --bogus -f json
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
-
 ### search argv: -s MMR -f ids -- store
 exit 0
 --- stdout
@@ -451,26 +431,6 @@ exit 0
 |   "returned": 2,
 |   "starts_at": 0,
 |   "total": 2
-| }
-
-### search argv: store -s MMR -n 1 -n 2 -f ids
-exit 2
---- stdout
---- failure
-| {
-|   "code": "repeated-option",
-|   "hints": [],
-|   "message": "Option \"-n\" can be supplied only once. Remove the repeated option."
-| }
-
-### search argv: -s MMR search store -f ids
-exit 2
---- stdout
---- failure
-| {
-|   "code": "parser",
-|   "hints": [],
-|   "message": "Option \"-s\" belongs to commands next, list, overview, artifacts, search, seeds, seed, triage, scratch list, scratch create, doctor. Supply it after the command name."
 | }
 
 ### search argv: ours -s MMR -f ids

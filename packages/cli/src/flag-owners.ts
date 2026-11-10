@@ -13,7 +13,7 @@
 /** The commands that run a date-filtered query, the owners of the date grammar. */
 const DATE_QUERY_VERBS: readonly string[] = ['list', 'next', 'artifacts', 'seeds'];
 
-type FlagOwner = {
+export type FlagOwner = {
   /** The long spelling, without its dashes. */
   flag: string;
   /** The short spelling, without its dash. */
@@ -26,7 +26,8 @@ type FlagOwner = {
   hint: string;
 };
 
-const FLAG_OWNERS: readonly FlagOwner[] = [
+/** Every misplaced or retired flag the CLI redirects. Exported for the test that covers each entry. */
+export const FLAG_OWNERS: readonly FlagOwner[] = [
   {
     flag: 'tz',
     hint: `'--tz' resolves a bare date in a query and renders its results; use it with ${DATE_QUERY_VERBS.join(', ')}`,

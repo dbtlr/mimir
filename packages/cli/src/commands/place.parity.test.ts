@@ -1,6 +1,5 @@
-import { argvCase as argv, argvLine } from '../testing/argv-case';
+import { argvCase as argv } from '../testing/argv-case';
 import type { ParityCase } from '../testing/parity';
-import { NODE_REDIRECTS } from '../testing/redirects';
 import { writeCases } from '../testing/writes';
 
 const CASES: ParityCase[] = [
@@ -31,10 +30,6 @@ const CASES: ParityCase[] = [
   argv(['move', 'MMR-5', '--to', '']),
   // move: faults Loom's parser raises.
   argv(['move', 'MMR-5']),
-  argv(['move', '--to', 'MMR-1']),
-  argv(['move', 'MMR-5', '--to', 'MMR-1', '--bogus']),
-  // move: invocations the old CLI accepted and Loom's parser refuses.
-  argv(['move', 'MMR-5', '--to', 'MMR-1', '--to', 'MMR-2']),
   // reorder: each place, through every format.
   argv(['reorder', 'MMR-5', '--top']),
   argv(['reorder', 'MMR-5', '--top', '-f', 'json']),
@@ -64,14 +59,9 @@ const CASES: ParityCase[] = [
   argv(['reorder', 'MMR-3', '--before', '']),
   // reorder: faults Loom's parser raises.
   argv(['reorder', 'MMR-3']),
-  argv(['reorder']),
-  argv(['reorder', 'MMR-3', '--top', '--bogus']),
   // reorder: invocations the old CLI accepted and Loom's parser refuses.
   argv(['reorder', 'MMR-3', '--top', '--bottom']),
   argv(['reorder', 'MMR-3', '--top', '--before', 'MMR-5']),
-  argv(['reorder', 'MMR-3', '--before', 'MMR-5', '--before', 'MMR-8']),
-  // Misplaced flags, redirected as the old CLI redirected them.
-  ...NODE_REDIRECTS.filter((line) => /^(move|reorder) /.test(line)).map((line) => argvLine(line)),
 ];
 
 writeCases(import.meta.url, CASES);

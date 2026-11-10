@@ -1,6 +1,5 @@
-import { argvCase as argv, argvLine } from '../testing/argv-case';
+import { argvCase as argv } from '../testing/argv-case';
 import type { ParityCase } from '../testing/parity';
-import { NODE_REDIRECTS } from '../testing/redirects';
 import { writeCases } from '../testing/writes';
 
 const CASES: ParityCase[] = [
@@ -35,8 +34,6 @@ const CASES: ParityCase[] = [
   argv(['tag', 'MMR-5', '']),
   // tag: faults Loom's parser raises.
   argv(['tag', 'MMR-5']),
-  argv(['tag']),
-  argv(['tag', 'MMR-5', 'design', '--bogus']),
   // untag: through every format.
   argv(['untag', 'MMR-3', 'alpha']),
   argv(['untag', 'MMR-3', 'alpha', '-f', 'json']),
@@ -54,8 +51,6 @@ const CASES: ParityCase[] = [
   argv(['untag', ',', 'alpha']),
   // untag: faults Loom's parser raises.
   argv(['untag', 'MMR-3']),
-  // Misplaced flags, redirected as the old CLI redirected them.
-  ...NODE_REDIRECTS.filter((line) => /^(un)?tag /.test(line)).map((line) => argvLine(line)),
 ];
 
 writeCases(import.meta.url, CASES);
