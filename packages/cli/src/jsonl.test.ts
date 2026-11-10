@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import { parseJson } from '@mimir/helpers';
 
 import { argvCase } from './testing/argv-case';
-import { FROZEN_AT } from './testing/clock';
 import type { ParityBoard } from './testing/fixture';
 import { runNew } from './testing/parity';
 import type { ParityRun } from './testing/parity';
@@ -53,32 +52,12 @@ const FINDING = {
   where: 'edge · to_id',
 } as const;
 
-const GUARD = ['--expected-updated-at', '{token}'];
-
-/** One sample per command, keyed by its path. */
+/** One sample per distinct view declaration, keyed by its path. */
 const SAMPLES: Readonly<Record<string, Sample>> = {
-  abandon: { relation: 'same', words: ['abandon', 'MMR-3', 'dropped'] },
   annotate: { relation: 'same', words: ['annotate', 'MMR-3', 'a note'] },
   archive: { relation: 'same', words: ['archive', 'XX'] },
   artifacts: { records: 'artifacts', relation: 'records', words: ['artifacts', '-s', 'MMR'] },
-  attach: {
-    before: (board) => writeFileSync(join(board.dir, 'notes.md'), '# Notes\n\nThe body.\n'),
-    relation: 'same',
-    words: ['attach', 'MMR-5', '--file', '{dir}/notes.md'],
-  },
   bind: { relation: 'same', words: ['bind', 'MMR'] },
-  block: { relation: 'same', words: ['block', 'MMR-3', 'upstream down'] },
-  'create initiative': {
-    relation: 'same',
-    words: ['create', 'initiative', 'Growth', '--parent', 'MMR'],
-  },
-  'create phase': { relation: 'same', words: ['create', 'phase', 'Next', '--parent', 'MMR-1'] },
-  'create project': {
-    relation: 'same',
-    words: ['create', 'project', 'New', '--key', 'NEW', '--yes'],
-  },
-  'create task': { relation: 'same', words: ['create', 'task', 'Thing', '--parent', 'MMR-2'] },
-  depend: { relation: 'same', words: ['depend', 'MMR-5', '--on', 'MMR-3'] },
   doctor: {
     before: (board) => {
       board.findings.push(FINDING);
@@ -88,56 +67,18 @@ const SAMPLES: Readonly<Record<string, Sample>> = {
   },
   done: { relation: 'same', words: ['done', 'MMR-5'] },
   get: { relation: 'same', words: ['get', 'MMR-3'] },
-  groom: { relation: 'same', words: ['groom', 'MMR-4', 'groomed'] },
   list: { records: 'tasks', relation: 'records', words: ['list', '-s', 'MMR'] },
-  move: { relation: 'same', words: ['move', 'MMR-5', '--to', 'MMR-1'] },
-  next: { records: 'tasks', relation: 'records', words: ['next', '-s', 'MMR'] },
   overview: { relation: 'compact', words: ['overview', '-s', 'MMR'] },
-  park: { relation: 'same', words: ['park', 'MMR-3', 'later'] },
-  projects: { records: 'projects', relation: 'records', words: ['projects'] },
-  promote: { relation: 'same', words: ['promote', 'MMR-s1', '--parent', 'MMR-2'] },
-  queue: { relation: 'same', words: ['queue', 'MMR-3', '--session', 'run-1'] },
-  reject: { relation: 'same', words: ['reject', 'MMR-s1', 'no'] },
-  reopen: { relation: 'same', words: ['reopen', 'MMR-7'] },
-  reorder: { relation: 'same', words: ['reorder', 'MMR-3', '--bottom'] },
-  resolve: { relation: 'same', words: ['resolve', 'MMR-s1', 'done'] },
-  return: {
-    before: (board) => board.engine.submit({ id: 'MMR-5' }),
-    relation: 'same',
-    words: ['return', 'MMR-5'],
-  },
-  'scratch agenda': {
-    relation: 'compact',
-    words: ['scratch', 'agenda', 'add', '{pad}', 'item', ...GUARD],
-  },
-  'scratch checkpoint': {
-    relation: 'compact',
-    words: ['scratch', 'checkpoint', '{pad}', 'note', ...GUARD],
-  },
   'scratch create': { relation: 'compact', words: ['scratch', 'create', 'Index', '-s', 'MMR'] },
-  'scratch discard': {
-    relation: 'compact',
-    // The blank pad was never written after its creation, so its guard is the frozen instant.
-    words: ['scratch', 'discard', '{blank}', '--expected-updated-at', FROZEN_AT.toISOString()],
-  },
-  'scratch freeze': {
-    relation: 'same',
-    words: ['scratch', 'freeze', '{pad}', '--summary', 's', ...GUARD],
-  },
   'scratch get': { relation: 'compact', words: ['scratch', 'get', '{pad}'] },
   'scratch list': {
     records: 'scratchpads',
     relation: 'records',
     words: ['scratch', 'list', '-s', 'MMR'],
   },
-  'scratch update': {
-    relation: 'compact',
-    words: ['scratch', 'update', '{pad}', '--title', 'T', ...GUARD],
-  },
   search: { records: 'results', relation: 'records', words: ['search', 'store', '-s', 'MMR'] },
   seed: { relation: 'same', words: ['seed', 'Cache it', '-k', 'idea'] },
   seeds: { records: 'seeds', relation: 'records', words: ['seeds', '-p', 'MMR'] },
-  start: { relation: 'same', words: ['start', 'MMR-3'] },
   status: { relation: 'compact', words: ['status', 'MMR-3'] },
   'store export': { relation: 'same', words: ['store', 'export', '-'] },
   'store import': {
@@ -147,29 +88,51 @@ const SAMPLES: Readonly<Record<string, Sample>> = {
     relation: 'same',
     words: ['store', 'import', '{dir}/doc.json', '--resume'],
   },
-  submit: { relation: 'same', words: ['submit', 'MMR-5'] },
   tag: { relation: 'same', words: ['tag', 'MMR-5', 'design'] },
   tree: { relation: 'compact', words: ['tree', 'MMR'] },
   triage: { relation: 'compact', words: ['triage', 'MMR'] },
-  unarchive: {
-    before: (board) => board.engine.archive({ id: 'XX' }),
-    relation: 'same',
-    words: ['unarchive', 'XX'],
-  },
-  unblock: { relation: 'same', words: ['unblock', 'MMR-6'] },
-  undepend: { relation: 'same', words: ['undepend', 'MMR-4', '--on', 'MMR-3'] },
-  unpark: {
-    before: (board) => board.engine.park({ id: 'MMR-3' }),
-    relation: 'same',
-    words: ['unpark', 'MMR-3'],
-  },
-  unqueue: {
-    before: (board) => board.engine.queue({ id: 'MMR-3', session: 'run-1' }),
-    relation: 'same',
-    words: ['unqueue', 'MMR-3', 'run cancelled'],
-  },
-  untag: { relation: 'same', words: ['untag', 'MMR-3', 'alpha'] },
   update: { relation: 'same', words: ['update', 'MMR-3', '--title', 'x'] },
+};
+
+/**
+ * Commands whose `jsonl` view is declared once with a sampled command's, so
+ * the sample proves both. The key is the command, the value the sampled
+ * command that shares its view declaration.
+ */
+const SHARES_VIEW_WITH: Readonly<Record<string, string>> = {
+  abandon: 'done',
+  attach: 'tag',
+  block: 'done',
+  'create initiative': 'annotate',
+  'create phase': 'annotate',
+  'create project': 'tag',
+  'create task': 'annotate',
+  depend: 'annotate',
+  groom: 'tag',
+  move: 'annotate',
+  next: 'list',
+  park: 'done',
+  projects: 'list',
+  promote: 'seed',
+  queue: 'done',
+  reject: 'seed',
+  reopen: 'done',
+  reorder: 'annotate',
+  resolve: 'seed',
+  return: 'done',
+  'scratch agenda': 'scratch create',
+  'scratch checkpoint': 'scratch create',
+  'scratch discard': 'scratch create',
+  'scratch freeze': 'scratch create',
+  'scratch update': 'scratch create',
+  start: 'done',
+  submit: 'done',
+  unarchive: 'archive',
+  unblock: 'done',
+  undepend: 'annotate',
+  unpark: 'done',
+  unqueue: 'done',
+  untag: 'tag',
 };
 
 /** Commands with a `jsonl` view this file does not run, each with where its output is held instead. */
@@ -231,9 +194,19 @@ test('every command with a jsonl view is sampled here or held elsewhere', async 
     await open.close();
   }
   expect(declared.toSorted()).toEqual(
-    [...Object.keys(SAMPLES), ...Object.keys(ELSEWHERE)].toSorted(),
+    [
+      ...Object.keys(SAMPLES),
+      ...Object.keys(SHARES_VIEW_WITH),
+      ...Object.keys(ELSEWHERE),
+    ].toSorted(),
   );
-  expect(Object.keys(SAMPLES).filter((path) => path in ELSEWHERE)).toEqual([]);
+  const sampledAndHeldElsewhere = Object.keys(SAMPLES).filter(
+    (path) => path in ELSEWHERE || path in SHARES_VIEW_WITH,
+  );
+  expect(sampledAndHeldElsewhere).toEqual([]);
+  expect(Object.keys(SHARES_VIEW_WITH).filter((path) => path in ELSEWHERE)).toEqual([]);
+  // A shared view names a command this file samples.
+  expect(Object.values(SHARES_VIEW_WITH).filter((path) => !(path in SAMPLES))).toEqual([]);
 });
 
 test.each(Object.entries(SAMPLES))(

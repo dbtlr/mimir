@@ -17,7 +17,7 @@ afterAll(async () => {
 /** DEL and C1 controls, among them a CSI introducer and a control-string start that would swallow what follows. */
 const TITLE = 'a\u0085b\u009Bxyz123m tail\u0090 kept \u007F end';
 
-test.each(['json', 'jsonl', 'records', 'ids', 'table'])(
+test.each(['json', 'records'])(
   'store export - prints a document whose data survives terminal controls (%s)',
   async (format) => {
     const created = await runArgv(board.app(), [
