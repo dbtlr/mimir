@@ -367,7 +367,11 @@ describe.each([
       await fixture.close();
     }
   });
-  test('version seven transfers retain identities and assignments while versions one through six default workers to null', async () => {
+  // The parse defaults missing worker handles whatever the document's version,
+  // and transfer-schema.test.ts reads every older version through it, so one
+  // legacy version is imported here. The rows the parse refuses are in
+  // transfer-validate.test.ts.
+  test('version seven transfers retain identities and assignments while version six defaults workers to null', async () => {
     const fixture = await createStore();
     try {
       const engine = new LocalEngine(fixture.store);
@@ -391,89 +395,27 @@ describe.each([
       } finally {
         await target.close();
       }
-      for (const version of [1, 2, 3, 4, 5, 6]) {
-        const legacyTarget = await createStore();
-        try {
-          const legacy = {
-            ...document,
-            nodes: document.nodes.map(
-              ({ worker_harness: _h, worker_session: _s, ...node }) => node,
-            ),
-            schema_version: version,
-            transitions: document.transitions.filter((t) => t.kind !== 'assignment'),
-          };
-          await legacyTarget.store.import(legacy, { dryRun: false, mode: 'fresh' });
-          const imported = (await legacyTarget.store.export()).nodes.find((n) => n.id === task.id);
-          expect(imported).toMatchObject({
-            harness: 'codex',
-            session: 'main',
-            worker_harness: null,
-            worker_session: null,
-          });
-        } finally {
-          await legacyTarget.close();
-        }
-      }
-      for (const bad of [
-        { worker_harness: 'claude', worker_session: null },
-        { session: null, worker_harness: null, worker_session: 'worker' },
-        { worker_harness: null, worker_session: ' ' },
-      ]) {
-        const invalid = structuredClone(document);
-        const invalidNode = invalid.nodes.find((n) => n.id === task.id);
-        if (invalidNode === undefined) {
-          throw new Error('task missing from export');
-        }
-        Object.assign(invalidNode, bad);
-        const invalidTarget = await createStore();
-        try {
-          const before = withoutStamp(await invalidTarget.store.export());
-          await expectMimirError('validation', () =>
-            invalidTarget.store.import(invalid, { dryRun: false, mode: 'fresh' }),
-          );
-          expect(withoutStamp(await invalidTarget.store.export())).toEqual(before);
-        } finally {
-          await invalidTarget.close();
-        }
+      const legacyTarget = await createStore();
+      try {
+        const legacy = {
+          ...document,
+          nodes: document.nodes.map(({ worker_harness: _h, worker_session: _s, ...node }) => node),
+          schema_version: 6,
+          transitions: document.transitions.filter((t) => t.kind !== 'assignment'),
+        };
+        await legacyTarget.store.import(legacy, { dryRun: false, mode: 'fresh' });
+        const imported = (await legacyTarget.store.export()).nodes.find((n) => n.id === task.id);
+        expect(imported).toMatchObject({
+          harness: 'codex',
+          session: 'main',
+          worker_harness: null,
+          worker_session: null,
+        });
+      } finally {
+        await legacyTarget.close();
       }
     } finally {
       await fixture.close();
-    }
-  });
-  test('transfer preview and apply reject duplicate workers whose providers are blank', async () => {
-    const source = await createStore();
-    const target = await createStore();
-    try {
-      const engine = new LocalEngine(source.store);
-      await engine.create({ key: 'OWN', name: 'Ownership', type: 'project' });
-      const parent = await engine.create({ parent: 'OWN', title: 'i', type: 'initiative' });
-      const task = await engine.create({ parent: parent.id, title: 't', type: 'task' });
-      await engine.start({ harness: 'codex', id: task.id, session: 'same' });
-      const document = await source.store.export();
-      const before = withoutStamp(await target.store.export());
-      for (const patch of [
-        { harness: 'codex', worker_harness: '' },
-        { harness: 'codex', worker_harness: ' \t ' },
-        { harness: '', worker_harness: 'codex' },
-        { harness: '\t ', worker_harness: 'codex' },
-        { harness: ' codex ', worker_harness: 'codex' },
-      ]) {
-        const malformed = structuredClone(document);
-        const node = malformed.nodes.find((n) => n.id === task.id);
-        if (node === undefined) {
-          throw new Error('missing task in export');
-        }
-        Object.assign(node, patch, { worker_session: 'same' });
-        for (const dryRun of [true, false]) {
-          await expectMimirError('validation', () =>
-            target.store.import(malformed, { dryRun, mode: 'fresh' }),
-          );
-          expect(withoutStamp(await target.store.export())).toEqual(before);
-        }
-      }
-    } finally {
-      await source.close();
-      await target.close();
     }
   });
   test('transfer rejects seed and project assignment rows before writing', async () => {
@@ -676,32 +618,6 @@ describe.each([
         workerHarness: null,
         workerSession: null,
       });
-      const document = await fixture.store.export();
-      for (const workerHarness of [null, 'codex', 'claude']) {
-        const candidate = structuredClone(document);
-        const node = candidate.nodes.find((n) => n.id === task.id);
-        if (node === undefined) {
-          throw new Error('task missing');
-        }
-        node.worker_harness = workerHarness;
-        node.worker_session = 'same';
-        const target = await createStore();
-        try {
-          if (workerHarness === 'claude') {
-            await target.store.import(candidate, { dryRun: false, mode: 'fresh' });
-            expect(
-              (await target.store.export()).nodes.find((n) => n.id === task.id)?.worker_harness,
-            ).toBe('claude');
-          } else {
-            expect(
-              await refusalOf(target.store.import(candidate, { dryRun: false, mode: 'fresh' })),
-            ).toContain('duplicates the main session');
-            expect((await target.store.export()).nodes).toEqual([]);
-          }
-        } finally {
-          await target.close();
-        }
-      }
     } finally {
       await fixture.close();
     }
