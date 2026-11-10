@@ -7,7 +7,9 @@ import { createProject } from '../create';
 import type { StoreExport } from '../export';
 import { STORE_EXPORT_SCHEMA_VERSION } from '../export';
 import type { Node } from '../model';
-import { createPgliteTestStore } from '../store-postgres/testing';
+import { postgresDialect, upgradeSchema as upgradePostgresSchema } from '../store-postgres/dialect';
+import { createPgliteDialect } from '../store-postgres/pglite';
+import { createEmptyPglite, createPgliteTestStore } from '../store-postgres/testing';
 import { sqliteDialect, upgradeSchema } from '../store-sqlite/dialect';
 import { createBunSqliteDialect } from '../store-sqlite/driver';
 import { inLists, insertBatched, rowsPerStatement } from './batch';
@@ -15,9 +17,10 @@ import type { DB } from './schema';
 import { createSqlStore } from './store';
 
 /** SQL-store batching and representation tests. Shared import validation is covered
- * by core/store-conformance.transfer.test.ts on both backends. */
+ * by core/transfer-validate.test.ts, and its store refusal by
+ * core/store-conformance.transfer.test.ts on both backends. */
 
-// A whole PGlite store plus a four-figure node collection.
+// Whole PGlite stores.
 setDefaultTimeout(60_000);
 
 test('a chunk stays under the statement bind-parameter ceiling at every row width', () => {
@@ -29,25 +32,40 @@ test('a chunk stays under the statement bind-parameter ceiling at every row widt
   }
 });
 
-test('an import round-trips a collection wider than one Postgres statement', async () => {
-  // Deliberately past PostgreSQL's own ceiling, not merely past our chunk: a
-  // node row is 27 columns, so 3000 rows are ~81000 bind parameters — over the
-  // 65535 one statement may carry. A count that only crossed the chunk
-  // boundary would still fit an unchunked statement and pass whether the import
-  // chunked or not; this one cannot.
-  const count = 3000;
-  const store_ = await createPgliteTestStore();
+test('every Postgres import and export statement binds under the dialect ceiling', async () => {
+  // The low-ceiling technique of the SQLite case below, on PGlite: a full-size
+  // chunk at PostgreSQL's real 65535 would take thousands of nodes, so the
+  // ceiling is set low and the statements are counted instead.
+  const ceiling = 500;
+  const bound: number[] = [];
+  let recording = false;
+  const db = new Kysely<DB>({
+    dialect: createPgliteDialect(await createEmptyPglite()),
+    log: (event) => {
+      if (recording) {
+        bound.push(event.query.parameters.length);
+      }
+    },
+  });
   try {
-    await store_.store.import(wideDocument(count), { dryRun: false, mode: 'fresh' });
+    await upgradePostgresSchema(db);
+    recording = true;
+    const store = createSqlStore(db, { ...postgresDialect, maxParameters: ceiling });
+    const count = 600;
+    await store.import(wideDocument(count), { dryRun: false, mode: 'fresh' });
+    const exported = await store.export();
 
-    const exported = await store_.store.export();
     expect(exported.nodes).toHaveLength(count);
     expect(exported.nodes.at(0)?.id).toBe('WIDE-1');
     expect(exported.nodes.at(-1)?.id).toBe(`WIDE-${String(count)}`);
     expect(exported.nodes.at(-1)?.title).toBe(`Task ${String(count)}`);
     expect(exported.projects.at(0)?.counters.node).toBe(count);
+    expect(Math.max(...bound)).toBeLessThanOrEqual(ceiling);
+    // As below: 600 node rows of 27 columns could never fit one statement
+    // under 500, so the cap held because the work was split.
+    expect(Math.max(...bound)).toBeGreaterThan(ceiling / 4);
   } finally {
-    await store_.close();
+    await db.destroy();
   }
 });
 
