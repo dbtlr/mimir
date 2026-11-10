@@ -28,6 +28,8 @@ export type ParityBoard = {
   stdin: { text: string };
   /** A scratch directory the cases may write files into. */
   dir: string;
+  /** The store's records as they stand, which `parityBoard` copies into a new board. */
+  image: () => Uint8Array;
   close: () => Promise<void>;
 };
 
@@ -69,19 +71,8 @@ export function boundClone(bound: string | undefined) {
   };
 }
 
-export async function parityBoard(): Promise<ParityBoard> {
-  const { close, doctor: real, store: unpinned } = await createTestStore();
-  // The board is healthy; a doctor case adds findings the real checks cannot produce here.
-  const findings: DoctorFinding[] = [];
-  const doctor: DoctorBackend = {
-    ...real,
-    diagnose: async (scope) => {
-      const diagnosis = await real.diagnose(scope);
-      return { ...diagnosis, findings: [...diagnosis.findings, ...findings] };
-    },
-  };
-  const store = pinnedExport(unpinned);
-  const engine = new LocalEngine(store);
+/** The records every board starts with. */
+async function seedBoard(engine: LocalEngine): Promise<void> {
   await engine.create({
     description: 'The work-state store.',
     key: 'MMR',
@@ -149,6 +140,29 @@ export async function parityBoard(): Promise<ParityBoard> {
   const other = await engine.create({ parent: 'XX', title: 'Elsewhere', type: 'initiative' });
   const otherPhase = await engine.create({ parent: other.id, title: 'Far', type: 'phase' });
   await engine.create({ parent: otherPhase.id, title: 'Not ours', type: 'task' });
+}
+
+/**
+ * A new board: seeded, or with `image` a copy of the board whose `image` it
+ * is. A copy has its own store, directory, findings, and standard input, so a
+ * write to it reaches no other board.
+ */
+export async function parityBoard(image?: Uint8Array): Promise<ParityBoard> {
+  const { close, doctor: real, image: imageOf, store: unpinned } = await createTestStore(image);
+  // The board is healthy; a doctor case adds findings the real checks cannot produce here.
+  const findings: DoctorFinding[] = [];
+  const doctor: DoctorBackend = {
+    ...real,
+    diagnose: async (scope) => {
+      const diagnosis = await real.diagnose(scope);
+      return { ...diagnosis, findings: [...diagnosis.findings, ...findings] };
+    },
+  };
+  const store = pinnedExport(unpinned);
+  const engine = new LocalEngine(store);
+  if (image === undefined) {
+    await seedBoard(engine);
+  }
   const dir = mkdtempSync(join(tmpdir(), 'mimir-parity-'));
   const stdin = { text: '' };
   const edges = {
@@ -174,6 +188,7 @@ export async function parityBoard(): Promise<ParityBoard> {
     dir,
     engine,
     findings,
+    image: imageOf,
     stdin,
     store,
   };

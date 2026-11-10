@@ -1,11 +1,12 @@
 /**
  * Boards for the parity of writes. A write changes the store it runs on, so
- * each case runs on its own fresh board, built under a frozen clock: every
- * stamp and every derived id agrees from run to run. Ids that are random by
- * design, the Scratchpad UUIDs, are named by tokens and normalized in the
- * output. A case pins what the CLI printed and the records it changed, read as
- * the difference from a board built the same way and never written to; a write
- * the CLI refuses must change nothing. Test-only.
+ * each case runs on its own board, under a frozen clock: every stamp and every
+ * derived id agrees from run to run. The board is built once per setup, as a
+ * template, and each case runs on a copy of it that no other case has written
+ * to. Ids that are random by design, the Scratchpad UUIDs, are named by tokens
+ * and normalized in the output. A case pins what the CLI printed and the
+ * records it changed, read as the difference from the template, which is never
+ * written to; a write the CLI refuses must change nothing. Test-only.
  */
 import { expect, test } from 'bun:test';
 
@@ -25,7 +26,8 @@ export type OpenBoard = { board: ParityBoard; tokens: Tokens; close: () => Promi
 /**
  * Extra records a family of cases needs on top of the common board, added to
  * the board after it is populated. Returns tokens naming them, which join the
- * common ones.
+ * common ones. Only the store reaches the copies a template makes, so a setup
+ * adds records and never files.
  */
 export type Setup = (board: ParityBoard) => Promise<Tokens | void>;
 
@@ -124,6 +126,39 @@ export async function openBoard(setup?: Setup): Promise<OpenBoard> {
   return { board, close, tokens };
 }
 
+/**
+ * A board built once, for cases to copy: its store's bytes, the tokens naming
+ * its records, and the snapshot of its records, which a write's changes are
+ * read against.
+ */
+export type BoardTemplate = { image: Uint8Array; tokens: Tokens; untouched: string };
+
+/** Build a board as `openBoard` does, and keep it as a template. */
+export async function boardTemplate(setup?: Setup): Promise<BoardTemplate> {
+  const open = await openBoard(setup);
+  try {
+    return {
+      image: open.board.image(),
+      tokens: open.tokens,
+      untouched: await boardSnapshot(open.board, open.tokens),
+    };
+  } finally {
+    await open.close();
+  }
+}
+
+/**
+ * Open a copy of `template` at the frozen instant: a board of its own, which
+ * no other copy's writes reach. Call `close` to release it and the clock.
+ */
+export async function openCopy(template: BoardTemplate): Promise<OpenBoard> {
+  const { board, close } = await frozenBoard(
+    () => Promise.resolve(undefined),
+    () => parityBoard(template.image),
+  );
+  return { board, close, tokens: template.tokens };
+}
+
 const fill = (text: string, tokens: Tokens): string =>
   text.replaceAll(/\{(\w+)\}/g, (whole, name: string) => tokens[name] ?? whole);
 
@@ -150,45 +185,40 @@ export function bindCase(c: ParityCase, tokens: Tokens): ParityCase {
 }
 
 /**
- * The records a write changed on `board`, as lines: its whole state against a
- * board built the same way and never written to.
+ * The records a write changed on `board`, a copy of `template`, as lines: its
+ * whole state against the template's, which was never written to. A copy
+ * whose bytes still equal the template's holds the same records, so it
+ * changed none and needs no snapshot.
  */
 export async function stateChanges(
   board: ParityBoard,
   tokens: Tokens,
-  setup?: Setup,
+  template: BoardTemplate,
 ): Promise<string> {
-  const untouched = await parityBoard();
-  try {
-    const fresh = await prepare(untouched, setup);
-    return changedRecords(
-      await boardSnapshot(untouched, fresh),
-      await boardSnapshot(board, tokens),
-    );
-  } finally {
-    await untouched.close();
+  if (Buffer.compare(board.image(), template.image) === 0) {
+    return '';
   }
+  return changedRecords(template.untouched, await boardSnapshot(board, tokens));
 }
 
 /** What one write case did: its exit code, the records it changed, and its pin. */
 type WriteRun = { exitCode: number; state: string; pin: string };
 
 /**
- * Run one write case on a fresh board: what the CLI printed, then the records
- * it changed. A refused write must change nothing.
+ * Run one write case on its own copy of `template`: what the CLI printed, then
+ * the records it changed. A refused write must change nothing.
  */
 async function runWrite<Case extends SetupCase>(
   c: Case,
-  shared?: Setup,
+  template: BoardTemplate,
   arrange?: Arrange<Case>,
 ): Promise<WriteRun> {
-  const setup = setupOf(c, shared);
-  const open = await openBoard(setup);
+  const open = await openCopy(template);
   try {
     const bound = bindCase(c, open.tokens);
     arrange?.(open.board, c);
     const run = await runNew((argv) => open.board.app(c.bound, argv, c.origin), bound);
-    const changes = await stateChanges(open.board, open.tokens, setup);
+    const changes = await stateChanges(open.board, open.tokens, template);
     // A refusal writes nothing, whatever it printed.
     expect(run.exitCode !== 0 ? changes : '', 'the refused write changed the board').toBe('');
     const state = `--- state\n${changes === '' ? 'unchanged\n' : changes}`;
@@ -264,11 +294,12 @@ export function formatVariance(
 }
 
 /**
- * Register one write command's parity tests: every case runs on its own fresh
- * board through `runWrite` and must match its pin. `setup` adds records the
- * cases need, and `arrange` readies the board for one case. Every successful
- * variant of one write, differing only in how its result is shown, must pin
- * the same records.
+ * Register one write command's parity tests: every case runs on its own copy
+ * of a board through `runWrite` and must match its pin. `setup` adds records
+ * the cases need, and `arrange` readies the board for one case. Cases that
+ * share a setup copy one template, built when the first of them runs. Every
+ * successful variant of one write, differing only in how its result is shown,
+ * must pin the same records.
  */
 export function writeCases<Case extends SetupCase>(
   testUrl: string,
@@ -283,9 +314,19 @@ export function writeCases<Case extends SetupCase>(
     }
     return writeKey(c, setups.get(c.setup)!);
   };
+  // One template per case setup: a case's own setup runs on top of `setup`, which every case shares.
+  const templates = new Map<Setup | undefined, Promise<BoardTemplate>>();
+  const templateOf = (c: Case): Promise<BoardTemplate> => {
+    let template = templates.get(c.setup);
+    if (template === undefined) {
+      template = boardTemplate(setupOf(c, setup));
+      templates.set(c.setup, template);
+    }
+    return template;
+  };
   const runs = new Map<Case, { key: string; name: string; exitCode: number; state: string }>();
   registerParity(testUrl, cases, async (c) => {
-    const run = await runWrite(c, setup, arrange);
+    const run = await runWrite(c, await templateOf(c), arrange);
     runs.set(c, { exitCode: run.exitCode, key: keyOf(c), name: c.name, state: run.state });
     return run.pin;
   });
