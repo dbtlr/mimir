@@ -82,8 +82,6 @@ const CASES: ParityCase[] = [
   artifacts('artifacts -s MMR --tz Mars/Base', { scope: 'MMR', tz: 'Mars/Base' }),
   artifacts('artifacts -s NOPE', { scope: 'NOPE' }),
   artifacts('artifacts -s mmr', { scope: 'mmr' }),
-  // Faults Loom's parser raises.
-  artifacts('artifacts -s MMR --bogus', { bogus: true, scope: 'MMR' }),
   // Through Loom's parser, as a shell spells them.
   argvCase(['artifacts', '-s', 'MMR']),
   argvCase(['artifacts', '-s', 'MMR', '-f', 'json']),
@@ -100,12 +98,7 @@ const CASES: ParityCase[] = [
     'ids',
   ]),
   argvCase(['artifacts', '-s', 'MMR', '--offset', '2x', '-f', 'json']),
-  argvCase(['artifacts', '-s', 'MMR', '--bogus', '-f', 'json']),
   argvCase(['artifacts', '-s', 'MMR', '--not-before', 'created_at:2020-01-01']),
-  // Invocations the old CLI accepted and Loom's parser refuses.
-  argvCase(['artifacts', '-s', 'MMR', '-t', 'a', '-t', 'b', '-f', 'ids']),
-  argvCase(['artifacts', 'extra', '-s', 'MMR']),
-  argvCase(['-s', 'MMR', 'artifacts', '-f', 'ids'], undefined, undefined, ['artifacts']),
   // On a color terminal.
   argvCase(['artifacts', '-s', 'MMR'], true),
   argvCase(['artifacts', '-s', 'MMR', '-f', 'records'], true),

@@ -25,13 +25,10 @@ const CASES: ParityCase[] = [
   // Refusals Mimir raises.
   tree('tree MMR-99', 'MMR-99'),
   tree('tree NOPE', 'NOPE'),
-  // Faults Loom's parser raises.
-  tree('tree (no id)'),
+  // Through Loom's parser, as a shell spells them.
   argvCase(['tree', 'MMR']),
   argvCase(['tree', 'MMR-2', '-f', 'json']),
   argvCase(['tree', 'MMR-99', '-f', 'json']),
-  // Invocations the old CLI accepted and Loom's parser refuses.
-  argvCase(['tree', 'MMR', 'extra']),
   // On a color terminal.
   argvCase(['tree', 'MMR'], true),
   argvCase(['tree', 'MMR-2', '-f', 'records'], true),

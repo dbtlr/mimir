@@ -17,17 +17,13 @@ afterAll(async () => {
   await board.close();
 });
 
-test.each([
-  [[]],
-  [['-f', 'ids']],
-  [['-f', 'table']],
-  [['-f', 'records']],
-  [['-f', 'json']],
-  [['-f', 'jsonl']],
-])('version %p prints the bare version', async (flags) => {
-  const run = await runArgv(board.app(), ['version', ...flags]);
-  expect(run).toEqual({ exitCode: 0, stderr: '', stdout: `${VERSION}\n` });
-});
+test.each([[[]], [['-f', 'json']], [['-f', 'jsonl']]])(
+  'version %p prints the bare version',
+  async (flags) => {
+    const run = await runArgv(board.app(), ['version', ...flags]);
+    expect(run).toEqual({ exitCode: 0, stderr: '', stdout: `${VERSION}\n` });
+  },
+);
 
 test('the Application reports the stamped version', async () => {
   expect(board.app().inspect().version).toBe(VERSION);
@@ -37,11 +33,6 @@ test('the Application reports the stamped version', async () => {
 test('--version is an unknown option, not a flag alias', async () => {
   const run = await runArgv(board.app(), ['--version']);
   expect(run.exitCode).toBe(2);
-});
-
-test('version prints the same on a terminal', async () => {
-  const run = await runArgv(board.app(), ['version'], { tty: true });
-  expect(run.stdout).toBe(`${VERSION}\n`);
 });
 
 test('version never opens the store', async () => {

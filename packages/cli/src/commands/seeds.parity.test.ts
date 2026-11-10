@@ -77,20 +77,13 @@ const CASES: ParityCase[] = [
   seeds('seeds -p MMR --tz Mars/Base', { project: 'MMR', tz: 'Mars/Base' }),
   seeds('seeds -p NOPE', { project: 'NOPE' }),
   seeds('seeds -p mmr', { project: 'mmr' }),
-  // Faults Loom's parser raises.
-  seeds('seeds -p MMR --bogus', { bogus: true, project: 'MMR' }),
   // Through Loom's parser, as a shell spells them.
   argvCase(['seeds', '-p', 'MMR']),
   argvCase(['seeds', '-p', 'MMR', '-f', 'json']),
   argvCase(['seeds', '--project', 'MMR', '--status', 'all', '--sort', 'desc', '--format', 'ids']),
   argvCase(['seeds', '-s', 'MMR', '--grouped']),
   argvCase(['seeds', '-p', 'MMR', '--status', 'bogus', '-f', 'json']),
-  argvCase(['seeds', '-p', 'MMR', '--bogus', '-f', 'json']),
   argvCase(['seeds', '-p', 'MMR', '-s', 'XX', '-f', 'ids']),
-  // Invocations the old CLI accepted and Loom's parser refuses.
-  argvCase(['seeds', '-p', 'MMR', '--status', 'new', '--status', 'all', '-f', 'ids']),
-  argvCase(['seeds', 'extra', '-p', 'MMR']),
-  argvCase(['-p', 'MMR', 'seeds', '-f', 'ids'], undefined, undefined, ['seeds']),
   // On a color terminal.
   argvCase(['seeds', '-p', 'MMR'], true),
   argvCase(['seeds', '-p', 'MMR', '--status', 'all', '--grouped'], true),

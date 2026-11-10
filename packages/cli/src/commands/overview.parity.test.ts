@@ -30,16 +30,13 @@ const CASES: ParityCase[] = [
   // Refusals Mimir raises.
   overview('overview -s NOPE', { scope: 'NOPE' }),
   overview('overview -s mmr', { scope: 'mmr' }),
-  // Faults Loom's parser raises.
-  overview('overview -s MMR --bogus', { bogus: true, scope: 'MMR' }),
+  // Through Loom's parser, as a shell spells them.
   argvCase(['overview', '-s', 'MMR']),
   argvCase(['overview', '--scope', 'MMR', '--format', 'records']),
   argvCase(['overview', '-s', 'NOPE', '-f', 'json']),
   // A composite is no table or id set: the old CLI said so, Loom has no such view.
   argvCase(['overview', '-s', 'MMR', '-f', 'table']),
   argvCase(['overview', '-s', 'MMR', '-f', 'ids']),
-  // Invocations the old CLI accepted and Loom's parser refuses.
-  argvCase(['overview', '-s', 'MMR', 'extra']),
   // The old CLI refused jsonl for a composite; the new one prints a JSON document.
   argvCase(['overview', '-s', 'MMR', '-f', 'jsonl']),
   // On a color terminal, where records is the explicit choice.

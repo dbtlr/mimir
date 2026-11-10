@@ -2,7 +2,6 @@ import { argvLine } from '../testing/argv-case';
 import type { ArgvExtras } from '../testing/argv-case';
 import type { ParityBoard } from '../testing/fixture';
 import type { ParityCase } from '../testing/parity';
-import { MACHINE_REDIRECTS } from '../testing/redirects';
 import { writeCases } from '../testing/writes';
 
 /** A clone's origin, which matches no project's remote. */
@@ -33,10 +32,13 @@ const argv = (line: string, extras: ArgvExtras = {}): ParityCase => {
   return { ...named, name: `${named.name}${extras.bound === undefined ? '' : ' (bound)'}` };
 };
 
+// A bare bind reports the binding and a bind with a key writes it: two shapes of
+// one set of views, each through the full format and terminal matrix. Every
+// other case is one distinct input; the `json` of an origin binding and of a
+// recorded origin are the only places their source and remote show.
 const CASES: ParityCase[] = [
   // Bare: the clone's bound project.
   bind('bind (bound to MMR)', undefined, {}, 'MMR'),
-  bind('bind (bound to MMR) -f records', undefined, { format: 'records' }, 'MMR'),
   bind('bind (bound to MMR) -f table', undefined, { format: 'table' }, 'MMR'),
   bind('bind (bound to MMR) -f ids', undefined, { format: 'ids' }, 'MMR'),
   bind('bind (bound to MMR) -f json', undefined, { format: 'json' }, 'MMR'),
@@ -59,7 +61,6 @@ const CASES: ParityCase[] = [
   bind('bind (origin matches MMR) -f json', undefined, { format: 'json' }, undefined, MIMIR_ORIGIN),
   // Writing the binding.
   bind('bind MMR', 'MMR'),
-  bind('bind MMR -f records', 'MMR', { format: 'records' }),
   bind('bind MMR -f table', 'MMR', { format: 'table' }),
   bind('bind MMR -f ids', 'MMR', { format: 'ids' }),
   bind('bind MMR -f json', 'MMR', { format: 'json' }),
@@ -68,7 +69,6 @@ const CASES: ParityCase[] = [
   // The origin is recorded on a project that has none, and only then.
   bind('bind XX (origin)', 'XX', {}, undefined, STRANGER),
   bind('bind XX (origin) -f json', 'XX', { format: 'json' }, undefined, STRANGER),
-  bind('bind XX (origin) -f ids', 'XX', { format: 'ids' }, undefined, STRANGER),
   bind('bind MMR (origin)', 'MMR', {}, undefined, STRANGER),
   // Refusals Mimir raises.
   bind('bind NOPE', 'NOPE'),
@@ -76,22 +76,12 @@ const CASES: ParityCase[] = [
   bind('bind MMR-3 -f json', 'MMR-3', { format: 'json' }),
   // Faults Loom's parser raises.
   bind('bind MMR -f yaml', 'MMR', { format: 'yaml' }),
-  bind('bind MMR --bogus', 'MMR', { bogus: true }),
   // Through Loom's parser, as a shell spells them.
   argv('bind MMR'),
-  argv('bind MMR -f json'),
-  argv('bind --format ids MMR'),
-  argv('bind -f json', { bound: 'MMR' }),
   argv('bind -f json'),
-  // Invocations the old CLI accepted and Loom's parser refuses.
-  argv('bind MMR extra'),
-  argv('bind MMR -f json -f ids'),
   // On a color terminal.
   argv('bind MMR', { tty: true }),
-  argv('bind XX', { origin: STRANGER, tty: true }),
   argv('bind', { bound: 'MMR', tty: true }),
-  // Misplaced flags, redirected as the old CLI redirected them.
-  ...MACHINE_REDIRECTS.filter((line) => line.startsWith('bind ')).map((line) => argvLine(line)),
 ];
 
 /** Two projects that record one origin, which a clone with that origin cannot choose between. */

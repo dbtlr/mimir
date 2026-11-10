@@ -928,16 +928,6 @@ exit 1
 |   "message": "mmr doesn't exist"
 | }
 
-### overview -s MMR --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
-| }
-
 ### overview argv: -s MMR
 exit 0
 --- stdout
@@ -1213,16 +1203,6 @@ exit 2
 |   "code": "invalid-input",
 |   "hints": [],
 |   "message": "Option \"--format\": Supply one of json, jsonl, records."
-| }
-
-### overview argv: -s MMR extra
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"overview\" accepts no arguments. Remove the supplied values."
 | }
 
 ### overview argv: -s MMR -f jsonl

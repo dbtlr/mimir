@@ -158,18 +158,6 @@ exit 1
 --- state
 unchanged
 
-### tag argv: MMR-99 design -f json
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [],
-|   "message": "MMR-99 doesn't exist"
-| }
---- state
-unchanged
-
 ### tag argv: MMR-s1 design
 exit 1
 --- stdout
@@ -276,74 +264,10 @@ exit 2
 --- state
 unchanged
 
-### tag argv: (no arguments)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"ids\" requires a value. Supply a value for \"ids\"."
-| }
---- state
-unchanged
-
-### tag argv: MMR-5 design --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
 ### untag argv: MMR-3 alpha
 exit 0
 --- stdout
 | [ok] untagged MMR-3: alpha
---- state
-- board.MMR.nodes.items[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
-- nodes[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
-
-### untag argv: MMR-3 alpha -f json
-exit 0
---- stdout
-| {"untagged":{"ids":["MMR-3"],"tags":["alpha"]}}
---- state
-- board.MMR.nodes.items[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
-- nodes[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
-
-### untag argv: MMR-3 alpha -f jsonl
-exit 0
---- stdout
-| {"untagged":{"ids":["MMR-3"],"tags":["alpha"]}}
---- state
-- board.MMR.nodes.items[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
-- nodes[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
-
-### untag argv: MMR-3 alpha -f ids
-exit 0
---- stdout
-| MMR-3
---- state
-- board.MMR.nodes.items[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
-- nodes[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
-
-### untag argv: MMR-3 alpha -f table
-exit 0
---- stdout
-| [ok] untagged MMR-3: alpha
---- state
-- board.MMR.nodes.items[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
-- nodes[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
-
-### untag argv: MMR-3 alpha (terminal)
-exit 0
---- stdout
-| ␛[32m✓␛[39m untagged MMR-3: alpha
 --- state
 - board.MMR.nodes.items[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
 - nodes[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
@@ -388,32 +312,6 @@ exit 1
 --- state
 unchanged
 
-### untag argv: MMR-s1 alpha
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "MMR-s1 is a seed, not a task, project, or artifact"
-| }
---- state
-unchanged
-
-### untag argv: nope alpha
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "ids: KEY (project) · KEY-seq (task/phase/initiative) · KEY-aN (artifact)"
-|   ],
-|   "message": "nope is not a valid id"
-| }
---- state
-unchanged
-
 ### untag argv: , alpha
 exit 2
 --- stdout
@@ -434,34 +332,6 @@ exit 2
 |   "code": "usage",
 |   "hints": [],
 |   "message": "untag requires at least one tag"
-| }
---- state
-unchanged
-
-### tag argv: MMR-5 design --parent MMR-2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
-|   ],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### untag argv: MMR-3 alpha --parent MMR-2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
-|   ],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
 | }
 --- state
 unchanged

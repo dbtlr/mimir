@@ -49,8 +49,7 @@ const CASES: ParityCase[] = [
   // Invocations the old CLI accepted and Loom's parser refuses.
   argvLine('scratch list -s MMR -s XX -f ids'),
   argvLine('scratch list extra -s MMR'),
-  // No subcommand and an unknown one: both refuse, in Loom's words now.
-  argvLine('scratch'),
+  // An unknown subcommand refuses, in Loom's words now.
   argvLine('scratch bogus'),
   // A project the old CLI listed anyway; the new CLI names one real board (ADR 0034).
   argvLine('scratch list -s ZZZ'),

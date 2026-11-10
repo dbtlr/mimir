@@ -40,13 +40,6 @@ exit 0
 --- state
 + projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
-### create argv: project --name Gamma --key GAM -y -f json
-exit 0
---- stdout
-| {"project":{"key":"GAM","name":"Gamma"}}
---- state
-+ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
-
 ### create argv: project Gamma --key GAM -y -f table
 exit 0
 --- stdout
@@ -236,145 +229,7 @@ exit 2
 --- state
 unchanged
 
-### create argv: project Gamma --key GAM -y --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### create argv: project Gamma --key GAM -y --parent MMR
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### create argv: project Gamma --key GAM -y --groomed
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--groomed\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### create argv: project Gamma --key GAM --key GAN -y
-exit 2
---- stdout
---- failure
-| {
-|   "code": "repeated-option",
-|   "hints": [],
-|   "message": "Option \"--key\" can be supplied only once. Remove the repeated option."
-| }
---- state
-unchanged
-
-### create argv: project Gamma Delta --key GAM -y
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"project\" accepts 1 argument. Remove the extra values."
-| }
---- state
-unchanged
-
 ### create argv: initiative Growth --parent MMR
-exit 0
---- stdout
-| [ok] created MMR-10
-| MMR-10
-|   type    initiative
-|   status  o new (rollup over 0 direct children)
-|   title   Growth
---- state
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":null,"status":"new","summary":null,"tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
-+ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
-+ projects[MMR].distribution.new: 1
-
-### create argv: initiative Growth --parent MMR -f json
-exit 0
---- stdout
-| {
-|   "id": "MMR-10",
-|   "parent": null,
-|   "status": "new",
-|   "title": "Growth",
-|   "type": "initiative",
-|   "description": null,
-|   "summary": null,
-|   "open_ended": null,
-|   "created_at": "2026-10-01T12:00:00.000Z",
-|   "updated_at": "2026-10-01T12:00:00.000Z",
-|   "children": [],
-|   "distribution": {}
-| }
---- state
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":null,"status":"new","summary":null,"tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
-+ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
-+ projects[MMR].distribution.new: 1
-
-### create argv: initiative Growth --parent MMR -f jsonl
-exit 0
---- stdout
-| {
-|   "id": "MMR-10",
-|   "parent": null,
-|   "status": "new",
-|   "title": "Growth",
-|   "type": "initiative",
-|   "description": null,
-|   "summary": null,
-|   "open_ended": null,
-|   "created_at": "2026-10-01T12:00:00.000Z",
-|   "updated_at": "2026-10-01T12:00:00.000Z",
-|   "children": [],
-|   "distribution": {}
-| }
---- state
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":null,"status":"new","summary":null,"tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
-+ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
-+ projects[MMR].distribution.new: 1
-
-### create argv: initiative Growth --parent MMR -f ids
-exit 0
---- stdout
-| MMR-10
---- state
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":null,"status":"new","summary":null,"tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
-+ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
-+ projects[MMR].distribution.new: 1
-
-### create argv: initiative Growth --parent MMR -f table
-exit 0
---- stdout
-| [ok] created MMR-10
-| 1 task
-|
-| MMR-10   o new           Growth
---- state
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":null,"status":"new","summary":null,"tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
-+ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
-+ projects[MMR].distribution.new: 1
-
-### create argv: initiative Growth --parent MMR --ascii
 exit 0
 --- stdout
 | [ok] created MMR-10
@@ -588,18 +443,6 @@ exit 2
 --- state
 unchanged
 
-### create argv: initiative Growth --parent MMR --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
 ### create argv: initiative --weird-title --parent MMR
 exit 2
 --- stdout
@@ -614,54 +457,6 @@ exit 2
 --- state
 unchanged
 
-### create argv: initiative Growth More --parent MMR
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"initiative\" accepts 1 argument. Remove the extra values."
-| }
---- state
-unchanged
-
-### create argv: initiative Growth --parent MMR --target 2026-11
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--target\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### create argv: initiative Growth --parent MMR --groomed
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--groomed\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### create argv: initiative Growth --parent MMR --remote x
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--remote\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
 ### create argv: phase Beta --parent MMR-1
 exit 0
 --- stdout
@@ -671,87 +466,6 @@ exit 0
 |   status  o new (rollup over 0 direct children)
 |   title   Beta
 |   parent  MMR-1
---- state
-+ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
-+ nodes[MMR-1].distribution.new: 1
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":"MMR-1","status":"new","summary":null,"tags":[],"target":null,"title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
-
-### create argv: phase Beta --parent MMR-1 -f json
-exit 0
---- stdout
-| {
-|   "id": "MMR-10",
-|   "parent": "MMR-1",
-|   "status": "new",
-|   "title": "Beta",
-|   "type": "phase",
-|   "description": null,
-|   "summary": null,
-|   "target": null,
-|   "open_ended": null,
-|   "created_at": "2026-10-01T12:00:00.000Z",
-|   "updated_at": "2026-10-01T12:00:00.000Z",
-|   "children": [],
-|   "distribution": {}
-| }
---- state
-+ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
-+ nodes[MMR-1].distribution.new: 1
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":"MMR-1","status":"new","summary":null,"tags":[],"target":null,"title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
-
-### create argv: phase Beta --parent MMR-1 -f jsonl
-exit 0
---- stdout
-| {
-|   "id": "MMR-10",
-|   "parent": "MMR-1",
-|   "status": "new",
-|   "title": "Beta",
-|   "type": "phase",
-|   "description": null,
-|   "summary": null,
-|   "target": null,
-|   "open_ended": null,
-|   "created_at": "2026-10-01T12:00:00.000Z",
-|   "updated_at": "2026-10-01T12:00:00.000Z",
-|   "children": [],
-|   "distribution": {}
-| }
---- state
-+ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
-+ nodes[MMR-1].distribution.new: 1
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":"MMR-1","status":"new","summary":null,"tags":[],"target":null,"title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
-
-### create argv: phase Beta --parent MMR-1 -f ids
-exit 0
---- stdout
-| MMR-10
---- state
-+ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
-+ nodes[MMR-1].distribution.new: 1
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":"MMR-1","status":"new","summary":null,"tags":[],"target":null,"title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
-
-### create argv: phase Beta --parent MMR-1 --ascii
-exit 0
---- stdout
-| [ok] created MMR-10
-| MMR-10
-|   type    phase
-|   status  o new (rollup over 0 direct children)
-|   title   Beta
-|   parent  MMR-1
---- state
-+ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
-+ nodes[MMR-1].distribution.new: 1
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":"MMR-1","status":"new","summary":null,"tags":[],"target":null,"title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
-
-### create argv: phase Beta --parent MMR-1 -f table
-exit 0
---- stdout
-| [ok] created MMR-10
-| 1 task
-|
-| MMR-10   o new        MMR-1   Beta
 --- state
 + nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
 + nodes[MMR-1].distribution.new: 1
@@ -982,18 +696,6 @@ exit 2
 |   "code": "invalid-input",
 |   "hints": [],
 |   "message": "Option \"--parent\" is required. Supply a value."
-| }
---- state
-unchanged
-
-### create argv: phase Beta --parent MMR-1 --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
 | }
 --- state
 unchanged
@@ -1582,18 +1284,6 @@ exit 2
 --- state
 unchanged
 
-### create argv: task "Ship docs" --parent MMR-2 --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
 ### create argv: task --weird-title --parent MMR-2
 exit 2
 --- stdout
@@ -1608,78 +1298,6 @@ exit 2
 --- state
 unchanged
 
-### create argv: task "Ship docs" --parent MMR-2 --target 2026-11
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--target\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### create argv: task "Ship docs" --parent MMR-2 --open-ended
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--open-ended\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### create argv: task "Ship docs" --parent MMR-2 --parent MMR-1
-exit 2
---- stdout
---- failure
-| {
-|   "code": "repeated-option",
-|   "hints": [],
-|   "message": "Option \"--parent\" can be supplied only once. Remove the repeated option."
-| }
---- state
-unchanged
-
-### create argv: task "Ship docs" More --parent MMR-2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"task\" accepts 1 argument. Remove the extra values."
-| }
---- state
-unchanged
-
-### create argv: epic Title
-exit 2
---- stdout
---- failure
-| {
-|   "code": "parser",
-|   "hints": [],
-|   "message": "Unknown command \"epic\". Use one of: project, initiative, phase, task."
-| }
---- state
-unchanged
-
-### create argv: (no arguments)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "parser",
-|   "hints": [],
-|   "message": "Option \"--format\" belongs to commands create project, create initiative, create phase, create task. Supply it after the command name."
-| }
---- state
-unchanged
-
 ### create argv: task x --parent MMR-2 --direction x
 exit 2
 --- stdout
@@ -1690,48 +1308,6 @@ exit 2
 |     "the ## Next narrative is set after create: mimir update <id> --direction \"…\""
 |   ],
 |   "message": "Unknown option \"--direction\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### create argv: phase x --parent MMR-1 --clear-links
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--clear-links' replaces linked work; use it with scratch update"
-|   ],
-|   "message": "Unknown option \"--clear-links\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### create argv: initiative x --parent MMR --not-pinned
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--not-pinned' unpins a project: mimir update <KEY> --not-pinned"
-|   ],
-|   "message": "Unknown option \"--not-pinned\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### create argv: project x --key GAM -y --since 2020-01-01
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--since' is retired; every resource windows created_at with '--at-or-after created_at:YYYY-MM-DD'"
-|   ],
-|   "message": "Unknown option \"--since\". Supply a declared option; prefix a hyphenated path with \"./\"."
 | }
 --- state
 unchanged

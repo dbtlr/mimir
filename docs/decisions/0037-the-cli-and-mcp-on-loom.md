@@ -142,6 +142,24 @@ command's parity test, so the list does not go stale.
 > frozen in `src/parity/retired-mcp-tools.ts` so the capability map is still
 > diffed against the retired contract.
 
+> 2026-11-10: A shared renderer, parser, or validator is pinned once, and each
+> command keeps one case per distinct input. The full format, `--ascii`, and
+> terminal matrix runs once for each set of views a write echoes through: once
+> per shape of the lifecycle echo, and once per other write file. A command
+> builder that reads the terminal and `--ascii` itself, where they change its
+> output, keeps one terminal case. Loom's parser faults are pinned once per
+> failure code: `scratch.parity.test.ts` holds most codes, `store.parity.test.ts`
+> the missing and unknown subcommand, and `lifecycle.parity.test.ts` the missing
+> option value. A write command may keep a missing-argument case that proves an
+> input it requires. A unit test checks each entry of the flag owner table: its
+> redirect, and that each owner declares the flag. One argv case per redirect
+> group stays. The wrong-subject sweep runs once per branch of the lifecycle
+> subject check, and once for each other id rule, such as the Engine's tag
+> targets. A command that shares one of these keeps one case that proves it is
+> wired in, and each write verb keeps one refusal that reaches the Engine, which
+> pins its exit, core's words, and an unchanged board. Core owns which states a
+> verb may leave, so the pins do not sweep them (MMR-663).
+
 ### Loom generates the MCP contract
 
 A command opts in to MCP with Loom's `mcpCommand` declaration as it is ported.
@@ -238,3 +256,4 @@ starts.
 - 2026-10-21: Added the remote-doctor refinement. MMR-588 implements the client checks separately from MMR-579's pairing command.
 - 2026-10-27: Noted that the parity cases run as snapshots of the Loom CLI and the old CLI is no longer the oracle (MMR-600).
 - 2026-10-29: `store upgrade` is removed in every mode; in remote mode `store` refuses export and import only (MMR-582).
+- 2026-11-10: Noted that a shared renderer, parser, or validator is pinned once, and each command keeps one case per distinct input (MMR-663).

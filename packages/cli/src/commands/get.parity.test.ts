@@ -1,7 +1,6 @@
 import { argvCase, argvLine } from '../testing/argv-case';
 import { parityCases } from '../testing/parity';
 import type { ParityCase } from '../testing/parity';
-import { GET_REDIRECTS } from '../testing/redirects';
 
 const get = (name: string, id: string | undefined, options: ParityCase['options'] = {}) => ({
   ...(id === undefined ? {} : { args: { id } }),
@@ -64,7 +63,6 @@ const CASES: ParityCase[] = [
   get('get MMR-3 --col lede', 'MMR-3', { col: ['lede'] }),
   get('get MMR-3 --col .history', 'MMR-3', { col: ['.history'] }),
   // Faults Loom's parser raises.
-  get('get (no id)', undefined),
   get('get MMR-3 --tz UTC', 'MMR-3', { tz: 'UTC' }),
   get('get MMR-3 -f yaml', 'MMR-3', { format: 'yaml' }),
   // Through Loom's parser, as a shell spells them.
@@ -74,11 +72,8 @@ const CASES: ParityCase[] = [
   argvCase(['get', 'MMR-3', '--col', 'lede']),
   argvCase(['get', 'MMR-3', '--col', 'bogus']),
   argvCase(['get', 'NOPE', '-f', 'json']),
-  // Invocations the old CLI accepted and Loom's parser refuses.
-  argvCase(['get', 'MMR-3', '-f', 'json', '-f', 'ids']),
-  argvCase(['get', 'MMR-3', 'extra']),
-  // Flags that belong to the query commands, redirected as the old CLI redirected them.
-  ...GET_REDIRECTS.map((line) => argvLine(`get ${line}`)),
+  // A flag that belongs to the query commands, redirected as the old CLI redirected it.
+  argvLine('get MMR-3 --tz UTC'),
   // On a color terminal.
   argvCase(['get', 'MMR-3'], true),
   argvCase(['get', 'MMR-3', '-f', 'table'], true),

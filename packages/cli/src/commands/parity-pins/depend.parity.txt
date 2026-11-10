@@ -341,110 +341,6 @@ exit 0
 ~ projects[MMR].leafCounts.ready: 2 -> 3
 - projects[MMR].leafCounts.awaiting: 1
 
-### undepend argv: MMR-4 --on MMR-3 -f json
-exit 0
---- stdout
-| {
-|   "id": "MMR-4",
-|   "parent": "MMR-2",
-|   "status": "ready",
-|   "title": "Render views",
-|   "type": "task",
-|   "description": null,
-|   "summary": null,
-|   "priority": null,
-|   "size": null,
-|   "lifecycle": "todo",
-|   "grooming": "not_groomed",
-|   "hold": "none",
-|   "hold_reason": null,
-|   "block_owner": null,
-|   "external_ref": null,
-|   "upstream": null,
-|   "host": null,
-|   "harness": null,
-|   "session": null,
-|   "worker_harness": null,
-|   "worker_session": null,
-|   "branch": null,
-|   "completed_at": null,
-|   "created_at": "2026-10-01T12:00:00.000Z",
-|   "updated_at": "2026-10-01T12:00:00.000Z",
-|   "children": []
-| }
---- state
-- board.MMR.nodes.items[MMR-3].deps.blocking[MMR-4]: {"id":"MMR-4","status":"awaiting","title":"Render views"}
-~ board.MMR.nodes.items[MMR-3].verdicts.blocking: true -> false
-- board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
-- board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
-+ board.MMR.nodes.items[MMR-4].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-3","kind":"dependency","reason":null,"to":null}
-~ board.MMR.nodes.items[MMR-4].status: "awaiting" -> "ready"
-~ nodes[MMR-2].children[MMR-4].status: "awaiting" -> "ready"
-~ nodes[MMR-2].distribution.ready: 2 -> 3
-- nodes[MMR-2].distribution.awaiting: 1
-- nodes[MMR-3].deps.blocking[MMR-4]: {"id":"MMR-4","status":"awaiting","title":"Render views"}
-~ nodes[MMR-3].verdicts.blocking: true -> false
-- nodes[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
-- nodes[MMR-4].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
-+ nodes[MMR-4].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-3","kind":"dependency","reason":null,"to":null}
-~ nodes[MMR-4].status: "awaiting" -> "ready"
-~ projects[MMR].leafCounts.ready: 2 -> 3
-- projects[MMR].leafCounts.awaiting: 1
-
-### undepend argv: MMR-4 --on MMR-3 -f ids
-exit 0
---- stdout
-| MMR-4
---- state
-- board.MMR.nodes.items[MMR-3].deps.blocking[MMR-4]: {"id":"MMR-4","status":"awaiting","title":"Render views"}
-~ board.MMR.nodes.items[MMR-3].verdicts.blocking: true -> false
-- board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
-- board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
-+ board.MMR.nodes.items[MMR-4].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-3","kind":"dependency","reason":null,"to":null}
-~ board.MMR.nodes.items[MMR-4].status: "awaiting" -> "ready"
-~ nodes[MMR-2].children[MMR-4].status: "awaiting" -> "ready"
-~ nodes[MMR-2].distribution.ready: 2 -> 3
-- nodes[MMR-2].distribution.awaiting: 1
-- nodes[MMR-3].deps.blocking[MMR-4]: {"id":"MMR-4","status":"awaiting","title":"Render views"}
-~ nodes[MMR-3].verdicts.blocking: true -> false
-- nodes[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
-- nodes[MMR-4].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
-+ nodes[MMR-4].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-3","kind":"dependency","reason":null,"to":null}
-~ nodes[MMR-4].status: "awaiting" -> "ready"
-~ projects[MMR].leafCounts.ready: 2 -> 3
-- projects[MMR].leafCounts.awaiting: 1
-
-### undepend argv: MMR-4 --on MMR-3 (terminal)
-exit 0
---- stdout
-| ␛[32m✓␛[39m MMR-4 no longer depends on MMR-3
-| ␛[1mMMR-4␛[22m
-|   type       task
-|   status     ␛[32m● ready␛[39m
-|   title      Render views
-|   parent     MMR-2
-|   lifecycle  todo
-|   grooming   not_groomed
-|   hold       none
---- state
-- board.MMR.nodes.items[MMR-3].deps.blocking[MMR-4]: {"id":"MMR-4","status":"awaiting","title":"Render views"}
-~ board.MMR.nodes.items[MMR-3].verdicts.blocking: true -> false
-- board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
-- board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
-+ board.MMR.nodes.items[MMR-4].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-3","kind":"dependency","reason":null,"to":null}
-~ board.MMR.nodes.items[MMR-4].status: "awaiting" -> "ready"
-~ nodes[MMR-2].children[MMR-4].status: "awaiting" -> "ready"
-~ nodes[MMR-2].distribution.ready: 2 -> 3
-- nodes[MMR-2].distribution.awaiting: 1
-- nodes[MMR-3].deps.blocking[MMR-4]: {"id":"MMR-4","status":"awaiting","title":"Render views"}
-~ nodes[MMR-3].verdicts.blocking: true -> false
-- nodes[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
-- nodes[MMR-4].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
-+ nodes[MMR-4].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-3","kind":"dependency","reason":null,"to":null}
-~ nodes[MMR-4].status: "awaiting" -> "ready"
-~ projects[MMR].leafCounts.ready: 2 -> 3
-- projects[MMR].leafCounts.awaiting: 1
-
 ### undepend argv: MMR-5 --on MMR-3
 exit 0
 --- stdout
@@ -527,20 +423,6 @@ exit 1
 --- state
 unchanged
 
-### depend argv: MMR-99 --on MMR-3 -f json
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "MMR-99 doesn't exist"
-| }
---- state
-unchanged
-
 ### depend argv: MMR-5 --on MMR-99
 exit 1
 --- stdout
@@ -581,30 +463,6 @@ exit 1
 --- state
 unchanged
 
-### depend argv: MMR-5 --on MMR
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "MMR is a project, not a task, phase, or initiative"
-| }
---- state
-unchanged
-
-### depend argv: MMR-a1 --on MMR-3
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "MMR-a1 is an artifact, not a task, phase, or initiative"
-| }
---- state
-unchanged
-
 ### depend argv: MMR-5 --on MMR-s1
 exit 1
 --- stdout
@@ -615,34 +473,6 @@ exit 1
 |     "act on a seed with promote / reject / resolve"
 |   ],
 |   "message": "MMR-s1 is a seed, not a task, phase, or initiative"
-| }
---- state
-unchanged
-
-### depend argv: nope --on MMR-3
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "nope doesn't exist"
-| }
---- state
-unchanged
-
-### depend argv: MMR-5 --on nope
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "nope doesn't exist"
 | }
 --- state
 unchanged
@@ -685,18 +515,6 @@ exit 1
 --- state
 unchanged
 
-### undepend argv: MMR-4 --on MMR
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "MMR is a project, not a task, phase, or initiative"
-| }
---- state
-unchanged
-
 ### undepend argv: MMR-4 --on ""
 exit 2
 --- stdout
@@ -721,18 +539,6 @@ exit 2
 --- state
 unchanged
 
-### depend argv: --on MMR-3
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
-| }
---- state
-unchanged
-
 ### undepend argv: MMR-4
 exit 2
 --- stdout
@@ -741,70 +547,6 @@ exit 2
 |   "code": "invalid-input",
 |   "hints": [],
 |   "message": "Option \"--on\" is required. Supply a value."
-| }
---- state
-unchanged
-
-### depend argv: MMR-5 --on MMR-3 --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### depend argv: MMR-5 --on MMR-3 --on MMR-4
-exit 2
---- stdout
---- failure
-| {
-|   "code": "repeated-option",
-|   "hints": [],
-|   "message": "Option \"--on\" can be supplied only once. Remove the repeated option."
-| }
---- state
-unchanged
-
-### depend argv: MMR-5 MMR-6 --on MMR-3
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"depend\" accepts 1 argument. Remove the extra values."
-| }
---- state
-unchanged
-
-### depend argv: MMR-5 --on MMR-3 --parent MMR-2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
-|   ],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
---- state
-unchanged
-
-### undepend argv: MMR-5 --on MMR-3 --parent MMR-2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
-|   ],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
 | }
 --- state
 unchanged

@@ -5800,26 +5800,6 @@ exit 1
 |   "message": "unsupported transfer document schema version 99"
 | }
 
-### store export (no file)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"file\" requires a value. Supply a value for \"file\"."
-| }
-
-### store import (no file)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"file\" requires a value. Supply a value for \"file\"."
-| }
-
 ### store export - -f yaml
 exit 2
 --- stdout
@@ -5828,36 +5808,6 @@ exit 2
 |   "code": "invalid-input",
 |   "hints": [],
 |   "message": "Option \"format\": Supply one of ids, json, jsonl, records, table."
-| }
-
-### store export - --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
-| }
-
-### store export <file> --apply
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"apply\". Supply the name of a declared option."
-| }
-
-### store export <file> --resume
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"resume\". Supply the name of a declared option."
 | }
 
 ### store
@@ -5878,16 +5828,6 @@ exit 2
 |   "code": "unknown-command",
 |   "hints": [],
 |   "message": "Unknown command \"frobnicate\". Use one of: export, import."
-| }
-
-### store argv: upgrade -f json
-exit 2
---- stdout
---- failure
-| {
-|   "code": "parser",
-|   "hints": [],
-|   "message": "Unknown command \"upgrade\". Use one of: export, import."
 | }
 
 ### store argv: export - --format json
@@ -6411,36 +6351,6 @@ exit 1
 exit 0
 --- stdout
 | {"applied":true,"created":0,"mode":"resume","skipped":15}
-
-### store argv: export - extra
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"export\" accepts 1 argument. Remove the extra values."
-| }
-
-### store argv: import <dir>/doc.json extra
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"import\" accepts 1 argument. Remove the extra values."
-| }
-
-### store argv: export - -f json -f ids
-exit 2
---- stdout
---- failure
-| {
-|   "code": "repeated-option",
-|   "hints": [],
-|   "message": "Option \"-f\" can be supplied only once. Remove the repeated option."
-| }
 
 ### store argv: export - (terminal)
 exit 0
@@ -6972,18 +6882,6 @@ exit 1
 | }
 
 ### store argv: export - --parent MMR-2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
-|   ],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
-
-### store argv: import x.json --parent MMR-2
 exit 2
 --- stdout
 --- failure

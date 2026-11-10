@@ -777,16 +777,6 @@ exit 1
 |   "message": " doesn't exist"
 | }
 
-### next -s MMR --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
-| }
-
 ### next argv: -s MMR
 exit 0
 --- stdout
@@ -898,56 +888,6 @@ exit 1
 |     "create it: mimir create project \"Name\" --key mmr -y"
 |   ],
 |   "message": "mmr doesn't exist"
-| }
-
-### next argv: -s MMR --bogus -f json
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
-
-### next argv: -s MMR -p p1 -p p2 -f ids
-exit 2
---- stdout
---- failure
-| {
-|   "code": "repeated-option",
-|   "hints": [],
-|   "message": "Option \"-p\" can be supplied only once. Remove the repeated option."
-| }
-
-### next argv: -s MMR --ascii --ascii
-exit 2
---- stdout
---- failure
-| {
-|   "code": "repeated-option",
-|   "hints": [],
-|   "message": "Option \"--ascii\" can be supplied only once. Remove the repeated option."
-| }
-
-### next argv: extra -s MMR
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"next\" accepts no arguments. Remove the supplied values."
-| }
-
-### next argv: -s MMR next -f ids
-exit 2
---- stdout
---- failure
-| {
-|   "code": "parser",
-|   "hints": [],
-|   "message": "Option \"-s\" belongs to commands next, list, overview, artifacts, search, seeds, seed, triage, scratch list, scratch create, doctor. Supply it after the command name."
 | }
 
 ### next argv: -s MMR (terminal)

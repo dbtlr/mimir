@@ -29,14 +29,10 @@ const CASES: ParityCase[] = [
   // Refusals Mimir raises.
   projects('projects --status bogus', { status: 'bogus' }),
   // Faults Loom's parser raises, where the old CLI named its own.
-  projects('projects --scope MMR', { scope: 'MMR' }),
   projects('projects --limit 2', { limit: '2' }),
   argvCase(['projects', '-f', 'json']),
   argvCase(['projects', '--status', 'all', '--format', 'ids']),
   argvCase(['projects', '--status', 'bogus', '-f', 'json']),
-  // Invocations the old CLI accepted and Loom's parser refuses.
-  argvCase(['projects', '--status', 'all', '--status', 'archived', '-f', 'ids']),
-  argvCase(['projects', 'extra']),
   // Options that belong to other commands: the old CLI's Mimir hint is lost.
   argvCase(['projects', '-q', 'x']),
   argvCase(['projects', '-t', 'x']),

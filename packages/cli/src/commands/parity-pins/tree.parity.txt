@@ -741,16 +741,6 @@ exit 1
 |   "message": "NOPE doesn't exist"
 | }
 
-### tree (no id)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
-| }
-
 ### tree argv: MMR
 exit 0
 --- stdout
@@ -1064,16 +1054,6 @@ exit 1
 |   "code": "not-found",
 |   "hints": [],
 |   "message": "MMR-99 doesn't exist"
-| }
-
-### tree argv: MMR extra
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"tree\" accepts 1 argument. Remove the extra values."
 | }
 
 ### tree argv: MMR (terminal)

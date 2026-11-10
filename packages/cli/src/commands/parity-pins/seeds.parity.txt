@@ -431,16 +431,6 @@ exit 1
 |   "message": "mmr doesn't exist"
 | }
 
-### seeds -p MMR --bogus
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
-| }
-
 ### seeds argv: -p MMR
 exit 0
 --- stdout
@@ -523,51 +513,11 @@ exit 2
 |   "message": "invalid status: bogus (expected new|parked|promoted|resolved|rejected|live|all)"
 | }
 
-### seeds argv: -p MMR --bogus -f json
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
-
 ### seeds argv: -p MMR -s XX -f ids
 exit 0
 --- stdout
 | MMR-s1
 | MMR-s3
-
-### seeds argv: -p MMR --status new --status all -f ids
-exit 2
---- stdout
---- failure
-| {
-|   "code": "repeated-option",
-|   "hints": [],
-|   "message": "Option \"--status\" can be supplied only once. Remove the repeated option."
-| }
-
-### seeds argv: extra -p MMR
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"seeds\" accepts no arguments. Remove the supplied values."
-| }
-
-### seeds argv: -p MMR seeds -f ids
-exit 2
---- stdout
---- failure
-| {
-|   "code": "parser",
-|   "hints": [],
-|   "message": "Option \"-p\" belongs to commands next, list, seeds, seed, promote, create task, update. Supply it after the command name."
-| }
 
 ### seeds argv: -p MMR (terminal)
 exit 0

@@ -155,16 +155,6 @@ exit 2
 |   "message": "invalid status: bogus (expected active|archived|all)"
 | }
 
-### projects --scope MMR
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"scope\". Supply the name of a declared option."
-| }
-
 ### projects --limit 2
 exit 2
 --- stdout
@@ -237,26 +227,6 @@ exit 2
 |   "code": "usage",
 |   "hints": [],
 |   "message": "invalid status: bogus (expected active|archived|all)"
-| }
-
-### projects argv: --status all --status archived -f ids
-exit 2
---- stdout
---- failure
-| {
-|   "code": "repeated-option",
-|   "hints": [],
-|   "message": "Option \"--status\" can be supplied only once. Remove the repeated option."
-| }
-
-### projects argv: extra
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"projects\" accepts no arguments. Remove the supplied values."
 | }
 
 ### projects argv: -q x

@@ -121,16 +121,6 @@ exit 1
 |   "message": "bogus doesn't exist"
 | }
 
-### status (no id)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
-| }
-
 ### status MMR-3 -f yaml
 exit 2
 --- stdout
@@ -175,16 +165,6 @@ exit 2
 |   "code": "invalid-input",
 |   "hints": [],
 |   "message": "Option \"--format\": Supply one of json, jsonl, records, table."
-| }
-
-### status argv: MMR-3 extra
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"status\" accepts 1 argument. Remove the extra values."
 | }
 
 ### status argv: MMR-3 -f jsonl

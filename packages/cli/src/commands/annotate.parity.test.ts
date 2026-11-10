@@ -1,6 +1,5 @@
-import { argvCase, argvLine } from '../testing/argv-case';
+import { argvCase } from '../testing/argv-case';
 import type { ParityCase } from '../testing/parity';
-import { NODE_REDIRECTS } from '../testing/redirects';
 import { writeCases } from '../testing/writes';
 
 const argv = argvCase;
@@ -23,11 +22,6 @@ const CASES: ParityCase[] = [
   argv(['annotate', 'MMR-a1', 'a note']),
   argv(['annotate', 'MMR-s1', 'a note']),
   argv(['annotate', 'nope', 'a note']),
-  // Faults Loom's parser raises.
-  argv(['annotate']),
-  argv(['annotate', 'MMR-3', 'a note', '--bogus']),
-  // Misplaced flags, redirected as the old CLI redirected them.
-  ...NODE_REDIRECTS.filter((line) => line.startsWith('annotate ')).map((line) => argvLine(line)),
 ];
 
 writeCases(import.meta.url, CASES);

@@ -12,7 +12,6 @@ import type { ParityBoard } from '../testing/fixture';
 import { pinText, registerParity, runNew } from '../testing/parity';
 import type { ParityCase } from '../testing/parity';
 import { quoted } from '../testing/pins';
-import { MACHINE_REDIRECTS } from '../testing/redirects';
 
 let board: ParityBoard;
 let document = '';
@@ -124,31 +123,20 @@ const CASES: StoreCase[] = [
   imported('store import <newer schema>', newerSchema),
   imported('store import <newer schema> -f json', newerSchema, { format: 'json' }),
   // Faults Loom's parser raises.
-  store('store export (no file)', ['export']),
-  store('store import (no file)', ['import']),
   exported('store export - -f yaml', '-', { format: 'yaml' }),
-  exported('store export - --bogus', '-', { bogus: true }),
-  { ...exported('store export <file> --apply', out('g.json'), { apply: true }) },
-  { ...exported('store export <file> --resume', out('h.json'), { resume: true }) },
   // The group alone, and a verb it does not have.
   store('store', []),
   store('store frobnicate', ['frobnicate']),
   // Through Loom's parser, as a shell spells them.
-  // The retired `upgrade` verb is an unknown command.
-  argv('store upgrade -f json'),
   argv('store export - --format json'),
   argv('store import <dir>/doc.json'),
   argv('store import <dir>/doc.json --apply --resume -f json'),
-  // Invocations the old CLI accepted and Loom's parser refuses.
-  argv('store export - extra'),
-  argv('store import <dir>/doc.json extra'),
-  argv('store export - -f json -f ids'),
   // The piped default is json and the terminal default is prose.
   argv('store export -', { tty: true }),
   argv('store import <dir>/doc.json', { tty: true }),
   argv('store import <dir>/doc.json -f json'),
-  // Misplaced flags, redirected as the old CLI redirected them.
-  ...MACHINE_REDIRECTS.filter((line) => line.startsWith('store ')).map((line) => argvLine(line)),
+  // A misplaced flag, redirected as the old CLI redirected it.
+  argvLine('store export - --parent MMR-2'),
 ];
 
 // One board is shared: the cases name files on a shared disk, and import, which refuses or

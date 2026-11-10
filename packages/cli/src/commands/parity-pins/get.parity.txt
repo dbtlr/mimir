@@ -1023,16 +1023,6 @@ exit 2
 |   "message": "columns are flat now: --col history (the dot prefix was dropped)"
 | }
 
-### get (no id)
-exit 2
---- stdout
---- failure
-| {
-|   "code": "invalid-input",
-|   "hints": [],
-|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
-| }
-
 ### get MMR-3 --tz UTC
 exit 2
 --- stdout
@@ -1188,26 +1178,6 @@ exit 1
 |   "message": "NOPE doesn't exist"
 | }
 
-### get argv: MMR-3 -f json -f ids
-exit 2
---- stdout
---- failure
-| {
-|   "code": "parser",
-|   "hints": [],
-|   "message": "Option \"-f\" can be supplied only once. Remove the repeated option."
-| }
-
-### get argv: MMR-3 extra
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"get\" accepts 1 argument. Remove the extra values."
-| }
-
 ### get argv: MMR-3 --tz UTC
 exit 2
 --- stdout
@@ -1218,66 +1188,6 @@ exit 2
 |     "'--tz' resolves a bare date in a query and renders its results; use it with list, next, artifacts, seeds"
 |   ],
 |   "message": "Unknown option \"--tz\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
-
-### get argv: MMR-3 --at-or-before created_at:2020-01-01
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--at-or-before FIELD:VALUE' filters a query; use it with list, next, artifacts, seeds"
-|   ],
-|   "message": "Unknown option \"--at-or-before\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
-
-### get argv: MMR-3 --at-or-after created_at:2020-01-01
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--at-or-after FIELD:VALUE' filters a query; use it with list, next, artifacts, seeds"
-|   ],
-|   "message": "Unknown option \"--at-or-after\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
-
-### get argv: MMR-3 --on created_at:2020-01-01
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--on' names the owner at block (you|others), the prerequisites at depend/undepend, and a date filter at list, next, artifacts, seeds"
-|   ],
-|   "message": "Unknown option \"--on\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
-
-### get argv: MMR-3 --query x
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'-q, --query' searches titles; use it with artifacts, list, or next"
-|   ],
-|   "message": "Unknown option \"--query\". Supply a declared option; prefix a hyphenated path with \"./\"."
-| }
-
-### get argv: MMR-3 -q x
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'-q, --query' searches titles; use it with artifacts, list, or next"
-|   ],
-|   "message": "Unknown option \"-q\". Supply a declared option; prefix a hyphenated path with \"./\"."
 | }
 
 ### get argv: MMR-3 (terminal)

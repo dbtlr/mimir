@@ -28,14 +28,12 @@ const CASES: ParityCase[] = [
   status('status NOPE', 'NOPE'),
   status('status bogus', 'bogus'),
   // Faults Loom's parser raises.
-  status('status (no id)'),
   status('status MMR-3 -f yaml', 'MMR-3', { format: 'yaml' }),
   argvCase(['status', 'MMR-3']),
   argvCase(['status', 'MMR-3', '-f', 'records']),
   argvCase(['status', 'MMR-99', '-f', 'json']),
   // Invocations the old CLI accepted and Loom's parser refuses.
   argvCase(['status', 'MMR-3', '-f', 'ids']),
-  argvCase(['status', 'MMR-3', 'extra']),
   // The old CLI printed text under jsonl; the new one prints a JSON document.
   argvCase(['status', 'MMR-3', '-f', 'jsonl']),
   // On a color terminal.
