@@ -392,7 +392,8 @@ for (const backend of backends) {
   });
 }
 
-// The refusals below are decided in JS before any query, so they run on SQLite alone.
+// The refusals below are decided in JS before any search query (the unknown
+// project after a loadProjects read), so they run on SQLite alone.
 test('a project-only search with no project is a validation error', async () => {
   const instance = await backends[1]?.make();
   if (instance === undefined) {

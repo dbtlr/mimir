@@ -397,6 +397,8 @@ describe.each([
     expect(await runs.recoverStale(STALE_MS)).toEqual(['r1']);
   });
 
+  // Postgres too: the day's window is chargedSince's SQL text comparison on
+  // started_at, which must order canonical instants by time on both dialects.
   test('admission refuses a reservation that does not fit the day, counting each run by its charge', async () => {
     const { advance, runs } = await fixture();
     const day = { dailyTokens: 3_000, since: '2026-11-01T12:00:00.000Z' };

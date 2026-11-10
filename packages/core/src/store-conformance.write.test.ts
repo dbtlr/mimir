@@ -707,6 +707,9 @@ for (const backend of backends) {
     expect((await store.artifacts.list({ tag: 'spec' })).items.map((a) => a.title)).toEqual([
       'Tagged',
     ]);
+    // The total counts rows after the JS filters, not before them.
+    expect((await store.artifacts.list({ tag: 'spec' })).total).toBe(1);
+    expect((await store.artifacts.list({ q: 'tagged' })).total).toBe(1);
     expect(
       (await store.artifacts.list({ excludeProjects: ['OPS'] })).items.map((a) => a.title),
     ).toEqual(['Tagged']);
