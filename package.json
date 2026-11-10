@@ -15,6 +15,7 @@
     "dev:ui": "bun run --cwd packages/host dev",
     "check": "vp check",
     "test": "bun test packages/cli packages/core packages/helpers packages/sandbox packages/wire packages/host/src/server packages/host/src/admin",
+    "test:budget": "bun packages/cli/scripts/test-budget.ts",
     "pins:update": "bun packages/cli/scripts/update-pins.ts",
     "test:native": "bun test packages/core/src/store-sqlite/sqlite.test.ts packages/core/src/installation packages/core/src/sandbox-authority.test.ts packages/core/src/config.test.ts packages/core/src/credentials.test.ts packages/core/src/doctor/config-permissions.test.ts packages/core/src/env.test.ts packages/core/src/git-port.test.ts packages/helpers/src/time.test.ts packages/sandbox/src/host.test.ts",
     "test:pwa": "bun run --cwd packages/host test:pwa",
