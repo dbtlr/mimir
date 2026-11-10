@@ -9,8 +9,8 @@ import { writeCases } from '../testing/writes';
 import type { Setup, SetupCase } from '../testing/writes';
 
 /**
- * The fourteen uniform verbs, pinned. A verb writes, so each case runs on a
- * fresh board at one frozen instant (testing/writes.ts) and pins its output and
+ * The fourteen uniform verbs, pinned. A verb writes, so each case runs on its
+ * own copy of the board at one frozen instant (testing/writes.ts) and pins its output and
  * the records it changed. A refused verb must leave the board as it found it.
  *
  * Every verb echoes through one set of views (render/echo.ts) with three
