@@ -168,9 +168,11 @@ Apply these rules when you add a test and when you review one.
    through every kind of hostile work tree. Test a race and a fault separately:
    do not cross cancel timing with every close and fault path in the agent runner.
 5. **Two or three points prove a boundary.** An input the product cannot receive
-   is not a test case, such as a host clock in the year 275760 or a date filter
-   in the year 0050. Two exceptions stay: a cheap case on a security boundary,
-   and a cheap case that covers a distinct state.
+   is not a test case, such as a host clock in the year 275760 or a timestamp
+   spelling that only an injected test clock produces. An input a caller can
+   send and the product must refuse is different: its refusal keeps a test, at
+   the boundary. Two exceptions stay: a cheap case on a security boundary, and
+   a cheap case that covers a distinct state.
 6. **Delete a migration guard when the migration closes.** Do not test a test
    helper, a constant, a class name, or a removed feature. A ledger kept to
    prove parity with a retired implementation, a list of migration names kept
