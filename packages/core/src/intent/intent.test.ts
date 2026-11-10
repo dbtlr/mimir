@@ -317,8 +317,7 @@ test('list filters by q — case-insensitive substring over title (MMR-78)', asy
   // an empty q is a no-op, not a match-nothing
   expect((await listNodes(store, { q: '', scope: key })).total).toBe(2);
 
-  // LIKE parity: %/_ inside q act as wildcards, and a regex special is literal
-  expect((await listNodes(store, { q: 'a_th', scope: key })).total).toBe(1);
+  // `%` is a wildcard and a regex special is literal; `_` is pinned by the astral test below.
   expect((await listNodes(store, { q: 'wire%gate', scope: key })).total).toBe(1);
   expect((await listNodes(store, { q: 'auth.', scope: key })).total).toBe(0);
 });

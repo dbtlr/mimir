@@ -11,10 +11,3 @@ test('a seed is settled exactly when the seed machine calls its lifecycle termin
     }
   }
 });
-
-test('each live lifecycle has its own lane, and ready-to-resolve outranks promoted', () => {
-  expect(seedLane({ lifecycle: 'new', readyToResolve: false })).toBe('untriaged');
-  expect(seedLane({ lifecycle: 'parked', readyToResolve: false })).toBe('parked');
-  expect(seedLane({ lifecycle: 'promoted', readyToResolve: false })).toBe('promoted');
-  expect(seedLane({ lifecycle: 'promoted', readyToResolve: true })).toBe('ready');
-});

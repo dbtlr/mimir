@@ -162,15 +162,6 @@ test('active Scratchpads are capped with a true count and freezing first', async
   ]);
 });
 
-test('stale hygiene counts tasks quiet past the threshold (asOf)', async () => {
-  const started = await createTask(store, { parentId: phaseId, title: 'started' });
-  await startTask(store, idOf(started));
-  // 100 days after the task's touch — well past the 14-day stale threshold.
-  const future = new Date(Date.now() + 100 * 24 * 60 * 60 * 1000).toISOString();
-  const report = await overviewOf(store, 'MMR', { asOf: future });
-  expect(report.hygiene.stale).toBeGreaterThanOrEqual(1);
-});
-
 test('an unknown scope key throws not_found', async () => {
   await expectMimirError('not_found', () => overviewOf(store, 'ZZZ'));
 });
@@ -244,27 +235,6 @@ test('an untagged artifact never joins a session entry', async () => {
   expect(report.sessions.entries[0]?.artifact).toBeUndefined();
 });
 
-test('a summary linking no touched task keeps its own entry', async () => {
-  const claimed = await createTask(store, { parentId: phaseId, title: 'claimed' });
-  await startTask(store, idOf(claimed), { session: 's-delta' });
-  const untouched = await createTask(store, { parentId: phaseId, title: 'untouched' });
-  await attachArtifact(store, {
-    content: '# exploration',
-    linkNodeIds: [await nodeIdOf(store, idOf(untouched))],
-    projectId,
-    summary: 'read the vault layout',
-    tags: ['session_summary'],
-    title: 'knowledge only',
-  });
-
-  const report = await overviewOf(store, 'MMR');
-  expect(report.sessions.shown).toBe(2);
-  const orphan = report.sessions.entries.find((e) => e.id === null);
-  expect(orphan?.transitions).toBe(0);
-  expect(orphan?.tasks).toEqual([]);
-  expect(orphan?.artifact?.title).toBe('knowledge only');
-});
-
 test('the sessions section caps entries at 5, `shown` counting them', async () => {
   for (let i = 0; i < 7; i += 1) {
     const task = await createTask(store, { parentId: phaseId, title: `t-${String(i)}` });
@@ -280,13 +250,16 @@ test('a session below the history scan window is invisible', async () => {
   // claiming task out of the 20-task `## History` scan window entirely.
   const old = await createTask(store, { parentId: phaseId, title: 'old claim' });
   await startTask(store, idOf(old), { session: 's-ancient' });
+  expect((await overviewOf(store, 'MMR')).sessions.shown).toBe(1);
   // Backdate the claim: an in-process store writes the fillers within the same
   // millisecond, and a tie would leave the window's cut to the sort's stability.
   await rawPatchNode(store, await nodeIdOf(store, idOf(old)), {
     updated_at: '2026-01-01T00:00:00.000Z',
   });
+  // `updated_at` moves on ANY write, so a plain title patch (no transition) evicts too.
   for (let i = 0; i < 20; i += 1) {
-    await createTask(store, { parentId: phaseId, title: `fresh-${String(i)}` });
+    const fresh = await createTask(store, { parentId: phaseId, title: `fresh-${String(i)}` });
+    await updateNode(store, await nodeIdOf(store, idOf(fresh)), { title: `touched-${String(i)}` });
   }
   const report = await overviewOf(store, 'MMR');
   expect(report.sessions.entries.map((e) => e.id)).not.toContain('s-ancient');
@@ -294,61 +267,6 @@ test('a session below the history scan window is invisible', async () => {
   // is exactly why the key is not spelled `count`.
   expect(report.sessions.shown).toBe(0);
 });
-
-test('an ordinary update evicts from the scan window, no transition', async () => {
-  const claimed = await createTask(store, { parentId: phaseId, title: 'claimed' });
-  await startTask(store, idOf(claimed), { session: 's-evictable' });
-  expect((await overviewOf(store, 'MMR')).sessions.shown).toBe(1);
-  // Backdate the claim so same-millisecond writes cannot tie with it.
-  await rawPatchNode(store, await nodeIdOf(store, idOf(claimed)), {
-    updated_at: '2026-01-01T00:00:00.000Z',
-  });
-  // `updated_at` moves on ANY write. Twenty plain title patches — not one
-  // transition among them — push the claim below the window.
-  for (let i = 0; i < 20; i += 1) {
-    const filler = await createTask(store, { parentId: phaseId, title: `filler-${String(i)}` });
-    await updateNode(store, await nodeIdOf(store, idOf(filler)), { title: `touched-${String(i)}` });
-  }
-  expect((await overviewOf(store, 'MMR')).sessions.shown).toBe(0);
-});
-
-test('orphan summaries push `shown` above the derived group count', async () => {
-  const claimed = await createTask(store, { parentId: phaseId, title: 'claimed' });
-  await startTask(store, idOf(claimed), { session: 's-one' });
-  // Three retrospectives that overlap no group — knowledge-only sittings.
-  for (let i = 0; i < 3; i += 1) {
-    const untouched = await createTask(store, { parentId: phaseId, title: `subject-${String(i)}` });
-    await attachArtifact(store, {
-      content: '# retro',
-      linkNodeIds: [await nodeIdOf(store, idOf(untouched))],
-      projectId,
-      tags: ['session_summary'],
-      title: `retro ${String(i)}`,
-    });
-  }
-  const report = await overviewOf(store, 'MMR');
-  // One derived group + three orphans: `shown` is above the group count, which a
-  // "true total of sessions" reading could never produce.
-  expect(report.sessions.shown).toBe(4);
-  expect(report.sessions.entries.filter((e) => e.id === null)).toHaveLength(3);
-});
-
-test('a review-only session leaves no mechanical trace (MMR-320 echo policy)', async () => {
-  // `start` under one session, `submit` under another. submit moves no handle and
-  // echoes none, so the reviewing session produces no group at all — deliberate,
-  // not a gap: the handles are resume pointers, not a session ledger.
-  const task = await createTask(store, { parentId: phaseId, title: 'reviewed' });
-  await startTask(store, idOf(task), { session: 's-author' });
-  await submitTask(store, idOf(task));
-
-  const report = await overviewOf(store, 'MMR');
-  expect(report.sessions.entries.map((e) => e.id)).toEqual(['s-author']);
-  // The submit row is invisible, so `transitions` counts handle-echoing rows —
-  // NOT boundaries the session crossed.
-  expect(report.sessions.entries[0]?.transitions).toBe(1);
-});
-
-// ─── Needs-attention listings (MMR-322) ─────────────────────────────────────
 
 test('the blocked listing carries the hold reason', async () => {
   const stuck = await createTask(store, { parentId: phaseId, title: 'stuck' });

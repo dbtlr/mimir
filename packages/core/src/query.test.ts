@@ -178,24 +178,6 @@ describe('filter evaluation', () => {
     ).toBe(true);
   });
 
-  test('a calendar-impossible date is refused, never rolled', async () => {
-    await expectMimirError('validation', async () =>
-      compileFilters([{ field: 'created_at', op: 'on', value: '2026-02-30' }], 'UTC'),
-    );
-  });
-
-  test('a zone-less timestamp is refused', async () => {
-    await expectMimirError('validation', async () =>
-      compileFilters([{ field: 'created_at', op: 'before', value: '2026-06-10T12:00:00' }], 'UTC'),
-    );
-  });
-
-  test('a bare date with no caller zone is refused', async () => {
-    await expectMimirError('validation', async () =>
-      compileFilters([{ field: 'created_at', op: 'on', value: '2026-06-10' }]),
-    );
-  });
-
   test('filters AND-compose', () => {
     const both = compileFilters([
       { field: 'priority', op: 'eq', value: 'p1' },

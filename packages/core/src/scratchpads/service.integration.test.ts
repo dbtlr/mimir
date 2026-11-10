@@ -20,56 +20,54 @@ async function rejection(promise: Promise<unknown>, message: RegExp): Promise<vo
   throw new Error('expected the operation to reject');
 }
 
-// oxlint-disable-next-line vitest/prefer-each
-for (const backend of backends) {
-  test(`${backend.name}: scratchpad links must name existing work in its project`, async () => {
-    const fixture = await backend.make();
-    try {
-      const { store } = fixture;
-      await createProject(store, { key: 'MMR', name: 'Mimir' });
-      await createProject(store, { key: 'NRN', name: 'Norn' });
-      const local = await createInitiative(store, { projectId: 'MMR', title: 'Local work' });
-      const foreign = await createInitiative(store, { projectId: 'NRN', title: 'Foreign work' });
-      const service = createScratchpadService(store.scratchpads, store.artifacts, store);
-      const pad = await service.create({
-        anchors: [local.id, local.id],
-        project: 'MMR',
-        title: 'Valid',
-      });
-      expect(pad.anchors).toEqual([local.id]);
-      for (const [anchor, message] of [
-        [`${local.id},${local.id}`, /doesn't exist/],
-        ['MMR-999', /doesn't exist/],
-        ['MMR', /is a project/],
-        ['MMR-a1', /is an artifact/],
-        ['MMR-s1', /is a seed/],
-        [foreign.id, /project disagrees/],
-      ] as const) {
-        await rejection(
-          service.create({ anchors: [anchor], project: 'MMR', title: 'Invalid' }),
-          message,
-        );
-        await rejection(
-          service.updateMetadata(pad.id, {
-            anchors: [anchor],
-            expectedUpdatedAt: pad.updatedAt,
-            title: 'Must not persist',
-          }),
-          message,
-        );
-        expect(await service.get(pad.id)).toEqual(pad);
-        expect(await service.list()).toHaveLength(1);
-      }
-      const artifact = await service.freeze(pad.id, {
-        expectedUpdatedAt: pad.updatedAt,
-        summary: 'Valid links freeze',
-      });
-      expect(artifact.links).toEqual([local.id]);
-    } finally {
-      await fixture.close();
-    }
-  });
+// Anchor checking is resolveAttachTargetsInSet, whose wrong kinds mutations.test.ts unit-tests;
+// this proves the service runs it on both writes, so one backend and two refusals are enough.
+const sqlite = backends.find((backend) => backend.name === 'sqlite');
+if (!sqlite) {
+  throw new Error('the sqlite backend is missing from the conformance table');
 }
+
+test('sqlite: scratchpad links must name existing work in its project', async () => {
+  const fixture = await sqlite.make();
+  try {
+    const { store } = fixture;
+    await createProject(store, { key: 'MMR', name: 'Mimir' });
+    const local = await createInitiative(store, { projectId: 'MMR', title: 'Local work' });
+    const service = createScratchpadService(store.scratchpads, store.artifacts, store);
+    const pad = await service.create({
+      anchors: [local.id, local.id],
+      project: 'MMR',
+      title: 'Valid',
+    });
+    expect(pad.anchors).toEqual([local.id]);
+    for (const [anchor, message] of [
+      ['MMR-999', /doesn't exist/],
+      ['MMR-s1', /is a seed/],
+    ] as const) {
+      await rejection(
+        service.create({ anchors: [anchor], project: 'MMR', title: 'Invalid' }),
+        message,
+      );
+      await rejection(
+        service.updateMetadata(pad.id, {
+          anchors: [anchor],
+          expectedUpdatedAt: pad.updatedAt,
+          title: 'Must not persist',
+        }),
+        message,
+      );
+      expect(await service.get(pad.id)).toEqual(pad);
+      expect(await service.list()).toHaveLength(1);
+    }
+    const artifact = await service.freeze(pad.id, {
+      expectedUpdatedAt: pad.updatedAt,
+      summary: 'Valid links freeze',
+    });
+    expect(artifact.links).toEqual([local.id]);
+  } finally {
+    await fixture.close();
+  }
+});
 
 // Legacy SQL rows can retain invalid anchors.
 test('freeze refuses legacy invalid links before staging or allocating an artifact', async () => {

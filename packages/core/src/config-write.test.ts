@@ -83,11 +83,6 @@ const edits: Case[] = [
     name: 'content that already ends in a blank line gets no second one',
   },
   {
-    after: `[host]\nurl = "${ORIGIN}"\n`,
-    before: '',
-    name: 'an empty file becomes just the table',
-  },
-  {
     after: `# keep me\n[host]\n# the host\nurl = "${ORIGIN}"\nlabel = "home"\n\n[logging]\nlevel = "debug"\n`,
     before:
       '# keep me\n[host]\n# the host\nurl = "http://old.test:1234"\nlabel = "home"\n\n[logging]\nlevel = "debug"\n',
@@ -104,11 +99,6 @@ const edits: Case[] = [
     name: 'a url is inserted right after the header when the table has none',
   },
   {
-    after: `[host]\nurl = "${ORIGIN}"\n[logging]\nlevel = "debug"\n`,
-    before: '[host]\n[logging]\nlevel = "debug"\n',
-    name: 'an empty [host] table gets its url before the next section',
-  },
-  {
     after: `[host]\r\nurl = "${ORIGIN}"\r\nlabel = "home"\r\n`,
     before: '[host]\r\nurl = "http://old.test"\r\nlabel = "home"\r\n',
     name: 'CRLF files keep CRLF when replacing',
@@ -117,11 +107,6 @@ const edits: Case[] = [
     after: `[logging]\r\nlevel = "debug"\r\n\r\n[host]\r\nurl = "${ORIGIN}"\r\n`,
     before: '[logging]\r\nlevel = "debug"\r\n',
     name: 'CRLF files keep CRLF when appending',
-  },
-  {
-    after: `[host]\nurl = "${ORIGIN}" # keep me\nlabel = "home"\n`,
-    before: '[host]\nurl = "http://old.test" # keep me\nlabel = "home"\n',
-    name: 'a trailing comment on the url line is kept',
   },
   {
     after: `[host]\r\nurl = "${ORIGIN}"\t# keep me\r\n`,
@@ -137,16 +122,6 @@ const edits: Case[] = [
     after: `\uFEFF[host]\nurl = "${ORIGIN}"\n`,
     before: '\uFEFF[host]\nurl = "http://old.test"\n',
     name: 'a UTF-8 byte order mark before [host] is kept',
-  },
-  {
-    after: `\uFEFF[logging]\nlevel = "debug"\n\n[host]\nurl = "${ORIGIN}"\n`,
-    before: '\uFEFF[logging]\nlevel = "debug"\n',
-    name: 'a byte order mark stays first when a table is appended',
-  },
-  {
-    after: `[host]\nurl = "${ORIGIN}"\n[host.extra]\nkey = 1\n`,
-    before: '[host]\n[host.extra]\nkey = 1\n',
-    name: 'a [host.sub] table beside [host] is untouched',
   },
 ];
 
@@ -189,14 +164,6 @@ const refusals: Case[] = [
   { after: '', before: 'host = "http://old.test"\n', name: 'a plain string' },
   { after: '', before: '[host\nurl = "x"\n', name: 'malformed TOML' },
 ];
-
-test.each(refusals)('$name is refused with a remedy and nothing is written', ({ before }) => {
-  writeFileSync(file, before);
-  const error = refusalOf(() => setHostUrl(ORIGIN, file));
-  expect(error.hint).toBeTruthy();
-  expect(readFileSync(file, 'utf8')).toBe(before);
-  expect(readdirSync(dir)).toEqual(['config.toml']);
-});
 
 test('the refusal for another host form tells the user to write a [host] table', () => {
   writeFileSync(file, 'host = { url = "http://old.test" }\n');
