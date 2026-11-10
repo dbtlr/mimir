@@ -270,6 +270,20 @@ describe('the Needs you popover', () => {
     expect(screen.getByRole('dialog', { name: 'Needs you' })).toBeDefined();
   });
 
+  it('closes when the viewport crosses the breakpoint, and opens afresh as the sheet', async () => {
+    const setViewport = stubViewport('desktop');
+    renderAt('/p/MMR/tasks', twoProjects({ lm: [loomQuestion] }));
+    await openAlert('1 decision needs you');
+
+    setViewport('phone');
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Needs you' })).toBeNull();
+    });
+    const sheet = await openAlert('1 decision needs you');
+    expect(within(sheet).getByRole('button', { name: 'Close' })).toBeDefined();
+  });
+
   it('stays open while a row is acted on, and the row leaves when the write lands', async () => {
     let report = twoProjects();
     serve(() => report);

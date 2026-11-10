@@ -48,7 +48,7 @@ describe('browserRow layout (MMR-488)', () => {
     const { id, lede, meta } = await renderRow();
     const metaLine = meta.parentElement as HTMLElement;
 
-    // Lede and meta share the id's grid, so they sit beside it, not inside the title column.
+    // Lede and meta are children of the id's grid, not of the title column.
     expect(lede.parentElement).toBe(id.parentElement);
     expect(metaLine.parentElement).toBe(id.parentElement);
   });
