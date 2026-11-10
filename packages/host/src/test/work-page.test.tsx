@@ -248,10 +248,10 @@ describe.each(SCOPES)('work page scope, $name', (scope) => {
   });
 });
 
-// The sections render the same for every scope, so they run on the project. The
-// phase differs in its read and project key (above), and in its head and rail
-// details: the About description below, and the head, About, and Artifacts cases
-// further down.
+// The section rows read the same for every scope, so they run on the project. A
+// phase differs in its read and project key (above), in where New task files (a
+// head case), in what its agent run covers, and in its rail details: the About
+// description below, and the About and Artifacts cases further down.
 describe('work page sections', () => {
   const scope = PROJECT_SCOPE;
 
