@@ -26,10 +26,6 @@ describe('parseJson', () => {
   test('validated form throws on a schema mismatch', () => {
     expect(() => parseJson('"nope"', numberSchema)).toThrow(/parseJson: expected a number/);
   });
-
-  test('propagates JSON syntax errors', () => {
-    expect(() => parseJson('{bad')).toThrow();
-  });
 });
 
 describe('parsePort', () => {

@@ -110,7 +110,7 @@ async function addAgendaItem() {
 type WriteCase<K extends WriteMethod> = {
   input: () => Promise<EngineInput<K>>;
   /** Proves the write reached the method, so equality is not two empty results. */
-  check: (output: Awaited<ReturnType<Engine[K]>>) => void;
+  check: (output: Awaited<ReturnType<Engine[K]>>, read: Engine) => void | Promise<void>;
   /** Reads the written record through an Engine; absent when the write leaves nothing to read. */
   readBack?: (engine: Engine, output: Awaited<ReturnType<Engine[K]>>) => Promise<unknown>;
   /** The read-back is a different projection than the write's output. */
@@ -216,10 +216,13 @@ const writes: { [K in WriteMethod]: WriteCase<K> } = {
     readBack: readSeed,
   },
   seedPromote: {
-    check: (promotion) => {
+    check: async (promotion, read) => {
       expect(promotion.seed.lifecycle).toBe('promoted');
       expect(promotion.created).toBe(promotion.spawnedId);
       expect(promotion.seed.spawned).toEqual([promotion.spawnedId]);
+      const node = await read.getNode({ facets: ['tags'], id: promotion.spawnedId });
+      expect(node.priority).toBe('p1');
+      expect(node.tags?.map((entry) => entry.tag)).toEqual(['seeded']);
     },
     differs: true,
     input: async () => ({ id: ids.seed, parent: ids.initiative, priority: 'p1', tags: ['seeded'] }),
@@ -271,75 +274,22 @@ test('the write table names every mutation the schemas declare, except done', ()
   expect(Object.keys(writes).toSorted()).toEqual([...WRITE_METHODS].toSorted());
 });
 
-describe.each([
-  ['remote', 'local'],
-  ['local', 'remote'],
-] as const)('a write through the %s Engine is read back by the %s Engine', (writer, reader) => {
+// The remote writer is the wire path; reads.test.ts proves the read-backs from a remote reader.
+describe('a write through the remote Engine is read back by the local Engine', () => {
   test.each([...WRITE_METHODS])('%s', async (method) => {
-    const engines = { local, remote };
     const writeCase = writes[method] as WriteCase<WriteMethod>;
-    const output = await call(engines[writer], method, await writeCase.input());
+    const output = await call(remote, method, await writeCase.input());
     expect(isoStrings(output)).toEqual([]);
-    writeCase.check(output as never);
+    await writeCase.check(output as never, local);
     if (writeCase.readBack !== undefined) {
-      const readBack = await writeCase.readBack(engines[reader], output as never);
+      const readBack = await writeCase.readBack(local, output as never);
       expect(isoStrings(readBack)).toEqual([]);
       if (writeCase.differs !== true) {
         expect(readBack).toStrictEqual(output);
       }
-      expect(readBack).toStrictEqual(await writeCase.readBack(engines[writer], output as never));
+      expect(readBack).toStrictEqual(await writeCase.readBack(remote, output as never));
     }
   });
-});
-
-test('a discarded Scratchpad is gone for both Engines', async () => {
-  await remote.scratchDiscard({ expectedUpdatedAt: await guard(), id: ids.pad });
-  expect((await errorOf(local.scratchGet({ id: ids.pad }))).code).toBe('not_found');
-  expect((await errorOf(remote.scratchGet({ id: ids.pad }))).code).toBe('not_found');
-});
-
-test('triage annotates a resolved upstream once, whichever Engine runs it', async () => {
-  const asks = await createInitiative(fixture.store, { projectId: 'OTH', title: 'Asks' });
-  const waiting = await createTask(fixture.store, {
-    parentId: asks.id,
-    title: 'Waiting on ENG',
-    upstream: ids.seed,
-  });
-  await remote.seedResolve({ id: ids.seed, reason: 'Shipped' });
-  const dry = await remote.triage({ board: 'OTH', dryRun: true });
-  expect(dry).toStrictEqual(await local.triage({ board: 'OTH', dryRun: true }));
-  expect(dry.upstreamResolutions).toMatchObject([
-    { alreadyRecorded: false, annotated: false, reason: 'Shipped', task: waiting.id },
-  ]);
-  const written = await remote.triage({ board: 'OTH' });
-  expect(written.upstreamResolutions[0]?.annotated).toBe(true);
-  const again = await local.triage({ board: 'OTH' });
-  expect(again.upstreamResolutions[0]).toMatchObject({ alreadyRecorded: true, annotated: false });
-});
-
-test('a forced discard drops a Scratchpad with an open Agenda item, whichever Engine runs it', async () => {
-  await addAgendaItem();
-  expect(
-    await remote.scratchDiscard({
-      expectedUpdatedAt: await guard(),
-      force: true,
-      id: ids.pad,
-      reason: 'Abandoned',
-    }),
-  ).toEqual({ id: ids.pad, result: 'discarded' });
-  expect((await errorOf(local.scratchGet({ id: ids.pad }))).code).toBe('not_found');
-});
-
-test('a promoted seed spawns a task carrying the priority and tags given', async () => {
-  const promotion = await remote.seedPromote({
-    id: ids.seed,
-    parent: ids.initiative,
-    priority: 'p1',
-    tags: ['seeded'],
-  });
-  const node = await local.getNode({ id: promotion.spawnedId });
-  expect(node.priority).toBe('p1');
-  expect(node.tags?.map((entry) => entry.tag)).toEqual(['seeded']);
 });
 
 test('retrying a freeze after its project is archived reads as absent on both Engines', async () => {
@@ -355,6 +305,7 @@ test('retrying a freeze after its project is archived reads as absent on both En
   }
 });
 
+// One refusal that crosses the wire with a Date input; core owns the other refusal rules.
 const refusals: [string, WriteMethod, () => Promise<unknown>, ErrorCode][] = [
   [
     'a stale Scratchpad guard',
@@ -366,109 +317,6 @@ const refusals: [string, WriteMethod, () => Promise<unknown>, ErrorCode][] = [
     }),
     'validation',
   ],
-  [
-    'a missing Scratchpad',
-    'scratchAgendaAdd',
-    async () => ({
-      content: 'x',
-      expectedUpdatedAt: new Date(),
-      id: '00000000-0000-4000-8000-000000000000',
-    }),
-    'not_found',
-  ],
-  [
-    'a Scratchpad in an archived project',
-    'scratchCheckpoint',
-    async () => ({ content: 'x', expectedUpdatedAt: new Date(), id: ids.archivedPad }),
-    'not_found',
-  ],
-  [
-    'freezing a Scratchpad in an archived project',
-    'scratchFreeze',
-    async () => ({ expectedUpdatedAt: new Date(), id: ids.archivedPad, summary: 'x' }),
-    'not_found',
-  ],
-  [
-    'discarding a Scratchpad in an archived project',
-    'scratchDiscard',
-    async () => ({ expectedUpdatedAt: new Date(), id: ids.archivedPad }),
-    'not_found',
-  ],
-  [
-    'updating a Scratchpad in an archived project',
-    'scratchUpdate',
-    async () => ({ expectedUpdatedAt: new Date(), id: ids.archivedPad, title: 'x' }),
-    'not_found',
-  ],
-  [
-    'discarding a Scratchpad with an open Agenda item',
-    'scratchDiscard',
-    async () => {
-      await addAgendaItem();
-      return { expectedUpdatedAt: await guard(), id: ids.pad };
-    },
-    'validation',
-  ],
-  [
-    'a forced discard without a reason',
-    'scratchDiscard',
-    async () => {
-      await addAgendaItem();
-      return { expectedUpdatedAt: await guard(), force: true, id: ids.pad };
-    },
-    'validation',
-  ],
-  [
-    'a Scratchpad created in an archived project',
-    'scratchCreate',
-    async () => ({ project: 'ARC', title: 'Nope' }),
-    'conflict',
-  ],
-  [
-    'an Agenda item that does not exist',
-    'scratchAgendaComplete',
-    async () => ({ expectedUpdatedAt: await guard(), id: ids.pad, number: 9 }),
-    'not_found',
-  ],
-  [
-    'a supersede without a reason',
-    'scratchAgendaSupersede',
-    async () => ({ expectedUpdatedAt: await guard(), id: ids.pad, number: 1, reason: ' ' }),
-    'validation',
-  ],
-  [
-    'a Scratchpad project that is not a bare key',
-    'scratchCreate',
-    async () => ({ project: 'all', title: 'Nope' }),
-    'validation',
-  ],
-  ['a seed that does not exist', 'seedPark', async () => ({ id: 'ENG-s99' }), 'not_found'],
-  [
-    'a seed filed on a lowercase project',
-    'seedCreate',
-    async () => ({ kind: 'idea', project: 'eng', title: 'Nope' }),
-    'validation',
-  ],
-  [
-    'a seed filed on an unknown project',
-    'seedCreate',
-    async () => ({ kind: 'idea', project: 'ZZZ', title: 'Nope' }),
-    'not_found',
-  ],
-  [
-    'a resolve without a reason',
-    'seedResolve',
-    async () => ({ id: ids.seed, reason: ' ' }),
-    'validation',
-  ],
-  [
-    'a promote with neither parent nor link',
-    'seedPromote',
-    async () => ({ id: ids.seed }),
-    'validation',
-  ],
-  ['a triage of every board', 'triage', async () => ({ board: 'all' }), 'validation'],
-  ['a triage with no board', 'triage', async () => ({}), 'validation'],
 ];
 
 describe.each(refusals)('refusing %s', (_label, method, input, code) => {

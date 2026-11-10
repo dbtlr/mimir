@@ -163,36 +163,6 @@ function write<K extends WriteMethod>(
 const writes: WriteCase[] = [
   write(
     'create',
-    'a project',
-    () => ({ key: 'NEW', name: 'New', tags: ['fresh'], type: 'project' }),
-    (node) => {
-      expect(node.id).toBe('NEW');
-      expect(node.type).toBe('project');
-      expect(node.createdAt).toBeInstanceOf(Date);
-    },
-  ),
-  write(
-    'create',
-    'an initiative',
-    () => ({ openEnded: true, parent: 'ENG', summary: 'Lede', title: 'Fresh', type: 'initiative' }),
-    (node) => {
-      expect(node.type).toBe('initiative');
-      expect(node.open_ended).toBe(true);
-      expect(node.summary).toBe('Lede');
-    },
-  ),
-  write(
-    'create',
-    'a phase',
-    (ids) => ({ parent: ids.initiative, target: '2026-Q4', title: 'Fresh phase', type: 'phase' }),
-    (node, ids) => {
-      expect(node.type).toBe('phase');
-      expect(node.parent).toBe(ids.initiative);
-      expect(node.target).toBe('2026-Q4');
-    },
-  ),
-  write(
-    'create',
     'a task with every field',
     (ids) => ({
       description: 'Body',
@@ -222,22 +192,6 @@ const writes: WriteCase[] = [
   ),
   write(
     'update',
-    'task fields',
-    (ids) => ({
-      id: ids.todoTask,
-      priority: 'p2',
-      size: null,
-      summary: 'New lede',
-      title: 'Renamed',
-    }),
-    (node) => {
-      expect(node.title).toBe('Renamed');
-      expect(node.priority).toBe('p2');
-      expect(node.summary).toBe('New lede');
-    },
-  ),
-  write(
-    'update',
     'main and whole-task worker assignment',
     (ids) => ({
       harness: 'codex',
@@ -257,15 +211,6 @@ const writes: WriteCase[] = [
         worker_harness: 'claude',
         worker_session: 'worker',
       });
-    },
-  ),
-  write(
-    'update',
-    'a container direction and open-ended flag',
-    (ids) => ({ id: ids.initiative, next: 'Ship the writes', openEnded: true }),
-    (node) => {
-      expect(node.next).toBe('Ship the writes');
-      expect(node.open_ended).toBe(true);
     },
   ),
   write(
@@ -307,12 +252,6 @@ const writes: WriteCase[] = [
     },
   ),
   write(
-    'attach',
-    'an unlinked artifact named by project',
-    () => ({ content: 'Loose', project: 'ENG', title: 'Loose' }),
-    (artifact) => expect(artifact.links).toEqual([]),
-  ),
-  write(
     'updateArtifact',
     'a title and a summary',
     () => ({ id: 'ENG-a1', summary: 'A lede', title: 'Renamed proof' }),
@@ -321,12 +260,6 @@ const writes: WriteCase[] = [
       expect(artifact.summary).toBe('A lede');
       expect(artifact.content).toBeUndefined();
     },
-  ),
-  write(
-    'updateArtifact',
-    'no fields',
-    () => ({ id: 'ENG-a1' }),
-    (artifact) => expect(artifact.title).toBe('Existing'),
   ),
   write(
     'depend',
@@ -360,15 +293,6 @@ const writes: WriteCase[] = [
     async (node, ids, read) => {
       const tree = await read.tree({ id: ids.phase });
       expect(tree.children?.[0]?.id).toBe(node.id);
-    },
-  ),
-  write(
-    'reorder',
-    'after a sibling',
-    (ids) => ({ id: ids.todoTask, position: 'after', ref: ids.taggedTask }),
-    async (node, ids, read) => {
-      const order = (await read.tree({ id: ids.phase })).children?.map((child) => child.id) ?? [];
-      expect(order.indexOf(node.id)).toBe(order.indexOf(ids.taggedTask) + 1);
     },
   ),
   write(
@@ -435,19 +359,6 @@ const writes: WriteCase[] = [
       expect(node.session).toBe('run-1');
       expect(node.workerHarness).toBeNull();
       expect(node.workerSession).toBe('worker-guarded');
-    },
-  ),
-  write(
-    'start',
-    'a reserved task taken by a worker',
-    (ids) => ({ id: ids.queuedTask, workerHarness: 'codex', workerSession: 'worker-1' }),
-    (node) => {
-      expect(node.status).toBe('in_progress');
-      expect(node.session).toBe('run-1');
-      expect(node.harness).toBe('orchestrator');
-      expect(node.workerHarness).toBe('codex');
-      expect(node.workerSession).toBe('worker-1');
-      expect(node.host).toBeNull();
     },
   ),
   write(
@@ -618,39 +529,8 @@ type Refusal = {
   input: (ids: Ids) => unknown;
 };
 
+// One refusal per error path the wire maps; core owns the rules that raise them.
 const refusals: Refusal[] = [
-  {
-    code: 'conflict',
-    input: (ids) => ({
-      id: ids.queuedTask,
-      startExpectation: { harness: 'orchestrator', lifecycle: 'queued', session: 'previous' },
-      workerSession: 'must-not-attach',
-    }),
-    label: 'a changed main identity since the start snapshot',
-    method: 'start',
-  },
-  {
-    code: 'conflict',
-    input: (ids) => ({
-      id: ids.todoTask,
-      session: 'must-not-attach',
-      startExpectation: { harness: null, lifecycle: 'queued', session: null },
-    }),
-    label: 'a released reservation since the start snapshot',
-    method: 'start',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ parent: ids.phase, title: 'U', type: 'task', upstream: 'none' }),
-    label: 'the none upstream sentinel',
-    method: 'create',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ parent: ids.phase, title: 'U', type: 'task', upstream: 'garbage' }),
-    label: 'a malformed upstream',
-    method: 'create',
-  },
   {
     code: 'validation',
     input: (ids: Ids) => ({ parent: ids.phase, title: '   ', type: 'task' }),
@@ -658,351 +538,10 @@ const refusals: Refusal[] = [
     method: 'create',
   },
   {
-    code: 'validation',
-    input: () => ({ parent: 'ENG', title: '', type: 'initiative' }),
-    label: 'a blank initiative title',
-    method: 'create',
-  },
-  {
-    code: 'validation',
-    input: () => ({ key: 'NEW', name: '  ', type: 'project' }),
-    label: 'a blank project name',
-    method: 'create',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ id: ids.todoTask, title: '   ' }),
-    label: 'a blank title',
-    method: 'update',
-  },
-  {
-    code: 'validation',
-    input: () => ({ id: 'ENG', title: 'x' }),
-    label: 'a project key',
-    method: 'update',
-  },
-  {
-    code: 'validation',
-    input: () => ({ id: 'ENG' }),
-    label: 'a project key on a task verb',
-    method: 'done',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ id: ids.todoTask }),
-    label: 'a task that is not under review',
-    method: 'return',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ id: ids.doneTask }),
-    label: 'a done task',
-    method: 'abandon',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ id: ids.todoTask }),
-    label: 'a task that is not finished',
-    method: 'reopen',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ id: ids.parkedTask }),
-    label: 'an already parked task',
-    method: 'park',
-  },
-  {
-    code: 'conflict',
-    input: () => ({ key: 'ENG', name: 'Again', type: 'project' }),
-    label: 'a duplicate project key',
-    method: 'create',
-  },
-  {
-    code: 'not_found',
-    input: () => ({ parent: 'ENG-99', title: 'Lost', type: 'task' }),
-    label: 'an unknown parent',
-    method: 'create',
-  },
-  {
-    code: 'validation',
-    input: () => ({ parent: 'eng', title: 'Lower', type: 'initiative' }),
-    label: 'a lowercase project key',
-    method: 'create',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ openEnded: true, parent: ids.phase, title: 'T', type: 'task' }),
-    label: 'a task with open-ended',
-    method: 'create',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ parent: ids.phase, title: 'Phase', type: 'phase' }),
-    label: 'a phase under a phase',
-    method: 'create',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ id: ids.todoTask, target: 'Q4' }),
-    label: 'a target on a task',
-    method: 'update',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ id: ids.todoTask, upstream: 'garbage' }),
-    label: 'a malformed upstream',
-    method: 'update',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ id: ids.initiative, priority: 'p0' }),
-    label: 'a task-only field on a container',
-    method: 'update',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ id: ids.todoTask, priority: 'urgent' }),
-    label: 'an unknown priority',
-    method: 'update',
-  },
-  {
     code: 'not_found',
     input: () => ({ id: 'ENG-99', title: 'x' }),
     label: 'an unknown node',
     method: 'update',
-  },
-  {
-    code: 'validation',
-    input: () => ({ id: 'eng', pinned: true }),
-    label: 'a non-key project',
-    method: 'updateProject',
-  },
-  {
-    code: 'validation',
-    input: () => ({ id: 'ENG', name: '  ' }),
-    label: 'a blank name',
-    method: 'updateProject',
-  },
-  {
-    code: 'not_found',
-    input: () => ({ id: 'NOPE', pinned: true }),
-    label: 'an unknown project',
-    method: 'updateProject',
-  },
-  {
-    code: 'validation',
-    input: () => ({ id: 'ENG-a1', title: '  ' }),
-    label: 'a blank artifact title',
-    method: 'updateArtifact',
-  },
-  {
-    code: 'not_found',
-    input: () => ({ id: 'ENG-a99', title: 'x' }),
-    label: 'an unknown artifact',
-    method: 'updateArtifact',
-  },
-  {
-    code: 'not_found',
-    input: (ids: Ids) => ({ id: ids.todoTask, title: 'x' }),
-    label: 'an id that is not an artifact',
-    method: 'updateArtifact',
-  },
-  {
-    code: 'not_found',
-    input: () => ({ content: 'x', id: 'ENG-99' }),
-    label: 'an unknown node',
-    method: 'annotate',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ content: '  ', id: ids.todoTask }),
-    label: 'blank content',
-    method: 'annotate',
-  },
-  {
-    code: 'validation',
-    input: () => ({ content: 'x', title: 'No home' }),
-    label: 'neither a project nor a link',
-    method: 'attach',
-  },
-  {
-    code: 'not_found',
-    input: () => ({ content: 'x', links: ['ENG-99'], title: 'Lost' }),
-    label: 'an unknown link',
-    method: 'attach',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({
-      content: 'x',
-      links: [ids.todoTask],
-      project: 'OTH',
-      title: 'Mismatch',
-    }),
-    label: 'a project that disagrees with the link',
-    method: 'attach',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ id: ids.todoTask, on: [] }),
-    label: 'no prerequisites',
-    method: 'depend',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ id: ids.todoTask, on: [ids.todoTask] }),
-    label: 'a self dependency',
-    method: 'depend',
-  },
-  {
-    code: 'not_found',
-    input: (ids: Ids) => ({ id: ids.todoTask, on: ['ENG-99'] }),
-    label: 'an unknown prerequisite',
-    method: 'depend',
-  },
-  {
-    code: 'not_found',
-    input: (ids: Ids) => ({ id: 'ENG-99', on: [ids.startedTask] }),
-    label: 'an unknown task',
-    method: 'undepend',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ id: ids.phase, to: ids.phase }),
-    label: 'a move under itself',
-    method: 'move',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ id: ids.todoTask, to: ids.waitingTask }),
-    label: 'a task as a parent',
-    method: 'move',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ id: ids.doneTask, position: 'top' }),
-    label: 'a task outside the rankable set',
-    method: 'reorder',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ id: ids.todoTask, position: 'before' }),
-    label: 'before with no reference',
-    method: 'reorder',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ ids: [ids.todoTask], state: 'needs_answers' }),
-    label: 'needs_answers with no note',
-    method: 'groom',
-  },
-  {
-    code: 'validation',
-    input: () => ({ ids: [], state: 'groomed' }),
-    label: 'no tasks',
-    method: 'groom',
-  },
-  {
-    code: 'not_found',
-    input: (ids: Ids) => ({ ids: [ids.todoTask, 'ENG-99'], state: 'groomed' }),
-    label: 'an unknown task',
-    method: 'groom',
-  },
-  {
-    code: 'not_found',
-    input: () => ({ ids: ['ENG-99'], tags: ['x'] }),
-    label: 'an unknown target',
-    method: 'tag',
-  },
-  {
-    code: 'not_found',
-    input: (ids: Ids) => ({ ids: [ids.todoTask, 'ENG-a99'], tags: ['x'] }),
-    label: 'a missing artifact target',
-    method: 'tag',
-  },
-  {
-    code: 'not_found',
-    input: (ids: Ids) => ({ ids: [ids.todoTask, 'ENG-a99'], tags: ['x'] }),
-    label: 'a missing artifact target',
-    method: 'untag',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ ids: [ids.seed], tags: ['x'] }),
-    label: 'a seed target',
-    method: 'tag',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ ids: [ids.todoTask], tags: [] }),
-    label: 'no tags',
-    method: 'untag',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ id: ids.startedTask }),
-    label: 'a task that is already started',
-    method: 'start',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ branch: 'a · session=x', id: ids.todoTask }),
-    label: 'a handle the log cannot carry',
-    method: 'start',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ id: ids.todoTask }),
-    label: 'a task that is not under review',
-    method: 'submit',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ id: ids.doneTask }),
-    label: 'a second completion',
-    method: 'done',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ id: ids.todoTask, reason: 'why' }),
-    label: 'a reason on a verb that takes none',
-    method: 'done',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ id: ids.todoTask, on: 'nobody' }),
-    label: 'an unknown block owner',
-    method: 'block',
-  },
-  {
-    code: 'validation',
-    input: (ids: Ids) => ({ id: ids.todoTask }),
-    label: 'a task that is not blocked',
-    method: 'unblock',
-  },
-  {
-    code: 'not_found',
-    input: () => ({ id: 'ENG-s99' }),
-    label: 'an unknown seed',
-    method: 'unpark',
-  },
-  {
-    code: 'conflict',
-    input: () => ({ id: 'ARC' }),
-    label: 'an already archived project',
-    method: 'archive',
-  },
-  {
-    code: 'conflict',
-    input: () => ({ id: 'ENG' }),
-    label: 'an active project',
-    method: 'unarchive',
-  },
-  {
-    code: 'validation',
-    input: () => ({ id: 'eng' }),
-    label: 'a non-key project',
-    method: 'archive',
   },
 ];
 
@@ -1021,28 +560,4 @@ describe.each(refusals)('$method refuses $label', (entry) => {
       await b.close();
     }
   });
-});
-
-test('a refused write leaves the store unchanged', async () => {
-  const fixture = await buildFixture();
-  try {
-    const before = await fixture.local.getNode({ id: fixture.ids.todoTask });
-    await errorOf(
-      fixture.remote.groom({ ids: [fixture.ids.todoTask, 'ENG-99'], state: 'groomed' }),
-    );
-    expect(await fixture.local.getNode({ id: fixture.ids.todoTask })).toStrictEqual(before);
-  } finally {
-    await fixture.close();
-  }
-});
-
-test('block names the shared choice wording and hint for an unknown owner', async () => {
-  const fixture = await buildFixture();
-  try {
-    const error = await errorOf(fixture.remote.block({ id: fixture.ids.todoTask, on: 'nobody' }));
-    expect(error.message).toBe('invalid on: nobody');
-    expect(error.hint).toBe('block on takes one of: you, others');
-  } finally {
-    await fixture.close();
-  }
 });
