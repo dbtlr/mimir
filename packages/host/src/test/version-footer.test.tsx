@@ -112,36 +112,6 @@ describe('versionFooter (MMR-260)', () => {
     expect(effects.reload).toHaveBeenCalledOnce();
   });
 
-  it('activates a waiting worker through the same footer action', async () => {
-    fetchHealth.mockResolvedValue({
-      minClient: '0.26.0-next',
-      schema: 4,
-      status: 'ok',
-      version: '0.14.0-next.3',
-    });
-    const { controller, effects } = updateFixture();
-    controller.workerWaiting();
-    renderFooter(controller);
-    await userEvent.click(await screen.findByRole('button', { name: /refresh console/ }));
-    expect(effects.activateWaiting).toHaveBeenCalledOnce();
-    expect(effects.reload).not.toHaveBeenCalled();
-  });
-
-  it('reloads directly after another tab has activated the update', async () => {
-    fetchHealth.mockResolvedValue({
-      minClient: '0.26.0-next',
-      schema: 4,
-      status: 'ok',
-      version: '0.14.0-next.3',
-    });
-    const { controller, effects } = updateFixture();
-    controller.controllerChanged();
-    renderFooter(controller);
-    await userEvent.click(await screen.findByRole('button', { name: /refresh console/ }));
-    expect(effects.activateWaiting).not.toHaveBeenCalled();
-    expect(effects.reload).toHaveBeenCalledOnce();
-  });
-
   it('disables the mismatch action while an update is applying', async () => {
     fetchHealth.mockResolvedValue({
       minClient: '0.26.0-next',

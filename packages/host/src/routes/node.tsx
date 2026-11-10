@@ -385,7 +385,6 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
       >
         {edit.baseline !== null ? (
           <TaskForm
-            mode="edit"
             initial={edit.baseline}
             submitting={edit.submitting}
             onSubmit={edit.handleSubmit}

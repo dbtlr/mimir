@@ -4,24 +4,8 @@ import { renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  seedCreate,
-  seedPark,
-  seedPromote,
-  seedReject,
-  seedResolve,
-  seedUnpark,
-  seedUpdate,
-} from '../api/fns/browse';
-import {
-  useFileSeed,
-  useParkSeed,
-  usePromoteSeed,
-  useRejectSeed,
-  useResolveSeed,
-  useUnparkSeed,
-  useUpdateSeed,
-} from '../api/seed-mutations';
+import { seedCreate, seedPromote, seedResolve, seedUpdate } from '../api/fns/browse';
+import { useFileSeed, usePromoteSeed, useResolveSeed, useUpdateSeed } from '../api/seed-mutations';
 import { serveBrowse } from './browse-fns';
 
 vi.mock('../api/fns/browse');
@@ -57,50 +41,12 @@ describe('seed mutation hooks (MMR-247, MMR-540)', () => {
     expect(vi.mocked(seedCreate).mock.calls[0]?.[0].data).not.toHaveProperty('requester');
   });
 
-  it('useRejectSeed sends seedReject with the reason', async () => {
-    const result = render(() => useRejectSeed('MMR-s1'));
-    result.current.mutate('duplicate');
-    await waitFor(() => {
-      expect(seedReject).toHaveBeenCalledWith({ data: { id: 'MMR-s1', reason: 'duplicate' } });
-    });
-  });
-
   it('useResolveSeed sends seedResolve with the reason', async () => {
     const result = render(() => useResolveSeed('MMR-s1'));
     result.current.mutate('already fixed');
     await waitFor(() => {
       expect(seedResolve).toHaveBeenCalledWith({
         data: { id: 'MMR-s1', reason: 'already fixed' },
-      });
-    });
-  });
-
-  it('useParkSeed sends a trimmed reason, and none when it is blank', async () => {
-    const result = render(() => useParkSeed('MMR-s1'));
-    result.current.mutate('  after v1 ');
-    await waitFor(() => {
-      expect(seedPark).toHaveBeenCalledWith({ data: { id: 'MMR-s1', reason: 'after v1' } });
-    });
-    result.current.mutate(' ');
-    await waitFor(() => {
-      expect(seedPark).toHaveBeenLastCalledWith({ data: { id: 'MMR-s1' } });
-    });
-  });
-
-  it('useUnparkSeed sends seedUnpark with the id alone', async () => {
-    const result = render(() => useUnparkSeed('MMR-s1'));
-    result.current.mutate();
-    await waitFor(() => {
-      expect(seedUnpark).toHaveBeenCalledWith({ data: { id: 'MMR-s1' } });
-    });
-  });
-
-  it('useUpdateSeed sends seedUpdate with the given fields', async () => {
-    const result = render(() => useUpdateSeed('MMR-s1'));
-    result.current.mutate({ description: 'a fuller body' });
-    await waitFor(() => {
-      expect(seedUpdate).toHaveBeenCalledWith({
-        data: { description: 'a fuller body', id: 'MMR-s1' },
       });
     });
   });

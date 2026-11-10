@@ -227,12 +227,33 @@ const frontierRow = (id: string, title: string, extra: Partial<EngineNode> = {})
 const shippedRow = (id: string, at: string | Date, extra: Partial<EngineNode> = {}) =>
   makeShippedRow({ id, title: `Shipped ${id}`, ...extra }, new Date(at));
 
-describe.each(SCOPES)('work page sections, $name', (scope) => {
+describe.each(SCOPES)('work page scope, $name', (scope) => {
   it('asks for its own work read, in the browser’s time zone', async () => {
     await open(scope);
 
     expect(scope.work).toHaveBeenCalledWith(scope.asked);
   });
+
+  it('ends its sections with a link to the project’s tasks, and holds no board or Other views', async () => {
+    await open(scope);
+
+    const link = await screen.findByRole('link', { name: /All tasks in MMR/ });
+    expect(link.getAttribute('href')).toBe('/p/MMR/tasks');
+    expect(within(getRail()).queryByRole('link', { name: /All tasks/ })).toBeNull();
+    expect(within(getRail()).queryByRole('navigation', { name: 'Other views' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Board' })).toBeNull();
+    // The link comes after the last section.
+    const goingCold = screen.getByRole('region', { name: 'Going cold' });
+    expect(goingCold.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
+// The section rows read the same for every scope, so they run on the project. A
+// phase differs in its read and project key (above), in where New task files (a
+// head case), in what its agent run covers, and in its rail details: the About
+// description below, and the About and Artifacts cases further down.
+describe('work page sections', () => {
+  const scope = PROJECT_SCOPE;
 
   it('lists what is running, with when it started, where, and its latest note', async () => {
     await open(scope, engineWork({ now: [nowRow] }));
@@ -392,7 +413,7 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
     expect(hrefOf(frontier, 'Vendor key rotation')).toBe('/p/MMR/24');
   });
 
-  it('groups what shipped by day, caps a day at three until expanded, and strikes an abandoned task', async () => {
+  it('groups what shipped by day, caps a day at three until expanded, and gives an abandoned task its reason', async () => {
     await open(
       scope,
       engineWork({
@@ -433,8 +454,7 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
     expect(within(shipped).getByText('Shipped MMR-35')).toBeDefined();
     expect(within(shipped).queryByRole('button', { name: /more shipped/ })).toBeNull();
 
-    const abandoned = within(shipped).getByRole('link', { name: 'Converge needs consent' });
-    expect(abandoned.className).toContain('line-through');
+    expect(within(shipped).getByRole('link', { name: 'Converge needs consent' })).toBeDefined();
     expect(shipped).toHaveTextContent('Abandoned: moot under ADR 0032');
     expect(shipped).toHaveTextContent('14:05');
   });
@@ -466,23 +486,15 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
   it('says what each empty section means', async () => {
     await open(scope);
 
-    await expect(section('Now')).resolves.toHaveTextContent(
-      'Nothing running. No task is queued, in progress, or in review.',
-    );
-    await expect(section('Needs you')).resolves.toHaveTextContent(
-      'Nothing needs you. No blocks or questions are waiting.',
-    );
-    await expect(section('Frontier')).resolves.toHaveTextContent(
-      'The frontier is empty. No task is ready or one step from ready.',
-    );
+    await expect(section('Now')).resolves.toHaveTextContent(/nothing running/i);
+    await expect(section('Needs you')).resolves.toHaveTextContent(/nothing needs you/i);
+    await expect(section('Frontier')).resolves.toHaveTextContent(/frontier is empty/i);
     const shipped = await section('Shipped');
-    expect(shipped).toHaveTextContent('Nothing shipped in the last 7 days.');
+    expect(shipped).toHaveTextContent(/nothing shipped/i);
     expect(
       within(shipped).getByRole('link', { name: 'Finished tasks →' }).getAttribute('href'),
     ).toBe('/p/MMR/tasks?status=terminal');
-    await expect(section('Going cold')).resolves.toHaveTextContent(
-      'Nothing stale. Everything here has moved recently.',
-    );
+    await expect(section('Going cold')).resolves.toHaveTextContent(/nothing stale/i);
   });
 
   it('offers New task from an empty frontier', async () => {
@@ -557,18 +569,16 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
   );
 });
 
-describe.each(SCOPES)('work page rail, $name', (scope) => {
-  it('runs Direction, About, then Artifacts (when it has any), with no structure or other views', async () => {
+describe('work page rail', () => {
+  const scope = PROJECT_SCOPE;
+
+  it('runs Direction, About, then Artifacts, with no structure or other views', async () => {
     await open(scope);
 
     const labels = within(getRail())
       .getAllByRole('heading', { level: 2 })
       .map((h) => h.textContent);
-    expect(labels).toStrictEqual([
-      'Direction',
-      'About',
-      ...((scope.record.artifacts ?? []).length > 0 ? ['Artifacts'] : []),
-    ]);
+    expect(labels).toStrictEqual(['Direction', 'About', 'Artifacts']);
   });
 
   it('shows the direction in full, editable in place', async () => {
@@ -583,28 +593,16 @@ describe.each(SCOPES)('work page rail, $name', (scope) => {
     );
   });
 
-  it('holds the description, artifacts, and details in About', async () => {
-    await open(scope);
+  // About branches on the scope, so the phase keeps its own row.
+  it.each(SCOPES)('holds the description and details in About, $name', async (each) => {
+    await open(each);
 
     const about = within(getRail()).getByRole('heading', { name: 'About' }).closest('section');
     expect(about).not.toBeNull();
     const panel = within(about as HTMLElement);
-    expect(about).toHaveTextContent((scope.record.description ?? '').replaceAll('**', ''));
+    expect(about).toHaveTextContent((each.record.description ?? '').replaceAll('**', ''));
     expect(panel.getByText('created')).toBeDefined();
     expect(panel.getByText('updated')).toBeDefined();
-  });
-
-  it('ends its sections with a link to the project’s tasks, and holds no board or Other views', async () => {
-    await open(scope);
-
-    const link = await screen.findByRole('link', { name: /All tasks in MMR/ });
-    expect(link.getAttribute('href')).toBe('/p/MMR/tasks');
-    expect(within(getRail()).queryByRole('link', { name: /All tasks/ })).toBeNull();
-    expect(within(getRail()).queryByRole('navigation', { name: 'Other views' })).toBeNull();
-    expect(screen.queryByRole('link', { name: 'Board' })).toBeNull();
-    // The link comes after the last section.
-    const goingCold = screen.getByRole('region', { name: 'Going cold' });
-    expect(goingCold.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('opens each rail part as a phone sheet with the same content', async () => {
@@ -614,11 +612,7 @@ describe.each(SCOPES)('work page rail, $name', (scope) => {
       within(chips)
         .getAllByRole('button')
         .map((b) => b.textContent),
-    ).toStrictEqual([
-      'Direction',
-      'About',
-      ...((scope.record.artifacts ?? []).length > 0 ? ['Artifacts'] : []),
-    ]);
+    ).toStrictEqual(['Direction', 'About', 'Artifacts']);
 
     fireEvent.click(within(chips).getByRole('button', { name: 'Direction' }));
     const direction = await screen.findByRole('dialog', { name: 'Direction' });

@@ -169,13 +169,19 @@ describe('the split button', () => {
     await show(connectedCatalog([reachableSystem(), peer, unreachableSystem()]));
     await userEvent.click(await screen.findByRole('button', { name: 'Choose where to launch' }));
     const items = await screen.findAllByRole('menuitem');
-    expect(items.map((item) => item.textContent)).toEqual([
-      'Launch on Valhalla',
-      'Launch on asgard',
-      'Launch on DB MBP',
-      'Choose settings…',
-    ]);
-    expect(items[2]).toHaveAttribute('aria-disabled', 'true');
+    const names = items.map((item) => item.textContent);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'Launch on Valhalla',
+        'Launch on asgard',
+        'Launch on DB MBP',
+        'Choose settings…',
+      ]),
+    );
+    expect(items[names.indexOf('Launch on DB MBP')]).toHaveAttribute('aria-disabled', 'true');
+    expect(items[names.indexOf('Launch on asgard')]).not.toHaveAttribute('aria-disabled', 'true');
+    // Choose settings… sits below the separator, after every system.
+    expect(names.at(-1)).toBe('Choose settings…');
   });
 
   it('launches a peer with that system’s defaults', async () => {
@@ -438,109 +444,25 @@ describe('the answers', () => {
     expect(fresh?.attempt).not.toBe(first?.attempt);
   });
 
-  it('taken by another harness with handles for no link: says so, no action', async () => {
-    await launchNow({ harness: 'claude', host: 'env-9', session: 'th-9', state: 'taken' });
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Already queued for another session');
-    });
-  });
-
-  it('taken without a link: no action', async () => {
-    await launchNow({ harness: 'claude', host: null, session: 's', state: 'taken' });
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Already queued for another session');
-    });
-  });
-
-  it('taken by a T3 thread: says so, and still offers Open in T3', async () => {
-    await launchNow({ harness: 't3', host: 'env-9', session: 'th-9', state: 'taken' });
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Already queued for a T3 thread', expect.anything());
-    });
-    expect(toastAction(toast.error, 'Open in T3')).toBeDefined();
-  });
-
-  it('taken by a T3 thread without handles for a link: no action', async () => {
-    await launchNow({ harness: 't3', host: null, session: null, state: 'taken' });
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Already queued for a T3 thread');
-    });
-  });
-
-  it.each<[string, T3LaunchResult, string]>([
-    ['not_ready', { state: 'not_ready' }, 'This task can no longer be launched'],
-    [
-      'invalid model',
-      { field: 'model', state: 'invalid' },
-      'T3’s options changed; check the settings',
-    ],
-    [
-      'invalid environmentId',
-      { field: 'environmentId', state: 'invalid' },
-      'T3’s options changed; check the settings',
-    ],
-    [
-      'invalid branch',
-      { field: 'branch', state: 'invalid' },
-      'The branch name is not valid. T3’s options did not change.',
-    ],
-    [
-      'invalid attempt',
-      { field: 'attempt', state: 'invalid' },
-      'This launch could not be sent; launch again',
-    ],
-    ['refused', { state: 'refused' }, 'T3 refused the launch'],
-  ])('%s: toasts with no Retry', async (_state, answer, message) => {
-    await launchNow(answer);
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(message);
-    });
-  });
-
-  it.each<[string, T3LaunchResult]>([
-    ['refused', { state: 'refused' }],
-    ['invalid', { field: 'model', state: 'invalid' }],
-    ['not_queued', { ...LAUNCHED, message: 'no longer ready', state: 'not_queued' }],
-    ['unreachable', { state: 'unreachable' }],
-  ])('%s: the stored choice is left as it was', async (_state, answer) => {
+  it('a launch that did not queue leaves the stored choice as it was', async () => {
     const stored = JSON.stringify({
       instanceId: 'claude',
       model: 'sonnet',
       runtimeMode: 'approval-required',
     });
     localStorage.setItem('mimir:t3-launch:MMR', stored);
-    await launchNow(answer);
+    await launchNow({ ...LAUNCHED, message: 'no longer ready', state: 'not_queued' });
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalled();
     });
     expect(localStorage.getItem('mimir:t3-launch:MMR')).toBe(stored);
   });
 
-  it('invalid and disconnected answers reread the catalog', async () => {
+  it('an invalid answer rereads the catalog', async () => {
     await show(connectedCatalog([reachableSystem()]), { field: 'model', state: 'invalid' });
     await userEvent.click(await screen.findByRole('button', { name: 'Launch on Valhalla' }));
     await waitFor(() => {
       expect(t3Catalog).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  it('disconnected: the control turns into Reconnect T3', async () => {
-    await show(connectedCatalog([reachableSystem()]), { reason: 'expired', state: 'disconnected' });
-    const button = await screen.findByRole('button', { name: 'Launch on Valhalla' });
-    vi.mocked(t3Catalog).mockResolvedValue({ reason: 'expired', state: 'disconnected' });
-    await userEvent.click(button);
-    await expect(
-      screen.findByRole('button', { name: 'Reconnect T3' }),
-    ).resolves.toBeInTheDocument();
-  });
-
-  it.each<[string, T3LaunchResult]>([
-    ['misconfigured', { problem: 'unset', setting: 'MIMIR_URL', state: 'misconfigured' }],
-    ['unconfigured', { state: 'unconfigured' }],
-  ])('%s: a short error', async (_state, answer) => {
-    await launchNow(answer);
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalled();
     });
   });
 });

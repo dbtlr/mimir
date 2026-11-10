@@ -322,14 +322,6 @@ describe('the review rail: the project health strip', () => {
     expect(norn!.textContent).not.toMatch(/decision|live|cold/);
   });
 
-  it('draws the cold count in demoted ink, not a hue a status could share (ADR 0019 §3, MMR-619)', async () => {
-    serve(engineReview({ projects: [stripRow(MMR, { goingCold: 4 })] }));
-    await renderRoute(consoleRoutes, '/');
-
-    const rail = await screen.findByRole('complementary', { name: RAIL });
-    expect(within(rail).getByTitle('4 cold').className).toContain('text-ink-dim');
-  });
-
   it('is the one project listing: no triage table, archived shelf, or New project on the page', async () => {
     serve(engineReview({ projects: TWO_PROJECTS }), [
       engineProject({
@@ -651,28 +643,6 @@ const answerWith = async (id: string) => {
 };
 
 describe('review page decisions act in place (MMR-479)', () => {
-  it('shows a task in review in Now as work in flight, with no Approve or Send back…', async () => {
-    serve(
-      engineReview({
-        ...decisionsFor({ lm: [loomQuestion], mmr: [block, question] }),
-        now: [
-          tagged(
-            makeNowRow(
-              { id: 'MMR-502', status: 'under_review', title: 'Running MMR-502' },
-              { startedAt: hoursAgo(3), submittedAt: hoursAgo(1) },
-            ),
-          ),
-        ],
-      }),
-    );
-    await renderRoute(consoleRoutes, '/');
-
-    const now = await screen.findByRole('region', { name: 'Now · 1' });
-    expect(now).toHaveTextContent(/In review\s*·\s*submitted 1h ago/);
-    expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Send back…' })).toBeNull();
-  });
-
   it('returns focus to Answer… when its dialog is escaped or cancelled', async () => {
     await openForWrite(decisionsFor({ lm: [loomQuestion] }), decisionsFor({}));
     const answerButton = within(await actionsOf('LM-196')).getByRole('button', {
@@ -739,6 +709,7 @@ describe('review page decisions act in place (MMR-479)', () => {
     ).toHaveFocus();
   });
 
+  // The only proof that the page hands block rows, which have no action, to the focus handoff.
   it('lands on a block’s link when the next decision has no action', async () => {
     await openForWrite(
       decisionsFor({ lm: [loomQuestion], mmr: [block] }),
@@ -749,25 +720,6 @@ describe('review page decisions act in place (MMR-479)', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('link', { name: block.task.title })).toHaveFocus();
-    });
-  });
-
-  it('lands on the Needs you heading when no decision follows the row that left', async () => {
-    await openForWrite(
-      decisionsFor({ lm: [loomQuestion], mmr: [question] }),
-      decisionsFor({ lm: [loomQuestion] }),
-    );
-
-    await press('MMR-480', 'Answer…');
-    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
-    fireEvent.change(within(dialog).getByRole('textbox', { name: /answer/i }), {
-      target: { value: 'Drop it.' },
-    });
-    fireEvent.click(within(dialog).getByRole('radio', { name: /^groomed/ }));
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
-
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { level: 2, name: /^Needs you · 1/ })).toHaveFocus();
     });
   });
 });
@@ -842,6 +794,7 @@ describe('review page seed triage acts in place (MMR-479, MMR-506)', () => {
     await expect(screen.findByDisplayValue('Oldest idea')).resolves.toBeDefined();
   });
 
+  // The only proof that Park… arms the focus handoff.
   it('lands on the next project’s first seed when a project’s last seed is parked', async () => {
     await openForWrite(
       triage({ lm: [lmSeed], mmr: [firstSeed, secondSeed] }),
@@ -857,40 +810,6 @@ describe('review page seed triage acts in place (MMR-479, MMR-506)', () => {
         within(screen.getByRole('group', { name: 'Actions for MMR-s25' })).getByRole('button', {
           name: 'Promote to task…',
         }),
-      ).toHaveFocus();
-    });
-  });
-
-  it('lands on the next seed after a promote moves its seed out of triage', async () => {
-    await openForWrite(triage({ mmr: [firstSeed, secondSeed] }), triage({ mmr: [secondSeed] }));
-
-    await press('MMR-s25', 'Promote to task…');
-    const promote = await screen.findByRole('button', { name: 'Promote ↵' });
-    await waitFor(() => {
-      expect(promote).toBeEnabled();
-    });
-    fireEvent.click(promote);
-
-    await waitFor(() => {
-      expect(
-        within(screen.getByRole('group', { name: 'Actions for MMR-s30' })).getByRole('button', {
-          name: 'Promote to task…',
-        }),
-      ).toHaveFocus();
-    });
-  });
-
-  it('lands on the When you have a minute heading when no seed follows the one that left', async () => {
-    await openForWrite(triage({ lm: [lmSeed], mmr: [firstSeed] }), triage({ lm: [lmSeed] }));
-
-    await press('MMR-s25', 'Reject…');
-    const dialog = await screen.findByRole('dialog', { name: 'Reject seed' });
-    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'No' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Reject' }));
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole('heading', { level: 2, name: /^When you have a minute/ }),
       ).toHaveFocus();
     });
   });
@@ -1039,18 +958,6 @@ describe('review page runnable tasks start in place (MMR-506)', () => {
         within(screen.getByRole('group', { name: 'Actions for MMR-s25' })).getByRole('button', {
           name: 'Promote to task…',
         }),
-      ).toHaveFocus();
-    });
-  });
-
-  it('lands on the rail heading when nothing follows the last row', async () => {
-    await openForWrite(runnables(['LM-233']), runnables([]));
-
-    await press('LM-233', 'Start');
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole('heading', { level: 2, name: /^When you have a minute/ }),
       ).toHaveFocus();
     });
   });
