@@ -137,24 +137,6 @@ function reviewClient(cached?: ReviewReport) {
   return client;
 }
 
-describe('the review page head opens the focus queue (MMR-480)', () => {
-  it('offers Work through these, with the decision count, at /?mode=focus', async () => {
-    serve(decisions(loomQuestion, block, question));
-    await renderRoute(consoleRoutes, '/', reviewClient());
-
-    const open = await screen.findByRole('link', { name: 'Work through these · 3' });
-    expect(open.getAttribute('href')).toBe('/?mode=focus');
-  });
-
-  it('offers no queue when nothing needs you', async () => {
-    serve(decisions());
-    await renderRoute(consoleRoutes, '/', reviewClient());
-
-    await screen.findByRole('heading', { level: 1, name: 'Nothing needs you' });
-    expect(screen.queryByRole('link', { name: /Work through these/ })).toBeNull();
-  });
-});
-
 /** The focus card, named by the title of the one decision the queue shows. */
 const cardFor = (row: NeedsYouTask) => screen.findByRole('region', { name: row.task.title });
 

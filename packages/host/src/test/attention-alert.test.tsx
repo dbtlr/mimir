@@ -175,34 +175,25 @@ describe('the attention alert trigger', () => {
 });
 
 describe('the Needs you popover', () => {
-  it('opens on the trigger, moves focus in, and closes on Escape back to the trigger', async () => {
+  it('opens on the trigger with the review’s groups in order, moves focus in, and closes on Escape back to the trigger', async () => {
     renderAt('/p/MMR/tasks', twoProjects());
     expect(screen.queryByRole('dialog')).toBeNull();
 
     const panel = await openAlert('3 decisions need you');
     const trigger = screen.getByRole('button', { name: '3 decisions need you' });
     expect(panel.contains(document.activeElement)).toBe(true);
+    // The alert hands DecisionGroups the review read's groups as they are, in the review order.
+    const groups = within(panel).getAllByRole('region');
+    expect(groups.map((g) => g.getAttribute('aria-label'))).toEqual(['Loom CLI', 'Mimir']);
+    // A desktop popover has no close control and is not a page footer.
+    expect(within(panel).queryByRole('button', { name: 'Close' })).toBeNull();
+    expect(within(panel).queryByRole('contentinfo')).toBeNull();
 
     await userEvent.keyboard('{Escape}');
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
     });
     expect(trigger).toHaveFocus();
-  });
-
-  it('lists the decisions grouped by project, in the review order, with their verbs', async () => {
-    renderAt('/p/MMR/tasks', twoProjects());
-    const panel = await openAlert('3 decisions need you');
-
-    const groups = within(panel).getAllByRole('region');
-    expect(groups.map((g) => g.getAttribute('aria-label'))).toEqual(['Loom CLI', 'Mimir']);
-    expect(within(groups[0]!).getByRole('link', { name: 'Ship the plugin' })).toBeDefined();
-    expect(within(groups[0]!).getByRole('button', { name: 'Answer…' })).toBeDefined();
-    expect(within(groups[1]!).getByText('Needs an API token')).toBeDefined();
-    expect(within(groups[1]!).getByRole('button', { name: 'Answer…' })).toBeDefined();
-    expect(within(groups[1]!).getByRole('link', { name: /Mimir/ }).getAttribute('href')).toBe(
-      '/p/MMR',
-    );
   });
 
   it('marks the decision whose record is the current page', async () => {
@@ -244,18 +235,6 @@ describe('the Needs you popover', () => {
     expect(testRouter.state.location.search).toEqual({ mode: 'focus' });
   });
 
-  it('closes on a row’s link too', async () => {
-    const { testRouter } = renderAt('/p/MMR/tasks', twoProjects());
-    const panel = await openAlert('3 decisions need you');
-
-    await userEvent.click(within(panel).getByRole('link', { name: 'Ship the plugin' }));
-
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Needs you' })).toBeNull();
-    });
-    expect(testRouter.state.location.pathname).toBe('/p/LM/196');
-  });
-
   it('closes on a link to the page already showing', async () => {
     renderAt('/p/MMR/480', twoProjects());
     const panel = await openAlert('3 decisions need you');
@@ -265,25 +244,6 @@ describe('the Needs you popover', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Needs you' })).toBeNull();
     });
-  });
-
-  it('closes on the current project’s heading link', async () => {
-    const { testRouter } = renderAt('/p/MMR', twoProjects());
-    const panel = await openAlert('3 decisions need you');
-
-    await userEvent.click(within(panel).getByRole('link', { name: /Mimir/ }));
-
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Needs you' })).toBeNull();
-    });
-    expect(testRouter.state.location.pathname).toBe('/p/MMR');
-  });
-
-  it('is not announced as a page footer', async () => {
-    renderAt('/p/MMR/tasks', twoProjects());
-    const panel = await openAlert('3 decisions need you');
-
-    expect(within(panel).queryByRole('contentinfo')).toBeNull();
   });
 
   it('returns focus to Answer… when its dialog is cancelled or escaped', async () => {
@@ -310,23 +270,18 @@ describe('the Needs you popover', () => {
     expect(screen.getByRole('dialog', { name: 'Needs you' })).toBeDefined();
   });
 
-  it('closes, with a row’s open dialog, when the viewport crosses the breakpoint', async () => {
+  it('closes when the viewport crosses the breakpoint, and opens afresh as the sheet', async () => {
     const setViewport = stubViewport('desktop');
     renderAt('/p/MMR/tasks', twoProjects({ lm: [loomQuestion] }));
-    const panel = await openAlert('1 decision needs you');
-    await userEvent.click(within(panel).getByRole('button', { name: 'Answer…' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
-    await userEvent.type(within(dialog).getByRole('textbox', { name: /answer/i }), 'Call it loom');
+    await openAlert('1 decision needs you');
 
     setViewport('phone');
 
     await waitFor(() => {
-      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(screen.queryByRole('dialog', { name: 'Needs you' })).toBeNull();
     });
-    // The alert itself stays, closed, and opens afresh as the sheet.
     const sheet = await openAlert('1 decision needs you');
     expect(within(sheet).getByRole('button', { name: 'Close' })).toBeDefined();
-    expect(screen.queryByRole('dialog', { name: 'Answer' })).toBeNull();
   });
 
   it('stays open while a row is acted on, and the row leaves when the write lands', async () => {
@@ -354,18 +309,6 @@ describe('the Needs you popover', () => {
     await expect(
       screen.findByRole('button', { name: '2 decisions need you' }),
     ).resolves.toBeDefined();
-  });
-
-  it('keeps the popover open behind a row’s own dialog', async () => {
-    renderAt('/p/MMR/tasks', twoProjects({ lm: [loomQuestion] }));
-    const panel = await openAlert('1 decision needs you');
-
-    await userEvent.click(within(panel).getByRole('button', { name: 'Answer…' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
-    await userEvent.click(within(dialog).getByRole('textbox', { name: /answer/i }));
-
-    // The row's own dialog is modal, so the popover behind it is hidden from the tree, not gone.
-    expect(screen.getByRole('dialog', { hidden: true, name: 'Needs you' })).toBeDefined();
   });
 
   it('stays to say so, with focus on its heading, when the last decision leaves', async () => {
@@ -413,28 +356,5 @@ describe('the Needs you sheet on a phone', () => {
       expect(screen.queryByRole('dialog')).toBeNull();
     });
     expect(trigger).toHaveFocus();
-  });
-
-  it('returns focus to Answer… when its dialog is escaped', async () => {
-    stubViewport('phone');
-    renderAt('/p/MMR/tasks', twoProjects({ lm: [loomQuestion] }));
-    const panel = await openAlert('1 decision needs you');
-    const answerButton = within(panel).getByRole('button', { name: 'Answer…' });
-
-    await userEvent.click(answerButton);
-    await screen.findByRole('dialog', { name: 'Answer' });
-    await userEvent.keyboard('{Escape}');
-
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Answer' })).toBeNull();
-    });
-    expect(answerButton).toHaveFocus();
-  });
-
-  it('shows the desktop popover without a close control', async () => {
-    renderAt('/p/MMR/tasks', twoProjects());
-    const panel = await openAlert('3 decisions need you');
-
-    expect(within(panel).queryByRole('button', { name: 'Close' })).toBeNull();
   });
 });

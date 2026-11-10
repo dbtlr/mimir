@@ -1,8 +1,9 @@
 import type { Grooming } from '@mimir/contract';
 import { describe, expect, it } from 'vitest';
 
-import type { GroomRefusal } from '../api/fns/agent';
+import type { GroomCancelResult, GroomRefusal } from '../api/fns/agent';
 import {
+  cancelAnswerText,
   deriveAgentCard,
   formatTokens,
   refusalText,
@@ -193,6 +194,27 @@ describe('refusalText', () => {
 
   it.each(cases)('words %j', (refusal, pattern) => {
     expect(refusalText(refusal)).toMatch(pattern);
+  });
+});
+
+describe('cancelAnswerText', () => {
+  const cases: [Exclude<GroomCancelResult, { state: 'cancelling' }>, string][] = [
+    [{ state: 'ending' }, 'The run is already finishing on its own.'],
+    [{ runState: 'succeeded', state: 'ended' }, 'The run already ended (succeeded).'],
+    [{ state: 'unknown' }, 'This run no longer exists.'],
+    [{ state: 'stale' }, "The run's host stopped reporting. Starting a new run clears it."],
+    [
+      { state: 'closing' },
+      'This host could not close the run. It stops reporting within two minutes, and starting a new run then clears it.',
+    ],
+    [
+      { state: 'another-host' },
+      'Another host is running this. Try again shortly, or wait for it to finish.',
+    ],
+  ];
+
+  it.each(cases)('says what %j meant', (answer, sentence) => {
+    expect(cancelAnswerText(answer)).toBe(sentence);
   });
 });
 

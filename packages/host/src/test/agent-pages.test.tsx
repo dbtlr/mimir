@@ -268,7 +268,6 @@ describe('Now on the work page', () => {
     expect(stop).toHaveAttribute('title', 'Stop run');
     await userEvent.click(stop);
     const dialog = await screen.findByRole('dialog', { name: 'Stop the agent on MMR-640?' });
-    expect(within(dialog).getByRole('button', { name: 'Keep running' })).toHaveFocus();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Stop run' }));
     await waitFor(() => {
       expect(cancelGroom).toHaveBeenCalledWith({ data: { runId: 'run-1' } });

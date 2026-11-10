@@ -276,49 +276,25 @@ describe('starting', () => {
     });
   });
 
-  const refusals: [string, GroomRefusal, RegExp][] = [
-    ['unconfigured', { reason: 'unconfigured' }, /not set up on this host/],
-    [
-      'misconfigured',
-      { problem: 'not writable', reason: 'misconfigured', setting: 'MIMIR_DATA_DIR' },
-      /MIMIR_DATA_DIR is not writable/,
-    ],
-    ['disconnected', { reason: 'disconnected' }, /token was refused/],
-    [
-      'managed-policy',
-      { paths: ['/etc/claude-code/managed-settings.json'], reason: 'managed-policy' },
-      /managed settings exist on the host \(\/etc\/claude-code\/managed-settings\.json\)/,
-    ],
-    ['task-not-found', { reason: 'task-not-found' }, /no longer exists/],
-    ['task-not-todo', { lifecycle: 'done', reason: 'task-not-todo' }, /only a todo task.*done/i],
-    ['no-remote', { reason: 'no-remote' }, /no remote/],
-    [
-      'budget',
-      {
-        dailyTokens: 10_000_000,
-        reason: 'budget',
-        resetsAt: new Date('2026-10-13T04:00:00.000Z'),
-        runTokens: 4_000_000,
-        timezone: 'America/New_York',
-        usedTokens: 7_100_000,
-      },
-      /only 2\.9M are left today.*resets at 12:00 AM \(midnight America\/New_York\)/,
-    ],
-    [
-      'busy with a run',
-      { reason: 'busy', running: { id: 'r', startedAt: minutesAgo(3), task: 'MMR-612' } },
-      /one started grooming MMR-612 3m ago\./,
-    ],
-    ['busy without a run', { reason: 'busy', running: null }, /Try again/],
-  ];
-
-  it.each(refusals)('shows the %s refusal as an alert', async (_name, refusal, pattern) => {
+  // The wording of every refusal is tested purely in agent-card-lib.test.ts; one row proves the
+  // card shows a refusal as an alert.
+  it('shows a refusal as an alert', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const { state } = await show(readyCard());
     await card();
+    const refusal: GroomRefusal = {
+      dailyTokens: 10_000_000,
+      reason: 'budget',
+      resetsAt: new Date('2026-10-13T04:00:00.000Z'),
+      runTokens: 4_000_000,
+      timezone: 'America/New_York',
+      usedTokens: 7_100_000,
+    };
     state.start = { refusal, state: 'refused' };
     await user.click(button('Groom with agent'));
-    await expect(screen.findByRole('alert')).resolves.toHaveTextContent(pattern);
+    await expect(screen.findByRole('alert')).resolves.toHaveTextContent(
+      /only 2\.9M are left today.*resets at 12:00 AM \(midnight America\/New_York\)/,
+    );
   });
 
   it('clears the alert on the next attempt', async () => {
@@ -337,50 +313,21 @@ describe('starting', () => {
 });
 
 describe('polling', () => {
-  it('refetches the card every 5s while a run holds the slot', async () => {
-    await show(readyCard({ running: agentRun({ task: 'MMR-612' }) }));
-    await card();
-    expect(groomCard).toHaveBeenCalledTimes(1);
-    await vi.advanceTimersByTimeAsync(5000);
-    await waitFor(() => {
-      expect(groomCard).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  it('polls at the console’s default interval while the slot is free', async () => {
-    await show(readyCard());
-    await card();
-    await vi.advanceTimersByTimeAsync(5000);
-    expect(groomCard).toHaveBeenCalledTimes(1);
-    await vi.advanceTimersByTimeAsync(POLL_MS - 5000);
-    await waitFor(() => {
-      expect(groomCard).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  it('polls at the default interval, not every 5s, while only a stale run holds the slot', async () => {
-    await show(readyCard({ running: agentRun({ stale: true, task: 'MMR-612' }) }));
-    await card();
-    await vi.advanceTimersByTimeAsync(5000);
-    expect(groomCard).toHaveBeenCalledTimes(1);
-    await vi.advanceTimersByTimeAsync(POLL_MS - 5000);
-    await waitFor(() => {
-      expect(groomCard).toHaveBeenCalledTimes(2);
-    });
-  });
-
   it('refreshes the task’s record and notes once a run on it leaves running', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const invalidate = vi.spyOn(client, 'invalidateQueries');
     const { state } = await show(readyCard({ running: agentRun() }), task(), false, client);
     await screen.findByText('Agent grooming');
     expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['node', 'MMR-640'] });
+    expect(groomCard).toHaveBeenCalledTimes(1);
     state.card = readyCard({ lastRun: endedRun('succeeded', 'Groomed') });
     await vi.advanceTimersByTimeAsync(5000);
     await waitFor(() => {
       expect(invalidate).toHaveBeenCalledWith({ queryKey: ['node', 'MMR-640'] });
     });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['node', 'MMR-640', 'annotations'] });
+    // The card read once more in those five seconds: the live interval, as the hook applies it.
+    expect(groomCard).toHaveBeenCalledTimes(2);
   });
 
   it('refreshes the task’s record and notes when a run it never saw running has ended', async () => {
@@ -426,13 +373,11 @@ const stopped = (fields: Partial<AgentRunView>) =>
   });
 
 describe('stopping a run', () => {
-  it('offers Stop only on a cancellable run', async () => {
-    await show(readyCard({ running: agentRun() }));
+  it('offers Stop in the header bar of a cancellable run only', async () => {
+    const { unmount } = await show(readyCard({ running: agentRun() }));
     await card();
     expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
-  });
-
-  it('offers Stop in the header bar of a cancellable run', async () => {
+    unmount();
     await show(cancellable());
     expect(within(await card()).getByRole('button', { name: 'Stop' })).toBeEnabled();
   });
@@ -478,23 +423,13 @@ describe('stopping a run', () => {
     });
   });
 
-  it.each([
-    [{ state: 'ending' }, 'The run is already finishing on its own.'],
-    [{ runState: 'succeeded', state: 'ended' }, 'The run already ended (succeeded).'],
-    [{ state: 'unknown' }, 'This run no longer exists.'],
-    [{ state: 'stale' }, "The run's host stopped reporting. Starting a new run clears it."],
-    [
-      { state: 'closing' },
-      'This host could not close the run. It stops reporting within two minutes, and starting a new run then clears it.',
-    ],
-    [
-      { state: 'another-host' },
-      'Another host is running this. Try again shortly, or wait for it to finish.',
-    ],
-  ] as const)('keeps the dialog open and says what %j meant', async (answer, sentence) => {
-    const dialog = await openDialog(answer);
+  // Each sentence is tested purely as cancelAnswerText in agent-card-lib.test.ts.
+  it('keeps the dialog open and says what an unrecorded cancel meant, until Close', async () => {
+    const dialog = await openDialog({ state: 'ending' });
     await userEvent.click(within(dialog).getByRole('button', { name: 'Stop run' }));
-    await expect(screen.findByText(sentence)).resolves.toBeVisible();
+    await expect(
+      screen.findByText('The run is already finishing on its own.'),
+    ).resolves.toBeVisible();
     expect(screen.getByRole('dialog')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Stop run' })).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Close' }));

@@ -89,11 +89,14 @@ async function renderSheet(props: Partial<AuthoringSheetProps> = {}) {
   const client = new QueryClient({
     defaultOptions: { queries: { refetchInterval: false, retry: false } },
   });
-  const { router } = await renderInRouter(
-    <AuthoringSheet open onOpenChange={onOpenChange} projectKey="MMR" {...props} />,
-    client,
+  const sheet = (extra: Partial<AuthoringSheetProps>) => (
+    <AuthoringSheet open onOpenChange={onOpenChange} projectKey="MMR" {...props} {...extra} />
   );
-  return { onOpenChange, router };
+  const { rerender: rerenderSheet, router } = await renderInRouter(sheet({}), client);
+  const rerender = (extra: Partial<AuthoringSheetProps>) => {
+    rerenderSheet(sheet(extra));
+  };
+  return { onOpenChange, rerender, router };
 }
 
 /**
@@ -145,18 +148,13 @@ describe('authoringSheet', () => {
     expect(screen.queryByText(/status/i)).not.toBeInTheDocument();
   });
 
-  it('type governs legal homes: task → initiative+phase, phase → initiative, initiative → project', async () => {
+  // parent-options.test.ts owns the table of node homes; the phase switch proves the sheet passes
+  // its type. An initiative's project rows are the sheet's own branch, outside that table.
+  it('type governs legal homes: a phase offers initiatives only, an initiative bare projects', async () => {
     const user = userEvent.setup();
     await renderSheet();
     await sheetReady();
 
-    // task: initiatives and phases
-    await user.click(screen.getByRole('button', { expanded: false, name: /home/i }));
-    expect(screen.getByRole('option', { name: /Phase 0/ })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: /Polish/ })).toBeInTheDocument();
-    await user.click(screen.getByRole('option', { name: /Phase 0/ }));
-
-    // phase: initiatives only
     await user.click(screen.getByRole('radio', { name: 'Phase' }));
     await user.click(screen.getByRole('button', { expanded: false, name: /home/i }));
     await expect(screen.findByRole('option', { name: /build/ })).resolves.toBeInTheDocument();
@@ -164,7 +162,6 @@ describe('authoringSheet', () => {
     expect(screen.queryByRole('option', { name: /Phase 0/ })).not.toBeInTheDocument();
     await user.click(screen.getByRole('option', { name: /build/ }));
 
-    // initiative: the picker collapses to bare projects
     await user.click(screen.getByRole('radio', { name: 'Initiative' }));
     await user.click(screen.getByRole('button', { expanded: false, name: /home/i }));
     expect(screen.getByRole('option', { name: /Mimir/ })).toBeInTheDocument();
@@ -211,10 +208,10 @@ describe('authoringSheet', () => {
     expect(depend).not.toHaveBeenCalled();
   });
 
-  it('keeps the sheet open and toasts when depend fails after a successful create', async () => {
+  it('a depend failure keeps the sheet open on a retry posture: the created node surfaces, fields freeze', async () => {
     const user = userEvent.setup();
-    const { onOpenChange } = await renderSheet();
-    vi.mocked(depend).mockRejectedValue(new Error('would create a cycle'));
+    const { onOpenChange, router } = await renderSheet();
+    vi.mocked(depend).mockRejectedValueOnce(new Error('would create a cycle'));
     await sheetReady();
 
     await user.type(screen.getByLabelText('Title'), 'Wire auth');
@@ -227,18 +224,6 @@ describe('authoringSheet', () => {
     // is the only one (MMR-273: exactly one toast per outcome).
     expect(toast.error).toHaveBeenCalledOnce();
     expect(onOpenChange).not.toHaveBeenCalled();
-  });
-
-  it('a depend failure pins a retry posture: the created node surfaces, fields freeze', async () => {
-    const user = userEvent.setup();
-    const { onOpenChange, router } = await renderSheet();
-    vi.mocked(depend).mockRejectedValue(new Error('would create a cycle'));
-    await sheetReady();
-
-    await user.type(screen.getByLabelText('Title'), 'Wire auth');
-    await user.type(screen.getByRole('combobox'), 'auth');
-    await user.click(await screen.findByRole('option', { name: /MMR-40/ }));
-    await user.click(screen.getByRole('button', { name: 'Create ↵' }));
 
     // The created node stays visible + linked so the user can retry the dep.
     await screen.findByRole('button', { name: 'Retry deps ↵' });
@@ -270,6 +255,7 @@ describe('authoringSheet', () => {
     await user.keyboard('{Meta>}');
     await user.click(openIt);
     await user.keyboard('{/Meta}');
+    globalThis.removeEventListener('click', cancelNavigation);
     expect(leftToBrowser).toBe(true);
     expect(onOpenChange).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Retry deps ↵' })).toBeDefined();
@@ -487,17 +473,21 @@ describe('authoringSheet', () => {
     }
   });
 
-  it('offline disables both create buttons', async () => {
-    await renderSheet({ offline: true });
+  it('blocks create while the title is empty or the page is offline', async () => {
+    const user = userEvent.setup();
+    const { rerender } = await renderSheet();
     await sheetReady();
     expect(screen.getByRole('button', { name: 'Create ↵' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Create & open' })).toBeDisabled();
-  });
 
-  it('blocks create while the title is empty', async () => {
-    await renderSheet();
-    await sheetReady();
-    expect(screen.getByRole('button', { name: 'Create ↵' })).toBeDisabled();
+    await user.type(screen.getByLabelText('Title'), 'Solo');
+    expect(screen.getByRole('button', { name: 'Create ↵' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Create & open' })).toBeEnabled();
+
+    rerender({ offline: true });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Create ↵' })).toBeDisabled();
+    });
+    expect(screen.getByRole('button', { name: 'Create & open' })).toBeDisabled();
   });
 
   it('pre-fills title, description, and home for the promote seam (MMR-248)', async () => {
