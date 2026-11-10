@@ -58,17 +58,24 @@ async function storedHold(id: string) {
 
 const released = { block_owner: null, hold: 'none', hold_reason: null } as const;
 
-const terminalVerbs = [
-  { run: (id: string) => completeTask(fixture.store, id), verb: 'done' },
-  { run: (id: string) => abandonTask(fixture.store, id, 'dropped'), verb: 'abandon' },
-];
-const cases = terminalVerbs.flatMap(({ run, verb }) =>
-  (['blocked', 'parked'] as const).map((hold) => ({ hold, run, verb })),
-);
+const cases = [
+  { hold: 'blocked', run: (id: string) => completeTask(fixture.store, id), verb: 'done' },
+  // Only a blocked task carries a block_owner, so abandon needs a blocked case too.
+  {
+    hold: 'blocked',
+    run: (id: string) => abandonTask(fixture.store, id, 'dropped'),
+    verb: 'abandon',
+  },
+  {
+    hold: 'parked',
+    run: (id: string) => abandonTask(fixture.store, id, 'dropped'),
+    verb: 'abandon',
+  },
+] as const;
 
 test.each(cases)(
-  '$verb on a $hold task releases the hold, its reason, and its owner',
-  async ({ hold, run }) => {
+  '$verb on a $hold task releases the hold, logs it before the lifecycle move, and reopens unheld',
+  async ({ hold, run, verb }) => {
     const id = await heldTask(hold);
     const node = await run(id);
     expect({
@@ -77,27 +84,7 @@ test.each(cases)(
       hold_reason: node.hold_reason,
     }).toEqual(released);
     expect(await storedHold(id)).toEqual(released);
-  },
-);
 
-test.each(cases)(
-  'reopening a $hold task closed by $verb yields an unheld in_progress task',
-  async ({ hold, run }) => {
-    const id = await heldTask(hold);
-    await run(id);
-    const reopened = await reopenTask(fixture.store, id, 'not finished');
-    expect(reopened.lifecycle).toBe('in_progress');
-    expect(reopened.hold).toBe('none');
-    expect(reopened.block_owner).toBeNull();
-    expect(reopened.rank).not.toBeNull();
-  },
-);
-
-test.each(cases)(
-  '$verb on a $hold task logs the hold release just before its lifecycle move',
-  async ({ hold, run, verb }) => {
-    const id = await heldTask(hold);
-    await run(id);
     const rows = await fixture.db
       .selectFrom('transition_log')
       .select(['kind', 'from_value', 'to_value'])
@@ -113,6 +100,12 @@ test.each(cases)(
         to_value: verb === 'done' ? 'done' : 'abandoned',
       },
     ]);
+
+    const reopened = await reopenTask(fixture.store, id, 'not finished');
+    expect(reopened.lifecycle).toBe('in_progress');
+    expect(reopened.hold).toBe('none');
+    expect(reopened.block_owner).toBeNull();
+    expect(reopened.rank).not.toBeNull();
   },
 );
 

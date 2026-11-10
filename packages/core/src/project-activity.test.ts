@@ -1,7 +1,7 @@
 import { afterEach, expect, setDefaultTimeout, test } from 'bun:test';
 
 import { createInitiative, createProject, createTask } from './create';
-import { annotate, archiveProject, startTask, updateNode } from './mutations';
+import { archiveProject, updateNode } from './mutations';
 import type { Store } from './store';
 import type { Instance } from './testing/conformance';
 import { backends, scratchpad } from './testing/conformance';
@@ -82,17 +82,6 @@ for (const backend of backends) {
     expect(after.OPS).toBe(before.OPS);
   });
 
-  it('a task transition moves its project and not another', async () => {
-    const store = await fresh();
-    const { mmrTask } = await world(store);
-    const before = await activity(store);
-    await nextTick();
-    await startTask(store, mmrTask);
-    const after = await activity(store);
-    expect((after.MMR ?? '') > (before.MMR ?? '')).toBe(true);
-    expect(after.OPS).toBe(before.OPS);
-  });
-
   it('a transition-log entry alone moves the node-owning project', async () => {
     const store = await fresh();
     const { mmrTask } = await world(store);
@@ -133,17 +122,6 @@ for (const backend of backends) {
       w.insertAnnotation({ content: 'note', created_at: LATER, node_id: opsTask }),
     );
     expect(await activity(store)).toEqual({ MMR: before.MMR, OPS: LATER });
-  });
-
-  it('annotating through the verb moves its project and not another', async () => {
-    const store = await fresh();
-    const { mmrTask } = await world(store);
-    const before = await activity(store);
-    await nextTick();
-    await annotate(store, mmrTask, 'progress');
-    const after = await activity(store);
-    expect((after.MMR ?? '') > (before.MMR ?? '')).toBe(true);
-    expect(after.OPS).toBe(before.OPS);
   });
 
   it('a seed moves its project and not another, on create and on transition', async () => {

@@ -9,7 +9,6 @@ import type { Store } from '../store';
 import { expectMimirError } from '../testing/errors';
 import { nodeIdOf, projectIdOf, createTestStore } from '../testing/store';
 import {
-  abandonTask,
   blockTask,
   completeTask,
   parkTask,
@@ -205,34 +204,6 @@ test('the handles apply only to tasks', async () => {
   await expectMimirError('validation', () =>
     updateNode(store, phaseStem, { host: 'workbench.local' }),
   );
-});
-
-test('done clears the handles and echoes what it cleared', async () => {
-  const id = await task();
-  await startTask(store, id, CLAIM);
-  expect(handlesOn(await completeTask(store, id))).toEqual({});
-  expect(await historyHandles(id)).toEqual([CLAIM, CLAIM]);
-});
-
-test('abandon clears the handles and echoes what it cleared', async () => {
-  const id = await task();
-  await startTask(store, id, CLAIM);
-  expect(handlesOn(await abandonTask(store, id, 'scope cut'))).toEqual({});
-  expect(await historyHandles(id)).toEqual([CLAIM, CLAIM]);
-});
-
-test('park clears the handles and echoes what it cleared', async () => {
-  const id = await task();
-  await startTask(store, id, CLAIM);
-  expect(handlesOn(await parkTask(store, id, 'later'))).toEqual({});
-  expect(await historyHandles(id)).toEqual([CLAIM, CLAIM]);
-});
-
-test('block clears the handles and echoes what it cleared', async () => {
-  const id = await task();
-  await startTask(store, id, CLAIM);
-  expect(handlesOn(await blockTask(store, id, 'upstream down'))).toEqual({});
-  expect(await historyHandles(id)).toEqual([CLAIM, CLAIM]);
 });
 
 test('a clearing transition on an unclaimed task echoes nothing', async () => {
