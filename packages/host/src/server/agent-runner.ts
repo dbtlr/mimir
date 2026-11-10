@@ -592,6 +592,8 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
       usageSettled: boolean;
       costEstimateUsd: number | null;
     }): Promise<RunOutcome> => {
+      // The runner has settled on how the run closes: a cancel from here on answers ending.
+      held.ended = true;
       const write = await runs.close(runId, options.runnerId, closing);
       return {
         outcome: closing.outcome,
@@ -614,7 +616,6 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
       // The slot is this run's now, so no other run directory belongs to a live run.
       await sweepRunDirectories(dataDirectory, runId);
       if (held.cancelled) {
-        held.ended = true;
         return await close(cancelledBeforeQuery());
       }
       const sync = await options.syncClone({
@@ -624,7 +625,6 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
         project: { key: input.project, remote: run.remote },
       });
       if (!sync.ok) {
-        held.ended = true;
         // The run never reached the SDK, so it used nothing.
         const reason = `the clone did not sync (${sync.reason}): ${sync.message}`;
         return await close(
@@ -654,7 +654,6 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
         sync,
       });
     } catch (error) {
-      held.ended = true;
       const message = error instanceof Error ? error.message : 'unknown error';
       log(`⚠ host: agent run ${runId} faulted: ${message}`);
       const detail = `the runner faulted: ${message}`;
@@ -758,7 +757,6 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
     };
     // The last check before the query: no await stands between it and the query's creation.
     if (held.cancelled) {
-      held.ended = true;
       return context.close(cancelledBeforeQuery());
     }
     if (context.aborted() === undefined) {
