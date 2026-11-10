@@ -684,6 +684,30 @@ exit 0
 ~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
 + seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
 
+### promote argv: MMR-s1 --parent MMR-2 (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m promoted MMR-s1 · spawned MMR-10
+| ␛[1mMMR-s1␛[22m
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    promoted
+|   requester    XX
+|   spawned      MMR-10
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Ask the other board for a hook.","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"A hook"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
+
 ### reject MMR-s1
 exit 0
 --- stdout
@@ -795,6 +819,22 @@ exit 0
 --- stdout
 | [ok] rejected MMR-s1 · out of scope
 | MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    rejected
+|   requester    XX
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "rejected"
+
+### reject argv: MMR-s1 out of scope (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m rejected MMR-s1 · out of scope
+| ␛[1mMMR-s1␛[22m
 |   project      MMR
 |   title        A hook
 |   kind         feature

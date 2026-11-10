@@ -15,8 +15,11 @@ const FILED = { kind: 'idea' };
 
 // Every verb here echoes a seed through one set of views (render/seeds.ts), so
 // the full format, `--ascii`, and terminal matrix runs once, on `seed`.
-// `promote` keeps its `ids` and `json`, which print the task it spawned or
-// linked rather than the seed. Every other case is one distinct input.
+// `promote` keeps its `ids`, which prints the task it spawned or linked rather
+// than the seed, and its `json`, whose seed record names a spawned task under
+// `created`. `promote` and `reject`/`resolve` read the terminal and `--ascii`
+// themselves, so each keeps one terminal case. Every other case is one distinct
+// input.
 const CASES: ParityCase[] = [
   // seed: file one.
   verb('seed (bound)', 'seed', { title: 'Cache it' }, FILED, { bound: 'MMR' }),
@@ -156,6 +159,7 @@ const CASES: ParityCase[] = [
   verb('promote MMR-s1 --parent MMR-99', 'promote', { id: 'MMR-s1' }, { parent: 'MMR-99' }),
   verb('promote MMR-s1 --link MMR-99', 'promote', { id: 'MMR-s1' }, { link: 'MMR-99' }),
   argvCase(['promote', 'MMR-s1', '--parent', 'MMR-2', '-p', 'p1', '-t', 'alpha', '-t', 'beta']),
+  argvCase(['promote', 'MMR-s1', '--parent', 'MMR-2'], true),
 
   // reject and resolve: settle a seed with a reason.
   verb('reject MMR-s1', 'reject', { id: 'MMR-s1', reason: 'out of scope' }),
@@ -167,6 +171,7 @@ const CASES: ParityCase[] = [
   verb('reject MMR-s3 (settled)', 'reject', { id: 'MMR-s3', reason: 'again' }),
   verb('reject (no reason)', 'reject', { id: 'MMR-s1' }),
   argvCase(['reject', 'MMR-s1', 'out', 'of', 'scope']),
+  argvCase(['reject', 'MMR-s1', 'out', 'of', 'scope'], true),
   // Reason words after `--` are text, not options.
   argvCase(['reject', 'MMR-s1', '--', '--out', 'of', 'scope']),
   argvCase(['reject', 'MMR-s1', 'later', '--', '-1', 'cycle']),

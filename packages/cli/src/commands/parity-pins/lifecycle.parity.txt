@@ -260,6 +260,93 @@ exit 0
 - projects[MMR].leafCounts.queued: 1
 ~ projects[MMR].leafCounts.ready: 1 -> 2
 
+### unqueue argv: MMR-3 run cancelled -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-3",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "Wire the store",
+|   "type": "task",
+|   "description": "Open the store once.\n\nKeep it open.",
+|   "summary": "one store per run",
+|   "priority": "p1",
+|   "size": "small",
+|   "lifecycle": "todo",
+|   "grooming": "groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": []
+| }
+--- state
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
+~ board.MMR.nodes.items[MMR-3].lifecycle: "queued" -> "todo"
+~ board.MMR.nodes.items[MMR-3].session: "run-1" -> null
+~ board.MMR.nodes.items[MMR-3].status: "queued" -> "ready"
+~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "queued" -> "ready"
+~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "ready"
+~ nodes[MMR-2].children[MMR-3].status: "queued" -> "ready"
+- nodes[MMR-2].distribution.queued: 1
+~ nodes[MMR-2].distribution.ready: 1 -> 2
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
+~ nodes[MMR-3].lifecycle: "queued" -> "todo"
+~ nodes[MMR-3].session: "run-1" -> null
+~ nodes[MMR-3].status: "queued" -> "ready"
+~ nodes[MMR-4].deps.awaitingOn[MMR-3].status: "queued" -> "ready"
+~ nodes[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "ready"
+- projects[MMR].leafCounts.queued: 1
+~ projects[MMR].leafCounts.ready: 1 -> 2
+
+### unqueue argv: MMR-3 run cancelled (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m unqueued MMR-3 · queued → todo · run cancelled
+| ␛[1mMMR-3␛[22m
+|   type         task
+|   status       ␛[32m● ready␛[39m
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+--- state
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
+~ board.MMR.nodes.items[MMR-3].lifecycle: "queued" -> "todo"
+~ board.MMR.nodes.items[MMR-3].session: "run-1" -> null
+~ board.MMR.nodes.items[MMR-3].status: "queued" -> "ready"
+~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "queued" -> "ready"
+~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "ready"
+~ nodes[MMR-2].children[MMR-3].status: "queued" -> "ready"
+- nodes[MMR-2].distribution.queued: 1
+~ nodes[MMR-2].distribution.ready: 1 -> 2
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
+~ nodes[MMR-3].lifecycle: "queued" -> "todo"
+~ nodes[MMR-3].session: "run-1" -> null
+~ nodes[MMR-3].status: "queued" -> "ready"
+~ nodes[MMR-4].deps.awaitingOn[MMR-3].status: "queued" -> "ready"
+~ nodes[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "ready"
+- projects[MMR].leafCounts.queued: 1
+~ projects[MMR].leafCounts.ready: 1 -> 2
+
 ### unqueue argv: MMR-3 -- --weird
 exit 0
 --- stdout
@@ -358,7 +445,7 @@ exit 1
 --- state
 unchanged
 
-### unqueue argv: MMR-3 run cancelled -f json
+### unqueue argv: MMR-3 run cancelled -f json #2
 exit 1
 --- stdout
 --- failure
@@ -1196,6 +1283,44 @@ exit 0
 | MMR-5
 |   type            task
 |   status          ? under_review
+|   title           Ship it
+|   parent          MMR-2
+|   priority        p0
+|   lifecycle       under_review
+|   grooming        not_groomed
+|   hold            none
+|   harness         codex
+|   session         main-session
+|   worker harness  claude
+|   worker session  task-worker-session
+--- state
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"under_review"}
+~ board.MMR.nodes.items[MMR-5].lifecycle: "in_progress" -> "under_review"
+~ board.MMR.nodes.items[MMR-5].status: "in_progress" -> "under_review"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-4, MMR-8, MMR-5, MMR-6, MMR-7, MMR-9]
+~ nodes[MMR-1].children[MMR-2].status: "in_progress" -> "under_review"
+~ nodes[MMR-1].distribution: {"in_progress":1} -> {"under_review":1}
+~ nodes[MMR-1].status: "in_progress" -> "under_review"
+~ nodes[MMR-2].children[MMR-5].status: "in_progress" -> "under_review"
+- nodes[MMR-2].distribution.in_progress: 1
++ nodes[MMR-2].distribution.under_review: 1
+~ nodes[MMR-2].status: "in_progress" -> "under_review"
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"under_review"}
+~ nodes[MMR-5].lifecycle: "in_progress" -> "under_review"
+~ nodes[MMR-5].status: "in_progress" -> "under_review"
+~ projects[MMR].children[MMR-1].status: "in_progress" -> "under_review"
+~ projects[MMR].distribution: {"in_progress":1} -> {"under_review":1}
+- projects[MMR].leafCounts.in_progress: 1
++ projects[MMR].leafCounts.under_review: 1
+~ projects[MMR].status: "in_progress" -> "under_review"
+
+### submit argv: MMR-5 (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m submitted MMR-5 · in_progress → under_review
+| ␛[1mMMR-5␛[22m
+|   type            task
+|   status          ␛[35m◎ under_review␛[39m
 |   title           Ship it
 |   parent          MMR-2
 |   priority        p0
@@ -2371,6 +2496,48 @@ exit 0
 ~ projects[MMR].leafCounts.ready: 2 -> 1
 ~ projects[MMR].leafCounts.blocked: 1 -> 2
 
+### block argv: MMR-3 --on you waiting (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m blocked MMR-3 · waiting
+| ␛[1mMMR-3␛[22m
+|   type         task
+|   status       ␛[31m■ blocked␛[39m
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         blocked
+|   hold reason  waiting
+|   block owner  you
+--- state
+~ board.MMR.nodes.items[MMR-3].blockOwner: null -> "you"
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"waiting","to":"blocked"}
+~ board.MMR.nodes.items[MMR-3].hold: "none" -> "blocked"
+~ board.MMR.nodes.items[MMR-3].holdReason: null -> "waiting"
+~ board.MMR.nodes.items[MMR-3].status: "ready" -> "blocked"
+~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "blocked"
+~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "blocked"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
+~ nodes[MMR-2].children[MMR-3].status: "ready" -> "blocked"
+~ nodes[MMR-2].distribution.ready: 2 -> 1
+~ nodes[MMR-2].distribution.blocked: 1 -> 2
+~ nodes[MMR-3].blockOwner: null -> "you"
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"waiting","to":"blocked"}
+~ nodes[MMR-3].hold: "none" -> "blocked"
+~ nodes[MMR-3].holdReason: null -> "waiting"
+~ nodes[MMR-3].status: "ready" -> "blocked"
+~ nodes[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "blocked"
+~ nodes[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "blocked"
+~ projects[MMR].leafCounts.ready: 2 -> 1
+~ projects[MMR].leafCounts.blocked: 1 -> 2
+
 ### block argv: MMR-4 --on you
 exit 0
 --- stdout
@@ -2438,6 +2605,20 @@ exit 1
 |   "code": "validation",
 |   "hints": [],
 |   "message": "cannot hold a done task"
+| }
+--- state
+unchanged
+
+### block argv: MMR-s1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "act on a seed with promote / reject / resolve"
+|   ],
+|   "message": "MMR-s1 is a seed, not a task"
 | }
 --- state
 unchanged

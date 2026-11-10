@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 
+import { application } from './application';
 import { FLAG_OWNERS, flagRedirect } from './flag-owners';
 import type { FlagOwner } from './flag-owners';
 
@@ -239,16 +240,34 @@ test('every owner-table entry and short spelling has a redirect row', () => {
   expect(uncovered).toEqual([]);
 });
 
-test.each(FLAG_OWNERS.filter((entry) => entry.only === undefined && entry.owner.length > 0))(
-  '--$flag on a command that owns it gets no redirect',
-  (entry) => {
-    for (const owner of entry.owner) {
-      for (const spelling of spellingsOf(entry)) {
-        expect(flagRedirect(spelling, owner), `${spelling} on ${owner}`).toBeUndefined();
-      }
+const OWNED = FLAG_OWNERS.filter((entry) => entry.only === undefined && entry.owner.length > 0);
+
+type CommandNode = ReturnType<typeof application.inspect>['root'];
+
+/** The long flags a command and its subcommands declare. */
+const declaredFlags = (node: CommandNode): string[] => [
+  ...node.options.map((option) => option.name),
+  ...node.children.flatMap(declaredFlags),
+];
+
+// An owner gets no redirect, so an owner that does not declare the flag would
+// print a bare unknown-option fault where every other command redirects.
+test.each(OWNED)('every owner of --$flag declares it', (entry) => {
+  const commands = application.inspect().root.children;
+  const undeclared = entry.owner.filter((owner) => {
+    const command = commands.find((child) => child.name === owner);
+    return command === undefined || !declaredFlags(command).includes(entry.flag);
+  });
+  expect(undeclared).toEqual([]);
+});
+
+test.each(OWNED)('--$flag on a command that owns it gets no redirect', (entry) => {
+  for (const owner of entry.owner) {
+    for (const spelling of spellingsOf(entry)) {
+      expect(flagRedirect(spelling, owner), `${spelling} on ${owner}`).toBeUndefined();
     }
-  },
-);
+  }
+});
 
 test('a value joined with = still finds the redirect', () => {
   expect(flagRedirect('--tz=UTC', 'get')).toBe(flagRedirect('--tz', 'get'));

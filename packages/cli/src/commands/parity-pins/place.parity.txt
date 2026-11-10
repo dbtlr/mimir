@@ -428,6 +428,26 @@ exit 0
 --- state
 ~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-5, MMR-3, MMR-4, MMR-8, MMR-6, MMR-7, MMR-9]
 
+### reorder argv: MMR-5 --top (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m reordered MMR-5 → top
+| ␛[1mMMR-5␛[22m
+|   type            task
+|   status          ␛[36m▶ in_progress␛[39m
+|   title           Ship it
+|   parent          MMR-2
+|   priority        p0
+|   lifecycle       in_progress
+|   grooming        not_groomed
+|   hold            none
+|   harness         codex
+|   session         main-session
+|   worker harness  claude
+|   worker session  task-worker-session
+--- state
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-5, MMR-3, MMR-4, MMR-8, MMR-6, MMR-7, MMR-9]
+
 ### reorder argv: MMR-3 --bottom
 exit 0
 --- stdout

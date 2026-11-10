@@ -242,6 +242,22 @@ exit 0
 + projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
 + projects[MMR].distribution.new: 1
 
+### create argv: initiative Growth --parent MMR (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m created MMR-10
+| ␛[1mMMR-10␛[22m
+|   type    initiative
+|   status  ␛[90m○ new␛[39m (rollup over 0 direct children)
+|   title   Growth
+|
+|   hint  mimir tree MMR-10   — full subtree
+|         mimir list --status ready -s MMR   — leaf-actionable tasks
+--- state
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":null,"status":"new","summary":null,"tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
++ projects[MMR].distribution.new: 1
+
 ### create argv: initiative Growth --parent MMR --desc "Grow the board." --summary growth
 exit 0
 --- stdout
@@ -450,6 +466,23 @@ exit 0
 |   status  o new (rollup over 0 direct children)
 |   title   Beta
 |   parent  MMR-1
+--- state
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
++ nodes[MMR-1].distribution.new: 1
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":"MMR-1","status":"new","summary":null,"tags":[],"target":null,"title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
+
+### create argv: phase Beta --parent MMR-1 (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m created MMR-10
+| ␛[1mMMR-10␛[22m
+|   type    phase
+|   status  ␛[90m○ new␛[39m (rollup over 0 direct children)
+|   title   Beta
+|   parent  MMR-1
+|
+|   hint  mimir tree MMR-10   — full subtree
+|         mimir list --status ready -s MMR   — leaf-actionable tasks
 --- state
 + nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
 + nodes[MMR-1].distribution.new: 1

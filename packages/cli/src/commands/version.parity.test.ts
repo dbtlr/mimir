@@ -17,10 +17,13 @@ afterAll(async () => {
   await board.close();
 });
 
-test.each([[[]], [['-f', 'json']]])('version %p prints the bare version', async (flags) => {
-  const run = await runArgv(board.app(), ['version', ...flags]);
-  expect(run).toEqual({ exitCode: 0, stderr: '', stdout: `${VERSION}\n` });
-});
+test.each([[[]], [['-f', 'json']], [['-f', 'jsonl']]])(
+  'version %p prints the bare version',
+  async (flags) => {
+    const run = await runArgv(board.app(), ['version', ...flags]);
+    expect(run).toEqual({ exitCode: 0, stderr: '', stdout: `${VERSION}\n` });
+  },
+);
 
 test('the Application reports the stamped version', async () => {
   expect(board.app().inspect().version).toBe(VERSION);

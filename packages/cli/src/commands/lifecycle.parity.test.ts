@@ -14,15 +14,21 @@ import type { Setup, SetupCase } from '../testing/writes';
  * the records it changed. A refused verb must leave the board as it found it.
  *
  * Every verb echoes through one set of views (render/echo.ts) with three
- * shapes, so the full format, `--ascii`, and terminal matrix runs once per
- * shape: `start MMR-3` (a node), `park MMR-s1` (a seed), and `archive XX` (a
- * project). Every other case is one distinct input, in the format that shows
- * what it adds.
+ * shapes, so the full format and `--ascii` matrix runs once per shape: `start
+ * MMR-3` (a node), `park MMR-s1` (a seed), and `archive XX` (a project). Each
+ * command builder reads the terminal and `--ascii` itself, so each keeps one
+ * terminal case: `start` (queue and start), `submit` (the verbs that take no
+ * reason), `unqueue` (the verbs that take a reason), `block`, and `archive`
+ * (the project verbs). Every other case is one distinct input, in the format
+ * that shows what it adds.
  *
  * Every verb also checks its subject through one function, which has three
- * branches: a task verb, a task verb that takes a seed, and a project verb. The
- * wrong-subject sweep (an unknown id, a project, a seed, an artifact, and a
- * malformed token) runs once per branch, on `start`, `park`, and `archive`.
+ * branches: a task verb, a task verb that takes a seed, and a project verb.
+ * `start` reads its task through the same token rule first, and sweeps it: an
+ * unknown id, a project, a seed, an artifact, and malformed tokens. `park`, the
+ * verb that takes a seed, sweeps an unknown id and a project beside its seed
+ * cases, and `block MMR-s1` proves a verb that takes no seed refuses one.
+ * `archive` sweeps a task, an artifact, and unknown keys.
  * Core owns which states a verb may leave, so each verb keeps one refusal that
  * reaches the Engine, to pin its exit and core's words, and the board it left.
  *
@@ -95,6 +101,8 @@ const QUEUE: SetupCase[] = [
 
 const UNQUEUE: SetupCase[] = [
   argv('unqueue MMR-3 run cancelled', { setup: queued }),
+  argv('unqueue MMR-3 run cancelled -f json', { setup: queued }),
+  argv('unqueue MMR-3 run cancelled', { setup: queued, tty: true }),
   argv('unqueue MMR-3 -- --weird', { setup: queued }),
   argv('unqueue MMR-3 slip -- -1 day', { setup: queued }),
   // Refusals Mimir raises.
@@ -144,7 +152,11 @@ const START: SetupCase[] = [
   argv('start MMR-3 --worker-session worker-1 -f json'),
 ];
 
-const SUBMIT: SetupCase[] = [argv('submit MMR-5'), argv('submit MMR-3')];
+const SUBMIT: SetupCase[] = [
+  argv('submit MMR-5'),
+  argv('submit MMR-5', { tty: true }),
+  argv('submit MMR-3'),
+];
 
 const RETURN: SetupCase[] = [
   argv('return MMR-5', { setup: underReview }),
@@ -209,10 +221,13 @@ const BLOCK: SetupCase[] = [
   argv('block MMR-3 upstream API down'),
   argv('block MMR-3 --on you need a decision'),
   argv('block MMR-3 --on others upstream down -f json'),
+  argv('block MMR-3 --on you waiting', { tty: true }),
   argv('block MMR-4 --on you'),
   argv('block MMR-3 --on nobody'),
   argv('block MMR-3 --on nobody -f json'),
   argv('block MMR-7'),
+  // A seed on a verb that takes none, refused by the subject check.
+  argv('block MMR-s1'),
   argv('block MMR-3 --on=you -f json'),
   argv('block MMR-3 --on you -- -x'),
   argv('block MMR-3 --on'),

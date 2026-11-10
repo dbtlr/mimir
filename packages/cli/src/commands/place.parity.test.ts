@@ -3,7 +3,8 @@ import type { ParityCase } from '../testing/parity';
 import { writeCases } from '../testing/writes';
 
 // `move` and `reorder` echo the node they wrote through one set of views, so
-// the full format, `--ascii`, and terminal matrix runs once, on `move`. Each id
+// the full format, `--ascii`, and terminal matrix runs once, on `move`.
+// `reorder` draws its own arrow, so it keeps one terminal case. Each id
 // is checked by the shared node-token rule, whose wrong-subject sweep runs once
 // in lifecycle.parity.test.ts; each id here keeps one wrong kind and one
 // unknown id.
@@ -33,6 +34,7 @@ const CASES: ParityCase[] = [
   argv(['move', 'MMR-5']),
   // reorder: each place.
   argv(['reorder', 'MMR-5', '--top']),
+  argv(['reorder', 'MMR-5', '--top'], true),
   argv(['reorder', 'MMR-3', '--bottom']),
   argv(['reorder', 'MMR-8', '--before', 'MMR-4']),
   argv(['reorder', 'MMR-3', '--after', 'MMR-5']),
