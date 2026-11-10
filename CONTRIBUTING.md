@@ -130,8 +130,10 @@ The integration lanes outside `bun run verify` (`test:host`, `test:sandbox`,
 and `test:postgres`) build images, install releases, or start real hosts. Tests
 that only those lanes run may set explicit timeouts, each with a comment naming
 what the time is spent on. The exception follows the lane, not the file name:
-an `*.integration.test.ts` file under a path `bun run test` covers is a
-default-lane test.
+a test that only a lane switches on, such as the sandbox lifecycle tests behind
+`MIMIR_SANDBOX_LIFECYCLE_TEST`, belongs to that lane, while an
+`*.integration.test.ts` file that runs under `bun run test` is a default-lane
+test.
 
 ## Project shape
 

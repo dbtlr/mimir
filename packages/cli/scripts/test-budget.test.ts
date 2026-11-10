@@ -95,7 +95,14 @@ describe('judge', () => {
       name: 'renamed away',
       task: 'MMR-3',
     };
-    const verdict = judge(timings, budget, [gone]);
+    // The fixture's one slow test is exempt, so the missing exemption is the only failure.
+    const slow: Exemption = {
+      file: 'packages/core/src/a.test.ts',
+      name: 'Postgres "stores" > nested > round-trips <every> collection',
+      task: 'MMR-1',
+    };
+    const verdict = judge(timings, budget, [slow, gone]);
+    expect(verdict.over).toEqual([]);
     expect(verdict.missingExemptions.map((e) => e.task)).toEqual(['MMR-3']);
     expect(passes(verdict)).toBe(false);
   });

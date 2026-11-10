@@ -76,9 +76,10 @@ export function readJunit(xml: string): Timings {
   // Open suites from the file inward; index 0 is the file's own suite.
   const suites: string[] = [];
   const tags = xml.matchAll(
-    /<(\/?)(testsuite|testcase)\b([^>]*?)(\/?)>([\s\S]*?(?=<\/?test(?:suite|case)\b|$))/g,
+    /<(\/?)(testsuite|testcase)\b([^>]*?)\/?>([\s\S]*?(?=<\/?test(?:suite|case)\b|$))/g,
   );
-  for (const [, closing, kind, attrText = '', selfClosing, body = ''] of tags) {
+  // A testcase's body runs to the next suite or case tag; bun writes <skipped> there for skip and todo.
+  for (const [, closing, kind, attrText = '', body = ''] of tags) {
     if (kind === 'testsuite') {
       if (closing) {
         suites.pop();
@@ -95,8 +96,7 @@ export function readJunit(xml: string): Timings {
     if (closing) {
       continue;
     }
-    const skipped = !selfClosing && /<skipped\b/.test(body);
-    if (skipped) {
+    if (/<skipped\b/.test(body)) {
       continue;
     }
     const attrs = attributes(attrText);

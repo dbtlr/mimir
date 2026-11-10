@@ -18,6 +18,7 @@ const stepSchema = executionSchema.extend({
   run: z.string().optional(),
   uses: z.string().optional(),
   with: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+  'working-directory': z.string().optional(),
 });
 const jobSchema = executionSchema.extend({ steps: z.array(stepSchema) });
 const workflowSchema = z.object({
@@ -60,6 +61,7 @@ test('every pull request retains the full Linux suite, including stacked branche
   expect(step).toBeDefined();
   expect(step?.if).toBeUndefined();
   expect(step?.['continue-on-error']).toBeUndefined();
+  expect(step?.['working-directory']).toBeUndefined();
 });
 
 test('the gate checks the test budget on the report its test step writes', async () => {
