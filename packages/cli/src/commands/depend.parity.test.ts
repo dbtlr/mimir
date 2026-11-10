@@ -3,7 +3,10 @@ import type { ParityCase } from '../testing/parity';
 import { writeCases } from '../testing/writes';
 
 // `depend` and `undepend` echo the node they wrote through one set of views, so
-// the full format, `--ascii`, and terminal matrix runs once, on `depend`.
+// the full format, `--ascii`, and terminal matrix runs once, on `depend`. Each
+// id is checked by the shared node-token rule, whose wrong-subject sweep runs
+// once in lifecycle.parity.test.ts; each id here keeps one wrong kind and one
+// unknown id.
 const CASES: ParityCase[] = [
   // Adding prerequisites, through every format.
   argv(['depend', 'MMR-5', '--on', 'MMR-3']),
@@ -26,19 +29,13 @@ const CASES: ParityCase[] = [
   argv(['depend', 'MMR-3', '--on', 'MMR-3']),
   argv(['depend', 'MMR-3', '--on', 'MMR-2']),
   argv(['depend', 'MMR-99', '--on', 'MMR-3']),
-  argv(['depend', 'MMR-99', '--on', 'MMR-3', '-f', 'json']),
   argv(['depend', 'MMR-5', '--on', 'MMR-99']),
   argv(['depend', 'MMR-5', '--on', 'MMR-3,MMR-99']),
   argv(['depend', 'MMR', '--on', 'MMR-3']),
-  argv(['depend', 'MMR-5', '--on', 'MMR']),
-  argv(['depend', 'MMR-a1', '--on', 'MMR-3']),
   argv(['depend', 'MMR-5', '--on', 'MMR-s1']),
-  argv(['depend', 'nope', '--on', 'MMR-3']),
-  argv(['depend', 'MMR-5', '--on', 'nope']),
   argv(['depend', 'MMR-5', '--on', '']),
   argv(['depend', 'MMR-5', '--on', 'MMR-3,']),
   argv(['undepend', 'MMR-99', '--on', 'MMR-3']),
-  argv(['undepend', 'MMR-4', '--on', 'MMR']),
   argv(['undepend', 'MMR-4', '--on', '']),
   // Faults Loom's parser raises.
   argv(['depend', 'MMR-5']),

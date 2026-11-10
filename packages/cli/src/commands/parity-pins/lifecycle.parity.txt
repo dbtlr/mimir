@@ -157,18 +157,6 @@ exit 1
 --- state
 unchanged
 
-### queue argv: MMR-3 --session run-1 #2
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "only a todo task can be queued (is queued)"
-| }
---- state
-unchanged
-
 ### queue argv: MMR-4 --session run-1
 exit 0
 --- stdout
@@ -211,18 +199,6 @@ exit 1
 --- state
 unchanged
 
-### queue argv: MMR-6 --session run-1
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "cannot queue a blocked task"
-| }
---- state
-unchanged
-
 ### queue argv: MMR-7 --session run-1
 exit 1
 --- stdout
@@ -231,86 +207,6 @@ exit 1
 |   "code": "validation",
 |   "hints": [],
 |   "message": "only a todo task can be queued (is done)"
-| }
---- state
-unchanged
-
-### queue argv: MMR-99 --session run-1
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "MMR-99 doesn't exist"
-| }
---- state
-unchanged
-
-### queue argv: MMR --session run-1
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "MMR is a project, not a task"
-| }
---- state
-unchanged
-
-### queue argv: mmr-3 --session run-1
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "mmr-3 doesn't exist"
-| }
---- state
-unchanged
-
-### queue argv: MMR-s1 --session run-1
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [
-|     "act on a seed with promote / reject / resolve"
-|   ],
-|   "message": "MMR-s1 is a seed, not a task"
-| }
---- state
-unchanged
-
-### queue argv: MMR-a1 --session run-1
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "MMR-a1 is an artifact, not a task"
-| }
---- state
-unchanged
-
-### queue argv: MMR-99 --session run-1 -f json
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "MMR-99 doesn't exist"
 | }
 --- state
 unchanged
@@ -458,46 +354,6 @@ exit 1
 |   "code": "validation",
 |   "hints": [],
 |   "message": "only a queued task can be unqueued (is in_progress)"
-| }
---- state
-unchanged
-
-### unqueue argv: MMR-99 run cancelled
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "MMR-99 doesn't exist"
-| }
---- state
-unchanged
-
-### unqueue argv: MMR run cancelled
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "MMR is a project, not a task"
-| }
---- state
-unchanged
-
-### unqueue argv: MMR-s1 run cancelled
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [
-|     "act on a seed with promote / reject / resolve"
-|   ],
-|   "message": "MMR-s1 is a seed, not a task"
 | }
 --- state
 unchanged
@@ -907,18 +763,6 @@ exit 0
 ~ nodes[MMR-4].status: "awaiting" -> "in_progress"
 - projects[MMR].leafCounts.awaiting: 1
 ~ projects[MMR].leafCounts.in_progress: 1 -> 2
-
-### start argv: MMR-5
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "only a todo or queued task can be started (is in_progress)"
-| }
---- state
-unchanged
 
 ### start argv: MMR-7
 exit 1
@@ -1395,44 +1239,6 @@ exit 1
 --- state
 unchanged
 
-### submit argv: MMR-7
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "only an in_progress task can be submitted for review (is done)"
-| }
---- state
-unchanged
-
-### submit argv: MMR-99 -f json
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "MMR-99 doesn't exist"
-| }
---- state
-unchanged
-
-### submit argv: MMR
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "MMR is a project, not a task"
-| }
---- state
-unchanged
-
 ### return argv: MMR-5
 exit 0
 --- stdout
@@ -1507,18 +1313,6 @@ exit 0
 + projects[MMR].leafCounts.in_progress: 1
 ~ projects[MMR].status: "under_review" -> "in_progress"
 
-### return argv: MMR-5 #2
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "only an under_review task can be returned (is in_progress)"
-| }
---- state
-unchanged
-
 ### return argv: MMR-3 nope
 exit 1
 --- stdout
@@ -1527,20 +1321,6 @@ exit 1
 |   "code": "validation",
 |   "hints": [],
 |   "message": "only an under_review task can be returned (is todo)"
-| }
---- state
-unchanged
-
-### return argv: MMR-99
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "MMR-99 doesn't exist"
 | }
 --- state
 unchanged
@@ -1686,32 +1466,6 @@ exit 1
 |   "code": "validation",
 |   "hints": [],
 |   "message": "task is already done"
-| }
---- state
-unchanged
-
-### done argv: MMR-99
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "MMR-99 doesn't exist"
-| }
---- state
-unchanged
-
-### done argv: MMR
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "MMR is a project, not a task"
 | }
 --- state
 unchanged
@@ -1872,34 +1626,6 @@ exit 1
 --- state
 unchanged
 
-### abandon argv: MMR-99
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "MMR-99 doesn't exist"
-| }
---- state
-unchanged
-
-### abandon argv: MMR-s1
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [
-|     "act on a seed with promote / reject / resolve"
-|   ],
-|   "message": "MMR-s1 is a seed, not a task"
-| }
---- state
-unchanged
-
 ### abandon argv: MMR-3 -- --foo
 exit 0
 --- stdout
@@ -2056,20 +1782,6 @@ exit 1
 --- state
 unchanged
 
-### reopen argv: MMR-99
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "MMR-99 doesn't exist"
-| }
---- state
-unchanged
-
 ### park argv: MMR-3
 exit 0
 --- stdout
@@ -2222,18 +1934,6 @@ exit 0
 ~ nodes[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "parked"
 ~ projects[MMR].leafCounts.ready: 2 -> 1
 + projects[MMR].leafCounts.parked: 1
-
-### park argv: MMR-3 #2
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "task is already parked"
-| }
---- state
-unchanged
 
 ### park argv: MMR-7
 exit 1
@@ -2464,20 +2164,6 @@ exit 1
 |   "code": "validation",
 |   "hints": [],
 |   "message": "task is not parked (is none)"
-| }
---- state
-unchanged
-
-### unpark argv: MMR-99
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "MMR-99 doesn't exist"
 | }
 --- state
 unchanged
@@ -2744,18 +2430,6 @@ exit 1
 --- state
 unchanged
 
-### block argv: MMR-6
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "task is already blocked"
-| }
---- state
-unchanged
-
 ### block argv: MMR-7
 exit 1
 --- stdout
@@ -2764,34 +2438,6 @@ exit 1
 |   "code": "validation",
 |   "hints": [],
 |   "message": "cannot hold a done task"
-| }
---- state
-unchanged
-
-### block argv: MMR-99
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "MMR-99 doesn't exist"
-| }
---- state
-unchanged
-
-### block argv: MMR-s1
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [
-|     "act on a seed with promote / reject / resolve"
-|   ],
-|   "message": "MMR-s1 is a seed, not a task"
 | }
 --- state
 unchanged
@@ -2938,20 +2584,6 @@ exit 1
 |   "code": "validation",
 |   "hints": [],
 |   "message": "task is not blocked (is none)"
-| }
---- state
-unchanged
-
-### unblock argv: MMR-99
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "MMR-99 doesn't exist"
 | }
 --- state
 unchanged
@@ -3354,34 +2986,6 @@ exit 1
 |   "code": "conflict",
 |   "hints": [],
 |   "message": "project XX is not archived"
-| }
---- state
-unchanged
-
-### unarchive argv: MMR-3
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "create it: mimir create project \"Name\" --key MMR-3 -y"
-|   ],
-|   "message": "MMR-3 doesn't exist"
-| }
---- state
-unchanged
-
-### unarchive argv: ZZ
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "create it: mimir create project \"Name\" --key ZZ -y"
-|   ],
-|   "message": "ZZ doesn't exist"
 | }
 --- state
 unchanged

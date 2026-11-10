@@ -4,7 +4,9 @@ import { writeCases } from '../testing/writes';
 
 // `tag` and `untag` build one notice and print it through one set of views, so
 // the full format, `--ascii`, and terminal matrix runs once, on `tag`. Several
-// ids keep their own `ids` case, the one place the notice joins them.
+// ids keep their own `ids` case, the one place the notice joins them. Both
+// verbs resolve their ids through one Engine rule, so the wrong-subject sweep
+// runs once, on `tag`.
 const CASES: ParityCase[] = [
   // tag: through every format.
   argv(['tag', 'MMR-5', 'design']),
@@ -26,7 +28,6 @@ const CASES: ParityCase[] = [
   argv(['tag', 'MMR-2', 'phase-tag']),
   // tag: refusals Mimir raises.
   argv(['tag', 'MMR-99', 'design']),
-  argv(['tag', 'MMR-99', 'design', '-f', 'json']),
   argv(['tag', 'MMR-s1', 'design']),
   argv(['tag', 'nope', 'design']),
   argv(['tag', 'XXXXX', 'design']),
@@ -44,8 +45,6 @@ const CASES: ParityCase[] = [
   argv(['untag', 'MMR-a1', 'design']),
   // untag: refusals Mimir raises.
   argv(['untag', 'MMR-99', 'alpha']),
-  argv(['untag', 'MMR-s1', 'alpha']),
-  argv(['untag', 'nope', 'alpha']),
   argv(['untag', ',', 'alpha']),
   // untag: faults Loom's parser raises.
   argv(['untag', 'MMR-3']),

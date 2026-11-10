@@ -5,7 +5,9 @@ import { writeCases } from '../testing/writes';
 // The full format, `--ascii`, and terminal matrix runs once, on `groomed`;
 // every other case is one distinct input. Several ids keep their own `ids`
 // case, the one place the notice joins them, and a `-f json` after `--` is
-// note text, not a format.
+// note text, not a format. The ids are checked by the shared node-token rule,
+// whose wrong-subject sweep runs once in lifecycle.parity.test.ts; groom keeps
+// one wrong kind and its unknown ids.
 const CASES: ParityCase[] = [
   // Every state, and one through every format.
   argv(['groom', 'MMR-4', 'groomed']),
@@ -36,9 +38,6 @@ const CASES: ParityCase[] = [
   argv(['groom', 'MMR-4,MMR-99', 'groomed']),
   argv(['groom', 'MMR', 'groomed']),
   argv(['groom', 'MMR-2', 'groomed']),
-  argv(['groom', 'MMR-a1', 'groomed']),
-  argv(['groom', 'MMR-s1', 'groomed']),
-  argv(['groom', 'nope', 'groomed']),
   argv(['groom', 'MMR-7', 'groomed']),
   argv(['groom', 'MMR-5', 'groomed']),
   argv(['groom', ',', 'groomed']),

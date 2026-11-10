@@ -3,7 +3,10 @@ import type { ParityCase } from '../testing/parity';
 import { writeCases } from '../testing/writes';
 
 // `move` and `reorder` echo the node they wrote through one set of views, so
-// the full format, `--ascii`, and terminal matrix runs once, on `move`.
+// the full format, `--ascii`, and terminal matrix runs once, on `move`. Each id
+// is checked by the shared node-token rule, whose wrong-subject sweep runs once
+// in lifecycle.parity.test.ts; each id here keeps one wrong kind and one
+// unknown id.
 const CASES: ParityCase[] = [
   // move: a new parent, through every format.
   argv(['move', 'MMR-5', '--to', 'MMR-1']),
@@ -23,12 +26,8 @@ const CASES: ParityCase[] = [
   argv(['move', 'MMR-5', '--to', 'XX-2', '-f', 'json']),
   argv(['move', 'MMR-99', '--to', 'MMR-1']),
   argv(['move', 'MMR-5', '--to', 'MMR-99']),
-  argv(['move', 'MMR-5', '--to', 'MMR-99', '-f', 'json']),
   argv(['move', 'MMR', '--to', 'MMR-1']),
-  argv(['move', 'MMR-5', '--to', 'MMR']),
-  argv(['move', 'MMR-a1', '--to', 'MMR-1']),
   argv(['move', 'MMR-5', '--to', 'MMR-s1']),
-  argv(['move', 'nope', '--to', 'MMR-1']),
   argv(['move', 'MMR-5', '--to', '']),
   // move: faults Loom's parser raises.
   argv(['move', 'MMR-5']),
@@ -39,11 +38,7 @@ const CASES: ParityCase[] = [
   argv(['reorder', 'MMR-3', '--after', 'MMR-5']),
   // reorder: refusals Mimir raises.
   argv(['reorder', 'MMR-99', '--top']),
-  argv(['reorder', 'MMR-99', '--top', '-f', 'json']),
   argv(['reorder', 'MMR', '--top']),
-  argv(['reorder', 'MMR-a1', '--top']),
-  argv(['reorder', 'MMR-s1', '--top']),
-  argv(['reorder', 'nope', '--top']),
   argv(['reorder', 'MMR-2', '--top']),
   argv(['reorder', 'MMR-3', '--before', 'MMR-99']),
   argv(['reorder', 'MMR-3', '--before', 'MMR']),

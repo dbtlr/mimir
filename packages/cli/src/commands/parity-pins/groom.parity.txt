@@ -285,46 +285,6 @@ exit 1
 --- state
 unchanged
 
-### groom argv: MMR-a1 groomed
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "MMR-a1 is an artifact, not a task"
-| }
---- state
-unchanged
-
-### groom argv: MMR-s1 groomed
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [
-|     "act on a seed with promote / reject / resolve"
-|   ],
-|   "message": "MMR-s1 is a seed, not a task"
-| }
---- state
-unchanged
-
-### groom argv: nope groomed
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "nope doesn't exist"
-| }
---- state
-unchanged
-
 ### groom argv: MMR-7 groomed
 exit 0
 --- stdout

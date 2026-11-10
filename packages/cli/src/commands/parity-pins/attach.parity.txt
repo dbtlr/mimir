@@ -240,20 +240,6 @@ exit 1
 --- state
 unchanged
 
-### attach argv: MMR-99 --file <file> -f json
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "MMR-99 doesn't exist"
-| }
---- state
-unchanged
-
 ### attach argv: MMR --file <file>
 exit 1
 --- stdout

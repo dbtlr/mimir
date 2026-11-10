@@ -158,18 +158,6 @@ exit 1
 --- state
 unchanged
 
-### tag argv: MMR-99 design -f json
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [],
-|   "message": "MMR-99 doesn't exist"
-| }
---- state
-unchanged
-
 ### tag argv: MMR-s1 design
 exit 1
 --- stdout
@@ -320,32 +308,6 @@ exit 1
 |   "code": "not-found",
 |   "hints": [],
 |   "message": "MMR-99 doesn't exist"
-| }
---- state
-unchanged
-
-### untag argv: MMR-s1 alpha
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "MMR-s1 is a seed, not a task, project, or artifact"
-| }
---- state
-unchanged
-
-### untag argv: nope alpha
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "ids: KEY (project) · KEY-seq (task/phase/initiative) · KEY-aN (artifact)"
-|   ],
-|   "message": "nope is not a valid id"
 | }
 --- state
 unchanged

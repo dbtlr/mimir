@@ -19,6 +19,13 @@ import type { Setup, SetupCase } from '../testing/writes';
  * project). Every other case is one distinct input, in the format that shows
  * what it adds.
  *
+ * Every verb also checks its subject through one function, which has three
+ * branches: a task verb, a task verb that takes a seed, and a project verb. The
+ * wrong-subject sweep (an unknown id, a project, a seed, an artifact, and a
+ * malformed token) runs once per branch, on `start`, `park`, and `archive`.
+ * Core owns which states a verb may leave, so each verb keeps one refusal that
+ * reaches the Engine, to pin its exit and core's words, and the board it left.
+ *
  * The board: MMR-3 and MMR-8 are todo, MMR-4 awaits MMR-3, MMR-5 is in
  * progress, MMR-6 is blocked, MMR-7 is done, MMR-s1 is an untriaged seed, and
  * XX is a second project.
@@ -80,17 +87,9 @@ const QUEUE: SetupCase[] = [
   // Refusals Mimir raises.
   argv('queue MMR-3'),
   argv('queue MMR-3 --harness codex'),
-  argv('queue MMR-3 --session run-1', { setup: queued }),
   argv('queue MMR-4 --session run-1'),
   argv('queue MMR-5 --session run-1'),
-  argv('queue MMR-6 --session run-1'),
   argv('queue MMR-7 --session run-1'),
-  argv('queue MMR-99 --session run-1'),
-  argv('queue MMR --session run-1'),
-  argv('queue mmr-3 --session run-1'),
-  argv('queue MMR-s1 --session run-1'),
-  argv('queue MMR-a1 --session run-1'),
-  argv('queue MMR-99 --session run-1 -f json'),
   argv('queue MMR-3 --session run-1 -- x'),
 ];
 
@@ -101,9 +100,6 @@ const UNQUEUE: SetupCase[] = [
   // Refusals Mimir raises.
   argv('unqueue MMR-3 run cancelled'),
   argv('unqueue MMR-5 run cancelled'),
-  argv('unqueue MMR-99 run cancelled'),
-  argv('unqueue MMR run cancelled'),
-  argv('unqueue MMR-s1 run cancelled'),
   argv('unqueue MMR-3 run cancelled -f json'),
   // A reason is required.
   argv('unqueue MMR-3', { setup: queued }),
@@ -121,9 +117,9 @@ const START: SetupCase[] = [
   argv('start MMR-3 --host laptop --session s-91'),
   argv('start MMR-3', { tty: true }),
   argv('start MMR-4'),
-  argv('start MMR-5'),
   argv('start MMR-7'),
   argv('start MMR-2'),
+  // The wrong-subject sweep for a task verb.
   argv('start MMR'),
   argv('start MMR-99'),
   argv('start mmr-3'),
@@ -148,20 +144,12 @@ const START: SetupCase[] = [
   argv('start MMR-3 --worker-session worker-1 -f json'),
 ];
 
-const SUBMIT: SetupCase[] = [
-  argv('submit MMR-5'),
-  argv('submit MMR-3'),
-  argv('submit MMR-7'),
-  argv('submit MMR-99 -f json'),
-  argv('submit MMR'),
-];
+const SUBMIT: SetupCase[] = [argv('submit MMR-5'), argv('submit MMR-3')];
 
 const RETURN: SetupCase[] = [
   argv('return MMR-5', { setup: underReview }),
   argv('return MMR-5 needs tests', { setup: underReview }),
-  argv('return MMR-5'),
   argv('return MMR-3 nope'),
-  argv('return MMR-99'),
 ];
 
 const DONE: SetupCase[] = [
@@ -169,8 +157,6 @@ const DONE: SetupCase[] = [
   argv('done MMR-5', { setup: underReview }),
   argv('done MMR-3'),
   argv('done MMR-7'),
-  argv('done MMR-99'),
-  argv('done MMR'),
   argv('done MMR-5 -- x'),
   argv('done MMR-3', { setup: queued }),
 ];
@@ -179,8 +165,6 @@ const ABANDON: SetupCase[] = [
   argv('abandon MMR-3'),
   argv('abandon MMR-3 superseded by MMR-9'),
   argv('abandon MMR-7'),
-  argv('abandon MMR-99'),
-  argv('abandon MMR-s1'),
   argv('abandon MMR-3 -- --foo'),
   argv('abandon MMR-3 dropped', { setup: queued }),
 ];
@@ -189,7 +173,6 @@ const REOPEN: SetupCase[] = [
   argv('reopen MMR-7'),
   argv('reopen MMR-7 regressed'),
   argv('reopen MMR-3'),
-  argv('reopen MMR-99'),
 ];
 
 const PARK: SetupCase[] = [
@@ -197,8 +180,8 @@ const PARK: SetupCase[] = [
   argv('park MMR-3 waiting on design'),
   argv('park MMR-3 -- --weird'),
   argv('park MMR-3 slip -- -1 day'),
-  argv('park MMR-3', { setup: parked }),
   argv('park MMR-7'),
+  // The wrong-subject sweep for a task verb that takes a seed.
   argv('park MMR-99'),
   argv('park MMR'),
   // A seed.
@@ -217,7 +200,6 @@ const PARK: SetupCase[] = [
 const UNPARK: SetupCase[] = [
   argv('unpark MMR-3', { setup: parked }),
   argv('unpark MMR-3'),
-  argv('unpark MMR-99'),
   argv('unpark MMR-s1', { setup: seedParked }),
   argv('unpark MMR-s1'),
 ];
@@ -230,16 +212,13 @@ const BLOCK: SetupCase[] = [
   argv('block MMR-4 --on you'),
   argv('block MMR-3 --on nobody'),
   argv('block MMR-3 --on nobody -f json'),
-  argv('block MMR-6'),
   argv('block MMR-7'),
-  argv('block MMR-99'),
-  argv('block MMR-s1'),
   argv('block MMR-3 --on=you -f json'),
   argv('block MMR-3 --on you -- -x'),
   argv('block MMR-3 --on'),
 ];
 
-const UNBLOCK: SetupCase[] = [argv('unblock MMR-6'), argv('unblock MMR-3'), argv('unblock MMR-99')];
+const UNBLOCK: SetupCase[] = [argv('unblock MMR-6'), argv('unblock MMR-3')];
 
 const ARCHIVE: SetupCase[] = [
   argv('archive XX'),
@@ -252,6 +231,7 @@ const ARCHIVE: SetupCase[] = [
   argv('archive XX', { setup: archived }),
   argv('archive MMR', { setup: crossDependent }),
   argv('archive MMR', { setup: crossDependent, tty: true }),
+  // The wrong-subject sweep for a project verb.
   argv('archive MMR-3'),
   argv('archive NOPE'),
   argv('archive MMR-a1'),
@@ -260,12 +240,7 @@ const ARCHIVE: SetupCase[] = [
   argv('archive ZZ'),
 ];
 
-const UNARCHIVE: SetupCase[] = [
-  argv('unarchive XX', { setup: archived }),
-  argv('unarchive XX'),
-  argv('unarchive MMR-3'),
-  argv('unarchive ZZ'),
-];
+const UNARCHIVE: SetupCase[] = [argv('unarchive XX', { setup: archived }), argv('unarchive XX')];
 
 const CASES: SetupCase[] = [
   ...QUEUE,

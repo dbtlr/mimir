@@ -423,20 +423,6 @@ exit 1
 --- state
 unchanged
 
-### depend argv: MMR-99 --on MMR-3 -f json
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "MMR-99 doesn't exist"
-| }
---- state
-unchanged
-
 ### depend argv: MMR-5 --on MMR-99
 exit 1
 --- stdout
@@ -477,30 +463,6 @@ exit 1
 --- state
 unchanged
 
-### depend argv: MMR-5 --on MMR
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "MMR is a project, not a task, phase, or initiative"
-| }
---- state
-unchanged
-
-### depend argv: MMR-a1 --on MMR-3
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "MMR-a1 is an artifact, not a task, phase, or initiative"
-| }
---- state
-unchanged
-
 ### depend argv: MMR-5 --on MMR-s1
 exit 1
 --- stdout
@@ -511,34 +473,6 @@ exit 1
 |     "act on a seed with promote / reject / resolve"
 |   ],
 |   "message": "MMR-s1 is a seed, not a task, phase, or initiative"
-| }
---- state
-unchanged
-
-### depend argv: nope --on MMR-3
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "nope doesn't exist"
-| }
---- state
-unchanged
-
-### depend argv: MMR-5 --on nope
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "nope doesn't exist"
 | }
 --- state
 unchanged
@@ -577,18 +511,6 @@ exit 1
 |     "see what exists: mimir list -f ids"
 |   ],
 |   "message": "MMR-99 doesn't exist"
-| }
---- state
-unchanged
-
-### undepend argv: MMR-4 --on MMR
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "MMR is a project, not a task, phase, or initiative"
 | }
 --- state
 unchanged

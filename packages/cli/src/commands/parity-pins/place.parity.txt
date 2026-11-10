@@ -358,20 +358,6 @@ exit 1
 --- state
 unchanged
 
-### move argv: MMR-5 --to MMR-99 -f json
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "MMR-99 doesn't exist"
-| }
---- state
-unchanged
-
 ### move argv: MMR --to MMR-1
 exit 1
 --- stdout
@@ -380,30 +366,6 @@ exit 1
 |   "code": "validation",
 |   "hints": [],
 |   "message": "MMR is a project, not a task, phase, or initiative"
-| }
---- state
-unchanged
-
-### move argv: MMR-5 --to MMR
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "MMR is a project, not a task, phase, or initiative"
-| }
---- state
-unchanged
-
-### move argv: MMR-a1 --to MMR-1
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "MMR-a1 is an artifact, not a task, phase, or initiative"
 | }
 --- state
 unchanged
@@ -418,20 +380,6 @@ exit 1
 |     "act on a seed with promote / reject / resolve"
 |   ],
 |   "message": "MMR-s1 is a seed, not a task, phase, or initiative"
-| }
---- state
-unchanged
-
-### move argv: nope --to MMR-1
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "nope doesn't exist"
 | }
 --- state
 unchanged
@@ -552,20 +500,6 @@ exit 1
 --- state
 unchanged
 
-### reorder argv: MMR-99 --top -f json
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "MMR-99 doesn't exist"
-| }
---- state
-unchanged
-
 ### reorder argv: MMR --top
 exit 1
 --- stdout
@@ -574,46 +508,6 @@ exit 1
 |   "code": "validation",
 |   "hints": [],
 |   "message": "MMR is a project, not a task"
-| }
---- state
-unchanged
-
-### reorder argv: MMR-a1 --top
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [],
-|   "message": "MMR-a1 is an artifact, not a task"
-| }
---- state
-unchanged
-
-### reorder argv: MMR-s1 --top
-exit 1
---- stdout
---- failure
-| {
-|   "code": "validation",
-|   "hints": [
-|     "act on a seed with promote / reject / resolve"
-|   ],
-|   "message": "MMR-s1 is a seed, not a task"
-| }
---- state
-unchanged
-
-### reorder argv: nope --top
-exit 1
---- stdout
---- failure
-| {
-|   "code": "not-found",
-|   "hints": [
-|     "see what exists: mimir list -f ids"
-|   ],
-|   "message": "nope doesn't exist"
 | }
 --- state
 unchanged
