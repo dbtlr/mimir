@@ -1,4 +1,4 @@
-import { afterEach, expect, setDefaultTimeout, test } from 'bun:test';
+import { afterEach, expect, setDefaultTimeout, setSystemTime, test } from 'bun:test';
 
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import type { Node, Project } from './model';
@@ -101,6 +101,13 @@ for (const backend of backends) {
   });
   const it = (name: string, body: () => Promise<void>): void => {
     test(`${backend.name}: ${name}`, body);
+  };
+  // A rule decided in JS, before any SQL a dialect could change, runs on SQLite
+  // alone: both backends share that code, so Postgres would repeat it.
+  const itOnSqlite = (name: string, body: () => Promise<void>): void => {
+    if (backend.name === 'sqlite') {
+      it(name, body);
+    }
   };
 
   // ── writer: projects and nodes ───────────────────────────────────────────
@@ -249,28 +256,31 @@ for (const backend of backends) {
     expect((await store.loadProjects()).map((project) => project.pinned)).toEqual([false]);
   });
 
-  it('a project remote is stored normalized, changes by update, and clears with null', async () => {
-    const store = await fresh();
-    await base(store);
-    expect((await store.loadProjects()).map((project) => project.remote)).toEqual([null]);
+  itOnSqlite(
+    'a project remote is stored normalized, changes by update, and clears with null',
+    async () => {
+      const store = await fresh();
+      await base(store);
+      expect((await store.loadProjects()).map((project) => project.remote)).toEqual([null]);
 
-    const set = await updateProject(store, 'MMR', { remote: 'git@GitHub.com:dbtlr/mimir.git' });
-    expect(set.remote).toBe('github.com/dbtlr/mimir');
-    expect(set.name).toBe('Mimir');
-    expect((await store.loadProjects()).map((project) => project.remote)).toEqual([
-      'github.com/dbtlr/mimir',
-    ]);
+      const set = await updateProject(store, 'MMR', { remote: 'git@GitHub.com:dbtlr/mimir.git' });
+      expect(set.remote).toBe('github.com/dbtlr/mimir');
+      expect(set.name).toBe('Mimir');
+      expect((await store.loadProjects()).map((project) => project.remote)).toEqual([
+        'github.com/dbtlr/mimir',
+      ]);
 
-    expect((await updateProject(store, 'MMR', { pinned: true })).remote).toBe(
-      'github.com/dbtlr/mimir',
-    );
-    expect((await updateProject(store, 'MMR', { remote: null })).remote).toBeNull();
+      expect((await updateProject(store, 'MMR', { pinned: true })).remote).toBe(
+        'github.com/dbtlr/mimir',
+      );
+      expect((await updateProject(store, 'MMR', { remote: null })).remote).toBeNull();
 
-    const error = await errorOf(updateProject(store, 'MMR', { remote: 'not a remote' }));
-    expect(error.code).toBe('validation');
-  });
+      const error = await errorOf(updateProject(store, 'MMR', { remote: 'not a remote' }));
+      expect(error.code).toBe('validation');
+    },
+  );
 
-  it('createProject takes a remote and refuses one that is not a Git remote', async () => {
+  itOnSqlite('createProject takes a remote and refuses one that is not a Git remote', async () => {
     const store = await fresh();
     const created = await createProject(store, {
       key: 'REM',
@@ -284,6 +294,8 @@ for (const backend of backends) {
     expect((await store.loadProjects()).map((project) => project.key)).not.toContain('BAD');
   });
 
+  // Both backends: that no unique constraint holds `project.remote` is a fact
+  // of each dialect's DDL.
   it('several projects may share one remote, and none is refused', async () => {
     const store = await fresh();
     await createProject(store, { key: 'AAA', name: 'A', remote: 'git@github.com:o/r.git' });
@@ -567,13 +579,13 @@ for (const backend of backends) {
     expect(projects[1]?.archived_at).not.toBeNull();
   });
 
-  it('loadNodesForProjects reads no nodes for an empty key list', async () => {
+  itOnSqlite('loadNodesForProjects reads no nodes for an empty key list', async () => {
     const store = await fresh();
     await base(store);
     expect(await store.loadNodesForProjects([], new Set(['MMR']))).toEqual([]);
   });
 
-  it('loadNodesForProjects drops a key absent from the valid set', async () => {
+  itOnSqlite('loadNodesForProjects drops a key absent from the valid set', async () => {
     const store = await fresh();
     await base(store);
     expect((await store.loadNodesForProjects(['MMR'], new Set(['MMR']))).length).toBe(4);
@@ -604,22 +616,27 @@ for (const backend of backends) {
     expect(first.created_at).toBe(first.updated_at);
   });
 
-  it('artifacts.create strips exactly one trailing newline and sorts its links', async () => {
-    const store = await fresh();
-    const { first, second } = await base(store);
-    const created = await store.artifacts.create({
-      content: '# spec\n\nbody\n',
-      key: 'MMR',
-      links: [second.id, first.id],
-      summary: 'the lede',
-      tags: ['spec'],
-      title: 'Spec',
-    });
-    expect(created.content).toBe('# spec\n\nbody');
-    expect(created.links).toEqual([first.id, second.id]);
-    const loaded = await store.artifacts.load('MMR', created.seq, { content: true });
-    expect(loaded).toEqual(created);
-  });
+  itOnSqlite(
+    'artifacts.create strips exactly one trailing newline and sorts its links',
+    async () => {
+      const store = await fresh();
+      const { first, second } = await base(store);
+      const created = await store.artifacts.create({
+        content: '# spec\n\nbody\n\n',
+        key: 'MMR',
+        links: [second.id, first.id],
+        summary: 'the lede',
+        tags: ['spec'],
+        title: 'Spec',
+      });
+      expect(created.content).toBe('# spec\n\nbody\n');
+      expect(created.links).toEqual([first.id, second.id]);
+      const loaded = await store.artifacts.load('MMR', created.seq, { content: true });
+      expect(loaded).toEqual(created);
+      // Content is read only when asked for.
+      expect((await store.artifacts.load('MMR', created.seq))?.content).toBeUndefined();
+    },
+  );
 
   it('artifacts.load yields undefined for an absent artifact', async () => {
     const store = await fresh();
@@ -640,6 +657,30 @@ for (const backend of backends) {
     const page = await store.artifacts.list({ limit: 1, offset: 1 });
     expect(page.total).toBe(3);
     expect(page.items.map((a) => a.title)).toEqual(['Two']);
+  });
+
+  // The window is applied in JS (`withinWindow`, unit-tested in dates.test.ts).
+  itOnSqlite('artifacts.list keeps only the artifacts created inside the window', async () => {
+    const store = await fresh();
+    await base(store);
+    const stamps = [
+      '2026-09-01T00:00:00.000Z',
+      '2026-09-02T00:00:00.000Z',
+      '2026-09-03T00:00:00.000Z',
+    ] as const;
+    try {
+      for (const at of stamps) {
+        setSystemTime(new Date(at));
+        await store.artifacts.create({ content: at, key: 'MMR', links: [], tags: [], title: at });
+      }
+    } finally {
+      setSystemTime();
+    }
+    const mid = { at: stamps[1], epochMs: Date.parse(stamps[1]), inclusive: true };
+    const from = await store.artifacts.list({ created: { from: mid, until: null } });
+    expect(from.items.map((a) => a.seq)).toEqual([3, 2]);
+    const until = await store.artifacts.list({ created: { from: null, until: mid } });
+    expect(until.items.map((a) => a.seq)).toEqual([2, 1]);
   });
 
   it('artifacts.list filters by project, tag, and excluded projects', async () => {
@@ -689,18 +730,22 @@ for (const backend of backends) {
 
   it('artifacts.listForNode and listForProject order by seq', async () => {
     const store = await fresh();
-    const { first } = await base(store);
-    for (const title of ['One', 'Two']) {
+    const { first, second } = await base(store);
+    for (const [title, link] of [
+      ['One', first.id],
+      ['Two', first.id],
+      ['Three', second.id],
+    ] as const) {
       await store.artifacts.create({
         content: title,
         key: 'MMR',
-        links: [first.id],
+        links: [link],
         tags: [],
         title,
       });
     }
     expect((await store.artifacts.listForNode(first.id)).map((a) => a.seq)).toEqual([1, 2]);
-    expect((await store.artifacts.listForProject('MMR')).map((a) => a.seq)).toEqual([1, 2]);
+    expect((await store.artifacts.listForProject('MMR')).map((a) => a.seq)).toEqual([1, 2, 3]);
   });
 
   it('artifacts.applyTag stamps only when the tag set changes', async () => {
@@ -761,6 +806,11 @@ for (const backend of backends) {
     );
     expect((await store.artifacts.load('MMR', created.seq))?.title).toBe('Patched');
 
+    expect(
+      await store.artifacts.updateMetadata('MMR', created.seq, { summary: 'a better lede' }),
+    ).toBe(true);
+    expect((await store.artifacts.load('MMR', created.seq))?.summary).toBe('a better lede');
+
     expect(await store.artifacts.updateMetadata('MMR', created.seq, { summary: null })).toBe(true);
     const cleared = await store.artifacts.load('MMR', created.seq);
     expect(cleared?.summary).toBeNull();
@@ -806,7 +856,7 @@ for (const backend of backends) {
 
   // ── seeds ────────────────────────────────────────────────────────────────
 
-  it('seeds.create allocates KEY-sN and defaults the lifecycle to new', async () => {
+  itOnSqlite('seeds.create allocates KEY-sN and defaults the lifecycle to new', async () => {
     const store = await fresh();
     await base(store);
     const seed = await store.seeds.create({
@@ -843,7 +893,7 @@ for (const backend of backends) {
     expect(await store.seeds.loadHistory('MMR', seed.seq)).toEqual([]);
   });
 
-  it('seeds.transition records a legal edge and refuses an illegal one', async () => {
+  itOnSqlite('seeds.transition records a legal edge and refuses an illegal one', async () => {
     const store = await fresh();
     await base(store);
     const seed = await store.seeds.create({
@@ -868,33 +918,36 @@ for (const backend of backends) {
     expect(illegal.hint).toContain('legal edges');
   });
 
-  it('seeds.transition parks and unparks a new seed, with or without a reason', async () => {
-    const store = await fresh();
-    const { second } = await base(store);
-    const seed = await store.seeds.create({
-      description: null,
-      key: 'MMR',
-      kind: 'idea',
-      requester: null,
-      title: 'Someday',
-    });
-    await store.seeds.transition(seed.key, seed.seq, 'parked', 'not now');
-    expect((await store.seeds.load(seed.key, seed.seq))?.lifecycle).toBe('parked');
-    await store.seeds.transition(seed.key, seed.seq, 'new', null);
-    await store.seeds.transition(seed.key, seed.seq, 'parked', null);
-    // A parked seed germinates straight to promoted.
-    await store.seeds.germinate(seed.key, seed.seq, second.id);
-    expect(await store.seeds.loadHistory(seed.key, seed.seq)).toMatchObject([
-      { from: 'new', reason: 'not now', to: 'parked' },
-      { from: 'parked', reason: null, to: 'new' },
-      { from: 'new', reason: null, to: 'parked' },
-      { from: 'parked', to: 'promoted' },
-    ]);
-    const illegal = await errorOf(store.seeds.transition(seed.key, seed.seq, 'parked', null));
-    expect(illegal.message).toBe('a seed cannot move promoted → parked');
-  });
+  itOnSqlite(
+    'seeds.transition parks and unparks a new seed, with or without a reason',
+    async () => {
+      const store = await fresh();
+      const { second } = await base(store);
+      const seed = await store.seeds.create({
+        description: null,
+        key: 'MMR',
+        kind: 'idea',
+        requester: null,
+        title: 'Someday',
+      });
+      await store.seeds.transition(seed.key, seed.seq, 'parked', 'not now');
+      expect((await store.seeds.load(seed.key, seed.seq))?.lifecycle).toBe('parked');
+      await store.seeds.transition(seed.key, seed.seq, 'new', null);
+      await store.seeds.transition(seed.key, seed.seq, 'parked', null);
+      // A parked seed germinates straight to promoted.
+      await store.seeds.germinate(seed.key, seed.seq, second.id);
+      expect(await store.seeds.loadHistory(seed.key, seed.seq)).toMatchObject([
+        { from: 'new', reason: 'not now', to: 'parked' },
+        { from: 'parked', reason: null, to: 'new' },
+        { from: 'new', reason: null, to: 'parked' },
+        { from: 'parked', to: 'promoted' },
+      ]);
+      const illegal = await errorOf(store.seeds.transition(seed.key, seed.seq, 'parked', null));
+      expect(illegal.message).toBe('a seed cannot move promoted → parked');
+    },
+  );
 
-  it('seeds.transition refuses an absent seed', async () => {
+  itOnSqlite('seeds.transition refuses an absent seed', async () => {
     const store = await fresh();
     await base(store);
     const error = await errorOf(store.seeds.transition('MMR', 9, 'resolved', 'gone'));
@@ -924,7 +977,7 @@ for (const backend of backends) {
     expect((await store.seeds.loadHistory(seed.key, seed.seq))?.length).toBe(1);
   });
 
-  it('a terminal seed refuses both germinate and patch', async () => {
+  itOnSqlite('a terminal seed refuses both germinate and patch', async () => {
     const store = await fresh();
     const { second } = await base(store);
     const seed = await store.seeds.create({
@@ -948,7 +1001,7 @@ for (const backend of backends) {
     );
   });
 
-  it('seeds.patch writes nothing for an empty patch', async () => {
+  itOnSqlite('seeds.patch writes nothing for an empty patch', async () => {
     const store = await fresh();
     await base(store);
     const seed = await store.seeds.create({
@@ -1028,7 +1081,7 @@ for (const backend of backends) {
     expect(await store.scratchpads.load(PAD_ID_B)).toBeUndefined();
   });
 
-  it('scratchpads.list orders by updatedAt descending', async () => {
+  itOnSqlite('scratchpads.list orders by updatedAt descending', async () => {
     const store = await fresh();
     const { first } = await base(store);
     const older = scratchpad(first.id);
@@ -1053,7 +1106,7 @@ for (const backend of backends) {
     expect(await store.scratchpads.load(pad.id)).toEqual(next);
   });
 
-  it('scratchpads.replace refuses an absent pad', async () => {
+  itOnSqlite('scratchpads.replace refuses an absent pad', async () => {
     const store = await fresh();
     const { first } = await base(store);
     const pad = scratchpad(first.id);
@@ -1062,7 +1115,7 @@ for (const backend of backends) {
     expect(error.message).toBe(`${pad.id} does not name a readable scratchpad`);
   });
 
-  it('scratchpads.replace refuses a stale expectation', async () => {
+  itOnSqlite('scratchpads.replace refuses a stale expectation', async () => {
     const store = await fresh();
     const { first } = await base(store);
     const pad = scratchpad(first.id);
@@ -1077,7 +1130,7 @@ for (const backend of backends) {
     expect(error.hint).toBe('reload it and retry the mutation');
   });
 
-  it('scratchpads.replace refuses a non-advancing updatedAt', async () => {
+  itOnSqlite('scratchpads.replace refuses a non-advancing updatedAt', async () => {
     const store = await fresh();
     const { first } = await base(store);
     const pad = scratchpad(first.id);
@@ -1086,7 +1139,7 @@ for (const backend of backends) {
     expect(error.message).toBe('the scratchpad updatedAt must advance on replacement');
   });
 
-  it('scratchpads.replace refuses a changed project or createdAt', async () => {
+  itOnSqlite('scratchpads.replace refuses a changed project or createdAt', async () => {
     const store = await fresh();
     const { first } = await base(store);
     const pad = scratchpad(first.id);
@@ -1147,7 +1200,7 @@ for (const backend of backends) {
     expect(exhausted.nextCursor).toBeUndefined();
   });
 
-  it('transitions.list refuses a bad limit and a malformed cursor', async () => {
+  itOnSqlite('transitions.list refuses a bad limit and a malformed cursor', async () => {
     const store = await fresh();
     await base(store);
     const limit = await errorOf(store.transitions.list({ limit: 0 }));

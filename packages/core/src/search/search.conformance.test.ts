@@ -217,13 +217,6 @@ for (const backend of backends) {
         }
       });
 
-      test('an unknown current project is refused', async () => {
-        const error = await searchRecords(store, { project: 'NOPE', query: '1' }).catch(
-          (e: unknown) => e,
-        );
-        expect((error as MimirError).code).toBe('not_found');
-      });
-
       test('a bare suffix resolves in the current project', async () => {
         const node = await searchRecords(store, { project: 'NOR', query: '4' });
         expect(node.items[0]).toMatchObject({ id: 'NOR-4', match: 'id' });
@@ -366,15 +359,6 @@ for (const backend of backends) {
         const result = await searchRecords(store, { query: 'seed%page' });
         expect(result.items.filter((hit) => hit.match === 'title')).toEqual([]);
       });
-
-      test('a limit outside 1 to 100 is a validation error', async () => {
-        for (const limit of [0, 101, 1.5]) {
-          const error = await searchRecords(store, { limit, query: 'seed' }).catch(
-            (e: unknown) => e,
-          );
-          expect((error as MimirError).code).toBe('validation');
-        }
-      });
     });
 
     describe('finished', () => {
@@ -408,6 +392,7 @@ for (const backend of backends) {
   });
 }
 
+// The refusals below are decided in JS before any query, so they run on SQLite alone.
 test('a project-only search with no project is a validation error', async () => {
   const instance = await backends[1]?.make();
   if (instance === undefined) {
@@ -433,6 +418,39 @@ test('an empty query is a validation error', async () => {
     const error = await searchRecords(instance.store, { query: '   ' }).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(MimirError);
     expect((error as MimirError).code).toBe('validation');
+  } finally {
+    await instance.close();
+  }
+});
+
+test('an unknown current project is refused', async () => {
+  const instance = await backends[1]?.make();
+  if (instance === undefined) {
+    throw new Error('the SQLite backend is missing');
+  }
+  try {
+    const error = await searchRecords(instance.store, { project: 'NOPE', query: '1' }).catch(
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(MimirError);
+    expect((error as MimirError).code).toBe('not_found');
+  } finally {
+    await instance.close();
+  }
+});
+
+test('a limit outside 1 to 100 is a validation error', async () => {
+  const instance = await backends[1]?.make();
+  if (instance === undefined) {
+    throw new Error('the SQLite backend is missing');
+  }
+  try {
+    for (const limit of [0, 101, 1.5]) {
+      const error = await searchRecords(instance.store, { limit, query: 'seed' }).catch(
+        (e: unknown) => e,
+      );
+      expect((error as MimirError).code).toBe('validation');
+    }
   } finally {
     await instance.close();
   }
