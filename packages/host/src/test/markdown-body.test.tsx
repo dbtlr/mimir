@@ -33,6 +33,7 @@ describe('markdownBody', () => {
         .map((h) => h.tagName),
     ).toEqual(['H3', 'H4', 'H5', 'H6']);
     expect(within(article).getByRole('table')).toBeInTheDocument();
+    expect(within(article).getByRole('table').closest('[data-md="table"]')).not.toBeNull();
     expect(within(article).getByRole('columnheader', { name: 'head' })).toBeInTheDocument();
     expect(article.querySelector('pre > code')).toHaveTextContent('const fenced = 1;');
     const inline = within(article).getByText('inline');
