@@ -319,12 +319,15 @@ describe('polling', () => {
     const { state } = await show(readyCard({ running: agentRun() }), task(), false, client);
     await screen.findByText('Agent grooming');
     expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['node', 'MMR-640'] });
+    expect(groomCard).toHaveBeenCalledTimes(1);
     state.card = readyCard({ lastRun: endedRun('succeeded', 'Groomed') });
     await vi.advanceTimersByTimeAsync(5000);
     await waitFor(() => {
       expect(invalidate).toHaveBeenCalledWith({ queryKey: ['node', 'MMR-640'] });
     });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['node', 'MMR-640', 'annotations'] });
+    // The card read once more in those five seconds: the live interval, as the hook applies it.
+    expect(groomCard).toHaveBeenCalledTimes(2);
   });
 
   it('refreshes the task’s record and notes when a run it never saw running has ended', async () => {

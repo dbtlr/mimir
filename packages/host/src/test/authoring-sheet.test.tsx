@@ -208,7 +208,7 @@ describe('authoringSheet', () => {
     expect(depend).not.toHaveBeenCalled();
   });
 
-  it('a depend failure keeps the sheet open on a retry posture, and the retry attaches to the created node, never a duplicate create', async () => {
+  it('a depend failure keeps the sheet open on a retry posture: the created node surfaces, fields freeze', async () => {
     const user = userEvent.setup();
     const { onOpenChange, router } = await renderSheet();
     vi.mocked(depend).mockRejectedValueOnce(new Error('would create a cycle'));
@@ -262,11 +262,23 @@ describe('authoringSheet', () => {
     await user.click(openIt);
     await waitFor(() => expect(router.state.location.pathname).toBe('/p/MMR/99'));
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
 
-    // Retrying re-attaches to the created node: one node was ever created, the depend ran twice.
-    onOpenChange.mockClear();
-    await user.click(screen.getByRole('button', { name: 'Retry deps ↵' }));
+  it('retrying after a depend failure re-attaches to the created node — never a duplicate create', async () => {
+    const user = userEvent.setup();
+    const { onOpenChange } = await renderSheet();
+    vi.mocked(depend).mockRejectedValueOnce(new Error('would create a cycle'));
+    await sheetReady();
+
+    await user.type(screen.getByLabelText('Title'), 'Wire auth');
+    await user.type(screen.getByRole('combobox'), 'auth');
+    await user.click(await screen.findByRole('option', { name: /MMR-40/ }));
+    await user.click(screen.getByRole('button', { name: 'Create ↵' }));
+
+    await user.click(await screen.findByRole('button', { name: 'Retry deps ↵' }));
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+
+    // Exactly one node was ever created; the depend was attempted twice.
     expect(create).toHaveBeenCalledTimes(1);
     expect(depend).toHaveBeenCalledTimes(2);
     expect(depend).toHaveBeenLastCalledWith({ data: { id: 'MMR-99', on: ['MMR-40'] } });
