@@ -90,6 +90,12 @@ test('pairing again rotates a device token and revocation takes effect on the ne
   const first = remote(`Bearer ${await pair('laptop')}`);
   await first.create({ key: 'AUTH', name: 'Paired device', type: 'project' });
   const token = await pair('laptop');
+  // The host hands its own log to the pairing routes.
+  expect(
+    lines
+      .filter((line) => line.startsWith('{"event":"pairing_'))
+      .map((line) => (JSON.parse(line) as { event: string }).event),
+  ).toEqual(['pairing_requested', 'pairing_completed', 'pairing_requested', 'pairing_completed']);
   const second = remote(`bearer ${token}`);
   expect(await second.projects({})).toMatchObject([{ id: 'AUTH' }]);
   expect(await first.projects({}).catch((error: unknown) => error)).toMatchObject({

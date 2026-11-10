@@ -60,7 +60,9 @@ describe('groomBrief', () => {
 
   test('allows one corrected retry after a size or image refusal, and none after any other', () => {
     const text = briefText();
-    expect(text).toMatch(/too long or contains a Markdown image[^.]*correct it and try once more/);
+    expect(text).toMatch(
+      /too long or contains a Markdown image[^.]*correct it and try once more\./,
+    );
     expect(text).toMatch(/refused for any other reason[^.]*another task[^.]*, do not retry it/);
   });
 

@@ -156,6 +156,10 @@ test('host doctor excludes findings from an unsafe CLI configuration', async () 
       groups: [],
       scope: null,
     });
+    // The console's per-project Record health passes its project through the host.
+    expect(await host.doctor('OTH')).toMatchObject({
+      scope: { key: 'OTH', matched_records: 0 },
+    });
   } finally {
     await host?.close();
     if (saved === undefined) {

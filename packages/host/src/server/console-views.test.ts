@@ -195,6 +195,11 @@ type Refusal = [name: string, run: (engine: ConsoleEngine) => Promise<unknown>, 
 const refusals: Refusal[] = [
   ['review without a time zone', (e) => e.review({}), 'validation'],
   ['overview on an unknown project', (e) => e.overview({ project: 'NOPE' }), 'not_found'],
+  [
+    'search ranking an unknown project',
+    (e) => e.search({ project: 'NOPE', query: 'Ready' }),
+    'not_found',
+  ],
 ];
 
 test.each(refusals)(
@@ -212,8 +217,10 @@ test.each(refusals)(
 
 const code = async (run: Promise<unknown>) => (await errorOf(run)).code as string;
 
-// The wire proves a refusal crosses unchanged; these rules live in core's page
-// functions, which no core test reaches, so one local pass guards them.
+// The wire proves a refusal crosses unchanged. The wrong-kind checks live in
+// core's page functions, which no core test reaches, so one local pass guards
+// them. The unknown-id refusals come from workPageOf, which core's work tests
+// own; they are repeated here only to show the console entry points reach it.
 test('the work pages and overview refuse the wrong kind of id and an unknown id', async () => {
   expect(await code(local.console.projectWork({ project: 'ENG-3', timeZone: 'UTC' }))).toBe(
     'validation',

@@ -312,7 +312,11 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
         expect(gone.headers.get('content-type'), `${method} ${path}`).toContain('application/json');
         expect(gone.headers.get('cache-control'), `${method} ${path}`).toBe('no-store');
         expect(await gone.json(), `${method} ${path}`).toMatchObject({
-          error: { code: 'gone', hint: expect.stringContaining('/trpc') },
+          error: {
+            code: 'gone',
+            hint: expect.stringContaining('/trpc'),
+            message: expect.stringContaining('/api was retired'),
+          },
         });
       }
     }

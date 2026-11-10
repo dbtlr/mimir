@@ -171,6 +171,7 @@ test('store faults answer a safe 500, log no detail, and spend no request budget
   }
   const polled = await handlers.poll(post('poll', { poll_secret: 'secret' }));
   expect(polled.status).toBe(500);
+  expect(polled.headers.get('cache-control')).toBe('no-store');
   expect(await polled.json()).toEqual({ error: 'the request did not complete' });
   expect(lines).toHaveLength(13);
   expect(lines.map((line) => JSON.parse(line))).toEqual([
