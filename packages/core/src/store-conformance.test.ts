@@ -167,6 +167,9 @@ for (const backend of backends) {
     expect(await observe(target.store)).toEqual(before);
   });
 
+  // The parse refuses this document before a write opens (transfer-validate.test.ts
+  // owns the rule). It stays here, on each backend, as the store-level case that a
+  // refused import leaves the target untouched.
   test(`${backend.name}: an import refuses a document claiming one identity twice`, async () => {
     const source = await fresh();
     await seedWorkingSet(source.store);
