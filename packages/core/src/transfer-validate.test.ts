@@ -505,6 +505,32 @@ const workerCases: InvalidCase[] = [
     change: (d) => ({
       ...d,
       nodes: patchFirstTask(d.nodes, {
+        harness: 'codex',
+        session: 'same',
+        worker_harness: null,
+        worker_session: 'same',
+      }),
+    }),
+    field: 'duplicates the main session',
+    name: 'worker on the main session with no provider',
+  },
+  ...(['', '\t '] as const).map((harness): InvalidCase => ({
+    change: (d) => ({
+      ...d,
+      nodes: patchFirstTask(d.nodes, {
+        harness,
+        session: 'same',
+        worker_harness: 'codex',
+        worker_session: 'same',
+      }),
+    }),
+    field: 'duplicates the main session',
+    name: `worker on the main session under the blank main provider ${JSON.stringify(harness)}`,
+  })),
+  {
+    change: (d) => ({
+      ...d,
+      nodes: patchFirstTask(d.nodes, {
         harness: ' codex ',
         session: 'same',
         worker_harness: 'codex',

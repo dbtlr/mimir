@@ -53,6 +53,30 @@ describe.each(backends)('$name', (backend) => {
       await source.close();
     }
   });
+  // The seeded blocked task is owned by `others`; a store must write the owner
+  // `you` as given too. Which owner the parse derives is transfer-schema.test.ts.
+  test('an import keeps a blocked task owned by you', async () => {
+    const source = await backend.make();
+    try {
+      await seedWorkingSet(source.store);
+      const document = await source.store.export();
+      const blocked = document.nodes.find((node) => node.hold === 'blocked');
+      if (blocked === undefined) {
+        throw new Error('the fixture has no blocked task');
+      }
+      blocked.block_owner = 'you';
+      const target = await backend.make();
+      try {
+        await target.store.import(document, { dryRun: false, mode: 'fresh' });
+        const imported = (await target.store.export()).nodes.find((n) => n.id === blocked.id);
+        expect(imported).toMatchObject({ block_owner: 'you', hold: 'blocked' });
+      } finally {
+        await target.close();
+      }
+    } finally {
+      await source.close();
+    }
+  });
   // A project description reads trimmed, blank as none (MMR-607), and a remote
   // is stored normalized (MMR-609), so a resume must compare both by that same
   // read, or a document carrying them as written refuses its own fresh import.

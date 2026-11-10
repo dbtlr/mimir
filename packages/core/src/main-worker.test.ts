@@ -386,8 +386,23 @@ describe.each([
         workerSession: 'first',
       });
       await engine.update({ id: task.id, workerSession: 'second' });
+      // A worker on the main session stays distinct when two known providers
+      // differ (MMR-568), and the import must keep its provider.
+      const shared = await engine.create({ parent: parent.id, title: 'shared', type: 'task' });
+      await engine.start({
+        harness: 'codex',
+        id: shared.id,
+        session: 'same',
+        workerHarness: 'claude',
+        workerSession: 'same',
+      });
       const document = await fixture.store.export();
       expect(document.schema_version).toBe(7);
+      expect(document.nodes.find((n) => n.id === shared.id)).toMatchObject({
+        session: 'same',
+        worker_harness: 'claude',
+        worker_session: 'same',
+      });
       const target = await createStore();
       try {
         await target.store.import(document, { dryRun: false, mode: 'fresh' });
