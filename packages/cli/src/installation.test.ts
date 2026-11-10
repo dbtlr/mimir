@@ -63,8 +63,8 @@ test('installation-install hands core the options it was given as --name value p
   ]);
 });
 
-test.each([['-h'], ['--help']])('neither command shows in %s', async (flag) => {
-  const run = await runArgv(app(), [flag]);
+test('neither command shows in --help', async () => {
+  const run = await runArgv(app(), ['--help']);
   expect(run.exitCode).toBe(0);
   expect(run.stdout).not.toContain('installation');
 });

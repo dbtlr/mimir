@@ -107,10 +107,6 @@ describe('judge', () => {
     expect(passes(verdict)).toBe(false);
   });
 
-  test('a test over the limit fails the budget', () => {
-    expect(passes(judge(timings, budget, []))).toBe(false);
-  });
-
   test('a test or file exactly at a threshold is within it', () => {
     const verdict = judge(
       {

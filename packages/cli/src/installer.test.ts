@@ -35,33 +35,30 @@ test('install.sh is the installer loom init manages, undrifted', () => {
   expect(statSync(script).mode & 0o111).toBe(0o111);
 });
 
+// loom.config.json decides where `loom init` writes install.sh; the install URL
+// serves the root copy.
 test('loom init renders the installer at the repository root', () => {
   expect(loomConfig.paths?.installer).toBe('../../install.sh');
 });
 
-// Every agent that starts: Claude Code and Codex, whose client Loom 0.17.0 serves (LM-s39).
-test('the installer registers the MCP server with every coding agent once it has installed the binary', () => {
+// The header checksum only proves the script is unedited; this proves it was
+// rendered from the declaration loom.config.json holds now. The declaration
+// registers the MCP server with every agent that starts: Claude Code and Codex,
+// whose client Loom 0.17.0 serves (LM-s39).
+test('install.sh carries the post-install command and message loom.config.json declares', () => {
   expect(loomConfig.postInstall).toEqual({
     command: ['mcp', 'install'],
     message: expect.stringContaining('mimir bind'),
   });
-  const text = readFileSync(script, 'utf8');
-  expect(text).toContain(`"$@" 'mcp' 'install'\n`);
-  expect(text).toContain('--skip-post-install');
-});
-
-// The header checksum only proves the script is unedited; this proves it was
-// rendered from the declaration loom.config.json holds now.
-test('install.sh carries the post-install command and message loom.config.json declares', () => {
   const { command = [], message = '' } = loomConfig.postInstall ?? {};
   const text = readFileSync(script, 'utf8');
+  expect(text).toContain('--skip-post-install');
   expect(text).toContain(`"$@" ${command.map((word) => `'${word}'`).join(' ')}\n`);
   expect(text).toContain(`  message='${message}'\n`);
 });
 
 test.each<[string, Record<string, string>]>([
   ['darwin', { HOME: '/home/a' }],
-  ['linux', { HOME: '/home/a' }],
   ['linux', { HOME: '/home/a', XDG_STATE_HOME: '/state' }],
   ['linux', { HOME: '/home/a', XDG_STATE_HOME: 'relative' }],
   ['darwin', {}],

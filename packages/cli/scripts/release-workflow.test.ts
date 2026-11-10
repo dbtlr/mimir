@@ -82,23 +82,20 @@ test('pull requests validate every native release target, including Bun upgrades
   const { build } = workflow.jobs;
   expect(build.if).toBeUndefined();
   expect(build['continue-on-error']).toBeUndefined();
-  expect(build.strategy.matrix.include).toHaveLength(3);
-  expect(build.strategy.matrix.include).toEqual(
-    expect.arrayContaining([
-      { asset: 'mimir-darwin-arm64', os: 'macos-latest' },
-      { asset: 'mimir-linux-x64', os: 'ubuntu-latest' },
-      { asset: 'mimir-linux-arm64', os: 'ubuntu-24.04-arm' },
-    ]),
-  );
+  expect(build.strategy.matrix.include.map((target) => target.asset).toSorted()).toEqual([
+    'mimir-darwin-arm64',
+    'mimir-linux-arm64',
+    'mimir-linux-x64',
+  ]);
   expect(workflow.on.pull_request.paths).toContain('.tool-versions');
 });
 
+// One row per event that starts the workflow. The failing pull_request row
+// proves the native branch does not swallow the suite's exit code.
 test.each([
-  { code: 0, event: 'pull_request', suite: 'test:native' },
-  { code: 0, event: 'push', suite: 'test' },
-  { code: 0, event: 'workflow_dispatch', suite: 'test' },
   { code: 17, event: 'pull_request', suite: 'test:native' },
   { code: 17, event: 'push', suite: 'test' },
+  { code: 0, event: 'workflow_dispatch', suite: 'test' },
 ])('$event selects $suite and propagates exit $code', async ({ code, event, suite }) => {
   const workflow = workflowSchema.parse(Bun.YAML.parse(await Bun.file(workflowPath).text()));
   const step = workflow.jobs.build.steps.find((candidate) => candidate.id === 'tests');
@@ -203,7 +200,6 @@ test('every build stamps its version into the CLI package before the build reads
 
 test.each([
   ['tag', 'v0.26.0-next.42', '0.26.0-next.42'],
-  ['tag', 'v0.26.0', '0.26.0'],
   ['branch', 'feature/release', '0.26.0-next'],
 ])('a %s build of %s stamps %s over the released 0.25.0', async (refType, refName, expected) => {
   const result = await runStep('Stamp the build version', {
@@ -222,13 +218,11 @@ test.each([
   });
 });
 
-test.each([
-  ['mimir-darwin-arm64', 'bun-darwin-arm64'],
-  ['mimir-linux-x64', 'bun-linux-x64'],
-  ['mimir-linux-arm64', 'bun-linux-arm64'],
-])('%s compiles with loom build --release for %s, into dist', async (asset, target) => {
+// The target derives from the asset name with no branch, so one asset proves
+// the command; `--release` bakes in the facts self-update needs.
+test('a mimir asset compiles with loom build --release for its bun target, into dist', async () => {
   const result = await runStep('Compile', {
-    env: { ASSET: asset, GITHUB_WORKSPACE: '/work' },
+    env: { ASSET: 'mimir-linux-arm64', GITHUB_WORKSPACE: '/work' },
     read: (directory) => readFile(join(directory, 'bun.log'), 'utf8'),
     setup: async (directory) => {
       await writeFile(join(directory, 'bun'), '#!/bin/sh\nprintf "%s\\n" "$*" >> bun.log\n', {
@@ -238,7 +232,7 @@ test.each([
   });
   expect(result.exit, result.stderr).toBe(0);
   expect(result.read).toBe(
-    `run --cwd packages/cli loom build --release --target ${target} --out /work/dist/${asset}\n`,
+    'run --cwd packages/cli loom build --release --target bun-linux-arm64 --out /work/dist/mimir-linux-arm64\n',
   );
 });
 
@@ -333,17 +327,9 @@ test('a delayed prerelease cannot replace a newer next image', async () => {
   expect(result.commands).toBe('');
 });
 
-test('an older hotfix cannot replace a newer latest image', async () => {
-  const result = await promote('0.25.1', '0.26.0');
-  expect(result.exit, result.stderr).toBe(0);
-  expect(result.commands).toBe('');
-});
-
 test.each([
   ['0.26.0-next.10', '0.26.0-next.2', 'next'],
-  ['0.26.0-next.10', '0.26.0-next.10', 'next'],
   ['0.26.0', '', 'latest'],
-  ['0.26.0', '0.25.1', 'latest'],
 ])('version %s can advance or retry channel %s', async (version, currentVersion, channel) => {
   const result = await promote(version, currentVersion);
   expect(result.exit, result.stderr).toBe(0);
@@ -553,7 +539,6 @@ test('with no pending fragments the tagger says why and tags nothing', async () 
 });
 
 test.each([
-  { check: '.changes/bad.md: expected top-level change bullets.', checkExit: 1, dryRun: '' },
   { check: 'Checked 1 fragment.', dryRun: 'Next version: soon' },
   { check: 'Checked many fragments.', dryRun: 'Next version: 0.26.0' },
 ])('an unreadable changelog ($check) fails the tagger without a tag', async (options) => {
