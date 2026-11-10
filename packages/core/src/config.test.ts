@@ -61,24 +61,17 @@ test('readConfig reads the [store] section', () => {
   expect(readConfig(file)).toEqual({ store: { backend: 'postgres' } });
 });
 
-// The CLI no longer serves, so a `[serve]` section left in an existing config
-// is neither read nor reported.
-test('readConfig ignores a leftover [serve] section, valid or not', () => {
+// Config the reader no longer knows is ignored, never a problem: the CLI no
+// longer serves (a leftover `[serve]`), ADR 0032 removed the markdown-vault backend
+// (a leftover `[vault]`), and an unrecognized key inside `[store]` is a no-op.
+test('readConfig ignores leftover [serve] and [vault] tables and unknown [store] keys', () => {
   const file = join(dir, 'config.toml');
   writeFileSync(
     file,
-    '[serve]\nport = 50124\nhosts = "x"\nbind = 5\n[store]\nbackend = "postgres"\n',
+    '[serve]\nport = 50124\nhosts = "x"\nbind = 5\n[vault]\npath = "/v"\n[vault.snapshot]\ninterval = 900\n[store]\nbackend = "postgres"\nartifacts = "files"\n',
   );
   expect(readConfig(file)).toEqual({ store: { backend: 'postgres' } });
   writeFileSync(file, 'serve = 5\n');
-  expect(readConfig(file)).toEqual({ store: {} });
-});
-
-// ADR 0032 removed the markdown-vault backend. A config written for it keeps
-// its `[vault]` table, which no reader knows: it is ignored, never a problem.
-test('readConfig ignores a leftover [vault] table', () => {
-  const file = join(dir, 'config.toml');
-  writeFileSync(file, '[vault]\npath = "/v"\n[vault.snapshot]\ninterval = 900\n');
   expect(readConfig(file)).toEqual({ store: {} });
 });
 
@@ -149,12 +142,6 @@ test('readConfig flags a wrong-shaped [store] url rather than dropping it', () =
   expect(readConfig(file).store).toEqual({ problem: 'invalid-url' });
   writeFileSync(file, '[store]\nbackend = "postgres"\nurl = ""\n');
   expect(readConfig(file).store).toEqual({ problem: 'invalid-url' });
-});
-
-test('an unknown key inside [store] stays an unknown-key no-op', () => {
-  const file = join(dir, 'config.toml');
-  writeFileSync(file, '[store]\nartifacts = "files"\n');
-  expect(readConfig(file).store).toEqual({});
 });
 
 // Remote mode (ADR 0038): `[host] url` names the host that owns this install's

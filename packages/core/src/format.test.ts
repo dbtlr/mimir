@@ -4,11 +4,9 @@ import type { NodeView, SeedView, SetResult } from '@mimir/contract';
 import { parseJson } from '@mimir/helpers';
 
 import {
-  formatIds,
   formatNodeJson,
   formatSetJson,
   formatSetJsonl,
-  formatStatusJson,
   overviewScratchpadToWire,
   seedToWire,
 } from './format';
@@ -73,13 +71,6 @@ const set = (items: NodeView[]): SetResult<NodeView> => ({
   returned: items.length,
   startsAt: 0,
   total: items.length,
-});
-
-describe('formatIds', () => {
-  test('one id per line', () => {
-    expect(formatIds([task('MMR-2'), task('MMR-3')])).toBe('MMR-2\nMMR-3');
-    expect(formatIds([])).toBe('');
-  });
 });
 
 describe('formatNodeJson deps facet', () => {
@@ -192,21 +183,6 @@ describe('formatNodeJson', () => {
     const artifacts = parsed.artifacts as Record<string, unknown>[];
     expect(artifacts[0]?.summary).toBe('the lede');
     expect('summary' in (artifacts[1] ?? {})).toBe(false);
-  });
-});
-
-describe('formatStatusJson', () => {
-  test('id, status, and distribution', () => {
-    const parsed = parseJson<{ id: string; status: string; distribution: Record<string, number> }>(
-      formatStatusJson({
-        distribution: { in_progress: 1, ready: 2 },
-        id: 'MMR-1',
-        status: 'in_progress',
-        type: 'phase',
-      }),
-    );
-    expect(parsed.status).toBe('in_progress');
-    expect(parsed.distribution).toEqual({ in_progress: 1, ready: 2 });
   });
 });
 

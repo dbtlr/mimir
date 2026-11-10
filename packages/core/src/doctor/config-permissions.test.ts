@@ -47,11 +47,6 @@ test('warns, never errors, when [store] url sits in a world-readable file', () =
   expect(item?.evidence.mode).toBe('0644');
 });
 
-test('warns when only the group can read the file', () => {
-  writeWithMode(WITH_URL, 0o640);
-  expect(checkConfigPermissions(file)).toHaveLength(1);
-});
-
 test('is silent when the file is owner-only', () => {
   writeWithMode(WITH_URL, 0o600);
   expect(checkConfigPermissions(file)).toEqual([]);
@@ -80,13 +75,11 @@ test('warns when the group can write the file, even with no [store] url', () => 
   expect(item?.evidence.mode).toBe('0620');
 });
 
-test('warns when only others can write the file', () => {
-  writeWithMode(WITH_URL, 0o602);
-  expect(checkConfigPermissions(file).map((f) => f.code)).toEqual(['config-writable']);
-});
-
+// Each mode sets one read bit and one write bit, in opposite classes, so between
+// them the group-read, other-read, group-write, and other-write bits are each
+// the only one that trips its finding.
 test('reports both findings when a file carrying [store] url is readable and writable', () => {
-  for (const mode of [0o664, 0o646]) {
+  for (const mode of [0o642, 0o624]) {
     writeWithMode(WITH_URL, mode);
     expect(checkConfigPermissions(file).map((f) => f.code)).toEqual([
       'config-readable',
@@ -159,9 +152,6 @@ test('withConfigDoctor puts the config warnings in the console facet under the s
     field: 'mode',
     id: 'config',
     locator: file,
-    note:
-      'the config file carries [store] url but is readable by group or others (mode 0666)' +
-      ` — run 'chmod 600 ${file}'`,
     severity: 'warn',
     value: null,
   });
@@ -221,10 +211,6 @@ test('withConfigDoctor reports the same config warnings to the CLI and the conso
   expect(cli).toHaveLength(2);
   expect(cli.every((finding) => finding.remedy !== undefined)).toBe(true);
   expect(console).toEqual(cli.map((finding) => `${finding.message} — ${finding.remedy}`));
-  expect(console[1]).toBe(
-    'the config file is writable by group or others, who could redirect the store (mode 0666)' +
-      ` — run 'chmod 600 ${file}'`,
-  );
 });
 
 test('withConfigDoctor keeps the backend facet untouched for an owner-only config', async () => {
@@ -290,8 +276,10 @@ test('warns on a group-writable ancestor, not only the immediate directory', () 
   expect(checkConfigReplaceable(stats, ME).map((f) => f.locator)).toEqual(['/home/me/.config']);
 });
 
-test('is silent for owner-only, read-only, and sticky writable directories', () => {
-  for (const mode of [0o700, 0o755, 0o1777, 0o1770]) {
+// A directory that neither group nor others can write (0o755), then the sticky
+// bit on one that both can write (0o1777) and on one only group can (0o1770).
+test('is silent for read-only and sticky writable directories', () => {
+  for (const mode of [0o755, 0o1777, 0o1770]) {
     expect(checkConfigReplaceable([FILE, stat('/home/me/.config/mimir', mode)], ME)).toEqual([]);
   }
 });

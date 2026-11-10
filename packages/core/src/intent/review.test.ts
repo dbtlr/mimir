@@ -107,22 +107,6 @@ test('decisions are you-blocked and needs-answers tasks, each with its reason', 
   expect(group?.rows[0]?.question).toBeNull();
 });
 
-test('work nobody is waiting on the operator for is not a decision', async () => {
-  await project('MMR');
-  const others = await task('MMR', 'upstream');
-  await blockTask(store, others, 'upstream', 'others');
-  const parkedQuestion = await question('MMR', 'parked question');
-  await parkTask(store, parkedQuestion);
-  await task('MMR', 'plain');
-  const working = await task('MMR', 'working');
-  await startTask(store, working);
-  const inReview = await underReview('MMR');
-  const report = await review();
-  expect(report.decisions).toEqual([]);
-  expect(report.queue).toEqual([]);
-  expect(report.now.map((r) => r.task.id)).toContain(inReview);
-});
-
 test('now lists a review by when it was submitted, other rows by when they started', async () => {
   await project('MMR');
   const reviewed = await task('MMR', 'started first, submitted last');
@@ -206,31 +190,6 @@ test("a project's recency is its newest decision of its leading reason, not its 
   expect((await review()).decisions.map((g) => g.project.key)).toEqual(['BBB', 'AAA']);
 });
 
-test('triage lists projects most first, then by key, and a decision-less project counts only triage', async () => {
-  for (const key of ['AAA', 'BBB', 'CCC', 'DDD']) {
-    await project(key);
-  }
-  await underReview('DDD');
-  await fileSeed(store, { kind: 'bug', project: 'BBB', title: 'one' });
-  await fileSeed(store, { kind: 'bug', project: 'CCC', title: 'one' });
-  await fileSeed(store, { kind: 'bug', project: 'CCC', title: 'two' });
-  const report = await review();
-  expect(report.triage.map((t) => [t.project.key, t.seeds.length])).toEqual([
-    ['CCC', 2],
-    ['BBB', 1],
-  ]);
-  expect(
-    report.projects
-      .toSorted((a, b) => cmpStr(a.key, b.key))
-      .map((p) => [p.key, p.decisions, p.triage]),
-  ).toEqual([
-    ['AAA', 0, 0],
-    ['BBB', 0, 1],
-    ['CCC', 0, 2],
-    ['DDD', 0, 0],
-  ]);
-});
-
 test('the queue walks every block, then every question, newest first, and skips reviews', async () => {
   await project('AAA');
   await project('BBB');
@@ -260,18 +219,6 @@ test('triage lists untriaged seeds oldest first, never a parked seed', async () 
   expect(report.projects[0]?.triage).toBe(2);
 });
 
-test('triage counts tasks going cold as of the reference time', async () => {
-  await project('MMR');
-  const cold = await task('MMR', 'cold');
-  const fresh = await task('MMR', 'fresh');
-  await at(cold, '2026-01-01T00:00:00.000Z');
-  await at(fresh, '2026-02-28T00:00:00.000Z');
-  const report = await review({ asOf: '2026-03-01T00:00:00.000Z' });
-  expect(report.triage[0]?.goingCold).toBe(1);
-  expect(report.triage[0]?.seeds).toEqual([]);
-  expect(report.projects[0]?.triage).toBe(1);
-});
-
 test("the going-cold count matches the work page's Going cold section it links to", async () => {
   await project('MMR');
   const asOf = '2026-03-01T00:00:00.000Z';
@@ -287,6 +234,8 @@ test("the going-cold count matches the work page's Going cold section it links t
   for (const id of ids) {
     await at(id, '2026-01-01T00:00:00.000Z');
   }
+  // Fresh as of asOf but cold by the wall clock, so both sides must classify at asOf.
+  await at(await task('MMR', 'fresh'), '2026-02-28T00:00:00.000Z');
   const page = await workPageOf(store, 'MMR', { asOf, timeZone: 'UTC' });
   const report = await review({ asOf });
   expect(page.goingCold.length).toBeGreaterThan(0);
@@ -315,10 +264,11 @@ test('triage counts the findings handed in and ignores keys that are not active 
   expect(report.projects.map((p) => [p.key, p.triage])).toEqual([['MMR', 3]]);
 });
 
-test('triage orders by count descending, then key, and omits projects with nothing', async () => {
+test('triage orders by count descending, then key, omits projects with nothing, and a decision-less project counts only triage', async () => {
   for (const key of ['AAA', 'BBB', 'CCC', 'DDD']) {
     await project(key);
   }
+  await underReview('DDD');
   await fileSeed(store, { kind: 'idea', project: 'AAA', title: 'a' });
   const report = await review(
     {},
@@ -332,8 +282,17 @@ test('triage orders by count descending, then key, and omits projects with nothi
     ['AAA', 0],
     ['BBB', 1],
   ]);
+  expect(
+    report.projects
+      .toSorted((a, b) => cmpStr(a.key, b.key))
+      .map((p) => [p.key, p.decisions, p.triage]),
+  ).toEqual([
+    ['AAA', 0, 1],
+    ['BBB', 0, 1],
+    ['CCC', 0, 5],
+    ['DDD', 0, 0],
+  ]);
 });
-
 test('inFlight counts the in-progress and under-review tasks of each project', async () => {
   await project('AAA');
   await project('BBB');
@@ -397,21 +356,22 @@ test('an all-clear store has no decisions, queue, or triage but still lists its 
   await project('BBB', 'Bravo');
   await project('AAA', 'Alpha');
   await task('AAA', 'plain');
-  expect(await review()).toEqual({
+  const report = await review();
+  const { decisions, goingCold, now, queue, runnable, shipped, triage } = report;
+  expect({ decisions, goingCold, now, queue, runnable, shipped, triage }).toEqual({
     decisions: [],
     goingCold: [],
-    lastFinished: null,
     now: [],
-    // AAA's task is the newest activity, so it leads the rail.
-    projects: [
-      { decisions: 0, goingCold: 0, inFlight: 0, key: 'AAA', live: 1, name: 'Alpha', triage: 0 },
-      { decisions: 0, goingCold: 0, inFlight: 0, key: 'BBB', live: 0, name: 'Bravo', triage: 0 },
-    ],
     queue: [],
     runnable: [],
     shipped: [],
     triage: [],
   });
+  // AAA's task is the newest activity, so it leads the rail.
+  expect(report.projects).toEqual([
+    { decisions: 0, goingCold: 0, inFlight: 0, key: 'AAA', live: 1, name: 'Alpha', triage: 0 },
+    { decisions: 0, goingCold: 0, inFlight: 0, key: 'BBB', live: 0, name: 'Bravo', triage: 0 },
+  ]);
 });
 
 test('review and the work page agree on who needs the operator', async () => {

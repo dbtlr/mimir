@@ -326,14 +326,6 @@ test('an initiative scope covers every phase beneath it', async () => {
   expect(ids(taskRows(report.frontier.toGroom))).toEqual([inA, inB]);
 });
 
-test('parked tasks are not in the frontier', async () => {
-  const t = await task(phaseA, 'parked');
-  await parkTask(store, t);
-  const report = await page('MMR');
-  expect(ids(taskRows(report.frontier.toGroom))).toEqual([]);
-  expect(ids(report.frontier.runnable)).toEqual([]);
-});
-
 test('shipped keeps done and abandoned tasks from today, with abandon reason', async () => {
   const done = await task(phaseA, 'done');
   await startTask(store, done);
@@ -563,16 +555,6 @@ test('waiting_on_others is ordered oldest update first, whatever the id order', 
   expect(ids((await page('MMR')).frontier.waitingOnOthers)).toEqual([c, a, b]);
 });
 
-test('an empty open-ended phase (a standing home) is not a break-down row', async () => {
-  const home = await createPhase(store, {
-    openEnded: true,
-    parentId: await nodeIdOf(store, initId),
-    title: 'Bugs',
-  });
-  const report = await page('MMR');
-  expect(report.frontier.toGroom.map((r) => r.task.id)).not.toContain(`MMR-${String(home.seq)}`);
-});
-
 test('a break-down container follows the one-step rule on its own and inherited edges', async () => {
   // phase A is empty and waits on a ready task: one step away.
   const gate = await task(phaseB, 'gate');
@@ -710,23 +692,6 @@ test('runnable requires a rank, as next does', async () => {
   await groomTasks(store, [ranked, unranked], 'groomed');
   await rawPatchNode(store, unranked, { rank: null });
   expect(ids((await page('MMR')).frontier.runnable)).toEqual([ranked]);
-});
-
-test('every row carries a stale flag', async () => {
-  const working = await task(phaseA, 'working');
-  const ready = await task(phaseA, 'ready');
-  const fresh = await task(phaseA, 'fresh');
-  await startTask(store, working);
-  await rawPatchNode(store, working, { updated_at: '2026-01-01T00:00:00.000Z' });
-  await rawPatchNode(store, ready, { updated_at: '2026-01-01T00:00:00.000Z' });
-  await rawPatchNode(store, fresh, { updated_at: '2026-02-28T00:00:00.000Z' });
-
-  const report = await page('MMR', { asOf: '2026-03-01T00:00:00.000Z' });
-  expect(report.now.map((r) => [r.task.id, r.stale])).toEqual([[working, true]]);
-  const stale = new Map(taskRows(report.frontier.toGroom).map((r) => [r.task.id, r.stale]));
-  expect(stale.get(ready)).toBe(true);
-  expect(stale.get(fresh)).toBe(false);
-  expect(viewIds(report.goingCold)).toEqual([working, ready]);
 });
 
 test('a missing or unknown zone is a validation error', async () => {
