@@ -59,7 +59,7 @@ async function host(label: string, seedProject: boolean) {
   return { db, pending, runs, secrets, store, token, tokens };
 }
 
-test('tokens, host secrets, and runs stay out of the transfer document, and an import leaves the target own intact', async () => {
+test('tokens, host secrets, and runs stay out of the transfer document, and an import leaves the target’s own intact', async () => {
   const source = await host('source', true);
   const document = await source.store.export();
 

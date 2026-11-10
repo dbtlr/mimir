@@ -88,8 +88,8 @@ test('the named edge is canonical — chosen by (key, seq), not input order', ()
 });
 
 test('a deep acyclic chain does not overflow the stack (iterative DFS)', () => {
-  // A recursive walk overflows Bun's stack at about 26,000 nodes (measured), so
-  // 50,000 leaves a margin of about twice that.
+  // A recursive walk overflows Bun's stack at roughly 25,000 nodes (measured;
+  // the depth varies a little by run), so 50,000 leaves about twice that.
   const N = 50_000;
   const nodes: Omit<GraphNode, 'key'>[] = [];
   for (let i = 1; i <= N; i += 1) {
