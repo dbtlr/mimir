@@ -147,9 +147,9 @@ Apply these rules when you add a test and when you review one.
 1. **Sweep a shared function once, at the function.** Each caller keeps one case
    that proves the wiring. This covers renderers, parsers, validators, and path
    tables. The lifecycle verbs share one renderer (`echoViews`) and one subject
-   check (`refuseWrongSubject`), so the output-format matrix and the wrong-subject
-   inputs are tested at those functions. Each verb needs one case that shows it
-   calls them. In the console, `projectSwitchTarget` is a pure function: test its
+   check (`refuseWrongSubject`), so sweep the output-format matrix and the
+   wrong-subject inputs at those functions. Each verb needs one case that shows
+   it calls them. In the console, `projectSwitchTarget` is a pure function: test its
    path table there, not through full route renders.
 2. **A transport proves its own mapping.** Write one case per error code and one
    round trip per method. Core owns the domain refusals, and one middleware maps
@@ -172,8 +172,7 @@ Apply these rules when you add a test and when you review one.
    input, or a dependency chain of 100,000 nodes. Two exceptions stay: a cheap
    case on a security boundary, and a cheap case that covers a distinct state.
 6. **Delete a migration guard when the migration closes.** Do not test a test
-   helper, a constant against a copy of itself, a class name, or a removed
-   feature. A pin that records parity with a retired implementation, a list of
+   helper, a constant, a class name, or a removed feature. A pin that records parity with a retired implementation, a list of
    migration names kept in sync by hand, and an assertion that a feature is
    absent all belong to this group. Pins that an ADR commits to stay, such as the
    help pages (ADR 0037).
