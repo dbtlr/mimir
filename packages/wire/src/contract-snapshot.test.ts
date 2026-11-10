@@ -144,3 +144,66 @@ test('exact optional inputs cannot silently change explicit-undefined acceptance
     Reflect.set(engineSchemas.overview, 'input', original);
   }
 });
+
+// One case per guard the generator applies to a check. Each uses zod a
+// contributor can write without a cast; the real contract trips none of them,
+// so the snapshot test alone cannot tell a guard from its absence.
+
+test('unreviewed string formats cannot silently discard format-specific options', () => {
+  const original = consoleSchemas.openTasks.input;
+  Reflect.set(consoleSchemas.openTasks, 'input', z.strictObject({ q: z.jwt({ alg: 'HS256' }) }));
+  try {
+    expect(() => {
+      engineSchemaSnapshot();
+    }).toThrow('unsupported schema format: jwt');
+  } finally {
+    Reflect.set(consoleSchemas.openTasks, 'input', original);
+  }
+});
+
+test('a check the owning processor cannot represent is refused', () => {
+  const before = z.enum(['alpha', 'b']);
+  const after = before.check(z.maxLength(3));
+  expect(before.safeParse('alpha').success).toBe(true);
+  expect(after.safeParse('alpha').success).toBe(false);
+  const original = consoleSchemas.openTasks.input;
+  Reflect.set(consoleSchemas.openTasks, 'input', z.strictObject({ q: after }));
+  try {
+    expect(() => {
+      engineSchemaSnapshot();
+    }).toThrow('unsupported check on');
+  } finally {
+    Reflect.set(consoleSchemas.openTasks, 'input', original);
+  }
+});
+
+test('constraint metadata cannot override generated validation constraints', () => {
+  const before = z.string();
+  const after = z.string().min(4).meta({ minLength: undefined });
+  expect(before.safeParse('abc').success).toBe(true);
+  expect(after.safeParse('abc').success).toBe(false);
+  const original = consoleSchemas.openTasks.input;
+  try {
+    Reflect.set(consoleSchemas.openTasks, 'input', original.extend({ q: before }));
+    const previous = engineSchemaSnapshot();
+    Reflect.set(consoleSchemas.openTasks, 'input', original.extend({ q: after }));
+    expect(engineSchemaSnapshot()).not.toEqual(previous);
+  } finally {
+    Reflect.set(consoleSchemas.openTasks, 'input', original);
+  }
+});
+
+test('a number bound JSON Schema cannot represent is refused', () => {
+  const after = z.number().int().gt(Number.NaN);
+  expect(z.number().int().safeParse(-5).success).toBe(true);
+  expect(after.safeParse(-5).success).toBe(false);
+  const original = engineSchemas.search.input;
+  Reflect.set(engineSchemas.search, 'input', original.extend({ limit: after.optional() }));
+  try {
+    expect(() => {
+      engineSchemaSnapshot();
+    }).toThrow('unrepresentable check value');
+  } finally {
+    Reflect.set(engineSchemas.search, 'input', original);
+  }
+});

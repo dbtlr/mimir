@@ -530,7 +530,8 @@ type Refusal = {
 };
 
 // The first two rows carry a validation and a not_found refusal through the explicit
-// procedures; engine.test.ts proves the code mapping, conflict included. The rest pin the
+// procedures; engine.test.ts proves the mapping for validation, not_found, and conflict.
+// No wire test reads an invariant refusal. The rest pin the
 // guards in core's Engine adapter (engine-node-writes.ts), which core's mutation tests do not
 // reach. Core owns every other refusal rule.
 const refusals: Refusal[] = [
