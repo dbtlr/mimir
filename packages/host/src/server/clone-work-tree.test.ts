@@ -148,7 +148,10 @@ test('emptyWorkTree unlinks symlinks to outside the clone, and leaves their targ
   }
 });
 
-test('emptyWorkTree empties directories with modes 000 and 0500', async () => {
+// Root ignores directory modes, so as root this case would pass without the chmod.
+const asRoot = process.getuid?.() === 0;
+
+test.skipIf(asRoot)('emptyWorkTree empties directories with modes 000 and 0500', async () => {
   const { workTree } = await layout();
   try {
     const locked = join(workTree, 'scratch', 'locked');
