@@ -141,7 +141,8 @@ only in its file's, so a slow shared setup shows as a slow file. A test file
 that opens a PGlite store runs `beforeAll(bootPglite)` first
 (`bootEmptyPglite` when it opens only unmigrated databases), so the one-off
 snapshot build, about 1.8 s on the gate, counts in that file's time and in no
-test's; a store opened before it is refused. A test over
+test's. A file that forgets the hook fails when it runs alone; in a run of
+several files it passes if an earlier file has already booted. A test over
 the limit may be exempted only against the task that will make it fast; remove
 the exemption in that task. An exemption that names a test the run did not
 include, as after a rename, fails the gate. To check a local run, write a
