@@ -102,9 +102,9 @@ The usual causes, and their fixes:
   process.
 - **Setup rebuilt identically for every case.** Build a read-only fixture once
   in `beforeAll`, or copy a seeded template per case instead of reseeding it.
-  Keep what each test proves; change only how it is set up. This list governs how to
-  speed a test up; "Which tests to write" below governs whether the test should
-  exist.
+  Keep what each test proves; change only how it is set up. This list governs
+  how to speed a test up; "Which tests to write" below governs whether the test
+  should exist.
 - **Real waits.** Inject the delay or the clock instead of sleeping it out.
 - **Queries over a large DOM.** Time the queries and the render separately. A
   role query with a name walks the accessibility tree, so over a large DOM use a
@@ -149,8 +149,8 @@ Apply these rules when you add a test and when you review one.
    tables. The lifecycle verbs share one renderer (`echoViews`) and one subject
    check (`refuseWrongSubject`), so sweep the output-format matrix and the
    wrong-subject inputs at those functions. Each verb needs one case that shows
-   it calls them. In the console, `projectSwitchTarget` is a pure function: test its
-   path table there, not through full route renders.
+   it calls them. In the console, `projectSwitchTarget` is a pure function: test
+   its path table there, not through full route renders.
 2. **A transport proves its own mapping.** Write one case per error code and one
    round trip per method. Core owns the domain refusals, and one middleware maps
    them for the wire, so the wire does not re-run each refusal rule with a local
@@ -168,14 +168,15 @@ Apply these rules when you add a test and when you review one.
    through every kind of hostile work tree. Test a race and a fault separately:
    do not cross cancel timing with every close and fault path in the agent runner.
 5. **Two or three points prove a boundary.** An input the product cannot receive
-   is not a test case, such as a host clock in the year 275760, a `Proxy` as tool
-   input, or a dependency chain of 100,000 nodes. Two exceptions stay: a cheap
-   case on a security boundary, and a cheap case that covers a distinct state.
+   is not a test case, such as a host clock in the year 275760 or a date filter
+   in the year 0050. Two exceptions stay: a cheap case on a security boundary,
+   and a cheap case that covers a distinct state.
 6. **Delete a migration guard when the migration closes.** Do not test a test
-   helper, a constant, a class name, or a removed feature. A pin that records parity with a retired implementation, a list of
-   migration names kept in sync by hand, and an assertion that a feature is
-   absent all belong to this group. Pins that an ADR commits to stay, such as the
-   help pages (ADR 0037).
+   helper, a constant, a class name, or a removed feature. A ledger kept to
+   prove parity with a retired implementation, a list of migration names kept
+   in sync by hand, and an assertion that a feature is absent all belong to
+   this group. Pins that an ADR commits to stay, such as the CLI's reviewed
+   output snapshots and the help pages (ADR 0037).
 
 ## Project shape
 
