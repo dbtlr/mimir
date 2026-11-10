@@ -126,6 +126,23 @@ test('live work beats ready in the rollup', async () => {
   expect(statusOf(await setOf(), await reload('MMR', phase.seq)).status).toBe('in_progress');
 });
 
+test('a queued child tallies as queued, and queued beats ready in the rollup', async () => {
+  await createProject(store, { key: 'MMR', name: 'm' });
+  const projectId = await projectIdOf(store, 'MMR');
+  const init = await createInitiative(store, { projectId, title: 'i' });
+  const phase = await createPhase(store, {
+    parentId: await nodeIdOf(store, `MMR-${String(init.seq)}`),
+    title: 'ph',
+  });
+  const phaseId = await nodeIdOf(store, `MMR-${String(phase.seq)}`);
+  const t1 = await createTask(store, { parentId: phaseId, title: 't1' });
+  await createTask(store, { parentId: phaseId, title: 't2' });
+
+  await setLifecycle('MMR', t1.seq, 'queued');
+  expect(childDistribution(await setOf(), phaseId)).toEqual({ queued: 1, ready: 1 });
+  expect(statusOf(await setOf(), await reload('MMR', phase.seq)).status).toBe('queued');
+});
+
 test('all-done rolls up to done; an empty phase is new', async () => {
   await createProject(store, { key: 'MMR', name: 'm' });
   const projectId = await projectIdOf(store, 'MMR');
