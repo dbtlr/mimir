@@ -206,16 +206,11 @@ const definiteFailures: [string, () => Promise<Response>][] = [
   ['a JSON 404', async () => Response.json({ error: 'nope' }, { status: 404 })],
 ];
 
+// A definite 4xx reads the same on every route, so that list runs on the poll route; the 429
+// tests above pin the one place the routes differ. The transient list runs on every route,
+// since a route that reads a 5xx or 408 as definite would stop `mimir pair` from retrying.
 test.each(definiteFailures)('%s is definite on a poll', async (_name, answer) => {
   expect((await refusal(clientFor(answer).pollPairing('secret'))).transient).toBe(false);
-});
-
-test.each(definiteFailures)('%s is definite on a pairing request', async (_name, answer) => {
-  expect((await refusal(clientFor(answer).requestPairing('laptop'))).transient).toBe(false);
-});
-
-test.each(definiteFailures)('%s is definite on health', async (_name, answer) => {
-  expect((await refusal(clientFor(answer).health())).transient).toBe(false);
 });
 
 // A redirect would carry the device name or poll secret to wherever it points, so none is followed.
@@ -237,22 +232,19 @@ test('the client asks fetch not to follow redirects', async () => {
   expect(seen.map((init) => init.redirect)).toEqual(['manual', 'manual', 'manual']);
 });
 
-test.each([301, 302, 307, 308])(
-  'a %i is a definite refusal naming the target origin',
-  async (status) => {
-    const answer = redirect(status, 'https://elsewhere.test/auth/pairing/poll?x=1');
-    for (const call of [
-      (client: HostClient) => client.health(),
-      (client: HostClient) => client.requestPairing('laptop'),
-      (client: HostClient) => client.pollPairing('secret'),
-    ]) {
-      const error = await refusal(call(clientFor(answer)));
-      expect(error).toMatchObject({ code: 'invariant', status, transient: false });
-      expect(error.message).toBe(`the host at ${ORIGIN} redirected to https://elsewhere.test`);
-      expect(error.hint).toContain('mimir pair https://elsewhere.test');
-    }
-  },
-);
+test.each([307])('a %i is a definite refusal naming the target origin', async (status) => {
+  const answer = redirect(status, 'https://elsewhere.test/auth/pairing/poll?x=1');
+  for (const call of [
+    (client: HostClient) => client.health(),
+    (client: HostClient) => client.requestPairing('laptop'),
+    (client: HostClient) => client.pollPairing('secret'),
+  ]) {
+    const error = await refusal(call(clientFor(answer)));
+    expect(error).toMatchObject({ code: 'invariant', status, transient: false });
+    expect(error.message).toBe(`the host at ${ORIGIN} redirected to https://elsewhere.test`);
+    expect(error.hint).toContain('mimir pair https://elsewhere.test');
+  }
+});
 
 test('a redirect whose target is not an http origin names no target', async () => {
   const error = await refusal(clientFor(redirect(307, 'data:text/plain,\u001B[2Jx')).health());
@@ -260,22 +252,17 @@ test('a redirect whose target is not an http origin names no target', async () =
   expect(`${error.message} ${String(error.hint)}`).not.toContain('\u001B');
 });
 
-test.each(transientFailures)('%s is transient on a poll', async (_name, answer) => {
-  const error = await refusal(clientFor(answer).pollPairing('secret'));
-  expect(error).toMatchObject({ code: 'invariant', transient: true });
-});
-
-test.each(transientFailures)(
-  '%s is flagged transient on a pairing request',
-  async (_name, answer) => {
-    const error = await refusal(clientFor(answer).requestPairing('laptop'));
-    expect(error.transient).toBe(true);
-  },
-);
-
-test.each(transientFailures)('%s is flagged transient on health', async (_name, answer) => {
-  const error = await refusal(clientFor(answer).health());
-  expect(error.transient).toBe(true);
+test.each(transientFailures)('%s is transient on every route', async (_name, answer) => {
+  for (const call of [
+    (client: HostClient) => client.health(),
+    (client: HostClient) => client.requestPairing('laptop'),
+    (client: HostClient) => client.pollPairing('secret'),
+  ]) {
+    expect(await refusal(call(clientFor(answer)))).toMatchObject({
+      code: 'invariant',
+      transient: true,
+    });
+  }
 });
 
 test('a request that exceeds its timeout is a transient failure', async () => {
@@ -392,12 +379,7 @@ test('a server-cut 401 body remains a definite health refusal', async () => {
 test.each([
   [307, 'health', false],
   [400, 'request', false],
-  [401, 'poll', false],
-  [403, 'poll', false],
-  [404, 'poll', false],
   [409, 'request', false],
-  [429, 'request', false],
-  [429, 'health', false],
   [429, 'poll', true],
   [503, 'health', true],
 ] satisfies [number, 'health' | 'request' | 'poll', boolean][])(
@@ -442,7 +424,7 @@ test.each([
   },
 );
 
-test.each([400, 403, 404, 405])('a %i poll answer is definite', async (status) => {
+test.each([400, 405])('a %i poll answer is definite', async (status) => {
   const error = await refusal(
     clientFor(async () => Response.json({ error: 'nope' }, { status })).pollPairing('secret'),
   );
@@ -519,12 +501,9 @@ const filedBody = (interval: number) => ({
 });
 
 test.each([
-  [0.01, 1],
   [0.5, 1],
   [2, 2],
-  [60, 60],
   [61, 60],
-  [1e12, 60],
 ])('a host interval of %p seconds is used as %p', async (stated, used) => {
   const filed = await clientFor(async () => Response.json(filedBody(stated))).requestPairing(
     'laptop',

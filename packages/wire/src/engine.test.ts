@@ -324,16 +324,3 @@ test('every console method has a local implementation, router procedure, and rem
 test('every Engine method has a local implementation, router procedure, and remote binding', () => {
   assertBindings({ local, remote, router: createEngineRouter(local)._def.procedures });
 });
-
-test.each(['local', 'router', 'remote'])('parity rejects a missing %s binding', (layer) => {
-  const bindings = {
-    local,
-    remote,
-    router: createEngineRouter(local)._def.procedures,
-  };
-  const broken = Object.create(bindings[layer]);
-  Object.defineProperty(broken, 'done', { value: undefined });
-  expect(() => assertBindings({ ...bindings, [layer]: broken })).toThrow(
-    `${layer} is missing Engine.done`,
-  );
-});

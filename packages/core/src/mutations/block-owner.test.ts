@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import { createInitiative, createPhase, createProject, createTask } from '../create';
+import { OPS, parseOpChoice } from '../ops';
 import { createSqliteTestStore } from '../store-sqlite/testing';
 import type { SqliteTestStore } from '../store-sqlite/testing';
 import { expectMimirError } from '../testing/errors';
@@ -128,4 +129,14 @@ test('a row written by an older binary reads empty when the hold is not blocked,
 
 test('containers carry no owner', async () => {
   expect((await reload(phaseId)).block_owner).toBeNull();
+});
+
+test('an unknown owner is refused with the shared choice wording and hint', () => {
+  expect(() => parseOpChoice('block', OPS.block, 'nobody')).toThrow(
+    expect.objectContaining({
+      code: 'validation',
+      hint: 'block on takes one of: you, others',
+      message: 'invalid on: nobody',
+    }),
+  );
 });

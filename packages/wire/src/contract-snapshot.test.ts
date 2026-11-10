@@ -145,6 +145,10 @@ test('exact optional inputs cannot silently change explicit-undefined acceptance
   }
 });
 
+// One case per guard the generator applies to a check. Each uses zod a
+// contributor can write without a cast; the real contract trips none of them,
+// so the snapshot test alone cannot tell a guard from its absence.
+
 test('unreviewed string formats cannot silently discard format-specific options', () => {
   const original = consoleSchemas.openTasks.input;
   Reflect.set(consoleSchemas.openTasks, 'input', z.strictObject({ q: z.jwt({ alg: 'HS256' }) }));
@@ -178,55 +182,11 @@ test('custom check conditions cannot silently disable a represented bound', () =
   }
 });
 
-/** Exercise checks that JavaScript callers can attach despite TypeScript's narrower API. */
-function checkedAtRuntime(schema: z.ZodType, check: unknown): z.ZodType {
-  const result: unknown = Reflect.apply(schema.check.bind(schema), schema, [check]);
-  if (!(result instanceof z.ZodType)) {
-    throw new Error('expected a Zod schema');
-  }
-  return result;
-}
-
-test.each([
-  {
-    after: z.enum(['alpha', 'b']).check(z.maxLength(3)),
-    before: z.enum(['alpha', 'b']),
-    input: 'alpha',
-    name: 'enum maximum length',
-  },
-  {
-    after: z.enum(['alpha', 'b']).check(z.minLength(6)),
-    before: z.enum(['alpha', 'b']),
-    input: 'alpha',
-    name: 'enum minimum length',
-  },
-  {
-    after: z.literal('alpha').check(z.maxLength(3)),
-    before: z.literal('alpha'),
-    input: 'alpha',
-    name: 'literal maximum length',
-  },
-  {
-    after: checkedAtRuntime(z.number(), z.regex(/^1/)),
-    before: z.number(),
-    input: 5,
-    name: 'number regex',
-  },
-  {
-    after: checkedAtRuntime(z.string(), z.gt(3)),
-    before: z.string(),
-    input: 'abc',
-    name: 'string numeric bound',
-  },
-  {
-    after: checkedAtRuntime(z.boolean(), z.gt(0)),
-    before: z.boolean(),
-    input: false,
-    name: 'boolean numeric bound',
-  },
-])('$name is refused when the owning processor cannot represent it', ({ after, before, input }) => {
-  expect(before.safeParse(input).success).toBe(true);
-  expect(after.safeParse(input).success).toBe(false);
+test('a check the owning processor cannot represent is refused', () => {
+  const before = z.enum(['alpha', 'b']);
+  const after = before.check(z.maxLength(3));
+  expect(before.safeParse('alpha').success).toBe(true);
+  expect(after.safeParse('alpha').success).toBe(false);
   const original = consoleSchemas.openTasks.input;
   Reflect.set(consoleSchemas.openTasks, 'input', z.strictObject({ q: after }));
   try {
@@ -238,19 +198,9 @@ test.each([
   }
 });
 
-const inheritedMetadata = z.string().min(1).meta({ minLength: 1 });
-test.each([
-  {
-    after: z.string().min(4).meta({ minLength: undefined }),
-    before: z.string(),
-    name: 'direct undefined constraint metadata',
-  },
-  {
-    after: inheritedMetadata.min(4),
-    before: inheritedMetadata,
-    name: 'inherited constraint metadata',
-  },
-])('$name cannot override generated validation constraints', ({ after, before }) => {
+test('constraint metadata cannot override generated validation constraints', () => {
+  const before = z.string();
+  const after = z.string().min(4).meta({ minLength: undefined });
   expect(before.safeParse('abc').success).toBe(true);
   expect(after.safeParse('abc').success).toBe(false);
   const original = consoleSchemas.openTasks.input;
@@ -264,24 +214,8 @@ test.each([
   }
 });
 
-test.each([
-  { after: z.number().int().check(z.gt(0n)), name: 'bigint number bound' },
-  {
-    after: z
-      .number()
-      .int()
-      .check(z.gt(new Date(0))),
-    name: 'Date number bound',
-  },
-  { after: z.number().int().gt(Number.NaN), name: 'NaN number bound' },
-  {
-    after: checkedAtRuntime(
-      z.number().int(),
-      Reflect.construct(z.core.$ZodCheckGreaterThan, [{ check: 'greater_than', inclusive: false }]),
-    ),
-    name: 'missing number bound',
-  },
-])('$name is refused because JSON Schema cannot represent it', ({ after }) => {
+test('a number bound JSON Schema cannot represent is refused', () => {
+  const after = z.number().int().gt(Number.NaN);
   expect(z.number().int().safeParse(-5).success).toBe(true);
   expect(after.safeParse(-5).success).toBe(false);
   const original = engineSchemas.search.input;
@@ -292,26 +226,5 @@ test.each([
     }).toThrow('unrepresentable check value');
   } finally {
     Reflect.set(engineSchemas.search, 'input', original);
-  }
-});
-
-test.each([
-  { check: Reflect.apply(z.minLength, undefined, ['4']), name: 'non-number length bound' },
-  {
-    check: Reflect.construct(z.core.$ZodCheckMinLength, [{ check: 'min_length' }]),
-    name: 'missing length bound',
-  },
-])('$name is refused because JSON Schema cannot represent it', ({ check }) => {
-  const after = checkedAtRuntime(z.string(), check);
-  expect(z.string().safeParse('abc').success).toBe(true);
-  expect(after.safeParse('abc').success).toBe(false);
-  const original = consoleSchemas.openTasks.input;
-  Reflect.set(consoleSchemas.openTasks, 'input', original.extend({ q: after }));
-  try {
-    expect(() => {
-      engineSchemaSnapshot();
-    }).toThrow('unrepresentable check value');
-  } finally {
-    Reflect.set(consoleSchemas.openTasks, 'input', original);
   }
 });

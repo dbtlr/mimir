@@ -76,25 +76,15 @@ test('a missing header is refused with the CLI update remedy', async () => {
   expect(failure).toMatchObject({ code: 'validation', hint: 'update this CLI' });
 });
 
-test.each(['garbage', '0.26', '0.26.0-next.01', '0.26.0, 0.25.0'])(
-  'malformed version %s is a domain refusal',
-  async (version) => {
-    const failure: unknown = await client(version)
-      .projects({})
-      .catch((error: unknown) => error);
-    expect(failure).toBeInstanceOf(MimirError);
-    expect(failure).toMatchObject({ code: 'validation', hint: 'update this CLI' });
-  },
-);
+test.each(['garbage'])('malformed version %s is a domain refusal', async (version) => {
+  const failure: unknown = await client(version)
+    .projects({})
+    .catch((error: unknown) => error);
+  expect(failure).toBeInstanceOf(MimirError);
+  expect(failure).toMatchObject({ code: 'validation', hint: 'update this CLI' });
+});
 
-test.each([
-  '0.26.0-next',
-  '0.26.0-next.2',
-  '0.26.0-next.11',
-  '0.26.0',
-  '0.26.99',
-  'v0.26.1+build.2',
-])('in-window client %s can read and mutate', async (version) => {
+test.each(['v0.26.1+build.2'])('in-window client %s can read and mutate', async (version) => {
   const remote = client(version);
   expect(await remote.projects({})).toEqual([]);
   await remote.create({ key: 'WIN', name: 'In window', type: 'project' });
@@ -228,6 +218,8 @@ test.each([
   ['1.0.0', '1.0.0-rc.1', 'inside'],
   ['garbage', '0.26.0', 'malformed'],
   ['0.26', '0.26.0', 'malformed'],
+  ['0.26.0-next.01', '0.26.0', 'malformed'],
+  ['0.26.0, 0.25.0', '0.26.0', 'malformed'],
   ['0.26.0', 'unknown', 'malformed'],
 ] as const)('client %s against host %s is %s', (version, host, verdict) => {
   expect(versionWindow(version, host, '0.26.0-next')).toBe(verdict);

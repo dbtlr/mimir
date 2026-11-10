@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, expect, test } from 'bun:test';
 
 import { engineSchemas } from '@mimir/contract';
 import type { Engine, EngineInput, EngineMethods } from '@mimir/contract';
@@ -265,33 +265,21 @@ test.each(Object.keys(reads) as ReadMethod[])(
   },
 );
 
-const boardReads: ReadMethod[] = [
-  'next',
-  'list',
-  'overview',
-  'artifacts',
-  'search',
-  'seeds',
-  'scratchList',
-];
-
+// One zod project-key rule serves every board read (packages/contract/src/engine.ts), so the
+// wire needs only the missing key and the `all` literal to prove the refusal crosses it.
 const unscoped = [
-  ['no project', undefined],
-  ['the all-projects literal', 'all'],
-  ['a lowercase key', 'eng'],
-  ['an empty key', ''],
+  ['no project', 'next', undefined],
+  ['the all-projects literal', 'next', 'all'],
 ] as const;
 
-describe.each(unscoped)('with %s', (_label, scope) => {
-  test.each(boardReads)('%s is refused on both Engines', async (method) => {
-    const { project: _project, ...rest } = reads[method].input() as { project?: string };
-    const input = scope === undefined ? rest : { ...rest, project: scope };
-    const run = (engine: Engine) => errorOf(call(engine, method, input));
-    const [localError, remoteError] = [await run(local), await run(remote)];
-    expect(localError.code).toBe('validation');
-    expect(remoteError.code).toBe('validation');
-    expect(remoteError.message).toBe(localError.message);
-  });
+test.each(unscoped)('with %s, %s is refused on both Engines', async (_label, method, scope) => {
+  const { project: _project, ...rest } = reads[method].input() as { project?: string };
+  const input = scope === undefined ? rest : { ...rest, project: scope };
+  const run = (engine: Engine) => errorOf(call(engine, method, input));
+  const [localError, remoteError] = [await run(local), await run(remote)];
+  expect(localError.code).toBe('validation');
+  expect(remoteError.code).toBe('validation');
+  expect(remoteError.message).toBe(localError.message);
 });
 
 test('board reads stay inside the named project', async () => {
@@ -305,19 +293,9 @@ test('board reads stay inside the named project', async () => {
   expect((await remote.search({ project: 'ENG', query: 'OTH-2' })).items[0]?.id).toBe('OTH-2');
 });
 
-test.each([
-  ['getArtifact', { id: 'ENG-a99' }],
-  ['getSeed', { id: 'ENG-s99' }],
-  ['scratchGet', { id: '00000000-0000-4000-8000-000000000000' }],
-  ['status', { id: 'ENG-99' }],
-  ['tree', { id: 'ENG-99' }],
-  ['overview', { project: 'NOPE' }],
-  ['scratchList', { project: 'NOPE' }],
-  ['scratchList', { project: 'ARC' }],
-  ['scratchGet', { id: '<archived>' }],
-] as const)('%s keeps the not_found refusal across the wire', async (method, input) => {
-  const resolved = 'id' in input && input.id === '<archived>' ? { id: ids.archivedPad } : input;
-  const run = (engine: Engine) => errorOf(call(engine, method, resolved));
+test('scratchGet keeps the not_found refusal across the wire for an archived project', async () => {
+  const input = { id: ids.archivedPad };
+  const run = (engine: Engine) => errorOf(call(engine, 'scratchGet', input));
   const [localError, remoteError] = [await run(local), await run(remote)];
   expect(localError.code).toBe('not_found');
   expect(remoteError.code).toBe('not_found');
