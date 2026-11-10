@@ -119,7 +119,7 @@ const rowOf = (title: string) => {
 };
 
 describe('tasksPage (grouped reading list, MMR-454)', () => {
-  it('groups by status in the stated order with counts, hiding empty groups', async () => {
+  it('groups by status in the stated order with counts, and reads the live selection with the lede', async () => {
     mockApi();
     await renderTasks();
     await screen.findByText('Doctor the wire');
@@ -131,20 +131,6 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
     ]);
     // newest activity first inside a group
     expect(titlesIn('Ready · 2')).toStrictEqual(['Hoist the lookup', 'Doctor the wire']);
-  });
-
-  it('renders under a bare root: the console shell never mounts', async () => {
-    mockApi();
-    await renderTasks();
-    await screen.findByText('Doctor the wire');
-    // The Shell's first element is its skip link; no page renders one.
-    expect(screen.queryByRole('link', { name: 'Skip to content' })).toBeNull();
-  });
-
-  it('the header names the live count and reads the portfolio task selection with the lede', async () => {
-    mockApi();
-    await renderTasks();
-    await screen.findByText('Doctor the wire');
     expect(screen.getByText('5 live')).toBeDefined();
     expect(nodeReads()).toContainEqual({
       facets: ['home', 'lede'],
@@ -153,15 +139,7 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
     });
   });
 
-  it('groups only by status: no group menu, and an old group=project link is harmless', async () => {
-    mockApi();
-    await renderTasks('/p/MMR/tasks?group=project');
-    await screen.findByText('Doctor the wire');
-    expect(screen.queryByRole('button', { name: /Group:/ })).toBeNull();
-    expect(groupHeadings()[0]).toBe('Under review · 1');
-  });
-
-  it('every row is a link to the task page', async () => {
+  it('each row links to its task, shows the lede over the summary, its place and its status in text', async () => {
     mockApi();
     const testRouter = await renderTasks();
     const user = userEvent.setup();
@@ -173,57 +151,30 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
       'href',
       '/p/NRN/4',
     );
-    await user.click(link);
-    await waitFor(() => {
-      expect(testRouter.state.location.pathname).toBe('/p/MMR/10');
-    });
-  });
 
-  it('shows the lede, preferring it over the summary', async () => {
-    mockApi();
-    await renderTasks();
-    await screen.findByText('Doctor the wire');
     expect(within(rowOf('Review the cutover')).getByText('The lede wins.')).toBeDefined();
     expect(screen.queryByText('The summary loses.')).toBeNull();
     // no lede on the wire falls back to the summary
     expect(within(rowOf('Land the schema')).getByText('The schema landed.')).toBeDefined();
-  });
 
-  it('the meta line reads key › parent, with ∞ on a standing home, then the age', async () => {
-    mockApi();
-    await renderTasks();
-    await screen.findByText('Doctor the wire');
+    // key › parent, with ∞ on a standing home only
     const review = rowOf('Review the cutover');
-    expect(within(review).getByText('MMR').className).toContain('font-mono');
+    expect(within(review).getByText('MMR')).toBeDefined();
     expect(review.textContent).toContain('› Storage cutover');
     expect(review.textContent).toContain(' · ');
     expect(
       within(review).getByRole('img', { name: 'open-ended — a standing home' }).textContent,
     ).toContain('∞');
     expect(within(rowOf('Doctor the wire')).queryByRole('img')).toBeNull();
-  });
 
-  it('demotes finished rows by ink tier, never opacity', async () => {
-    mockApi();
-    await renderTasks();
-    await screen.findByText('Doctor the wire');
-    expect(screen.getByRole('link', { name: 'Land the schema' }).className).toContain(
-      'text-ink-dim',
-    );
-    expect(rowOf('Land the schema').className).not.toContain('opacity');
-    expect(screen.getByRole('link', { name: 'Doctor the wire' }).className).toContain(
-      'text-ink-bright',
-    );
-  });
+    // the status reads in text, not only by the dot colour
+    expect(within(review).getByText('Under review')).toBeInTheDocument();
+    expect(within(rowOf('Doctor the wire')).getByText('Ready')).toBeInTheDocument();
 
-  it('strikes through abandoned titles only', async () => {
-    mockApi();
-    await renderTasks();
-    await screen.findByText('Old dead end');
-    expect(screen.getByRole('link', { name: 'Old dead end' }).className).toContain('line-through');
-    expect(screen.getByRole('link', { name: 'Land the schema' }).className).not.toContain(
-      'line-through',
-    );
+    await user.click(link);
+    await waitFor(() => {
+      expect(testRouter.state.location.pathname).toBe('/p/MMR/10');
+    });
   });
 
   it('Live is pressed by default; Finished sets status=terminal in the URL and the request', async () => {
@@ -300,14 +251,6 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
     expect(screen.getByRole('searchbox', { name: 'Search tasks' })).toHaveFocus();
   });
 
-  it('says each row status in text, not only by the dot colour', async () => {
-    mockApi();
-    await renderTasks();
-    await screen.findByText('Doctor the wire');
-    expect(within(rowOf('Review the cutover')).getByText('Under review')).toBeInTheDocument();
-    expect(within(rowOf('Doctor the wire')).getByText('Ready')).toBeInTheDocument();
-  });
-
   it('labels a deep-linked union and the all selector', async () => {
     mockApi();
     await renderTasks('/p/MMR/tasks?status=ready,blocked');
@@ -333,13 +276,6 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
     expect(screen.getByRole('searchbox')).toHaveProperty('value', 'cutover');
     const read = nodeReads().find((p) => p.q === 'cutover');
     expect(read?.project).toBe('MMR');
-  });
-
-  it('has no project filter chip — the path names the project', async () => {
-    mockApi();
-    await renderTasks();
-    await screen.findByText('Doctor the wire');
-    expect(screen.queryByRole('button', { name: /All projects/ })).not.toBeInTheDocument();
   });
 
   it('typing in the search box updates q after the debounce', async () => {

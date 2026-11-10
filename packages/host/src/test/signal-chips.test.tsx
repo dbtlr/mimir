@@ -12,9 +12,11 @@ import { PriorityBadge } from '../components/signal-badges';
  * and draws every kind alike.
  */
 describe('priority and seed-kind chips stay off the status hues (ADR 0019 §1, MMR-626)', () => {
-  it.each(PRIORITY_VALUES)('%s chip uses no status token', (priority) => {
-    render(<PriorityBadge priority={priority} />);
-    expect(screen.getByText(priority).className).not.toMatch(/status-/);
+  it('no priority chip uses a status token', () => {
+    for (const priority of PRIORITY_VALUES) {
+      render(<PriorityBadge priority={priority} />);
+      expect(screen.getByText(priority).className).not.toMatch(/status-/);
+    }
   });
 
   // p3 stops at ink-dim: ink-faint measures 3.11:1 (dark) and 2.84:1 (light) on the chip ground.
@@ -28,9 +30,11 @@ describe('priority and seed-kind chips stay off the status hues (ADR 0019 §1, M
     expect(p0).toEqual(expect.arrayContaining(['inset-ring-line-bright', 'font-semibold']));
   });
 
-  it.each(SEED_KIND_VALUES)('%s kind chip uses no status token', (kind) => {
-    render(<SeedKindChip kind={kind} />);
-    expect(screen.getByText(kind).className).not.toMatch(/status-/);
+  it('no seed kind chip uses a status token', () => {
+    for (const kind of SEED_KIND_VALUES) {
+      render(<SeedKindChip kind={kind} />);
+      expect(screen.getByText(kind).className).not.toMatch(/status-/);
+    }
   });
 
   it('draws every seed kind alike', () => {

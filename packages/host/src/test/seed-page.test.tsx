@@ -101,36 +101,17 @@ describe('seed page (MMR-451)', () => {
     await waitFor(() => expect(card).toHaveTextContent(/You\s*ask\s*Mimir\s*MMR/));
   });
 
-  it('moves a lowercase key to its canonical spelling', async () => {
+  it('moves a mixed spelling to the canonical path, keeping every digit of a long seed number', async () => {
     serve(crossBoardBug);
-    const { router: testRouter } = await renderRoute(consoleRoutes, '/p/nrn/s30', quietClient());
-
-    await screen.findByRole('heading', { level: 1, name: crossBoardBug.title });
-    expect(testRouter.state.location.pathname).toBe('/p/NRN/s30');
-  });
-
-  it('moves an uppercase S to the canonical seed path', async () => {
-    serve(crossBoardBug);
-    const { router: upper } = await renderRoute(consoleRoutes, '/p/NRN/S30', quietClient());
-    await screen.findByRole('heading', { level: 1, name: crossBoardBug.title });
-    expect(upper.state.location.pathname).toBe('/p/NRN/s30');
-  });
-
-  it('moves a zero-padded seed number to its canonical path', async () => {
-    serve(crossBoardBug);
-    const { router: padded } = await renderRoute(consoleRoutes, '/p/NRN/s030', quietClient());
-    await screen.findByRole('heading', { level: 1, name: crossBoardBug.title });
-    expect(padded.state.location.pathname).toBe('/p/NRN/s30');
-  });
-
-  it('strips the padding as text, keeping every digit of a long seed number', async () => {
-    serve(crossBoardBug);
-    const { router: long } = await renderRoute(
+    const { router: testRouter } = await renderRoute(
       consoleRoutes,
-      '/p/NRN/s0123456789012345678901',
+      '/p/nrn/S0123456789012345678901',
       quietClient(),
     );
-    await waitFor(() => expect(long.state.location.pathname).toBe('/p/NRN/s123456789012345678901'));
+
+    await waitFor(() =>
+      expect(testRouter.state.location.pathname).toBe('/p/NRN/s123456789012345678901'),
+    );
   });
 
   it('redirects a bare seed id to its page', async () => {

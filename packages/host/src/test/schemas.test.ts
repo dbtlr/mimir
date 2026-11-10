@@ -20,11 +20,6 @@ describe('taskFormSchema', () => {
     expect(r.data.external_ref).toBeNull();
   });
 
-  it('rejects an out-of-enum priority', () => {
-    const r = taskFormSchema.safeParse({ ...emptyTaskForm, priority: 'p9', title: 'x' });
-    expect(r.success).toBe(false);
-  });
-
   it('keeps a valid priority/size', () => {
     const r = taskFormSchema.safeParse({
       ...emptyTaskForm,

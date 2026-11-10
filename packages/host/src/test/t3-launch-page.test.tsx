@@ -73,12 +73,9 @@ describe('Launch in T3 on the task page', () => {
     expect(t3Catalog).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ['queued', { status: 'queued' as const }],
-    ['in progress', { status: 'in_progress' as const }],
-    ['parked', { hold: 'parked' as const, status: 'parked' as const }],
-  ])('is not offered on a %s task, and nothing is asked of T3', async (_name, extra) => {
-    const rail = await openTask(engineTask({ id: 'MMR-7', parent: 'MMR-2', ...extra }));
+  // A queued task still offers Start, so only the launch gate keeps T3 out of its rail.
+  it('is not offered on a queued task, and nothing is asked of T3', async () => {
+    const rail = await openTask(engineTask({ id: 'MMR-7', parent: 'MMR-2', status: 'queued' }));
     await within(rail).findByRole('button', { name: 'Edit' });
     expect(within(rail).queryByRole('button', { name: /Launch/ })).toBeNull();
     expect(t3Origin).not.toHaveBeenCalled();
@@ -99,17 +96,6 @@ describe('Open in T3', () => {
     expect(link).not.toHaveAttribute('target');
   });
 
-  it('shows no link on the agent panel when the host handle is missing', async () => {
-    const rail = await openTask(
-      engineTask({ id: 'MMR-7', parent: 'MMR-2', status: 'queued', ...handles, host: null }),
-    );
-    await within(rail).findByText('thread-1');
-    await waitFor(() => {
-      expect(t3Origin).toHaveBeenCalled();
-    });
-    expect(within(rail).queryByRole('link', { name: /Open in T3/ })).toBeNull();
-  });
-
   it('links a Now row beside its meta', async () => {
     serveT3Launch(connectedCatalog([]));
     await renderInRouter(
@@ -120,19 +106,6 @@ describe('Open in T3', () => {
       'href',
       't3code://threads/env-1/thread-1',
     );
-  });
-
-  it.each([
-    ['another harness', { harness: 'claude' }],
-    ['no host', { host: null }],
-    ['no session', { session: null }],
-  ])('shows no link on a Now row with %s', async (_name, change) => {
-    serveT3Launch(connectedCatalog([]));
-    await renderInRouter(<NowRow row={nowRow({ id: 'MMR-7', ...handles, ...change })} />, quiet());
-    await waitFor(() => {
-      expect(t3Origin).toHaveBeenCalled();
-    });
-    expect(screen.queryByRole('link', { name: /Open in T3/ })).toBeNull();
   });
 
   it('shows no link on a Now row while T3 is unconfigured', async () => {

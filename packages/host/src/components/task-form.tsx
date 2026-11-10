@@ -3,13 +3,11 @@ import type { Priority, Size } from '@mimir/contract';
 import { useForm } from '@tanstack/react-form';
 import { useState } from 'react';
 
-import type { ParentOption } from '../lib/parent-options';
 import { emptyTaskForm, taskFormSchema } from '../lib/schemas';
 import type { TaskFormValues } from '../lib/schemas';
 import { ActionButton } from './ui/action-button';
 
 export type TaskFormSubmit = {
-  parent?: string;
   title: string;
   description: string | null;
   summary: string | null;
@@ -20,24 +18,13 @@ export type TaskFormSubmit = {
 };
 
 export type TaskFormProps = {
-  mode: 'create' | 'edit';
-  parents?: ParentOption[];
-  initial?: Partial<TaskFormValues> & { parent?: string };
+  initial?: Partial<TaskFormValues>;
   submitting?: boolean;
   onSubmit: (values: TaskFormSubmit) => void;
   onCancel: () => void;
 };
 
-export function TaskForm({
-  mode,
-  parents,
-  initial,
-  submitting,
-  onSubmit,
-  onCancel,
-}: TaskFormProps) {
-  const defaultParent = initial?.parent ?? parents?.[0]?.id ?? '';
-
+export function TaskForm({ initial, submitting, onSubmit, onCancel }: TaskFormProps) {
   // The tags box displays exactly what was typed — parsing must never rewrite
   // the text mid-typing (joining the parsed array back would eat a trailing
   // comma, silently merging "ui" + ", feat" into "uifeat"). The raw string
@@ -48,8 +35,7 @@ export function TaskForm({
     defaultValues: {
       ...emptyTaskForm,
       ...initial,
-      parent: defaultParent, // always last, always a string
-    } satisfies TaskFormValues & { parent: string },
+    } satisfies TaskFormValues,
     onSubmit: ({ value }) => {
       const result = taskFormSchema.safeParse({
         description: value.description,
@@ -63,12 +49,7 @@ export function TaskForm({
       if (!result.success) {
         return;
       }
-      const parsed = result.data;
-      if (mode === 'create') {
-        onSubmit({ parent: value.parent, ...parsed });
-      } else {
-        onSubmit(parsed);
-      }
+      onSubmit(result.data);
     },
   });
 
@@ -80,33 +61,6 @@ export function TaskForm({
       }}
       className="flex flex-col gap-3"
     >
-      {/* Parent picker — create mode only */}
-      {mode === 'create' && (
-        <div className="flex flex-col gap-1">
-          <label htmlFor="task-form-parent" className="text-xs font-medium text-ink-dim">
-            Parent
-          </label>
-          <form.Field name="parent">
-            {(field) => (
-              <select
-                id="task-form-parent"
-                name={field.name}
-                value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value)}
-                onBlur={field.handleBlur}
-                className="rounded border border-line bg-well-850 px-2 py-1.5 text-xs text-ink outline-none focus-visible:border-accent"
-              >
-                {parents?.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.depth === 1 ? `  — ${o.label}` : o.label}
-                  </option>
-                ))}
-              </select>
-            )}
-          </form.Field>
-        </div>
-      )}
-
       {/* Title — always visible */}
       <div className="flex flex-col gap-1">
         <label htmlFor="task-form-title" className="text-xs font-medium text-ink-dim">
@@ -172,7 +126,7 @@ export function TaskForm({
       </div>
 
       {/* More details disclosure */}
-      <details open={mode === 'edit'} className="flex flex-col gap-1">
+      <details open className="flex flex-col gap-1">
         <summary className="cursor-pointer text-xs text-ink-dim hover:text-ink">
           More details
         </summary>
@@ -250,7 +204,7 @@ export function TaskForm({
             </form.Field>
           </div>
 
-          {/* Tags — create and edit (MMR-257: the task page's edit form is the
+          {/* Tags (MMR-257: the task page's edit form is the
               tag-edit surface; the retired standalone TagEditor is gone) */}
           <div className="flex flex-col gap-1">
             <label htmlFor="task-form-tags" className="text-xs font-medium text-ink-dim">
@@ -290,21 +244,15 @@ export function TaskForm({
         >
           Cancel
         </button>
-        <form.Subscribe
-          selector={(state) => ({ parent: state.values.parent, title: state.values.title })}
-        >
-          {({ title, parent }) => (
+        <form.Subscribe selector={(state) => state.values.title}>
+          {(title) => (
             <ActionButton
               type="submit"
               size="sm"
-              disabled={
-                submitting === true ||
-                title.trim() === '' ||
-                (mode === 'create' && (parent ?? '').trim() === '')
-              }
+              disabled={submitting === true || title.trim() === ''}
               className="disabled:cursor-not-allowed"
             >
-              {mode === 'create' ? 'Create' : 'Save'}
+              Save
             </ActionButton>
           )}
         </form.Subscribe>

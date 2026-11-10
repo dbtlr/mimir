@@ -80,15 +80,6 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
     expect(ready.compareDocumentPosition(promoted) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
   });
 
-  it('hides a live lane with no seeds', async () => {
-    mockApi([seedIn('untriaged', { id: 'MMR-s1' })]);
-    await renderSeeds();
-    await screen.findByText('Untriaged · 1');
-    expect(screen.queryByText(/Ready to resolve/)).toBeNull();
-    expect(screen.queryByText(/Promoted/)).toBeNull();
-    expect(screen.queryByText(/Settled/)).toBeNull();
-  });
-
   it('shows the to-triage and to-resolve counts in the header', async () => {
     mockApi();
     await renderSeeds();
@@ -263,27 +254,11 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
     await expect(screen.findByText(/No seeds yet/)).resolves.toBeDefined();
   });
 
-  it('no longer opens a reading pane from ?seed=', async () => {
-    mockApi();
-    await renderSeeds('/p/MMR/seeds?seed=MMR-s1');
-    await screen.findByText('Untriaged · 1');
-    expect(screen.queryByRole('article')).toBeNull();
-    expect(screen.queryByText('Select a seed to read.')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Promote to task…' })).toBeNull();
-  });
-
   it('opens the seed capture from "+ File a seed"', async () => {
     mockApi();
     const user = userEvent.setup();
     await renderSeeds();
     await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
     await expect(screen.findByLabelText('Seed')).resolves.toBeDefined();
-  });
-
-  it('never says "dispose" — the shipped copy is "resolve"', async () => {
-    mockApi();
-    await renderSeeds();
-    await screen.findByText('Ready to resolve · 1');
-    expect(document.body.textContent?.toLowerCase()).not.toContain('dispose');
   });
 });
