@@ -208,8 +208,9 @@ export function parityCases<Case extends ParityCase>(
   registerParity(testUrl, cases, async (c) => {
     const { board, value: rewrite } = opened!;
     const run = rewrite === undefined ? c : rewrite(c);
-    arrange?.(board, c);
     try {
+      // Inside the try, so a throw part-way through leaves no findings for a later case.
+      arrange?.(board, c);
       return pinText(await runNew((argv) => board.app(c.bound, argv), run), board.dir);
     } finally {
       board.findings.length = 0;
