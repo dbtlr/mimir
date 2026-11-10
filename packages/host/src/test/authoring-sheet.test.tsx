@@ -148,8 +148,9 @@ describe('authoringSheet', () => {
     expect(screen.queryByText(/status/i)).not.toBeInTheDocument();
   });
 
-  // parent-options.test.ts owns the table of legal homes; one switch proves the sheet passes its type.
-  it('type governs legal homes: a phase offers initiatives only', async () => {
+  // parent-options.test.ts owns the table of node homes; the phase switch proves the sheet passes
+  // its type. An initiative's project rows are the sheet's own branch, outside that table.
+  it('type governs legal homes: a phase offers initiatives only, an initiative bare projects', async () => {
     const user = userEvent.setup();
     await renderSheet();
     await sheetReady();
@@ -159,6 +160,13 @@ describe('authoringSheet', () => {
     await expect(screen.findByRole('option', { name: /build/ })).resolves.toBeInTheDocument();
     expect(screen.getByRole('option', { name: /Polish/ })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: /Phase 0/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('option', { name: /build/ }));
+
+    await user.click(screen.getByRole('radio', { name: 'Initiative' }));
+    await user.click(screen.getByRole('button', { expanded: false, name: /home/i }));
+    expect(screen.getByRole('option', { name: /Mimir/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Website/ })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /build/ })).not.toBeInTheDocument();
   });
 
   it('creates a task, then applies DEPENDS-ON via /depend, and closes', async () => {

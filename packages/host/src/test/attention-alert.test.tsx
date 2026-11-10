@@ -175,13 +175,16 @@ describe('the attention alert trigger', () => {
 });
 
 describe('the Needs you popover', () => {
-  it('opens on the trigger, moves focus in, and closes on Escape back to the trigger', async () => {
+  it('opens on the trigger with the review’s groups in order, moves focus in, and closes on Escape back to the trigger', async () => {
     renderAt('/p/MMR/tasks', twoProjects());
     expect(screen.queryByRole('dialog')).toBeNull();
 
     const panel = await openAlert('3 decisions need you');
     const trigger = screen.getByRole('button', { name: '3 decisions need you' });
     expect(panel.contains(document.activeElement)).toBe(true);
+    // The alert hands DecisionGroups the review read's groups as they are, in the review order.
+    const groups = within(panel).getAllByRole('region');
+    expect(groups.map((g) => g.getAttribute('aria-label'))).toEqual(['Loom CLI', 'Mimir']);
     // A desktop popover has no close control and is not a page footer.
     expect(within(panel).queryByRole('button', { name: 'Close' })).toBeNull();
     expect(within(panel).queryByRole('contentinfo')).toBeNull();

@@ -44,7 +44,7 @@ describe('browserRow layout (MMR-488)', () => {
     expect(titleColumn).toContainElement(after);
   });
 
-  it('hangs the lede and meta line under the title column, not under the id', async () => {
+  it('places the lede and meta line in the id’s grid, outside the title column', async () => {
     const { id, lede, meta } = await renderRow();
     const metaLine = meta.parentElement as HTMLElement;
 

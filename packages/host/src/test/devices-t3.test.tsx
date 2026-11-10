@@ -68,11 +68,18 @@ describe('the T3 Code card (ADR 0040)', () => {
       'Reconnect T3',
     ],
     [
+      'rejected',
+      { reason: 'rejected', state: 'disconnected' },
+      'T3 refused the saved connection.',
+      'Reconnect T3',
+    ],
+    [
       'misconfigured',
       { problem: 'unset', setting: 'MIMIR_HOSTS', state: 'misconfigured' },
       'T3 is not set up: MIMIR_HOSTS is unset.',
       undefined,
     ],
+    ['unreachable', { state: 'unreachable' }, 'T3 did not answer.', undefined],
   ])('words the %s state', async (_name, status, text, button) => {
     serveT3(status);
     await renderRoute(consoleRoutes, '/devices');

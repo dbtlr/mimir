@@ -260,7 +260,7 @@ describe('directionPanel clamp (MMR-484)', () => {
     }
   });
 
-  it('clamps the rendered direction to six lines', () => {
+  it('marks the rendered direction as clamped', () => {
     stubHeights(100, 100);
     renderPanel();
     const article = screen.getByText('cut').closest('article');

@@ -400,6 +400,15 @@ describe('stopping a run', () => {
     expect(button('Stop')).toHaveFocus();
   });
 
+  it('closes on Escape without a call', async () => {
+    await openDialog();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(cancelGroom).not.toHaveBeenCalled();
+  });
+
   it('calls cancelGroom with the run id and closes on a recorded cancel', async () => {
     await openDialog();
     await userEvent.click(screen.getByRole('button', { name: 'Stop run' }));
