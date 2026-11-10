@@ -42,8 +42,17 @@ export type Timings = { files: FileTiming[]; tests: TestTiming[] };
 
 const ENTITIES: Record<string, string> = { amp: '&', apos: "'", gt: '>', lt: '<', quot: '"' };
 
+/** Decode the XML references bun writes: the five named ones and numeric ones such as `&#10;`. */
 function unescape(text: string): string {
-  return text.replaceAll(/&(amp|apos|gt|lt|quot);/g, (_, entity: string) => ENTITIES[entity] ?? '');
+  return text.replaceAll(
+    /&(?:(amp|apos|gt|lt|quot)|#(\d+)|#x([\da-f]+));/gi,
+    (match: string, named?: string, dec?: string, hex?: string) => {
+      if (named) {
+        return ENTITIES[named] ?? match;
+      }
+      return String.fromCodePoint(dec ? Number(dec) : Number.parseInt(hex ?? '', 16));
+    },
+  );
 }
 
 function attributes(tag: string): Map<string, string> {
@@ -199,13 +208,35 @@ export function describeVerdict(verdict: Verdict, budget: Budget): string {
   return lines.join('\n');
 }
 
-if (import.meta.main) {
-  const path = process.argv[2];
+export type Terminal = {
+  readFile: (path: string) => string;
+  log: (line: string) => void;
+  error: (line: string) => void;
+};
+
+/** Check the report named by `args[0]`, print the verdict, and return the exit code: 0 within budget, 1 over, 2 for usage. */
+export function run(
+  args: readonly string[],
+  terminal: Terminal,
+  budget: Budget = BUDGET,
+  exemptions: readonly Exemption[] = EXEMPTIONS,
+): number {
+  const [path] = args;
   if (!path) {
-    console.error('usage: bun packages/cli/scripts/test-budget.ts <junit.xml>');
-    process.exit(2);
+    terminal.error('usage: bun packages/cli/scripts/test-budget.ts <junit.xml>');
+    return 2;
   }
-  const verdict = judge(readJunit(readFileSync(path, 'utf8')), BUDGET, EXEMPTIONS);
-  console.log(describeVerdict(verdict, BUDGET));
-  process.exit(passes(verdict) ? 0 : 1);
+  const verdict = judge(readJunit(terminal.readFile(path)), budget, exemptions);
+  terminal.log(describeVerdict(verdict, budget));
+  return passes(verdict) ? 0 : 1;
+}
+
+if (import.meta.main) {
+  process.exit(
+    run(process.argv.slice(2), {
+      error: (line) => console.error(line),
+      log: (line) => console.log(line),
+      readFile: (path) => readFileSync(path, 'utf8'),
+    }),
+  );
 }

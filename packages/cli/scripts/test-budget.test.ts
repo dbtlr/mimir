@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { judge, passes, readJunit } from './test-budget';
+import { judge, passes, readJunit, run } from './test-budget';
 import type { Budget, Exemption } from './test-budget';
 
 /** A bun junit report: one file with a describe block, one flat file. */
@@ -102,5 +102,78 @@ describe('judge', () => {
 
   test('a test over the limit fails the budget', () => {
     expect(passes(judge(timings, budget, []))).toBe(false);
+  });
+
+  test('a test or file exactly at a threshold is within it', () => {
+    const verdict = judge(
+      {
+        files: [{ file: 'f.test.ts', ms: budget.fileWarnMs }],
+        tests: [
+          { file: 'f.test.ts', ms: budget.testLimitMs, name: 'at the limit' },
+          { file: 'f.test.ts', ms: budget.testWarnMs, name: 'at the warning' },
+        ],
+      },
+      budget,
+      [],
+    );
+    expect(verdict.over.map((t) => t.name)).toEqual([]);
+    expect(verdict.slow.map((t) => t.name)).toEqual(['at the limit']);
+    expect(verdict.slowFiles).toEqual([]);
+  });
+
+  test('an exemption covers a test only when both its file and its name match', () => {
+    const slow = 'Postgres "stores" > nested > round-trips <every> collection';
+    const otherFile: Exemption = { file: 'packages/wire/src/b.test.ts', name: slow, task: 'MMR-4' };
+    const otherName: Exemption = {
+      file: 'packages/core/src/a.test.ts',
+      name: 'Postgres "stores" > refuses a stale main',
+      task: 'MMR-5',
+    };
+    const verdict = judge(timings, budget, [otherFile, otherName]);
+    expect(verdict.over.map((t) => t.name)).toEqual([slow]);
+    expect(verdict.exempt).toEqual([]);
+  });
+});
+
+describe('readJunit, on the rest of what bun writes', () => {
+  const failing = `<testsuites>
+  <testsuite name="f.test.ts" file="f.test.ts" time="2">
+    <testcase name="a &amp; b, line&#10;two, &#x41;" classname="" time="1.5" file="f.test.ts" line="1">
+      <failure type="AssertionError" />
+    </testcase>
+  </testsuite>
+</testsuites>`;
+
+  test('a failing test, written with a body, is timed like any other', () => {
+    expect(readJunit(failing).tests.map((t) => t.ms)).toEqual([1500]);
+  });
+
+  test('named and numeric character references are decoded', () => {
+    expect(readJunit(failing).tests.map((t) => t.name)).toEqual(['a & b, line\ntwo, A']);
+  });
+});
+
+/** A terminal over in-memory reports that records what it prints. */
+function io(reports: Record<string, string>) {
+  const out: string[] = [];
+  return {
+    error: (line: string) => out.push(line),
+    log: (line: string) => out.push(line),
+    out,
+    readFile: (path: string) => reports[path] ?? '',
+  };
+}
+
+describe('run', () => {
+  test('exits 1 when the report is over budget and 0 when it is within it', () => {
+    const within = report.replaceAll('time="3.000"', 'time="0.5"');
+    expect(run(['over.xml'], io({ 'over.xml': report }), budget, [])).toBe(1);
+    expect(run(['within.xml'], io({ 'within.xml': within }), budget, [])).toBe(0);
+  });
+
+  test('exits 2 with its usage when no report is named', () => {
+    const terminal = io({});
+    expect(run([], terminal, budget, [])).toBe(2);
+    expect(terminal.out.join('\n')).toContain('usage:');
   });
 });

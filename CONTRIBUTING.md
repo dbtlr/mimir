@@ -113,9 +113,11 @@ Confirm a fix with a stress run under the default timeouts.
 
 CI's gate checks the default bun lane's timings with `bun run test:budget`
 (`packages/cli/scripts/test-budget.ts`). A test over 3 s fails the gate, and a
-test over 1 s or a file over 15 s is reported in the log. A test over the limit
-may be exempted only against the task that will make it fast; remove the
-exemption in that task. An exemption that names a test the run did not
+test over 1 s or a file over 15 s is reported in the log. Bun counts
+`beforeEach` and `afterEach` in a test's time but `beforeAll` and `afterAll`
+only in its file's, so a slow shared setup shows as a slow file. A test over
+the limit may be exempted only against the task that will make it fast; remove
+the exemption in that task. An exemption that names a test the run did not
 include, as after a rename, fails the gate. To check a local run, write a
 report and pass it:
 

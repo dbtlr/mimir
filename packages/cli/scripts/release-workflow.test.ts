@@ -35,6 +35,13 @@ const workflowSchema = z.object({
   on: z.object({ pull_request: z.object({ paths: z.array(z.string()) }) }),
 });
 
+/** The report path when `run` is the gate's whole-suite test command, else undefined. */
+function gateTestReport(run: string | undefined): string | undefined {
+  return /^bun run test --reporter=junit --reporter-outfile=("\$RUNNER_TEMP\/[\w.-]+")$/.exec(
+    run ?? '',
+  )?.[1];
+}
+
 test('every pull request retains the full Linux suite, including stacked branches', async () => {
   const path = new URL('../../../.github/workflows/ci.yml', import.meta.url);
   const workflow = z
@@ -46,9 +53,9 @@ test('every pull request retains the full Linux suite, including stacked branche
   expect(workflow.on.pull_request).toBeNull();
   expect(workflow.jobs.gate.if).toBeUndefined();
   expect(workflow.jobs.gate['continue-on-error']).toBeUndefined();
-  // Flags may follow (the junit report the budget reads), but no paths narrow it.
-  const step = workflow.jobs.gate.steps.find((candidate) =>
-    /^bun run test( --[\w-]+(=\S+)?)*$/.test(candidate.run ?? ''),
+  // Only the junit report the budget reads may be added: no path, filter, or shard narrows it.
+  const step = workflow.jobs.gate.steps.find(
+    (candidate) => gateTestReport(candidate.run) !== undefined,
   );
   expect(step).toBeDefined();
   expect(step?.if).toBeUndefined();
@@ -60,9 +67,7 @@ test('the gate checks the test budget on the report its test step writes', async
   const { steps } = z
     .object({ jobs: z.object({ gate: jobSchema }) })
     .parse(Bun.YAML.parse(await Bun.file(path).text())).jobs.gate;
-  const report = steps
-    .map((candidate) => /^bun run test .*--reporter-outfile=(\S+)/.exec(candidate.run ?? '')?.[1])
-    .find(Boolean);
+  const report = steps.map((candidate) => gateTestReport(candidate.run)).find(Boolean);
   expect(report).toBeDefined();
   const budget = steps.find((candidate) => candidate.run === `bun run test:budget ${report}`);
   expect(budget).toBeDefined();
