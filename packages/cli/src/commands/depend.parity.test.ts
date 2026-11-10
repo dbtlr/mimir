@@ -2,6 +2,8 @@ import { argvCase as argv } from '../testing/argv-case';
 import type { ParityCase } from '../testing/parity';
 import { writeCases } from '../testing/writes';
 
+// `depend` and `undepend` echo the node they wrote through one set of views, so
+// the full format, `--ascii`, and terminal matrix runs once, on `depend`.
 const CASES: ParityCase[] = [
   // Adding prerequisites, through every format.
   argv(['depend', 'MMR-5', '--on', 'MMR-3']),
@@ -17,9 +19,6 @@ const CASES: ParityCase[] = [
   argv(['depend', 'MMR-5', '--on', 'XX-3']),
   // Removing them.
   argv(['undepend', 'MMR-4', '--on', 'MMR-3']),
-  argv(['undepend', 'MMR-4', '--on', 'MMR-3', '-f', 'json']),
-  argv(['undepend', 'MMR-4', '--on', 'MMR-3', '-f', 'ids']),
-  argv(['undepend', 'MMR-4', '--on', 'MMR-3'], true),
   argv(['undepend', 'MMR-5', '--on', 'MMR-3']),
   // Refusals Mimir raises.
   argv(['depend', 'MMR-3', '--on', 'MMR-4']),

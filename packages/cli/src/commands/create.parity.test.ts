@@ -2,6 +2,11 @@ import { argvCase, argvLine } from '../testing/argv-case';
 import type { ParityCase } from '../testing/parity';
 import { writeCases } from '../testing/writes';
 
+// `create` prints two views: a project's notice, and the echo of a written
+// node, which initiatives, phases, and tasks share. The full format, `--ascii`,
+// and terminal matrix runs once for each, on `create project` and `create
+// task`; every other case is one distinct input.
+
 /** `create` with its words, so each name leads with `create`. */
 const create = (words: string[], tty?: true): ParityCase => argvCase(['create', ...words], tty);
 
@@ -12,7 +17,6 @@ const PROJECT: ParityCase[] = [
   create(['project', 'Gamma', '--key', 'GAM', '-y', '-f', 'jsonl']),
   create(['project', 'Gamma', '--key', 'GAM', '-y', '-f', 'ids']),
   create(['project', '--name', 'Gamma', '--key', 'GAM', '-y']),
-  create(['project', '--name', 'Gamma', '--key', 'GAM', '-y', '-f', 'json']),
   create(['project', 'Gamma', '--key', 'GAM', '-y', '-f', 'table']),
   create(['project', 'Gamma', '--key', 'GAM', '-y', '--ascii']),
   create(['project', 'Gamma', '--key', 'GAM', '-y'], true),
@@ -37,12 +41,6 @@ const PROJECT: ParityCase[] = [
 
 const INITIATIVE: ParityCase[] = [
   create(['initiative', 'Growth', '--parent', 'MMR']),
-  create(['initiative', 'Growth', '--parent', 'MMR', '-f', 'json']),
-  create(['initiative', 'Growth', '--parent', 'MMR', '-f', 'jsonl']),
-  create(['initiative', 'Growth', '--parent', 'MMR', '-f', 'ids']),
-  create(['initiative', 'Growth', '--parent', 'MMR', '-f', 'table']),
-  create(['initiative', 'Growth', '--parent', 'MMR', '--ascii']),
-  create(['initiative', 'Growth', '--parent', 'MMR'], true),
   create([
     'initiative',
     'Growth',
@@ -73,12 +71,6 @@ const INITIATIVE: ParityCase[] = [
 
 const PHASE: ParityCase[] = [
   create(['phase', 'Beta', '--parent', 'MMR-1']),
-  create(['phase', 'Beta', '--parent', 'MMR-1', '-f', 'json']),
-  create(['phase', 'Beta', '--parent', 'MMR-1', '-f', 'jsonl']),
-  create(['phase', 'Beta', '--parent', 'MMR-1', '-f', 'ids']),
-  create(['phase', 'Beta', '--parent', 'MMR-1', '--ascii']),
-  create(['phase', 'Beta', '--parent', 'MMR-1', '-f', 'table']),
-  create(['phase', 'Beta', '--parent', 'MMR-1'], true),
   create(['phase', 'Beta', '--parent', 'MMR-1', '--target', '2027-01', '--desc', 'Second.']),
   create(['phase', 'Beta', '--parent', 'MMR-1', '--summary', 'beta', '-t', 'one']),
   create(['phase', 'Beta', '--parent', 'MMR-1', '--open-ended']),

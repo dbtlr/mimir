@@ -39,6 +39,9 @@ const scratch = (
   ...(bound === undefined ? {} : { bound }),
 });
 
+// Every scratch write echoes through one set of views (render/scratch.ts), so
+// the full format, `--ascii`, and terminal matrix runs once, on `scratch
+// create`; every other case is one distinct input.
 const CASES: ParityCase[] = [
   // create
   scratch('create', 'bound', { words: 'Index rewrite' }, {}, 'MMR'),
@@ -63,30 +66,6 @@ const CASES: ParityCase[] = [
 
   // update
   scratch('update', '--title', { id: '{pad}' }, { ...GUARD, title: 'Renamed' }),
-  scratch(
-    'update',
-    '--title -f ids',
-    { id: '{pad}' },
-    { ...GUARD, format: 'ids', title: 'Renamed' },
-  ),
-  scratch(
-    'update',
-    '--title -f json',
-    { id: '{pad}' },
-    { ...GUARD, format: 'json', title: 'Renamed' },
-  ),
-  scratch(
-    'update',
-    '--title -f jsonl',
-    { id: '{pad}' },
-    { ...GUARD, format: 'jsonl', title: 'Renamed' },
-  ),
-  scratch(
-    'update',
-    '--title -f table',
-    { id: '{pad}' },
-    { ...GUARD, format: 'table', title: 'Renamed' },
-  ),
   scratch('update', '--link', { id: '{pad}' }, { ...GUARD, link: ['MMR-4'] }),
   scratch('update', '--clear-links', { id: '{pad}' }, { ...GUARD, 'clear-links': true }),
   scratch('update', '(no change)', { id: '{pad}' }, GUARD),
@@ -115,31 +94,7 @@ const CASES: ParityCase[] = [
 
   // checkpoint
   scratch('checkpoint', 'inline', { id: '{pad}', text: 'Settled the plan.' }, GUARD),
-  scratch(
-    'checkpoint',
-    '-f ids',
-    { id: '{pad}', text: 'Settled the plan.' },
-    { ...GUARD, format: 'ids' },
-  ),
-  scratch(
-    'checkpoint',
-    '-f json',
-    { id: '{pad}', text: 'Settled the plan.' },
-    { ...GUARD, format: 'json' },
-  ),
-  scratch(
-    'checkpoint',
-    '-f jsonl',
-    { id: '{pad}', text: 'Settled the plan.' },
-    { ...GUARD, format: 'jsonl' },
-  ),
   scratch('checkpoint', 'on a blank pad', { id: '{blank}', text: 'First entry.' }, GUARD),
-  scratch(
-    'checkpoint',
-    '-f table',
-    { id: '{pad}', text: 'Settled.' },
-    { ...GUARD, format: 'table' },
-  ),
   scratch('checkpoint', '(no content)', { id: '{pad}' }, GUARD),
   scratch('checkpoint', '(no guard)', { id: '{pad}', text: 'Settled.' }),
   scratch(
@@ -153,24 +108,6 @@ const CASES: ParityCase[] = [
 
   // agenda
   scratch('agenda', 'add', { action: 'add', id: '{pad}', words: 'Do the thing' }, GUARD),
-  scratch(
-    'agenda',
-    'add -f ids',
-    { action: 'add', id: '{pad}', words: 'Do the thing' },
-    { ...GUARD, format: 'ids' },
-  ),
-  scratch(
-    'agenda',
-    'add -f json',
-    { action: 'add', id: '{pad}', words: 'Do the thing' },
-    { ...GUARD, format: 'json' },
-  ),
-  scratch(
-    'agenda',
-    'add -f table',
-    { action: 'add', id: '{pad}', words: 'Do the thing' },
-    { ...GUARD, format: 'table' },
-  ),
   scratch('agenda', 'add (no content)', { action: 'add', id: '{pad}' }, GUARD),
   scratch('agenda', 'add (no guard)', { action: 'add', id: '{pad}', words: 'Do it' }),
   scratch(
@@ -182,18 +119,6 @@ const CASES: ParityCase[] = [
   scratch('agenda', 'add (unknown pad)', { action: 'add', id: MISSING, words: 'Do it' }, GUARD),
   scratch('agenda', 'add (discarded pad)', { action: 'add', id: '{gone}', words: 'Do it' }, GUARD),
   scratch('agenda', 'complete 1', { action: 'complete', id: '{pad}', words: '1' }, GUARD),
-  scratch(
-    'agenda',
-    'complete 1 -f json',
-    { action: 'complete', id: '{pad}', words: '1' },
-    { ...GUARD, format: 'json' },
-  ),
-  scratch(
-    'agenda',
-    'complete 1 -f ids',
-    { action: 'complete', id: '{pad}', words: '1' },
-    { ...GUARD, format: 'ids' },
-  ),
   scratch(
     'agenda',
     'complete 3 (already done)',
@@ -216,18 +141,6 @@ const CASES: ParityCase[] = [
     'supersede 2',
     { action: 'supersede', id: '{pad}', words: '2' },
     { ...GUARD, reason: 'folded into 1' },
-  ),
-  scratch(
-    'agenda',
-    'supersede 2 -f json',
-    { action: 'supersede', id: '{pad}', words: '2' },
-    { ...GUARD, format: 'json', reason: 'folded' },
-  ),
-  scratch(
-    'agenda',
-    'supersede 2 -f ids',
-    { action: 'supersede', id: '{pad}', words: '2' },
-    { ...GUARD, format: 'ids', reason: 'folded' },
   ),
   scratch(
     'agenda',
@@ -256,30 +169,6 @@ const CASES: ParityCase[] = [
   // writes after its creation stamped it 1 ms past the last (`stampAfter`); every board,
   // pristine or not, sees the same clock, and the pin is the store's real recompute.
   scratch('freeze', '--summary', { id: '{pad}' }, { ...GUARD, summary: 'The index notes' }),
-  scratch(
-    'freeze',
-    '--summary -f ids',
-    { id: '{pad}' },
-    { ...GUARD, format: 'ids', summary: 'The index notes' },
-  ),
-  scratch(
-    'freeze',
-    '--summary -f json',
-    { id: '{pad}' },
-    { ...GUARD, format: 'json', summary: 'The index notes' },
-  ),
-  scratch(
-    'freeze',
-    '--summary -f jsonl',
-    { id: '{pad}' },
-    { ...GUARD, format: 'jsonl', summary: 'The index notes' },
-  ),
-  scratch(
-    'freeze',
-    '--summary -f table',
-    { id: '{pad}' },
-    { ...GUARD, format: 'table', summary: 'The index notes' },
-  ),
   scratch(
     'freeze',
     '--tag',
@@ -325,10 +214,6 @@ const CASES: ParityCase[] = [
   argvCase(['scratch', 'create', 'x', '--link', 'MMR-3', '--link', 'MMR-4', '-s', 'MMR']),
   argvCase(['scratch', 'create', 'x', '-s', 'MMR'], true),
   argvCase(['scratch', 'update', '{pad}', '--expected-updated-at', '{token}', '--title', 't']),
-  argvCase(
-    ['scratch', 'update', '{pad}', '--expected-updated-at', '{token}', '--title', 't'],
-    true,
-  ),
   // A checkpoint from a file; its content is distinctive so the board snapshot covers it.
   inDir(
     argvCase([
@@ -353,7 +238,6 @@ const CASES: ParityCase[] = [
       '{token}',
     ]),
   ),
-  argvCase(['scratch', 'checkpoint', '{pad}', 'a', 'b', '--expected-updated-at', '{token}'], true),
   // A misplaced flag, redirected as the old CLI redirected it.
   argvLine('scratch create x -s MMR --parent MMR-2', { path: ['scratch', 'create'] }),
   // Several words of inline content.
@@ -418,10 +302,6 @@ const CASES: ParityCase[] = [
     '--expected-updated-at',
     '{token}',
   ]),
-  argvCase(
-    ['scratch', 'agenda', 'supersede', '{pad}', '2', 'because', '--expected-updated-at', '{token}'],
-    true,
-  ),
   argvCase([
     'scratch',
     'freeze',
@@ -435,10 +315,6 @@ const CASES: ParityCase[] = [
     '--expected-updated-at',
     '{token}',
   ]),
-  argvCase(
-    ['scratch', 'freeze', '{pad}', '--summary', 's', '--expected-updated-at', '{token}'],
-    true,
-  ),
   argvCase(['scratch', 'discard', '{blank}', '--force', '--expected-updated-at', '{token}']),
   argvCase(['scratch', 'discard', '{blank}', '--expected-updated-at', '{token}'], true),
 ];

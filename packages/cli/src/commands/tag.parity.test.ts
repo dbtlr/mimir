@@ -2,6 +2,9 @@ import { argvCase as argv } from '../testing/argv-case';
 import type { ParityCase } from '../testing/parity';
 import { writeCases } from '../testing/writes';
 
+// `tag` and `untag` build one notice and print it through one set of views, so
+// the full format, `--ascii`, and terminal matrix runs once, on `tag`. Several
+// ids keep their own `ids` case, the one place the notice joins them.
 const CASES: ParityCase[] = [
   // tag: through every format.
   argv(['tag', 'MMR-5', 'design']),
@@ -34,13 +37,8 @@ const CASES: ParityCase[] = [
   argv(['tag', 'MMR-5', '']),
   // tag: faults Loom's parser raises.
   argv(['tag', 'MMR-5']),
-  // untag: through every format.
+  // untag.
   argv(['untag', 'MMR-3', 'alpha']),
-  argv(['untag', 'MMR-3', 'alpha', '-f', 'json']),
-  argv(['untag', 'MMR-3', 'alpha', '-f', 'jsonl']),
-  argv(['untag', 'MMR-3', 'alpha', '-f', 'ids']),
-  argv(['untag', 'MMR-3', 'alpha', '-f', 'table']),
-  argv(['untag', 'MMR-3', 'alpha'], true),
   argv(['untag', 'MMR-3,MMR-4', 'alpha']),
   argv(['untag', 'MMR-3', 'never-set']),
   argv(['untag', 'MMR-a1', 'design']),

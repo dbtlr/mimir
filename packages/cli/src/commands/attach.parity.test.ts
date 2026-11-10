@@ -49,7 +49,6 @@ const CASES: ParityCase[] = [
   attach(['attach', 'MMR-5', '--file', file, '--link', 'MMR-5']),
   // A project-level artifact.
   attach(['attach', '--file', file, '--project', 'MMR']),
-  attach(['attach', '--file', file, '--project', 'MMR', '-f', 'json']),
   attach(['attach', 'MMR-5', '--file', file, '--project', 'MMR']),
   // Refusals Mimir raises.
   attach(['attach', 'MMR-99', '--file', file]),

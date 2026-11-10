@@ -212,18 +212,6 @@ exit 0
 ~ projects[MMR].artifactCount: 1 -> 2
 + projects[MMR].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","tags":[],"title":"design.md"}
 
-### attach argv: --file <file> --project MMR -f json
-exit 0
---- stdout
-| {"artifact":{"id":"MMR-a2"}}
---- state
-+ artifacts[MMR-a2]: {"content":"# Design\n\nThe body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":[],"project":"MMR","tags":[],"title":"design.md"}
-+ board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":[],"project":"MMR","tags":[],"title":"design.md"}
-~ board.MMR.artifacts.returned: 1 -> 2
-~ board.MMR.artifacts.total: 1 -> 2
-~ projects[MMR].artifactCount: 1 -> 2
-+ projects[MMR].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","tags":[],"title":"design.md"}
-
 ### attach argv: MMR-5 --file <file> --project MMR
 exit 0
 --- stdout

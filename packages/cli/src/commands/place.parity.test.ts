@@ -2,6 +2,8 @@ import { argvCase as argv } from '../testing/argv-case';
 import type { ParityCase } from '../testing/parity';
 import { writeCases } from '../testing/writes';
 
+// `move` and `reorder` echo the node they wrote through one set of views, so
+// the full format, `--ascii`, and terminal matrix runs once, on `move`.
 const CASES: ParityCase[] = [
   // move: a new parent, through every format.
   argv(['move', 'MMR-5', '--to', 'MMR-1']),
@@ -30,19 +32,11 @@ const CASES: ParityCase[] = [
   argv(['move', 'MMR-5', '--to', '']),
   // move: faults Loom's parser raises.
   argv(['move', 'MMR-5']),
-  // reorder: each place, through every format.
+  // reorder: each place.
   argv(['reorder', 'MMR-5', '--top']),
-  argv(['reorder', 'MMR-5', '--top', '-f', 'json']),
-  argv(['reorder', 'MMR-5', '--top', '-f', 'ids']),
-  argv(['reorder', 'MMR-5', '--top', '-f', 'table']),
-  argv(['reorder', 'MMR-5', '--top', '--ascii']),
-  argv(['reorder', 'MMR-5', '--top'], true),
   argv(['reorder', 'MMR-3', '--bottom']),
-  argv(['reorder', 'MMR-3', '--bottom', '-f', 'json']),
   argv(['reorder', 'MMR-8', '--before', 'MMR-4']),
-  argv(['reorder', 'MMR-8', '--before', 'MMR-4', '-f', 'json']),
   argv(['reorder', 'MMR-3', '--after', 'MMR-5']),
-  argv(['reorder', 'MMR-3', '--after', 'MMR-5'], true),
   // reorder: refusals Mimir raises.
   argv(['reorder', 'MMR-99', '--top']),
   argv(['reorder', 'MMR-99', '--top', '-f', 'json']),

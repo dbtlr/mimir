@@ -13,6 +13,10 @@ const verb = (
 
 const FILED = { kind: 'idea' };
 
+// Every verb here echoes a seed through one set of views (render/seeds.ts), so
+// the full format, `--ascii`, and terminal matrix runs once, on `seed`.
+// `promote` keeps its `ids` and `json`, which print the task it spawned or
+// linked rather than the seed. Every other case is one distinct input.
 const CASES: ParityCase[] = [
   // seed: file one.
   verb('seed (bound)', 'seed', { title: 'Cache it' }, FILED, { bound: 'MMR' }),
@@ -115,18 +119,6 @@ const CASES: ParityCase[] = [
   verb('promote MMR-s1 -f ids', 'promote', { id: 'MMR-s1' }, { format: 'ids', parent: 'MMR-2' }),
   verb('promote MMR-s1 -f json', 'promote', { id: 'MMR-s1' }, { format: 'json', parent: 'MMR-2' }),
   verb(
-    'promote MMR-s1 -f jsonl',
-    'promote',
-    { id: 'MMR-s1' },
-    { format: 'jsonl', parent: 'MMR-2' },
-  ),
-  verb(
-    'promote MMR-s1 -f table',
-    'promote',
-    { id: 'MMR-s1' },
-    { format: 'table', parent: 'MMR-2' },
-  ),
-  verb(
     'promote MMR-s1 with fields',
     'promote',
     { id: 'MMR-s1' },
@@ -154,7 +146,6 @@ const CASES: ParityCase[] = [
     { format: 'ids', link: 'MMR-3' },
   ),
   verb('promote MMR-s1 --size m', 'promote', { id: 'MMR-s1' }, { parent: 'MMR-2', size: 'm' }),
-  verb('promote MMR-s1 --ascii', 'promote', { id: 'MMR-s1' }, { ascii: true, parent: 'MMR-2' }),
   verb('promote MMR-s1 -p p9', 'promote', { id: 'MMR-s1' }, { priority: 'p9' }),
   verb('promote MMR-s1 --size huge', 'promote', { id: 'MMR-s1' }, { size: 'huge' }),
   verb('promote MMR-3 (not a seed)', 'promote', { id: 'MMR-3' }, { parent: 'MMR-2' }),
@@ -165,41 +156,9 @@ const CASES: ParityCase[] = [
   verb('promote MMR-s1 --parent MMR-99', 'promote', { id: 'MMR-s1' }, { parent: 'MMR-99' }),
   verb('promote MMR-s1 --link MMR-99', 'promote', { id: 'MMR-s1' }, { link: 'MMR-99' }),
   argvCase(['promote', 'MMR-s1', '--parent', 'MMR-2', '-p', 'p1', '-t', 'alpha', '-t', 'beta']),
-  argvCase(['promote', 'MMR-s1', '--parent', 'MMR-2', '-f', 'ids'], true),
-  argvCase(['promote', 'MMR-s1', '--parent', 'MMR-2'], true),
 
   // reject and resolve: settle a seed with a reason.
   verb('reject MMR-s1', 'reject', { id: 'MMR-s1', reason: 'out of scope' }),
-  verb(
-    'reject MMR-s1 -f ids',
-    'reject',
-    { id: 'MMR-s1', reason: 'out of scope' },
-    { format: 'ids' },
-  ),
-  verb(
-    'reject MMR-s1 -f json',
-    'reject',
-    { id: 'MMR-s1', reason: 'out of scope' },
-    { format: 'json' },
-  ),
-  verb(
-    'reject MMR-s1 -f jsonl',
-    'reject',
-    { id: 'MMR-s1', reason: 'out of scope' },
-    { format: 'jsonl' },
-  ),
-  verb(
-    'reject MMR-s1 -f table',
-    'reject',
-    { id: 'MMR-s1', reason: 'out of scope' },
-    { format: 'table' },
-  ),
-  verb(
-    'reject MMR-s1 --ascii',
-    'reject',
-    { id: 'MMR-s1', reason: 'out of scope' },
-    { ascii: true },
-  ),
   verb('reject MMR-s2', 'reject', { id: 'MMR-s2', reason: 'no longer wanted' }),
   verb('reject MMR-s5 (parked)', 'reject', { id: 'MMR-s5', reason: 'drop it' }),
   verb('reject MMR-s1 (blank reason)', 'reject', { id: 'MMR-s1', reason: ' ' }),
@@ -208,7 +167,6 @@ const CASES: ParityCase[] = [
   verb('reject MMR-s3 (settled)', 'reject', { id: 'MMR-s3', reason: 'again' }),
   verb('reject (no reason)', 'reject', { id: 'MMR-s1' }),
   argvCase(['reject', 'MMR-s1', 'out', 'of', 'scope']),
-  argvCase(['reject', 'MMR-s1', 'out', 'of', 'scope'], true),
   // Reason words after `--` are text, not options.
   argvCase(['reject', 'MMR-s1', '--', '--out', 'of', 'scope']),
   argvCase(['reject', 'MMR-s1', 'later', '--', '-1', 'cycle']),
@@ -217,35 +175,14 @@ const CASES: ParityCase[] = [
   // A bare `--` is no words: both CLIs refuse the empty reason.
   argvCase(['reject', 'MMR-s1', '--']),
   verb('resolve MMR-s1', 'resolve', { id: 'MMR-s1', reason: 'shipped in MMR-40' }),
-  verb('resolve MMR-s1 -f ids', 'resolve', { id: 'MMR-s1', reason: 'shipped' }, { format: 'ids' }),
-  verb(
-    'resolve MMR-s1 -f json',
-    'resolve',
-    { id: 'MMR-s1', reason: 'shipped' },
-    { format: 'json' },
-  ),
-  verb(
-    'resolve MMR-s1 -f jsonl',
-    'resolve',
-    { id: 'MMR-s1', reason: 'shipped' },
-    { format: 'jsonl' },
-  ),
-  verb(
-    'resolve MMR-s1 -f table',
-    'resolve',
-    { id: 'MMR-s1', reason: 'shipped' },
-    { format: 'table' },
-  ),
   verb('resolve MMR-s4 (ready to resolve)', 'resolve', { id: 'MMR-s4', reason: 'shipped' }),
   verb('resolve MMR-s1 (blank reason)', 'resolve', { id: 'MMR-s1', reason: '' }),
   verb('resolve MMR-3 (not a seed)', 'resolve', { id: 'MMR-3', reason: 'done' }),
   verb('resolve MMR-s99', 'resolve', { id: 'MMR-s99', reason: 'done' }),
   verb('resolve MMR-s3 (settled)', 'resolve', { id: 'MMR-s3', reason: 'again' }),
-  verb('resolve MMR-s1 --ascii', 'resolve', { id: 'MMR-s1', reason: 'shipped' }, { ascii: true }),
   verb('resolve MMR-s5 (parked)', 'resolve', { id: 'MMR-s5', reason: 'done' }),
   verb('resolve (no reason)', 'resolve', { id: 'MMR-s1' }),
   argvCase(['resolve', 'MMR-s1', 'shipped', 'in', 'MMR-40']),
-  argvCase(['resolve', 'MMR-s1', 'shipped', 'in', 'MMR-40'], true),
   // A misplaced flag, redirected as the old CLI redirected it.
   argvLine('seed x -k idea -s MMR --parent MMR-2'),
 ];

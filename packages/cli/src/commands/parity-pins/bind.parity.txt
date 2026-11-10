@@ -5,13 +5,6 @@ exit 0
 --- state
 unchanged
 
-### bind (bound to MMR) -f records
-exit 0
---- stdout
-| MMR
---- state
-unchanged
-
 ### bind (bound to MMR) -f table
 exit 0
 --- stdout
@@ -121,13 +114,6 @@ exit 0
 --- state
 unchanged
 
-### bind MMR -f records
-exit 0
---- stdout
-| [ok] bound to MMR (git config mimir.project)
---- state
-unchanged
-
 ### bind MMR -f table
 exit 0
 --- stdout
@@ -175,13 +161,6 @@ exit 0
 exit 0
 --- stdout
 | {"bound":{"project":"XX","recordedRemote":"github.com/acme/widgets"}}
---- state
-~ projects[XX].remote: null -> "github.com/acme/widgets"
-
-### bind XX (origin) -f ids
-exit 0
---- stdout
-| XX
 --- state
 ~ projects[XX].remote: null -> "github.com/acme/widgets"
 
@@ -253,27 +232,6 @@ exit 0
 --- state
 unchanged
 
-### bind argv: MMR -f json
-exit 0
---- stdout
-| {"bound":{"project":"MMR"}}
---- state
-unchanged
-
-### bind argv: --format ids MMR
-exit 0
---- stdout
-| MMR
---- state
-unchanged
-
-### bind argv: -f json (bound)
-exit 0
---- stdout
-| {"bound":{"project":"MMR","source":"git-config"}}
---- state
-unchanged
-
 ### bind argv: -f json
 exit 1
 --- stdout
@@ -292,14 +250,6 @@ exit 0
 | ␛[32m✓␛[39m bound to MMR (git config mimir.project)
 --- state
 unchanged
-
-### bind argv: XX (terminal)
-exit 0
---- stdout
-| ␛[32m✓␛[39m bound to XX (git config mimir.project)
-| ␛[32m✓␛[39m recorded the origin github.com/acme/widgets on XX
---- state
-~ projects[XX].remote: null -> "github.com/acme/widgets"
 
 ### bind argv: (no arguments) (terminal) (bound)
 exit 0

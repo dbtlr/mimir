@@ -109,16 +109,6 @@ exit 0
 + nodes[MMR-4].annotations[@0]: {"content":"which store owns the lock?","createdAt":"2026-10-01T12:00:00.000Z"}
 ~ nodes[MMR-4].grooming: "not_groomed" -> "needs_answers"
 
-### groom argv: MMR-4 needs_answers "which store owns the lock?" -f json
-exit 0
---- stdout
-| {"groomed":{"ids":["MMR-4"],"state":"needs_answers"}}
---- state
-+ board.MMR.nodes.items[MMR-4].annotations[@0]: {"content":"which store owns the lock?","createdAt":"2026-10-01T12:00:00.000Z"}
-~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "needs_answers"
-+ nodes[MMR-4].annotations[@0]: {"content":"which store owns the lock?","createdAt":"2026-10-01T12:00:00.000Z"}
-~ nodes[MMR-4].grooming: "not_groomed" -> "needs_answers"
-
 ### groom argv: MMR-3 not_groomed
 exit 0
 --- stdout

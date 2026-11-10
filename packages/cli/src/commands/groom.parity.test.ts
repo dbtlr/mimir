@@ -2,8 +2,12 @@ import { argvCase as argv } from '../testing/argv-case';
 import type { ParityCase } from '../testing/parity';
 import { writeCases } from '../testing/writes';
 
+// The full format, `--ascii`, and terminal matrix runs once, on `groomed`;
+// every other case is one distinct input. Several ids keep their own `ids`
+// case, the one place the notice joins them, and a `-f json` after `--` is
+// note text, not a format.
 const CASES: ParityCase[] = [
-  // Every state, through every format.
+  // Every state, and one through every format.
   argv(['groom', 'MMR-4', 'groomed']),
   argv(['groom', 'MMR-4', 'groomed', '-f', 'json']),
   argv(['groom', 'MMR-4', 'groomed', '-f', 'jsonl']),
@@ -16,7 +20,6 @@ const CASES: ParityCase[] = [
   argv(['groom', 'MMR-4', 'MMR-5', 'groomed']),
   argv(['groom', 'MMR-4, MMR-5', 'groomed']),
   argv(['groom', 'MMR-4', 'needs_answers', 'which store owns the lock?']),
-  argv(['groom', 'MMR-4', 'needs_answers', 'which store owns the lock?', '-f', 'json']),
   argv(['groom', 'MMR-3', 'not_groomed']),
   argv(['groom', 'MMR-4', 'groomed', '--', '--note', 'text']),
   argv(['groom', 'MMR-4', 'groomed', '--', '--note', 'text', '-f', 'json']),

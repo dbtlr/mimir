@@ -13,6 +13,12 @@ import type { Setup, SetupCase } from '../testing/writes';
  * fresh board at one frozen instant (testing/writes.ts) and pins its output and
  * the records it changed. A refused verb must leave the board as it found it.
  *
+ * Every verb echoes through one set of views (render/echo.ts) with three
+ * shapes, so the full format, `--ascii`, and terminal matrix runs once per
+ * shape: `start MMR-3` (a node), `park MMR-s1` (a seed), and `archive XX` (a
+ * project). Every other case is one distinct input, in the format that shows
+ * what it adds.
+ *
  * The board: MMR-3 and MMR-8 are todo, MMR-4 awaits MMR-3, MMR-5 is in
  * progress, MMR-6 is blocked, MMR-7 is done, MMR-s1 is an untriaged seed, and
  * XX is a second project.
@@ -69,12 +75,6 @@ const queued = engineStep((engine) => engine.queue({ id: 'MMR-3', session: 'run-
 
 const QUEUE: SetupCase[] = [
   argv('queue MMR-3 --harness codex --session run-1'),
-  argv('queue MMR-3 --harness codex --session run-1 -f table'),
-  argv('queue MMR-3 --harness codex --session run-1 -f ids'),
-  argv('queue MMR-3 --harness codex --session run-1 -f json'),
-  argv('queue MMR-3 --harness codex --session run-1 -f jsonl'),
-  argv('queue MMR-3 --harness codex --session run-1 --ascii'),
-  argv('queue MMR-3 --harness codex --session run-1', { tty: true }),
   argv('queue MMR-3 --session run-1'),
   argv('queue MMR-3 --host laptop --harness codex --session run-1 --branch feat/x -f json'),
   // Refusals Mimir raises.
@@ -96,11 +96,6 @@ const QUEUE: SetupCase[] = [
 
 const UNQUEUE: SetupCase[] = [
   argv('unqueue MMR-3 run cancelled', { setup: queued }),
-  argv('unqueue MMR-3 run cancelled -f table', { setup: queued }),
-  argv('unqueue MMR-3 run cancelled -f ids', { setup: queued }),
-  argv('unqueue MMR-3 run cancelled -f json', { setup: queued }),
-  argv('unqueue MMR-3 run cancelled -f jsonl', { setup: queued }),
-  argv('unqueue MMR-3 run cancelled', { setup: queued, tty: true }),
   argv('unqueue MMR-3 -- --weird', { setup: queued }),
   argv('unqueue MMR-3 slip -- -1 day', { setup: queued }),
   // Refusals Mimir raises.
@@ -145,29 +140,16 @@ const START: SetupCase[] = [
   argv('start MMR-3 -- x'),
   // A reservation the claim takes over.
   argv('start MMR-3', { setup: queued }),
-  argv('start MMR-3 -f json', { setup: queued }),
-  argv('start MMR-3 -f table', { setup: queued }),
-  argv('start MMR-3 -f ids', { setup: queued }),
   argv('start MMR-3 --session s-2 --harness codex', { setup: queued }),
-  argv('start MMR-3', { setup: queued, tty: true }),
-  argv('start MMR-3 --ascii', { setup: queued }),
   // Explicit whole-task handoffs preserve the reservation's main identity.
   argv('start MMR-3 --worker-harness claude --worker-session worker-1 -f json', { setup: queued }),
   argv('start MMR-3 --worker-session worker-1 -f jsonl', { setup: queued }),
   argv('start MMR-3 --worker-session run-1 -f json', { setup: queued }),
-  argv('start MMR-3 --worker-harness claude --worker-session worker-1', {
-    setup: queued,
-    tty: true,
-  }),
   argv('start MMR-3 --worker-session worker-1 -f json'),
 ];
 
 const SUBMIT: SetupCase[] = [
   argv('submit MMR-5'),
-  argv('submit MMR-5 -f table'),
-  argv('submit MMR-5 -f ids'),
-  argv('submit MMR-5 -f json'),
-  argv('submit MMR-5', { tty: true }),
   argv('submit MMR-3'),
   argv('submit MMR-7'),
   argv('submit MMR-99 -f json'),
@@ -176,12 +158,7 @@ const SUBMIT: SetupCase[] = [
 
 const RETURN: SetupCase[] = [
   argv('return MMR-5', { setup: underReview }),
-  argv('return MMR-5 -f json', { setup: underReview }),
   argv('return MMR-5 needs tests', { setup: underReview }),
-  argv('return MMR-5 needs tests -f json', { setup: underReview }),
-  argv('return MMR-5 needs tests -f table', { setup: underReview }),
-  argv('return MMR-5 -f ids', { setup: underReview }),
-  argv('return MMR-5 needs tests', { setup: underReview, tty: true }),
   argv('return MMR-5'),
   argv('return MMR-3 nope'),
   argv('return MMR-99'),
@@ -189,11 +166,6 @@ const RETURN: SetupCase[] = [
 
 const DONE: SetupCase[] = [
   argv('done MMR-5'),
-  argv('done MMR-5 -f table'),
-  argv('done MMR-5 -f ids'),
-  argv('done MMR-5 -f json'),
-  argv('done MMR-5 -f jsonl'),
-  argv('done MMR-5', { tty: true }),
   argv('done MMR-5', { setup: underReview }),
   argv('done MMR-3'),
   argv('done MMR-7'),
@@ -206,10 +178,6 @@ const DONE: SetupCase[] = [
 const ABANDON: SetupCase[] = [
   argv('abandon MMR-3'),
   argv('abandon MMR-3 superseded by MMR-9'),
-  argv('abandon MMR-3 superseded by MMR-9 -f json'),
-  argv('abandon MMR-3 superseded -f table'),
-  argv('abandon MMR-3 -f ids'),
-  argv('abandon MMR-3 superseded', { tty: true }),
   argv('abandon MMR-7'),
   argv('abandon MMR-99'),
   argv('abandon MMR-s1'),
@@ -219,11 +187,7 @@ const ABANDON: SetupCase[] = [
 
 const REOPEN: SetupCase[] = [
   argv('reopen MMR-7'),
-  argv('reopen MMR-7 -f json'),
-  argv('reopen MMR-7 -f table'),
-  argv('reopen MMR-7 -f ids'),
   argv('reopen MMR-7 regressed'),
-  argv('reopen MMR-7 regressed', { tty: true }),
   argv('reopen MMR-3'),
   argv('reopen MMR-99'),
 ];
@@ -231,12 +195,8 @@ const REOPEN: SetupCase[] = [
 const PARK: SetupCase[] = [
   argv('park MMR-3'),
   argv('park MMR-3 waiting on design'),
-  argv('park MMR-3 waiting on design -f json'),
-  argv('park MMR-3 -f table'),
-  argv('park MMR-3 -f ids'),
   argv('park MMR-3 -- --weird'),
   argv('park MMR-3 slip -- -1 day'),
-  argv('park MMR-3 waiting', { tty: true }),
   argv('park MMR-3', { setup: parked }),
   argv('park MMR-7'),
   argv('park MMR-99'),
@@ -256,28 +216,17 @@ const PARK: SetupCase[] = [
 
 const UNPARK: SetupCase[] = [
   argv('unpark MMR-3', { setup: parked }),
-  argv('unpark MMR-3 -f json', { setup: parked }),
-  argv('unpark MMR-3 -f table', { setup: parked }),
-  argv('unpark MMR-3 -f ids', { setup: parked }),
-  argv('unpark MMR-3', { setup: parked, tty: true }),
   argv('unpark MMR-3'),
   argv('unpark MMR-99'),
   argv('unpark MMR-s1', { setup: seedParked }),
-  argv('unpark MMR-s1 -f json', { setup: seedParked }),
-  argv('unpark MMR-s1 -f ids', { setup: seedParked }),
-  argv('unpark MMR-s1 -f jsonl', { setup: seedParked }),
   argv('unpark MMR-s1'),
 ];
 
 const BLOCK: SetupCase[] = [
   argv('block MMR-3'),
   argv('block MMR-3 upstream API down'),
-  argv('block MMR-3 upstream API down -f json'),
   argv('block MMR-3 --on you need a decision'),
   argv('block MMR-3 --on others upstream down -f json'),
-  argv('block MMR-3 --on you -f table'),
-  argv('block MMR-3 --on you -f ids'),
-  argv('block MMR-3 --on you waiting', { tty: true }),
   argv('block MMR-4 --on you'),
   argv('block MMR-3 --on nobody'),
   argv('block MMR-3 --on nobody -f json'),
@@ -290,15 +239,7 @@ const BLOCK: SetupCase[] = [
   argv('block MMR-3 --on'),
 ];
 
-const UNBLOCK: SetupCase[] = [
-  argv('unblock MMR-6'),
-  argv('unblock MMR-6 -f json'),
-  argv('unblock MMR-6 -f table'),
-  argv('unblock MMR-6 -f ids'),
-  argv('unblock MMR-6', { tty: true }),
-  argv('unblock MMR-3'),
-  argv('unblock MMR-99'),
-];
+const UNBLOCK: SetupCase[] = [argv('unblock MMR-6'), argv('unblock MMR-3'), argv('unblock MMR-99')];
 
 const ARCHIVE: SetupCase[] = [
   argv('archive XX'),
@@ -310,8 +251,6 @@ const ARCHIVE: SetupCase[] = [
   argv('archive XX superseded', { tty: true }),
   argv('archive XX', { setup: archived }),
   argv('archive MMR', { setup: crossDependent }),
-  argv('archive MMR -f json', { setup: crossDependent }),
-  argv('archive MMR -f ids', { setup: crossDependent }),
   argv('archive MMR', { setup: crossDependent, tty: true }),
   argv('archive MMR-3'),
   argv('archive NOPE'),
@@ -323,11 +262,6 @@ const ARCHIVE: SetupCase[] = [
 
 const UNARCHIVE: SetupCase[] = [
   argv('unarchive XX', { setup: archived }),
-  argv('unarchive XX -f json', { setup: archived }),
-  argv('unarchive XX -f jsonl', { setup: archived }),
-  argv('unarchive XX -f ids', { setup: archived }),
-  argv('unarchive XX -f table', { setup: archived }),
-  argv('unarchive XX', { setup: archived, tty: true }),
   argv('unarchive XX'),
   argv('unarchive MMR-3'),
   argv('unarchive ZZ'),
