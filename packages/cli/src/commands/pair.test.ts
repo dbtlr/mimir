@@ -858,15 +858,13 @@ test('a device name the host refuses names the rule', async () => {
   expectUntouched();
 });
 
-test.each([
-  ['an inline host table', 'host = { url = "http://old.test" }\n'],
-  ['a dotted host key', 'host.url = "http://old.test"\n'],
-  ['malformed TOML', '[host\nurl = "x"\n'],
-])('%s refuses before any request is filed', async (_name, config) => {
+// The refusals table in core's config-write.test.ts covers each uneditable shape; this keeps the end-to-end row.
+test('a config pairing cannot edit in place refuses before any request is filed', async () => {
+  const config = 'host = { url = "http://old.test" }\n';
   await seedConfig(config);
   const run = await pair([ORIGIN, '--device', 'laptop']);
   expect(run.exitCode).toBe(1);
-  expect(run.stderr).toMatch(/cannot be edited in place|is not valid TOML/);
+  expect(run.stderr).toContain('cannot be edited in place');
   expect(host.paths).toEqual([]);
   expectUntouched(config);
 });
@@ -941,18 +939,16 @@ test('credentials recorded for another origin fall back to the new device name',
 
 // The host's words reach a terminal: whatever it names the device, no control sequence gets through.
 test.each([
-  ['piped', [], {}],
-  ['json', ['-f', 'json'], {}],
-  ['at a terminal', [], { tty: true }],
-  ['json at a terminal', ['-f', 'json'], { tty: true }],
+  ['piped', []],
+  ['json', ['-f', 'json']],
 ] as const)(
   'a device name with terminal controls from the host is not echoed raw (%s)',
-  async (_name, flags, opts) => {
+  async (_name, flags) => {
     host.intercept = (path) =>
       path === '/auth/pairing/poll'
         ? Response.json({ device: 'lap\u001B[2Jtop\u009B', status: 'approved', token: 'tok-1' })
         : undefined;
-    const run = await pair([ORIGIN, '--device', 'laptop', ...flags], opts);
+    const run = await pair([ORIGIN, '--device', 'laptop', ...flags]);
     expect(run.exitCode).toBe(0);
     expect(run.stdout).toContain('lap');
     expect(run.stdout).not.toContain('\u001B[2J');

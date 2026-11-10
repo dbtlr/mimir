@@ -94,62 +94,43 @@ test('worker flags are refused on queue before it reserves a task', async () => 
   }
 });
 
-test.each(['release', 'takeover', 'scalar'] as const)(
-  'start checks the observed assignment inside its transaction after a concurrent %s',
-  async (race) => {
-    const board = await parityBoard();
-    try {
-      await board.engine.queue({ harness: 'codex', id: 'MMR-3', session: 'main' });
-      let armed = true;
-      const racingStore = new Proxy(board.store, {
-        get(target, property) {
-          if (property === 'transact') {
-            return async (work: Parameters<typeof target.transact>[0]) => {
-              if (armed) {
-                armed = false;
-                if (race === 'release') {
-                  await board.engine.unqueue({ id: 'MMR-3', reason: 'cancelled' });
-                } else if (race === 'takeover') {
-                  await board.engine.update({ id: 'MMR-3', session: 'replacement' });
-                } else {
-                  await board.engine.update({ id: 'MMR-3', title: 'Concurrent title edit' });
-                }
-              }
-              return target.transact(work);
-            };
-          }
-          const value: unknown = Reflect.get(target, property);
-          return typeof value === 'function' ? value.bind(target) : value;
-        },
-      });
-      const app = createApp({ git: boundClone('MMR'), store: () => Promise.resolve(racingStore) });
-      const run = await runArgv(
-        app,
-        ['start', 'MMR-3', '--worker-session', 'worker', '-f', 'json'],
-        { env: ambient },
-      );
-      const node = await board.engine.getNode({ facets: ['history'], id: 'MMR-3' });
-      expect(armed).toBe(false);
-      if (race === 'scalar') {
-        expect(run.exitCode, run.stderr).toBe(0);
-        expect(node).toMatchObject({
-          lifecycle: 'in_progress',
-          session: 'main',
-          title: 'Concurrent title edit',
-          workerSession: 'worker',
-        });
-      } else {
-        expect(run.exitCode).toBe(1);
-        expect(JSON.parse(run.stderr).error.code).toBe('conflict');
-        expect(node).toMatchObject({
-          lifecycle: race === 'release' ? 'todo' : 'queued',
-          session: race === 'release' ? null : 'replacement',
-          workerSession: null,
-        });
-        expect(node.history).toHaveLength(2);
-      }
-    } finally {
-      await board.close();
-    }
-  },
-);
+// Core's main-worker.test.ts proves each race (a release, a takeover, an unrelated edit);
+// this row proves the CLI hands the Engine the assignment it observed.
+test('start checks the observed assignment inside its transaction after a concurrent takeover', async () => {
+  const board = await parityBoard();
+  try {
+    await board.engine.queue({ harness: 'codex', id: 'MMR-3', session: 'main' });
+    let armed = true;
+    const racingStore = new Proxy(board.store, {
+      get(target, property) {
+        if (property === 'transact') {
+          return async (work: Parameters<typeof target.transact>[0]) => {
+            if (armed) {
+              armed = false;
+              await board.engine.update({ id: 'MMR-3', session: 'replacement' });
+            }
+            return target.transact(work);
+          };
+        }
+        const value: unknown = Reflect.get(target, property);
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    const app = createApp({ git: boundClone('MMR'), store: () => Promise.resolve(racingStore) });
+    const run = await runArgv(app, ['start', 'MMR-3', '--worker-session', 'worker', '-f', 'json'], {
+      env: ambient,
+    });
+    const node = await board.engine.getNode({ facets: ['history'], id: 'MMR-3' });
+    expect(armed).toBe(false);
+    expect(run.exitCode).toBe(1);
+    expect(JSON.parse(run.stderr).error.code).toBe('conflict');
+    expect(node).toMatchObject({
+      lifecycle: 'queued',
+      session: 'replacement',
+      workerSession: null,
+    });
+    expect(node.history).toHaveLength(2);
+  } finally {
+    await board.close();
+  }
+});
