@@ -1,10 +1,11 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
 
 import { createInitiative, createPhase, createProject, createTask } from '../create';
 import { MimirError } from '../errors';
 import { archiveProject, attachArtifact, completeTask, depend } from '../mutations';
 import type { Store } from '../store';
-import { backends } from '../testing/conformance';
+import { bootPglite } from '../store-postgres/testing';
+import { backends, sharedSeededStore } from '../testing/conformance';
 import type { Instance } from '../testing/conformance';
 import { searchRecords } from './intent';
 
@@ -110,20 +111,31 @@ const sorted = (rows: (string | undefined)[][]): (string | undefined)[][] =>
 
 const ids = (result: { items: { id: string }[] }): string[] => result.items.map((hit) => hit.id);
 
+beforeAll(bootPglite);
+
 // One describe block per backend — a plain loop reads clearer than
 // describe.each here (each arm carries its own instance).
 // oxlint-disable-next-line vitest/prefer-each
 for (const backend of backends) {
   describe(`cross-record search — ${backend.name}`, () => {
-    let instance: Instance;
+    // The cases that only search read one board, seeded once; a case that
+    // writes seeds a board of its own.
+    const board = sharedSeededStore(backend, seedBoard);
     let store: Store;
-    beforeEach(async () => {
-      instance = await backend.make();
-      store = instance.store;
-      await seedBoard(store);
+    beforeEach(() => {
+      store = board.store;
     });
+    const instances: Instance[] = [];
+    const ownBoard = async (): Promise<Store> => {
+      const instance = await backend.make();
+      instances.push(instance);
+      await seedBoard(instance.store);
+      return instance.store;
+    };
     afterEach(async () => {
-      await instance?.close();
+      while (instances.length > 0) {
+        await instances.pop()?.close();
+      }
     });
 
     describe('ID-like queries', () => {
@@ -196,15 +208,16 @@ for (const backend of backends) {
       });
 
       test('the links stop at eight', async () => {
+        const own = await ownBoard();
         // MMR already has two top-level children; seven more make nine.
         for (let n = 1; n <= 7; n++) {
-          await createInitiative(store, { projectId: 'MMR', title: `Extra ${String(n)}` });
+          await createInitiative(own, { projectId: 'MMR', title: `Extra ${String(n)}` });
         }
         // The oldest child is the one left out.
-        await store.transact(async (w) => {
+        await own.transact(async (w) => {
           await w.updateNode('MMR-1', { updated_at: '2000-01-01T00:00:00.000Z' });
         });
-        const result = await searchRecords(store, { query: 'MMR' });
+        const result = await searchRecords(own, { query: 'MMR' });
         expect(result.items[0]?.id).toBe('MMR');
         expect(result.items).toHaveLength(9);
         expect(ids(result)).not.toContain('MMR-1');
@@ -342,12 +355,13 @@ for (const backend of backends) {
       });
 
       test('a word with non-ASCII letters is not split into ASCII fragments', async () => {
-        await createTask(store, {
+        const own = await ownBoard();
+        await createTask(own, {
           description: 'The sum of r values.',
           parentId: 'MMR-5',
           title: 'Totals',
         });
-        const result = await searchRecords(store, { query: 'résumé' });
+        const result = await searchRecords(own, { query: 'résumé' });
         expect(result.items.filter((hit) => hit.match === 'description')).toEqual([]);
       });
 
@@ -361,31 +375,35 @@ for (const backend of backends) {
       });
     });
 
+    // Every case here finishes work first, so each writes a board of its own.
     describe('finished', () => {
       test('a container is finished once every task beneath it is', async () => {
-        const before = await searchRecords(store, { query: 'MMR-2' });
+        const own = await ownBoard();
+        const before = await searchRecords(own, { query: 'MMR-2' });
         expect(before.items[0]).toMatchObject({ finished: false, id: 'MMR-2' });
 
-        await completeTask(store, 'MMR-4');
-        const after = await searchRecords(store, { query: 'MMR-2' });
+        await completeTask(own, 'MMR-4');
+        const after = await searchRecords(own, { query: 'MMR-2' });
         expect(after.items[0]).toMatchObject({ finished: true, id: 'MMR-2' });
         // The initiative above the phase counts the same tasks.
         expect(after.items.find((hit) => hit.id === 'MMR-1')).toMatchObject({ finished: true });
       });
 
       test('an open-ended container never finishes', async () => {
+        const own = await ownBoard();
         for (const id of ['MMR-6', 'MMR-7', 'MMR-8', 'MMR-9', 'MMR-10']) {
-          await completeTask(store, id);
+          await completeTask(own, id);
         }
-        const result = await searchRecords(store, { query: 'MMR-5' });
+        const result = await searchRecords(own, { query: 'MMR-5' });
         expect(result.items[0]).toMatchObject({ finished: false, id: 'MMR-5' });
       });
 
       test('a finished seed and a done task read as finished', async () => {
-        await store.seeds.transition('MMR', 1, 'resolved', 'shipped');
-        const seed = await searchRecords(store, { query: 'MMR-s1' });
+        const own = await ownBoard();
+        await own.seeds.transition('MMR', 1, 'resolved', 'shipped');
+        const seed = await searchRecords(own, { query: 'MMR-s1' });
         expect(seed.items[0]).toMatchObject({ finished: true, lifecycle: 'resolved' });
-        const task = await searchRecords(store, { query: 'MMR-3' });
+        const task = await searchRecords(own, { query: 'MMR-3' });
         expect(task.items[0]).toMatchObject({ finished: true, lifecycle: 'done' });
       });
     });

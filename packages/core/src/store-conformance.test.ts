@@ -1,10 +1,18 @@
-import { afterEach, expect, setDefaultTimeout, test } from 'bun:test';
+import { afterEach, beforeAll, expect, test } from 'bun:test';
 
 import { createProject, createTask } from './create';
 import type { StoreExport } from './export';
 import { canonicalJson } from './export';
-import type { Backend, Instance } from './testing/conformance';
-import { backends, observe, refusalOf, seedWorkingSet, withoutStamp } from './testing/conformance';
+import { bootPglite } from './store-postgres/testing';
+import type { Backend, Instance, SharedStore } from './testing/conformance';
+import {
+  backends,
+  observe,
+  refusalOf,
+  seedWorkingSet,
+  sharedSeededStore,
+  withoutStamp,
+} from './testing/conformance';
 
 /**
  * The `Store`-seam conformance oracle (MMR-378, ADR 0030) — the contract suite
@@ -15,13 +23,20 @@ import { backends, observe, refusalOf, seedWorkingSet, withoutStamp } from './te
  * adding one row there.
  */
 
-// Every case builds one or two whole stores and exercises most of the write
-// surface against them, which can run past bun's 5s default on a loaded runner.
-setDefaultTimeout(60_000);
+beforeAll(bootPglite);
+
+/**
+ * Each backend's seeded source, shared by every case that imports from it: the
+ * cases only export and observe the source, and import into a target of their
+ * own.
+ */
+const sources = new Map<string, SharedStore>();
 
 // One describe-free loop per backend.
 // oxlint-disable-next-line vitest/prefer-each
 for (const backend of backends) {
+  const source = sharedSeededStore(backend, seedWorkingSet);
+  sources.set(backend.name, source);
   const instances: Instance[] = [];
   const fresh = async (): Promise<Instance> => {
     const instance = await backend.make();
@@ -35,9 +50,7 @@ for (const backend of backends) {
   });
 
   test(`${backend.name}: export → import into a fresh store round-trips every collection`, async () => {
-    const source = await fresh();
-    await seedWorkingSet(source.store);
-    const document = await source.store.export();
+    const { document } = source;
 
     const target = await fresh();
     const report = await target.store.import(document, { dryRun: false, mode: 'fresh' });
@@ -59,9 +72,7 @@ for (const backend of backends) {
   });
 
   test(`${backend.name}: a create after an import never collides with an imported identity`, async () => {
-    const source = await fresh();
-    await seedWorkingSet(source.store);
-    const document = await source.store.export();
+    const { document } = source;
     const target = await fresh();
     await target.store.import(document, { dryRun: false, mode: 'fresh' });
 
@@ -104,9 +115,7 @@ for (const backend of backends) {
     // highest sequence it also carries. A backend that stored the counter
     // verbatim would then re-hand an identity the same import just wrote, and
     // the next create would collide (MMR-379).
-    const source = await fresh();
-    await seedWorkingSet(source.store);
-    const document = await source.store.export();
+    const { document } = source;
     const lowered: StoreExport = {
       ...document,
       projects: document.projects.map((project) => ({
@@ -152,9 +161,7 @@ for (const backend of backends) {
   });
 
   test(`${backend.name}: a fresh import refuses when an imported project already exists`, async () => {
-    const source = await fresh();
-    await seedWorkingSet(source.store);
-    const document = await source.store.export();
+    const { document } = source;
 
     const target = await fresh();
     await createProject(target.store, { description: null, key: 'MMR', name: 'Occupied' });
@@ -171,9 +178,7 @@ for (const backend of backends) {
   // owns the rule). It stays here, on each backend, as the store-level case that a
   // refused import leaves the target untouched.
   test(`${backend.name}: an import refuses a document claiming one identity twice`, async () => {
-    const source = await fresh();
-    await seedWorkingSet(source.store);
-    const document = await source.store.export();
+    const { document } = source;
     const first = document.artifacts.at(0);
     if (first === undefined) {
       throw new Error('the fixture must export at least one artifact');
@@ -194,9 +199,7 @@ for (const backend of backends) {
   });
 
   test(`${backend.name}: resume skips identical documents and refuses a differing one`, async () => {
-    const source = await fresh();
-    await seedWorkingSet(source.store);
-    const document = await source.store.export();
+    const { document } = source;
 
     const target = await fresh();
     const first = await target.store.import(document, { dryRun: false, mode: 'fresh' });
@@ -223,9 +226,7 @@ for (const backend of backends) {
   });
 
   test(`${backend.name}: a dry-run fresh import previews the apply and writes nothing`, async () => {
-    const source = await fresh();
-    await seedWorkingSet(source.store);
-    const document = await source.store.export();
+    const { document } = source;
 
     const target = await fresh();
     const empty = await observe(target.store);
@@ -247,9 +248,7 @@ for (const backend of backends) {
   });
 
   test(`${backend.name}: a dry-run resume previews the resume that finishes a half-written target`, async () => {
-    const source = await fresh();
-    await seedWorkingSet(source.store);
-    const document = await source.store.export();
+    const { document } = source;
 
     // The half-written target a failed import leaves (ADR 0023), staged
     // through the seam rather than through one backend's substrate: the
@@ -273,9 +272,7 @@ for (const backend of backends) {
   });
 
   test(`${backend.name}: a dry run refuses exactly what the apply refuses`, async () => {
-    const source = await fresh();
-    await seedWorkingSet(source.store);
-    const document = await source.store.export();
+    const { document } = source;
 
     // The fresh fence: a project the target already holds.
     const occupied = await fresh();
@@ -334,40 +331,34 @@ for (const source of backends) {
 
 function crossBackendCase(source: Backend, target: Backend): void {
   test(`${source.name} → ${target.name}: the import re-exports the source's document, and a resume of it is a no-op`, async () => {
-    const from = await source.make();
+    const from = sources.get(source.name);
+    if (from === undefined) {
+      throw new Error(`no shared source for ${source.name}`);
+    }
+    const { document } = from;
+    const to = await target.make();
     try {
-      // Each instance has its own cleanup path: a failing `make` of the
-      // target must still close the source, and a failing close of one must
-      // not skip the other.
-      const to = await target.make();
-      try {
-        await seedWorkingSet(from.store);
-        const document = await from.store.export();
+      await to.store.import(document, { dryRun: false, mode: 'fresh' });
+      const reexported = await to.store.export();
+      expect(withoutStamp(reexported)).toEqual(withoutStamp(document));
+      // Equal as values AND as bytes: each backend builds its records its own
+      // way, so the two documents carry their keys in different orders, and
+      // the file writer's `canonicalJson` is what makes a `diff` of two
+      // backups of the same board read as no change at all.
+      expect(canonicalJson(withoutStamp(reexported))).toBe(canonicalJson(withoutStamp(document)));
 
-        await to.store.import(document, { dryRun: false, mode: 'fresh' });
-        const reexported = await to.store.export();
-        expect(withoutStamp(reexported)).toEqual(withoutStamp(document));
-        // Equal as values AND as bytes: each backend builds its records its own
-        // way, so the two documents carry their keys in different orders, and
-        // the file writer's `canonicalJson` is what makes a `diff` of two
-        // backups of the same board read as no change at all.
-        expect(canonicalJson(withoutStamp(reexported))).toBe(canonicalJson(withoutStamp(document)));
-
-        // The document the target now holds IS the one imported, so a resume
-        // finds every record present and identical — nothing to refuse.
-        const resumed = await to.store.import(document, { dryRun: false, mode: 'resume' });
-        expect(resumed).toEqual({
-          applied: true,
-          created: 0,
-          mode: 'resume',
-          skipped: resumed.skipped,
-        });
-        expect(resumed.skipped).toBeGreaterThan(0);
-      } finally {
-        await to.close();
-      }
+      // The document the target now holds IS the one imported, so a resume
+      // finds every record present and identical — nothing to refuse.
+      const resumed = await to.store.import(document, { dryRun: false, mode: 'resume' });
+      expect(resumed).toEqual({
+        applied: true,
+        created: 0,
+        mode: 'resume',
+        skipped: resumed.skipped,
+      });
+      expect(resumed.skipped).toBeGreaterThan(0);
     } finally {
-      await from.close();
+      await to.close();
     }
   });
 }

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeAll, describe, expect, test } from 'bun:test';
 
 import type { Kysely } from 'kysely';
 
@@ -6,11 +6,13 @@ import { chargedTokens, createRunStore } from './runs';
 import type { AdmitRun, Run, RunUsage } from './runs';
 import type { Store } from './store';
 import { postgresDialect } from './store-postgres/dialect';
-import { createPgliteTestStore } from './store-postgres/testing';
+import { bootPglite, createPgliteTestStore } from './store-postgres/testing';
 import type { StoreDialect } from './store-sql/dialect';
 import type { DB } from './store-sql/schema';
 import { sqliteDialect } from './store-sqlite/dialect';
 import { createSqliteTestStore } from './store-sqlite/testing';
+
+beforeAll(bootPglite);
 
 /** The error an action rejects with, or 'accepted' when it resolves. */
 async function failureOf(action: Promise<unknown>): Promise<unknown> {

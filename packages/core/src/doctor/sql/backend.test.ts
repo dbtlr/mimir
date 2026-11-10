@@ -1,5 +1,5 @@
 import { Database } from 'bun:sqlite';
-import { describe, expect, test } from 'bun:test';
+import { beforeAll, describe, expect, test } from 'bun:test';
 
 import { Kysely, sql } from 'kysely';
 
@@ -7,7 +7,7 @@ import { createProject } from '../../create';
 import type { Store } from '../../store';
 import { postgresDialect } from '../../store-postgres/index';
 import { createPgliteDialect } from '../../store-postgres/pglite';
-import { createEmptyPglite, createPgliteTestStore } from '../../store-postgres/testing';
+import { bootPglite, createEmptyPglite, createPgliteTestStore } from '../../store-postgres/testing';
 import type { StoreDialect } from '../../store-sql/dialect';
 import type { DB } from '../../store-sql/schema';
 import { createBunSqliteDialect } from '../../store-sqlite/driver';
@@ -16,6 +16,8 @@ import { createSqliteTestStore } from '../../store-sqlite/testing';
 import { seedWorkingSet } from '../../testing/conformance';
 import type { DoctorBackend, DoctorFinding } from '../contract';
 import { createSqlDoctorBackend, TIMESTAMP_BATCH } from './backend';
+
+beforeAll(bootPglite);
 
 /**
  * The SQL doctor facet, run on both dialects it serves — Postgres (PGlite) and

@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test';
+import { beforeAll, expect, test } from 'bun:test';
 
 import { Kysely, sql } from 'kysely';
 
@@ -18,7 +18,9 @@ import { statements as pairingRequestsStatements } from './migrations/0010-pairi
 import { statements as terminalHoldStatements } from './migrations/0011-terminal-hold';
 import { statements as hostSecretsStatements } from './migrations/0012-host-secrets';
 import { createPgliteDialect } from './pglite';
-import { createEmptyPglite } from './testing';
+import { bootEmptyPglite, createEmptyPglite } from './testing';
+
+beforeAll(bootEmptyPglite);
 
 async function freshDb(): Promise<Kysely<DB>> {
   return new Kysely<DB>({ dialect: createPgliteDialect(await createEmptyPglite()) });

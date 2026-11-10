@@ -1,4 +1,4 @@
-import { afterEach, expect, setDefaultTimeout, test } from 'bun:test';
+import { afterEach, beforeAll, expect, test } from 'bun:test';
 
 import { createInitiative, createPhase, createProject, createTask } from '../create';
 import {
@@ -13,11 +13,14 @@ import {
 } from '../mutations';
 import { createScratchpadService } from '../scratchpads';
 import type { Store } from '../store';
+import { bootPglite } from '../store-postgres/testing';
 import type { Instance } from '../testing/conformance';
 import { backends } from '../testing/conformance';
 import { nodeIdOf, projectIdOf, rawPatchNode } from '../testing/store';
 import { reviewOf, workPageOf } from './index';
 import { cmpStr } from './work';
+
+beforeAll(bootPglite);
 
 /**
  * The review page's cross-project work rows (MMR-504): `now`, `shipped`,
@@ -28,8 +31,6 @@ import { cmpStr } from './work';
  * first, `runnable` in project (rail) order then rank, `goingCold` longest quiet
  * first, `shipped` newest first.
  */
-
-setDefaultTimeout(60_000);
 
 const TZ = 'UTC';
 const LONG_AGO = '2020-01-01T00:00:00.000Z';
