@@ -3,7 +3,6 @@ exit 0
 --- stdout
 | [ok] groomed MMR-4 · groomed
 --- state
-~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
 ~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: MMR-4 groomed -f json
@@ -11,7 +10,6 @@ exit 0
 --- stdout
 | {"groomed":{"ids":["MMR-4"],"state":"groomed"}}
 --- state
-~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
 ~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: MMR-4 groomed -f jsonl
@@ -19,7 +17,6 @@ exit 0
 --- stdout
 | {"groomed":{"ids":["MMR-4"],"state":"groomed"}}
 --- state
-~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
 ~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: MMR-4 groomed -f ids
@@ -27,7 +24,6 @@ exit 0
 --- stdout
 | MMR-4
 --- state
-~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
 ~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: MMR-4 groomed -f table
@@ -35,7 +31,6 @@ exit 0
 --- stdout
 | [ok] groomed MMR-4 · groomed
 --- state
-~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
 ~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: MMR-4 groomed --ascii
@@ -43,7 +38,6 @@ exit 0
 --- stdout
 | [ok] groomed MMR-4 · groomed
 --- state
-~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
 ~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: MMR-4 groomed (terminal)
@@ -51,7 +45,6 @@ exit 0
 --- stdout
 | ␛[32m✓␛[39m groomed MMR-4 · groomed
 --- state
-~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
 ~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: MMR-4,MMR-5 groomed "scoped in the design"
@@ -59,10 +52,6 @@ exit 0
 --- stdout
 | [ok] groomed MMR-4, MMR-5 · groomed
 --- state
-+ board.MMR.nodes.items[MMR-4].annotations[@0]: {"content":"scoped in the design","createdAt":"2026-10-01T12:00:00.000Z"}
-~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
-+ board.MMR.nodes.items[MMR-5].annotations[@0]: {"content":"scoped in the design","createdAt":"2026-10-01T12:00:00.000Z"}
-~ board.MMR.nodes.items[MMR-5].grooming: "not_groomed" -> "groomed"
 + nodes[MMR-4].annotations[@0]: {"content":"scoped in the design","createdAt":"2026-10-01T12:00:00.000Z"}
 ~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
 + nodes[MMR-5].annotations[@0]: {"content":"scoped in the design","createdAt":"2026-10-01T12:00:00.000Z"}
@@ -74,8 +63,6 @@ exit 0
 | MMR-4
 | MMR-5
 --- state
-~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
-~ board.MMR.nodes.items[MMR-5].grooming: "not_groomed" -> "groomed"
 ~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
 ~ nodes[MMR-5].grooming: "not_groomed" -> "groomed"
 
@@ -84,8 +71,6 @@ exit 0
 --- stdout
 | [ok] groomed MMR-4, MMR-5 · groomed
 --- state
-~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
-~ board.MMR.nodes.items[MMR-5].grooming: "not_groomed" -> "groomed"
 ~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
 ~ nodes[MMR-5].grooming: "not_groomed" -> "groomed"
 
@@ -94,8 +79,6 @@ exit 0
 --- stdout
 | [ok] groomed MMR-4, MMR-5 · groomed
 --- state
-~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
-~ board.MMR.nodes.items[MMR-5].grooming: "not_groomed" -> "groomed"
 ~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
 ~ nodes[MMR-5].grooming: "not_groomed" -> "groomed"
 
@@ -104,8 +87,6 @@ exit 0
 --- stdout
 | [ok] groomed MMR-4 · needs_answers
 --- state
-+ board.MMR.nodes.items[MMR-4].annotations[@0]: {"content":"which store owns the lock?","createdAt":"2026-10-01T12:00:00.000Z"}
-~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "needs_answers"
 + nodes[MMR-4].annotations[@0]: {"content":"which store owns the lock?","createdAt":"2026-10-01T12:00:00.000Z"}
 ~ nodes[MMR-4].grooming: "not_groomed" -> "needs_answers"
 
@@ -114,7 +95,6 @@ exit 0
 --- stdout
 | [ok] groomed MMR-3 · not_groomed
 --- state
-~ board.MMR.nodes.items[MMR-3].grooming: "groomed" -> "not_groomed"
 ~ nodes[MMR-3].grooming: "groomed" -> "not_groomed"
 
 ### groom argv: MMR-4 groomed -- --note text
@@ -122,8 +102,6 @@ exit 0
 --- stdout
 | [ok] groomed MMR-4 · groomed
 --- state
-+ board.MMR.nodes.items[MMR-4].annotations[@0]: {"content":"--note text","createdAt":"2026-10-01T12:00:00.000Z"}
-~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
 + nodes[MMR-4].annotations[@0]: {"content":"--note text","createdAt":"2026-10-01T12:00:00.000Z"}
 ~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
 
@@ -132,8 +110,6 @@ exit 0
 --- stdout
 | [ok] groomed MMR-4 · groomed
 --- state
-+ board.MMR.nodes.items[MMR-4].annotations[@0]: {"content":"--note text -f json","createdAt":"2026-10-01T12:00:00.000Z"}
-~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
 + nodes[MMR-4].annotations[@0]: {"content":"--note text -f json","createdAt":"2026-10-01T12:00:00.000Z"}
 ~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
 
@@ -142,8 +118,6 @@ exit 0
 --- stdout
 | [ok] groomed MMR-4 · needs_answers
 --- state
-+ board.MMR.nodes.items[MMR-4].annotations[@0]: {"content":"--which store?","createdAt":"2026-10-01T12:00:00.000Z"}
-~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "needs_answers"
 + nodes[MMR-4].annotations[@0]: {"content":"--which store?","createdAt":"2026-10-01T12:00:00.000Z"}
 ~ nodes[MMR-4].grooming: "not_groomed" -> "needs_answers"
 
@@ -152,8 +126,6 @@ exit 0
 --- stdout
 | [ok] groomed MMR-4 · needs_answers
 --- state
-+ board.MMR.nodes.items[MMR-4].annotations[@0]: {"content":"which -x store?","createdAt":"2026-10-01T12:00:00.000Z"}
-~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "needs_answers"
 + nodes[MMR-4].annotations[@0]: {"content":"which -x store?","createdAt":"2026-10-01T12:00:00.000Z"}
 ~ nodes[MMR-4].grooming: "not_groomed" -> "needs_answers"
 
@@ -174,8 +146,6 @@ exit 0
 --- stdout
 | [ok] groomed MMR-3 · not_groomed
 --- state
-+ board.MMR.nodes.items[MMR-3].annotations[@2]: {"content":"rethink the approach","createdAt":"2026-10-01T12:00:00.000Z"}
-~ board.MMR.nodes.items[MMR-3].grooming: "groomed" -> "not_groomed"
 + nodes[MMR-3].annotations[@2]: {"content":"rethink the approach","createdAt":"2026-10-01T12:00:00.000Z"}
 ~ nodes[MMR-3].grooming: "groomed" -> "not_groomed"
 
@@ -290,7 +260,6 @@ exit 0
 --- stdout
 | [ok] groomed MMR-7 · groomed
 --- state
-~ board.MMR.nodes.items[MMR-7].grooming: "not_groomed" -> "groomed"
 ~ nodes[MMR-7].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: MMR-5 groomed
@@ -298,7 +267,6 @@ exit 0
 --- stdout
 | [ok] groomed MMR-5 · groomed
 --- state
-~ board.MMR.nodes.items[MMR-5].grooming: "not_groomed" -> "groomed"
 ~ nodes[MMR-5].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: , groomed

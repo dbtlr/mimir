@@ -176,16 +176,24 @@ export function registerParity<Case extends ParityCase>(
 }
 
 /**
+ * What a case needs on the board beyond records: findings for doctor to
+ * report. Runs before the case, and the findings it adds are cleared after
+ * it, so the next case on the shared board starts from the clean diagnosis.
+ */
+export type Arrange<Case extends ParityCase> = (board: ParityBoard, c: Case) => void;
+
+/**
  * Register one read command's parity tests: every case runs over one shared
  * board. `setup` fills the board before the cases run, and may return a
  * rewrite for the cases that name what only the board knows, such as a
- * generated id. A write, which changes its board, registers through
- * `writeCases` instead.
+ * generated id; `arrange` readies the board for one case. A write, which
+ * changes its board, registers through `writeCases` instead.
  */
-export function parityCases(
+export function parityCases<Case extends ParityCase>(
   testUrl: string,
-  cases: readonly ParityCase[],
+  cases: readonly Case[],
   setup?: (board: ParityBoard) => Promise<CaseRewrite | undefined>,
+  arrange?: Arrange<Case>,
 ): void {
   // Frozen, the board's stamps and every age the views print are the same on every run. A
   // setup fault leaves nothing assigned and the clock thawed, so the cleanup has nothing to close.
@@ -200,6 +208,12 @@ export function parityCases(
   registerParity(testUrl, cases, async (c) => {
     const { board, value: rewrite } = opened!;
     const run = rewrite === undefined ? c : rewrite(c);
-    return pinText(await runNew((argv) => board.app(c.bound, argv), run), board.dir);
+    try {
+      // Inside the try, so a throw part-way through leaves no findings for a later case.
+      arrange?.(board, c);
+      return pinText(await runNew((argv) => board.app(c.bound, argv), run), board.dir);
+    } finally {
+      board.findings.length = 0;
+    }
   });
 }

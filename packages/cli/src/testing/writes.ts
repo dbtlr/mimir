@@ -44,13 +44,6 @@ function setupOf(c: SetupCase, shared?: Setup): Setup | undefined {
 }
 
 /**
- * What a case needs on its board beyond records, such as findings for doctor
- * to report. Runs on the case's board after it is populated, before the case,
- * and adds nothing the state comparison reads.
- */
-export type Arrange<Case extends ParityCase> = (board: ParityBoard, c: Case) => void;
-
-/**
  * Add the records the write cases act on: seeds in every state, a task whose
  * upstream seed settled, and two Scratchpads. Returns the tokens naming them.
  */
@@ -208,15 +201,10 @@ type WriteRun = { exitCode: number; state: string; pin: string };
  * Run one write case on its own copy of `template`: what the CLI printed, then
  * the records it changed. A refused write must change nothing.
  */
-async function runWrite<Case extends SetupCase>(
-  c: Case,
-  template: BoardTemplate,
-  arrange?: Arrange<Case>,
-): Promise<WriteRun> {
+async function runWrite(c: SetupCase, template: BoardTemplate): Promise<WriteRun> {
   const open = await openCopy(template);
   try {
     const bound = bindCase(c, open.tokens);
-    arrange?.(open.board, c);
     const run = await runNew((argv) => open.board.app(c.bound, argv, c.origin), bound);
     const changes = await stateChanges(open.board, open.tokens, template);
     // A refusal writes nothing, whatever it printed.
@@ -296,19 +284,13 @@ export function formatVariance(
 /**
  * Register one write command's parity tests: every case runs on its own copy
  * of a board through `runWrite` and must match its pin. `setup` adds records
- * the cases need, and `arrange` readies the board for one case. Cases that
- * share a setup copy one template, built when the first of them runs. Every
- * successful variant of one write, differing only in how its result is shown,
- * must pin the same records.
+ * the cases need. Cases that share a setup copy one template, built when the
+ * first of them runs. Every successful variant of one write, differing only
+ * in how its result is shown, must pin the same records.
  */
-export function writeCases<Case extends SetupCase>(
-  testUrl: string,
-  cases: readonly Case[],
-  setup?: Setup,
-  arrange?: Arrange<Case>,
-): void {
+export function writeCases(testUrl: string, cases: readonly SetupCase[], setup?: Setup): void {
   const setups = new Map<Setup | undefined, number>();
-  const keyOf = (c: Case): string => {
+  const keyOf = (c: SetupCase): string => {
     if (!setups.has(c.setup)) {
       setups.set(c.setup, setups.size);
     }
@@ -316,7 +298,7 @@ export function writeCases<Case extends SetupCase>(
   };
   // One template per case setup: a case's own setup runs on top of `setup`, which every case shares.
   const templates = new Map<Setup | undefined, Promise<BoardTemplate>>();
-  const templateOf = (c: Case): Promise<BoardTemplate> => {
+  const templateOf = (c: SetupCase): Promise<BoardTemplate> => {
     let template = templates.get(c.setup);
     if (template === undefined) {
       template = boardTemplate(setupOf(c, setup));
@@ -324,9 +306,9 @@ export function writeCases<Case extends SetupCase>(
     }
     return template;
   };
-  const runs = new Map<Case, { key: string; name: string; exitCode: number; state: string }>();
+  const runs = new Map<SetupCase, { key: string; name: string; exitCode: number; state: string }>();
   registerParity(testUrl, cases, async (c) => {
-    const run = await runWrite(c, await templateOf(c), arrange);
+    const run = await runWrite(c, await templateOf(c));
     runs.set(c, { exitCode: run.exitCode, key: keyOf(c), name: c.name, state: run.state });
     return run.pin;
   });

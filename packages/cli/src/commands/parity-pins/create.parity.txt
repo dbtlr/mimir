@@ -3,84 +3,84 @@ exit 0
 --- stdout
 | [ok] created project GAM
 --- state
-+ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
++ projects[GAM]: {"createdAt":"2026-10-01T12:00:00.000Z","description":null,"id":"GAM","parent":null,"pinned":false,"remote":null,"tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma --key GAM --yes
 exit 0
 --- stdout
 | [ok] created project GAM
 --- state
-+ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
++ projects[GAM]: {"createdAt":"2026-10-01T12:00:00.000Z","description":null,"id":"GAM","parent":null,"pinned":false,"remote":null,"tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma --key GAM -y -f json
 exit 0
 --- stdout
 | {"project":{"key":"GAM","name":"Gamma"}}
 --- state
-+ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
++ projects[GAM]: {"createdAt":"2026-10-01T12:00:00.000Z","description":null,"id":"GAM","parent":null,"pinned":false,"remote":null,"tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma --key GAM -y -f jsonl
 exit 0
 --- stdout
 | {"project":{"key":"GAM","name":"Gamma"}}
 --- state
-+ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
++ projects[GAM]: {"createdAt":"2026-10-01T12:00:00.000Z","description":null,"id":"GAM","parent":null,"pinned":false,"remote":null,"tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma --key GAM -y -f ids
 exit 0
 --- stdout
 | GAM
 --- state
-+ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
++ projects[GAM]: {"createdAt":"2026-10-01T12:00:00.000Z","description":null,"id":"GAM","parent":null,"pinned":false,"remote":null,"tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project --name Gamma --key GAM -y
 exit 0
 --- stdout
 | [ok] created project GAM
 --- state
-+ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
++ projects[GAM]: {"createdAt":"2026-10-01T12:00:00.000Z","description":null,"id":"GAM","parent":null,"pinned":false,"remote":null,"tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma --key GAM -y -f table
 exit 0
 --- stdout
 | [ok] created project GAM
 --- state
-+ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
++ projects[GAM]: {"createdAt":"2026-10-01T12:00:00.000Z","description":null,"id":"GAM","parent":null,"pinned":false,"remote":null,"tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma --key GAM -y --ascii
 exit 0
 --- stdout
 | [ok] created project GAM
 --- state
-+ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
++ projects[GAM]: {"createdAt":"2026-10-01T12:00:00.000Z","description":null,"id":"GAM","parent":null,"pinned":false,"remote":null,"tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma --key GAM -y (terminal)
 exit 0
 --- stdout
 | ␛[32m✓␛[39m created project GAM
 --- state
-+ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
++ projects[GAM]: {"createdAt":"2026-10-01T12:00:00.000Z","description":null,"id":"GAM","parent":null,"pinned":false,"remote":null,"tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma --key GAM -y --desc "The third board."
 exit 0
 --- stdout
 | [ok] created project GAM
 --- state
-+ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":"The third board.","distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
++ projects[GAM]: {"createdAt":"2026-10-01T12:00:00.000Z","description":"The third board.","id":"GAM","parent":null,"pinned":false,"remote":null,"tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma --key GAM -y --remote git@github.com:dbtlr/gamma.git
 exit 0
 --- stdout
 | [ok] created project GAM
 --- state
-+ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":"github.com/dbtlr/gamma","status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
++ projects[GAM]: {"createdAt":"2026-10-01T12:00:00.000Z","description":null,"id":"GAM","parent":null,"pinned":false,"remote":"github.com/dbtlr/gamma","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma --key GAM -y -t one -t two
 exit 0
 --- stdout
 | [ok] created project GAM
 --- state
-+ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"one"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"two"}],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
++ projects[GAM]: {"createdAt":"2026-10-01T12:00:00.000Z","description":null,"id":"GAM","parent":null,"pinned":false,"remote":null,"tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"one"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"two"}],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma --key GAM
 exit 2
@@ -215,7 +215,7 @@ exit 0
 --- stdout
 | [ok] created project GAM
 --- state
-+ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":"github.com/dbtlr/mimir","status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
++ projects[GAM]: {"createdAt":"2026-10-01T12:00:00.000Z","description":null,"id":"GAM","parent":null,"pinned":false,"remote":"github.com/dbtlr/mimir","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma -y
 exit 2
@@ -238,9 +238,7 @@ exit 0
 |   status  o new (rollup over 0 direct children)
 |   title   Growth
 --- state
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":null,"status":"new","summary":null,"tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
-+ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
-+ projects[MMR].distribution.new: 1
++ nodes[MMR-10]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"MMR-10","open_ended":null,"parent":null,"summary":null,"tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: initiative Growth --parent MMR (terminal)
 exit 0
@@ -254,9 +252,7 @@ exit 0
 |   hint  mimir tree MMR-10   — full subtree
 |         mimir list --status ready -s MMR   — leaf-actionable tasks
 --- state
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":null,"status":"new","summary":null,"tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
-+ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
-+ projects[MMR].distribution.new: 1
++ nodes[MMR-10]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"MMR-10","open_ended":null,"parent":null,"summary":null,"tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: initiative Growth --parent MMR --desc "Grow the board." --summary growth
 exit 0
@@ -269,9 +265,7 @@ exit 0
 |   description  Grow the board.
 |   summary      growth
 --- state
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Grow the board.","distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":null,"status":"new","summary":"growth","tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
-+ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
-+ projects[MMR].distribution.new: 1
++ nodes[MMR-10]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":"Grow the board.","history":[],"id":"MMR-10","open_ended":null,"parent":null,"summary":"growth","tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: initiative Growth --parent MMR -t one --tag two
 exit 0
@@ -282,9 +276,7 @@ exit 0
 |   status  o new (rollup over 0 direct children)
 |   title   Growth
 --- state
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":null,"status":"new","summary":null,"tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"one"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"two"}],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
-+ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
-+ projects[MMR].distribution.new: 1
++ nodes[MMR-10]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"MMR-10","open_ended":null,"parent":null,"summary":null,"tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"one"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"two"}],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: initiative Growth --parent MMR --open-ended
 exit 0
@@ -296,8 +288,7 @@ exit 0
 |   title       Growth
 |   open-ended  yes
 --- state
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":true,"parent":null,"status":"ready","summary":null,"tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
-+ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Growth"}
++ nodes[MMR-10]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"MMR-10","open_ended":true,"parent":null,"summary":null,"tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: initiative Growth --parent MMR --not-open-ended
 exit 0
@@ -308,9 +299,7 @@ exit 0
 |   status  o new (rollup over 0 direct children)
 |   title   Growth
 --- state
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":false,"parent":null,"status":"new","summary":null,"tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
-+ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
-+ projects[MMR].distribution.new: 1
++ nodes[MMR-10]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"MMR-10","open_ended":false,"parent":null,"summary":null,"tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: initiative --parent MMR -- "-Dash first"
 exit 0
@@ -321,9 +310,7 @@ exit 0
 |   status  o new (rollup over 0 direct children)
 |   title   -Dash first
 --- state
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":null,"status":"new","summary":null,"tags":[],"title":"-Dash first","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
-+ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"-Dash first"}
-+ projects[MMR].distribution.new: 1
++ nodes[MMR-10]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"MMR-10","open_ended":null,"parent":null,"summary":null,"tags":[],"title":"-Dash first","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: initiative --parent MMR
 exit 2
@@ -467,9 +454,7 @@ exit 0
 |   title   Beta
 |   parent  MMR-1
 --- state
-+ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
-+ nodes[MMR-1].distribution.new: 1
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":"MMR-1","status":"new","summary":null,"tags":[],"target":null,"title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
++ nodes[MMR-10]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"MMR-10","open_ended":null,"parent":"MMR-1","summary":null,"tags":[],"target":null,"title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: phase Beta --parent MMR-1 (terminal)
 exit 0
@@ -484,9 +469,7 @@ exit 0
 |   hint  mimir tree MMR-10   — full subtree
 |         mimir list --status ready -s MMR   — leaf-actionable tasks
 --- state
-+ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
-+ nodes[MMR-1].distribution.new: 1
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":"MMR-1","status":"new","summary":null,"tags":[],"target":null,"title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
++ nodes[MMR-10]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"MMR-10","open_ended":null,"parent":"MMR-1","summary":null,"tags":[],"target":null,"title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: phase Beta --parent MMR-1 --target 2027-01 --desc Second.
 exit 0
@@ -500,9 +483,7 @@ exit 0
 |   description  Second.
 |   target       2027-01
 --- state
-+ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
-+ nodes[MMR-1].distribution.new: 1
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Second.","distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":"MMR-1","status":"new","summary":null,"tags":[],"target":"2027-01","title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
++ nodes[MMR-10]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":"Second.","history":[],"id":"MMR-10","open_ended":null,"parent":"MMR-1","summary":null,"tags":[],"target":"2027-01","title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: phase Beta --parent MMR-1 --summary beta -t one
 exit 0
@@ -515,9 +496,7 @@ exit 0
 |   parent   MMR-1
 |   summary  beta
 --- state
-+ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
-+ nodes[MMR-1].distribution.new: 1
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":"MMR-1","status":"new","summary":"beta","tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"one"}],"target":null,"title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
++ nodes[MMR-10]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"MMR-10","open_ended":null,"parent":"MMR-1","summary":"beta","tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"one"}],"target":null,"title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: phase Beta --parent MMR-1 --open-ended
 exit 0
@@ -530,8 +509,7 @@ exit 0
 |   parent      MMR-1
 |   open-ended  yes
 --- state
-+ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Beta"}
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":true,"parent":"MMR-1","status":"ready","summary":null,"tags":[],"target":null,"title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
++ nodes[MMR-10]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"MMR-10","open_ended":true,"parent":"MMR-1","summary":null,"tags":[],"target":null,"title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: phase --parent MMR-1 -- "-Dash first"
 exit 0
@@ -543,9 +521,7 @@ exit 0
 |   title   -Dash first
 |   parent  MMR-1
 --- state
-+ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"-Dash first"}
-+ nodes[MMR-1].distribution.new: 1
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":"MMR-1","status":"new","summary":null,"tags":[],"target":null,"title":"-Dash first","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
++ nodes[MMR-10]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"MMR-10","open_ended":null,"parent":"MMR-1","summary":null,"tags":[],"target":null,"title":"-Dash first","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: phase --parent MMR-1
 exit 2
@@ -672,9 +648,7 @@ exit 0
 |   parent  MMR-1
 |   target  someday
 --- state
-+ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
-+ nodes[MMR-1].distribution.new: 1
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":"MMR-1","status":"new","summary":null,"tags":[],"target":"someday","title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
++ nodes[MMR-10]: {"annotations":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"history":[],"id":"MMR-10","open_ended":null,"parent":"MMR-1","summary":null,"tags":[],"target":"someday","title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: phase Beta --parent MMR-1 --open-ended --not-open-ended
 exit 2
@@ -713,13 +687,8 @@ exit 0
 |   grooming   not_groomed
 |   hold       none
 --- state
-+ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ board.MMR.nodes.returned: 7 -> 8
-~ board.MMR.nodes.total: 7 -> 8
-+ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
-~ nodes[MMR-2].distribution.ready: 2 -> 3
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ projects[MMR].leafCounts.ready: 2 -> 3
++ board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 
 ### create argv: task "Ship docs" --parent MMR-2 -f json
 exit 0
@@ -753,13 +722,8 @@ exit 0
 |   "children": []
 | }
 --- state
-+ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ board.MMR.nodes.returned: 7 -> 8
-~ board.MMR.nodes.total: 7 -> 8
-+ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
-~ nodes[MMR-2].distribution.ready: 2 -> 3
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ projects[MMR].leafCounts.ready: 2 -> 3
++ board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 
 ### create argv: task "Ship docs" --parent MMR-2 -f jsonl
 exit 0
@@ -793,26 +757,16 @@ exit 0
 |   "children": []
 | }
 --- state
-+ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ board.MMR.nodes.returned: 7 -> 8
-~ board.MMR.nodes.total: 7 -> 8
-+ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
-~ nodes[MMR-2].distribution.ready: 2 -> 3
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ projects[MMR].leafCounts.ready: 2 -> 3
++ board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 
 ### create argv: task "Ship docs" --parent MMR-2 -f ids
 exit 0
 --- stdout
 | MMR-10
 --- state
-+ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ board.MMR.nodes.returned: 7 -> 8
-~ board.MMR.nodes.total: 7 -> 8
-+ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
-~ nodes[MMR-2].distribution.ready: 2 -> 3
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ projects[MMR].leafCounts.ready: 2 -> 3
++ board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 
 ### create argv: task "Ship docs" --parent MMR-2 -f table
 exit 0
@@ -822,13 +776,8 @@ exit 0
 |
 | MMR-10   * ready        not_groomed   MMR-2   Ship docs
 --- state
-+ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ board.MMR.nodes.returned: 7 -> 8
-~ board.MMR.nodes.total: 7 -> 8
-+ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
-~ nodes[MMR-2].distribution.ready: 2 -> 3
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ projects[MMR].leafCounts.ready: 2 -> 3
++ board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 
 ### create argv: task "Ship docs" --parent MMR-2 --ascii
 exit 0
@@ -843,13 +792,8 @@ exit 0
 |   grooming   not_groomed
 |   hold       none
 --- state
-+ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ board.MMR.nodes.returned: 7 -> 8
-~ board.MMR.nodes.total: 7 -> 8
-+ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
-~ nodes[MMR-2].distribution.ready: 2 -> 3
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ projects[MMR].leafCounts.ready: 2 -> 3
++ board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 
 ### create argv: task "Ship docs" --parent MMR-2 (terminal)
 exit 0
@@ -864,13 +808,8 @@ exit 0
 |   grooming   not_groomed
 |   hold       none
 --- state
-+ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ board.MMR.nodes.returned: 7 -> 8
-~ board.MMR.nodes.total: 7 -> 8
-+ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
-~ nodes[MMR-2].distribution.ready: 2 -> 3
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ projects[MMR].leafCounts.ready: 2 -> 3
++ board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 
 ### create argv: task "Ship docs" --parent MMR-1
 exit 0
@@ -885,13 +824,8 @@ exit 0
 |   grooming   not_groomed
 |   hold       none
 --- state
-+ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-1","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ board.MMR.nodes.returned: 7 -> 8
-~ board.MMR.nodes.total: 7 -> 8
-+ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
-+ nodes[MMR-1].distribution.ready: 1
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-1","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ projects[MMR].leafCounts.ready: 2 -> 3
++ board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-1","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 
 ### create argv: task "Ship docs" --parent XX-2
 exit 0
@@ -906,13 +840,8 @@ exit 0
 |   grooming   not_groomed
 |   hold       none
 --- state
-+ board.XX.nodes.items[XX-5]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-5","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ board.XX.nodes.returned: 2 -> 3
-~ board.XX.nodes.total: 2 -> 3
-+ nodes[XX-2].children[XX-5]: {"id":"XX-5","status":"ready","title":"Ship docs"}
-~ nodes[XX-2].distribution.ready: 2 -> 3
-+ nodes[XX-5]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-5","lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ projects[XX].leafCounts.ready: 2 -> 3
++ board.XX.nodes.items[XX-5]: {"id":"XX-5"}
++ nodes[XX-5]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"XX-5","lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 
 ### create argv: task "Ship docs" --parent MMR-2 --desc "Write them." --summary docs --ref GH-12 -t docs -t ship
 exit 0
@@ -930,13 +859,8 @@ exit 0
 |   hold          none
 |   external ref  GH-12
 --- state
-+ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Write them.","externalRef":"GH-12","grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"docs","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":"docs","tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"docs"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"ship"}],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ board.MMR.nodes.returned: 7 -> 8
-~ board.MMR.nodes.total: 7 -> 8
-+ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
-~ nodes[MMR-2].distribution.ready: 2 -> 3
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Write them.","externalRef":"GH-12","grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":"docs","tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"docs"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"ship"}],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ projects[MMR].leafCounts.ready: 2 -> 3
++ board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":"Write them.","externalRef":"GH-12","grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":"docs","tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"docs"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"ship"}],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 
 ### create argv: task "Ship docs" --parent MMR-2 --priority p1 --size m
 exit 0
@@ -953,13 +877,8 @@ exit 0
 |   grooming   not_groomed
 |   hold       none
 --- state
-+ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":"p1","session":null,"size":"medium","status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ board.MMR.nodes.returned: 7 -> 8
-~ board.MMR.nodes.total: 7 -> 8
-+ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
-~ nodes[MMR-2].distribution.ready: 2 -> 3
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":"p1","session":null,"size":"medium","status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ projects[MMR].leafCounts.ready: 2 -> 3
++ board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":"p1","session":null,"size":"medium","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 
 ### create argv: task "Ship docs" --parent MMR-2 -p p0 --size large
 exit 0
@@ -976,13 +895,8 @@ exit 0
 |   grooming   not_groomed
 |   hold       none
 --- state
-+ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":"p0","session":null,"size":"large","status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ board.MMR.nodes.returned: 7 -> 8
-~ board.MMR.nodes.total: 7 -> 8
-+ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
-~ nodes[MMR-2].distribution.ready: 2 -> 3
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":"p0","session":null,"size":"large","status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ projects[MMR].leafCounts.ready: 2 -> 3
++ board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":"p0","session":null,"size":"large","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 
 ### create argv: task "Ship docs" --parent MMR-2 --groomed
 exit 0
@@ -997,13 +911,8 @@ exit 0
 |   grooming   groomed
 |   hold       none
 --- state
-+ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ board.MMR.nodes.returned: 7 -> 8
-~ board.MMR.nodes.total: 7 -> 8
-+ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
-~ nodes[MMR-2].distribution.ready: 2 -> 3
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ projects[MMR].leafCounts.ready: 2 -> 3
++ board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 
 ### create argv: task "Ship docs" --parent MMR-2 --upstream XX-s1
 exit 0
@@ -1019,13 +928,8 @@ exit 0
 |   hold       none
 |   upstream   XX-s1
 --- state
-+ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ board.MMR.nodes.returned: 7 -> 8
-~ board.MMR.nodes.total: 7 -> 8
-+ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
-~ nodes[MMR-2].distribution.ready: 2 -> 3
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ projects[MMR].leafCounts.ready: 2 -> 3
++ board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","workerHarness":null,"workerSession":null}
 
 ### create argv: task "Ship docs" --parent MMR-2 --upstream none
 exit 0
@@ -1040,13 +944,8 @@ exit 0
 |   grooming   not_groomed
 |   hold       none
 --- state
-+ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ board.MMR.nodes.returned: 7 -> 8
-~ board.MMR.nodes.total: 7 -> 8
-+ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
-~ nodes[MMR-2].distribution.ready: 2 -> 3
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ projects[MMR].leafCounts.ready: 2 -> 3
++ board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 
 ### create argv: task "Ship docs" --parent MMR-2 --host asgard --harness claude --session s-1 --branch docs
 exit 0
@@ -1065,13 +964,8 @@ exit 0
 |   session    s-1
 |   branch     docs
 --- state
-+ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":"docs","children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":"claude","history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":"asgard","id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":"s-1","size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ board.MMR.nodes.returned: 7 -> 8
-~ board.MMR.nodes.total: 7 -> 8
-+ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
-~ nodes[MMR-2].distribution.ready: 2 -> 3
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":"docs","children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":"claude","history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":"asgard","id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":"s-1","size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ projects[MMR].leafCounts.ready: 2 -> 3
++ board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":"docs","completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":"claude","history":[],"hold":"none","holdReason":null,"host":"asgard","id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":"s-1","size":null,"summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 
 ### create argv: task --parent MMR-2 -- "-Dash first"
 exit 0
@@ -1086,13 +980,8 @@ exit 0
 |   grooming   not_groomed
 |   hold       none
 --- state
-+ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"-Dash first","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ board.MMR.nodes.returned: 7 -> 8
-~ board.MMR.nodes.total: 7 -> 8
-+ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"-Dash first"}
-~ nodes[MMR-2].distribution.ready: 2 -> 3
-+ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"-Dash first","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
-~ projects[MMR].leafCounts.ready: 2 -> 3
++ board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"-Dash first","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 
 ### create argv: task --parent MMR-2
 exit 2

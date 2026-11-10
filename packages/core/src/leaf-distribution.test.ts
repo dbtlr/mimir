@@ -49,8 +49,10 @@ test('an empty project tallies to {}', async () => {
 test("tallies every leaf task's derived status word across the whole project", async () => {
   const { key, projectId, phase } = await fixture();
   const phaseId = await nodeIdOf(store, `${key}-${String(phase.seq)}`);
-  // ready (fresh), in_progress, under_review, blocked
+  // ready (fresh), queued, in_progress, under_review, blocked
   await createTask(store, { parentId: phaseId, title: 'ready' });
+  const queued = await createTask(store, { parentId: phaseId, title: 'queued' });
+  await patch(await nodeIdOf(store, `${key}-${String(queued.seq)}`), { lifecycle: 'queued' });
   const prog = await createTask(store, { parentId: phaseId, title: 'prog' });
   await patch(await nodeIdOf(store, `${key}-${String(prog.seq)}`), { lifecycle: 'in_progress' });
   const review = await createTask(store, { parentId: phaseId, title: 'review' });
@@ -63,6 +65,7 @@ test("tallies every leaf task's derived status word across the whole project", a
   expect(leafDistribution(await setOf(), projectId)).toEqual({
     blocked: 1,
     in_progress: 1,
+    queued: 1,
     ready: 1,
     under_review: 1,
   });
