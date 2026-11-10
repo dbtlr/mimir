@@ -11,69 +11,13 @@ import { createPgliteTestStore } from './store-postgres/testing';
 import { expectMimirError } from './testing/errors';
 import { createTestStore } from './testing/store';
 
+// Postgres keeps the case that writes a queued task: the 'queued' lifecycle its
+// node check admits (migration 0007), and reservation handles in a jsonb column.
 describe.each([
   ['SQLite', createTestStore],
   ['Postgres', createPgliteTestStore],
-] as const)('%s queue lifecycle', (label, createStore) => {
-  test(`${label}: queued updates keep a resumable run session`, async () => {
-    const fixture = await createStore();
-    try {
-      const engine = new LocalEngine(fixture.store);
-      await engine.create({ key: 'QUE', name: 'Queue', type: 'project' });
-      const parent = await engine.create({ parent: 'QUE', title: 'i', type: 'initiative' });
-      const task = await engine.create({ parent: parent.id, title: 't', type: 'task' });
-      await engine.queue({ id: task.id, session: 'run' });
-      for (const session of [null, '', '  ']) {
-        await expectMimirError('validation', () => engine.update({ id: task.id, session }));
-        expect((await engine.getNode({ id: task.id })).session).toBe('run');
-      }
-      await engine.update({ id: task.id, session: 'replacement-run', title: 'still reserved' });
-      expect((await engine.getNode({ id: task.id })).session).toBe('replacement-run');
-      await engine.start({ id: task.id });
-      await engine.update({ id: task.id, session: null });
-      expect((await engine.getNode({ id: task.id })).session).toBeNull();
-    } finally {
-      await fixture.close();
-    }
-  });
-  test(`${label}: held work cannot be reserved and refusals leave its state intact`, async () => {
-    const fixture = await createStore();
-    try {
-      const engine = new LocalEngine(fixture.store);
-      await engine.create({ key: 'QUE', name: 'Queue', type: 'project' });
-      const parent = await engine.create({ parent: 'QUE', title: 'i', type: 'initiative' });
-      for (const verb of ['park', 'block'] as const) {
-        const task = await engine.create({ parent: parent.id, title: verb, type: 'task' });
-        await engine[verb]({ id: task.id, reason: 'on hold' });
-        await expectMimirError('validation', () => engine.queue({ id: task.id, session: 'run' }));
-        const held = await engine.getNode({ facets: ['history'], id: task.id });
-        expect(held.lifecycle).toBe('todo');
-        expect(held.hold).toBe(verb === 'park' ? 'parked' : 'blocked');
-        expect(held.history).toHaveLength(1);
-      }
-    } finally {
-      await fixture.close();
-    }
-  });
-  test(`${label}: Now keeps the reservation time after later task edits`, async () => {
-    const fixture = await createStore();
-    try {
-      const engine = new LocalEngine(fixture.store);
-      await engine.create({ key: 'QUE', name: 'Queue', type: 'project' });
-      const parent = await engine.create({ parent: 'QUE', title: 'i', type: 'initiative' });
-      const task = await engine.create({ parent: parent.id, title: 't', type: 'task' });
-      setSystemTime(new Date('2026-10-19T12:00:00Z'));
-      await engine.queue({ id: task.id, session: 'run' });
-      setSystemTime(new Date('2026-10-19T12:10:00Z'));
-      await engine.update({ id: task.id, title: 'renamed' });
-      const page = await workPageOf(fixture.store, 'QUE', { timeZone: 'UTC' });
-      expect(page.now[0]?.startedAt).toBe('2026-10-19T12:00:00.000Z');
-    } finally {
-      setSystemTime();
-      await fixture.close();
-    }
-  });
-  test(`${label}: queue records a reservation and start preserves main identity`, async () => {
+] as const)('%s queue reservation', (_label, createStore) => {
+  test('queue records a reservation and start preserves main identity', async () => {
     const fixture = await createStore();
     try {
       const engine = new LocalEngine(fixture.store);
@@ -123,7 +67,71 @@ describe.each([
       await fixture.close();
     }
   });
-  test(`${label}: unqueue restores the old next position and queued work stays visible and stale`, async () => {
+});
+
+// Which reservations a queue, an update, or a start accepts is decided in JS,
+// so these cases run on SQLite alone.
+describe('SQLite queue lifecycle', () => {
+  const createStore = createTestStore;
+  test('queued updates keep a resumable run session', async () => {
+    const fixture = await createStore();
+    try {
+      const engine = new LocalEngine(fixture.store);
+      await engine.create({ key: 'QUE', name: 'Queue', type: 'project' });
+      const parent = await engine.create({ parent: 'QUE', title: 'i', type: 'initiative' });
+      const task = await engine.create({ parent: parent.id, title: 't', type: 'task' });
+      await engine.queue({ id: task.id, session: 'run' });
+      for (const session of [null, '', '  ']) {
+        await expectMimirError('validation', () => engine.update({ id: task.id, session }));
+        expect((await engine.getNode({ id: task.id })).session).toBe('run');
+      }
+      await engine.update({ id: task.id, session: 'replacement-run', title: 'still reserved' });
+      expect((await engine.getNode({ id: task.id })).session).toBe('replacement-run');
+      await engine.start({ id: task.id });
+      await engine.update({ id: task.id, session: null });
+      expect((await engine.getNode({ id: task.id })).session).toBeNull();
+    } finally {
+      await fixture.close();
+    }
+  });
+  test('held work cannot be reserved and refusals leave its state intact', async () => {
+    const fixture = await createStore();
+    try {
+      const engine = new LocalEngine(fixture.store);
+      await engine.create({ key: 'QUE', name: 'Queue', type: 'project' });
+      const parent = await engine.create({ parent: 'QUE', title: 'i', type: 'initiative' });
+      for (const verb of ['park', 'block'] as const) {
+        const task = await engine.create({ parent: parent.id, title: verb, type: 'task' });
+        await engine[verb]({ id: task.id, reason: 'on hold' });
+        await expectMimirError('validation', () => engine.queue({ id: task.id, session: 'run' }));
+        const held = await engine.getNode({ facets: ['history'], id: task.id });
+        expect(held.lifecycle).toBe('todo');
+        expect(held.hold).toBe(verb === 'park' ? 'parked' : 'blocked');
+        expect(held.history).toHaveLength(1);
+      }
+    } finally {
+      await fixture.close();
+    }
+  });
+  test('Now keeps the reservation time after later task edits', async () => {
+    const fixture = await createStore();
+    try {
+      const engine = new LocalEngine(fixture.store);
+      await engine.create({ key: 'QUE', name: 'Queue', type: 'project' });
+      const parent = await engine.create({ parent: 'QUE', title: 'i', type: 'initiative' });
+      const task = await engine.create({ parent: parent.id, title: 't', type: 'task' });
+      setSystemTime(new Date('2026-10-19T12:00:00Z'));
+      await engine.queue({ id: task.id, session: 'run' });
+      setSystemTime(new Date('2026-10-19T12:10:00Z'));
+      await engine.update({ id: task.id, title: 'renamed' });
+      const page = await workPageOf(fixture.store, 'QUE', { timeZone: 'UTC' });
+      expect(page.now[0]?.startedAt).toBe('2026-10-19T12:00:00.000Z');
+    } finally {
+      setSystemTime();
+      await fixture.close();
+    }
+  });
+  test('unqueue restores the old next position and queued work stays visible and stale', async () => {
     const fixture = await createStore();
     try {
       const engine = new LocalEngine(fixture.store);
@@ -163,7 +171,7 @@ describe.each([
     }
   });
 
-  test(`${label}: transfer preview and apply refuse ownerless reservations without writing`, async () => {
+  test('transfer preview and apply refuse ownerless reservations without writing', async () => {
     const source = await createStore();
     const target = await createStore();
     try {
@@ -194,21 +202,15 @@ describe.each([
       await target.close();
     }
   });
-  test(`${label}: version-6 transfers preserve queued reservations and version-5 remains readable`, async () => {
+  // Older document versions read through the parse alone (transfer-schema.test.ts).
+  test('a transfer preserves a queued reservation', async () => {
     const source = await createStore();
     const target = await createStore();
-    const legacy = await createStore();
     try {
       const engine = new LocalEngine(source.store);
       await createProject(source.store, { key: 'QUE', name: 'Queue' });
       const parent = await createInitiative(source.store, { projectId: 'QUE', title: 'i' });
       const task = await createTask(source.store, { parentId: parent.id, title: 't' });
-      const previous = await source.store.export();
-      await legacy.store.import(
-        { ...previous, schema_version: 5 },
-        { dryRun: false, mode: 'fresh' },
-      );
-      expect((await legacy.store.export()).schema_version).toBe(7);
       await engine.queue({ harness: 'loom', id: task.id, session: 'run' });
       const document = await source.store.export();
       expect(document.schema_version).toBe(7);
@@ -222,11 +224,10 @@ describe.each([
     } finally {
       await source.close();
       await target.close();
-      await legacy.close();
     }
   });
 
-  test(`${label}: queue has a single winner and refusal leaves the reservation intact`, async () => {
+  test('queue has a single winner and refusal leaves the reservation intact', async () => {
     const fixture = await createStore();
     try {
       const engine = new LocalEngine(fixture.store);
@@ -235,14 +236,10 @@ describe.each([
       const task = await createTask(fixture.store, { parentId: parent.id, title: 't' });
       await expectMimirError('validation', () => queueTask(fixture.store, task.id));
       await expectMimirError('validation', () => engine.queue({ id: task.id, session: '  ' }));
-      const first = engine.queue({ id: task.id, session: 'run-a' });
-      // PGlite owns one session and cannot overlap transactions; the real-server
-      // integration lane proves the Postgres race. SQLite serializes writers here.
-      if (label === 'Postgres') {
-        await first;
-      }
+      // SQLite serializes the two writers; the real-server integration lane
+      // proves the Postgres race.
       const raced = await Promise.allSettled([
-        first,
+        engine.queue({ id: task.id, session: 'run-a' }),
         engine.queue({ id: task.id, session: 'run-b' }),
       ]);
       expect(raced.filter((r) => r.status === 'fulfilled')).toHaveLength(1);

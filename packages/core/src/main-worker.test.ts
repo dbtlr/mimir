@@ -4,15 +4,13 @@ import { LocalEngine } from './engine';
 import { startTask } from './mutations';
 import { OPS } from './ops';
 import { createPgliteTestStore } from './store-postgres/testing';
-import { refusalOf, withoutStamp } from './testing/conformance';
+import { withoutStamp } from './testing/conformance';
 import { expectMimirError } from './testing/errors';
 import { createTestStore, rawPatchNode } from './testing/store';
 
 /** A queued task reserved with a host and branch, on a fresh store. */
-async function queuedWithContext(
-  createStore: typeof createTestStore | typeof createPgliteTestStore,
-) {
-  const fixture = await createStore();
+async function queuedWithContext() {
+  const fixture = await createTestStore();
   const engine = new LocalEngine(fixture.store);
   await engine.create({ key: 'OWN', name: 'Ownership', type: 'project' });
   const parent = await engine.create({ parent: 'OWN', title: 'i', type: 'initiative' });
@@ -27,46 +25,13 @@ async function queuedWithContext(
   return { engine, fixture, id: task.id };
 }
 
+// Postgres keeps the cases that read back what migration 0008 added: the
+// worker columns on node, the 'assignment' kind its transition_log check
+// admits, and history handles in a jsonb column.
 describe.each([
   ['SQLite', createTestStore],
   ['Postgres', createPgliteTestStore],
-] as const)('%s main and worker ownership', (_label, createStore) => {
-  test('Engine start refuses a stale main assignment before recording worker ownership', async () => {
-    const fixture = await createStore();
-    try {
-      const engine = new LocalEngine(fixture.store);
-      await engine.create({ key: 'OWN', name: 'Ownership', type: 'project' });
-      const parent = await engine.create({ parent: 'OWN', title: 'i', type: 'initiative' });
-      const task = await engine.create({ parent: parent.id, title: 't', type: 'task' });
-      await engine.queue({ harness: 'codex', id: task.id, session: 'main' });
-      const observed = await engine.getNode({ id: task.id });
-      const startExpectation = {
-        harness: observed.harness ?? null,
-        lifecycle: observed.lifecycle ?? null,
-        session: observed.session ?? null,
-      };
-      await engine.update({ id: task.id, session: 'replacement-main' });
-      const before = withoutStamp(await fixture.store.export());
-      await expectMimirError('conflict', () =>
-        engine.start({ id: task.id, startExpectation, workerSession: 'worker' }),
-      );
-      expect(withoutStamp(await fixture.store.export())).toEqual(before);
-      const current = await engine.getNode({ id: task.id });
-      expect(
-        await engine.start({
-          id: task.id,
-          startExpectation: {
-            harness: current.harness ?? null,
-            lifecycle: current.lifecycle ?? null,
-            session: current.session ?? null,
-          },
-          workerSession: 'worker',
-        }),
-      ).toMatchObject({ session: 'replacement-main', workerSession: 'worker' });
-    } finally {
-      await fixture.close();
-    }
-  });
+] as const)('%s main and worker columns', (_label, createStore) => {
   test('a delegated start preserves its main conversation and records both identities', async () => {
     const fixture = await createStore();
     try {
@@ -104,6 +69,114 @@ describe.each([
         worker_harness: 'claude',
         worker_session: 'worker',
       });
+    } finally {
+      await fixture.close();
+    }
+  });
+  // The parse defaults missing worker handles whatever the document's version,
+  // and transfer-schema.test.ts reads every older version through it, so one
+  // legacy version is imported here. The rows the parse refuses are in
+  // transfer-validate.test.ts.
+  test('version seven transfers retain identities and assignments while version six defaults workers to null', async () => {
+    const fixture = await createStore();
+    try {
+      const engine = new LocalEngine(fixture.store);
+      await engine.create({ key: 'OWN', name: 'Ownership', type: 'project' });
+      const parent = await engine.create({ parent: 'OWN', title: 'i', type: 'initiative' });
+      const task = await engine.create({ parent: parent.id, title: 't', type: 'task' });
+      await engine.start({
+        harness: 'codex',
+        id: task.id,
+        session: 'main',
+        workerHarness: 'claude',
+        workerSession: 'first',
+      });
+      await engine.update({ id: task.id, workerSession: 'second' });
+      // A worker on the main session stays distinct when two known providers
+      // differ (MMR-568), and the import must keep its provider.
+      const shared = await engine.create({ parent: parent.id, title: 'shared', type: 'task' });
+      await engine.start({
+        harness: 'codex',
+        id: shared.id,
+        session: 'same',
+        workerHarness: 'claude',
+        workerSession: 'same',
+      });
+      const document = await fixture.store.export();
+      expect(document.schema_version).toBe(7);
+      expect(document.nodes.find((n) => n.id === shared.id)).toMatchObject({
+        session: 'same',
+        worker_harness: 'claude',
+        worker_session: 'same',
+      });
+      const target = await createStore();
+      try {
+        await target.store.import(document, { dryRun: false, mode: 'fresh' });
+        expect(withoutStamp(await target.store.export())).toEqual(withoutStamp(document));
+      } finally {
+        await target.close();
+      }
+      const legacyTarget = await createStore();
+      try {
+        const legacy = {
+          ...document,
+          nodes: document.nodes.map(({ worker_harness: _h, worker_session: _s, ...node }) => node),
+          schema_version: 6,
+          transitions: document.transitions.filter((t) => t.kind !== 'assignment'),
+        };
+        await legacyTarget.store.import(legacy, { dryRun: false, mode: 'fresh' });
+        const imported = (await legacyTarget.store.export()).nodes.find((n) => n.id === task.id);
+        expect(imported).toMatchObject({
+          harness: 'codex',
+          session: 'main',
+          worker_harness: null,
+          worker_session: null,
+        });
+      } finally {
+        await legacyTarget.close();
+      }
+    } finally {
+      await fixture.close();
+    }
+  });
+});
+
+// Which handles a start, an update, or a hold keeps is decided in JS
+// (assignment.ts and the mutations), so these cases run on SQLite alone.
+describe('SQLite main and worker ownership', () => {
+  const createStore = createTestStore;
+  test('Engine start refuses a stale main assignment before recording worker ownership', async () => {
+    const fixture = await createStore();
+    try {
+      const engine = new LocalEngine(fixture.store);
+      await engine.create({ key: 'OWN', name: 'Ownership', type: 'project' });
+      const parent = await engine.create({ parent: 'OWN', title: 'i', type: 'initiative' });
+      const task = await engine.create({ parent: parent.id, title: 't', type: 'task' });
+      await engine.queue({ harness: 'codex', id: task.id, session: 'main' });
+      const observed = await engine.getNode({ id: task.id });
+      const startExpectation = {
+        harness: observed.harness ?? null,
+        lifecycle: observed.lifecycle ?? null,
+        session: observed.session ?? null,
+      };
+      await engine.update({ id: task.id, session: 'replacement-main' });
+      const before = withoutStamp(await fixture.store.export());
+      await expectMimirError('conflict', () =>
+        engine.start({ id: task.id, startExpectation, workerSession: 'worker' }),
+      );
+      expect(withoutStamp(await fixture.store.export())).toEqual(before);
+      const current = await engine.getNode({ id: task.id });
+      expect(
+        await engine.start({
+          id: task.id,
+          startExpectation: {
+            harness: current.harness ?? null,
+            lifecycle: current.lifecycle ?? null,
+            session: current.session ?? null,
+          },
+          workerSession: 'worker',
+        }),
+      ).toMatchObject({ session: 'replacement-main', workerSession: 'worker' });
     } finally {
       await fixture.close();
     }
@@ -367,133 +440,6 @@ describe.each([
       await fixture.close();
     }
   });
-  // The parse defaults missing worker handles whatever the document's version,
-  // and transfer-schema.test.ts reads every older version through it, so one
-  // legacy version is imported here. The rows the parse refuses are in
-  // transfer-validate.test.ts.
-  test('version seven transfers retain identities and assignments while version six defaults workers to null', async () => {
-    const fixture = await createStore();
-    try {
-      const engine = new LocalEngine(fixture.store);
-      await engine.create({ key: 'OWN', name: 'Ownership', type: 'project' });
-      const parent = await engine.create({ parent: 'OWN', title: 'i', type: 'initiative' });
-      const task = await engine.create({ parent: parent.id, title: 't', type: 'task' });
-      await engine.start({
-        harness: 'codex',
-        id: task.id,
-        session: 'main',
-        workerHarness: 'claude',
-        workerSession: 'first',
-      });
-      await engine.update({ id: task.id, workerSession: 'second' });
-      // A worker on the main session stays distinct when two known providers
-      // differ (MMR-568), and the import must keep its provider.
-      const shared = await engine.create({ parent: parent.id, title: 'shared', type: 'task' });
-      await engine.start({
-        harness: 'codex',
-        id: shared.id,
-        session: 'same',
-        workerHarness: 'claude',
-        workerSession: 'same',
-      });
-      const document = await fixture.store.export();
-      expect(document.schema_version).toBe(7);
-      expect(document.nodes.find((n) => n.id === shared.id)).toMatchObject({
-        session: 'same',
-        worker_harness: 'claude',
-        worker_session: 'same',
-      });
-      const target = await createStore();
-      try {
-        await target.store.import(document, { dryRun: false, mode: 'fresh' });
-        expect(withoutStamp(await target.store.export())).toEqual(withoutStamp(document));
-      } finally {
-        await target.close();
-      }
-      const legacyTarget = await createStore();
-      try {
-        const legacy = {
-          ...document,
-          nodes: document.nodes.map(({ worker_harness: _h, worker_session: _s, ...node }) => node),
-          schema_version: 6,
-          transitions: document.transitions.filter((t) => t.kind !== 'assignment'),
-        };
-        await legacyTarget.store.import(legacy, { dryRun: false, mode: 'fresh' });
-        const imported = (await legacyTarget.store.export()).nodes.find((n) => n.id === task.id);
-        expect(imported).toMatchObject({
-          harness: 'codex',
-          session: 'main',
-          worker_harness: null,
-          worker_session: null,
-        });
-      } finally {
-        await legacyTarget.close();
-      }
-    } finally {
-      await fixture.close();
-    }
-  });
-  test('transfer rejects seed and project assignment rows before writing', async () => {
-    const fixture = await createStore();
-    try {
-      const engine = new LocalEngine(fixture.store);
-      await engine.create({ key: 'OWN', name: 'Ownership', type: 'project' });
-      const document = await fixture.store.export();
-      const target = await createStore();
-      try {
-        const before = withoutStamp(await target.store.export());
-        expect(
-          await refusalOf(
-            target.store.import(
-              {
-                ...document,
-                transitions: [
-                  {
-                    at: 't',
-                    from_value: '{}',
-                    kind: 'assignment',
-                    project_id: 'OWN',
-                    to_value: '{}',
-                  },
-                ],
-              },
-              { dryRun: false, mode: 'fresh' },
-            ),
-          ),
-        ).toContain('assignment transition must reference a node');
-        expect(
-          await refusalOf(
-            target.store.import(
-              {
-                ...document,
-                seeds: [
-                  {
-                    created_at: 't',
-                    description: null,
-                    history: [{ at: 't', from: '{}', kind: 'assignment', reason: null, to: '{}' }],
-                    key: 'OWN',
-                    kind: 'idea',
-                    lifecycle: 'new',
-                    requester: null,
-                    seq: 1,
-                    spawned: [],
-                    title: 'seed',
-                    updated_at: 't',
-                  },
-                ],
-              },
-              { dryRun: false, mode: 'fresh' },
-            ),
-          ),
-        ).toContain('seeds.0.history.0.kind');
-        expect(withoutStamp(await target.store.export())).toEqual(before);
-      } finally {
-        await target.close();
-      }
-    } finally {
-      await fixture.close();
-    }
-  });
   test('a worker explicitly assigned while queued survives a plain start', async () => {
     const fixture = await createStore();
     try {
@@ -533,7 +479,7 @@ describe.each([
 
   describe('starting a queued task keeps its execution context unless a worker takes over', () => {
     test('a plain start with no worker keeps host and branch', async () => {
-      const { engine, fixture, id } = await queuedWithContext(createStore);
+      const { engine, fixture, id } = await queuedWithContext();
       try {
         expect(await engine.start({ id })).toMatchObject({
           branch: 'reservation',
@@ -546,7 +492,7 @@ describe.each([
     });
 
     test('a host or branch the start supplies replaces the stored one', async () => {
-      const { engine, fixture, id } = await queuedWithContext(createStore);
+      const { engine, fixture, id } = await queuedWithContext();
       try {
         expect(await engine.start({ branch: 'execution', host: 'run-host', id })).toMatchObject({
           branch: 'execution',
@@ -558,7 +504,7 @@ describe.each([
     });
 
     test('a start naming a distinct worker resets host and branch', async () => {
-      const { engine, fixture, id } = await queuedWithContext(createStore);
+      const { engine, fixture, id } = await queuedWithContext();
       try {
         expect(
           await engine.start({ id, workerHarness: 'claude', workerSession: 'worker' }),
@@ -569,7 +515,7 @@ describe.each([
     });
 
     test('a worker assigned earlier by update resets host and branch on a plain start', async () => {
-      const { engine, fixture, id } = await queuedWithContext(createStore);
+      const { engine, fixture, id } = await queuedWithContext();
       try {
         await engine.update({ id, workerHarness: 'claude', workerSession: 'worker' });
         expect(await engine.start({ id })).toMatchObject({
@@ -583,7 +529,7 @@ describe.each([
     });
 
     test('a worker input that collapses into the main session keeps host and branch', async () => {
-      const { engine, fixture, id } = await queuedWithContext(createStore);
+      const { engine, fixture, id } = await queuedWithContext();
       try {
         expect(await engine.start({ id, workerSession: 'main' })).toMatchObject({
           branch: 'reservation',

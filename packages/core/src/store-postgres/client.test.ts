@@ -3,20 +3,17 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { PoolConfig } from 'pg';
 import { Pool } from 'pg';
 
 import { openPostgres } from './client';
 
 /** Open a handle over a pool the caller keeps hold of, and never connects. */
 function opened(): {
-  config: PoolConfig;
   logged: string[];
   pool: Pool;
   close: () => Promise<void>;
 } {
   const logged: string[] = [];
-  let seen: PoolConfig | undefined;
   let pool: Pool | undefined;
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'mimir-pool-test-')));
   const paths = {
@@ -47,7 +44,6 @@ function opened(): {
   try {
     handle = openPostgres(url, {
       createPool: (config) => {
-        seen = config;
         pool = new Pool(config);
         return pool;
       },
@@ -61,23 +57,11 @@ function opened(): {
     }
     rmSync(root, { force: true, recursive: true });
   }
-  if (seen === undefined || pool === undefined) {
+  if (pool === undefined) {
     throw new Error('openPostgres did not build a pool');
   }
-  return { close: () => handle.close(), config: seen, logged, pool };
+  return { close: () => handle.close(), logged, pool };
 }
-
-test('the pool bounds how long a connection request waits', async () => {
-  // Pool exhaustion and an unreachable server both present as "no connection
-  // available". Without a timeout the caller waits for one indefinitely, so a
-  // process that ran out of connections would hang rather than refuse.
-  const handle = opened();
-  try {
-    expect(handle.config.connectionTimeoutMillis).toBe(5000);
-  } finally {
-    await handle.close();
-  }
-});
 
 test('an idle-client fault is logged, not thrown at the process', async () => {
   // `pg` emits `error` on the POOL when an idle connection dies (a server

@@ -419,6 +419,16 @@ const invalidCases: InvalidCase[] = [
     field: 'exactly one',
     name: 'no history owner',
   },
+  {
+    change: (d) => ({
+      ...d,
+      transitions: [
+        { at: '', from_value: '{}', kind: 'assignment', project_id: 'MMR', to_value: '{}' },
+      ],
+    }),
+    field: 'assignment transition must reference a node',
+    name: 'assignment history on a project',
+  },
   ...['type', 'lifecycle', 'hold', 'size'].map((field): InvalidCase => ({
     change: (d) => ({ ...d, nodes: patchFirst(d.nodes, { [field]: 'invalid' }) }),
     field,
@@ -441,6 +451,17 @@ const invalidCases: InvalidCase[] = [
     }),
     field: 'kind',
     name: 'off-enum seed history kind',
+  },
+  {
+    change: (d) => ({
+      ...d,
+      seeds: d.seeds.map((s) => ({
+        ...s,
+        history: patchFirst(s.history, { from: '{}', kind: 'assignment', to: '{}' }),
+      })),
+    }),
+    field: 'seeds.0.history.0.kind',
+    name: 'assignment kind in seed history',
   },
   {
     change: (d) => ({
@@ -563,6 +584,20 @@ test.each([...invalidCases, ...workerCases])('$name is refused, naming $field', 
   const refusal = parseRefusal(scenario.change(structuredClone(exported)));
   expect(refusal).toContain(scenario.field);
   expect(refusal).toContain('invalid transfer document');
+});
+
+test('a document claiming one identity twice is refused, naming the identity', () => {
+  const input = structuredClone(exported);
+  const [first] = input.artifacts;
+  if (first === undefined) {
+    throw new Error('the fixture must export at least one artifact');
+  }
+  const refusal = parseRefusal({
+    ...input,
+    artifacts: [...input.artifacts, { ...first, title: 'Impostor' }],
+  });
+  expect(refusal).toContain('claims one identity twice');
+  expect(refusal).toContain('MMR-a1');
 });
 
 test('a worker on the main session parses when two known providers differ', () => {

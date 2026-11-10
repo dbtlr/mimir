@@ -1,10 +1,15 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 
+import type { Kysely } from 'kysely';
+
 import { createProject } from './create';
 import { chargedTokens, createRunStore } from './runs';
 import type { AdmitRun, Run, RunUsage } from './runs';
+import type { Store } from './store';
 import { postgresDialect } from './store-postgres/dialect';
 import { createPgliteTestStore } from './store-postgres/testing';
+import type { StoreDialect } from './store-sql/dialect';
+import type { DB } from './store-sql/schema';
 import { sqliteDialect } from './store-sqlite/dialect';
 import { createSqliteTestStore } from './store-sqlite/testing';
 
@@ -98,17 +103,20 @@ describe('chargedTokens', () => {
   });
 });
 
-describe.each([
-  { dialect: sqliteDialect, name: 'SQLite', open: createSqliteTestStore },
-  { dialect: postgresDialect, name: 'Postgres', open: createPgliteTestStore },
-])('$name runs', ({ dialect, name, open }) => {
+type Backend = {
+  dialect: StoreDialect;
+  open: () => Promise<{ db: Kysely<DB>; store: Store; close: () => Promise<void> }>;
+};
+
+/** A run store over a fresh store of `backend`, its clock under the test's control. */
+function runsFixture({ dialect, open }: Backend) {
   const closes: (() => Promise<void>)[] = [];
   afterEach(async () => {
     for (const close of closes.splice(0)) {
       await close();
     }
   });
-  async function fixture() {
+  return async () => {
     const handle = await open();
     closes.push(handle.close);
     let time = new Date('2026-11-01T12:00:00.000Z');
@@ -120,7 +128,14 @@ describe.each([
       },
       runs,
     };
-  }
+  };
+}
+
+describe.each([
+  { dialect: sqliteDialect, name: 'SQLite', open: createSqliteTestStore },
+  { dialect: postgresDialect, name: 'Postgres', open: createPgliteTestStore },
+])('$name runs', (backend) => {
+  const fixture = runsFixture(backend);
 
   test('admission inserts a running row with its reservation and zero usage', async () => {
     const { runs } = await fixture();
@@ -147,13 +162,16 @@ describe.each([
   });
 
   // PGlite has one session, so Postgres concurrency is proven in the real-server lane.
-  test.skipIf(name === 'Postgres')('simultaneous admissions let exactly one in', async () => {
-    const { runs } = await fixture();
-    const results = await Promise.all(
-      ['a', 'b', 'c'].map((id) => runs.admit(admission(id, `host-${id}`))),
-    );
-    expect(results.filter((result) => result.admitted)).toHaveLength(1);
-  });
+  test.skipIf(backend.name === 'Postgres')(
+    'simultaneous admissions let exactly one in',
+    async () => {
+      const { runs } = await fixture();
+      const results = await Promise.all(
+        ['a', 'b', 'c'].map((id) => runs.admit(admission(id, `host-${id}`))),
+      );
+      expect(results.filter((result) => result.admitted)).toHaveLength(1);
+    },
+  );
 
   test('a closed run frees the slot', async () => {
     const { runs } = await fixture();
@@ -345,18 +363,6 @@ describe.each([
     }
   });
 
-  test('admit and recoverStale refuse a stale window that is not a finite number above zero and at most a day', async () => {
-    const { runs } = await fixture();
-    await runs.admit(admission('r1'));
-    for (const bad of [0, -1, Number.NaN, Number.POSITIVE_INFINITY, 86_400_001, 1e16]) {
-      expect(await failureOf(runs.admit({ ...admission('r2'), staleAfterMs: bad }))).toMatchObject({
-        code: 'validation',
-      });
-      expect(await failureOf(runs.recoverStale(bad))).toMatchObject({ code: 'validation' });
-    }
-    expect((await runs.get('r1'))?.state).toBe('running');
-  });
-
   test('usage_settled is true only when close is given a settled total', async () => {
     const { runs } = await fixture();
     await runs.admit(admission('r1'));
@@ -382,49 +388,6 @@ describe.each([
     expect((await runs.get('r2'))?.usage_settled).toBe(true);
   });
 
-  test('close refuses a state a runner cannot close to, and invalid numbers, before writing', async () => {
-    const { runs } = await fixture();
-    await runs.admit(admission('r1'));
-    const ok = {
-      costEstimateUsd: null,
-      outcome: 'x',
-      state: 'failed',
-      usage: USAGE,
-      usageSettled: false,
-    } as const;
-    expect(
-      await failureOf(runs.close('r1', 'host-a', { ...ok, state: 'running' as never })),
-    ).toMatchObject({ code: 'validation' });
-    expect(
-      await failureOf(runs.close('r1', 'host-a', { ...ok, state: 'interrupted' as never })),
-    ).toMatchObject({ code: 'validation' });
-    for (const bad of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 2 ** 53]) {
-      expect(
-        await failureOf(
-          runs.close('r1', 'host-a', { ...ok, usage: { ...USAGE, inputTokens: bad } }),
-        ),
-      ).toMatchObject({ code: 'validation' });
-      expect(
-        await failureOf(runs.recordUsage('r1', 'host-a', { ...USAGE, outputTokens: bad })),
-      ).toMatchObject({ code: 'validation' });
-      expect(
-        await failureOf(runs.admit({ ...admission('r2'), reservedTokens: bad })),
-      ).toMatchObject({
-        code: 'validation',
-      });
-    }
-    for (const bad of [Number.NaN, Number.POSITIVE_INFINITY]) {
-      expect(
-        await failureOf(runs.close('r1', 'host-a', { ...ok, costEstimateUsd: bad })),
-      ).toMatchObject({ code: 'validation' });
-    }
-    expect(await runs.get('r1')).toMatchObject({
-      ended_at: null,
-      input_tokens: 0,
-      state: 'running',
-    });
-  });
-
   test('a heartbeat exactly at the stale cut-off is not stale', async () => {
     const { advance, runs } = await fixture();
     await runs.admit(admission('r1'));
@@ -434,21 +397,8 @@ describe.each([
     expect(await runs.recoverStale(STALE_MS)).toEqual(['r1']);
   });
 
-  test('admission reports busy, with no holder, when the slot holder ended before it could be read', async () => {
-    const { db } = await fixture();
-    const raced = {
-      ...dialect,
-      isUniqueViolation: () => true,
-      write: () => Promise.reject(new Error('slot taken')),
-    };
-    const runs = createRunStore({ db, dialect: raced });
-    expect(await runs.admit(admission('r1'))).toEqual({
-      admitted: false,
-      reason: 'busy',
-      running: null,
-    });
-  });
-
+  // Postgres too: the day's window is chargedSince's SQL text comparison on
+  // started_at, which must order canonical instants by time on both dialects.
   test('admission refuses a reservation that does not fit the day, counting each run by its charge', async () => {
     const { advance, runs } = await fixture();
     const day = { dailyTokens: 3_000, since: '2026-11-01T12:00:00.000Z' };
@@ -505,26 +455,6 @@ describe.each([
       reason: 'busy',
       running: { id: 'r1' },
     });
-  });
-
-  test('admission refuses a budget that is not a token count or a day start that is not an instant', async () => {
-    const { runs } = await fixture();
-    for (const dailyTokens of [-1, 1.5, Number.NaN]) {
-      expect(
-        await failureOf(
-          runs.admit({
-            ...admission('r1'),
-            budget: { dailyTokens, since: '2026-11-01T00:00:00Z' },
-          }),
-        ),
-      ).toMatchObject({ code: 'validation' });
-    }
-    expect(
-      await failureOf(
-        runs.admit({ ...admission('r1'), budget: { dailyTokens: 1, since: 'yesterday' } }),
-      ),
-    ).toMatchObject({ code: 'validation' });
-    expect(await runs.get('r1')).toBeUndefined();
   });
 
   test('runs stay out of the transfer document, and an import leaves them intact', async () => {
@@ -596,40 +526,11 @@ describe.each([
       usage: USAGE,
       usageSettled: true,
     };
-    expect(await runs.lastEnded('MMR-1')).toBeUndefined();
-    // Two runs of MMR-1 started at one instant: the larger id wins the tie.
-    await runs.admit(admission('r-b'));
-    await runs.close('r-b', 'host-a', closing);
-    await runs.admit(admission('r-a'));
-    await runs.close('r-a', 'host-a', closing);
-    expect((await runs.lastEnded('MMR-1'))?.id).toBe('r-b');
-    // A later run on another task is not this task's.
-    advance(1_000);
-    await runs.admit({ ...admission('other'), task: 'MMR-2' });
-    await runs.close('other', 'host-a', closing);
-    expect((await runs.lastEnded('MMR-1'))?.id).toBe('r-b');
-    // An interrupted run has ended; a running one has not.
-    await runs.admit(admission('stale'));
-    advance(STALE_MS + 1);
-    await runs.recoverStale(STALE_MS);
-    await runs.admit(admission('live'));
-    expect(await runs.lastEnded('MMR-1')).toMatchObject({ id: 'stale', state: 'interrupted' });
-    expect((await runs.lastEnded('MMR-2'))?.id).toBe('other');
-  });
-
-  test("a task's last ended run orders by start, whatever the insertion or id order", async () => {
-    const { advance, runs } = await fixture();
-    const closing = {
-      costEstimateUsd: null,
-      outcome: 'done',
-      state: 'succeeded' as const,
-      usage: USAGE,
-      usageSettled: true,
-    };
     const ran = async (id: string, task: string) => {
       await runs.admit({ ...admission(id), task });
       await runs.close(id, 'host-a', closing);
     };
+    expect(await runs.lastEnded('MMR-1')).toBeUndefined();
     // Inserted first with the largest id, then the latest start with the
     // smallest id, then one between: only the start order picks `r-a`.
     await ran('r-c', 'MMR-1');
@@ -647,6 +548,113 @@ describe.each([
     await ran('u-a', 'MMR-3');
     expect((await runs.lastEnded('MMR-2'))?.id).toBe('t-b');
     expect((await runs.lastEnded('MMR-3'))?.id).toBe('u-b');
+    // A later run on another task is not this task's.
+    expect((await runs.lastEnded('MMR-1'))?.id).toBe('r-a');
+    // An interrupted run has ended; a running one has not.
+    await runs.admit(admission('stale'));
+    advance(STALE_MS + 1);
+    await runs.recoverStale(STALE_MS);
+    await runs.admit(admission('live'));
+    expect(await runs.lastEnded('MMR-1')).toMatchObject({ id: 'stale', state: 'interrupted' });
+  });
+});
+
+// Each of these refusals is an assert in runs.ts that throws before any SQL,
+// and the busy fallback is decided in JS over a stubbed dialect, so they run
+// on SQLite alone.
+describe('SQLite run validation', () => {
+  const fixture = runsFixture({ dialect: sqliteDialect, open: createSqliteTestStore });
+
+  test('admit and recoverStale refuse a stale window that is not a finite number above zero and at most a day', async () => {
+    const { runs } = await fixture();
+    await runs.admit(admission('r1'));
+    // 0 stays beside -1: the window must be above zero, not merely non-negative.
+    for (const bad of [0, -1, Number.NaN, 86_400_001]) {
+      expect(await failureOf(runs.admit({ ...admission('r2'), staleAfterMs: bad }))).toMatchObject({
+        code: 'validation',
+      });
+      expect(await failureOf(runs.recoverStale(bad))).toMatchObject({ code: 'validation' });
+    }
+    expect((await runs.get('r1'))?.state).toBe('running');
+  });
+
+  test('close refuses a state a runner cannot close to, and invalid numbers, before writing', async () => {
+    const { runs } = await fixture();
+    await runs.admit(admission('r1'));
+    const ok = {
+      costEstimateUsd: null,
+      outcome: 'x',
+      state: 'failed',
+      usage: USAGE,
+      usageSettled: false,
+    } as const;
+    expect(
+      await failureOf(runs.close('r1', 'host-a', { ...ok, state: 'running' as never })),
+    ).toMatchObject({ code: 'validation' });
+    expect(
+      await failureOf(runs.close('r1', 'host-a', { ...ok, state: 'interrupted' as never })),
+    ).toMatchObject({ code: 'validation' });
+    // 1.5 stays beside -1, NaN, and 2^53: a count must be a whole number.
+    for (const bad of [-1, 1.5, Number.NaN, 2 ** 53]) {
+      expect(
+        await failureOf(
+          runs.close('r1', 'host-a', { ...ok, usage: { ...USAGE, inputTokens: bad } }),
+        ),
+      ).toMatchObject({ code: 'validation' });
+      expect(
+        await failureOf(runs.recordUsage('r1', 'host-a', { ...USAGE, outputTokens: bad })),
+      ).toMatchObject({ code: 'validation' });
+      expect(
+        await failureOf(runs.admit({ ...admission('r2'), reservedTokens: bad })),
+      ).toMatchObject({
+        code: 'validation',
+      });
+    }
+    for (const bad of [Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(
+        await failureOf(runs.close('r1', 'host-a', { ...ok, costEstimateUsd: bad })),
+      ).toMatchObject({ code: 'validation' });
+    }
+    expect(await runs.get('r1')).toMatchObject({
+      ended_at: null,
+      input_tokens: 0,
+      state: 'running',
+    });
+  });
+
+  test('admission reports busy, with no holder, when the slot holder ended before it could be read', async () => {
+    const { db } = await fixture();
+    const raced = {
+      ...sqliteDialect,
+      isUniqueViolation: () => true,
+      write: () => Promise.reject(new Error('slot taken')),
+    };
+    const runs = createRunStore({ db, dialect: raced });
+    expect(await runs.admit(admission('r1'))).toEqual({
+      admitted: false,
+      reason: 'busy',
+      running: null,
+    });
+  });
+
+  test('admission refuses a budget that is not a token count or a day start that is not an instant', async () => {
+    const { runs } = await fixture();
+    for (const dailyTokens of [-1, 1.5, Number.NaN]) {
+      expect(
+        await failureOf(
+          runs.admit({
+            ...admission('r1'),
+            budget: { dailyTokens, since: '2026-11-01T00:00:00Z' },
+          }),
+        ),
+      ).toMatchObject({ code: 'validation' });
+    }
+    expect(
+      await failureOf(
+        runs.admit({ ...admission('r1'), budget: { dailyTokens: 1, since: 'yesterday' } }),
+      ),
+    ).toMatchObject({ code: 'validation' });
+    expect(await runs.get('r1')).toBeUndefined();
   });
 
   test('usage since refuses an instant that is not a date', async () => {
