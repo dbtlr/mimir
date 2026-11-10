@@ -70,6 +70,36 @@
 |   }
 | }
 
+### reorder takes top
+| {
+|   "id": "MMR-4",
+|   "parent": "MMR-2",
+|   "status": "awaiting",
+|   "title": "Render views",
+|   "type": "task",
+|   "description": null,
+|   "summary": null,
+|   "priority": null,
+|   "size": null,
+|   "lifecycle": "todo",
+|   "grooming": "not_groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": []
+| }
+
 ### reorder takes before as the sibling id
 | {
 |   "id": "MMR-5",
@@ -139,7 +169,7 @@
 ### the board ends holding the records the cases changed, including every record the answers name
 --- state
 + artifacts[MMR-a2]: {"content":"# Notes\n\nInline body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3"],"project":"MMR","summary":"inline","tags":[],"title":"Inline"}
-~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-5, MMR-4, MMR-6, MMR-7, MMR-8, MMR-9]
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-5, MMR-4, MMR-3, MMR-6, MMR-7, MMR-8, MMR-9]
 + nodes[MMR-3].tags[@1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}
 + nodes[MMR-4].tags[@1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}
 ~ nodes[MMR-8].completedAt: null -> "2026-10-01T12:00:00.000Z"
@@ -152,4 +182,57 @@
 + scratchpads[pad].agenda[@3]: {"content":"A new item","number":4,"reason":null,"state":"open"}
 + scratchpads[pad].journal[@1]: {"at":"2026-10-01T12:00:00.000Z","content":"Checkpoint text.","number":2}
 ~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.009Z"
+
+### every tool takes its inputs under these names and types
+| abandon(id: string, reason: array)
+| annotate(id: string, text: array)
+| archive(key: string, reason: array)
+| artifacts(after: array, at-or-after: array, at-or-before: array, before: array, limit: string, offset: string, on: array, query: string, scope: string, tag: string, tz: string)
+| attach(content: string, id: string, link: array, project: string, summary: string, tag: array, title: string)
+| block(id: string, on: string, reason: array)
+| create_initiative(desc: string, not-open-ended: boolean, open-ended: boolean, parent: string, summary: string, tag: array, title: string)
+| create_phase(desc: string, not-open-ended: boolean, open-ended: boolean, parent: string, summary: string, tag: array, target: string, title: string)
+| create_project(desc: string, key: string, name: string, remote: string, tag: array, yes: boolean)
+| create_task(branch: string, desc: string, groomed: boolean, harness: string, host: string, parent: string, priority: string, ref: string, session: string, size: string, summary: string, tag: array, title: string, upstream: string)
+| depend(id: string, on: string)
+| done(id: string)
+| get(col: array, id: string)
+| groom(ids: string, note: array, state: string)
+| list(after: array, at-or-after: array, at-or-before: array, before: array, col: array, eq: array, has: array, in: array, is: array, limit: string, missing: array, not-eq: array, not-in: array, not-is: array, on: array, priority: string, query: string, scope: string, size: string, status: string, tag: string, tz: string)
+| move(id: string, to: string)
+| next(after: array, at-or-after: array, at-or-before: array, before: array, col: array, eq: array, has: array, in: array, is: array, limit: string, missing: array, not-eq: array, not-in: array, not-is: array, on: array, priority: string, query: string, scope: string, size: string, tz: string)
+| overview(scope: string)
+| park(id: string, reason: array)
+| projects(status: string)
+| promote(desc: string, id: string, link: string, parent: string, priority: string, size: string, tag: array, title: string)
+| queue(branch: string, harness: string, host: string, id: string, session: string)
+| reject(id: string, reason: array)
+| reopen(id: string, reason: array)
+| reorder(after: string, before: string, bottom: boolean, id: string, top: boolean)
+| resolve(id: string, reason: array)
+| return(id: string, reason: array)
+| scratch_agenda(action: string, expected-updated-at: string, id: string, reason: string, words: array)
+| scratch_checkpoint(expected-updated-at: string, id: string, text: array)
+| scratch_create(link: array, scope: string, title: string, words: array)
+| scratch_discard(expected-updated-at: string, force: boolean, id: string, reason: string)
+| scratch_freeze(expected-updated-at: string, id: string, summary: string, tag: array)
+| scratch_get(id: string)
+| scratch_list(scope: string)
+| scratch_update(clear-links: boolean, expected-updated-at: string, id: string, link: array, title: string)
+| search(limit: string, query: array, scope: string)
+| seed(desc: string, kind: string, project: string, scope: string, title: string)
+| seeds(after: array, at-or-after: array, at-or-before: array, before: array, grouped: boolean, on: array, project: string, requester: string, scope: string, sort: string, status: string, tz: string)
+| start(branch: string, harness: string, host: string, id: string, session: string, worker-harness: string, worker-session: string)
+| status(id: string)
+| submit(id: string)
+| tag(ids: string, tags: array)
+| tree(id: string)
+| triage(board: string, dry-run: boolean, scope: string)
+| unarchive(key: string)
+| unblock(id: string)
+| undepend(id: string, on: string)
+| unpark(id: string)
+| unqueue(id: string, reason: array)
+| untag(ids: string, tags: array)
+| update(branch: string, clear-desc: boolean, clear-direction: boolean, desc: string, direction: string, harness: string, host: string, id: string, kind: string, name: string, not-open-ended: boolean, not-pinned: boolean, open-ended: boolean, pinned: boolean, priority: string, ref: string, remote: string, session: string, size: string, summary: string, target: string, title: string, upstream: string, worker-harness: string, worker-session: string)
 

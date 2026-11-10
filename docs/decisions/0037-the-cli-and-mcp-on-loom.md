@@ -184,17 +184,20 @@ command's parity test, so the list does not go stale.
 > frozen tool list (`src/parity/retired-mcp-tools.ts`) and the capability map
 > diffed against it (`src/parity/mcp-capabilities.ts`) are removed with the
 > tests that read them. `mcp-parity.test.ts` keeps one case for each argument
-> spelling only a tool call takes: the kebab-case filters as lists on `list`
-> and `next`, ids as one comma-separated string on `tag`, `before` on
-> `reorder`, `pinned: false` on `update`, words on `scratch_agenda` and
-> `scratch_checkpoint`, and an inline body on `attach`. Each asserts a
-> successful call and the fields that show its arguments arrived, and the
-> board's final state stays pinned. A call whose command has no `-f json` CLI
-> pin for the view it answers still pins its whole structured content: `done`,
-> `create_phase`, `reorder`, `update` on a project, `scratch_agenda`, and
-> `scratch_checkpoint`. `engine-surface.test.ts` proves every Engine method is
-> reachable as a tool or a command, and `mcp-capabilities.test.ts` keeps the
-> machine-local and installer commands off MCP (MMR-665).
+> spelling only a tool call takes: the kebab-case filters as lists, and a
+> `tz`, on `list` and `next`, ids as one comma-separated string on `tag`,
+> `top` and `before` on `reorder`, `pinned: false` on `update`, words on
+> `scratch_agenda` and `scratch_checkpoint`, and an inline body on `attach`.
+> Each asserts a successful call and the fields that show its arguments
+> arrived, and the board's final state stays pinned. Each view that no
+> `-f json` CLI pin owns is still pinned whole by at least one case: `done`,
+> `create_phase`, `reorder`, `update` unpinning a project, `scratch_agenda`,
+> and `scratch_checkpoint`. One pin holds every tool's input names and types
+> from `tools/list`, because no CLI pin sees an input that only MCP names or
+> drops, such as a positional's declared name or an option under
+> `mcpInput({ exclude: true })`. `engine-surface.test.ts` proves every Engine
+> method is reachable as a tool or a command, and `mcp-capabilities.test.ts`
+> keeps the machine-local and installer commands off MCP (MMR-665).
 
 ### Loom generates the MCP contract
 

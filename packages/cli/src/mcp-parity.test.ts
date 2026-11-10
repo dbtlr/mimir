@@ -13,9 +13,11 @@ import type { BoardTemplate, OpenBoard, Tokens } from './testing/writes';
  * tool call takes (a filter as a list, ids as one comma-separated string,
  * `pinned: false`, free text as a list of words, an inline body) reach the
  * command, and the answer is a successful call that carries structured
- * content. A case asserts the fields that show its arguments arrived. A case
- * whose command, or whose subject's view, has no `-f json` CLI pin also pins
- * its whole structured content.
+ * content. A case asserts the fields that show its arguments arrived. A view
+ * no `-f json` CLI pin owns has its whole structured content pinned by at
+ * least one case. Every tool's input names and types are pinned too: no CLI
+ * pin sees an input that only MCP names or drops, such as a positional's
+ * declared name or an option under `mcpInput({ exclude: true })`.
  *
  * Normalization: the Scratchpad UUID, random by design, reads `<uuid>`. The
  * cases run in order against one board, each write on it, so a later case reads
@@ -71,28 +73,42 @@ const rows = (...ids: string[]) => ({ tasks: ids.map((id) => ({ id })), total: i
 const padReceipt = (openAgenda: number) => ({ open_agenda: openAgenda, project: 'MMR' });
 
 const CASES: readonly McpCase[] = [
-  // MMR-3 blocks MMR-4, so `not-is: blocking` leaves it out.
+  // Every record was created at 2026-10-01T12:00Z. 2 October begins at 10:00Z on Kiritimati
+  // (UTC+14), so the bound admits every row in that zone and none in UTC. MMR-3 blocks MMR-4,
+  // so `not-is: blocking` leaves it out.
   holding(
     'list takes kebab-case filters as lists, and a tz',
     'list',
     {
-      'at-or-after': ['created_at:2026-01-01'],
+      'at-or-after': ['created_at:2026-10-02'],
       'not-is': ['blocking'],
       scope: 'MMR',
-      tz: 'UTC',
+      tz: 'Pacific/Kiritimati',
     },
     rows('MMR-4', 'MMR-5', 'MMR-8', 'MMR-6'),
+  ),
+  holding(
+    'list drops the rows a kebab-case date bound excludes',
+    'list',
+    { 'at-or-after': ['created_at:2026-10-02'], scope: 'MMR', tz: 'UTC' },
+    rows(),
   ),
   // MMR-3 is the p1 task, so `not-eq: priority:p1` leaves only the other ready task.
   holding(
     'next takes kebab-case filters as lists',
     'next',
     {
-      'at-or-before': ['created_at:2026-12-31T00:00:00Z'],
+      'at-or-before': ['created_at:2026-10-01T12:00:00Z'],
       'not-eq': ['priority:p1'],
       scope: 'MMR',
     },
     rows('MMR-8'),
+  ),
+  holding(
+    'next drops the tasks a kebab-case date bound excludes',
+    'next',
+    { 'at-or-before': ['created_at:2026-10-01T11:59:59Z'], scope: 'MMR' },
+    rows(),
   ),
   // `done` and `create phase` have no `-f json` CLI pin for a successful write.
   pinned('done', 'done', { id: 'MMR-8' }, { id: 'MMR-8', lifecycle: 'done' }),
@@ -102,7 +118,8 @@ const CASES: readonly McpCase[] = [
     { parent: 'MMR-1', title: 'New phase' },
     { parent: 'MMR-1', type: 'phase' },
   ),
-  // The CLI pins `update -f json` on a task, a seed, and an artifact, not a project.
+  // The CLI pins `update -f json` on a task, a seed, and an artifact, not a project. The next
+  // case pins the project view whole, so this one holds only the field it set.
   holding('update pins a project', 'update', { id: 'MMR', pinned: true }, { pinned: true }),
   pinned(
     'update unpins a project with pinned false',
@@ -111,7 +128,8 @@ const CASES: readonly McpCase[] = [
     { id: 'MMR', pinned: false },
   ),
   // `reorder` has no `-f json` CLI pin. Its answer carries no rank, so the final state shows
-  // that MMR-5 moved above MMR-4, not to the top.
+  // that MMR-4 moved to the top and then MMR-5 above it.
+  pinned('reorder takes top', 'reorder', { id: 'MMR-4', top: true }, { id: 'MMR-4' }),
   pinned('reorder takes before as the sibling id', 'reorder', { before: 'MMR-4', id: 'MMR-5' }, {}),
   holding(
     'tag takes ids as one comma-separated string',
@@ -160,9 +178,11 @@ const CASES: readonly McpCase[] = [
 
 const FINAL_STATE =
   'the board ends holding the records the cases changed, including every record the answers name';
+const INPUTS = 'every tool takes its inputs under these names and types';
 const pins = pinsOf(import.meta.url);
 const keys = new Map(CASES.filter((c) => c.pinned).map((c) => [c, pins.claim(c.name)]));
 const finalKey = pins.claim(FINAL_STATE);
+const inputsKey = pins.claim(INPUTS);
 
 let template: BoardTemplate;
 let open: OpenBoard;
@@ -202,6 +222,18 @@ test.each(CASES)('$name answers structured content that shows its arguments arri
 
 test(FINAL_STATE, async () => {
   pins.check(finalKey, `--- state\n${await stateChanges(open.board, tokens, template)}`);
+});
+
+test(INPUTS, async () => {
+  const lines: string[] = [];
+  for (const tool of (await loomServer.tools()).toSorted()) {
+    const { properties } = await loomServer.schema(tool);
+    const inputs = Object.entries(properties)
+      .map(([name, schema]) => `${name}: ${schema.type ?? 'any'}`)
+      .toSorted();
+    lines.push(`${tool}(${inputs.join(', ')})`);
+  }
+  pins.check(inputsKey, quoted(`${lines.join('\n')}\n`));
 });
 
 test('a refusal is a failed call whose structured content is the failure form', async () => {
