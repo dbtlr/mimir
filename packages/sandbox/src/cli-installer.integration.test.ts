@@ -94,7 +94,7 @@ beforeAll(async () => {
   });
   releases.feed(['1.2.0-next.1', '1.1.0', '1.0.0']);
   releases.latest('1.1.0');
-  // 120 s: this hook compiles the CLI with `bun build --compile` and seeds the fake release feed.
+  // 120 s: this hook compiles the CLI twice with `bun build --compile` and seeds the fake release feed.
 }, 120_000);
 
 afterAll(async () => {
@@ -116,8 +116,8 @@ async function run(args: string[], env: Record<string, string>): Promise<Run> {
     stdin: 'ignore',
     stdout: 'pipe',
   });
-  // A kill timer, not a wait: it stops a child that hangs, while the installer and the compiled CLI
-  // spawn real processes and a download.
+  // A kill timer, not a wait: it stops a child that hangs. 30 s covers the slowest child, an
+  // installer run that downloads a release and starts the compiled CLI.
   const timer = setTimeout(() => child.kill('SIGKILL'), 30_000);
   try {
     const [code, stdout, stderr] = await Promise.all([
