@@ -160,6 +160,17 @@ command's parity test, so the list does not go stale.
 > pins its exit, core's words, and an unchanged board. Core owns which states a
 > verb may leave, so the pins do not sweep them (MMR-663).
 
+> 2026-11-10: The records a write pin holds are the ones the store keeps. Each
+> record of the board still reads back through the Engine, so a write that
+> changes a record other than its subject shows, but without what core derives
+> from the records: a status word, a rollup or leaf count, a list row, a
+> project's latest activity, a child list, a reverse edge, or a prerequisite's
+> title and status. A prerequisite reads by its id alone. A task's rank is
+> stored but no record carries it, so the pin keeps each project's tasks in
+> board order. Core's own tests prove the derived values, and a change to one
+> re-records no write pin. `doctor` only reads, so its cases run on one shared
+> board as read cases (MMR-650).
+
 ### Loom generates the MCP contract
 
 A command opts in to MCP with Loom's `mcpCommand` declaration as it is ported.
@@ -257,3 +268,4 @@ starts.
 - 2026-10-27: Noted that the parity cases run as snapshots of the Loom CLI and the old CLI is no longer the oracle (MMR-600).
 - 2026-10-29: `store upgrade` is removed in every mode; in remote mode `store` refuses export and import only (MMR-582).
 - 2026-11-10: Noted that a shared renderer, parser, or validator is pinned once, and each command keeps one case per distinct input (MMR-663).
+- 2026-11-10: Noted that a write pin holds only the records the store keeps, and that `doctor` runs as read cases (MMR-650).

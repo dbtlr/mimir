@@ -5,9 +5,9 @@ import type { DoctorFinding } from '@mimir/core';
 import { argvLine } from '../testing/argv-case';
 import type { ArgvExtras } from '../testing/argv-case';
 import { parityBoard } from '../testing/fixture';
+import { parityCases } from '../testing/parity';
 import type { ParityCase } from '../testing/parity';
 import { runArgv } from '../testing/run';
-import { writeCases } from '../testing/writes';
 
 /** The real checks find nothing on the fixture board, so a case can add findings of its own. */
 const FINDINGS: DoctorFinding[] = [
@@ -95,8 +95,9 @@ const CASES: DoctorCase[] = [
   argv('doctor -s MMR', { found: true, tty: true }),
 ];
 
-// Doctor reads, but a case adds findings to the board it runs on, so each runs on its own copy.
-writeCases(import.meta.url, CASES, undefined, (board, c) => {
+// Doctor only reads, so every case shares one board. A findings case adds its findings to the
+// diagnosis for that case alone; the store never holds them.
+parityCases(import.meta.url, CASES, undefined, (board, c) => {
   board.findings.push(...(c.found ? FINDINGS : []));
 });
 

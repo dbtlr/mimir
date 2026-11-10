@@ -17,13 +17,7 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
 
 ### update argv: MMR-3 --title "Wire the store once" -f json
 exit 0
@@ -57,13 +51,7 @@ exit 0
 |   "children": []
 | }
 --- state
-~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
 
 ### update argv: MMR-3 --title "Wire the store once" -f jsonl
 exit 0
@@ -97,26 +85,14 @@ exit 0
 |   "children": []
 | }
 --- state
-~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
 
 ### update argv: MMR-3 --title "Wire the store once" -f ids
 exit 0
 --- stdout
 | MMR-3
 --- state
-~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
 
 ### update argv: MMR-3 --title ""
 exit 1
@@ -138,13 +114,7 @@ exit 0
 |
 | MMR-3   * ready   p1   groomed   MMR-2   Wire the store once
 --- state
-~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
 
 ### update argv: MMR-3 --title "Wire the store once" --ascii
 exit 0
@@ -165,13 +135,7 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
 
 ### update argv: MMR-3 --title "Wire the store once" (terminal)
 exit 0
@@ -192,13 +156,7 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
 
 ### update argv: MMR-3
 exit 0
@@ -238,7 +196,6 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-~ board.MMR.nodes.items[MMR-3].description: "Open the store once.\n\nKeep it open." -> "A new description."
 ~ nodes[MMR-3].description: "Open the store once.\n\nKeep it open." -> "A new description."
 
 ### update argv: MMR-3 --clear-desc
@@ -257,7 +214,6 @@ exit 0
 |   grooming   groomed
 |   hold       none
 --- state
-~ board.MMR.nodes.items[MMR-3].description: "Open the store once.\n\nKeep it open." -> null
 ~ nodes[MMR-3].description: "Open the store once.\n\nKeep it open." -> null
 
 ### update argv: MMR-3 --summary "one store"
@@ -279,8 +235,6 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-~ board.MMR.nodes.items[MMR-3].lede: "one store per run" -> "one store"
-~ board.MMR.nodes.items[MMR-3].summary: "one store per run" -> "one store"
 ~ nodes[MMR-3].summary: "one store per run" -> "one store"
 
 ### update argv: MMR-3 --summary ""
@@ -301,8 +255,6 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-~ board.MMR.nodes.items[MMR-3].lede: "one store per run" -> "Open the store once. Keep it open."
-~ board.MMR.nodes.items[MMR-3].summary: "one store per run" -> null
 ~ nodes[MMR-3].summary: "one store per run" -> null
 
 ### update argv: MMR-3 -p p0
@@ -324,7 +276,6 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-~ board.MMR.nodes.items[MMR-3].priority: "p1" -> "p0"
 ~ nodes[MMR-3].priority: "p1" -> "p0"
 
 ### update argv: MMR-3 --priority p3 --size l
@@ -346,8 +297,6 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-~ board.MMR.nodes.items[MMR-3].priority: "p1" -> "p3"
-~ board.MMR.nodes.items[MMR-3].size: "small" -> "large"
 ~ nodes[MMR-3].priority: "p1" -> "p3"
 ~ nodes[MMR-3].size: "small" -> "large"
 
@@ -370,7 +319,6 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-~ board.MMR.nodes.items[MMR-3].size: "small" -> "medium"
 ~ nodes[MMR-3].size: "small" -> "medium"
 
 ### update argv: MMR-3 --ref GH-3
@@ -393,7 +341,6 @@ exit 0
 |   hold          none
 |   external ref  GH-3
 --- state
-~ board.MMR.nodes.items[MMR-3].externalRef: null -> "GH-3"
 ~ nodes[MMR-3].externalRef: null -> "GH-3"
 
 ### update argv: MMR-3 --upstream XX-s1
@@ -416,7 +363,6 @@ exit 0
 |   hold         none
 |   upstream     XX-s1
 --- state
-~ board.MMR.nodes.items[MMR-3].upstream: null -> "XX-s1"
 ~ nodes[MMR-3].upstream: null -> "XX-s1"
 
 ### update argv: MMR-3 --upstream none
@@ -461,9 +407,6 @@ exit 0
 |   host         asgard
 |   harness      claude
 --- state
-~ board.MMR.nodes.items[MMR-3].harness: null -> "claude"
-+ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}","handles":{"harness":"claude","host":"asgard"},"kind":"assignment","reason":null,"to":"{\"harness\":\"claude\",\"session\":null,\"worker_harness\":null,\"worker_session\":null}"}
-~ board.MMR.nodes.items[MMR-3].host: null -> "asgard"
 ~ nodes[MMR-3].harness: null -> "claude"
 + nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}","handles":{"harness":"claude","host":"asgard"},"kind":"assignment","reason":null,"to":"{\"harness\":\"claude\",\"session\":null,\"worker_harness\":null,\"worker_session\":null}"}
 ~ nodes[MMR-3].host: null -> "asgard"
@@ -489,9 +432,6 @@ exit 0
 |   session      s-9
 |   branch       store
 --- state
-~ board.MMR.nodes.items[MMR-3].branch: null -> "store"
-+ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}","handles":{"branch":"store","session":"s-9"},"kind":"assignment","reason":null,"to":"{\"harness\":null,\"session\":\"s-9\",\"worker_harness\":null,\"worker_session\":null}"}
-~ board.MMR.nodes.items[MMR-3].session: null -> "s-9"
 ~ nodes[MMR-3].branch: null -> "store"
 + nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}","handles":{"branch":"store","session":"s-9"},"kind":"assignment","reason":null,"to":"{\"harness\":null,\"session\":\"s-9\",\"worker_harness\":null,\"worker_session\":null}"}
 ~ nodes[MMR-3].session: null -> "s-9"
@@ -514,9 +454,6 @@ exit 0
 |   worker harness  codex
 |   worker session  replacement
 --- state
-+ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_harness":"codex","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"codex\",\"worker_session\":\"replacement\"}"}
-~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> "codex"
-~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> "replacement"
 + nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_harness":"codex","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"codex\",\"worker_session\":\"replacement\"}"}
 ~ nodes[MMR-5].workerHarness: "claude" -> "codex"
 ~ nodes[MMR-5].workerSession: "task-worker-session" -> "replacement"
@@ -538,9 +475,6 @@ exit 0
 |   session         main-session
 |   worker session  replacement
 --- state
-+ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
-~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
-~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> "replacement"
 + nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
 ~ nodes[MMR-5].workerHarness: "claude" -> null
 ~ nodes[MMR-5].workerSession: "task-worker-session" -> "replacement"
@@ -562,8 +496,6 @@ exit 0
 |   session         main-session
 |   worker session  task-worker-session
 --- state
-+ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"task-worker-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"task-worker-session\"}"}
-~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
 + nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"task-worker-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"task-worker-session\"}"}
 ~ nodes[MMR-5].workerHarness: "claude" -> null
 
@@ -583,9 +515,6 @@ exit 0
 |   harness    codex
 |   session    main-session
 --- state
-+ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
-~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
-~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> null
 + nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
 ~ nodes[MMR-5].workerHarness: "claude" -> null
 ~ nodes[MMR-5].workerSession: "task-worker-session" -> null
@@ -622,9 +551,6 @@ exit 0
 |   "children": []
 | }
 --- state
-+ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
-~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
-~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> null
 + nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
 ~ nodes[MMR-5].workerHarness: "claude" -> null
 ~ nodes[MMR-5].workerSession: "task-worker-session" -> null
@@ -645,9 +571,6 @@ exit 0
 |   harness    codex
 |   session    main-session
 --- state
-+ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
-~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
-~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> null
 + nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
 ~ nodes[MMR-5].workerHarness: "claude" -> null
 ~ nodes[MMR-5].workerSession: "task-worker-session" -> null
@@ -669,20 +592,10 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-~ board.MMR.nodes.items[MMR-3].description: "Open the store once.\n\nKeep it open." -> "and"
-~ board.MMR.nodes.items[MMR-3].lede: "one store per run" -> "more"
-~ board.MMR.nodes.items[MMR-3].priority: "p1" -> "p2"
-~ board.MMR.nodes.items[MMR-3].summary: "one store per run" -> "more"
-~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Both"
-~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Both"
-~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Both"
-~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Both"
 ~ nodes[MMR-3].description: "Open the store once.\n\nKeep it open." -> "and"
 ~ nodes[MMR-3].priority: "p1" -> "p2"
 ~ nodes[MMR-3].summary: "one store per run" -> "more"
 ~ nodes[MMR-3].title: "Wire the store" -> "Both"
-~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Both"
-~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Both"
 
 ### update argv: MMR-2 --target 2027-03
 exit 0
@@ -744,21 +657,7 @@ exit 0
 |   children      MMR-3 · Wire the store (ready), MMR-4 · Render views (awaiting), MMR-5 · Ship it (in_progress), MMR-6 · Wait on review (blocked), MMR-7 · Spike (done), MMR-8 · Tidy docs (ready), MMR-9 · Export (done)
 |   distribution  ready:2, awaiting:1, in_progress:1, blocked:1, done:2
 --- state
-~ board.MMR.nodes.items[MMR-3].home.parentOpenEnded: null -> true
-~ board.MMR.nodes.items[MMR-4].home.parentOpenEnded: null -> true
-~ board.MMR.nodes.items[MMR-5].home.parentOpenEnded: null -> true
-~ board.MMR.nodes.items[MMR-8].home.parentOpenEnded: null -> true
-~ board.MMR.nodes.items[MMR-6].home.parentOpenEnded: null -> true
-~ board.MMR.nodes.items[MMR-7].home.parentOpenEnded: null -> true
-~ board.MMR.nodes.items[MMR-9].home.parentOpenEnded: null -> true
 ~ nodes[MMR-2].open_ended: null -> true
-~ nodes[MMR-3].home.parentOpenEnded: null -> true
-~ nodes[MMR-4].home.parentOpenEnded: null -> true
-~ nodes[MMR-5].home.parentOpenEnded: null -> true
-~ nodes[MMR-6].home.parentOpenEnded: null -> true
-~ nodes[MMR-7].home.parentOpenEnded: null -> true
-~ nodes[MMR-8].home.parentOpenEnded: null -> true
-~ nodes[MMR-9].home.parentOpenEnded: null -> true
 
 ### update argv: MMR-2 --not-open-ended
 exit 0
@@ -773,21 +672,7 @@ exit 0
 |   children      MMR-3 · Wire the store (ready), MMR-4 · Render views (awaiting), MMR-5 · Ship it (in_progress), MMR-6 · Wait on review (blocked), MMR-7 · Spike (done), MMR-8 · Tidy docs (ready), MMR-9 · Export (done)
 |   distribution  ready:2, awaiting:1, in_progress:1, blocked:1, done:2
 --- state
-~ board.MMR.nodes.items[MMR-3].home.parentOpenEnded: null -> false
-~ board.MMR.nodes.items[MMR-4].home.parentOpenEnded: null -> false
-~ board.MMR.nodes.items[MMR-5].home.parentOpenEnded: null -> false
-~ board.MMR.nodes.items[MMR-8].home.parentOpenEnded: null -> false
-~ board.MMR.nodes.items[MMR-6].home.parentOpenEnded: null -> false
-~ board.MMR.nodes.items[MMR-7].home.parentOpenEnded: null -> false
-~ board.MMR.nodes.items[MMR-9].home.parentOpenEnded: null -> false
 ~ nodes[MMR-2].open_ended: null -> false
-~ nodes[MMR-3].home.parentOpenEnded: null -> false
-~ nodes[MMR-4].home.parentOpenEnded: null -> false
-~ nodes[MMR-5].home.parentOpenEnded: null -> false
-~ nodes[MMR-6].home.parentOpenEnded: null -> false
-~ nodes[MMR-7].home.parentOpenEnded: null -> false
-~ nodes[MMR-8].home.parentOpenEnded: null -> false
-~ nodes[MMR-9].home.parentOpenEnded: null -> false
 
 ### update argv: MMR-1 --title "Platform work" --direction "Next: the store."
 exit 0
@@ -803,8 +688,6 @@ exit 0
 --- state
 ~ nodes[MMR-1].title: "Platform" -> "Platform work"
 + nodes[MMR-1].next: "Next: the store."
-~ nodes[MMR-2].home.parentTitle: "Platform" -> "Platform work"
-~ projects[MMR].children[MMR-1].title: "Platform" -> "Platform work"
 
 ### update argv: MMR-2 (terminal)
 exit 0
@@ -1019,10 +902,6 @@ exit 0
 |   created  2026-10-01 12:00 UTC
 --- state
 ~ artifacts[MMR-a1].title: "Store notes" -> "x"
-~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "x"
-~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
-~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
-~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "x"
 
 ### update argv: MMR-a1 --title x -f json
 exit 0
@@ -1042,10 +921,6 @@ exit 0
 | }
 --- state
 ~ artifacts[MMR-a1].title: "Store notes" -> "x"
-~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "x"
-~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
-~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
-~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "x"
 
 ### update argv: MMR-a1 --title x -f jsonl
 exit 0
@@ -1065,10 +940,6 @@ exit 0
 | }
 --- state
 ~ artifacts[MMR-a1].title: "Store notes" -> "x"
-~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "x"
-~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
-~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
-~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "x"
 
 ### update argv: MMR-a1 --title x -f ids
 exit 0
@@ -1076,10 +947,6 @@ exit 0
 | MMR-a1
 --- state
 ~ artifacts[MMR-a1].title: "Store notes" -> "x"
-~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "x"
-~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
-~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
-~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "x"
 
 ### update argv: MMR-a1 --title x -f table
 exit 0
@@ -1089,10 +956,6 @@ exit 0
 | MMR-a1   x   design   2026-10-01
 --- state
 ~ artifacts[MMR-a1].title: "Store notes" -> "x"
-~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "x"
-~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
-~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
-~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "x"
 
 ### update argv: MMR-a1 --title x --ascii
 exit 0
@@ -1106,10 +969,6 @@ exit 0
 |   created  2026-10-01 12:00 UTC
 --- state
 ~ artifacts[MMR-a1].title: "Store notes" -> "x"
-~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "x"
-~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
-~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
-~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "x"
 
 ### update argv: MMR-a1 --title x (terminal)
 exit 0
@@ -1123,10 +982,6 @@ exit 0
 |   created  2026-10-01 12:00 UTC
 --- state
 ~ artifacts[MMR-a1].title: "Store notes" -> "x"
-~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "x"
-~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
-~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
-~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "x"
 
 ### update argv: MMR-a1 --summary x
 exit 0
@@ -1140,10 +995,6 @@ exit 0
 |   created  2026-10-01 12:00 UTC
 --- state
 ~ artifacts[MMR-a1].summary: "design notes" -> "x"
-~ board.MMR.artifacts.items[MMR-a1].summary: "design notes" -> "x"
-~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].summary: "design notes" -> "x"
-~ nodes[MMR-3].artifacts[MMR-a1].summary: "design notes" -> "x"
-~ projects[MMR].artifacts[MMR-a1].summary: "design notes" -> "x"
 
 ### update argv: MMR-a1 --summary ""
 exit 0
@@ -1156,10 +1007,6 @@ exit 0
 |   created  2026-10-01 12:00 UTC
 --- state
 - artifacts[MMR-a1].summary: "design notes"
-- board.MMR.artifacts.items[MMR-a1].summary: "design notes"
-- board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].summary: "design notes"
-- nodes[MMR-3].artifacts[MMR-a1].summary: "design notes"
-- projects[MMR].artifacts[MMR-a1].summary: "design notes"
 
 ### update argv: MMR-a1 --title both --summary and
 exit 0
@@ -1174,14 +1021,6 @@ exit 0
 --- state
 ~ artifacts[MMR-a1].summary: "design notes" -> "and"
 ~ artifacts[MMR-a1].title: "Store notes" -> "both"
-~ board.MMR.artifacts.items[MMR-a1].summary: "design notes" -> "and"
-~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "both"
-~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].summary: "design notes" -> "and"
-~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "both"
-~ nodes[MMR-3].artifacts[MMR-a1].summary: "design notes" -> "and"
-~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "both"
-~ projects[MMR].artifacts[MMR-a1].summary: "design notes" -> "and"
-~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "both"
 
 ### update argv: MMR-a1
 exit 0
