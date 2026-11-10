@@ -1,10 +1,12 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeAll, describe, expect, test } from 'bun:test';
 
 import { createHostSecretStore } from './host-secrets';
 import { postgresDialect } from './store-postgres/dialect';
-import { createPgliteTestStore } from './store-postgres/testing';
+import { bootPglite, createPgliteTestStore } from './store-postgres/testing';
 import { sqliteDialect } from './store-sqlite/dialect';
 import { createSqliteTestStore } from './store-sqlite/testing';
+
+beforeAll(bootPglite);
 
 describe.each([
   { dialect: sqliteDialect, name: 'SQLite', open: createSqliteTestStore },

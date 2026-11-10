@@ -118,6 +118,10 @@ The usual causes, and their fixes:
   process.
 - **Setup rebuilt identically for every case.** Build a read-only fixture once
   in `beforeAll`, or copy a seeded template per case instead of reseeding it.
+  A conformance suite shares one seeded store per backend among the cases
+  that only read it through `sharedSeededStore`
+  (`packages/core/src/testing/conformance.ts`), which fails the file if a case
+  writes that store; a case that writes opens its own.
   Keep what each test proves; change only how it is set up. This list governs
   how to speed a test up; "Which tests to write" below governs whether the test
   should exist.
@@ -133,7 +137,12 @@ CI's gate checks the default bun lane's timings with `bun run test:budget`
 (`packages/cli/scripts/test-budget.ts`). A test over 3 s fails the gate, and a
 test over 1 s or a file over 15 s is reported in the log. Bun counts
 `beforeEach` and `afterEach` in a test's time but `beforeAll` and `afterAll`
-only in its file's, so a slow shared setup shows as a slow file. A test over
+only in its file's, so a slow shared setup shows as a slow file. A test file
+that opens a PGlite store runs `beforeAll(bootPglite)` first
+(`bootEmptyPglite` when it opens only unmigrated databases), so the one-off
+snapshot build, about 1.8 s on the gate, counts in that file's time and in no
+test's. A file that forgets the hook fails when it runs alone; in a run of
+several files it passes if an earlier file has already booted. A test over
 the limit may be exempted only against the task that will make it fast; remove
 the exemption in that task. An exemption that names a test the run did not
 include, as after a rename, fails the gate. To check a local run, write a

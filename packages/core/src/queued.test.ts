@@ -1,4 +1,4 @@
-import { describe, expect, setSystemTime, test } from 'bun:test';
+import { beforeAll, describe, expect, setSystemTime, test } from 'bun:test';
 
 import { engineSchemas } from '@mimir/contract';
 
@@ -7,9 +7,11 @@ import { LocalEngine } from './engine';
 import { workPageOf } from './intent';
 import { queueTask, unqueueTask } from './mutations';
 import { interpret, taskStatus } from './status';
-import { createPgliteTestStore } from './store-postgres/testing';
+import { bootPglite, createPgliteTestStore } from './store-postgres/testing';
 import { expectMimirError } from './testing/errors';
 import { createTestStore } from './testing/store';
+
+beforeAll(bootPglite);
 
 // Postgres keeps the case that writes a queued task: the 'queued' lifecycle its
 // node check admits (migration 0007), and reservation handles in a jsonb column.

@@ -1,4 +1,4 @@
-import { afterEach, expect, setDefaultTimeout, setSystemTime, test } from 'bun:test';
+import { afterEach, beforeAll, expect, setSystemTime, test } from 'bun:test';
 
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import type { Node, Project } from './model';
@@ -19,9 +19,12 @@ import {
   updateProject,
 } from './mutations';
 import type { Store } from './store';
+import { bootPglite } from './store-postgres/testing';
 import type { Instance } from './testing/conformance';
 import { backends, errorOf, scratchpad } from './testing/conformance';
 import { now } from './time';
+
+beforeAll(bootPglite);
 
 /**
  * The `Store`-seam write-surface sweep (MMR-379, ADR 0030) — the second half of
@@ -37,10 +40,6 @@ import { now } from './time';
  * The backend table lives in `testing/conformance.ts`: a new backend joins this
  * sweep by adding a row there.
  */
-
-// Every case builds a whole store, which can run past bun's 5s default on a
-// loaded runner.
-setDefaultTimeout(60_000);
 
 /** A second UUIDv4 handle, for the scratchpad ordering cases. */
 const PAD_ID_B = '223e4567-e89b-42d3-a456-426614174001';

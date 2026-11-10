@@ -15,8 +15,9 @@ export type Budget = { testLimitMs: number; testWarnMs: number; fileWarnMs: numb
 
 /**
  * The budget for the Linux gate. The limit leaves headroom under Bun's 5 s
- * default timeout. It also clears the one-off PGlite snapshot boot, about 1.8 s
- * on the gate, which lands on whichever test opens the first Postgres store.
+ * default timeout. The one-off PGlite snapshot boot, about 1.8 s on the gate,
+ * runs in a `beforeAll` of each file that opens a Postgres store (`bootPglite`),
+ * so it counts in that file's time and in no test's.
  */
 export const BUDGET: Budget = { fileWarnMs: 15_000, testLimitMs: 3000, testWarnMs: 1000 };
 

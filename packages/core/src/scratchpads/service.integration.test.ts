@@ -1,9 +1,11 @@
-import { expect, setDefaultTimeout, test } from 'bun:test';
+import { beforeAll, expect, setDefaultTimeout, test } from 'bun:test';
 
 import { createInitiative, createProject } from '../create';
-import { createPgliteTestStore } from '../store-postgres/testing';
+import { bootPglite, createPgliteTestStore } from '../store-postgres/testing';
 import { backends } from '../testing/conformance';
 import { createScratchpadService } from './service';
+
+beforeAll(bootPglite);
 
 setDefaultTimeout(60_000);
 

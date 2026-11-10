@@ -1,5 +1,5 @@
 import { Database } from 'bun:sqlite';
-import { expect, setDefaultTimeout, test } from 'bun:test';
+import { beforeAll, expect, test } from 'bun:test';
 
 import { Kysely } from 'kysely';
 
@@ -9,19 +9,18 @@ import { STORE_EXPORT_SCHEMA_VERSION } from '../export';
 import type { Node } from '../model';
 import { postgresDialect, upgradeSchema as upgradePostgresSchema } from '../store-postgres/dialect';
 import { createPgliteDialect } from '../store-postgres/pglite';
-import { createEmptyPglite, createPgliteTestStore } from '../store-postgres/testing';
+import { bootPglite, createEmptyPglite, createPgliteTestStore } from '../store-postgres/testing';
 import { sqliteDialect, upgradeSchema } from '../store-sqlite/dialect';
 import { createBunSqliteDialect } from '../store-sqlite/driver';
 import { inLists, insertBatched, rowsPerStatement } from './batch';
 import type { DB } from './schema';
 import { createSqlStore } from './store';
 
+beforeAll(bootPglite);
+
 /** SQL-store batching and representation tests. Shared import validation is covered
  * by core/transfer-validate.test.ts, and its store refusal by
  * core/store-conformance.transfer.test.ts on both backends. */
-
-// Whole PGlite stores.
-setDefaultTimeout(60_000);
 
 test('a chunk stays under the statement bind-parameter ceiling at every row width', () => {
   // PostgreSQL binds at most 65535 parameters per statement, and a row spends

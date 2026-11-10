@@ -50,7 +50,7 @@ function emptyDataDir(): Promise<Blob> {
 
 function migratedDataDir(): Promise<Blob> {
   migratedSnapshot ??= (async () => {
-    const pg = await createEmptyPglite();
+    const pg = new PGlite({ loadDataDir: await emptyDataDir() });
     try {
       // Not destroyed: destroying the Kysely handle would close `pg` before the dump.
       await upgradeSchema(new Kysely<DB>({ dialect: createPgliteDialect(pg) }));
@@ -63,9 +63,41 @@ function migratedDataDir(): Promise<Blob> {
   return migratedSnapshot;
 }
 
+/**
+ * Build this process's migrated snapshot, and the empty one it starts from, so
+ * the cost lands in a hook rather than a test (MMR-642).
+ *
+ * The first build compiles PGlite's WebAssembly and runs initdb: about 0.7 s
+ * locally and 1.8 s on the Linux gate. A test that paid it would
+ * report a cost that is not its own, and would be the test that times out on a
+ * slow runner. Every test file that opens a Postgres store therefore calls this
+ * first, as `beforeAll(bootPglite)`; Bun counts a `beforeAll` in the file's time,
+ * not a test's. A file that only opens empty databases calls
+ * {@link bootEmptyPglite} instead. Opening a store before either has run is
+ * refused, so a file that forgets the hook fails when it runs alone.
+ */
+export async function bootPglite(): Promise<void> {
+  await migratedDataDir();
+}
+
+/** {@link bootPglite} for a file that opens only empty databases: no migration runs. */
+export async function bootEmptyPglite(): Promise<void> {
+  await emptyDataDir();
+}
+
+/** The snapshot a fixture boots from, refused when no `beforeAll` started building it. */
+function booted(snapshot: Promise<Blob> | undefined, boot: string): Promise<Blob> {
+  if (snapshot === undefined) {
+    throw new Error(
+      `the PGlite snapshot is not built: call beforeAll(${boot}) in this test file, so the boot is not paid inside a test`,
+    );
+  }
+  return snapshot;
+}
+
 /** A fresh, empty Postgres database in this process: no schema, nothing migrated. */
 export async function createEmptyPglite(): Promise<PGlite> {
-  return new PGlite({ loadDataDir: await emptyDataDir() });
+  return new PGlite({ loadDataDir: await booted(emptySnapshot, 'bootEmptyPglite') });
 }
 
 /** A Kysely handle over a fresh, unmigrated database, for tests of the migrator's own callers. */
@@ -84,7 +116,7 @@ export async function createEmptyPostgresDb(): Promise<Pick<PostgresTestStore, '
 }
 
 export async function createPgliteTestStore(): Promise<PostgresTestStore> {
-  const pg = new PGlite({ loadDataDir: await migratedDataDir() });
+  const pg = new PGlite({ loadDataDir: await booted(migratedSnapshot, 'bootPglite') });
   const db = new Kysely<DB>({ dialect: createPgliteDialect(pg) });
   // Kysely's destroy is a no-op on a handle that never ran a query, so close
   // the database itself too: a closed store must refuse what follows.

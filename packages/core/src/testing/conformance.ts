@@ -1,3 +1,5 @@
+import { afterAll, beforeAll, expect } from 'bun:test';
+
 import type { Scratchpad } from '@mimir/contract';
 
 import { createInitiative, createPhase, createProject, createTask } from '../create';
@@ -93,6 +95,74 @@ export const backends: Backend[] = [
   { make: postgresInstance, name: 'postgres' },
   { make: sqliteInstance, name: 'sqlite' },
 ];
+
+/** A seeded store the cases of one scope share, and the document it exported once seeded. */
+export type SharedStore = {
+  readonly store: Store;
+  /** Deep-frozen: a case that edits the document edits a `structuredClone` of it. */
+  readonly document: StoreExport;
+};
+
+/**
+ * One store of `backend`, seeded once and shared by the cases of the calling
+ * scope (MMR-642). Only a case that never writes the store may read it; a case
+ * that writes opens its own.
+ *
+ * It registers its own hooks in the calling scope: `beforeAll` opens and seeds
+ * the store and exports it, and `afterAll` fails the scope when the store's
+ * export has changed since, so a case that writes it is caught instead of
+ * leaking its write into the cases after it. A Postgres file still runs
+ * `beforeAll(bootPglite)` first, which this `beforeAll` then follows.
+ */
+export function sharedSeededStore(
+  backend: Backend,
+  seed: (store: Store) => Promise<void>,
+): SharedStore {
+  let instance: Instance | undefined;
+  let document: StoreExport | undefined;
+  beforeAll(async () => {
+    instance = await backend.make();
+    await seed(instance.store);
+    document = deepFreeze(await instance.store.export());
+  });
+  afterAll(async () => {
+    try {
+      if (instance !== undefined && document !== undefined) {
+        const after = withoutStamp(await instance.store.export());
+        expect(after, `a case wrote the shared ${backend.name} store`).toEqual(
+          withoutStamp(document),
+        );
+      }
+    } finally {
+      await instance?.close();
+    }
+  });
+  const seeded = (): { store: Store; document: StoreExport } => {
+    if (instance === undefined || document === undefined) {
+      throw new Error('the shared store is seeded in beforeAll: read it inside a test');
+    }
+    return { document, store: instance.store };
+  };
+  return {
+    get document() {
+      return seeded().document;
+    },
+    get store() {
+      return seeded().store;
+    },
+  };
+}
+
+/** `value` with every object and array inside it frozen, so a write to it throws. */
+function deepFreeze<T>(value: T): T {
+  if (typeof value === 'object' && value !== null && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const inner of Object.values(value)) {
+      deepFreeze(inner);
+    }
+  }
+  return value;
+}
 
 // ── Fixture ────────────────────────────────────────────────────────────────
 

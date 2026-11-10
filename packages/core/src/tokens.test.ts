@@ -1,10 +1,10 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeAll, describe, expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
 
 import { sql } from 'kysely';
 
 import { postgresDialect } from './store-postgres/dialect';
-import { createPgliteTestStore } from './store-postgres/testing';
+import { bootPglite, createPgliteTestStore } from './store-postgres/testing';
 import { sqliteDialect } from './store-sqlite/dialect';
 import { createSqliteTestStore } from './store-sqlite/testing';
 import { refusalOf } from './testing/conformance';
@@ -15,6 +15,8 @@ import {
   normalizeDeviceName,
   normalizePairingCode,
 } from './tokens';
+
+beforeAll(bootPglite);
 
 const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
 

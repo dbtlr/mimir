@@ -1,18 +1,19 @@
-import { afterEach, expect, setDefaultTimeout, test } from 'bun:test';
+import { afterEach, beforeAll, expect, test } from 'bun:test';
 
 import { createInitiative, createProject, createTask } from './create';
 import { archiveProject, updateNode } from './mutations';
 import type { Store } from './store';
+import { bootPglite } from './store-postgres/testing';
 import type { Instance } from './testing/conformance';
 import { backends, scratchpad } from './testing/conformance';
+
+beforeAll(bootPglite);
 
 /**
  * `Store.loadProjectActivity` (MMR-494) on every backend: each project's newest
  * stamp across its own row, nodes, transitions, annotations, seeds, artifacts,
  * and scratchpads — and an event in one project never moves another's.
  */
-
-setDefaultTimeout(60_000);
 
 /** Far-future stamps, so a directly-written row is unambiguously the newest. */
 const LATER = '2098-01-01T00:00:00.000Z';

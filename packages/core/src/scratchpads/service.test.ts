@@ -1,12 +1,14 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeAll, describe, expect, test } from 'bun:test';
 
 import type { Scratchpad } from '@mimir/contract';
 
 import type { ArtifactCreate, ArtifactRecord, ArtifactStore } from '../artifacts/store';
 import { createInitiative, createProject } from '../create';
-import { createPgliteTestStore } from '../store-postgres/testing';
+import { bootPglite, createPgliteTestStore } from '../store-postgres/testing';
 import { createScratchpadService } from './service';
 import type { ScratchpadStore } from './store';
+
+beforeAll(bootPglite);
 
 const ID = '123e4567-e89b-42d3-a456-426614174000';
 const T0 = '2026-08-03T12:00:00.000Z';

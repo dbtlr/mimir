@@ -1,12 +1,14 @@
-import { describe, expect, test } from 'bun:test';
+import { beforeAll, describe, expect, test } from 'bun:test';
 
 import { LocalEngine } from './engine';
 import { startTask } from './mutations';
 import { OPS } from './ops';
-import { createPgliteTestStore } from './store-postgres/testing';
+import { bootPglite, createPgliteTestStore } from './store-postgres/testing';
 import { withoutStamp } from './testing/conformance';
 import { expectMimirError } from './testing/errors';
 import { createTestStore, rawPatchNode } from './testing/store';
+
+beforeAll(bootPglite);
 
 /** A queued task reserved with a host and branch, on a fresh store. */
 async function queuedWithContext() {
