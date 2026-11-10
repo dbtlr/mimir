@@ -140,7 +140,8 @@ command's parity test, so the list does not go stale.
 > live counterpart and is retired. The MCP structured-content cases are
 > pinned the same way, and the old server's tool list and input schemas are
 > frozen in `src/parity/retired-mcp-tools.ts` so the capability map is still
-> diffed against the retired contract.
+> diffed against the retired contract. (Both were retired on 2026-11-10; see
+> the MMR-665 note below.)
 
 > 2026-11-10: A shared renderer, parser, or validator is pinned once, and each
 > command keeps one case per distinct input. The full format, `--ascii`, and
