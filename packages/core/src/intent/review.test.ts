@@ -234,6 +234,8 @@ test("the going-cold count matches the work page's Going cold section it links t
   for (const id of ids) {
     await at(id, '2026-01-01T00:00:00.000Z');
   }
+  // Fresh as of asOf but cold by the wall clock, so both sides must classify at asOf.
+  await at(await task('MMR', 'fresh'), '2026-02-28T00:00:00.000Z');
   const page = await workPageOf(store, 'MMR', { asOf, timeZone: 'UTC' });
   const report = await review({ asOf });
   expect(page.goingCold.length).toBeGreaterThan(0);
@@ -355,9 +357,16 @@ test('an all-clear store has no decisions, queue, or triage but still lists its 
   await project('AAA', 'Alpha');
   await task('AAA', 'plain');
   const report = await review();
-  expect(report.decisions).toEqual([]);
-  expect(report.queue).toEqual([]);
-  expect(report.triage).toEqual([]);
+  const { decisions, goingCold, now, queue, runnable, shipped, triage } = report;
+  expect({ decisions, goingCold, now, queue, runnable, shipped, triage }).toEqual({
+    decisions: [],
+    goingCold: [],
+    now: [],
+    queue: [],
+    runnable: [],
+    shipped: [],
+    triage: [],
+  });
   // AAA's task is the newest activity, so it leads the rail.
   expect(report.projects).toEqual([
     { decisions: 0, goingCold: 0, inFlight: 0, key: 'AAA', live: 1, name: 'Alpha', triage: 0 },

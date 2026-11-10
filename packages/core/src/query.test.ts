@@ -178,6 +178,13 @@ describe('filter evaluation', () => {
     ).toBe(true);
   });
 
+  // dates.test.ts owns the refusal; this proves compileFilters passes the missing zone through.
+  test('a bare date with no caller zone is refused', async () => {
+    await expectMimirError('validation', async () =>
+      compileFilters([{ field: 'created_at', op: 'on', value: '2026-06-10' }]),
+    );
+  });
+
   test('filters AND-compose', () => {
     const both = compileFilters([
       { field: 'priority', op: 'eq', value: 'p1' },

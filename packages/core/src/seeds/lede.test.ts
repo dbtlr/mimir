@@ -65,8 +65,8 @@ describe('deriveLede', () => {
   test.each([
     [
       'headings, lists, task lists, and quotes lose their markers and never glue blocks together',
-      '# Title\nParagraph one.\n\n- one\n- [x] done\n\n1. first\n\n> quote',
-      'Title Paragraph one. one done first quote',
+      '# Title\nParagraph one.\n\n- one\n- [x] done\n- [ ] todo\n\n1. first\n\n> quote',
+      'Title Paragraph one. one done todo first quote',
     ],
     [
       'emphasis and inline code lose their markers, and hard breaks become a space',
@@ -79,9 +79,9 @@ describe('deriveLede', () => {
       'see the docs and https://example.com and a diagram',
     ],
     [
-      'fenced and indented code, block html, and thematic breaks are dropped',
-      'intro\n\n```ts\nconst x = 1;\n```\n\n    indented code\n\n<div>raw</div>\n\n> kept\n>\n> <div>quoted</div>\n\n---\n\noutro',
-      'intro kept outro',
+      'fenced and indented code, block html in the body, a quote, or a list item, and thematic breaks are dropped',
+      'intro\n\n```ts\nconst x = 1;\n```\n\n    indented code\n\n<div>raw</div>\n\n> kept\n>\n> <div>quoted</div>\n\n---\n\noutro\n\n- item\n\n  <div>listed</div>',
+      'intro kept outro item',
     ],
     [
       'html comments are dropped inline and as blocks',
@@ -96,5 +96,21 @@ describe('deriveLede', () => {
     ['a code-only body has no prose, so no lede', '```\nconst x = 1;\n```', null],
   ])('%s', (_name, markdown, lede) => {
     expect(deriveLede(markdown)).toBe(lede);
+  });
+
+  test('a long markdown body still respects the budget, word boundary and ellipsis', () => {
+    const body = `# Heading\n\n${'**lorem** [ipsum](https://example.com) `dolor` '.repeat(40)}`;
+    const value = deriveLede(body) ?? '';
+    expect(value.endsWith('…')).toBe(true);
+    expect(value.length).toBeLessThanOrEqual(SEED_LEDE_BUDGET);
+    expect(value).not.toMatch(/[*`[\]#(]/);
+    const text = value.slice(0, -1);
+    expect(text.endsWith(' ')).toBe(false);
+    // Cut on a whole word: the next character of the plain text is a space.
+    const plain = `Heading ${'lorem ipsum dolor '.repeat(40)}`.trim();
+    expect(plain.startsWith(text)).toBe(true);
+    expect(plain[text.length]).toBe(' ');
+    // The markup is projected away before the cut, so the prose fills the budget to within a word.
+    expect(text.length).toBeGreaterThan(SEED_LEDE_BUDGET - 1 - 'lorem '.length);
   });
 });

@@ -268,6 +268,29 @@ test('a session below the history scan window is invisible', async () => {
   expect(report.sessions.shown).toBe(0);
 });
 
+test('orphan summaries push `shown` above the derived group count', async () => {
+  const claimed = await createTask(store, { parentId: phaseId, title: 'claimed' });
+  await startTask(store, idOf(claimed), { session: 's-one' });
+  // Three retrospectives that overlap no group — knowledge-only sittings.
+  for (let i = 0; i < 3; i += 1) {
+    const untouched = await createTask(store, { parentId: phaseId, title: `subject-${String(i)}` });
+    await attachArtifact(store, {
+      content: '# retro',
+      linkNodeIds: [await nodeIdOf(store, idOf(untouched))],
+      projectId,
+      tags: ['session_summary'],
+      title: `retro ${String(i)}`,
+    });
+  }
+  const report = await overviewOf(store, 'MMR');
+  // One derived group + three orphans: `shown` is above the group count, which a
+  // "true total of sessions" reading could never produce.
+  expect(report.sessions.shown).toBe(4);
+  expect(report.sessions.entries.filter((e) => e.id === null)).toHaveLength(3);
+});
+
+// ─── Needs-attention listings (MMR-322) ─────────────────────────────────────
+
 test('the blocked listing carries the hold reason', async () => {
   const stuck = await createTask(store, { parentId: phaseId, title: 'stuck' });
   await blockTask(store, idOf(stuck), 'upstream API down');

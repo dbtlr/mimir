@@ -21,7 +21,8 @@ async function rejection(promise: Promise<unknown>, message: RegExp): Promise<vo
 }
 
 // Anchor checking is resolveAttachTargetsInSet, whose wrong kinds mutations.test.ts unit-tests;
-// this proves the service runs it on both writes, so one backend and two refusals are enough.
+// this proves the service runs it on both writes and passes the pad's own project, so one
+// backend, two wrong kinds, and one foreign-project anchor are enough.
 const sqlite = backends.find((backend) => backend.name === 'sqlite');
 if (!sqlite) {
   throw new Error('the sqlite backend is missing from the conformance table');
@@ -32,7 +33,9 @@ test('sqlite: scratchpad links must name existing work in its project', async ()
   try {
     const { store } = fixture;
     await createProject(store, { key: 'MMR', name: 'Mimir' });
+    await createProject(store, { key: 'NRN', name: 'Norn' });
     const local = await createInitiative(store, { projectId: 'MMR', title: 'Local work' });
+    const foreign = await createInitiative(store, { projectId: 'NRN', title: 'Foreign work' });
     const service = createScratchpadService(store.scratchpads, store.artifacts, store);
     const pad = await service.create({
       anchors: [local.id, local.id],
@@ -43,6 +46,7 @@ test('sqlite: scratchpad links must name existing work in its project', async ()
     for (const [anchor, message] of [
       ['MMR-999', /doesn't exist/],
       ['MMR-s1', /is a seed/],
+      [foreign.id, /project disagrees/],
     ] as const) {
       await rejection(
         service.create({ anchors: [anchor], project: 'MMR', title: 'Invalid' }),

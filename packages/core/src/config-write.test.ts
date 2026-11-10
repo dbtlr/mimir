@@ -109,6 +109,11 @@ const edits: Case[] = [
     name: 'CRLF files keep CRLF when appending',
   },
   {
+    after: `[host]\nurl = "${ORIGIN}" # keep me\nlabel = "home"\n`,
+    before: '[host]\nurl = "http://old.test" # keep me\nlabel = "home"\n',
+    name: 'a trailing comment on the url line is kept',
+  },
+  {
     after: `[host]\r\nurl = "${ORIGIN}"\t# keep me\r\n`,
     before: "[host]\r\nurl = 'http://old.test'\t# keep me\r\n",
     name: 'a trailing comment after a literal string keeps its spacing and CRLF',
