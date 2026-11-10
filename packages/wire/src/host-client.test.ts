@@ -339,60 +339,55 @@ test.each(['timeout', 'abort'])(
   },
 );
 
-test('a server-cut response body reports an incomplete response before the client timeout', async () => {
-  const server = Bun.serve({
-    fetch: () =>
-      new Response(
-        new ReadableStream({
-          start(controller) {
-            controller.enqueue(new TextEncoder().encode('{"private":"response secret"'));
-          },
-        }),
-        { headers: { 'content-type': 'application/json' } },
-      ),
+/**
+ * A raw TCP host that answers any request with a `content-length` it never
+ * fills: it writes the headers and part of the body, then closes the socket at
+ * once. The client sees a body cut mid-stream with no timer involved.
+ */
+function cutBodyHost(status: number) {
+  const body = '{"private":"response secret"';
+  const response = `HTTP/1.1 ${status} Test\r\ncontent-type: application/json\r\ncontent-length: 1000\r\nconnection: close\r\n\r\n${body}`;
+  const server = Bun.listen({
     hostname: '127.0.0.1',
-    idleTimeout: 1,
     port: 0,
+    socket: {
+      data(socket) {
+        socket.write(response);
+        socket.end();
+      },
+    },
   });
+  return { origin: `http://127.0.0.1:${server.port}`, stop: () => server.stop(true) };
+}
+
+test('a server-cut response body reports an incomplete response before the client timeout', async () => {
+  const host = cutBodyHost(200);
   try {
-    const client = new HostClient({ origin: server.url.origin, timeoutMs: 10_000 });
+    const client = new HostClient({ origin: host.origin, timeoutMs: 10_000 });
     const error = await refusal(client.health());
     expect(error).toMatchObject({ code: 'invariant', status: 200, transient: true });
-    expect(error.message).toBe(`the response from ${server.url.origin} was incomplete`);
+    expect(error.message).toBe(`the response from ${host.origin} was incomplete`);
     expect(error.hint).toBe('try again, or check the host or proxy response and the host logs');
     expect(`${error.message} ${String(error.hint)}`).not.toMatch(/private|response secret/);
   } finally {
-    await server.stop(true);
+    host.stop();
   }
-}, 15_000);
+});
 
 test('a server-cut 401 body remains a definite health refusal', async () => {
-  const server = Bun.serve({
-    fetch: () =>
-      new Response(
-        new ReadableStream({
-          start(controller) {
-            controller.enqueue(new TextEncoder().encode('{"private":"response secret"'));
-          },
-        }),
-        { headers: { 'content-type': 'application/json' }, status: 401 },
-      ),
-    hostname: '127.0.0.1',
-    idleTimeout: 1,
-    port: 0,
-  });
+  const host = cutBodyHost(401);
   try {
-    const client = new HostClient({ origin: server.url.origin, timeoutMs: 10_000 });
+    const client = new HostClient({ origin: host.origin, timeoutMs: 10_000 });
     const error = await refusal(client.health());
     expect(error).toMatchObject({ code: 'invariant', status: 401, transient: false });
-    expect(error.message).toBe(`the host at ${server.url.origin} answered 401 for health`);
+    expect(error.message).toBe(`the host at ${host.origin} answered 401 for health`);
     expect(error.hint).toBe(
       'check [host] url points at a mimir host and any proxy allows /health, then try again',
     );
   } finally {
-    await server.stop(true);
+    host.stop();
   }
-}, 15_000);
+});
 
 test.each([
   [307, 'health', false],

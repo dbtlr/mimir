@@ -23,18 +23,7 @@ export const BUDGET: Budget = { fileWarnMs: 15_000, testLimitMs: 3000, testWarnM
 /** A test allowed over the limit until its task lands. `name` is the describe path joined with ` > `. */
 export type Exemption = { file: string; name: string; task: string };
 
-export const EXEMPTIONS: readonly Exemption[] = [
-  {
-    file: 'packages/wire/src/host-client.test.ts',
-    name: 'a server-cut 401 body remains a definite health refusal',
-    task: 'MMR-640',
-  },
-  {
-    file: 'packages/wire/src/host-client.test.ts',
-    name: 'a server-cut response body reports an incomplete response before the client timeout',
-    task: 'MMR-640',
-  },
-];
+export const EXEMPTIONS: readonly Exemption[] = [];
 
 export type TestTiming = { file: string; name: string; ms: number };
 export type FileTiming = { file: string; ms: number };
