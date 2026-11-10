@@ -280,7 +280,16 @@ describe.each([
     const { requests, tokens } = await fixture();
     await tokens.request('  laptop  ');
     expect((await requests()).map((row) => row.device)).toEqual(['laptop']);
-    expect(await refusalOf(tokens.request('   '))).toContain('device name');
+    for (const device of [
+      '',
+      '   ',
+      'tab\there',
+      'laptop\u200B',
+      'pal\u202Epot',
+      'x'.repeat(129),
+    ]) {
+      expect(await refusalOf(tokens.request(device))).toContain('device name');
+    }
   });
 
   test('approval accepts Crockford confusables and refuses other syntax', async () => {

@@ -60,6 +60,12 @@ const released = { block_owner: null, hold: 'none', hold_reason: null } as const
 
 const cases = [
   { hold: 'blocked', run: (id: string) => completeTask(fixture.store, id), verb: 'done' },
+  // Only a blocked task carries a block_owner, so abandon needs a blocked case too.
+  {
+    hold: 'blocked',
+    run: (id: string) => abandonTask(fixture.store, id, 'dropped'),
+    verb: 'abandon',
+  },
   {
     hold: 'parked',
     run: (id: string) => abandonTask(fixture.store, id, 'dropped'),
