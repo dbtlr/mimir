@@ -161,6 +161,27 @@ test('unreviewed string formats cannot silently discard format-specific options'
   }
 });
 
+test('custom check conditions cannot silently disable a represented bound', () => {
+  const original = consoleSchemas.openTasks.input;
+  const bounded = original.extend({ q: original.shape.q.min(4) });
+  const condition = new z.core.$ZodCheckMinLength({
+    check: 'min_length',
+    minimum: 4,
+    when: () => false,
+  });
+  const changed = original.extend({ q: original.shape.q.check(condition) });
+  expect(bounded.safeParse({ q: 'abc' }).success).toBe(false);
+  expect(changed.safeParse({ q: 'abc' }).success).toBe(true);
+  Reflect.set(consoleSchemas.openTasks, 'input', changed);
+  try {
+    expect(() => {
+      engineSchemaSnapshot();
+    }).toThrow('custom check conditions require an explicit snapshot representation');
+  } finally {
+    Reflect.set(consoleSchemas.openTasks, 'input', original);
+  }
+});
+
 test('a check the owning processor cannot represent is refused', () => {
   const before = z.enum(['alpha', 'b']);
   const after = before.check(z.maxLength(3));
