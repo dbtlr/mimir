@@ -450,7 +450,7 @@ describe('the attempt registry', () => {
     'a known attempt reused with another %s reads invalid attempt, with no launch',
     async (_name, change) => {
       const h = harness();
-      // The first launch names no branch, so the type and the branch each change alone.
+      // The first launch names no branch, so the branch row changes the branch alone.
       const first = { workspace: { type: 'worktree' } };
       expect(await h.launch(first)).toEqual(launched());
       const launches = h.stub.launches.length;
@@ -594,6 +594,8 @@ describe('step 2: the choice against the system', () => {
       ],
       [{ workspace: { branch: 'mmr-1', type: 'root' } }, 'branch'],
       [{ workspace: { branch: '-x', type: 'worktree' } }, 'branch'],
+      // The whole branch grammar applies, not only the leading-dash rule.
+      [{ workspace: { branch: 'HEAD', type: 'worktree' } }, 'branch'],
     ];
     for (const [change, field] of cases) {
       const input = parseT3LaunchInput(choice(change));

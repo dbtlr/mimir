@@ -783,6 +783,16 @@ describe('the catalog', () => {
   });
 });
 
+/** Each adapter log event and the keys its lines may carry. */
+const LOG_KEYS: Record<string, string[]> = {
+  host_secret_unopenable: ['cause', 'event', 'name', 'time'],
+  host_secret_unreadable: ['event', 'name', 'time'],
+  host_secret_write_fault: ['event', 'name', 'time'],
+  t3_connect_callback: ['event', 'outcome', 'time'],
+  t3_connect_fault: ['event', 'time'],
+  t3_request_failed: ['endpoint', 'event', 'method', 'status', 'time', 'tool'],
+};
+
 test('no secret value or T3 reply body ever appears in the logs', async () => {
   const h = harness();
   const url = await connected(h);
@@ -829,20 +839,9 @@ test('no secret value or T3 reply body ever appears in the logs', async () => {
   }
   for (const line of lines) {
     const entry = JSON.parse(line) as Record<string, unknown>;
+    const allowed = LOG_KEYS[String(entry.event)] ?? [];
     expect(
-      Object.keys(entry).every((key) =>
-        [
-          'cause',
-          'endpoint',
-          'event',
-          'method',
-          'name',
-          'outcome',
-          'status',
-          'time',
-          'tool',
-        ].includes(key),
-      ),
+      Object.keys(entry).every((key) => allowed.includes(key)),
       line,
     ).toBe(true);
   }

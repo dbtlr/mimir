@@ -26,7 +26,7 @@ import type { SqliteTestStore } from '@mimir/core/testing';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 
-import { createAgentRunner } from './agent-runner';
+import { CANCEL_GRACE_MS, createAgentRunner, RUNNER_TIMING } from './agent-runner';
 import type { AgentRunner, AgentRunnerOptions, RunQuery } from './agent-runner';
 import { agentState, createAgentConnection, readAgentToken } from './agent-settings';
 import type { AgentConnection, EnabledAgentSettings } from './agent-settings';
@@ -755,7 +755,30 @@ describe('in flight', () => {
       await aborted;
       yield result();
     });
-    expect((await (await started(created)).finished).state).toBe('lost');
+    const outcome = await (await started(created)).finished;
+    expect(outcome).toMatchObject({
+      outcome: 'failed: the runner lost the run to another host',
+      state: 'lost',
+    });
+  });
+
+  test('an authentication rejection records the token disconnected', async () => {
+    const { runner: created } = runner(async function* script() {
+      yield assistant('msg_1', { input: 0, output: 0 }, { error: 'authentication_failed' });
+      yield result({
+        is_error: true,
+        modelUsage: {},
+        result: 'Invalid bearer token',
+      });
+    });
+    const outcome = await (await started(created)).finished;
+    expect(outcome.state).toBe('failed');
+    expect(outcome.outcome).toContain('MIMIR_AGENT_TOKEN_FILE');
+    expect(await agentState(settings(), connection)).toEqual({
+      reason: 'rejected',
+      state: 'disconnected',
+      tokenModifiedAt: expect.any(Date),
+    });
   });
 
   // The messages Claude Code 2.1.318 streamed when a mock Messages API answered
@@ -826,13 +849,15 @@ describe('in flight', () => {
   });
 
   test('an API error other than a refused token leaves the token connected', async () => {
-    const { runner: created } = runner(async function* script() {
-      yield assistant('msg_1', { input: 0, output: 0 }, { error: 'rate_limit' });
-      yield result({ is_error: true, modelUsage: {}, result: 'API error: rate_limit' });
-    });
-    const outcome = await (await started(created)).finished;
-    expect(outcome.state).toBe('failed');
-    expect((await agentState(settings(), connection)).state).not.toBe('disconnected');
+    for (const error of ['rate_limit', 'server_error', 'overloaded', 'unknown']) {
+      const { runner: created } = runner(async function* script() {
+        yield assistant(`msg_${error}`, { input: 0, output: 0 }, { error });
+        yield result({ is_error: true, modelUsage: {}, result: `API error: ${error}` });
+      });
+      const outcome = await (await started(created)).finished;
+      expect(outcome.state).toBe('failed');
+      expect((await agentState(settings(), connection)).state).not.toBe('disconnected');
+    }
   });
 
   test('a fault after turns were metered records streamed usage, not the allowances', async () => {
@@ -1062,6 +1087,10 @@ const signal = () => Promise.withResolvers<void>();
 const CONSOLE_CANCEL = /^cancelled: [^;(]*console/;
 
 describe('cancel', () => {
+  test('the default timing uses the cancel grace period', () => {
+    expect(RUNNER_TIMING.cancelGraceMs).toBe(CANCEL_GRACE_MS);
+  });
+
   test('a cancel while the stream runs answers cancelling, again on a repeat, and the gate stops the next call', async () => {
     const streaming = signal();
     const cancelled = signal();
@@ -1144,7 +1173,7 @@ describe('cancel', () => {
     expect(await created.cancelRun(start.runId)).toEqual({ answer: 'ended', state: 'succeeded' });
   });
 
-  test('a running row this process does not hold answers by its runner and heartbeat, recording nothing', async () => {
+  test('a run id with no row answers unknown, and a running row this process does not hold answers by its runner and heartbeat, recording nothing', async () => {
     await admitOther('live', 'host-b');
     const live = await runs.get('live');
     if (live === undefined) {
@@ -1384,6 +1413,19 @@ describe('cancel', () => {
     });
     slow.release.resolve();
     expect(await start.finished).toMatchObject({ state: 'succeeded' });
+  });
+
+  test('a repeat cancel during the close write of a run cancelled before its sync answers ending', async () => {
+    const slow = slowClose();
+    const { runner: created } = runner(never, { runs: slow.store });
+    const start = await started(created);
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
+    await slow.writing.promise;
+    expect(await created.cancelRun(start.runId)).toEqual({ answer: 'ending' });
+    slow.release.resolve();
+    const outcome = await start.finished;
+    expect(syncs).toEqual([]);
+    expect(outcome).toMatchObject({ state: 'cancelled', usage: NO_USAGE, usageSettled: true });
   });
 
   test('a cancel during the close write of a faulted run answers ending, and the run closes failed', async () => {
