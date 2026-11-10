@@ -248,8 +248,10 @@ describe.each(SCOPES)('work page scope, $name', (scope) => {
   });
 });
 
-// The sections and the rail render the same for every scope, so they run on the
-// project; the phase differs in its read and its project key (above) and its head (below).
+// The sections render the same for every scope, so they run on the project. The
+// phase differs in its read and project key (above), and in its head and rail
+// details: the About description below, and the head, About, and Artifacts cases
+// further down.
 describe('work page sections', () => {
   const scope = PROJECT_SCOPE;
 
@@ -570,17 +572,13 @@ describe('work page sections', () => {
 describe('work page rail', () => {
   const scope = PROJECT_SCOPE;
 
-  it('runs Direction, About, then Artifacts (when it has any), with no structure or other views', async () => {
+  it('runs Direction, About, then Artifacts, with no structure or other views', async () => {
     await open(scope);
 
     const labels = within(getRail())
       .getAllByRole('heading', { level: 2 })
       .map((h) => h.textContent);
-    expect(labels).toStrictEqual([
-      'Direction',
-      'About',
-      ...((scope.record.artifacts ?? []).length > 0 ? ['Artifacts'] : []),
-    ]);
+    expect(labels).toStrictEqual(['Direction', 'About', 'Artifacts']);
   });
 
   it('shows the direction in full, editable in place', async () => {
@@ -595,13 +593,14 @@ describe('work page rail', () => {
     );
   });
 
-  it('holds the description, artifacts, and details in About', async () => {
-    await open(scope);
+  // About branches on the scope, so the phase keeps its own row.
+  it.each(SCOPES)('holds the description and details in About, $name', async (each) => {
+    await open(each);
 
     const about = within(getRail()).getByRole('heading', { name: 'About' }).closest('section');
     expect(about).not.toBeNull();
     const panel = within(about as HTMLElement);
-    expect(about).toHaveTextContent((scope.record.description ?? '').replaceAll('**', ''));
+    expect(about).toHaveTextContent((each.record.description ?? '').replaceAll('**', ''));
     expect(panel.getByText('created')).toBeDefined();
     expect(panel.getByText('updated')).toBeDefined();
   });
@@ -613,11 +612,7 @@ describe('work page rail', () => {
       within(chips)
         .getAllByRole('button')
         .map((b) => b.textContent),
-    ).toStrictEqual([
-      'Direction',
-      'About',
-      ...((scope.record.artifacts ?? []).length > 0 ? ['Artifacts'] : []),
-    ]);
+    ).toStrictEqual(['Direction', 'About', 'Artifacts']);
 
     fireEvent.click(within(chips).getByRole('button', { name: 'Direction' }));
     const direction = await screen.findByRole('dialog', { name: 'Direction' });

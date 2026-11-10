@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -219,15 +219,14 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
 
   it('applies a kind from the URL and drops an invalid one', async () => {
     mockApi();
-    await renderSeeds('/p/MMR/seeds?kind=feature');
+    const { router: testRouter } = await renderSeeds('/p/MMR/seeds?kind=feature');
     await screen.findByText('Offline banner flicker');
     expect(screen.queryByText('Scroll snaps to top')).toBeNull();
     expect(screen.getByRole('button', { name: /feature/ })).toBeDefined();
-  });
 
-  it('ignores an invalid kind param', async () => {
-    mockApi();
-    const { router: testRouter } = await renderSeeds('/p/MMR/seeds?kind=epic');
+    await act(async () => {
+      await testRouter.navigate({ href: '/p/MMR/seeds?kind=epic' });
+    });
     await screen.findByText('Scroll snaps to top');
     expect(testRouter.state.location.search).not.toHaveProperty('kind');
   });

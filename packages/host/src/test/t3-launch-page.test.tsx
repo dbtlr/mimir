@@ -108,6 +108,19 @@ describe('Open in T3', () => {
     );
   });
 
+  // The only proof that a Now row passes its own harness to Open in T3.
+  it('shows no link on a Now row held by another harness', async () => {
+    serveT3Launch(connectedCatalog([]));
+    await renderInRouter(
+      <NowRow row={nowRow({ id: 'MMR-7', ...handles, harness: 'claude' })} />,
+      quiet(),
+    );
+    await waitFor(() => {
+      expect(t3Origin).toHaveBeenCalled();
+    });
+    expect(screen.queryByRole('link', { name: /Open in T3/ })).toBeNull();
+  });
+
   it('shows no link on a Now row while T3 is unconfigured', async () => {
     serveT3Launch(connectedCatalog([]), undefined, null);
     await renderInRouter(<NowRow row={nowRow({ id: 'MMR-7', ...handles })} />, quiet());

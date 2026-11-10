@@ -708,6 +708,20 @@ describe('review page decisions act in place (MMR-479)', () => {
       within(await actionsOf('MMR-480')).getByRole('button', { name: 'Answer…' }),
     ).toHaveFocus();
   });
+
+  // The only proof that the page hands block rows, which have no action, to the focus handoff.
+  it('lands on a block’s link when the next decision has no action', async () => {
+    await openForWrite(
+      decisionsFor({ lm: [loomQuestion], mmr: [block] }),
+      decisionsFor({ mmr: [block] }),
+    );
+
+    await answerWith('LM-196');
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: block.task.title })).toHaveFocus();
+    });
+  });
 });
 
 /** A promote's echo: the seed, now promoted, and the task it spawned. */
@@ -778,6 +792,26 @@ describe('review page seed triage acts in place (MMR-479, MMR-506)', () => {
     );
 
     await expect(screen.findByDisplayValue('Oldest idea')).resolves.toBeDefined();
+  });
+
+  // The only proof that Park… arms the focus handoff.
+  it('lands on the next project’s first seed when a project’s last seed is parked', async () => {
+    await openForWrite(
+      triage({ lm: [lmSeed], mmr: [firstSeed, secondSeed] }),
+      triage({ mmr: [firstSeed, secondSeed] }),
+    );
+
+    await press('LM-s4', 'Park…');
+    const dialog = await screen.findByRole('dialog', { name: 'Park seed' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Park' }));
+
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole('group', { name: 'Actions for MMR-s25' })).getByRole('button', {
+          name: 'Promote to task…',
+        }),
+      ).toHaveFocus();
+    });
   });
 
   it('keeps the rail heading for focus when the last seed on the page leaves', async () => {

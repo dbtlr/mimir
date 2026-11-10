@@ -180,6 +180,8 @@ describe('the split button', () => {
     );
     expect(items[names.indexOf('Launch on DB MBP')]).toHaveAttribute('aria-disabled', 'true');
     expect(items[names.indexOf('Launch on asgard')]).not.toHaveAttribute('aria-disabled', 'true');
+    // Choose settings… sits below the separator, after every system.
+    expect(names.at(-1)).toBe('Choose settings…');
   });
 
   it('launches a peer with that system’s defaults', async () => {

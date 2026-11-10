@@ -71,8 +71,15 @@ describe('availableTransitions', () => {
 });
 
 describe('transition labels', () => {
-  it('availableTransitions carries the same labels', () => {
+  it('availableTransitions names each action in plain words', () => {
     const labels = availableTransitions('parked').map((s) => s.label);
     expect(labels).toStrictEqual(['Resume', 'Abandon']);
+    expect(availableTransitions('under_review').map((s) => s.label)).toStrictEqual([
+      'Mark done',
+      'Send back',
+      'Park for later',
+      'Mark blocked',
+      'Abandon',
+    ]);
   });
 });
