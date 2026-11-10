@@ -72,7 +72,7 @@ describe('devices page (MMR-585)', () => {
     expect(screen.getByText('No devices are paired.')).toBeDefined();
   });
 
-  it('asks to confirm before unpairing, and cancels without calling', async () => {
+  it('asks to confirm before unpairing, and Cancel or Escape returns focus to Unpair without calling', async () => {
     serveDevices({
       paired: [{ created_at: '2026-09-30T15:00:00.000Z', device: 'valhalla', last_used_at: null }],
     });
@@ -85,35 +85,15 @@ describe('devices page (MMR-585)', () => {
     expect(
       inRow.getByText('Its token stops working now, and any waiting request is discarded.'),
     ).toBeDefined();
+    expect(inRow.getByRole('button', { name: 'Cancel' })).toHaveFocus();
     expect(unpairDevice).not.toHaveBeenCalled();
 
     await userEvent.click(inRow.getByRole('button', { name: 'Cancel' }));
-    expect(inRow.getByRole('button', { name: 'Unpair' })).toBeDefined();
+    expect(inRow.getByRole('button', { name: 'Unpair' })).toHaveFocus();
     expect(unpairDevice).not.toHaveBeenCalled();
-  });
 
-  it('moves focus to Cancel when the confirm opens, and back to Unpair when it is cancelled', async () => {
-    serveDevices({
-      paired: [{ created_at: '2026-09-30T15:00:00.000Z', device: 'valhalla', last_used_at: null }],
-    });
-    await renderRoute(consoleRoutes, '/devices');
-
-    await userEvent.click(await screen.findByRole('button', { name: 'Unpair' }));
-    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(screen.getByRole('button', { name: 'Unpair' })).toHaveFocus();
-  });
-
-  it('cancels the confirm on Escape, returning focus to Unpair without calling', async () => {
-    serveDevices({
-      paired: [{ created_at: '2026-09-30T15:00:00.000Z', device: 'valhalla', last_used_at: null }],
-    });
-    await renderRoute(consoleRoutes, '/devices');
-
-    await userEvent.click(await screen.findByRole('button', { name: 'Unpair' }));
+    await userEvent.click(inRow.getByRole('button', { name: 'Unpair' }));
     await userEvent.keyboard('{Escape}');
-
     expect(screen.getByRole('button', { name: 'Unpair' })).toHaveFocus();
     expect(screen.queryByRole('button', { name: 'Unpair valhalla' })).toBeNull();
     expect(unpairDevice).not.toHaveBeenCalled();

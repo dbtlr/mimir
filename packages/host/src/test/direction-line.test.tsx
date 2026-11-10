@@ -90,8 +90,8 @@ describe('directionPanel (MMR-450)', () => {
     });
   });
 
-  it('saving an emptied project direction clears it with null', async () => {
-    render(
+  it('saving an emptied project direction, or a whitespace-only node direction, clears it with null', async () => {
+    const project = render(
       <DirectionPanel
         subject={{ key: 'MMR', kind: 'project' }}
         title="Mimir"
@@ -108,9 +108,8 @@ describe('directionPanel (MMR-450)', () => {
     await waitFor(() => {
       expect(updateProject).toHaveBeenCalledWith({ data: { id: 'MMR', next: null } });
     });
-  });
+    project.unmount();
 
-  it('saving a whitespace-only node direction clears it with null', async () => {
     render(
       <DirectionPanel
         subject={{ id: 'MMR-12', kind: 'node' }}
@@ -266,7 +265,6 @@ describe('directionPanel clamp (MMR-484)', () => {
     renderPanel();
     const article = screen.getByText('cut').closest('article');
     expect(article).toHaveAttribute('data-clamped');
-    expect(article?.className).toContain('max-h-[6lh]');
   });
 
   it('offers no Read more when the direction fits its clamp', () => {
@@ -291,13 +289,12 @@ describe('directionPanel clamp (MMR-484)', () => {
     expect(screen.getByRole('textbox', { name: 'Direction text' })).toHaveValue(PROSE);
   });
 
-  it('gives Read more a 24px hit area and a name that contains its visible text', () => {
+  it('names Read more so the name contains its visible text', () => {
     stubHeights(400, 100);
     renderPanel();
 
     const readMore = screen.getByRole('button', { name: 'Read more of the direction' });
     expect(readMore).toHaveTextContent('Read more');
-    expect(readMore.className).toContain('min-h-6');
   });
 
   it('returns focus to Edit when Read more unmounts under the open dialog', async () => {

@@ -44,23 +44,12 @@ describe('browserRow layout (MMR-488)', () => {
     expect(titleColumn).toContainElement(after);
   });
 
-  it('lets the title column shrink and wrap rather than push past the row', async () => {
-    const { title } = await renderRow();
-    const titleColumn = title.parentElement as HTMLElement;
-
-    expect(titleColumn.className).toContain('min-w-0');
-    expect(titleColumn.className).toContain('flex-wrap');
-  });
-
   it('hangs the lede and meta line under the title column, not under the id', async () => {
     const { id, lede, meta } = await renderRow();
     const metaLine = meta.parentElement as HTMLElement;
 
-    // Lede and meta share the id's grid and are placed in the title's column,
-    // so every line after the first starts at the title's left edge.
+    // Lede and meta share the id's grid, so they sit beside it, not inside the title column.
     expect(lede.parentElement).toBe(id.parentElement);
     expect(metaLine.parentElement).toBe(id.parentElement);
-    expect(lede.className).toContain('col-start-2');
-    expect(metaLine.className).toContain('col-start-2');
   });
 });

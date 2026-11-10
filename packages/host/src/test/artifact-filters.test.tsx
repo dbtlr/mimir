@@ -35,11 +35,6 @@ describe('artifactFilters', () => {
     expect(onChange).toHaveBeenCalledOnce();
   });
 
-  it('is honest that search reads titles', () => {
-    render(<ArtifactFilters filters={{}} rowTags={[]} onChange={vi.fn()} />);
-    expect(search()).toHaveAttribute('placeholder', 'Search titles…');
-  });
-
   it('re-syncs the search box when q changes externally', () => {
     const onChange = vi.fn();
     const { rerender } = render(

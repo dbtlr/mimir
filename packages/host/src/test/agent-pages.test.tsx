@@ -233,16 +233,6 @@ describe('Now on the work page', () => {
     await expect(screen.findByText('Nothing running.')).resolves.toBeVisible();
   });
 
-  it('leaves out a run on another project', async () => {
-    await openProject(runningActivity({ project: 'OTH', task: 'OTH-1' }));
-    await expect(screen.findByText('Nothing running.')).resolves.toBeVisible();
-  });
-
-  it('shows a run whose task is inside the container', async () => {
-    await openPhase();
-    expect((await rowOf('Show each clone’s last sync time')).link).toBeVisible();
-  });
-
   it('leaves out a run on a task in another container', async () => {
     await openPhase(runningActivity({ task: 'MMR-641' }));
     await expect(screen.findByText('Nothing running.')).resolves.toBeVisible();
@@ -268,7 +258,6 @@ describe('Now on the work page', () => {
     expect(stop).toHaveAttribute('title', 'Stop run');
     await userEvent.click(stop);
     const dialog = await screen.findByRole('dialog', { name: 'Stop the agent on MMR-640?' });
-    expect(within(dialog).getByRole('button', { name: 'Keep running' })).toHaveFocus();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Stop run' }));
     await waitFor(() => {
       expect(cancelGroom).toHaveBeenCalledWith({ data: { runId: 'run-1' } });

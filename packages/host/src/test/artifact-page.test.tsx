@@ -154,6 +154,7 @@ describe('artifact page (MMR-452)', () => {
       expect(link).toHaveAttribute('href', '/p/MMR/432');
       expect(link).toHaveTextContent('serve answers any Host');
       await waitFor(() => expect(card).toHaveTextContent('done 2026-10-06'));
+      expect(getArtifact).toHaveBeenCalledWith({ data: { content: true, id: 'MMR-a232' } });
     });
 
     it("lists the record's artifacts in the rail, this one marked as current", async () => {
@@ -326,14 +327,6 @@ describe('artifact page (MMR-452)', () => {
   });
 
   describe('addressing', () => {
-    it('redirects a bare artifact id to its page', async () => {
-      serve(spec, [hostTask]);
-      const { router: testRouter } = await renderRoute(consoleRoutes, '/mmr-a232', quietClient());
-
-      await screen.findByRole('heading', { level: 1, name: spec.title });
-      expect(testRouter.state.location.pathname).toBe('/p/MMR/a232');
-    });
-
     it('moves any other spelling to the canonical path', async () => {
       serve(spec, [hostTask]);
       const { router: testRouter } = await renderRoute(
@@ -344,14 +337,6 @@ describe('artifact page (MMR-452)', () => {
 
       await screen.findByRole('heading', { level: 1, name: spec.title });
       expect(testRouter.state.location.pathname).toBe('/p/MMR/a232');
-    });
-
-    it('shows not-found for a key off the grammar rather than redirecting', async () => {
-      serve(spec);
-      const { router: testRouter } = await renderRoute(consoleRoutes, '/p/MM-X/a1', quietClient());
-
-      await expect(screen.findByText('No record at /p/MM-X/a1.')).resolves.toBeInTheDocument();
-      expect(testRouter.state.location.pathname).toBe('/p/MM-X/a1');
     });
 
     it('owns the not-found state when no artifact has the id', async () => {

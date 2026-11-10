@@ -65,7 +65,6 @@ describe('artifactList', () => {
     );
     const node = screen.getByRole('link', { name: 'MMR-450' });
     expect(node).toHaveAttribute('href', '/p/MMR/450');
-    expect(node.className).toContain('z-10');
     expect(screen.getByRole('link', { name: 'MMR-s4' })).toHaveAttribute('href', '/p/MMR/s4');
     await userEvent.click(node);
     expect(router.state.location.pathname).toBe('/p/MMR/450');

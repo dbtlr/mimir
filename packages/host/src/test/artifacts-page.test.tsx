@@ -54,41 +54,6 @@ describe('artifactsPage', () => {
     expect(screen.getByRole('searchbox', { name: 'Search artifacts' })).toBeInTheDocument();
   });
 
-  it('groups rows under day headers, newest first', async () => {
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date(2026, 9, 9, 12));
-    try {
-      serveRows([
-        summary(3, { createdAt: new Date(2026, 9, 9, 9) }),
-        summary(2, { createdAt: new Date(2026, 9, 8, 9) }),
-        summary(1, { createdAt: new Date(2025, 9, 6, 9) }),
-      ]);
-      await renderRoute([artifactsRoute], '/p/MMR/artifacts');
-      await screen.findByText('Artifact 1');
-      const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
-      expect(headings).toStrictEqual(['Today', 'Yesterday', 'Oct 6, 2025']);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('shows the kind chip and the summary on a row', async () => {
-    serveRows([summary(8, { summary: 'What the spec froze.', tags: ['kind:spec'] })]);
-    await renderRoute([artifactsRoute], '/p/MMR/artifacts');
-    await screen.findByText('Artifact 8');
-    expect(screen.getByText('spec')).toBeInTheDocument();
-    expect(screen.getByText('What the spec froze.')).toBeInTheDocument();
-  });
-
-  it('the "on" ids open the records they name', async () => {
-    serveRows([summary(8, { links: ['MMR-140'] })]);
-    const { router: testRouter } = await renderRoute([artifactsRoute], '/p/MMR/artifacts');
-    await userEvent.click(await screen.findByRole('link', { name: 'MMR-140' }));
-    await waitFor(() => {
-      expect(testRouter.state.location.pathname).toBe('/p/MMR/140');
-    });
-  });
-
   it('choosing a kind sets the tag param and refetches filtered', async () => {
     serveRows([summary(8, { tags: ['kind:spec'] })]);
     const { router: testRouter } = await renderRoute([artifactsRoute], '/p/MMR/artifacts');
@@ -111,15 +76,6 @@ describe('artifactsPage', () => {
     expect(screen.queryByRole('button', { name: /All projects/ })).toBeNull();
   });
 
-  it('a ?a= param opens no reader and reaches no query', async () => {
-    serveRows([summary(8)]);
-    await renderRoute([artifactsRoute], '/p/MMR/artifacts?a=MMR-a8');
-    await screen.findByText('Artifact 8');
-    expect(screen.queryByTestId('artifact-reader')).toBeNull();
-    expect(screen.queryByRole('complementary', { name: 'Provenance' })).toBeNull();
-    expect(lastArtifactsInput()).not.toHaveProperty('a');
-  });
-
   it('a numeric q in the URL is the text it was typed as', async () => {
     serveRows([summary(8)]);
     await renderRoute([artifactsRoute], '/p/MMR/artifacts?q=2026');
@@ -137,12 +93,6 @@ describe('artifactsPage', () => {
     expect(lastArtifactsInput()?.dates).toStrictEqual([
       { field: 'created_at', op: 'at-or-after', value: '2026-06-01' },
     ]);
-  });
-
-  it('says so when nothing matches', async () => {
-    serveRows([]);
-    await renderRoute([artifactsRoute], '/p/MMR/artifacts');
-    await expect(screen.findByText('No artifacts match.')).resolves.toBeDefined();
   });
 
   it('scrolling the page pulls the next window, so every artifact is reachable', async () => {

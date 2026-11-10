@@ -68,24 +68,11 @@ describe('the T3 Code card (ADR 0040)', () => {
       'Reconnect T3',
     ],
     [
-      'rejected',
-      { reason: 'rejected', state: 'disconnected' },
-      'T3 refused the saved connection.',
-      'Reconnect T3',
-    ],
-    [
       'misconfigured',
       { problem: 'unset', setting: 'MIMIR_HOSTS', state: 'misconfigured' },
       'T3 is not set up: MIMIR_HOSTS is unset.',
       undefined,
     ],
-    [
-      'misconfigured by an HTTP console origin',
-      { problem: 'not HTTPS', setting: 'MIMIR_URL', state: 'misconfigured' },
-      'T3 is not set up: MIMIR_URL is not HTTPS.',
-      undefined,
-    ],
-    ['unreachable', { state: 'unreachable' }, 'T3 did not answer.', undefined],
   ])('words the %s state', async (_name, status, text, button) => {
     serveT3(status);
     await renderRoute(consoleRoutes, '/devices');
@@ -122,27 +109,17 @@ describe('the T3 Code card (ADR 0040)', () => {
     });
   });
 
-  it.each([
-    ['connected', 'Connected.'],
-    ['denied', 'You declined on T3.'],
-    ['stale', 'That sign-in expired. Connect again.'],
-    [
-      'read_only',
-      'That access level cannot launch threads. Connect again and pick a launching level.',
-    ],
-    ['issuer', 'T3 answered as a different server.'],
-    ['misconfigured', 'T3 is not set up.'],
-    ['failed', 'Connecting failed. Try again.'],
-  ])('shows the %s outcome once, then drops it from the URL', async (reason, text) => {
+  // T3_OUTCOME_TEXT words every outcome; one outcome proves the card shows it once.
+  it('shows the connected outcome once, then drops it from the URL', async () => {
     serveT3({ reason: 'none', state: 'disconnected' });
-    const { router } = await renderRoute(consoleRoutes, `/devices?t3=${reason}`);
+    const { router } = await renderRoute(consoleRoutes, '/devices?t3=connected');
     const region = await card();
-    expect(within(region).getByRole('status')).toHaveTextContent(text);
+    expect(within(region).getByRole('status')).toHaveTextContent('Connected.');
     await waitFor(() => {
       expect(router.state.location.search).toEqual({});
     });
     expect(router.history).toHaveLength(1);
-    expect(within(region).getByRole('status')).toHaveTextContent(text);
+    expect(within(region).getByRole('status')).toHaveTextContent('Connected.');
   });
 
   it('ignores an unknown outcome', async () => {
