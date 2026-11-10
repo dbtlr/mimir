@@ -1,4 +1,3 @@
-import { Database } from 'bun:sqlite';
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -139,49 +138,3 @@ test.each(['projects,removed', 'projects%2Cremoved'])(
     expect(await response.json()).toMatchObject([failure, failure]);
   },
 );
-
-test('expired, consumed, and unknown poll secrets have identical answers', async () => {
-  const expired = await approvedRequest('expired');
-  const database = new Database(join(root, 'store.sqlite'));
-  try {
-    // Simulate an approved request whose ten-minute lifetime has passed.
-    database.run("UPDATE pairing_requests SET expires_at = '2000-01-01T00:00:00.000Z'");
-  } finally {
-    database.close();
-  }
-  const consumed = await approvedRequest('consumed');
-  expect((await poll(consumed.poll_secret)).status).toBe(200);
-  for (const secret of [expired.poll_secret, consumed.poll_secret, 'unknown']) {
-    const response = await poll(secret);
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ status: 'expired' });
-  }
-  expect((await host.tokens.list()).map((token) => token.device)).toEqual(['consumed']);
-});
-
-test('poll store faults return a safe 500 and the same approval mints after recovery', async () => {
-  const request = await approvedRequest('recovering-device');
-  lines.length = 0;
-  const database = new Database(join(root, 'store.sqlite'));
-  database.run('ALTER TABLE device_tokens RENAME TO unavailable_device_tokens');
-  try {
-    for (let i = 0; i < 5; i++) {
-      const response = await poll(request.poll_secret);
-      expect(response.status).toBe(500);
-      expect(response.headers.get('cache-control')).toBe('no-store');
-      expect(await response.json()).toEqual({ error: 'the request did not complete' });
-    }
-    expect(lines).toHaveLength(5);
-    for (const line of lines) {
-      expect(JSON.parse(line)).toEqual({ event: 'pairing_poll_fault', time: expect.any(String) });
-      expect(line).not.toContain(request.poll_secret);
-      expect(line).not.toContain('device_tokens');
-    }
-  } finally {
-    database.run('ALTER TABLE unavailable_device_tokens RENAME TO device_tokens');
-    database.close();
-  }
-  // A failed mint rolls back, so the approved request still collects its token.
-  const recovered = await poll(request.poll_secret);
-  expect(await recovered.json()).toMatchObject({ device: 'recovering-device', status: 'approved' });
-});

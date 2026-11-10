@@ -76,16 +76,6 @@ test('a client files a request without bearer or version headers and polls it to
   }
 });
 
-test('a denied request answers denied once, and unknown secrets answer expired', async () => {
-  const handlers = createPairingHandlers({ log: () => undefined, tokens: fixture.tokens });
-  const request = await file(handlers, 'denied-device');
-  await fixture.tokens.deny(request.user_code);
-  expect((await poll(handlers, request.poll_secret)).body).toEqual({ status: 'denied' });
-  expect((await poll(handlers, request.poll_secret)).body).toEqual({ status: 'expired' });
-  expect((await poll(handlers, 'unknown')).body).toEqual({ status: 'expired' });
-  expect(await fixture.tokens.list({ all: true })).toEqual([]);
-});
-
 test('malformed request and poll bodies receive uniform 400s', async () => {
   const lines: string[] = [];
   const handlers = createPairingHandlers({

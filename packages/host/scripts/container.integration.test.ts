@@ -12,6 +12,7 @@ import { SCHEMA_VERSION } from '@mimir/core';
 import { RemoteEngine } from '@mimir/wire/client';
 import { z } from 'zod';
 
+import { MIGRATIONS } from '../../core/src/store-sql/migrations';
 import { POSTGRES_IMAGE } from '../../sandbox/src/workflow';
 import { docker, hostCli, ready } from './docker';
 import { pairFixtureDevice } from './pairing-client';
@@ -19,6 +20,11 @@ import { pairFixtureDevice } from './pairing-client';
 // The images build without MIMIR_BUILD_VERSION, so the host reports the CLI's
 // development version, and a source client sends the same.
 const clientVersion = VERSION;
+
+// A fresh store applies every migration in order, so the log of either dialect
+// ends by naming the registry's last entry. Reading it keeps this list from
+// needing an edit with each migration.
+const appliedLatestMigration = `applied migration ${MIGRATIONS.at(-1)?.name ?? 'none'}`;
 
 /**
  * Pair a fixture device: the client files the request over HTTP, and the operator
@@ -125,11 +131,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
       return ready(container);
     };
     let base = await run(name);
-    expect(await docker(['logs', name])).toContain('applied migration 0005_project_pinned');
-    expect(await docker(['logs', name])).toContain('applied migration 0009_device_tokens');
-    expect(await docker(['logs', name])).toContain('applied migration 0010_pairing_requests');
-    expect(await docker(['logs', name])).toContain('applied migration 0012_host_secrets');
-    expect(await docker(['logs', name])).toContain('applied migration 0013_runs');
+    expect(await docker(['logs', name])).toContain(appliedLatestMigration);
     for (const path of [
       '/',
       '/_shell.html',
@@ -308,6 +310,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
         const gone = await fetch(`${base}${path}`, { method });
         expect(gone.status, `${method} ${path}`).toBe(410);
         expect(gone.headers.get('content-type'), `${method} ${path}`).toContain('application/json');
+        expect(gone.headers.get('cache-control'), `${method} ${path}`).toBe('no-store');
         expect(await gone.json(), `${method} ${path}`).toMatchObject({
           error: { code: 'gone', hint: expect.stringContaining('/trpc') },
         });
@@ -450,14 +453,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
         version: clientVersion,
       }).projects({}),
     ).toEqual([]);
-    expect(await docker(['logs', postgresHost])).toContain('applied migration 0005_project_pinned');
-    expect(await docker(['logs', postgresHost])).toContain('applied migration 0006_project_remote');
-    expect(await docker(['logs', postgresHost])).toContain('applied migration 0009_device_tokens');
-    expect(await docker(['logs', postgresHost])).toContain(
-      'applied migration 0010_pairing_requests',
-    );
-    expect(await docker(['logs', postgresHost])).toContain('applied migration 0012_host_secrets');
-    expect(await docker(['logs', postgresHost])).toContain('applied migration 0013_runs');
+    expect(await docker(['logs', postgresHost])).toContain(appliedLatestMigration);
     await docker(['rm', '--force', postgresHost]);
     const sql = async (statement: string) =>
       docker([
