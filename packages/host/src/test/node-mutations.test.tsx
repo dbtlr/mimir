@@ -4,14 +4,11 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
 import {
-  annotate,
   block,
   depend,
   done,
   groom,
-  move,
   park,
-  returnTask,
   start,
   tag,
   undepend,
@@ -20,11 +17,9 @@ import {
 } from '../api/fns/nodes';
 import { create, updateProject } from '../api/fns/shell';
 import {
-  useAnnotate,
   useCreateNode,
   useDepend,
   useGroom,
-  useMoveNode,
   useTag,
   useTransition,
   useUndepend,
@@ -73,29 +68,14 @@ describe('mutation hooks', () => {
     });
   });
 
-  it('useTransition reaches the Engine method each console verb names', async () => {
+  // done and return are proven through the task page's Approve and Send back; no rendered
+  // test drives block, though the task page offers it as Mark blocked.
+  it('useTransition reaches the Engine method the block verb names', async () => {
     const client = new QueryClient();
     const { result } = renderHook(() => useTransition('MMR-9'), { wrapper: wrapper(client) });
-    result.current.mutate({ verb: 'done' });
-    await waitFor(() => {
-      expect(done).toHaveBeenCalledWith({ data: { id: 'MMR-9' } });
-    });
-    result.current.mutate({ reason: 'needs work', verb: 'return' });
-    await waitFor(() => {
-      expect(returnTask).toHaveBeenCalledWith({ data: { id: 'MMR-9', reason: 'needs work' } });
-    });
     result.current.mutate({ reason: 'waiting', verb: 'block' });
     await waitFor(() => {
       expect(block).toHaveBeenCalledWith({ data: { id: 'MMR-9', reason: 'waiting' } });
-    });
-  });
-
-  it('useMoveNode moves the node to the new parent (MMR-73)', async () => {
-    const client = new QueryClient();
-    const { result } = renderHook(() => useMoveNode('MMR-9'), { wrapper: wrapper(client) });
-    result.current.mutate('MMR-3');
-    await waitFor(() => {
-      expect(move).toHaveBeenCalledWith({ data: { id: 'MMR-9', to: 'MMR-3' } });
     });
   });
 
@@ -251,15 +231,6 @@ describe('authoring mutation hooks', () => {
       expect(update).toHaveBeenCalledWith({
         data: { externalRef: 'GH-9', id: 'MMR-9', size: 'small', title: 'renamed' },
       });
-    });
-  });
-
-  it('useAnnotate appends the note', async () => {
-    const client = new QueryClient();
-    const { result } = renderHook(() => useAnnotate('MMR-9'), { wrapper: wrapper(client) });
-    result.current.mutate('a note');
-    await waitFor(() => {
-      expect(annotate).toHaveBeenCalledWith({ data: { content: 'a note', id: 'MMR-9' } });
     });
   });
 

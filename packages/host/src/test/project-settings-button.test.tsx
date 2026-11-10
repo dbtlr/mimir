@@ -48,11 +48,6 @@ const baseProject: Pick<EngineNode, 'id' | 'title' | 'description'> = {
 };
 
 describe('projectSettingsButton', () => {
-  it('renders a settings button', () => {
-    wrap(<ProjectSettingsButton project={baseProject} />);
-    expect(screen.getByRole('button', { name: /project settings/i })).toBeInTheDocument();
-  });
-
   it('is disabled when offline', () => {
     wrap(<ProjectSettingsButton project={baseProject} offline />);
     expect(screen.getByRole('button', { name: /project settings/i })).toBeDisabled();
@@ -134,18 +129,6 @@ const follows = (a: Element, b: Element) =>
   (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
 
 describe('projectSettings lifecycle (MMR-230)', () => {
-  it('shows the LIFECYCLE section with the archive contract copy', () => {
-    wrap(<ProjectSettingsButton project={baseProject} />);
-    openSheet();
-    expect(screen.getByText('Lifecycle')).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'Archiving freezes the project and hides it everywhere by default — board, picker, tasks, attention. Unarchive it from its page, which the project switcher lists under Archived. Reversible any time; nothing is deleted.',
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Archive project' })).toBeEnabled();
-  });
-
   it('archiving archives the project with no confirm, closes, toasts undo, and returns to the review page', async () => {
     wrap(<ProjectSettingsButton project={baseProject} />);
     openSheet();
@@ -188,10 +171,16 @@ describe('projectSettings lifecycle (MMR-230)', () => {
     });
   });
 
-  it('describes the archive consequences to assistive tech (aria-describedby)', () => {
+  it('shows the Lifecycle section, with the archive contract copy that describes the Archive button', () => {
     wrap(<ProjectSettingsButton project={baseProject} />);
     openSheet();
-    expect(screen.getByRole('button', { name: 'Archive project' })).toHaveAccessibleDescription(
+    expect(screen.getByText('Lifecycle')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Archiving freezes the project and hides it everywhere by default/),
+    ).toBeInTheDocument();
+    const archiveButton = screen.getByRole('button', { name: 'Archive project' });
+    expect(archiveButton).toBeEnabled();
+    expect(archiveButton).toHaveAccessibleDescription(
       /Archiving freezes the project and hides it everywhere by default/,
     );
   });

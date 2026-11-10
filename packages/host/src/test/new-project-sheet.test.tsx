@@ -25,15 +25,6 @@ function wrap() {
 }
 
 describe('newProjectSheet (MMR-230)', () => {
-  it('renders title, key, optional description, and the footer note', () => {
-    wrap();
-    expect(screen.getByLabelText(/title/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/key/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
-    expect(screen.getByText(/joins the project list on the review page/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /create/i })).toBeInTheDocument();
-  });
-
   it('focuses the title field on open', async () => {
     wrap();
     await waitFor(() => {

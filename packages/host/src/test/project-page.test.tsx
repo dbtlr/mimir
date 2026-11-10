@@ -97,6 +97,10 @@ describe('project page (MMR-450, MMR-470)', () => {
     expect(within(rail).getByText('Then the work page.')).toBeDefined();
     expect(within(rail).getByRole('button', { name: 'Edit direction' })).toBeDefined();
     expect(screen.getByText('work').tagName).toBe('STRONG');
+    // The server function mocks ignore facets, so the request is checked here.
+    expect(getNode).toHaveBeenCalledWith({
+      data: expect.objectContaining({ facets: expect.arrayContaining(['children']), id: 'MMR' }),
+    });
   });
 
   it('offers no board view, and its rail has no structure or other views (MMR-487, MMR-496)', async () => {

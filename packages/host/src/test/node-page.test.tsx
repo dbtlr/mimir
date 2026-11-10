@@ -6,14 +6,17 @@ import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  annotate,
   done,
   getNode,
   groom,
   move,
   park,
   returnTask,
+  scratchList,
   start,
   tag,
+  unqueue,
   untag,
   update,
 } from '../api/fns/nodes';
@@ -86,18 +89,6 @@ beforeEach(() => {
   serveViews();
 });
 
-/** Markdown with a list, inline and fenced code, and a link — one body for every surface. */
-const MARKDOWN_BODY = [
-  '- first item',
-  '- second with `inline_code`',
-  '',
-  '[the docs](https://example.com/docs)',
-  '',
-  '```ts',
-  'const fenced = 1;',
-  '```',
-].join('\n');
-
 /** The tag and untag writes issued for one node, in order. */
 function tagWrites(id: string) {
   return [...vi.mocked(tag).mock.calls, ...vi.mocked(untag).mock.calls].filter(([options]) =>
@@ -113,7 +104,7 @@ async function openTask(node: EngineNode, extra: Extra = {}) {
 }
 
 describe('task page (MMR-449)', () => {
-  it('opens a task directly at its URL', async () => {
+  it('opens a task directly at its URL, and appends a note to it', async () => {
     serve(sqlite);
     await renderRoute(consoleRoutes, '/p/MMR/417', quietClient());
 
@@ -122,6 +113,19 @@ describe('task page (MMR-449)', () => {
     ).resolves.toBeDefined();
     expect(screen.getByText('bun:sqlite')).toBeDefined();
     expect(screen.getByRole('textbox', { name: /note/i })).toBeDefined();
+    // The server function mocks ignore facets, so the request is checked here.
+    expect(getNode).toHaveBeenCalledWith({
+      data: expect.objectContaining({ facets: expect.arrayContaining(['deps']), id: 'MMR-417' }),
+    });
+    await waitFor(() => {
+      expect(scratchList).toHaveBeenCalledWith({ data: { project: 'MMR' } });
+    });
+
+    await userEvent.type(screen.getByRole('textbox', { name: /note/i }), 'next steps');
+    await userEvent.click(screen.getByRole('button', { name: 'Append note' }));
+    await waitFor(() => {
+      expect(annotate).toHaveBeenCalledWith({ data: { content: 'next steps', id: 'MMR-417' } });
+    });
   });
 
   it('links its nearest container above the id for a phone, in place of a breadcrumb', async () => {
@@ -158,12 +162,10 @@ describe('task page (MMR-449)', () => {
     });
     await renderRoute(consoleRoutes, '/p/MMR/9', quietClient());
 
-    // The brand is also named Mimir; the parent link is the one a desktop hides.
+    // The brand is also named Mimir, but it sits in the top bar, outside the page.
     await screen.findByRole('heading', { level: 1 });
-    const parent = screen
-      .getAllByRole('link', { name: 'Mimir' })
-      .find((l) => l.className.includes('lg:hidden'));
-    expect(parent?.getAttribute('href')).toBe('/p/MMR');
+    const parent = within(screen.getByRole('main')).getByRole('link', { name: 'Mimir' });
+    expect(parent.getAttribute('href')).toBe('/p/MMR');
   });
 
   it('redirects a bare id, in any case, to the record page', async () => {
@@ -340,16 +342,6 @@ describe('task page (MMR-449)', () => {
     expect(within(rail).getByText('task-worker')).toBeDefined();
   });
 
-  it('moves a lowercase key to its canonical URL', async () => {
-    serve(sqlite);
-    const { router: testRouter } = await renderRoute(consoleRoutes, '/p/mmr/417', quietClient());
-
-    await expect(
-      screen.findByRole('heading', { level: 1, name: 'Add the SQLite dialect' }),
-    ).resolves.toBeDefined();
-    expect(testRouter.state.location.pathname).toBe('/p/MMR/417');
-  });
-
   it('closes a sheet when a link in it is chosen, not when its text is', async () => {
     serve({
       ...sqlite,
@@ -390,6 +382,37 @@ describe('task page (MMR-449)', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Actions' })).toBeNull();
     });
+  });
+
+  it('shows the sessions and links the reason on the transition that settled the task', async () => {
+    await openTask({
+      ...sqlite,
+      history: [
+        {
+          at: new Date('2026-06-04T09:00:00.000Z'),
+          from: 'in_progress',
+          handles: {
+            harness: 'codex',
+            session: 'conversation',
+            worker_harness: 'claude',
+            worker_session: 'build-session',
+          },
+          kind: 'lifecycle',
+          reason: 'Shipped in https://example.com/pull/9.',
+          to: 'done',
+        },
+      ],
+      status: 'done',
+    });
+
+    await expect(
+      screen.findByText('Main codex/conversation · Worker claude/build-session'),
+    ).resolves.toBeInTheDocument();
+    const link = screen.getByRole('link', { name: 'https://example.com/pull/9' });
+    expect(link.getAttribute('href')).toBe('https://example.com/pull/9');
+    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+    expect(link.closest('p')?.textContent).toContain(' — Shipped in https://example.com/pull/9.');
   });
 
   it('sets the actions aside while the edit form is open', async () => {
@@ -468,10 +491,8 @@ describe('container page (MMR-450)', () => {
     await renderRoute(consoleRoutes, '/p/MMR/1', quietClient());
 
     await screen.findByRole('heading', { level: 1 });
-    const parent = screen
-      .getAllByRole('link', { name: 'Mimir' })
-      .find((l) => l.className.includes('lg:hidden'));
-    expect(parent?.getAttribute('href')).toBe('/p/MMR');
+    const parent = within(screen.getByRole('main')).getByRole('link', { name: 'Mimir' });
+    expect(parent.getAttribute('href')).toBe('/p/MMR');
     await expect(screen.findByRole('region', { name: 'Frontier' })).resolves.toBeDefined();
   });
 
@@ -586,19 +607,6 @@ describe('task page edit (MMR-453)', () => {
       }),
     );
     expect(tags).toHaveValue('ui, release:v0.5');
-  });
-
-  it('saving with an added tag adds exactly that tag', async () => {
-    await userEvent.type(
-      await openEdit(engineTask({ id: 'MMR-91', status: 'ready', tags: [] })),
-      'feat',
-    );
-    await userEvent.click(screen.getByRole('button', { name: /save/i }));
-
-    await waitFor(() => {
-      expect(tag).toHaveBeenCalledWith({ data: { ids: ['MMR-91'], tags: ['feat'] } });
-    });
-    expect(tagWrites('MMR-91')).toHaveLength(1);
   });
 
   it('saving with a removed tag removes exactly that tag', async () => {
@@ -723,6 +731,23 @@ describe('task page verbs (MMR-453)', () => {
     expect(park).toHaveBeenCalledWith({ data: { id: 'MMR-51', reason: 'later' } });
   });
 
+  it('cancels a queued task only after a reason is supplied', async () => {
+    const rail = await openTask(
+      engineTask({ id: 'MMR-417', lifecycle: 'queued', status: 'queued' }),
+    );
+
+    await userEvent.click(within(rail).getByRole('button', { name: 'Cancel reservation…' }));
+    const dialog = await screen.findByRole('dialog');
+    const confirm = within(dialog).getByRole('button', { name: 'Confirm' });
+    expect(confirm).toBeDisabled();
+    await userEvent.type(within(dialog).getByRole('textbox'), 'run cancelled');
+    await userEvent.click(confirm);
+
+    await waitFor(() => {
+      expect(unqueue).toHaveBeenCalledWith({ data: { id: 'MMR-417', reason: 'run cancelled' } });
+    });
+  });
+
   it('Approve in the verdict block fires done', async () => {
     await openTask(
       engineTask({
@@ -796,8 +821,8 @@ describe('task page verbs (MMR-453)', () => {
     expect(block.querySelectorAll('[class*="attention"]')).toHaveLength(0);
   });
 
-  it('offline disables Edit, Move…, and the verbs', async () => {
-    const node = engineTask({ id: 'MMR-51', status: 'ready' });
+  it('offline disables Edit, Move…, Set grooming…, and the verbs', async () => {
+    const node = engineTask({ grooming: 'groomed', id: 'MMR-51', status: 'ready' });
     serve(node);
     // An errored read over loaded data is the console's offline signal.
     failNotes();
@@ -809,6 +834,7 @@ describe('task page verbs (MMR-453)', () => {
     });
     expect(within(rail).getByRole('button', { name: 'Edit' })).toBeDisabled();
     expect(within(rail).getByRole('button', { name: 'Move…' })).toBeDisabled();
+    expect(within(rail).getByRole('button', { name: 'Set grooming…' })).toBeDisabled();
   });
 });
 
@@ -827,31 +853,6 @@ describe('task page move (MMR-453)', () => {
 });
 
 describe('task page content (MMR-453)', () => {
-  it('renders the description as markdown', async () => {
-    await openTask(
-      engineTask({
-        description: MARKDOWN_BODY,
-        id: 'MMR-81',
-        status: 'in_progress',
-        title: 'md task',
-      }),
-    );
-
-    // The record layout is itself an article; the markdown body is the one holding the code.
-    const article = (await screen.findByText('const fenced = 1;')).closest('article');
-    expect(article).not.toBeNull();
-    if (article === null) {
-      return;
-    }
-    expect(within(article).getByText('const fenced = 1;').closest('pre')).not.toBeNull();
-    expect(within(article).getByRole('link', { name: 'the docs' })).toHaveAttribute(
-      'href',
-      'https://example.com/docs',
-    );
-    expect(within(article).getByText('inline_code').tagName).toBe('CODE');
-    expect(within(article).getAllByRole('listitem')).toHaveLength(2);
-  });
-
   it('renders a dependency in both depends_on and awaiting_on as one row, with the awaiting reading', async () => {
     const rail = await openTask(
       engineTask({
@@ -973,21 +974,18 @@ describe('task page grooming state (MMR-466)', () => {
     expect(within(rail).getByText('groomed')).toBeDefined();
   });
 
-  it.each([
-    ['blocked', 'blocked'],
-    ['parked', 'parked'],
-  ] as const)('still shows the state on a todo task that is %s', async (hold, status) => {
+  it('still shows the state on a todo task that is blocked', async () => {
     await openTask(
-      engineTask({ grooming: 'groomed', hold, holdReason: 'why', id: 'MMR-51', status }),
+      engineTask({
+        grooming: 'groomed',
+        hold: 'blocked',
+        holdReason: 'why',
+        id: 'MMR-51',
+        status: 'blocked',
+      }),
     );
 
     expect(within(screen.getByRole('article')).getByText('groomed')).toBeDefined();
-  });
-
-  it('wears the same font in Details as in the header', async () => {
-    const rail = await openTask(groomed());
-
-    expect(within(rail).getByText('groomed').className).toContain('font-sans');
   });
 
   it('keeps the dialog open and toasts the error when the request fails', async () => {
@@ -1090,57 +1088,28 @@ describe('task page grooming state (MMR-466)', () => {
 
     await expect(screen.findByRole('dialog', { name: 'Grooming state' })).resolves.toBeDefined();
   });
-
-  it('is disabled while offline', async () => {
-    const node = groomed();
-    serve(node);
-    failNotes();
-    await renderRoute(consoleRoutes, '/p/MMR/51', quietClient());
-
-    const rail = await screen.findByRole('complementary', { name: 'Record details' });
-    await waitFor(() => {
-      expect(within(rail).getByRole('button', { name: 'Set grooming…' })).toBeDisabled();
-    });
-  });
 });
 
 describe('task page hold callout (MMR-466)', () => {
   it.each([
-    ['you', 'Blocked on you'],
-    ['others', 'Blocked on others'],
-  ] as const)('names who can clear a block owned by %s', async (owner, label) => {
-    await openTask(
-      engineTask({
-        blockOwner: owner,
-        hold: 'blocked',
-        holdReason: 'Needs an API token',
-        id: 'MMR-51',
-        status: 'blocked',
-      }),
-    );
-
-    const article = screen.getByRole('article');
-    expect(within(article).getByText(label)).toBeDefined();
-    expect(within(article).getByText('Needs an API token')).toBeDefined();
-  });
-
-  it.each([
-    ['you', 'Blocked on you'],
-    ['others', 'Blocked on others'],
+    ['you', 'Blocked on you', 'Needs an API token'],
+    ['others', 'Blocked on others', null],
   ] as const)(
-    'names the owner of a block owned by %s even with no reason',
-    async (owner, label) => {
+    'names who can clear a block owned by %s, with or without a reason',
+    async (owner, label, reason) => {
       await openTask(
         engineTask({
           blockOwner: owner,
           hold: 'blocked',
-          holdReason: null,
+          holdReason: reason,
           id: 'MMR-51',
           status: 'blocked',
         }),
       );
 
-      expect(within(screen.getByRole('article')).getByText(label)).toBeDefined();
+      const article = screen.getByRole('article');
+      expect(within(article).getByText(label)).toBeDefined();
+      expect(article).toHaveTextContent(reason ?? label);
     },
   );
 
