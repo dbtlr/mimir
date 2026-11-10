@@ -276,8 +276,8 @@ test('warns on a group-writable ancestor, not only the immediate directory', () 
   expect(checkConfigReplaceable(stats, ME).map((f) => f.locator)).toEqual(['/home/me/.config']);
 });
 
-// One directory with no write bit, then the sticky bit over each write bit:
-// other (0o1777) and group alone (0o1770).
+// A directory that neither group nor others can write (0o755), then the sticky
+// bit on one that both can write (0o1777) and on one only group can (0o1770).
 test('is silent for read-only and sticky writable directories', () => {
   for (const mode of [0o755, 0o1777, 0o1770]) {
     expect(checkConfigReplaceable([FILE, stat('/home/me/.config/mimir', mode)], ME)).toEqual([]);
