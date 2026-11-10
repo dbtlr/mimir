@@ -81,6 +81,19 @@ creates, so the host can apply them again. A constraint that a migration
 replaces stays, because the migration drops it first. Update the rollback with
 each migration, and run `bun run test:host` before pushing.
 
+A Postgres step-migration test in
+`packages/core/src/store-postgres/migrator.test.ts` is deleted once the release
+that carries its step has been applied to every Postgres store. Postgres runs
+only behind a host, so after that no Postgres store runs the step again, unless
+a store is restored from a backup older than the step. The from-empty upgrade
+test and the newest step's test always stay. SQLite step tests in
+`packages/core/src/store-sqlite/sqlite.test.ts` stay: SQLite is the default
+backend of every CLI install, and its table rebuilds can lose rows or ids.
+Retiring a Postgres step test gives up the proof that the step keeps and
+backfills the rows of an existing Postgres store. The container rollback above
+still upgrades an empty Postgres store from schema 4, step by step. No test
+upgrades a Postgres store older than schema 4.
+
 ## Tests that run slow or time out
 
 Tests in the default lanes, `bun run test` and `bun run test:ui`, run under
@@ -179,13 +192,6 @@ Apply these rules when you add a test and when you review one.
    in sync by hand, and an assertion that a feature is absent all belong to
    this group. Pins that an ADR commits to stay, such as the CLI's reviewed
    output snapshots and the help pages (ADR 0037).
-7. **Retire a Postgres step-migration test once every Postgres store has applied
-   its release.** Postgres runs only behind a host, so a step test has no
-   further reader after that. The from-empty upgrade test and the newest step's
-   test always stay. SQLite step tests stay: SQLite is the default backend of
-   every CLI install, and its table rebuilds can lose rows or ids. Retiring a
-   Postgres step test gives up one proof: that a Postgres database restored from
-   a backup older than the current schema upgrades step by step.
 
 ## Project shape
 
