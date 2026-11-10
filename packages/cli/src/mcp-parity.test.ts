@@ -73,9 +73,9 @@ const rows = (...ids: string[]) => ({ tasks: ids.map((id) => ({ id })), total: i
 const padReceipt = (openAgenda: number) => ({ open_agenda: openAgenda, project: 'MMR' });
 
 const CASES: readonly McpCase[] = [
-  // Every record was created at 2026-10-01T12:00Z. 2 October begins at 10:00Z on Kiritimati
-  // (UTC+14), so the bound admits every row in that zone and none in UTC. MMR-3 blocks MMR-4,
-  // so `not-is: blocking` leaves it out.
+  // Every record was created at 2026-10-01T12:00Z. On Kiritimati (UTC+14), 2 October begins
+  // at 2026-10-01T10:00Z, so the bound admits every row in that zone and none in UTC. MMR-3
+  // blocks MMR-4, so `not-is: blocking` leaves it out.
   holding(
     'list takes kebab-case filters as lists, and a tz',
     'list',

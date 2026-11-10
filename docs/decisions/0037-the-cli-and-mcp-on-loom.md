@@ -183,11 +183,12 @@ command's parity test, so the list does not go stale.
 > view, so each command's `-f json` CLI pin owns that content. The old server's
 > frozen tool list (`src/parity/retired-mcp-tools.ts`) and the capability map
 > diffed against it (`src/parity/mcp-capabilities.ts`) are removed with the
-> tests that read them. `mcp-parity.test.ts` keeps one case for each argument
-> spelling only a tool call takes: the kebab-case filters as lists, and a
-> `tz`, on `list` and `next`, ids as one comma-separated string on `tag`,
-> `top` and `before` on `reorder`, `pinned: false` on `update`, words on
-> `scratch_agenda` and `scratch_checkpoint`, and an inline body on `attach`.
+> tests that read them. `mcp-parity.test.ts` keeps cases for the argument
+> spellings a tool call takes: the kebab-case filters as lists, and a `tz`,
+> on `list` and `next`, each with a bound that admits rows and one that
+> excludes them; ids as one comma-separated string on `tag`; `top` and
+> `before` on `reorder`; `pinned: false` on `update`; words on
+> `scratch_agenda` and `scratch_checkpoint`; and an inline body on `attach`.
 > Each asserts a successful call and the fields that show its arguments
 > arrived, and the board's final state stays pinned. Each view that no
 > `-f json` CLI pin owns is still pinned whole by at least one case: `done`,
