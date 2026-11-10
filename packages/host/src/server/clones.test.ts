@@ -647,7 +647,7 @@ async function expectExactSyncAfter(clone: KeptClone, plant: () => Promise<void>
  * host trusts. The sync empties the work tree before git runs, so the kind of
  * plant cannot change the outcome; clone-work-tree.test.ts checks the emptying
  * itself against each kind of entry. These two would steer git, or a reader,
- * if git ran before the emptying.
+ * if the checkout ran before the emptying or the emptying were skipped.
  */
 const plantedInWorkTree: [string, (clone: KeptClone) => Promise<void>][] = [
   [
