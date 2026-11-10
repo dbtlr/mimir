@@ -84,15 +84,18 @@ each migration, and run `bun run test:host` before pushing.
 A Postgres step-migration test in
 `packages/core/src/store-postgres/migrator.test.ts` is deleted once the release
 that carries its step has been applied to every Postgres store. Postgres runs
-only behind a host, so after that no Postgres store runs the step again, unless
-a store is restored from a backup older than the step. The from-empty upgrade
-test and the newest step's test always stay. SQLite step tests in
+only behind a host, so after that the step runs again only on an empty store,
+unless a store is restored from a backup older than the step. The from-empty
+upgrade test and the newest step's test always stay. SQLite step tests in
 `packages/core/src/store-sqlite/sqlite.test.ts` stay: SQLite is the default
 backend of every CLI install, and its table rebuilds can lose rows or ids.
-Retiring a Postgres step test gives up the proof that the step keeps and
-backfills the rows of an existing Postgres store. The container rollback above
-still upgrades an empty Postgres store from schema 4, step by step. No test
-upgrades a Postgres store older than schema 4.
+Retiring a Postgres step test gives up two proofs: that the step keeps and
+backfills the rows of an existing Postgres store, and that a constraint the
+step adds refuses a bad value on Postgres. The from-empty test proves that
+every step applies in order, not what each constraint refuses. The container
+rollback above still upgrades an empty Postgres store from schema 4, step by
+step. No test upgrades a Postgres store that holds rows from before the newest
+step.
 
 ## Tests that run slow or time out
 
