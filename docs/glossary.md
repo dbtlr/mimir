@@ -49,8 +49,9 @@ the work tree with its own lifecycle and hold, and its tasks stay in their
 phase ([ADR 0042](decisions/0042-the-delivery-record.md)). Not to be confused
 with an agent run.
 
-**Member**: A task that belongs to a delivery that has not ended. Membership
-reserves the task for that delivery, so the board-wide `next` leaves it out.
+**Member**: A live task that belongs to a delivery that has not ended.
+Membership reserves the task for that delivery, so the board-wide `next` leaves
+it out and `queue` refuses it.
 
 **Land**: The verb that ends a delivery when its milestone pull request
 merges, moving every staged member to `done` in one transaction.
@@ -63,7 +64,7 @@ as a grooming run, recorded as a host-owned row with its state, usage, and
 outcome ([ADR 0041](decisions/0041-agent-runtime-on-the-host.md)). An agent
 run is not a task's session and changes none of its handles. It is distinct
 from the run a queued task is reserved for (ADR 0026), which is a session in an
-outside harness, and from a build run, which is a **delivery**.
+outside harness, and from a **delivery**.
 
 **Run grant**: The board access an agent run is given: the reads its kind
 needs within its project, and writes limited to its own task or to new records
