@@ -240,10 +240,17 @@ const isPlaceholder = (word: string): boolean =>
   (word.startsWith('<') && word.endsWith('>')) || word.startsWith('$') || word === '…';
 const isFlag = (word: string): boolean => word.startsWith('-') && word !== '-' && word !== '--';
 
-const graph = createApp({
+/**
+ * The one app every check reads, bound like the skill's setting, over a store
+ * that refuses to open. Loom builds its command graph on each run, so a fresh
+ * app per invocation would pay that build twice.
+ */
+const app = createApp({
   git: boundClone('KEY'),
-  store: () => Promise.reject(new Error('The drift guard reads the graph; it opens no store.')),
-}).inspect();
+  store: () => Promise.reject(new Error('The drift guard opens no store.')),
+});
+
+const graph = app.inspect();
 
 /** Every spelling an option answers to: long, short, negative, and aliases, dashes included. */
 function spellings(option: OptionNode): string[] {
@@ -353,15 +360,10 @@ function parserArgv(words: string[]): string[] {
 }
 
 /**
- * Run the real parser inside a bound repo (the skill's setting) over a store
- * that refuses to open: a usage refusal (exit 2) is drift, and any other exit
- * means the parser accepted the words and reached the store.
+ * Run the real parser on the shared app: a usage refusal (exit 2) is drift,
+ * and any other exit means the parser accepted the words and reached the store.
  */
 async function parserRefusal(words: string[]): Promise<string | undefined> {
-  const app = createApp({
-    git: boundClone('KEY'),
-    store: () => Promise.reject(new Error('store reached')),
-  });
   // A synopsis lists alternatives (`--top | --bottom`) the parser takes as one call.
   const run = await runArgv(app, parserArgv(words), { stdin: 'content' });
   const refused = run.exitCode === 2 && !run.stderr.includes('cannot be used together');

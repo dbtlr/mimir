@@ -157,14 +157,25 @@ test('a hidden or retired spelling is a problem, and the Loom spellings pass', a
 
 // The guard: the skill teaches agents exact verbs and flags, and agents drive
 // the CLI from it. A rename that misses the skill would teach a dead command.
-test('every mimir invocation the shipped skill shows is one the CLI accepts', async () => {
-  const invocations = skillMarkdown().flatMap((f) => extractInvocations(f.path, f.content));
-  expect(invocations.length).toBeGreaterThan(80);
-  const problems: string[] = [];
-  for (const inv of invocations) {
-    for (const problem of await invocationProblems(inv)) {
-      problems.push(`${inv.file}: \`mimir ${inv.text}\` — ${problem}`);
-    }
-  }
-  expect(problems).toEqual([]);
+// One test per skill file keeps each well inside the timeout under parallel workers.
+const shipped = skillMarkdown().map((f) => ({
+  invocations: extractInvocations(f.path, f.content),
+  path: f.path,
+}));
+
+test('the shipped skill shows more than 80 mimir invocations to check', () => {
+  expect(shipped.flatMap((f) => f.invocations).length).toBeGreaterThan(80);
 });
+
+test.each(shipped)(
+  'every mimir invocation $path shows is one the CLI accepts',
+  async ({ invocations }) => {
+    const problems: string[] = [];
+    for (const inv of invocations) {
+      for (const problem of await invocationProblems(inv)) {
+        problems.push(`\`mimir ${inv.text}\` — ${problem}`);
+      }
+    }
+    expect(problems).toEqual([]);
+  },
+);
