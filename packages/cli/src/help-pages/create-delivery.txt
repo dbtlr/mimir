@@ -1,7 +1,7 @@
 mimir create delivery · Create an attempt to deliver a phase.
 
 USAGE
-  mimir create delivery <title> --phase <text> [options]
+  mimir create delivery [title] --phase <text> [options]
 
 ARGUMENTS
   title  The delivery title.
@@ -15,6 +15,7 @@ OPTIONS
       --harness <text>    The orchestrator harness.
       --session <text>    The orchestrator session.
       --time-cap <text>   A positive whole number of minutes.
+      --ascii             Print without color, in ASCII glyphs.
   -f, --format <format>   Select the output format, records by default. One of: ids, json, jsonl, records, table.
 
 GLOBAL OPTIONS
@@ -24,3 +25,5 @@ GLOBAL OPTIONS
 EXAMPLES
   $ mimir create delivery "Ship the phase" --phase MMR-2
     record an agreed attempt
+  $ mimir create delivery --phase MMR-2 -- "--weird title"
+    a title that starts with a dash

@@ -5,6 +5,7 @@ USAGE
 
 OPTIONS
   -p, --project <text>   The project key; defaults to the clone binding.
+      --ascii            Print without color, in ASCII glyphs.
   -f, --format <format>  Select the output format, table by default. One of: ids, json, jsonl, records, table.
 
 GLOBAL OPTIONS

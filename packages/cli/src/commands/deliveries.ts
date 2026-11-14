@@ -5,11 +5,14 @@ import { blankProse, DELIVERY_INT_MAX, encodeDelivery, MimirError } from '@mimir
 import type { DeliveryView } from '@mimir/contract';
 
 import { MimirUsageError } from '../failures';
-import { text, writeHints } from '../options';
+import { asciiOption, text, writeHints } from '../options';
 import type { Ports } from '../ports';
 import { renderDelivery } from '../render/deliveries';
+import { presentationOf } from '../render/presentation';
+import type { Presentation } from '../render/presentation';
 import { recordViews } from '../render/views';
 import { boardProject } from '../scope';
+import { requireTitle } from './create';
 
 /**
  * `--time-cap <minutes|none>`: a plain positive decimal whole number within
@@ -45,16 +48,24 @@ async function withCreateHint<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 
-const views = recordViews<DeliveryView>({
-  ids: (d) => d.id,
-  json: (d) => d,
-  records: renderDelivery,
+/** A delivery and how the styled views render it. */
+type DeliveryValue = { delivery: DeliveryView; presentation: Presentation };
+/** The deliveries read and how the styled views render them. */
+type DeliveriesValue = { deliveries: DeliveryView[]; presentation: Presentation };
+
+const views = recordViews<DeliveryValue>({
+  ids: (v) => v.delivery.id,
+  json: (v) => v.delivery,
+  records: (v) => renderDelivery(v.delivery, v.presentation),
 });
-const listViews = recordViews<DeliveryView[]>({
-  ids: (rows) => rows.map((d) => d.id).join('\n'),
-  json: (rows) => ({ deliveries: rows, total: rows.length }),
-  jsonl: (rows) => rows,
-  records: (rows) => (rows.length ? rows.map(renderDelivery).join('\n\n') : 'No deliveries.'),
+const listViews = recordViews<DeliveriesValue>({
+  ids: (v) => v.deliveries.map((d) => d.id).join('\n'),
+  json: (v) => ({ deliveries: v.deliveries, total: v.deliveries.length }),
+  jsonl: (v) => v.deliveries,
+  records: (v) =>
+    v.deliveries.length
+      ? v.deliveries.map((d) => renderDelivery(d, v.presentation)).join('\n\n')
+      : 'No deliveries.',
 });
 export function createDeliveryCommand(ports: Ports) {
   return new Command('delivery', {
@@ -66,12 +77,16 @@ export function createDeliveryCommand(ports: Ports) {
             command: 'create delivery "Ship the phase" --phase MMR-2',
             note: 'record an agreed attempt',
           },
+          {
+            command: 'create delivery --phase MMR-2 -- "--weird title"',
+            note: 'a title that starts with a dash',
+          },
         ],
       }),
       mcpCommand({ annotations: writeHints }),
     ],
   })
-    .argument('title', { description: 'The delivery title.', required: true })
+    .argument('title', { description: 'The delivery title.' })
     .option('phase', { ...text('The phase this attempt delivers.'), required: true })
     .option('agreement', text('The whole delivery agreement.'))
     .option('ref', text('The milestone pull request.'))
@@ -80,28 +95,29 @@ export function createDeliveryCommand(ports: Ports) {
     .option('harness', text('The orchestrator harness.'))
     .option('session', text('The orchestrator session.'))
     .option('time-cap', text('A positive whole number of minutes.'))
-    .result<DeliveryView>({ views })
+    .option('ascii', asciiOption)
+    .result<DeliveryValue>({ views })
     .views({ records: views.records }, { default: 'records' })
-    .action(async ({ args, options, out }) => {
+    .action(async ({ args, host, options, out, passthrough }) => {
+      const title = requireTitle(args.title, passthrough, 'delivery');
       const timeCap = parseTimeCap(options['time-cap']);
       const engine = await ports.engine();
-      await out.results(
-        encodeDelivery(
-          await withCreateHint(() =>
-            engine.deliveryCreate({
-              agreement: options.agreement,
-              branch: options.branch,
-              external_ref: options.ref,
-              harness: options.harness,
-              host: options.host,
-              phase: options.phase,
-              session: options.session,
-              time_cap_minutes: timeCap,
-              title: args.title,
-            }),
-          ),
+      const delivery = encodeDelivery(
+        await withCreateHint(() =>
+          engine.deliveryCreate({
+            agreement: options.agreement,
+            branch: options.branch,
+            external_ref: options.ref,
+            harness: options.harness,
+            host: options.host,
+            phase: options.phase,
+            session: options.session,
+            time_cap_minutes: timeCap,
+            title,
+          }),
         ),
       );
+      await out.results({ delivery, presentation: presentationOf(host, options.ascii) });
     });
 }
 export function deliveriesCommand(ports: Ports) {
@@ -115,12 +131,14 @@ export function deliveriesCommand(ports: Ports) {
     ],
   })
     .option('project', { ...text('The project key; defaults to the clone binding.'), short: 'p' })
-    .result<DeliveryView[]>({ views: listViews })
+    .option('ascii', asciiOption)
+    .result<DeliveriesValue>({ views: listViews })
     .views({ table: listViews.table }, { default: 'table' })
-    .action(async ({ options, out }) => {
+    .action(async ({ host, options, out }) => {
       const project = await boardProject(ports, options.project, 'deliveries', (line) => {
         void out.print(line);
       });
-      await out.results((await (await ports.engine()).deliveries({ project })).map(encodeDelivery));
+      const deliveries = (await (await ports.engine()).deliveries({ project })).map(encodeDelivery);
+      await out.results({ deliveries, presentation: presentationOf(host, options.ascii) });
     });
 }

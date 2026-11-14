@@ -44,7 +44,7 @@ const notOpenEndedOption = {
  * how a title that leads with a dash arrives). Absent, it is the usage error
  * that points at the `--` terminator.
  */
-function requireTitle(
+export function requireTitle(
   title: string | undefined,
   passthrough: readonly string[],
   type: string,

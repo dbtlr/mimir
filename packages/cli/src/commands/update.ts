@@ -252,7 +252,7 @@ function textOf(
   },
 ): string {
   if ('delivery' in echo) {
-    return renderDelivery(echo.delivery);
+    return renderDelivery(echo.delivery, echo.presentation);
   }
   if ('artifact' in echo) {
     return render.artifact(echo);

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 
+import { DASH_TITLE_HINT } from '../failures';
 import { parityBoard } from '../testing/fixture';
 import type { ParityBoard } from '../testing/fixture';
 import { runArgv } from '../testing/run';
@@ -70,6 +71,53 @@ describe('delivery commands', () => {
     expect(updated.history).toEqual(read.history);
     const listed = (await json('deliveries')).deliveries as Record<string, unknown>[];
     expect(listed.find((row) => row.id === id)?.history).toEqual(read.history);
+  });
+
+  test('create reads a dashed title after --', async () => {
+    const made = await run(
+      'create',
+      'delivery',
+      '--phase',
+      'MMR-2',
+      '-f',
+      'json',
+      '--',
+      '--weird title',
+    );
+    expect(made.exitCode).toBe(0);
+    expect((JSON.parse(made.stdout) as Record<string, unknown>).title).toBe('--weird title');
+  });
+
+  test('a missing title gives the usage error and hint the other creates give', async () => {
+    const task = await run('create', 'task', '--parent', 'MMR-2');
+    const delivery = await run('create', 'delivery', '--phase', 'MMR-2');
+    expect(delivery.exitCode).toBe(task.exitCode);
+    expect(delivery.stderr).toContain('create delivery requires a title');
+    expect(delivery.stderr).toContain(DASH_TITLE_HINT);
+    expect(task.stderr).toContain(DASH_TITLE_HINT);
+  });
+
+  test('plain output of a delivery history keeps to ASCII', async () => {
+    const created = await json('create', 'delivery', 'Glyphs', '--phase', 'MMR-2');
+    const id = String(created.id);
+    await board.store.deliveries.patch('MMR', Number(created.seq), {}, [
+      {
+        at: '2026-03-01T00:00:00.000Z',
+        from_value: null,
+        kind: 'hold',
+        reason: 'wait',
+        task: null,
+        to_value: 'paused',
+      },
+    ]);
+    for (const argv of [['get', id], ['update', id, '--title', 'Glyphs 2'], ['deliveries']]) {
+      const plain = await run(...argv, '-f', 'records', '--ascii');
+      expect(plain.exitCode).toBe(0);
+      expect(plain.stdout).toContain('hold: - -> paused - wait');
+      expect(plain.stdout).not.toMatch(/[→—]/u);
+    }
+    const made = await run('create', 'delivery', 'Glyphs 3', '--phase', 'MMR-2', '--ascii');
+    expect(made.exitCode).toBe(0);
   });
 
   test('blank --agreement is refused with a hint naming --clear-agreement', async () => {

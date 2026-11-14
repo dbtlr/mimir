@@ -20,7 +20,7 @@ export type GetValue = { presentation: Presentation; wire: Record<string, unknow
 /** The styled `records` text of a record `get` read. */
 export function recordsOf(value: Readonly<GetValue>): string {
   if (value.kind === 'delivery') {
-    return renderDelivery(value.delivery);
+    return renderDelivery(value.delivery, value.presentation);
   }
   if (value.kind === 'node') {
     return renderRecords(value.node, value.presentation, value.expandAnnotations);
@@ -34,7 +34,7 @@ export function recordsOf(value: Readonly<GetValue>): string {
 /** A seed has no table of its own: its `table` is its record. */
 export function tableOf(value: Readonly<GetValue>): string {
   if (value.kind === 'delivery') {
-    return renderDelivery(value.delivery);
+    return renderDelivery(value.delivery, value.presentation);
   }
   if (value.kind === 'node') {
     const one = { items: [value.node], returned: 1, startsAt: 0, total: 1 };
