@@ -179,23 +179,29 @@ export function createSqlDeliveryStore(db: Kysely<DB>, dialect: StoreDialect): D
       });
     },
 
-    async listForProject(key) {
-      const rows = await db
-        .selectFrom('delivery')
-        .selectAll()
-        .where('project_key', '=', key)
-        .orderBy('seq')
-        .execute();
-      return storedOf(db, dialect, rows);
+    // A read is the row, its history, and its members: one snapshot, so a join
+    // committing mid-read never shows a member without its history row.
+    listForProject(key) {
+      return dialect.snapshot(db, async (tx) => {
+        const rows = await tx
+          .selectFrom('delivery')
+          .selectAll()
+          .where('project_key', '=', key)
+          .orderBy('seq')
+          .execute();
+        return storedOf(tx, dialect, rows);
+      });
     },
 
-    async load(key, seq) {
-      const row = await db
-        .selectFrom('delivery')
-        .selectAll()
-        .where('id', '=', stemOf(key, seq))
-        .executeTakeFirst();
-      return row === undefined ? undefined : (await storedOf(db, dialect, [row]))[0];
+    load(key, seq) {
+      return dialect.snapshot(db, async (tx) => {
+        const row = await tx
+          .selectFrom('delivery')
+          .selectAll()
+          .where('id', '=', stemOf(key, seq))
+          .executeTakeFirst();
+        return row === undefined ? undefined : (await storedOf(tx, dialect, [row]))[0];
+      });
     },
 
     async patch(key, seq, patch, history = []) {
