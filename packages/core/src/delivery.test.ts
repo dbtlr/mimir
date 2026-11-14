@@ -85,6 +85,9 @@ describe('delivery verbs', () => {
       expect(error.code).toBe('validation');
       expect(error.message).toContain('phase');
     }
+    expect(
+      (await errorOf(engine.deliveryCreate({ phase: initiative, title: 'Bad' }))).message,
+    ).toBe(`${initiative} is an initiative, not a phase — a delivery delivers a phase`);
     expect((await engine.deliveryCreate({ phase, title: 'Good' })).id).toBe('DEL-d1');
   });
 

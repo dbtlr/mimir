@@ -122,7 +122,8 @@ async function requirePhase(store: Store, id: string): Promise<{ key: string }> 
     throw notFound(`${id} doesn't exist`);
   }
   if (phase.type !== 'phase') {
-    throw validation(`${id} is a ${phase.type}, not a phase — a delivery delivers a phase`);
+    const noun = phase.type === 'initiative' ? 'an initiative' : `a ${phase.type}`;
+    throw validation(`${id} is ${noun}, not a phase — a delivery delivers a phase`);
   }
   return { key: identity.key };
 }
