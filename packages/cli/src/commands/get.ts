@@ -1,11 +1,11 @@
 /**
  * `get <id>`: one full record, routed by the id's grammar to the Engine's
- * node, artifact, or seed read.
+ * node, artifact, seed, or delivery read.
  */
 import { Command } from '@loomcli/core';
 import { helpCommand } from '@loomcli/plugins/help/extension';
 import { mcpCommand } from '@loomcli/plugins/mcp/extension';
-import { encodeDelivery, CHEAP_FACETS, intentEncoders } from '@mimir/contract';
+import { CHEAP_FACETS, encodeDelivery, intentEncoders } from '@mimir/contract';
 
 import { asciiOption, colOption } from '../options';
 import { parseFacets } from '../parse';
@@ -37,11 +37,10 @@ async function readRecord(
 ): Promise<GetValue> {
   const kind = ports.grammar.idKind(id);
   if (kind === 'delivery') {
+    // A delivery's detail read carries its whole history, as a seed's carries
+    // its description, on every transport and whatever `--col` names.
     const delivery = encodeDelivery(await (await ports.engine()).getDelivery({ id }));
-    const shown = cols.some((col) => col.split(',').includes('history'))
-      ? delivery
-      : { ...delivery, history: [] };
-    return { delivery: shown, kind, presentation, wire: { ...shown } };
+    return { delivery, kind, presentation, wire: { ...delivery } };
   }
   if (kind === 'artifact') {
     const engine = await ports.engine();
@@ -82,6 +81,7 @@ export function getCommand(ports: Ports) {
           { command: 'get MMR-16 --col annotations', note: 'expand annotation bodies' },
           { command: 'get MMR-a1 --col content', note: "an artifact's frozen body" },
           { command: 'get MMR-s1', note: 'a seed, with its description' },
+          { command: 'get MMR-d1', note: 'a delivery, with its history' },
         ],
       }),
       mcpCommand({ annotations: { openWorld: false, readOnly: true } }),

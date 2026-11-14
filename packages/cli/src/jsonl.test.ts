@@ -82,8 +82,7 @@ const SAMPLES: Readonly<Record<string, Sample>> = {
     words: ['create', 'phase', 'Next', '--parent', 'MMR-1'],
   },
   deliveries: {
-    before: (board) =>
-      board.engine.deliveryCreate({ phase: 'MMR-2', project: 'MMR', title: 'Attempt' }),
+    before: (board) => board.engine.deliveryCreate({ phase: 'MMR-2', title: 'Attempt' }),
     records: 'deliveries',
     relation: 'records',
     words: ['deliveries', '--project', 'MMR'],

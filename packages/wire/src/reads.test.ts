@@ -92,7 +92,7 @@ beforeAll(async () => {
     parentId: elsewhere.id,
     title: 'Delivery phase',
   });
-  await local.deliveryCreate({ phase: deliveryPhase.id, project: 'OTH', title: 'Read attempt' });
+  await local.deliveryCreate({ phase: deliveryPhase.id, title: 'Read attempt' });
   const handle = createEngineHandler(local, {
     verifyToken: fixture.tokens.verify,
     version: WINDOW_VERSION,

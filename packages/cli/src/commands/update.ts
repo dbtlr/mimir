@@ -1,3 +1,11 @@
+/**
+ * `update <id>`: change a task, phase, or initiative, a project, an artifact,
+ * a seed, or a delivery. A project takes its own flags (`--name`, `--pinned`,
+ * `--remote`), an artifact `--title` and `--summary`, a seed `--title`,
+ * `--kind`, and `--desc`, a delivery `--title`, `--agreement`, `--time-cap`,
+ * `--ref`, and its handles, a node takes the rest, and a flag aimed at the
+ * wrong kind is refused by name.
+ */
 import { Command } from '@loomcli/core';
 import { helpCommand } from '@loomcli/plugins/help/extension';
 import { mcpCommand } from '@loomcli/plugins/mcp/extension';
@@ -26,13 +34,6 @@ import type { SeedEcho } from '../render/seeds';
 import { recordViews } from '../render/views';
 import { nodeEcho, nodeEchoRecords, nodeEchoTable } from '../render/writes';
 import type { NodeEcho } from '../render/writes';
-/**
- * `update <id>`: change a task, phase, or initiative, a project, an artifact,
- * or a seed. A project takes its own flags (`--name`, `--pinned`, `--remote`),
- * an artifact `--title` and `--summary`, a seed `--title`, `--kind`, and
- * `--desc`, a node takes the rest, and a flag aimed at the wrong kind is
- * refused by name.
- */
 import { parseTimeCap } from './deliveries';
 
 /** The flags `update` reads, as the action receives them. */
@@ -473,20 +474,22 @@ export function updateCommand(ports: Ports) {
           options['clear-agreement'],
           'at most one of --agreement | --clear-agreement',
         );
+        const timeCap = parseTimeCap(options['time-cap']);
+        const engine = await ports.engine();
         const delivery = encodeDelivery(
-          await (
-            await ports.engine()
-          ).deliveryUpdate({
-            agreement,
-            branch: options.branch,
-            external_ref: options.ref,
-            harness: options.harness,
-            host: options.host,
-            id: args.id,
-            session: options.session,
-            time_cap_minutes: parseTimeCap(options['time-cap']),
-            title: options.title,
-          }),
+          await withClearHint(() =>
+            engine.deliveryUpdate({
+              agreement,
+              branch: options.branch,
+              external_ref: options.ref,
+              harness: options.harness,
+              host: options.host,
+              id: args.id,
+              session: options.session,
+              time_cap_minutes: timeCap,
+              title: options.title,
+            }),
+          ),
         );
         await out.results({ delivery, kind, presentation, wire: { ...delivery } });
         return;

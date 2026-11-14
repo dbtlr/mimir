@@ -106,12 +106,13 @@ export async function withProjectHint<T>(key: string, run: () => Promise<T>): Pr
 
 /** The flag that clears each long prose field, which blank text may not. */
 const CLEAR_FLAGS: readonly (readonly [field: ClearOnlyProse, flag: string])[] = [
+  ['agreement', '--clear-agreement'],
   ['description', '--clear-desc'],
   ['next', '--clear-direction'],
 ];
 
 /**
- * Run an Engine write whose `--direction` or `--desc` text may be blank. The
+ * Run an Engine write whose `--direction`, `--desc`, or `--agreement` text may be blank. The
  * Engine refuses blank text and says only that `null` clears; a refusal gains
  * the flag that clears here.
  */

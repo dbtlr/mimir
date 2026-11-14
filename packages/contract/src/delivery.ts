@@ -9,6 +9,14 @@ export const DELIVERY_LIFECYCLE_VALUES = [
 ] as const;
 export const DELIVERY_HOLD_VALUES = ['none', 'stopped', 'paused'] as const;
 export const DELIVERY_HISTORY_KIND_VALUES = ['lifecycle', 'hold', 'member'] as const;
+/** What a `member` history row records happened to its task (ADR 0042). */
+export const DELIVERY_MEMBER_EVENT_VALUES = ['joined', 'left', 'released', 'abandoned'] as const;
+export type DeliveryLifecycle = (typeof DELIVERY_LIFECYCLE_VALUES)[number];
+export type DeliveryHold = (typeof DELIVERY_HOLD_VALUES)[number];
+/** The largest time cap or sequence a delivery stores: both columns are int32. */
+export const DELIVERY_INT_MAX = 2_147_483_647;
+/** A whole number of minutes or a sequence: positive, and within the stores' int32 columns. */
+const positiveInt32 = z.number().int().positive().max(DELIVERY_INT_MAX);
 export const deliveryFields = {
   agreement: z.string().nullable().optional(),
   branch: z.string().nullable().optional(),
@@ -16,7 +24,7 @@ export const deliveryFields = {
   harness: z.string().nullable().optional(),
   host: z.string().nullable().optional(),
   session: z.string().nullable().optional(),
-  time_cap_minutes: z.number().int().positive().nullable().optional(),
+  time_cap_minutes: positiveInt32.nullable().optional(),
 };
 export const deliveryHistorySchema = z.strictObject({
   at: z.string(),
@@ -39,9 +47,9 @@ export const deliveryRecordSchema = z.strictObject({
   lifecycle: z.enum(DELIVERY_LIFECYCLE_VALUES),
   phase: z.string(),
   project_key: z.string(),
-  seq: z.number().int().positive(),
+  seq: positiveInt32,
   session: z.string().nullable(),
-  time_cap_minutes: z.number().int().positive().nullable(),
+  time_cap_minutes: positiveInt32.nullable(),
   title: z.string(),
   updated_at: z.string(),
 });
@@ -85,7 +93,6 @@ export function deliverySchemas<P extends z.ZodType<string>>(project: P) {
       input: z.strictObject({
         ...deliveryFields,
         phase: z.string(),
-        project,
         title: z.string().min(1),
       }),
       kind: 'mutation',

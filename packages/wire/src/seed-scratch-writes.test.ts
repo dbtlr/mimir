@@ -354,7 +354,6 @@ test('delivery creation and update preserve their terms and Date instants over t
   const created = await remote.deliveryCreate({
     agreement: 'Terms',
     phase: phase.id,
-    project: 'ENG',
     time_cap_minutes: 20,
     title: 'Attempt',
   });
@@ -370,4 +369,10 @@ test('delivery creation and update preserve their terms and Date instants over t
   expect(updated.time_cap_minutes).toBeNull();
   expect(updated.branch).toBe('work');
   expect(updated).toEqual(await local.getDelivery({ id: created.id }));
+  // Another record's id is a behavioral kind refusal on both sides (ADR 0042).
+  const localError = await errorOf(local.getDelivery({ id: phase.id }));
+  const remoteError = await errorOf(remote.getDelivery({ id: phase.id }));
+  expect(localError.code).toBe('validation');
+  expect(remoteError.code).toBe('validation');
+  expect(remoteError.message).toBe(localError.message);
 });

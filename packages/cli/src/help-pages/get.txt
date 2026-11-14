@@ -26,3 +26,5 @@ EXAMPLES
     an artifact's frozen body
   $ mimir get MMR-s1
     a seed, with its description
+  $ mimir get MMR-d1
+    a delivery, with its history

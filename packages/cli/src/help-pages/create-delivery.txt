@@ -7,7 +7,7 @@ ARGUMENTS
   title  The delivery title.
 
 OPTIONS
-      --phase <text>      The live phase this attempt delivers.  (required)
+      --phase <text>      The phase this attempt delivers.  (required)
       --agreement <text>  The whole delivery agreement.
       --ref <text>        The milestone pull request.
       --branch <text>     The integration branch.

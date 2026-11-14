@@ -27,7 +27,7 @@ import { parseTransferDocument } from '../transfer-validate';
 import { exportArtifacts, insertExportedArtifacts } from './artifacts';
 import { insertBatched, pairKey } from './batch';
 import { createSqlBodySectionStore } from './body-sections';
-import { exportDeliveries } from './deliveries';
+import { exportDeliveries, insertExportedDeliveries } from './deliveries';
 import type { StoreDialect } from './dialect';
 import { storedProse } from './prose';
 import type {
@@ -164,7 +164,7 @@ export async function exportSqlStore(ex: Executor, dialect: StoreDialect): Promi
     annotations,
     artifacts: await exportArtifacts(ex, dialect),
     bodySections,
-    deliveries: await exportDeliveries(ex),
+    deliveries: await exportDeliveries(ex, dialect),
     edges: [...workingSet.edges],
     exported_at: now(),
     nodes,
@@ -639,19 +639,10 @@ async function applyImport(
     tx.insertInto('transition_log').values(chunk).execute(),
   );
   await insertExportedArtifacts(tx, dialect, artifacts);
-  for (const delivery of document.deliveries) {
-    if (!settle('deliveries', delivery.id)) {
-      continue;
-    }
-    const { history, ...row } = delivery;
-    await tx.insertInto('delivery').values(row).execute();
-    for (const entry of history) {
-      await tx
-        .insertInto('delivery_history')
-        .values({ ...entry, delivery_id: row.id })
-        .execute();
-    }
-  }
+  await insertExportedDeliveries(
+    tx,
+    document.deliveries.filter((delivery) => settle('deliveries', delivery.id)),
+  );
   await insertExportedSeeds(tx, dialect, seeds);
   await insertScratchpads(tx, dialect, pads);
 

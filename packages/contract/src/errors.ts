@@ -30,11 +30,12 @@ export const projectNotFound = (key: string): MimirError =>
     `create it: mimir create project "Name" --key ${key} -y`,
   );
 
-/** The long prose fields that clear only on `null`, never on blank text. */
-export type ClearOnlyProse = 'description' | 'next';
+/** The long prose fields that clear only on `null`, never on blank text: a
+ * node's or project's `description` and `next`, and a delivery's `agreement`. */
+export type ClearOnlyProse = 'agreement' | 'description' | 'next';
 
 /**
- * Canonical refusal of a blank `description` or `next`. Mimir keeps no earlier
+ * Canonical refusal of a blank `description`, `next`, or `agreement`. Mimir keeps no earlier
  * version of this prose, so a blank (usually an empty script input) is refused
  * and `null` is the one way to clear. Clients that expose the clear as their
  * own act (the CLI's `--clear-direction`) recognize this message by its field.

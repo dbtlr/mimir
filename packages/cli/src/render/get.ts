@@ -1,9 +1,9 @@
-import type { DeliveryView, ArtifactDetail, NodeView, SeedView } from '@mimir/contract';
-
 /**
  * The record `get` reads, and the text of its views, which the writes that
- * echo an artifact or a seed print as well.
+ * echo an artifact, a seed, or a delivery print as well.
  */
+import type { ArtifactDetail, DeliveryView, NodeView, SeedView } from '@mimir/contract';
+
 import { renderDelivery } from './deliveries';
 import { renderRecords, renderTable } from './node';
 import type { Presentation } from './presentation';

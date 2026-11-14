@@ -9,12 +9,13 @@ import type {
 } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
+import { assertBoardActive } from '../archive-lock';
 import { createTask } from '../create';
 import { dateFilterWindows, withinWindow } from '../dates';
 import type { DateFilter } from '../dates';
 import type { DerivationSet } from '../derive';
 import { deriveSet, findNodeInSet, findProjectInSet, isNodeSettled } from '../derive';
-import { conflict, notFound, projectNotFound, validation } from '../errors';
+import { notFound, projectNotFound, validation } from '../errors';
 import { parseId, parseSeedRef, renderId, renderSeedRef } from '../ids';
 import type { Node, Project } from '../model';
 import { blankProseField, refuseBlankProse } from '../mutations/data';
@@ -68,8 +69,8 @@ export function asSeedKind(value: unknown): SeedKind | null {
  * (the requester-null and archived-board-hiding derive over them); only the spawned
  * targets' nodes are loaded (a task settles by its own lifecycle, a container by its
  * in-project descendant rollup, so the target's project is the whole settledness
- * closure). {@link resolveSeedView} and {@link assertSeedBoardActive} read the same
- * `DerivationSet` API, so scoping is invisible to them.
+ * closure). {@link resolveSeedView} reads the
+ * `DerivationSet` API, so scoping is invisible to it.
  */
 type SeedResolver = { projectKeys: ReadonlySet<string>; set: DerivationSet };
 
@@ -133,28 +134,6 @@ async function echoSeed(
   const valid = new Set(projects.map((p) => p.key));
   const nodes = keys.length > 0 ? await store.loadNodesForProjects(keys, valid) : [];
   return resolveSeedView(rec, buildResolver(projects, nodes));
-}
-
-/**
- * The seed write-lock (ADR 0015, MMR-245): a seed whose OWN board is archived
- * refuses every mutation, mirroring the node write-lock
- * (`mutations/common.ts#assertProjectActive`) with the same `conflict` vocabulary.
- * Asserted BEFORE any store write — and, for promote, before `createTask` — so a
- * frozen board is never mutated and never orphans a task. An absent board
- * refuses too, so a write never mutates — or promotion never spawns work
- * into — a board that every read path treats as unknown.
- */
-function assertSeedBoardActive(set: DerivationSet, key: string): void {
-  const project = findProjectInSet(set, key);
-  if (project === undefined) {
-    throw projectNotFound(key);
-  }
-  if (project.archived_at !== null) {
-    throw conflict(
-      `project ${key} is archived — no changes are allowed`,
-      `unarchive it first: mimir unarchive ${key}`,
-    );
-  }
 }
 
 /**
@@ -473,7 +452,7 @@ export async function promoteSeed(
   const set = deriveSet(ws);
   // Assert the seed's OWN board is active BEFORE createTask — a promote on an
   // archived board must create nothing and mutate nothing (ADR 0015, B1a).
-  assertSeedBoardActive(set, ref.key);
+  assertBoardActive(findProjectInSet(set, ref.key), ref.key);
   let createdStem: string;
   let created: string | undefined;
   // The just-spawned task post-dates the mid-promote load, so it is stitched into
@@ -597,7 +576,10 @@ async function moveSeed(
   // One projects read serves the board-active guard AND the echo (MMR-251): no
   // whole-store load for either, and no second read for the echo.
   const projects = await store.loadProjects();
-  assertSeedBoardActive(buildResolver(projects, []).set, ref.key);
+  assertBoardActive(
+    projects.find((p) => p.key === ref.key),
+    ref.key,
+  );
   if (from !== undefined) {
     const rec = await store.seeds.load(ref.key, ref.seq);
     if (rec !== undefined && rec.lifecycle !== from) {
@@ -636,7 +618,10 @@ export async function updateSeed(
   }
   // One projects read serves the board-active guard AND the echo (MMR-251).
   const projects = await store.loadProjects();
-  assertSeedBoardActive(buildResolver(projects, []).set, ref.key);
+  assertBoardActive(
+    projects.find((p) => p.key === ref.key),
+    ref.key,
+  );
   await refuseBlankProseOnLiveSeed(store, ref, fields);
   await store.seeds.patch(ref.key, ref.seq, fields);
   return echoSeed(store, ref, projects, { content: true });

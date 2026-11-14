@@ -1,13 +1,14 @@
 import {
-  decodeDelivery,
   consoleIntentViews,
   consoleSchemas,
+  decodeDelivery,
   engineSchemas,
   intentViews,
   parseEngineInput,
 } from '@mimir/contract';
 import type { ConsoleEngine, Engine, EngineInput, Scratchpad } from '@mimir/contract';
 
+import { createDelivery, getDelivery, listDeliveries, updateDelivery } from './deliveries';
 import {
   annotateEngine,
   attachEngine,
@@ -92,29 +93,24 @@ export class LocalEngine extends UniformEngineBase implements Engine {
 
   async deliveryCreate(input: EngineInput<'deliveryCreate'>) {
     return decodeDelivery(
-      await this.store.deliveries.create(
-        parseEngineInput(engineSchemas.deliveryCreate.input, input),
-      ),
+      await createDelivery(this.store, parseEngineInput(engineSchemas.deliveryCreate.input, input)),
     );
   }
+
   async deliveryUpdate(input: EngineInput<'deliveryUpdate'>) {
     return decodeDelivery(
-      await this.store.deliveries.update(
-        parseEngineInput(engineSchemas.deliveryUpdate.input, input),
-      ),
+      await updateDelivery(this.store, parseEngineInput(engineSchemas.deliveryUpdate.input, input)),
     );
   }
+
   async getDelivery(input: EngineInput<'getDelivery'>) {
-    return decodeDelivery(
-      await this.store.deliveries.get(parseEngineInput(engineSchemas.getDelivery.input, input).id),
-    );
+    const { id } = parseEngineInput(engineSchemas.getDelivery.input, input);
+    return decodeDelivery(await getDelivery(this.store, id));
   }
+
   async deliveries(input: EngineInput<'deliveries'>) {
-    return (
-      await this.store.deliveries.list(
-        parseEngineInput(engineSchemas.deliveries.input, input).project,
-      )
-    ).map(decodeDelivery);
+    const { project } = parseEngineInput(engineSchemas.deliveries.input, input);
+    return (await listDeliveries(this.store, project)).map(decodeDelivery);
   }
 
   async artifacts(input: EngineInput<'artifacts'>) {

@@ -7,7 +7,7 @@ const cases: ParityCase[] = (['records', 'table', 'json', 'jsonl', 'ids'] as con
     {
       args: { id: 'MMR-d1' },
       name: `get MMR-d1 -f ${format}`,
-      options: { col: ['history'], format },
+      options: { format },
       path: ['get'],
     },
   ],
@@ -21,7 +21,6 @@ parityCases(import.meta.url, cases, async (board) => {
   await board.engine.deliveryCreate({
     agreement: 'Reviewed terms',
     phase: 'MMR-2',
-    project: 'MMR',
     time_cap_minutes: 30,
     title: 'Ship phase',
   });

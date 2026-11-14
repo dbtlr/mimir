@@ -1,5 +1,6 @@
 import { deriveSet, lineageIds } from '../derive';
 import { conflict, invariant, notFound, validation } from '../errors';
+import { parseDeliveryRef } from '../ids';
 import type { Node } from '../model';
 import { isReady } from '../predicates';
 import type { NewTransitionRecord, StoreWriter } from '../store';
@@ -12,6 +13,9 @@ import { now } from '../time';
  * → echo the affected node (ADR 0003). These helpers are the reusable steps,
  * composed over the writer so they see in-tx state.
  */
+
+/** Where a delivery id is read and changed instead of a node verb. */
+export const DELIVERY_HINT = 'read it with get KEY-dN and change its terms with update KEY-dN';
 
 /** Reload a node that must exist (post-write echo / mid-verb refresh). */
 export async function reloadNode(w: StoreWriter, id: string): Promise<Node> {
@@ -58,6 +62,11 @@ export async function renderNodeRef(w: StoreWriter, nodeId: string): Promise<str
  * bypassed per-verb.
  */
 export async function requireNode(w: StoreWriter, id: string): Promise<Node> {
+  // A delivery id names a record beside the tree, so a node verb refuses its
+  // kind (ADR 0042) rather than calling it missing.
+  if (parseDeliveryRef(id) !== null) {
+    throw validation(`${id} is a delivery, not a task or container`, DELIVERY_HINT);
+  }
   const node = await w.loadNode(id);
   if (node === undefined) {
     throw notFound(`${id} doesn't exist`);

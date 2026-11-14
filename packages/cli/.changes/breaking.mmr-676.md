@@ -6,7 +6,7 @@
 
 **Why.** Deliveries are project-anchored records with their own identities and terms.
 
-**Before and after.** The Engine gains `deliveryCreate`, `getDelivery`, `deliveries`, and `deliveryUpdate`. Transfer documents gain deliveries and the delivery counter.
+**Before and after.** The Engine gains `deliveryCreate`, `getDelivery`, `deliveries`, and `deliveryUpdate`. `deliveryCreate` takes the `phase` and no `project`: the delivery belongs to the phase's project. Node verbs now refuse a `KEY-dN` id as a validation error. Transfer documents gain deliveries and the delivery counter.
 
 **Steps.** Update the host before its clients. Host startup migrates hosted stores; local SQLite stores migrate on open. Regenerate Engine adapters and transfer readers against the new schemas.
 

@@ -1,4 +1,9 @@
-/** Create tree records and project-anchored delivery attempts. */
+/**
+ * `create project|initiative|phase|task|delivery`: add a record to the work
+ * tree, or a delivery beside it. Each type is a subcommand that declares only
+ * the options that type takes; a delivery names its phase with `--phase`,
+ * because a phase is not its parent.
+ */
 import { Command, FatalError } from '@loomcli/core';
 import type { StringOption } from '@loomcli/core';
 import { helpCommand, helpInput } from '@loomcli/plugins/help/extension';

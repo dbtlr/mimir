@@ -209,7 +209,7 @@ export type RankedTask = {
  * operations; the behavioral invariants stay in the verbs. Every method sees
  * the transaction's own in-flight state.
  *
- * Artifacts, seeds, and scratchpads are NOT here: each owns its slice on
+ * Artifacts, seeds, deliveries, and scratchpads are NOT here: each owns its slice on
  * {@link Store}, allocation included, and that slice is the one write path to
  * it (MMR-379).
  */
@@ -272,7 +272,6 @@ export type StoreWriter = {
 };
 
 export type Store = {
-  deliveries: DeliveryStore;
   /** The coarse bulk read every selection/derivation view starts from. */
   loadWorkingSet: () => Promise<WorkingSet>;
 
@@ -370,6 +369,12 @@ export type Store = {
    * artifacts (ADR 0004 precedent), keyed by the `KEY-sN` external identity.
    */
   readonly seeds: SeedStore;
+
+  /**
+   * The delivery slice (MMR-676, ADR 0042) — one attempt at a phase,
+   * project-anchored like seeds, keyed by the `KEY-dN` external identity.
+   */
+  readonly deliveries: DeliveryStore;
 
   /** UUID-addressed, project-owned temporary episode documents. */
   readonly scratchpads: ScratchpadStore;

@@ -1,182 +1,194 @@
-import type { DeliveryView, EngineInput } from '@mimir/contract';
-import type { Kysely } from 'kysely';
+import type { DeliveryHistory } from '@mimir/contract';
+import type { Kysely, Transaction } from 'kysely';
 
-import type { DeliveryStore } from '../deliveries/store';
-import { deriveSet, findNodeInSet, statusOf } from '../derive';
-import { conflict, notFound, validation } from '../errors';
-import { parseDeliveryRef, renderDeliveryRef } from '../ids';
+import type { DeliveryStore, StoredDelivery } from '../deliveries/store';
+import { assertLiveDelivery } from '../deliveries/store';
+import { notFound, projectNotFound } from '../errors';
+import type { StoreExport } from '../export';
+import { renderDeliveryRef } from '../ids';
 import { now } from '../time';
+import { inLists } from './batch';
 import type { StoreDialect } from './dialect';
-import type { DB, Executor } from './schema';
-import { loadWorkingSet } from './working-set';
+import type { DB, DeliveryRow, Executor } from './schema';
 
-async function active(ex: Executor, key: string) {
-  const project = await ex
-    .selectFrom('project')
-    .selectAll()
-    .where('key', '=', key)
-    .executeTakeFirst();
-  if (project === undefined) {
-    throw notFound(`${key} doesn't exist`);
-  }
-  if (project.archived_at !== null) {
-    throw conflict(
-      `project ${key} is archived — no changes are allowed`,
-      `unarchive it first: mimir unarchive ${key}`,
-    );
-  }
+/**
+ * The SQL store's `DeliveryStore` (MMR-676): a delivery is one row keyed by its
+ * `KEY-dN` stem, and its history an append-only child table read back in
+ * insertion order. Storage only: the verbs in `../deliveries/intent` hold the
+ * rules, and the terminal freeze is asserted inside the write it guards.
+ */
+
+const stemOf = (key: string, seq: number): string => renderDeliveryRef({ key, seq });
+
+/** A row as the seam returns it, its columns in table order (the order every echo prints). */
+function toStored(row: DeliveryRow, history: DeliveryHistory[]): StoredDelivery {
+  const { id: _id, project_key: key, ...fields } = row;
+  return { ...fields, history, key };
 }
-async function read(ex: Executor, id: string): Promise<DeliveryView> {
-  const row = await ex.selectFrom('delivery').selectAll().where('id', '=', id).executeTakeFirst();
-  if (row === undefined) {
-    throw notFound(`${id} doesn't exist`);
-  }
-  const history = (
-    await ex
+
+/** The history of each named delivery, in log order, keyed by its stem. */
+async function historiesOf(
+  ex: Executor,
+  dialect: StoreDialect,
+  ids: readonly string[],
+): Promise<Map<string, DeliveryHistory[]>> {
+  const out = new Map<string, DeliveryHistory[]>(ids.map((id) => [id, []]));
+  for (const chunk of inLists(ids, dialect.maxParameters)) {
+    const rows = await ex
       .selectFrom('delivery_history')
       .selectAll()
-      .where('delivery_id', '=', id)
+      .where('delivery_id', 'in', chunk)
       .orderBy('id')
-      .execute()
-  ).map(({ id: _id, delivery_id: _delivery, ...entry }) => entry);
-  const started = history.find(
-    (entry) => entry.kind === 'lifecycle' && entry.to_value === 'running',
-  );
-  return {
-    ...row,
-    elapsed_minutes:
-      started === undefined
-        ? null
-        : Math.max(0, (Date.parse(now()) - Date.parse(started.at)) / 60000),
-    history,
-  };
+      .execute();
+    for (const { id: _id, delivery_id: delivery, ...entry } of rows) {
+      out.get(delivery)?.push(entry);
+    }
+  }
+  return out;
 }
+
+async function storedOf(
+  ex: Executor,
+  dialect: StoreDialect,
+  rows: readonly DeliveryRow[],
+): Promise<StoredDelivery[]> {
+  if (rows.length === 0) {
+    return [];
+  }
+  const histories = await historiesOf(
+    ex,
+    dialect,
+    rows.map((row) => row.id),
+  );
+  return rows.map((row) => toStored(row, histories.get(row.id) ?? []));
+}
+
+async function appendHistory(
+  tx: Transaction<DB>,
+  id: string,
+  history: readonly DeliveryHistory[],
+): Promise<void> {
+  // One row at a time, in order: the log's order is its insertion id.
+  for (const entry of history) {
+    await tx
+      .insertInto('delivery_history')
+      .values({ ...entry, delivery_id: id })
+      .execute();
+  }
+}
+
 export function createSqlDeliveryStore(db: Kysely<DB>, dialect: StoreDialect): DeliveryStore {
   return {
-    create(input: EngineInput<'deliveryCreate'>) {
+    create(input) {
       return dialect.write(db, async (tx) => {
-        await active(tx, input.project);
-        if (!input.title.trim()) {
-          throw validation('a delivery requires a title');
-        }
-        const phase = await tx
-          .selectFrom('node')
-          .selectAll()
-          .where('id', '=', input.phase)
-          .executeTakeFirst();
-        if (phase === undefined || phase.type !== 'phase' || phase.project_key !== input.project) {
-          throw validation('--phase must name a live phase in the same project');
-        }
-        const set = deriveSet(await loadWorkingSet(tx, dialect));
-        const phaseNode = findNodeInSet(set, phase.id);
-        if (
-          phaseNode !== undefined &&
-          ['done', 'abandoned'].includes(statusOf(set, phaseNode).status)
-        ) {
-          throw validation('--phase must name a live phase');
-        }
         const allocated = await tx
           .updateTable('project')
           .set((eb) => ({ last_delivery_seq: eb('last_delivery_seq', '+', 1) }))
-          .where('key', '=', input.project)
+          .where('key', '=', input.key)
           .returning('last_delivery_seq')
-          .executeTakeFirstOrThrow();
+          .executeTakeFirst();
+        if (allocated === undefined) {
+          throw projectNotFound(input.key);
+        }
         const seq = allocated.last_delivery_seq;
-        const id = renderDeliveryRef({ key: input.project, seq });
         const at = now();
+        const { key, ...terms } = input;
+        const id = stemOf(key, seq);
         await tx
           .insertInto('delivery')
           .values({
-            agreement: input.agreement ?? null,
-            branch: input.branch ?? null,
+            ...terms,
             created_at: at,
-            external_ref: input.external_ref ?? null,
-            harness: input.harness ?? null,
             hold: 'none',
             hold_reason: null,
-            host: input.host ?? null,
             id,
             lifecycle: 'agreed',
-            phase: input.phase,
-            project_key: input.project,
+            project_key: key,
             seq,
-            session: input.session ?? null,
-            time_cap_minutes: input.time_cap_minutes ?? null,
-            title: input.title,
             updated_at: at,
           })
           .execute();
-        return read(tx, id);
+        // Read back so the echo carries the columns in table order, as every read does.
+        const row = await tx
+          .selectFrom('delivery')
+          .selectAll()
+          .where('id', '=', id)
+          .executeTakeFirstOrThrow();
+        return toStored(row, []);
       });
     },
-    async get(id: string) {
-      const row = await read(db, id);
-      const project = await db
-        .selectFrom('project')
-        .select('archived_at')
-        .where('key', '=', row.project_key)
-        .executeTakeFirst();
-      if (project?.archived_at !== null) {
-        throw notFound(`${id} doesn't exist`);
-      }
-      return row;
-    },
-    async list(project: string) {
-      const owner = await db
-        .selectFrom('project')
-        .selectAll()
-        .where('key', '=', project)
-        .executeTakeFirst();
-      if (owner === undefined || owner.archived_at !== null) {
-        return [];
-      }
+
+    async listForProject(key) {
       const rows = await db
         .selectFrom('delivery')
-        .select('id')
-        .where('project_key', '=', project)
+        .selectAll()
+        .where('project_key', '=', key)
         .orderBy('seq')
         .execute();
-      return Promise.all(rows.map((row) => read(db, row.id)));
+      return storedOf(db, dialect, rows);
     },
-    update(input: EngineInput<'deliveryUpdate'>) {
-      return dialect.write(db, async (tx) => {
-        if (input.title !== undefined && !input.title.trim()) {
-          throw validation('a delivery requires a title');
+
+    async load(key, seq) {
+      const row = await db
+        .selectFrom('delivery')
+        .selectAll()
+        .where('id', '=', stemOf(key, seq))
+        .executeTakeFirst();
+      return row === undefined ? undefined : (await storedOf(db, dialect, [row]))[0];
+    },
+
+    async patch(key, seq, patch, history = []) {
+      await dialect.write(db, async (tx) => {
+        const id = stemOf(key, seq);
+        const row = await tx
+          .selectFrom('delivery')
+          .select('lifecycle')
+          .where('id', '=', id)
+          .executeTakeFirst();
+        if (row === undefined) {
+          throw notFound(`${id} doesn't exist`);
         }
-        const ref = parseDeliveryRef(input.id);
-        if (ref === null) {
-          throw validation(`${input.id} is not a delivery`);
+        assertLiveDelivery(id, row.lifecycle);
+        if (Object.keys(patch).length === 0 && history.length === 0) {
+          return;
         }
-        await active(tx, ref.key);
-        const row = await read(tx, input.id);
-        if (row.lifecycle === 'landed' || row.lifecycle === 'abandoned') {
-          throw validation(`${input.id} is terminal and refuses every write`);
-        }
-        const { id, ...fields } = input;
         await tx
           .updateTable('delivery')
-          .set({ ...fields, updated_at: now() })
+          .set({ ...patch, updated_at: now() })
           .where('id', '=', id)
           .execute();
-        return read(tx, id);
+        await appendHistory(tx, id, history);
       });
     },
   };
 }
 
 /** Stored facts only, with log order preserved for transfer. */
-export async function exportDeliveries(ex: Executor) {
+export async function exportDeliveries(
+  ex: Executor,
+  dialect: StoreDialect,
+): Promise<StoreExport['deliveries']> {
   const rows = await ex
     .selectFrom('delivery')
     .selectAll()
     .orderBy('project_key')
     .orderBy('seq')
     .execute();
-  const result = [];
-  for (const row of rows) {
-    const view = await read(ex, row.id);
-    const { elapsed_minutes: _elapsed, ...stored } = view;
-    result.push(stored);
+  const histories = await historiesOf(
+    ex,
+    dialect,
+    rows.map((row) => row.id),
+  );
+  return rows.map((row) => Object.assign(row, { history: histories.get(row.id) ?? [] }));
+}
+
+/** Write imported deliveries at their existing identities, each history in document order. */
+export async function insertExportedDeliveries(
+  tx: Transaction<DB>,
+  deliveries: StoreExport['deliveries'],
+): Promise<void> {
+  for (const { history, ...row } of deliveries) {
+    await tx.insertInto('delivery').values(row).execute();
+    await appendHistory(tx, row.id, history);
   }
-  return result;
 }

@@ -1,7 +1,7 @@
 import { Command } from '@loomcli/core';
 import { helpCommand } from '@loomcli/plugins/help/extension';
 import { mcpCommand } from '@loomcli/plugins/mcp/extension';
-import { encodeDelivery } from '@mimir/contract';
+import { blankProse, DELIVERY_INT_MAX, encodeDelivery, MimirError } from '@mimir/contract';
 import type { DeliveryView } from '@mimir/contract';
 
 import { MimirUsageError } from '../failures';
@@ -11,6 +11,11 @@ import { renderDelivery } from '../render/deliveries';
 import { recordViews } from '../render/views';
 import { boardProject } from '../scope';
 
+/**
+ * `--time-cap <minutes|none>`: a plain positive decimal whole number within
+ * the stored int32 range, `null` for `none`, or `undefined` when absent. Hex,
+ * exponents, signs, and padding are refused rather than read as a number.
+ */
 export function parseTimeCap(value: string | undefined): number | null | undefined {
   if (value === undefined) {
     return undefined;
@@ -18,12 +23,28 @@ export function parseTimeCap(value: string | undefined): number | null | undefin
   if (value === 'none') {
     return null;
   }
-  const minutes = Number(value);
-  if (!Number.isSafeInteger(minutes) || minutes <= 0) {
-    throw new MimirUsageError('--time-cap requires a positive whole number of minutes, or none');
+  const minutes = /^[1-9]\d*$/.test(value) ? Number(value) : Number.NaN;
+  if (!(minutes <= DELIVERY_INT_MAX)) {
+    throw new MimirUsageError(
+      `--time-cap requires a positive whole number of minutes up to ${String(DELIVERY_INT_MAX)}, or none`,
+    );
   }
   return minutes;
 }
+
+/** Run a delivery create; a blank `--agreement` learns that omitting it is how to start without one. */
+async function withCreateHint<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    const refusal = blankProse('agreement');
+    if (error instanceof MimirError && error.message === refusal.message) {
+      throw new MimirError(refusal.code, refusal.message, 'omit --agreement to create without one');
+    }
+    throw error;
+  }
+}
+
 const views = recordViews<DeliveryView>({
   ids: (d) => d.id,
   json: (d) => d,
@@ -51,7 +72,7 @@ export function createDeliveryCommand(ports: Ports) {
     ],
   })
     .argument('title', { description: 'The delivery title.', required: true })
-    .option('phase', { ...text('The live phase this attempt delivers.'), required: true })
+    .option('phase', { ...text('The phase this attempt delivers.'), required: true })
     .option('agreement', text('The whole delivery agreement.'))
     .option('ref', text('The milestone pull request.'))
     .option('branch', text('The integration branch.'))
@@ -62,23 +83,23 @@ export function createDeliveryCommand(ports: Ports) {
     .result<DeliveryView>({ views })
     .views({ records: views.records }, { default: 'records' })
     .action(async ({ args, options, out }) => {
-      const project = options.phase.split('-')[0] ?? '';
       const timeCap = parseTimeCap(options['time-cap']);
       const engine = await ports.engine();
       await out.results(
         encodeDelivery(
-          await engine.deliveryCreate({
-            agreement: options.agreement,
-            branch: options.branch,
-            external_ref: options.ref,
-            harness: options.harness,
-            host: options.host,
-            phase: options.phase,
-            project,
-            session: options.session,
-            time_cap_minutes: timeCap,
-            title: args.title,
-          }),
+          await withCreateHint(() =>
+            engine.deliveryCreate({
+              agreement: options.agreement,
+              branch: options.branch,
+              external_ref: options.ref,
+              harness: options.harness,
+              host: options.host,
+              phase: options.phase,
+              session: options.session,
+              time_cap_minutes: timeCap,
+              title: args.title,
+            }),
+          ),
         ),
       );
     });
