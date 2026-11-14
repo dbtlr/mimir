@@ -61,7 +61,8 @@ The machine-local commands have no tool and always run through the CLI:
 ## Statuses and verbs
 
 Statuses move only through verbs: `queue`, `unqueue`, `start`, `submit`,
-`return`, `done`, `abandon`, `reopen`, `park`/`unpark`, and `block`/`unblock`.
+`stage`, `return`, `done`, `abandon`, `reopen`, `park`/`unpark`, and
+`block`/`unblock`.
 `update` patches fields and leaves status alone. Seeds move through `promote`,
 `reject`, `resolve`, and `park`/`unpark`.
 
@@ -84,6 +85,10 @@ reporting it complete), so the board is never behind the report.
   under_review`). The task leaves `next` and keeps its handles, and work done
   in response to that review needs no status change. `return <id> "what to
   change"` sends it back to `in_progress`.
+- `stage <id>` claims the review and checks passed and the code is accepted on
+  its branch, but not yet on `main` (`under_review → staged`). It keeps the
+  handles and stays out of `next`; `done` lands when the code reaches `main`,
+  and `return` sends it back to `in_progress`.
 - `done <id>` claims the work is complete and verified. Verified means a test
   that exercises the change passes, you ran the behavior and saw it work, or,
   for a change with no runtime behavior, you read the result back. A project
@@ -122,11 +127,11 @@ a helper working on part of it does not. A `queued` or `in_progress` task tells
 everyone that someone is working on it, so a session that stops working one
 releases it (`park`, `block`, `unqueue`, or a terminal verb) or hands it off
 (`update` with the new owner's identity; annotate why when it helps). An
-`under_review` task keeps its handles at its gate, and `done` or `return` lands
-when the verdict does.
+`under_review` or `staged` task keeps its handles at its gate, and `done` or
+`return` lands when the verdict does.
 
 Holds, terminal verbs, and `unqueue` clear every handle and keep the former
-owners in history; `submit` and `return` keep them. `reopen`, `unpark`, and
+owners in history; `submit`, `stage`, and `return` keep them. `reopen`, `unpark`, and
 `unblock` restore none, so whoever resumes the task re-states identity with
 `update`. These queries find what a session carries:
 
@@ -135,6 +140,8 @@ mimir list --status in_progress --eq session:<main-session> --missing worker_ses
 mimir list --status in_progress --eq worker_session:<worker-session>
 mimir list --status under_review --eq session:<main-session>
 mimir list --status under_review --eq worker_session:<worker-session>
+mimir list --status staged --eq session:<main-session>
+mimir list --status staged --eq worker_session:<worker-session>
 mimir list --status queued --eq session:<main-session>
 ```
 

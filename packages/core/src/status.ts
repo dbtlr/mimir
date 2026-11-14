@@ -25,10 +25,10 @@ export type TaskStatusInput = {
 /**
  * Project a task to its Status word. Precedence, highest wins:
  *
- *   abandoned → done → blocked → parked → in_progress → under_review → queued → awaiting → ready
+ *   abandoned → done → blocked → parked → in_progress → under_review → staged → queued → awaiting → ready
  *
- * `under_review` and `in_progress` are mutually-exclusive lifecycle positions,
- * so their relative order is moot; both sit below the holds, so a held review
+ * `under_review`, `staged`, and `in_progress` are mutually-exclusive lifecycle
+ * positions, so their relative order is moot; both sit below the holds, so a held review or staged task
  * reads as the hold word (the same started-but-held judgment, below).
  *
  * The one judgment call (ADR 0008): a started-but-held task reads as the *hold*
@@ -53,6 +53,9 @@ export function taskStatus({ lifecycle, hold, awaiting }: TaskStatusInput): Task
   }
   if (lifecycle === 'under_review') {
     return 'under_review';
+  }
+  if (lifecycle === 'staged') {
+    return 'staged';
   }
   if (lifecycle === 'queued') {
     return 'queued';
@@ -84,7 +87,7 @@ export function distributionTotal(dist: Distribution): number {
  * precedence cascade — first non-empty bucket wins:
  *
  *   no children → new (never vacuously done)
- *   in_progress > under_review > queued > awaiting > ready > blocked > parked > new
+ *   in_progress > under_review > staged > queued > awaiting > ready > blocked > parked > new
  *   all terminal → done if any done, else abandoned
  *
  * Active work and reservations take precedence over work awaiting prerequisites,
@@ -102,6 +105,9 @@ export function interpret(dist: Distribution): StatusWord {
   }
   if (has('under_review')) {
     return 'under_review';
+  }
+  if (has('staged')) {
+    return 'staged';
   }
   if (has('queued')) {
     return 'queued';

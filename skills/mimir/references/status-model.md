@@ -7,7 +7,8 @@ A **task** stores exactly two orthogonal status axes; nothing else stores status
 
 - **lifecycle** — pure progress, moved by verbs: `todo → queued → in_progress → done`, plus
   `abandoned`. (`done`/`abandoned` are **terminal**.) An **optional** `under_review`
-  gate sits between `in_progress` and `done` (see below).
+  gate sits between `in_progress` and `done`, and an optional `staged` step after
+  it (see below).
 - **hold** — why it is set aside: `none | blocked | parked`, each with a reason.
   `blocked` = involuntary/external; `parked` = deliberate deferral. A hold coexists
   with `in_progress` — releasing it resumes in place.
@@ -15,7 +16,7 @@ A **task** stores exactly two orthogonal status axes; nothing else stores status
   act) or `others` (someone outside the board must). It is set only while the hold is
   `blocked` and empty otherwise; `parked` has none. See "Who can clear a block" below.
 
-There is no editable status field. Verbs: `queue` `unqueue` `start` `submit` `return` `done` `abandon`
+There is no editable status field. Verbs: `queue` `unqueue` `start` `submit` `stage` `return` `done` `abandon`
 `reopen` · `block`/`unblock` · `park`/`unpark`. Every transition is logged (same
 transaction) with its reason — `get <id> --col history` shows the trail.
 
@@ -89,6 +90,24 @@ _will_ chase it if the review sits too long. The console shows an `under_review`
 task as work in flight, not as a decision the operator owes: the gate itself, such as
 a pull request's review request, asks for the operator when it needs them.
 
+### The `staged` step (optional)
+
+`staged` holds work whose review and checks passed and whose code is accepted on
+its branch, but not yet on `main`, such as a task merged into an integration
+branch that a later pull request lands:
+
+- `stage <id>` — `under_review → staged`. Only an `under_review` task can be
+  staged; any other refuses and names `submit`. Handles stay on the task.
+- `done <id>` — the code reached `main` (`staged → done`).
+- `return <id> "what to change"` — the accepted work needs rework after all
+  (`staged → in_progress`, back at the bottom of the rankable set).
+- `abandon` accepts a staged task; `park` and `block` hold it as they hold a
+  review.
+
+It is **optional** — `under_review → done` directly stays legal. A `staged` task is
+work in flight: it leaves the rankable set and `next`, and `stale` chases it. It
+is not terminal, so a dependent of a staged task still reads `awaiting`.
+
 ### Reopening a terminal task
 
 `done`/`abandoned` are terminal but not immutable: `reopen <id> "reason"` moves
@@ -119,7 +138,7 @@ triages requests that are not yet tasks. A seed promoted into a task produces a
 What `list`/`get` show as `status` is computed:
 
 - **Task:** highest match wins:
-  `abandoned → done → blocked → parked → in_progress → under_review → queued → awaiting → ready`.
+  `abandoned → done → blocked → parked → in_progress → under_review → staged → queued → awaiting → ready`.
   - `ready` = todo, un-held, every dependency settled — actionable now.
   - `awaiting` = todo, un-held, ≥1 unsettled dependency — self-clears, don't chase.
   - `queued` = reserved by a run, before a worker begins.
@@ -130,10 +149,12 @@ What `list`/`get` show as `status` is computed:
 - **Container (phase/initiative/project):** no stored status — its truth is the
   **distribution** of its children's words (`mimir status KEY-3`), reduced to one
   word by a fixed precedence: _no children_ → `new` · any `in_progress` → that ·
-  any `under_review` → that · any `queued` → that · any `awaiting` · any `ready` · any `blocked` ·
+  any `under_review` → that · any `staged` → that · any `queued` → that · any `awaiting` ·
+  any `ready` · any `blocked` ·
   any `parked` · any `new` · all terminal → `done` (or `abandoned` if nothing was
   done). Progress and reservations lead the middle order:
-  under_review beats queued beats awaiting beats ready beats blocked beats parked. Rollup recurses —
+  under_review beats staged beats queued beats awaiting beats ready beats blocked beats parked.
+  Rollup recurses —
   a phase tallies tasks, an initiative tallies phases.
 
 ## Status groups (selection universes for `--status`)
@@ -145,16 +166,16 @@ What `list`/`get` show as `status` is computed:
 
 ## Verdicts (`--is` / `--not-is`) — judgments, not statuses
 
-- `stale` — `ready`/`queued`/`in_progress`/`under_review` but untouched past the threshold
-  (14 days). Chases `blocked` and `under_review` (a review gate nobody cleared)
-  too; queued reservations from a crashed run are chased by the same rule.
+- `stale` — `ready`/`queued`/`in_progress`/`under_review`/`staged` but untouched past the
+  threshold (14 days). Chases `blocked`, `under_review` (a review gate nobody cleared),
+  and `staged` (accepted work that never reached `main`) too; queued reservations from a crashed run are chased by the same rule.
   **Mutes `parked`** (deliberately shelved — don't nag).
 - `blocking` — has live dependents; finishing it unlocks work.
 - `orphaned` — live task whose every sibling is terminal — left behind.
 
 ## Containers aren't lifecycle-managed
 
-Lifecycle verbs (`queue`, `unqueue`, `start`, `submit`, `return`, `done`, `abandon`, `reopen`,
+Lifecycle verbs (`queue`, `unqueue`, `start`, `submit`, `stage`, `return`, `done`, `abandon`, `reopen`,
 `park`/`unpark`, `block`/`unblock`) only act on **tasks**. Trying to `start` a phase or initiative is an error — the response
 names a ready child task to start instead. Complete the leaf tasks and the
 container's rollup follows automatically; there is nothing to do at the

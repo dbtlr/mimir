@@ -222,6 +222,7 @@
 | search(limit: string, query: array, scope: string)
 | seed(desc: string, kind: string, project: string, scope: string, title: string)
 | seeds(after: array, at-or-after: array, at-or-before: array, before: array, grouped: boolean, on: array, project: string, requester: string, scope: string, sort: string, status: string, tz: string)
+| stage(id: string)
 | start(branch: string, harness: string, host: string, id: string, session: string, worker-harness: string, worker-session: string)
 | status(id: string)
 | submit(id: string)

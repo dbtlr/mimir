@@ -56,7 +56,7 @@ overlap — attach it with `mimir attach <task> --file retro.md -t session_summa
 
 - **Only handle-moving boundaries are visible.** `queue`, `start`, and the clearing verbs
   (`unqueue`, `done`/`abandon`, `park`/`block`) echo handles. Explicit identity
-  updates append assignment history. `submit`/`return`/`reopen`/`unpark`/`unblock`
+  updates append assignment history. `submit`/`stage`/`return`/`reopen`/`unpark`/`unblock`
   do not attach a new identity. A session that only reviewed work shows up solely
   through its retrospective, as a knowledge-only entry.
 - **A takeover must re-state its session.** A clearing row echoes whatever the

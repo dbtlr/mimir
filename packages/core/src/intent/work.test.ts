@@ -14,6 +14,7 @@ import {
   reopenTask,
   returnTask,
   startTask,
+  stageTask,
   submitTask,
 } from '../mutations';
 import { createScratchpadService } from '../scratchpads';
@@ -634,6 +635,28 @@ test('a review in now keeps the time it was started and carries the time it was 
   const row = (await page('MMR')).now.find((n) => n.task.id === r);
   expect(row?.startedAt).toBe('2026-10-01T09:00:00.000Z');
   expect(row?.submittedAt).toBe('2026-10-03T17:00:00.000Z');
+});
+
+test('a staged task keeps its submit time, and a return from staged keeps its start', async () => {
+  const r = await task(phaseA, 'staged');
+  try {
+    setSystemTime(new Date('2026-10-01T09:00:00Z'));
+    await startTask(store, r);
+    setSystemTime(new Date('2026-10-02T09:00:00Z'));
+    await submitTask(store, r);
+    setSystemTime(new Date('2026-10-03T09:00:00Z'));
+    await stageTask(store, r);
+  } finally {
+    setSystemTime();
+  }
+  const staged = (await page('MMR')).now.find((n) => n.task.id === r);
+  expect(staged?.startedAt).toBe('2026-10-01T09:00:00.000Z');
+  expect(staged?.submittedAt).toBe('2026-10-02T09:00:00.000Z');
+
+  await returnTask(store, r, 'rework after staging');
+  const returned = (await page('MMR')).now.find((n) => n.task.id === r);
+  expect(returned?.startedAt).toBe('2026-10-01T09:00:00.000Z');
+  expect(returned?.submittedAt).toBeNull();
 });
 
 test('a review sent back and resubmitted carries its latest submit time', async () => {

@@ -1,5 +1,5 @@
 ---
-description: Canonical terms for Mimir’s client/host boundary and task session ownership.
+description: Canonical terms for Mimir’s client/host boundary, task session ownership, and task lifecycle steps.
 ---
 
 # Mimir glossary
@@ -8,7 +8,8 @@ This glossary defines the client and host boundary terms used in
 [ADR 0034](decisions/0034-engine-interface-and-trpc-wire.md),
 [ADR 0035](decisions/0035-tanstack-start-container-host.md),
 [ADR 0038](decisions/0038-device-pairing-and-the-version-window.md), and
-[ADR 0041](decisions/0041-agent-runtime-on-the-host.md).
+[ADR 0041](decisions/0041-agent-runtime-on-the-host.md), and the task lifecycle
+terms used in [ADR 0001](decisions/0001-task-status-two-axes-derived-rollup.md).
 
 **Host**: The Mimir server that serves the operator console and remote clients
 and owns their shared store.
@@ -35,6 +36,11 @@ own task has no separate worker identity.
 
 **Helper agent**: An agent delegated a piece of a task by its responsible worker.
 Its identity is not attached to the task.
+
+**Staged**: A task whose review and checks passed and whose code is accepted
+on its branch, but not yet on `main`. It is not terminal: it leaves by `done`
+when the code lands, or by `return` for rework
+([ADR 0001](decisions/0001-task-status-two-axes-derived-rollup.md)).
 
 **Agent run**: One execution of an agent by the host on behalf of a task, such
 as a grooming run, recorded as a host-owned row with its state, usage, and

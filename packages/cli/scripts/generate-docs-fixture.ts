@@ -59,6 +59,7 @@ import {
   renderId,
   seedLane,
   startTask,
+  stageTask,
   submitTask,
   tagEntities,
   transitionSeed,
@@ -193,6 +194,12 @@ class Board {
         await submitTask(this.store, id);
         return;
       }
+      case 'staged': {
+        await startTask(this.store, id);
+        await submitTask(this.store, id);
+        await stageTask(this.store, id);
+        return;
+      }
       case 'done': {
         await startTask(this.store, id);
         await completeTask(this.store, id);
@@ -297,6 +304,11 @@ const AURORA_ZOO: readonly {
       title: 'Silent push delivery receipts',
     },
     word: 'under_review',
+  },
+  {
+    phase: 'Release Staging',
+    task: { leaf: 'staged', title: 'Land the reviewed export change' },
+    word: 'staged',
   },
   {
     phase: 'Queued Run',

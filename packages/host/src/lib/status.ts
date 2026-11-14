@@ -84,6 +84,13 @@ export const STATUS_META: Record<StatusWord, StatusMeta> = {
     label: 'Ready',
     text: 'text-status-ready',
   },
+  staged: {
+    border: 'border-l-status-staged',
+    dot: 'bg-status-staged',
+    foreground: 'text-status-staged-foreground',
+    label: 'Staged',
+    text: 'text-status-staged',
+  },
   under_review: {
     border: 'border-l-status-under-review',
     dot: 'bg-status-under-review',
@@ -97,6 +104,7 @@ export const STATUS_META: Record<StatusWord, StatusMeta> = {
 export const STATUS_ORDER: readonly StatusWord[] = [
   'in_progress',
   'under_review',
+  'staged',
   'queued',
   'ready',
   'awaiting',

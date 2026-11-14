@@ -78,6 +78,24 @@ describe.each(backends)('$name', (backend) => {
       await target.close();
     }
   });
+  // `staged` (MMR-675) is a stored lifecycle both backends' node checks admit,
+  // so a document carrying one imports and exports it unchanged.
+  test('an import keeps a staged task staged', async () => {
+    const document = structuredClone(source.document);
+    const reviewed = document.nodes.find((node) => node.lifecycle === 'under_review');
+    if (reviewed === undefined) {
+      throw new Error('the fixture has no task under review');
+    }
+    reviewed.lifecycle = 'staged';
+    const target = await backend.make();
+    try {
+      await target.store.import(document, { dryRun: false, mode: 'fresh' });
+      const imported = (await target.store.export()).nodes.find((n) => n.id === reviewed.id);
+      expect(imported).toMatchObject({ lifecycle: 'staged', rank: null });
+    } finally {
+      await target.close();
+    }
+  });
   // A project description reads trimmed, blank as none (MMR-607), and a remote
   // is stored normalized (MMR-609), so a resume must compare both by that same
   // read, or a document carrying them as written refuses its own fresh import.

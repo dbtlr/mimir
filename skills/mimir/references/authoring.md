@@ -254,8 +254,8 @@ identity without changing status. A worker harness requires a worker session;
 a worker session requires a main session. Clearing the worker session clears
 its harness. Clear worker ownership before clearing a main session.
 
-`done`, `abandon`, `park`, and `block` clear all six handles. `submit` and
-`return` retain them during review. `reopen`, `unpark`, and `unblock` restore
+`done`, `abandon`, `park`, and `block` clear all six handles. `submit`,
+`stage`, and `return` retain them during review. `reopen`, `unpark`, and `unblock` restore
 none: re-state the main and any distinct worker identity with `update` when
 the task resumes. History retains the former ownership after clearing.
 

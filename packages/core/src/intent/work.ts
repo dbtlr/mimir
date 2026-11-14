@@ -178,8 +178,8 @@ export const latestOf = <T>(items: readonly T[] | undefined): T | undefined => i
 
 /**
  * When the task was reserved or last started: its latest move into in_progress that did not come
- * back from review. A queue, start, and reopen count; a return from review continues
- * the same run of work.
+ * back from review or staging. A queue, start, and reopen count; a return continues the same
+ * run of work.
  */
 function startedAtOf(task: Node, history: readonly HistoryEntry[]): string {
   const start = latestOf(
@@ -188,18 +188,18 @@ function startedAtOf(task: Node, history: readonly HistoryEntry[]): string {
         h.kind === 'lifecycle' &&
         (task.lifecycle === 'queued'
           ? h.to === 'queued'
-          : h.to === 'in_progress' && h.from !== 'under_review'),
+          : h.to === 'in_progress' && h.from !== 'under_review' && h.from !== 'staged'),
     ),
   );
   return start?.at ?? task.updated_at;
 }
 
 /**
- * When an under-review task last entered review, so a resubmit counts from the latest submit;
- * null for any other status. Falls back to the row's stamp when the log is silent.
+ * When an under-review or staged task last entered review, so a resubmit counts from the latest
+ * submit; null for any other status. Falls back to the row's stamp when the log is silent.
  */
 function submittedAtOf(task: Node, history: readonly HistoryEntry[]): string | null {
-  if (task.lifecycle !== 'under_review') {
+  if (task.lifecycle !== 'under_review' && task.lifecycle !== 'staged') {
     return null;
   }
   const submit = latestOf(history.filter((h) => h.kind === 'lifecycle' && h.to === 'under_review'));
@@ -219,7 +219,7 @@ export function abandonedOf(
  * The work page for a project key, or an initiative/phase id (its whole subtree).
  *
  * Sections:
- * - `now`: queued, in-progress, and under-review tasks, with when they were
+ * - `now`: queued, in-progress, under-review, and staged tasks, with when they were
  *   reserved or started, the latest note, and any linked Scratchpads
  *   (harness/branch/host/session/externalRef ride the task).
  * - `needsYou`: blocked with an owner of `you`, then needs-answers todos (the

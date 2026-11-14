@@ -215,7 +215,7 @@ describe('SQLite queue lifecycle', () => {
       const task = await createTask(source.store, { parentId: parent.id, title: 't' });
       await engine.queue({ harness: 'loom', id: task.id, session: 'run' });
       const document = await source.store.export();
-      expect(document.schema_version).toBe(7);
+      expect(document.schema_version).toBe(8);
       await target.store.import(document, { dryRun: false, mode: 'fresh' });
       const imported = await new LocalEngine(target.store).getNode({ id: task.id });
       expect(imported.status).toBe('queued');

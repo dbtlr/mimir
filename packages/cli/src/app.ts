@@ -102,6 +102,7 @@ import {
   queueVerb,
   reopenVerb,
   returnVerb,
+  stageVerb,
   startVerb,
   submitVerb,
   unarchiveVerb,
@@ -829,11 +830,12 @@ export function createApp(source: CliSource) {
       // ADR 0031: the installer's handshake, hidden from help and MCP.
       .command(installationProtocolCommand(ports))
       .command(installationInstallCommand(ports))
-      // MMR-550: the fourteen uniform lifecycle verbs.
+      // MMR-550: the fifteen uniform lifecycle verbs.
       .command(queueVerb(ports))
       .command(unqueueVerb(ports))
       .command(startVerb(ports))
       .command(submitVerb(ports))
+      .command(stageVerb(ports))
       .command(returnVerb(ports))
       .command(doneVerb(ports))
       .command(abandonVerb(ports))

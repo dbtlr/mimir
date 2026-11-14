@@ -9,7 +9,7 @@ import type { UniformVerb } from './ops';
 
 /**
  * The node-write Engine schemas (MMR-517): create, update, updateArtifact, annotate, attach,
- * depend, undepend, move, reorder, groom, tag, untag, and the fourteen uniform
+ * depend, undepend, move, reorder, groom, tag, untag, and the fifteen uniform
  * verbs. Ids are canonical (`KEY-seq`, or a bare `KEY` for a project); parsing
  * flag text and resolving shorthand stays in the client. Every echo is a `Date`
  * view, like the reads.

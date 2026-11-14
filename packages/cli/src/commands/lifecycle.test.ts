@@ -74,7 +74,9 @@ const AGENT_DESCRIPTIONS: Record<string, string> = {
   reopen:
     'Reopen a terminal task (done/abandoned → in_progress). Optionally records a reason on the transition. Echoes the updated node.',
   return:
-    'Send back for changes (under_review → in_progress). Optionally records a reason on the transition. Echoes the updated node.',
+    'Send back for changes (under_review/staged → in_progress). Optionally records a reason on the transition. Echoes the updated node.',
+  stage:
+    'Mark reviewed work accepted on its branch, not yet on main (under_review → staged). Echoes the updated node.',
   start:
     'Begin a task (todo/queued → in_progress). Echoes the updated node. Preserves the main conversation. Explicit worker-session assigns a distinct whole-task owner; worker-harness is optional and is never inferred from the shell.',
   submit: 'Submit for review (in_progress → under_review). Echoes the updated node.',

@@ -136,9 +136,9 @@ export function NowRow({
       meta={
         <div className="flex flex-col gap-0.5">
           <p className="flex flex-wrap items-baseline gap-x-1.5">
-            {row.task.status === 'under_review' ? (
+            {row.task.status === 'under_review' || row.task.status === 'staged' ? (
               <>
-                <span>In review</span>
+                <span>{row.task.status === 'staged' ? 'Staged' : 'In review'}</span>
                 <ContextPart>submitted {ago(row.submittedAt ?? row.startedAt)}</ContextPart>
               </>
             ) : (

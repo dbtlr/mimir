@@ -81,6 +81,12 @@ export function describeTransition(e: HistoryEntry): { label: string; detail?: s
       if (e.from === 'queued' && e.to === 'todo') {
         return { label: 'Unqueued' };
       }
+      if (e.from === 'under_review' && e.to === 'staged') {
+        return { label: 'Staged' };
+      }
+      if (e.from === 'staged' && e.to === 'in_progress') {
+        return { label: 'Changes requested' };
+      }
       if (e.to === 'under_review') {
         return { label: 'Submitted for review' };
       }

@@ -22,6 +22,7 @@ const STATUS_STYLE: Record<StatusWord, StatusStyle> = {
   parked: { ascii: '=', color: 90, icon: '⏸' },
   queued: { ascii: '=', color: 34, icon: '◷' },
   ready: { ascii: '*', color: 32, icon: '●' },
+  staged: { ascii: '+', color: 35, icon: '◉' },
   under_review: { ascii: '?', color: 35, icon: '◎' },
 };
 

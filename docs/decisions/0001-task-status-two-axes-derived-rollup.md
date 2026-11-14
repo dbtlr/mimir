@@ -244,3 +244,31 @@ becomes `none`, and its reason and owner are cleared.
   applies the rule to an older document, and the read path reads a terminal
   row as unheld whatever an older process wrote.
 
+
+## Refinement (2026-11-14, MMR-675): `staged` is accepted work not yet on `main`
+
+The build-runs design (MMR-a398) delivers several tasks on one integration
+branch through one milestone pull request. A task in such a run passes its
+review and is merged into the branch long before its code reaches `main`.
+Neither `under_review` nor `done` says that truthfully, so the lifecycle gains an
+optional step after the review gate:
+`todo → queued → in_progress → under_review → staged → done`.
+
+- **`stage` moves `under_review → staged` only.** It claims the review and
+  checks passed and the code is accepted on its branch, but not on `main`. Any
+  other lifecycle refuses, and the refusal names `submit`. `under_review → done`
+  stays legal, so a task outside a build run never needs the step.
+- **`staged` is work in flight, not terminal.** It keeps its handles, as
+  `under_review` does (ADR 0026). It leaves the rankable set and `next`, and
+  `stale` chases it, because accepted work that never reaches `main` is the same
+  rot as a review nobody cleared.
+- **It leaves by `done`, `return`, or `abandon`.** `return` accepts `staged` as
+  well as `under_review` and re-enters the rankable set at the bottom. `reopen`
+  is unchanged. Holds apply to a staged task as they apply to a review.
+- **Dependencies are unchanged.** A prerequisite is settled only when it is
+  terminal, so a dependent of a staged task still reads `awaiting`. The design's
+  same-delivery dependency rule belongs to the delivery record and is not part
+  of this refinement.
+- **Stored rows.** Migration `0014` widens the lifecycle CHECK in both stores.
+  SQLite rebuilds `node` and its dependants to do so, as migration `0007` did for
+  `queued`. The transfer document admits the new value.

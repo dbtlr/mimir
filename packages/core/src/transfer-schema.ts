@@ -178,6 +178,7 @@ export const transferSchema = z.object({
       z.literal(4),
       z.literal(5),
       z.literal(6),
+      z.literal(7),
       z.literal(STORE_EXPORT_SCHEMA_VERSION),
     ])
     .transform((): typeof STORE_EXPORT_SCHEMA_VERSION => STORE_EXPORT_SCHEMA_VERSION),

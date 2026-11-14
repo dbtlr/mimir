@@ -379,6 +379,12 @@ const writes: WriteCase[] = [
     (node) => expect(node.lifecycle).toBe('under_review'),
   ),
   write(
+    'stage',
+    'a task under review',
+    (ids) => ({ id: ids.reviewTask }),
+    (node) => expect(node.lifecycle).toBe('staged'),
+  ),
+  write(
     'return',
     'a task under review',
     (ids) => ({ id: ids.reviewTask, reason: 'needs tests' }),

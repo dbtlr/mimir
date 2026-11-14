@@ -149,7 +149,7 @@ function strip(record: object, keys: readonly string[]): Record<string, unknown>
 // rows prove the default, and main-worker.test.ts proves a version-7 import
 // keeps a worker it carries.
 test('the fixture states a value other than the default for every grooming, owner, pin and remote key a legacy row drops', () => {
-  expect(document.schema_version).toBe(7);
+  expect(document.schema_version).toBe(8);
   expect(document.nodes.map((node) => [node.type, node.grooming, node.block_owner])).toEqual([
     ['initiative', null, null],
     ['phase', null, null],
@@ -207,13 +207,13 @@ test('a blocked task with no owner key takes the owner its upstream implies', ()
 test('a version this binary does not know is refused, never read lossily', () => {
   let refusal: unknown;
   try {
-    parseTransferDocument({ ...structuredClone(document), schema_version: 8 });
+    parseTransferDocument({ ...structuredClone(document), schema_version: 9 });
   } catch (error) {
     refusal = error;
   }
   expect(refusal).toBeInstanceOf(MimirError);
   expect(refusal).toMatchObject({
-    hint: 'this binary reads schema versions 1, 2, 3, 4, 5, 6, 7',
-    message: 'unsupported transfer document schema version 8',
+    hint: 'this binary reads schema versions 1, 2, 3, 4, 5, 6, 7, 8',
+    message: 'unsupported transfer document schema version 9',
   });
 });

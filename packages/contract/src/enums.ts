@@ -24,6 +24,7 @@ export const LIFECYCLE_VALUES = [
   'queued',
   'in_progress',
   'under_review',
+  'staged',
   'done',
   'abandoned',
 ] as const;
@@ -73,6 +74,7 @@ export const STATUS_WORD_VALUES = [
   'queued',
   'in_progress',
   'under_review',
+  'staged',
   'done',
   'abandoned',
   'new',
@@ -88,6 +90,7 @@ export const TASK_STATUS_WORD_VALUES = [
   'queued',
   'in_progress',
   'under_review',
+  'staged',
   'done',
   'abandoned',
 ] as const;

@@ -74,6 +74,7 @@ lane('upgradeSchema builds the schema from empty, and the gate then passes', asy
           '0011_terminal_hold',
           '0012_host_secrets',
           '0013_runs',
+          '0014_task_staged',
         ],
         from: 0,
         to: SCHEMA_VERSION,

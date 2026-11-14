@@ -39,9 +39,9 @@ import type { NewAnnotationRecord, NewTagRecord, NewTransitionRecord, Store } fr
  * The transfer document's own schema version, bumped on any shape change so an
  * older binary refuses a document it would read lossily. Version 2 adds the
  * node `grooming` key (ADR 0033); version 3 adds the node `block_owner` key
- * (ADR 0001, MMR-438); version 4 adds the project `pinned` key (MMR-493); version 5 adds the project `remote` key (MMR-543); version 6 admits queued task reservations (MMR-564); version 7 adds optional whole-task worker handles and assignment history (MMR-568).
+ * (ADR 0001, MMR-438); version 4 adds the project `pinned` key (MMR-493); version 5 adds the project `remote` key (MMR-543); version 6 admits queued task reservations (MMR-564); version 7 adds optional whole-task worker handles and assignment history (MMR-568); version 8 admits staged tasks (MMR-675).
  */
-export const STORE_EXPORT_SCHEMA_VERSION = 7;
+export const STORE_EXPORT_SCHEMA_VERSION = 8;
 
 /**
  * Every version this binary imports. A version-1 document predates `grooming`
@@ -60,6 +60,7 @@ export const READABLE_STORE_EXPORT_SCHEMA_VERSIONS: readonly number[] = [
   4,
   5,
   6,
+  7,
   STORE_EXPORT_SCHEMA_VERSION,
 ];
 

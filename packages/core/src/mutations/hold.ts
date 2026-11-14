@@ -15,8 +15,8 @@ import { clearHandles } from './handles';
  * leaves the rankable set → clears `rank`; releasing it (`unpark`/`unblock`)
  * re-enters → appends to the bottom (no remembered position; a re-entry is a
  * natural re-triage point) — but only if the underlying lifecycle is rankable.
- * A held `under_review` task stays non-rankable on release (it's not actionable
- * until its review gate clears), so it gets no rank back.
+ * A held `under_review` or `staged` task stays non-rankable on release (it's not actionable
+ * until its review gate clears or its code reaches `main`), so it gets no rank back.
  *
  * A `blocked` hold also records its **owner** (ADR 0001, MMR-438): who can clear
  * it. `block` sets it (stated, else derived from the task's `upstream`), and
@@ -81,7 +81,7 @@ async function releaseHold(store: Store, id: string, from: Exclude<Hold, 'none'>
       throw validation(`task is not ${from} (is ${String(task.hold)})`);
     }
     // Re-enter the rankable set at the bottom — but only if the lifecycle is
-    // rankable once un-held (todo/in_progress). A held `under_review` task
+    // rankable once un-held (todo/in_progress). A held `under_review` or `staged` task
     // stays non-rankable on release (not actionable until its review gate clears).
     const rank = isRankable(task.lifecycle, 'none') ? await appendRank(w, task.project_id) : null;
     await w.updateNode(id, { ...RELEASED_HOLD, rank });

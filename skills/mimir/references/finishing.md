@@ -17,6 +17,7 @@ Use the lifecycle or hold verb at the moment its claim becomes true:
 ```sh
 mimir unqueue KEY-9 "Run cancelled before dispatch"  # release an unstarted reservation
 mimir submit KEY-9                 # ready for its review gate
+mimir stage KEY-9                  # accepted on its branch, not yet on main
 mimir done KEY-9                   # verified complete; no review gate remains
 mimir park KEY-9 "reason"          # deliberately deferred
 mimir block KEY-9 --on you "reason"          # obstructed; --on you or --on others names who can clear it
@@ -24,7 +25,7 @@ mimir block KEY-9 --on you "reason"          # obstructed; --on you or --on othe
 
 This piece stands alone: a state change does not wait for prose grooming or a
 retrospective. In a repository with its own completion gate, that gate decides
-whether the truthful action is `submit` or `done`.
+whether the truthful action is `submit`, `stage`, or `done`.
 
 ## Groom-next
 

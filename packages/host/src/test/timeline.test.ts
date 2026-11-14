@@ -55,6 +55,18 @@ test('names reservation and cancellation transitions', () => {
   });
 });
 
+test('names staging, its return, and completion from staged', () => {
+  expect(describeTransition({ ...started, from: 'under_review', to: 'staged' })).toStrictEqual({
+    label: 'Staged',
+  });
+  expect(describeTransition({ ...started, from: 'staged', to: 'in_progress' })).toStrictEqual({
+    label: 'Changes requested',
+  });
+  expect(describeTransition({ ...started, from: 'staged', to: 'done' })).toStrictEqual({
+    label: 'Completed',
+  });
+});
+
 test('names explicit session ownership reassignment', () => {
   expect(describeTransition({ ...started, from: '{}', kind: 'assignment', to: '{}' }).label).toBe(
     'Session assignment changed',

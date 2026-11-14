@@ -16,6 +16,7 @@ import {
   reopenTask,
   returnTask,
   startTask,
+  stageTask,
   submitTask,
   unarchiveProject,
   unblockTask,
@@ -125,6 +126,7 @@ const OP_RUN: Record<UniformVerb, OpSpec['run']> = {
   queue: (store, id, _reason, fields) => queueTask(store, id, fields),
   reopen: (store, id, reason) => reopenTask(store, id, reason),
   return: (store, id, reason) => returnTask(store, id, reason),
+  stage: (store, id) => stageTask(store, id),
   start: (store, id, _reason, fields, _choice, context) =>
     startTask(store, id, fields, context?.startExpectation),
   submit: (store, id) => submitTask(store, id),
