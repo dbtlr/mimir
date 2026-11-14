@@ -293,17 +293,18 @@ export async function reopenTask(store: Store, id: string, reason?: string): Pro
         `only a done or abandoned task can be reopened (is ${String(task.lifecycle)})`,
       );
     }
-    if (task.delivery !== null && (await w.loadDelivery(task.delivery))?.lifecycle === 'landed') {
-      await w.updateNode(id, { delivery: null });
-    }
     // re-enter the rankable set at the bottom (a reopen is a natural re-triage point)
     const rank = await appendRank(w, task.project_id);
     // A terminal row reads unheld, but a process that started before migration
     // 0011 ran can still have stored a hold on it; writing the released fields
     // keeps that residue from reviving here (MMR-616).
+    // A reopened task is no longer the landing its reference recorded, so the
+    // reference clears; rejoining goes through the join rules (ADR 0042). A
+    // landed delivery takes no write, so no member row is logged.
     await w.updateNode(id, {
       ...RELEASED_HOLD,
       completed_at: null,
+      delivery: null,
       lifecycle: 'in_progress',
       rank,
     });

@@ -1,4 +1,4 @@
-- **Reserve tasks with delivery membership (MMR-682).** Delivery creation sweeps eligible tasks or selects repeated `--task` ids. Join and leave with `update --delivery`. Queue, move, done, staged leave, and staged abandon enforce the reservation: `done` refuses a member, which finishes when its delivery lands. Import refuses, and doctor reports, a delivery reference no verb produces. Task and delivery reads expose membership and its ordered history.
+- **Reserve tasks with delivery membership (MMR-682).** Delivery creation sweeps eligible tasks or selects repeated `--task` ids. Join and leave with `update --delivery`. Queue, move, done, staged leave, and staged abandon enforce the reservation: `done` refuses a member, which finishes when its delivery lands. Reopen clears a task's delivery reference. Import refuses, and doctor reports, a delivery reference no verb produces. Task and delivery reads expose membership and its ordered history.
 
 ### Migration
 

@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, setSystemTime, test } from 'bun:test';
 
 import { encodeDelivery } from '@mimir/contract';
+import { sql } from 'kysely';
 
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import { LocalEngine } from './engine';
@@ -15,7 +16,8 @@ import {
   returnTask,
 } from './mutations';
 import type { Store } from './store';
-import { bootPglite } from './store-postgres/testing';
+import { bootPglite, createPgliteTestStore } from './store-postgres/testing';
+import { createSqliteTestStore } from './store-sqlite/testing';
 import { backends, refusalOf } from './testing/conformance';
 
 beforeAll(bootPglite);
@@ -475,6 +477,61 @@ describe.each(backends)('delivery references on import ($name)', (backend) => {
     } finally {
       await source.close();
       await target.close();
+    }
+  });
+});
+
+const rawArms = [
+  { make: createPgliteTestStore, name: 'postgres' },
+  { make: () => createSqliteTestStore(), name: 'sqlite' },
+];
+
+describe.each(rawArms)('hand-edited references ($name)', (arm) => {
+  test('a done task naming a live delivery is not a member, and reopen clears its reference', async () => {
+    const t = await arm.make();
+    try {
+      const engine = new LocalEngine(t.store);
+      const {
+        phase,
+        tasks: [task = ''],
+      } = await phaseOfTasks(t.store, ['Task']);
+      const delivery = await engine.deliveryCreate({ phase, title: 'Attempt' });
+      await sql
+        .raw(`UPDATE node SET lifecycle = 'done', rank = NULL WHERE id = '${task}'`)
+        .execute(t.db);
+      expect((await engine.getDelivery({ id: delivery.id })).members).toEqual([]);
+      expect(await refusalOf(updateNode(t.store, task, { delivery: null }))).toContain(
+        'not a member',
+      );
+      await engine.reopen({ id: task });
+      expect(await nodeOf(t.store, task)).toMatchObject({
+        delivery: null,
+        lifecycle: 'in_progress',
+      });
+      const record = await engine.getDelivery({ id: delivery.id });
+      expect(record.members).toEqual([]);
+      expect(record.history.map((r) => r.to_value)).toEqual(['joined']);
+    } finally {
+      await t.close();
+    }
+  });
+
+  test('a live task naming a landed delivery is not a member', async () => {
+    const t = await arm.make();
+    try {
+      const engine = new LocalEngine(t.store);
+      const {
+        phase,
+        tasks: [task = ''],
+      } = await phaseOfTasks(t.store, ['Task']);
+      const delivery = await engine.deliveryCreate({ phase, title: 'Attempt' });
+      await sql
+        .raw(`UPDATE delivery SET lifecycle = 'landed' WHERE id = '${delivery.id}'`)
+        .execute(t.db);
+      expect((await engine.getDelivery({ id: delivery.id })).members).toEqual([]);
+      await queueTask(t.store, task, { session: 'reservation' });
+    } finally {
+      await t.close();
     }
   });
 });
