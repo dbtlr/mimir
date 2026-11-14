@@ -57,8 +57,7 @@ it out and `queue` refuses it.
 merges, moving every staged member to `done` in one transaction.
 
 **Stopped**: A delivery's hold, set by `block`, that says the agent cannot
-continue without the operator. Only the operator clears it. A stopped delivery
-is also called a stop.
+continue without the operator. Only the operator clears it.
 
 **Paused**: A delivery's hold, set by `park`, that says the operator paused the
 attempt on purpose.

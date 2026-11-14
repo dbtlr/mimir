@@ -42,7 +42,9 @@ their phase, and each one holds a reference to its delivery.
   word names that claim for an attempt in flight.
 - The handles are plain fields that only `create` and `update` write. No hold
   and no lifecycle verb clears them: a stopped or paused delivery is still the
-  same attempt on the same branch.
+  same attempt on the same branch. A terminal delivery keeps them as the
+  record of where the attempt ran. A reader judges whether a delivery is live
+  by its lifecycle, never by its handles.
 - The orchestrator's handles mean what a task's main handles mean
   ([ADR 0026](0026-work-state-composition.md)). When the orchestrator runs in a
   T3 thread, `session` is that thread and `host` is its environment, as for a
@@ -73,7 +75,9 @@ grammar ([ADR 0024](0024-cli-command-taxonomy.md)).
 | `abandon` | any non-terminal → `abandoned` | terminal                                                                        | reason, required         |
 
 - A delivery verb refuses the inputs it does not use: the handle flags of task
-  `start`, and `block --on`.
+  `start`, and `block --on`. Only flags the caller passed count. The CLI's
+  identity fill from the shell environment (ADR 0026) does not run for a
+  `KEY-dN` id.
 - Each refusal names its fix: "add a member with `update <task> --delivery
   KEY-dN`", "set the agreement with `update KEY-dN --agreement …`", "unblock
   it first", and so on.
@@ -82,15 +86,18 @@ grammar ([ADR 0024](0024-cli-command-taxonomy.md)).
   logs the lifecycle change. A held member refuses the land and names `unblock`
   or `unpark`, so no hold is dropped silently. The landed tasks keep their
   reference.
-- **`abandon`** releases every live member in the same transaction. A released
-  task returns to `todo` and leaves the delivery. It keeps its hold, its hold
-  reason, and its block owner. It loses every resume handle, which its log row
-  records, as `unqueue` clears and records them. It gets an appended rank when
-  it is unheld and has none. A member that moved past `todo` logs the
-  lifecycle change with the delivery's reason. A member still in `todo` writes
-  no task row; its release is a row in the delivery's history only. The moves
-  from `in_progress`, `under_review`, and `staged` back to `todo` are new
-  edges, and only `abandon` on a delivery takes them.
+- **`abandon`** releases every live member in the same transaction, and every
+  released task leaves the delivery. It keeps its hold, its hold reason, and
+  its block owner.
+  - A member that moved past `todo` returns to `todo`. It loses every resume
+    handle, and its lifecycle row records them with the delivery's reason, as
+    `unqueue` clears and records them. It gets an appended rank when it is
+    unheld and has none. The moves from `in_progress`, `under_review`, and
+    `staged` back to `todo` are new edges, and only `abandon` on a delivery
+    takes them.
+  - A member still in `todo` changes only its membership. It keeps its handles
+    and its rank and writes no task row, because nothing the delivery did
+    reached it. Its release is a row in the delivery's history.
 - `abandon` on a held delivery ends the hold and logs the release, as a
   terminal verb does on a held task.
 - `land` and `abandon` are one store transaction each, and each checks the
@@ -125,7 +132,9 @@ grammar ([ADR 0024](0024-cli-command-taxonomy.md)).
   it first. It refuses a task that is not a member.
 - **Reservation, both ways.** A queued task cannot join, and `queue` refuses a
   member and names `update <task> --delivery none`. A task holds one
-  reservation at a time.
+  reservation at a time. The console's T3 launch, which queues the task it
+  launches, reads a member as `not_ready` at its first step, before it reaches
+  T3 ([ADR 0040](0040-outbound-integrations-and-host-secrets.md)).
 - **Move.** `move` of a member refuses and names `update <task> --delivery
   none`. Moving the phase itself is unaffected, because the delivery stores
   the phase.
@@ -145,7 +154,8 @@ grammar ([ADR 0024](0024-cli-command-taxonomy.md)).
 - `delivery_history` has its own closed kind set, `lifecycle`, `hold`, and
   `member`. It does not use the task log's `TransitionKind`. Each row has
   `from_value`, `to_value`, an optional `reason`, a nullable `task` (the task
-  id, set only on `member` rows), and `at`.
+  id, set only on `member` rows), and `at`. A `member` row is an event, so its
+  `from_value` is always null.
 - A `member` row's `to_value` says what happened to the task: `joined`, `left`
   (`update --delivery none`), `released` (`abandon` on the delivery), or
   `abandoned` (task `abandon` on a member). `land` writes a `lifecycle` row for
@@ -171,8 +181,9 @@ grammar ([ADR 0024](0024-cli-command-taxonomy.md)).
   latest of the dependent's last readiness-relevant transition, the latest
   `completed_at` among its prerequisites, the latest `submit` of each
   prerequisite that counts by the same-delivery rule, and the latest `member`
-  row in the delivery's history for the dependent or any of those
-  prerequisites.
+  row in any delivery's history that names the dependent or one of its
+  prerequisites. A release is such a row, so a released task that reads
+  `ready` counts as newly ready.
 - A readiness change flows through the existing rollup, so a phase's
   distribution can change when a member's readiness changes. No rollup rule
   changes.
@@ -187,7 +198,7 @@ project's deliveries.
 
 ### Out of scope here
 
-The decision record, the limitation and declined-finding lists, the run
+The decision record, the limitation and declined-finding lists, the delivery
 journal, the since-cursor read, the T3 wake, and the delivery page are later
 phases of the same design. Each records its own ADR or refinement.
 
@@ -215,8 +226,10 @@ phases of the same design. Each records its own ADR or refinement.
   only unclaimed `todo` work joins: a delivery never takes over work another
   session holds, so releasing it never resets that session's work.
 - **A released task is unowned work.** Abandoning an attempt frees its tasks
-  for the next one, so a release clears the owner handles as `unqueue` does,
-  and a new session can start the task without a takeover.
+  for the next one. A release of a member the attempt worked clears every
+  resume handle, as `unqueue` does, so a new session can start the task
+  without a takeover. A member the attempt never touched keeps what it had
+  before it joined.
 - **Join by phase, edit by task.** Delivering a whole phase is the common case,
   so create takes the phase's tasks by default. Removing a member must exist
   anyway (to ship a smaller milestone, remove the unfinished members, then
@@ -286,6 +299,11 @@ phases of the same design. Each records its own ADR or refinement.
 - A project that never creates a delivery behaves exactly as before.
 - The work lands in four pull requests: the record (MMR-676), membership
   (MMR-682), the verbs with `land` and the releasing `abandon` (MMR-683), and
-  the board rules (MMR-684). ADR 0001 gains refinements with them: the release
-  edges into `todo` and the `queue` refusal with MMR-683 and MMR-682, and the
-  dependency rule and the `done` refusal with MMR-684.
+  the board rules (MMR-684). Accepted records gain refinements with them:
+  - ADR 0001, with MMR-682: `queue`, `move`, and `abandon` on a staged member
+    refuse for a member, and `reopen` clears a reference to a landed delivery.
+  - ADR 0040, with MMR-682: the T3 launch reads a member as `not_ready`.
+  - ADR 0001, with MMR-683: the release edges into `todo`.
+  - ADR 0001, with MMR-684: the same-delivery dependency rule, the `done`
+    refusal, and the board-wide `next` leaving out members.
+  - ADR 0003, with MMR-684: the two added `became_ready_at` terms.
