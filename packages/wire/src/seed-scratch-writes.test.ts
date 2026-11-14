@@ -351,12 +351,20 @@ test('delivery creation and update preserve their terms and Date instants over t
     title: 'Delivery phase',
     type: 'phase',
   });
+  const member = await remote.create({ parent: phase.id, title: 'Member', type: 'task' });
   const created = await remote.deliveryCreate({
     agreement: 'Terms',
     phase: phase.id,
     time_cap_minutes: 20,
     title: 'Attempt',
   });
+  expect(created.members).toEqual([member.id]);
+  expect((await remote.getNode({ id: member.id })).delivery).toBe(created.id);
+  await remote.update({ delivery: null, id: member.id });
+  await remote.update({ delivery: created.id, id: member.id });
+  expect((await remote.getDelivery({ id: created.id })).history.map((row) => row.to_value)).toEqual(
+    ['joined', 'left', 'joined'],
+  );
   expect(created.created_at).toBeInstanceOf(Date);
   expect(created.agreement).toBe('Terms');
   const updated = await remote.deliveryUpdate({

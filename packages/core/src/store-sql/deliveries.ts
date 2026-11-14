@@ -2,15 +2,18 @@ import type { DeliveryHistory } from '@mimir/contract';
 import type { Kysely, Transaction } from 'kysely';
 
 import { assertBoardActive } from '../archive-lock';
+import { ENDED_TASK_LIFECYCLES, joinable, joinDelivery } from '../deliveries/membership';
+import { assertLiveDelivery, isTerminalDelivery } from '../deliveries/store';
 import type { DeliveryStore, StoredDelivery } from '../deliveries/store';
-import { assertLiveDelivery } from '../deliveries/store';
 import { notFound, validation } from '../errors';
 import type { StoreExport } from '../export';
 import { renderDeliveryRef } from '../ids';
 import { now } from '../time';
 import { inLists } from './batch';
+import { appendDeliveryHistory } from './delivery-history';
 import type { StoreDialect } from './dialect';
 import type { DB, DeliveryRow, Executor } from './schema';
+import { createSqlWriter } from './writer';
 
 /**
  * The SQL store's `DeliveryStore` (MMR-676): a delivery is one row keyed by its
@@ -22,9 +25,13 @@ import type { DB, DeliveryRow, Executor } from './schema';
 const stemOf = (key: string, seq: number): string => renderDeliveryRef({ key, seq });
 
 /** A row as the seam returns it, its columns in table order (the order every echo prints). */
-function toStored(row: DeliveryRow, history: DeliveryHistory[]): StoredDelivery {
+function toStored(
+  row: DeliveryRow,
+  history: DeliveryHistory[],
+  members: string[] = [],
+): StoredDelivery {
   const { id: _id, project_key: key, ...fields } = row;
-  return { ...fields, history, key };
+  return { ...fields, history, key, members };
 }
 
 /** The history of each named delivery, in log order, keyed by its stem. */
@@ -48,6 +55,34 @@ async function historiesOf(
   return out;
 }
 
+/**
+ * The members of each named delivery, in task sequence order. The caller names
+ * only non-terminal deliveries, since a terminal one has no members; of the
+ * tasks naming one, the live ones are its members (ADR 0042).
+ */
+async function membersOf(
+  ex: Executor,
+  dialect: StoreDialect,
+  ids: readonly string[],
+): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>(ids.map((id) => [id, []]));
+  for (const chunk of inLists(ids, dialect.maxParameters)) {
+    const rows = await ex
+      .selectFrom('node')
+      .select(['id', 'delivery'])
+      .where('delivery', 'in', chunk)
+      .where('lifecycle', 'not in', ENDED_TASK_LIFECYCLES)
+      .orderBy('seq')
+      .execute();
+    for (const row of rows) {
+      if (row.delivery !== null) {
+        out.get(row.delivery)?.push(row.id);
+      }
+    }
+  }
+  return out;
+}
+
 async function storedOf(
   ex: Executor,
   dialect: StoreDialect,
@@ -61,7 +96,12 @@ async function storedOf(
     dialect,
     rows.map((row) => row.id),
   );
-  return rows.map((row) => toStored(row, histories.get(row.id) ?? []));
+  const members = await membersOf(
+    ex,
+    dialect,
+    rows.filter((row) => !isTerminalDelivery(row.lifecycle)).map((row) => row.id),
+  );
+  return rows.map((row) => toStored(row, histories.get(row.id) ?? [], members.get(row.id) ?? []));
 }
 
 /** The largest seq both stores can hold: the columns and the transfer schema are int32. */
@@ -82,20 +122,6 @@ async function lockActiveBoard(tx: Transaction<DB>, key: string): Promise<number
   return project?.last_delivery_seq ?? 0;
 }
 
-async function appendHistory(
-  tx: Transaction<DB>,
-  id: string,
-  history: readonly DeliveryHistory[],
-): Promise<void> {
-  // One row at a time, in order: the log's order is its insertion id.
-  for (const entry of history) {
-    await tx
-      .insertInto('delivery_history')
-      .values({ ...entry, delivery_id: id })
-      .execute();
-  }
-}
-
 export function createSqlDeliveryStore(db: Kysely<DB>, dialect: StoreDialect): DeliveryStore {
   return {
     create(input) {
@@ -111,7 +137,7 @@ export function createSqlDeliveryStore(db: Kysely<DB>, dialect: StoreDialect): D
           .where('key', '=', input.key)
           .execute();
         const at = now();
-        const { key, ...terms } = input;
+        const { key, tasks, ...terms } = input;
         const id = stemOf(key, seq);
         await tx
           .insertInto('delivery')
@@ -127,33 +153,55 @@ export function createSqlDeliveryStore(db: Kysely<DB>, dialect: StoreDialect): D
             updated_at: at,
           })
           .execute();
+        // Membership rides the store writer, so the sweep and `update --delivery`
+        // apply one join rule and log through one path, inside this transaction.
+        const w = createSqlWriter(tx, dialect);
+        const delivery = { id, phase: input.phase };
+        for (const taskId of tasks === undefined
+          ? await w.listChildren(input.phase)
+          : [...new Set(tasks)]) {
+          const task = await w.loadNode(taskId);
+          if (task === undefined || task.parent_id !== input.phase) {
+            throw validation(`${taskId} is not a task in the delivery phase`);
+          }
+          // The sweep takes what can join; a named task that cannot refuses the create.
+          if (tasks !== undefined || (await joinable(w, task, input.phase))) {
+            await joinDelivery(w, task, delivery);
+          }
+        }
         // Read back so the echo carries the columns in table order, as every read does.
         const row = await tx
           .selectFrom('delivery')
           .selectAll()
           .where('id', '=', id)
           .executeTakeFirstOrThrow();
-        return toStored(row, []);
+        return (await storedOf(tx, dialect, [row]))[0] ?? toStored(row, []);
       });
     },
 
-    async listForProject(key) {
-      const rows = await db
-        .selectFrom('delivery')
-        .selectAll()
-        .where('project_key', '=', key)
-        .orderBy('seq')
-        .execute();
-      return storedOf(db, dialect, rows);
+    // A read is the row, its history, and its members: one snapshot, so a join
+    // committing mid-read never shows a member without its history row.
+    listForProject(key) {
+      return dialect.snapshot(db, async (tx) => {
+        const rows = await tx
+          .selectFrom('delivery')
+          .selectAll()
+          .where('project_key', '=', key)
+          .orderBy('seq')
+          .execute();
+        return storedOf(tx, dialect, rows);
+      });
     },
 
-    async load(key, seq) {
-      const row = await db
-        .selectFrom('delivery')
-        .selectAll()
-        .where('id', '=', stemOf(key, seq))
-        .executeTakeFirst();
-      return row === undefined ? undefined : (await storedOf(db, dialect, [row]))[0];
+    load(key, seq) {
+      return dialect.snapshot(db, async (tx) => {
+        const row = await tx
+          .selectFrom('delivery')
+          .selectAll()
+          .where('id', '=', stemOf(key, seq))
+          .executeTakeFirst();
+        return row === undefined ? undefined : (await storedOf(tx, dialect, [row]))[0];
+      });
     },
 
     async patch(key, seq, patch, history = []) {
@@ -177,7 +225,7 @@ export function createSqlDeliveryStore(db: Kysely<DB>, dialect: StoreDialect): D
           .set({ ...patch, updated_at: now() })
           .where('id', '=', id)
           .execute();
-        await appendHistory(tx, id, history);
+        await appendDeliveryHistory(tx, id, history);
       });
     },
   };
@@ -209,6 +257,6 @@ export async function insertExportedDeliveries(
 ): Promise<void> {
   for (const { history, ...row } of deliveries) {
     await tx.insertInto('delivery').values(row).execute();
-    await appendHistory(tx, row.id, history);
+    await appendDeliveryHistory(tx, row.id, history);
   }
 }

@@ -33,6 +33,7 @@ export function toNode(row: NodeRow, dialect: StoreDialect): Node {
     created_at: row.created_at,
     // Body-authoritative since MMR-162: the working set leaves it null and the
     // prose is read on demand through `bodySections.readDescription`.
+    delivery: row.delivery,
     description: null,
     external_ref: row.external_ref,
     // A task row can carry NULL grooming when a binary that predates migration

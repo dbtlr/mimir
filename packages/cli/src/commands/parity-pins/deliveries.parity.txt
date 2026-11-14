@@ -12,6 +12,12 @@ exit 0
 | time_cap_minutes: 30
 | created_at: 2026-10-01T12:00:00.000Z
 | updated_at: 2026-10-01T12:00:00.000Z
+| members: MMR-3,MMR-4,MMR-6,MMR-8
+| History
+| 2026-10-01T12:00:00.000Z member: - -> joined MMR-3
+| 2026-10-01T12:00:00.000Z member: - -> joined MMR-4
+| 2026-10-01T12:00:00.000Z member: - -> joined MMR-6
+| 2026-10-01T12:00:00.000Z member: - -> joined MMR-8
 
 ### get MMR-d1 -f records
 exit 0
@@ -27,6 +33,12 @@ exit 0
 | time_cap_minutes: 30
 | created_at: 2026-10-01T12:00:00.000Z
 | updated_at: 2026-10-01T12:00:00.000Z
+| members: MMR-3,MMR-4,MMR-6,MMR-8
+| History
+| 2026-10-01T12:00:00.000Z member: - -> joined MMR-3
+| 2026-10-01T12:00:00.000Z member: - -> joined MMR-4
+| 2026-10-01T12:00:00.000Z member: - -> joined MMR-6
+| 2026-10-01T12:00:00.000Z member: - -> joined MMR-8
 
 ### deliveries -f table
 exit 0
@@ -42,6 +54,12 @@ exit 0
 | time_cap_minutes: 30
 | created_at: 2026-10-01T12:00:00.000Z
 | updated_at: 2026-10-01T12:00:00.000Z
+| members: MMR-3,MMR-4,MMR-6,MMR-8
+| History
+| 2026-10-01T12:00:00.000Z member: - -> joined MMR-3
+| 2026-10-01T12:00:00.000Z member: - -> joined MMR-4
+| 2026-10-01T12:00:00.000Z member: - -> joined MMR-6
+| 2026-10-01T12:00:00.000Z member: - -> joined MMR-8
 
 ### get MMR-d1 -f table
 exit 0
@@ -57,6 +75,12 @@ exit 0
 | time_cap_minutes: 30
 | created_at: 2026-10-01T12:00:00.000Z
 | updated_at: 2026-10-01T12:00:00.000Z
+| members: MMR-3,MMR-4,MMR-6,MMR-8
+| History
+| 2026-10-01T12:00:00.000Z member: - -> joined MMR-3
+| 2026-10-01T12:00:00.000Z member: - -> joined MMR-4
+| 2026-10-01T12:00:00.000Z member: - -> joined MMR-6
+| 2026-10-01T12:00:00.000Z member: - -> joined MMR-8
 
 ### deliveries -f json
 exit 0
@@ -81,8 +105,47 @@ exit 0
 |       "time_cap_minutes": 30,
 |       "created_at": "2026-10-01T12:00:00.000Z",
 |       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "members": [
+|         "MMR-3",
+|         "MMR-4",
+|         "MMR-6",
+|         "MMR-8"
+|       ],
 |       "elapsed_minutes": null,
-|       "history": []
+|       "history": [
+|         {
+|           "kind": "member",
+|           "from_value": null,
+|           "to_value": "joined",
+|           "reason": null,
+|           "task": "MMR-3",
+|           "at": "2026-10-01T12:00:00.000Z"
+|         },
+|         {
+|           "kind": "member",
+|           "from_value": null,
+|           "to_value": "joined",
+|           "reason": null,
+|           "task": "MMR-4",
+|           "at": "2026-10-01T12:00:00.000Z"
+|         },
+|         {
+|           "kind": "member",
+|           "from_value": null,
+|           "to_value": "joined",
+|           "reason": null,
+|           "task": "MMR-6",
+|           "at": "2026-10-01T12:00:00.000Z"
+|         },
+|         {
+|           "kind": "member",
+|           "from_value": null,
+|           "to_value": "joined",
+|           "reason": null,
+|           "task": "MMR-8",
+|           "at": "2026-10-01T12:00:00.000Z"
+|         }
+|       ]
 |     }
 |   ],
 |   "total": 1
@@ -109,14 +172,53 @@ exit 0
 |   "time_cap_minutes": 30,
 |   "created_at": "2026-10-01T12:00:00.000Z",
 |   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "members": [
+|     "MMR-3",
+|     "MMR-4",
+|     "MMR-6",
+|     "MMR-8"
+|   ],
 |   "elapsed_minutes": null,
-|   "history": []
+|   "history": [
+|     {
+|       "kind": "member",
+|       "from_value": null,
+|       "to_value": "joined",
+|       "reason": null,
+|       "task": "MMR-3",
+|       "at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "kind": "member",
+|       "from_value": null,
+|       "to_value": "joined",
+|       "reason": null,
+|       "task": "MMR-4",
+|       "at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "kind": "member",
+|       "from_value": null,
+|       "to_value": "joined",
+|       "reason": null,
+|       "task": "MMR-6",
+|       "at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "kind": "member",
+|       "from_value": null,
+|       "to_value": "joined",
+|       "reason": null,
+|       "task": "MMR-8",
+|       "at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ]
 | }
 
 ### deliveries -f jsonl
 exit 0
 --- stdout
-| {"id":"MMR-d1","project_key":"MMR","seq":1,"phase":"MMR-2","title":"Ship phase","lifecycle":"agreed","hold":"none","hold_reason":null,"agreement":"Reviewed terms","external_ref":null,"branch":null,"host":null,"harness":null,"session":null,"time_cap_minutes":30,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","elapsed_minutes":null,"history":[]}
+| {"id":"MMR-d1","project_key":"MMR","seq":1,"phase":"MMR-2","title":"Ship phase","lifecycle":"agreed","hold":"none","hold_reason":null,"agreement":"Reviewed terms","external_ref":null,"branch":null,"host":null,"harness":null,"session":null,"time_cap_minutes":30,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","members":["MMR-3","MMR-4","MMR-6","MMR-8"],"elapsed_minutes":null,"history":[{"kind":"member","from_value":null,"to_value":"joined","reason":null,"task":"MMR-3","at":"2026-10-01T12:00:00.000Z"},{"kind":"member","from_value":null,"to_value":"joined","reason":null,"task":"MMR-4","at":"2026-10-01T12:00:00.000Z"},{"kind":"member","from_value":null,"to_value":"joined","reason":null,"task":"MMR-6","at":"2026-10-01T12:00:00.000Z"},{"kind":"member","from_value":null,"to_value":"joined","reason":null,"task":"MMR-8","at":"2026-10-01T12:00:00.000Z"}]}
 
 ### get MMR-d1 -f jsonl
 exit 0
@@ -139,8 +241,47 @@ exit 0
 |   "time_cap_minutes": 30,
 |   "created_at": "2026-10-01T12:00:00.000Z",
 |   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "members": [
+|     "MMR-3",
+|     "MMR-4",
+|     "MMR-6",
+|     "MMR-8"
+|   ],
 |   "elapsed_minutes": null,
-|   "history": []
+|   "history": [
+|     {
+|       "kind": "member",
+|       "from_value": null,
+|       "to_value": "joined",
+|       "reason": null,
+|       "task": "MMR-3",
+|       "at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "kind": "member",
+|       "from_value": null,
+|       "to_value": "joined",
+|       "reason": null,
+|       "task": "MMR-4",
+|       "at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "kind": "member",
+|       "from_value": null,
+|       "to_value": "joined",
+|       "reason": null,
+|       "task": "MMR-6",
+|       "at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "kind": "member",
+|       "from_value": null,
+|       "to_value": "joined",
+|       "reason": null,
+|       "task": "MMR-8",
+|       "at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ]
 | }
 
 ### deliveries -f ids

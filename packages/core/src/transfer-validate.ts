@@ -10,6 +10,7 @@ import { isMember } from '@mimir/helpers';
 
 import { hasRedundantWorker } from './assignment';
 import { cycleEdges } from './cycles';
+import { deliveryReferenceFault } from './deliveries/membership';
 import { isTerminalDelivery } from './deliveries/store';
 import { validation } from './errors';
 import type { StoreExport } from './export';
@@ -196,6 +197,20 @@ function assertReferences(document: StoreExport): void {
       faults.push(`${field} references node ${id} outside project ${project}`);
     }
   };
+  const deliveries = new Map(
+    document.deliveries.map((d) => [
+      d.id,
+      { key: d.project_key, lifecycle: d.lifecycle, phase: d.phase },
+    ]),
+  );
+  for (const node of document.nodes) {
+    if (node.delivery !== null) {
+      const fault = deliveryReferenceFault(node, deliveries.get(node.delivery));
+      if (fault !== null) {
+        faults.push(`node ${node.id}.delivery ${node.delivery} ${fault}`);
+      }
+    }
+  }
   for (const delivery of document.deliveries) {
     projectRef(delivery.project_key, delivery.id);
     const phase = nodes.get(delivery.phase);

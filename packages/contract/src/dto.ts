@@ -391,6 +391,7 @@ export type NodeView = {
   blockOwner?: BlockOwner | null;
   externalRef?: string | null;
   /** The requester-side seed pointer (`KEY-sN`, MMR-244/245) — reference-only. */
+  delivery?: string | null;
   upstream?: string | null;
   /**
    * The in-flight resume handles (ADR 0026 Decision 3, MMR-320) — where the work

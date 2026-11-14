@@ -49,6 +49,7 @@ test('a v0.20 Norn export imports into the SQLite store and re-exports unchanged
       nodes: document.nodes.map((node) => ({
         ...node,
         block_owner: impliedOwner(node),
+        delivery: null,
         grooming: node.type === 'task' ? 'not_groomed' : null,
         worker_harness: null,
         worker_session: null,
@@ -59,7 +60,7 @@ test('a v0.20 Norn export imports into the SQLite store and re-exports unchanged
         pinned: false,
         remote: null,
       })),
-      schema_version: 9,
+      schema_version: 10,
     };
     const reexported = await target.store.export();
     expect(canonicalJson(withoutStamp(reexported))).toBe(canonicalJson(withoutStamp(withDefaults)));

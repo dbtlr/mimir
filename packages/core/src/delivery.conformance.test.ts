@@ -42,7 +42,7 @@ describe.each(backends)('delivery record ($name)', (backend) => {
     const initiative = await createInitiative(instance.store, { projectId: 'DEL', title: 'Plan' });
     const phase = await createPhase(instance.store, { parentId: initiative.id, title: 'Phase' });
     const task = await createTask(instance.store, { parentId: phase.id, title: 'Task' });
-    const delivery = await engine.deliveryCreate({ phase: phase.id, title: 'Attempt' });
+    const delivery = await engine.deliveryCreate({ phase: phase.id, tasks: [], title: 'Attempt' });
     return { delivery, engine, instance, phase: phase.id, task: task.id };
   }
 

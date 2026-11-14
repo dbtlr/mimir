@@ -520,3 +520,14 @@ and MCP timestamps are ISO strings. History entries carry `kind`, `from_value`,
   `conflict`. A terminal delivery refuses every write. `get` and `update` on
   the delivery Engine methods refuse another record's id as a `validation`
   error, and a node verb refuses a `KEY-dN` id as a `validation` error.
+
+## Delivery membership
+
+Task records carry nullable `delivery`. Delivery reads and write echoes carry
+`members`, an array of live task ids naming the delivery, in task sequence
+order. `deliveryCreate` accepts optional `tasks`: omission sweeps eligible
+tasks in the phase; an explicit list selects only those tasks atomically.
+Engine `update` accepts nullable `delivery` to join or leave. CLI and MCP
+`update --delivery none` sends null; repeatable `create delivery --task`
+selects tasks. `done` on a member is a `validation` error whose hint names
+`update <task> --delivery none`.

@@ -479,3 +479,10 @@ ahead of time rides a mounted file instead, like `MIMIR_SECRET_KEY_FILE` and
 `MIMIR_DATABASE_URL_FILE`: ADR 0041's agent token
 (`MIMIR_AGENT_TOKEN_FILE`) and git credentials (`MIMIR_GIT_CREDENTIALS_FILE`)
 do, because the unauthenticated console must not accept them.
+
+## Refinement — delivery members are not launchable (2026-11-14, MMR-682)
+
+The T3 launch's first check reads a live task naming a non-terminal delivery
+as `not_ready`, before contacting T3. Membership reserves the task for the
+delivery, so launch cannot queue it. A terminal delivery reference is not
+membership (ADR 0042).

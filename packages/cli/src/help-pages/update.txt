@@ -20,6 +20,7 @@ OPTIONS
       --size <s|m|l>            s, m, or l.
       --target <date>           A phase's target, such as 2026-11.
       --ref <ref>               A task's external reference.
+      --delivery <KEY-dN|none>  Join a delivery, or none to leave.
       --upstream <KEY-sN|none>  A task's seed on another board, or none to clear.
       --host <text>             Resume handle: the host working on it.
       --harness <text>          Main conversation: the agent harness.

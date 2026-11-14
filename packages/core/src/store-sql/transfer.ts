@@ -25,7 +25,7 @@ import type { NewAnnotationRecord, NewTransitionRecord } from '../store';
 import { now } from '../time';
 import { parseTransferDocument } from '../transfer-validate';
 import { exportArtifacts, insertExportedArtifacts } from './artifacts';
-import { insertBatched, pairKey } from './batch';
+import { inLists, insertBatched, pairKey } from './batch';
 import { createSqlBodySectionStore } from './body-sections';
 import { exportDeliveries, insertExportedDeliveries } from './deliveries';
 import type { StoreDialect } from './dialect';
@@ -555,6 +555,7 @@ async function applyImport(
     newNodes.add(node.id);
     nodeRows.push({
       ...nodeValues(node, dialect),
+      delivery: null,
       // `description` is a body section in the document and a column here, so
       // it rides the row rather than a follow-up UPDATE per node.
       description: ownedSectionsByStem.get(node.id)?.description ?? null,
@@ -643,6 +644,24 @@ async function applyImport(
     tx,
     document.deliveries.filter((delivery) => settle('deliveries', delivery.id)),
   );
+  // The references wait for their deliveries; restore them one statement per
+  // delivery and id chunk, not one round trip per task (MMR-380's batching rule).
+  const tasksByDelivery = new Map<string, string[]>();
+  for (const node of document.nodes) {
+    if (newNodes.has(node.id) && node.delivery !== null) {
+      const ids = tasksByDelivery.get(node.delivery);
+      if (ids === undefined) {
+        tasksByDelivery.set(node.delivery, [node.id]);
+      } else {
+        ids.push(node.id);
+      }
+    }
+  }
+  for (const [delivery, ids] of tasksByDelivery) {
+    for (const chunk of inLists(ids, dialect.maxParameters)) {
+      await tx.updateTable('node').set({ delivery }).where('id', 'in', chunk).execute();
+    }
+  }
   await insertExportedSeeds(tx, dialect, seeds);
   await insertScratchpads(tx, dialect, pads);
 
@@ -758,6 +777,7 @@ function nodeValues(node: Node, dialect: StoreDialect): Insertable<NodeTable> {
     branch: node.branch,
     completed_at: node.completed_at,
     created_at: node.created_at,
+    delivery: node.delivery,
     description: null,
     external_ref: node.external_ref,
     grooming: node.grooming,

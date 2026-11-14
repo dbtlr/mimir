@@ -3,8 +3,9 @@ import { beforeAll, describe, expect, test } from 'bun:test';
 
 import { Kysely, sql } from 'kysely';
 
-import { createProject } from '../../create';
+import { createInitiative, createPhase, createProject, createTask } from '../../create';
 import { LocalEngine } from '../../engine';
+import { queueTask } from '../../mutations';
 import type { Store } from '../../store';
 import { postgresDialect } from '../../store-postgres/index';
 import { createPgliteDialect } from '../../store-postgres/pglite';
@@ -257,13 +258,83 @@ describe.each(arms)('$name', (arm) => {
     const f = await arm.make();
     try {
       await seedWorkingSet(f.store);
-      await new LocalEngine(f.store).deliveryCreate({ phase: 'MMR-2', title: 'Attempt' });
+      await new LocalEngine(f.store).deliveryCreate({
+        phase: 'MMR-2',
+        tasks: [],
+        title: 'Attempt',
+      });
       await sql.raw("UPDATE project SET last_delivery_seq = 0 WHERE key = 'MMR'").execute(f.db);
 
       const findings = byCode((await f.doctor.diagnose(undefined)).findings, 'counter-behind');
       expect(findings.map((item) => [item.evidence.kind, item.where])).toEqual([
         ['delivery', 'project · last_delivery_seq'],
       ]);
+    } finally {
+      await f.close();
+    }
+  });
+
+  test(`${arm.name}: delivery references the verbs produce diagnose clean, and every other state reports invalid-delivery`, async () => {
+    const f = await arm.make();
+    try {
+      await seedWorkingSet(f.store);
+      const engine = new LocalEngine(f.store);
+      const later = await createPhase(f.store, { parentId: 'MMR-1', title: 'Later' });
+      await createProject(f.store, { key: 'OTH', name: 'Other' });
+      const otherRoot = await createInitiative(f.store, { projectId: 'OTH', title: 'Other' });
+      const otherPhase = await createPhase(f.store, { parentId: otherRoot.id, title: 'Phase' });
+      const task = async (title: string, parentId = 'MMR-2') =>
+        (await createTask(f.store, { parentId, title })).id;
+      const landedTask = await task('Landed', later.id);
+      const [missing, foreign, outside, queued, abandoned, liveOnLanded, doneOnLive] = [
+        await task('Missing'),
+        await task('Foreign'),
+        await task('Outside'),
+        await task('Queued'),
+        await task('Abandoned'),
+        await task('Live on landed'),
+        await task('Done on live'),
+      ];
+      await engine.deliveryCreate({ phase: 'MMR-2', tasks: ['MMR-4'], title: 'Live' });
+      await engine.deliveryCreate({ phase: 'MMR-2', tasks: [], title: 'Landed' });
+      await engine.deliveryCreate({ phase: otherPhase.id, tasks: [], title: 'Foreign' });
+      for (const id of [landedTask, foreign, doneOnLive]) {
+        await engine.done({ id });
+      }
+      await queueTask(f.store, queued, { session: 'reservation' });
+      await engine.abandon({ id: abandoned });
+      await arm.unconstrained(f.db, [
+        "UPDATE delivery SET lifecycle = 'landed' WHERE id IN ('MMR-d2', 'OTH-d1')",
+        `UPDATE node SET delivery = 'MMR-d2' WHERE id = '${landedTask}'`,
+      ]);
+      expect(byCode((await f.doctor.diagnose(undefined)).findings, 'invalid-delivery')).toEqual([]);
+
+      // A non-task cannot carry a reference: the column's CHECK refuses it.
+      await arm.unconstrained(f.db, [
+        `UPDATE node SET delivery = 'MMR-d99' WHERE id = '${missing}'`,
+        `UPDATE node SET delivery = 'OTH-d1' WHERE id = '${foreign}'`,
+        `UPDATE node SET delivery = 'MMR-d1', parent_id = '${later.id}' WHERE id = '${outside}'`,
+        `UPDATE node SET delivery = 'MMR-d1' WHERE id IN ('${queued}', '${abandoned}', '${doneOnLive}')`,
+        `UPDATE node SET delivery = 'MMR-d2' WHERE id = '${liveOnLanded}'`,
+      ]);
+      const findings = byCode((await f.doctor.diagnose(undefined)).findings, 'invalid-delivery');
+      const faults = new Map(findings.map((item) => [item.stem, item.message]));
+      expect([...faults.keys()].toSorted()).toEqual(
+        [missing, foreign, outside, queued, abandoned, liveOnLanded, doneOnLive].toSorted(),
+      );
+      expect(faults.get(missing)).toContain('missing delivery');
+      expect(faults.get(foreign)).toContain('another project');
+      expect(faults.get(outside)).toContain("the delivery's phase");
+      expect(faults.get(queued)).toContain('queued');
+      expect(faults.get(abandoned)).toContain('abandoned');
+      expect(faults.get(liveOnLanded)).toContain('non-terminal');
+      expect(faults.get(doneOnLive)).toContain('landed');
+      expect(findings.find((item) => item.stem === missing)).toMatchObject({
+        evidence: { delivery: 'MMR-d99' },
+        locator: `node/${missing}`,
+        scopeKey: 'MMR',
+        where: 'node · delivery',
+      });
     } finally {
       await f.close();
     }
@@ -385,7 +456,11 @@ describe.each(arms)('$name', (arm) => {
       try {
         await seedWorkingSet(f.store);
         const engine = new LocalEngine(f.store);
-        const delivery = await engine.deliveryCreate({ phase: 'MMR-2', title: 'Attempt' });
+        const delivery = await engine.deliveryCreate({
+          phase: 'MMR-2',
+          tasks: [],
+          title: 'Attempt',
+        });
         await f.store.deliveries.patch('MMR', 1, {}, [
           {
             at: '2026-09-01T00:00:00.000Z',

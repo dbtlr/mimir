@@ -135,6 +135,9 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
   if (node.externalRef !== undefined) {
     wire.external_ref = node.externalRef;
   }
+  if (node.delivery !== undefined) {
+    wire.delivery = node.delivery;
+  }
   if (node.upstream !== undefined) {
     wire.upstream = node.upstream;
   }

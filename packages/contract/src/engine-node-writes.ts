@@ -267,6 +267,7 @@ export function nodeWriteSchemas(project: z.ZodString) {
     update: {
       input: z.strictObject({
         branch: nullableText,
+        delivery: nullableText,
         description: nullableText,
         externalRef: nullableText,
         harness: nullableText,

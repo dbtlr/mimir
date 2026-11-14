@@ -25,3 +25,21 @@ mimir update MMR-d1 --agreement "Revised terms" --time-cap 60
 - **Refusals.** A terminal delivery (`landed`, `abandoned`) refuses every
   write. An archived project hides its deliveries and refuses writes to them.
   Task verbs refuse a `KEY-dN` id.
+
+## Membership
+
+Creation takes every unqueued `todo` task in the phase that is not already a
+member, including held tasks. Repeat `--task KEY-N` to select tasks instead;
+one ineligible task refuses the whole creation.
+
+`update KEY-N --delivery KEY-dN` joins an unqueued `todo` task in that
+delivery's phase. Leave with `update KEY-N --delivery none` before switching
+deliveries, queueing, moving, or finishing it alone: `done` refuses a member,
+which is finished when its delivery lands. A staged member must `return`
+before leaving or being abandoned. Task abandon clears membership. Reopen
+clears any delivery reference. A task naming only a terminal delivery is not a
+member and cannot leave.
+
+Task `get` carries `delivery`; delivery reads carry `members`, the live
+tasks naming the attempt. Joins, leaves, and task abandons append `member`
+events in the delivery history, without adding task transition rows.

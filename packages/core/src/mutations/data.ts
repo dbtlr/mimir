@@ -1,6 +1,7 @@
 import type { Priority, Size } from '@mimir/contract';
 
 import type { ArtifactMetadataPatch, ArtifactRecord } from '../artifacts/store';
+import { changeMembership } from '../deliveries/membership';
 import { deriveSet } from '../derive';
 import type { DerivationSet } from '../derive';
 import { blankProse, invariant, notFound, validation } from '../errors';
@@ -150,6 +151,8 @@ export type UpdateFields = {
   size?: Size | null;
   target?: string | null;
   externalRef?: string | null;
+  /** The task's delivery reservation (ADR 0042). */
+  delivery?: string | null;
   /** The requester-side seed pointer (`KEY-sN`), task-only, nullable (MMR-244). */
   upstream?: string | null;
   /** Container-only (phase/initiative) — opt in/out of open-ended (MMR-204). */
@@ -180,13 +183,14 @@ type _HandleValuesMatchUpdate = AssertNever<
 >;
 
 /**
- * The three update targets outside the data-plane spec (ADR 0025): `title` is
+ * The update targets outside the data-plane spec (ADR 0025): `title` is
  * always-present node identity, and `description` and `next` (MMR-321) are body
  * prose rather than scalar fields — and each applies across at least one
  * non-node kind, so none is a node-typed spec field. Everything else in the
- * {@link UpdateFields} vocabulary is a spec `update` field.
+ * {@link UpdateFields} vocabulary is a spec `update` field, except `delivery`:
+ * membership runs guarded events rather than a dumb scalar patch.
  */
-const STRUCTURAL_UPDATE_KEYS = ['description', 'next', 'title'] as const;
+const STRUCTURAL_UPDATE_KEYS = ['delivery', 'description', 'next', 'title'] as const;
 
 /** Compile guard (MMR-306): every {@link UpdateFields} key must be reachable
  * from the field spec (a `update` field) or the two structural keys — a new key
@@ -275,6 +279,10 @@ export async function updateNode(store: Store, id: string, fields: UpdateFields)
     refuseBlankProse(fields);
 
     const patch: NodePatch = {};
+    // Membership stamps the task itself, so a delivery-only update writes once.
+    if (fields.delivery !== undefined) {
+      await changeMembership(w, node, fields.delivery);
+    }
     if (fields.title !== undefined) {
       patch.title = fields.title;
     }

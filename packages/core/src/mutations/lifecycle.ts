@@ -1,3 +1,4 @@
+import { leaveOnAbandon, refuseMember, refuseMemberDone } from '../deliveries/membership';
 import { conflict, validation } from '../errors';
 import { RELEASED_HOLD } from '../hold-release';
 import type { Node } from '../model';
@@ -101,6 +102,7 @@ export async function queueTask(
 ): Promise<Node> {
   return store.transact(async (w) => {
     const task = await requireTask(w, id);
+    await refuseMember(w, task);
     if (task.lifecycle !== 'todo') {
       throw validation(`only a todo task can be queued (is ${String(task.lifecycle)})`);
     }
@@ -228,6 +230,7 @@ export async function completeTask(store: Store, id: string): Promise<Node> {
     if (task.lifecycle === 'done' || task.lifecycle === 'abandoned') {
       throw validation(`task is already ${task.lifecycle}`);
     }
+    await refuseMemberDone(w, task);
     const patch: NodePatch = {
       ...RELEASED_HOLD,
       completed_at: now(),
@@ -255,6 +258,7 @@ export async function abandonTask(store: Store, id: string, reason?: string): Pr
     if (task.lifecycle === 'done' || task.lifecycle === 'abandoned') {
       throw validation(`task is already ${task.lifecycle}`);
     }
+    await leaveOnAbandon(w, task);
     const patch: NodePatch = { ...RELEASED_HOLD, lifecycle: 'abandoned', rank: null };
     const handles = clearHandles(patch, task);
     await w.updateNode(id, patch);
@@ -294,9 +298,13 @@ export async function reopenTask(store: Store, id: string, reason?: string): Pro
     // A terminal row reads unheld, but a process that started before migration
     // 0011 ran can still have stored a hold on it; writing the released fields
     // keeps that residue from reviving here (MMR-616).
+    // A reopened task is no longer the landing its reference recorded, so the
+    // reference clears; rejoining goes through the join rules (ADR 0042). A
+    // landed delivery takes no write, so no member row is logged.
     await w.updateNode(id, {
       ...RELEASED_HOLD,
       completed_at: null,
+      delivery: null,
       lifecycle: 'in_progress',
       rank,
     });

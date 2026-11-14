@@ -88,6 +88,7 @@ function world(change: Partial<StubOptions> = {}): StubOptions {
 }
 
 type FakeTask = {
+  delivery?: string;
   id: string;
   type?: 'phase' | 'task';
   title: string;
@@ -117,7 +118,7 @@ const todo = (id: string, project = 'MMR'): FakeTask => ({
  * does; `refuseNext` makes the next queue throw, and `beforeQueue` lets a
  * test move the task first (the agent starting it).
  */
-function fakeEngine(tasks: FakeTask[]) {
+function fakeEngine(tasks: FakeTask[], deliveries: Record<string, string> = {}) {
   const remotes: Record<string, string | null> = { BRF: null, MMR: 'github.com/dbtlr/mimir' };
   const nodes = new Map(tasks.map((task) => [task.id, task]));
   const queued: Record<string, unknown>[] = [];
@@ -125,6 +126,7 @@ function fakeEngine(tasks: FakeTask[]) {
     reads: 0,
   };
   const engine = {
+    getDelivery: async ({ id }: { id: string }) => ({ id, lifecycle: deliveries[id] ?? 'agreed' }),
     getNode: async ({ id }: { id: string }) => {
       control.reads += 1;
       if (/^[A-Z]{2,4}$/.test(id)) {
@@ -164,7 +166,12 @@ function fakeEngine(tasks: FakeTask[]) {
       return node;
     },
   };
-  return { control, engine: engine as unknown as Pick<Engine, 'getNode' | 'queue'>, nodes, queued };
+  return {
+    control,
+    engine: engine as unknown as Pick<Engine, 'getNode' | 'getDelivery' | 'queue'>,
+    nodes,
+    queued,
+  };
 }
 
 /** A launch harness: a stub T3, a fake Engine, a sealed token, and a movable clock. */
@@ -173,6 +180,8 @@ function harness(
     settings?: T3Settings;
     stub?: Partial<StubOptions>;
     tasks?: FakeTask[];
+    /** Each named delivery's lifecycle; an unnamed one reads `agreed`. */
+    deliveries?: Record<string, string>;
     connected?: boolean | 'expired';
   } & Partial<T3AdapterOptions> = {},
 ) {
@@ -180,6 +189,7 @@ function harness(
   const secrets = memorySecrets();
   const fake = fakeEngine(
     options.tasks ?? [todo('MMR-1'), todo('MMR-2'), todo('BRF-1', 'BRF'), todo('ZZZ-1', 'ZZZ')],
+    options.deliveries,
   );
   const logs: string[] = [];
   const clock = { now: NOW };
@@ -367,6 +377,25 @@ describe('settings and the connection gate the launch', () => {
 });
 
 describe('step 1: the task', () => {
+  test('a delivery member reads not_ready before reaching T3', async () => {
+    const h = harness({ tasks: [{ ...todo('MMR-1'), delivery: 'MMR-d1' }] });
+    expect(await h.launch({ task: 'MMR-1' })).toEqual({ state: 'not_ready' });
+    expect(h.stub.requests).toEqual([]);
+    expect(h.fake.queued).toEqual([]);
+  });
+
+  test.each(['landed', 'abandoned'])(
+    'a task naming an ended (%s) delivery is not a member, so the launch goes on',
+    async (lifecycle) => {
+      const h = harness({
+        deliveries: { 'MMR-d1': lifecycle },
+        tasks: [{ ...todo('MMR-1'), delivery: 'MMR-d1' }],
+      });
+      expect(await h.launch({ task: 'MMR-1' })).toEqual(launched());
+      expect(h.fake.queued).toHaveLength(1);
+    },
+  );
+
   test('a task queue would not accept reads not_ready without reaching T3', async () => {
     const h = harness({
       tasks: [

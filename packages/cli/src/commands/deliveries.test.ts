@@ -38,6 +38,35 @@ describe('delivery commands', () => {
     return JSON.parse(result.stdout) as Record<string, unknown>;
   };
 
+  test('omitting --task sweeps, repeated --task selects, and update joins and leaves', async () => {
+    const phase = await board.engine.create({
+      parent: 'MMR-1',
+      title: 'Membership',
+      type: 'phase',
+    });
+    const first = await board.engine.create({ parent: phase.id, title: 'First', type: 'task' });
+    const second = await board.engine.create({ parent: phase.id, title: 'Second', type: 'task' });
+    const swept = await json('create', 'delivery', 'Sweep', '--phase', phase.id);
+    expect(swept.members).toEqual([first.id, second.id]);
+    await json('update', first.id, '--delivery', 'none');
+    await json('update', second.id, '--delivery', 'none');
+    const selected = await json(
+      'create',
+      'delivery',
+      'Select',
+      '--phase',
+      phase.id,
+      '--task',
+      first.id,
+      '--task',
+      second.id,
+    );
+    expect(selected.members).toEqual([first.id, second.id]);
+    await json('update', first.id, '--delivery', 'none');
+    const joined = await json('update', first.id, '--delivery', String(swept.id));
+    expect(joined.delivery).toBe(swept.id);
+  });
+
   test('create takes the project from the phase, never from the phase id text', async () => {
     await board.engine.create({ key: 'OTHR', name: 'Other', type: 'project' });
     const root = await board.engine.create({ parent: 'OTHR', title: 'Far', type: 'initiative' });
@@ -65,7 +94,7 @@ describe('delivery commands', () => {
       },
     ]);
     const read = await json('get', id);
-    expect(read.history).toHaveLength(1);
+    expect(read.history).toHaveLength((created.history as unknown[]).length + 1);
     expect(await json('get', id, '--col', 'history')).toEqual(read);
     const updated = await json('update', id, '--title', 'Logged again');
     expect(updated.history).toEqual(read.history);

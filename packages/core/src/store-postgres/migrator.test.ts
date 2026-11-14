@@ -80,6 +80,7 @@ test('an upgrade names the migrations it applied and lands the current version',
         '0013_runs',
         '0014_task_staged',
         '0015_delivery',
+        '0016_delivery_membership',
       ],
       from: 0,
       to: SCHEMA_VERSION,
@@ -247,7 +248,7 @@ test('0013_runs upgrades a version-12 store: an empty runs table that admits one
     );
 
     expect(await upgradeSchema(db)).toEqual({
-      applied: ['0013_runs', '0014_task_staged', '0015_delivery'],
+      applied: ['0013_runs', '0014_task_staged', '0015_delivery', '0016_delivery_membership'],
       from: 12,
       to: SCHEMA_VERSION,
     });
@@ -322,7 +323,7 @@ test('0014_task_staged upgrades a version-13 store: nodes survive, staged is adm
     );
 
     expect(await upgradeSchema(db)).toEqual({
-      applied: ['0014_task_staged', '0015_delivery'],
+      applied: ['0014_task_staged', '0015_delivery', '0016_delivery_membership'],
       from: 13,
       to: SCHEMA_VERSION,
     });

@@ -60,6 +60,7 @@ exit 0
 |       "hold_reason": null,
 |       "block_owner": null,
 |       "external_ref": null,
+|       "delivery": null,
 |       "upstream": null,
 |       "host": null,
 |       "harness": null,
@@ -86,6 +87,7 @@ exit 0
 |       "hold_reason": null,
 |       "block_owner": null,
 |       "external_ref": null,
+|       "delivery": null,
 |       "upstream": null,
 |       "host": null,
 |       "harness": null,
@@ -103,8 +105,8 @@ exit 0
 ### next -s MMR -f jsonl
 exit 0
 --- stdout
-| {"id":"MMR-3","parent":"MMR-2","status":"ready","title":"Wire the store","type":"task","summary":"one store per run","priority":"p1","size":"small","lifecycle":"todo","grooming":"groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z"}
-| {"id":"MMR-8","parent":"MMR-2","status":"ready","title":"Tidy docs","type":"task","summary":null,"priority":"p2","size":null,"lifecycle":"todo","grooming":"not_groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z"}
+| {"id":"MMR-3","parent":"MMR-2","status":"ready","title":"Wire the store","type":"task","summary":"one store per run","priority":"p1","size":"small","lifecycle":"todo","grooming":"groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"delivery":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z"}
+| {"id":"MMR-8","parent":"MMR-2","status":"ready","title":"Tidy docs","type":"task","summary":null,"priority":"p2","size":null,"lifecycle":"todo","grooming":"not_groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"delivery":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z"}
 
 ### next -s MMR --ascii
 exit 0
@@ -145,6 +147,7 @@ exit 0
 |       "hold_reason": null,
 |       "block_owner": null,
 |       "external_ref": null,
+|       "delivery": null,
 |       "upstream": null,
 |       "host": null,
 |       "harness": null,
@@ -171,6 +174,7 @@ exit 0
 |       "hold_reason": null,
 |       "block_owner": null,
 |       "external_ref": null,
+|       "delivery": null,
 |       "upstream": null,
 |       "host": null,
 |       "harness": null,
@@ -253,6 +257,7 @@ exit 0
 |       "hold_reason": null,
 |       "block_owner": null,
 |       "external_ref": null,
+|       "delivery": null,
 |       "upstream": null,
 |       "host": null,
 |       "harness": null,
@@ -323,6 +328,7 @@ exit 0
 |       "hold_reason": null,
 |       "block_owner": null,
 |       "external_ref": null,
+|       "delivery": null,
 |       "upstream": null,
 |       "host": null,
 |       "harness": null,
@@ -349,6 +355,7 @@ exit 0
 |       "hold_reason": null,
 |       "block_owner": null,
 |       "external_ref": null,
+|       "delivery": null,
 |       "upstream": null,
 |       "host": null,
 |       "harness": null,
@@ -449,6 +456,7 @@ exit 0
 |       "hold_reason": null,
 |       "block_owner": null,
 |       "external_ref": null,
+|       "delivery": null,
 |       "upstream": null,
 |       "host": null,
 |       "harness": null,
@@ -492,6 +500,7 @@ exit 0
 |       "hold_reason": null,
 |       "block_owner": null,
 |       "external_ref": null,
+|       "delivery": null,
 |       "upstream": null,
 |       "host": null,
 |       "harness": null,
@@ -808,6 +817,7 @@ exit 0
 |       "hold_reason": null,
 |       "block_owner": null,
 |       "external_ref": null,
+|       "delivery": null,
 |       "upstream": null,
 |       "host": null,
 |       "harness": null,
@@ -834,6 +844,7 @@ exit 0
 |       "hold_reason": null,
 |       "block_owner": null,
 |       "external_ref": null,
+|       "delivery": null,
 |       "upstream": null,
 |       "host": null,
 |       "harness": null,
