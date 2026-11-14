@@ -22,11 +22,12 @@ These hold for every table; the per-entity sections below don't repeat them.
   | work node (initiative/phase/task) | `KEY-seq` | `node`       |
   | artifact                          | `KEY-aN`  | `artifact`   |
   | seed                              | `KEY-sN`  | `seed`       |
+  | delivery                          | `KEY-dN`  | `delivery`   |
   | scratchpad                        | UUID v4   | `scratchpad` |
 
-  `KEY` is two to four uppercase letters (`[A-Z]{2,4}`), immutable, and consumer-supplied. `seq`/`N` are per-project sequence integers, 1-based, with one sequence each for nodes, artifacts, and seeds. A sequence component is never reused. Scratchpads are the deliberate exception to the sequenced identity grammar: their temporary identity is a cryptographically generated UUID v4.
+  `KEY` is two to four uppercase letters (`[A-Z]{2,4}`), immutable, and consumer-supplied. `seq`/`N` are per-project sequence integers, 1-based, with one sequence each for nodes, artifacts, seeds, and deliveries. A sequence component is never reused. Scratchpads are the deliberate exception to the sequenced identity grammar: their temporary identity is a cryptographically generated UUID v4.
 
-- **Sequences are counters on `project`.** `last_seq`, `last_artifact_seq`, and `last_seed_seq` hold the highest sequence handed out per kind. Allocation increments the counter inside the writing transaction, so two writers never mint one identity twice. An import writes each counter to the highest imported sequence of its kind.
+- **Sequences are counters on `project`.** `last_seq`, `last_artifact_seq`, `last_seed_seq`, and `last_delivery_seq` hold the highest sequence handed out per kind. Allocation increments the counter inside the writing transaction, so two writers never mint one identity twice. An import writes each counter to the highest imported sequence of its kind.
 
 - **Abandon, don't delete.** To retire a task, use its lifecycle (`mimir abandon`). The row and its `KEY-seq` stay, so every reference stays stable ([ADR 0006](decisions/0006-human-readable-node-ids.md)).
 
@@ -48,7 +49,7 @@ These hold for every table; the per-entity sections below don't repeat them.
 
   SQLite tables are `STRICT`, so a column holds only its declared type, as PostgreSQL enforces. `AUTOINCREMENT` never reuses an id, so a log's id order stays its append order.
 
-- **Id order is append order for the three logs.** `annotation`, `transition_log`, and `seed_history` carry a surrogate key (`id`), because their insertion order is the fact.
+- **Id order is append order for the four logs.** `annotation`, `transition_log`, `seed_history`, and `delivery_history` carry a surrogate key (`id`), because their insertion order is the fact.
 
 ---
 
@@ -61,6 +62,7 @@ These hold for every table; the per-entity sections below don't repeat them.
 - **transition / history** (`transition_log`) — the append-only log ([ADR 0003](decisions/0003-append-only-transition-log.md)), keyed to a node or (for `archive`) a project.
 - **artifact** (`artifact`, `artifact_link`) — frozen markdown blob, anchored to one project, linked to 0..N nodes ([ADR 0004](decisions/0004-artifact-model-project-anchored-flexibly-linked.md)).
 - **seed** (`seed`, `seed_history`) — the grooming-queue record ([ADR 0020](decisions/0020-seeds-grooming-queue-entity.md)): project-anchored, its own `KEY-sN` id, **not** a node.
+- **delivery** (`delivery`, `delivery_history`) — one attempt to deliver a phase through one branch ([ADR 0042](decisions/0042-the-delivery-record.md)): project-anchored like a seed, its own `KEY-dN` id, **not** a node, and it stores no status on any node.
 - **scratchpad** (`scratchpad`) — temporary, project-anchored episode state ([ADR 0027](decisions/0027-scratchpads-are-temporary-episode-state.md)), with an append-only numbered Journal and lifecycle-owned numbered Agenda. It freezes into a complete Artifact or is discarded; it is not a node or mutable Artifact.
 - **tag** (`tag`) — an opaque string applied to a project, node, or artifact ([ADR 0005](decisions/0005-grouping-axis-is-tags.md)); seeds carry no tags. The store keeps **no per-tag note or timestamp**.
 - **schema_version** — which schema the database carries (see [Schema version and migrations](#schema-version-and-migrations)).
@@ -79,8 +81,8 @@ The scope root. Categorically not a node: it doesn't complete (no status), isn't
 | `archived_at`       | text    | optional | set = archived, null = active ([ADR 0015](decisions/0015-project-archive-frozen-and-hidden.md)) |
 | `last_seq`          | integer | required | node sequence counter, default 0                                                          |
 | `last_artifact_seq` | integer | required | artifact sequence counter, default 0                                                      |
-| `last_delivery_seq` | integer | required | delivery sequence counter, default 0 |
 | `last_seed_seq`     | integer | required | seed sequence counter, default 0                                                          |
+| `last_delivery_seq` | integer | required | delivery sequence counter, default 0                                                      |
 | `next_present`      | boolean | required | whether the `## Next` narrative is set, default false                                     |
 | `next_text`         | text    | optional | the narrative prose                                                                       |
 | `pinned`            | boolean | required | the operator's "keep at hand" mark, default false; the console lists pinned projects first |
@@ -246,6 +248,38 @@ The task-side `upstream` column (see the node table) is the requester-side point
 
 `seed_history` is indexed on `(seed_id, id)`.
 
+## `delivery`
+
+One attempt to deliver a phase, or part of one, on one integration branch through one milestone pull request ([ADR 0042](decisions/0042-the-delivery-record.md)). Project-anchored like a seed, its own `KEY-dN` id, **not** a node: it stores no status on any node and never overrides a rollup.
+
+| Column             | Type    | Null     | Allowed / default                                                                 |
+| ------------------ | ------- | -------- | --------------------------------------------------------------------------------- |
+| `id`               | text    | primary  | `KEY-dN`                                                                          |
+| `project_key`      | text    | required | foreign key to `project.key`; the phase's project                                 |
+| `seq`              | integer | required | per-project delivery sequence; `(project_key, seq)` is unique                     |
+| `phase`            | text    | required | foreign key to `node.id`; the phase delivered, set at create and fixed for life  |
+| `title`            | text    | required | display title, nonblank                                                           |
+| `lifecycle`        | text    | required | `agreed` \| `running` \| `milestone` \| `landed` \| `abandoned`; starts `agreed`  |
+| `hold`             | text    | required | `none` \| `stopped` \| `paused`; starts `none`, and `none` on a terminal delivery |
+| `hold_reason`      | text    | optional | set exactly while the hold is not `none`                                          |
+| `agreement`        | text    | optional | the agreed terms, replaced whole on each write; never blank                       |
+| `external_ref`     | text    | optional | the milestone pull request                                                        |
+| `branch`           | text    | optional | the integration branch                                                            |
+| `host`             | text    | optional | the orchestrator's host, as a task's main handle                                  |
+| `harness`          | text    | optional | the orchestrator's harness                                                        |
+| `session`          | text    | optional | the orchestrator's session                                                        |
+| `time_cap_minutes` | integer | optional | a positive whole number of minutes, at most 2147483647                            |
+| `created_at`       | text    | required | ISO-8601 UTC                                                                      |
+| `updated_at`       | text    | required | ISO-8601 UTC, every write                                                         |
+
+`landed` and `abandoned` are terminal: a terminal delivery refuses every write. Elapsed time is derived on read from the first `delivery_history` row whose lifecycle enters `running`, and is never stored.
+
+## `delivery_history`
+
+A delivery's append-only log ([ADR 0003](decisions/0003-append-only-transition-log.md)), with its own closed kind set rather than the task log's: `id` (append order), `delivery_id` (foreign key), `kind` (`lifecycle` \| `hold` \| `member`), `from_value`, `to_value`, `reason`, `task`, and `at`. A `lifecycle` row moves between two lifecycle values and a `hold` row between two hold values; neither names a task. A `member` row is an event: its `from_value` is null, its `task` (foreign key to `node.id`) is set, and its `to_value` is `joined`, `left`, `released`, or `abandoned`. Creation writes no birth row, as for seeds. Delivery history is **not** in `transition_log`.
+
+`delivery_history` is indexed on `(delivery_id, id)`.
+
 ## `scratchpad`
 
 A Scratchpad is temporary, project-anchored state for one unsettled work episode ([ADR 0027](decisions/0027-scratchpads-are-temporary-episode-state.md)). Its id is a canonical lowercase UUID v4 generated by the runtime. The storage seam accepts exact UUIDs only; any human-facing prefix convenience belongs above it.
@@ -308,6 +342,9 @@ Each closed vocabulary has a `CHECK` on its column; values outside its set canno
 | `seed_history.kind` | `lifecycle`, `hold`, `dependency`, `move`, `archive` |
 | `seed.kind`                             | `idea`, `bug`, `feature`                                   |
 | `seed.lifecycle`                        | `new`, `parked`, `promoted`, `resolved`, `rejected`        |
+| `delivery.lifecycle`                    | `agreed`, `running`, `milestone`, `landed`, `abandoned`    |
+| `delivery.hold`                         | `none`, `stopped`, `paused`                                |
+| `delivery_history.kind`                 | `lifecycle`, `hold`, `member`                              |
 | `tag.entity_type`                       | `project`, `node`, `artifact` (seeds carry no tags)        |
 | `project.key`                           | two to four uppercase letters                              |
 
@@ -328,7 +365,7 @@ Query-layer outputs, intentionally **absent** from every table ([ADR 0001](decis
 
 `schema_version` holds `(version, applied_at)`, one row per applied migration. The store's version is the highest `version` present. A fresh database has no `schema_version` table.
 
-Migrations are a static, ordered list carried in the binary (`core/store-sql/migrations.ts`), forward-only: append, never edit, because a migration that has run on any store is a historical fact. Each migration's DDL is written as literal statements once per dialect, so a migration cannot be added for one backend alone. The first migration is `0001_init`, which creates every table above. `0002_grooming` adds the task-only `node.grooming` column with its `CHECK` and sets every existing task to `not_groomed`. `0003_block_owner` adds the nullable `node.block_owner` column with its `CHECK` and backfills each blocked task (`others` when it has an `upstream`, else `you`); parked and unheld tasks stay null. `0004_seed_parked` widens the `seed.lifecycle` `CHECK` to admit `parked`; Postgres replaces the constraint, and SQLite, which cannot alter a `CHECK`, rebuilds `seed` and `seed_history` with every row and history id kept. `0005_project_pinned` adds the `project.pinned` boolean, not null and false for every existing project (SQLite stores it as an integer checked to 0 or 1). `0006_project_remote` adds the nullable `project.remote` text column. `0007_task_queued` widens the task lifecycle to include queued reservations. `0008_main_worker` adds nullable worker identity and node assignment-history support, preserving every old row and log counter. `0009_device_tokens` adds the host's device-token and pairing-code tables, which hold transport credentials and never enter the transfer document ([ADR 0038](decisions/0038-device-pairing-and-the-version-window.md)). `0010_pairing_requests` replaces the pairing codes with client-requested, host-approved pairing requests. `0011_terminal_hold` releases the hold on every done or abandoned task, setting `hold` to `none` and clearing `hold_reason` and `block_owner`; it leaves `updated_at` alone, because no one edited the task. `0012_host_secrets` adds the host's `host_secrets` table, one row per secret `name` (the primary key) with its sealed `ciphertext`, `created_at`, and `updated_at`. The value is sealed with AES-256-GCM under a key kept outside the store, and like device tokens the table never enters the transfer document: export skips it, and import leaves the target host's rows intact ([ADR 0040](decisions/0040-outbound-integrations-and-host-secrets.md)). `0013_runs` adds the host's `runs` table, one row per agent run ([ADR 0041](decisions/0041-agent-runtime-on-the-host.md)): its record (`project`, `task`), `kind`, `trigger`, `state`, owning `runner`, `heartbeat_at`, `model`, token reservation and usage (non-negative counts, `bigint` on Postgres), `usage_settled` (true only when the usage is the settled total from the run's result, which replaces the reservation; otherwise it is streamed usage and an interrupted or failed run counts the larger of reservation and usage), `cost_estimate_usd`, `started_at`, `ended_at`, and `outcome`. A partial unique index on `state = 'running'` admits one running row, and the table never enters the transfer document. Each migration runs in its own transaction, so a failed step leaves the old schema intact.
+Migrations are a static, ordered list carried in the binary (`core/store-sql/migrations.ts`), forward-only: append, never edit, because a migration that has run on any store is a historical fact. Each migration's DDL is written as literal statements once per dialect, so a migration cannot be added for one backend alone. The first migration is `0001_init`, which creates every table above. `0002_grooming` adds the task-only `node.grooming` column with its `CHECK` and sets every existing task to `not_groomed`. `0003_block_owner` adds the nullable `node.block_owner` column with its `CHECK` and backfills each blocked task (`others` when it has an `upstream`, else `you`); parked and unheld tasks stay null. `0004_seed_parked` widens the `seed.lifecycle` `CHECK` to admit `parked`; Postgres replaces the constraint, and SQLite, which cannot alter a `CHECK`, rebuilds `seed` and `seed_history` with every row and history id kept. `0005_project_pinned` adds the `project.pinned` boolean, not null and false for every existing project (SQLite stores it as an integer checked to 0 or 1). `0006_project_remote` adds the nullable `project.remote` text column. `0007_task_queued` widens the task lifecycle to include queued reservations. `0008_main_worker` adds nullable worker identity and node assignment-history support, preserving every old row and log counter. `0009_device_tokens` adds the host's device-token and pairing-code tables, which hold transport credentials and never enter the transfer document ([ADR 0038](decisions/0038-device-pairing-and-the-version-window.md)). `0010_pairing_requests` replaces the pairing codes with client-requested, host-approved pairing requests. `0011_terminal_hold` releases the hold on every done or abandoned task, setting `hold` to `none` and clearing `hold_reason` and `block_owner`; it leaves `updated_at` alone, because no one edited the task. `0012_host_secrets` adds the host's `host_secrets` table, one row per secret `name` (the primary key) with its sealed `ciphertext`, `created_at`, and `updated_at`. The value is sealed with AES-256-GCM under a key kept outside the store, and like device tokens the table never enters the transfer document: export skips it, and import leaves the target host's rows intact ([ADR 0040](decisions/0040-outbound-integrations-and-host-secrets.md)). `0013_runs` adds the host's `runs` table, one row per agent run ([ADR 0041](decisions/0041-agent-runtime-on-the-host.md)): its record (`project`, `task`), `kind`, `trigger`, `state`, owning `runner`, `heartbeat_at`, `model`, token reservation and usage (non-negative counts, `bigint` on Postgres), `usage_settled` (true only when the usage is the settled total from the run's result, which replaces the reservation; otherwise it is streamed usage and an interrupted or failed run counts the larger of reservation and usage), `cost_estimate_usd`, `started_at`, `ended_at`, and `outcome`. A partial unique index on `state = 'running'` admits one running row, and the table never enters the transfer document. `0014_task_staged` widens the task lifecycle to include `staged`. `0015_delivery` adds `project.last_delivery_seq` (default 0) and the `delivery` and `delivery_history` tables. Each migration runs in its own transaction, so a failed step leaves the old schema intact.
 
 - **Newer schema than the binary.** Every normal command refuses it, on both backends. A newer schema is never downgraded; update the binary.
 - **SQLite migrates on open.** The store is one file, `store.sqlite`, in the installation's data directory. Opening creates it when absent, runs it in WAL mode with foreign keys enforced, and applies every pending migration. A file that holds tables but no schema version is refused as not a Mimir store, and the file is left as found.
@@ -340,47 +377,30 @@ The host's `/health` reports `schema` as the schema version it expects. A schema
 
 `mimir store export <file>` writes the whole store as one JSON document, and `mimir store import <file>` reads it. It is the **portable form** of the store: backend-neutral, so it moves facts between SQLite and PostgreSQL, and it is the backup for either ([ADR 0030](decisions/0030-postgres-store-backend-shared-store-bridge.md) Decision 4, [ADR 0032](decisions/0032-sqlite-local-tier-shared-sql-store.md) Decisions 5 and 6). A store from a Norn vault enters the same way: export it with mimir v0.20, then import the document (see [Moving from a Norn vault](guides/store-transfer.md#moving-from-a-norn-vault)).
 
-The document carries every **stored fact** and nothing derived. Its top level holds `schema_version` (the document's own version, separate from the database schema version: `7` since worker identity; import also reads `1` through `6`, defaulting each task to `not_groomed`, each blocked task's owner by its `upstream`, each project to unpinned, and each project's remote to none, and absent worker identity to none, and refuses any other), `exported_at` (the only field a re-export may differ in, except that a done or abandoned task carrying a hold imports unheld, at any document version), and these collections:
+The document carries every **stored fact** and nothing derived. Its top level holds `schema_version` (the document's own version, separate from the database schema version: `9` since deliveries; import also reads `1` through `8`, defaulting each task to `not_groomed`, each blocked task's owner by its `upstream`, each project to unpinned, each project's remote to none, absent worker identity to none, and absent deliveries to none with a zero delivery counter, and refuses any other), `exported_at` (the only field a re-export may differ in, except that a done or abandoned task carrying a hold imports unheld, at any document version), and these collections:
 
 | Collection     | Holds                                                                                     |
 | -------------- | ----------------------------------------------------------------------------------------- |
-| `projects`     | every project, archived included, with its `pinned` flag and its three sequence `counters` and its `remote` (a document written before `pinned` existed imports every project unpinned, and before `remote` without one) |
+| `projects`     | every project, archived included, with its `pinned` flag and its four sequence `counters` and its `remote` (a document written before `pinned` existed imports every project unpinned, and before `remote` without one) |
 | `nodes`        | every node (a document written before `grooming` existed imports its tasks as `not_groomed`; one written before `block_owner` existed gives each blocked task the owner its `upstream` implies; a done or abandoned task imports with no hold, reason, or owner; an open task with no hold and a reason is refused, MMR-621, including one an earlier release's import stored) |
 | `edges`        | the dependency edges                                                                      |
 | `tags`         | project and node tag applications (an artifact's tags ride its own record)                |
 | `annotations`  | node annotations                                                                          |
 | `artifacts`    | artifacts with frozen `content`, `source_scratch`, tags, and links                        |
 | `seeds`        | seeds with `description` and their own `history`                                          |
+| `deliveries`   | deliveries with their own ordered `history`; import writes them after the nodes they name |
 | `scratchpads`  | scratchpads, whole                                                                        |
 | `bodySections` | the owned prose of projects and nodes: `description` and the `next` narrative with its presence |
 | `transitions`  | the `transition_log` rows, with their resume handles                                      |
 
-Identity is preserved: every `KEY`, `KEY-seq`, `KEY-aN`, and `KEY-sN`, every timestamp, and the counters. Set-valued fields (tags, links) are written in one canonical order, and transitions in one canonical order, so two stores holding the same facts export byte-identical documents (apart from `exported_at`).
+Identity is preserved: every `KEY`, `KEY-seq`, `KEY-aN`, `KEY-sN`, and `KEY-dN`, every timestamp, and the counters. Set-valued fields (tags, links) are written in one canonical order, and transitions in one canonical order, so two stores holding the same facts export byte-identical documents (apart from `exported_at`).
 
 Export is **fail-closed**: it refuses, and names the records, when the store holds something the document cannot carry, so a backup is never quietly narrower than the store. Import validates the whole document before it touches the target. The preview and the apply run the same transaction, and the preview rolls it back. See the [store transfer guide](guides/store-transfer.md#back-up) for the operator workflow.
 
 ## Constraints and diagnostics
 
-The database enforces integrity itself: a foreign key for every single-valued reference, a primary key for every identity, and a `CHECK` over each closed vocabulary. `tag.entity_id`, `scratchpad.anchors`, `seed.spawned`, `seed.requester`, and `artifact.source_scratch` carry no foreign key. A record that fails a constraint cannot be written. `mimir doctor` therefore reports a short list on either backend: a schema version mismatch, a dangling parent or dependency reference, a sequence counter behind its rows, an orphan artifact link or scratchpad anchor, and a stored timestamp other than the canonical UTC instant. Doctor only reports; there is no repair pass. The findings a rollout cannot produce — a dangling reference, a counter behind its rows, an orphan link — point at a hand edit of the database. A malformed timestamp can also arrive through import, which copies every timestamp but a scratchpad's as it stands: a v0.20 export can carry a legacy empty `updated_at`, which sorts before every real instant.
+The database enforces integrity itself: a foreign key for every single-valued reference, a primary key for every identity, and a `CHECK` over each closed vocabulary. `tag.entity_id`, `scratchpad.anchors`, `seed.spawned`, `seed.requester`, and `artifact.source_scratch` carry no foreign key. A record that fails a constraint cannot be written. `mimir doctor` therefore reports a short list on either backend: a schema version mismatch, a dangling parent or dependency reference, a sequence counter behind its rows, an orphan artifact link or scratchpad anchor, and a stored timestamp other than the canonical UTC instant. Doctor only reports; there is no repair pass. The findings a rollout cannot produce — a dangling reference, a counter behind its rows, an orphan link — point at a hand edit of the database. A malformed timestamp can also arrive through import, which copies every timestamp but a scratchpad's and a delivery's as it stands: a v0.20 export can carry a legacy empty `updated_at`, which sorts before every real instant.
 
 ## Status
 
 The schema is **settled and maintained**: the tables, the value sets, and the timestamp format above are the shape the store's read and write paths are built from. It moves with the model — a schema-affecting change adds a migration and updates this reference in step.
-
-## Delivery records
-
-Migration `0015_delivery` adds `project.last_delivery_seq` (default `0`) and
-two tables. `delivery` is project-anchored, with `id` (`KEY-dN`), `project_key`,
-`seq`, immutable `phase` (a node reference), `title`, `lifecycle` (`agreed`,
-`running`, `milestone`, `landed`, `abandoned`), `hold` (`none`, `stopped`,
-`paused`), `hold_reason`, `agreement`, `external_ref`, `branch`, `host`,
-`harness`, `session`, nullable positive integer `time_cap_minutes`, `created_at`,
-and `updated_at`. `(project_key, seq)` is unique. Creation defaults to `agreed`
-and `none`.
-
-`delivery_history` has an auto-incrementing `id`, `delivery_id`, `kind`
-(`lifecycle`, `hold`, `member`), `from_value`, `to_value`, `reason`, nullable
-`task` (a node reference), and `at`. Creation writes no birth row, following
-seeds. Store export version 9 carries each delivery with its ordered history
-and the fourth project counter. Older exports import with no deliveries and a
-zero delivery counter. Import writes nodes before deliveries.
