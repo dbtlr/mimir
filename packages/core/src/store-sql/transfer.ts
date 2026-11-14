@@ -25,7 +25,7 @@ import type { NewAnnotationRecord, NewTransitionRecord } from '../store';
 import { now } from '../time';
 import { parseTransferDocument } from '../transfer-validate';
 import { exportArtifacts, insertExportedArtifacts } from './artifacts';
-import { insertBatched, pairKey } from './batch';
+import { inLists, insertBatched, pairKey } from './batch';
 import { createSqlBodySectionStore } from './body-sections';
 import { exportDeliveries, insertExportedDeliveries } from './deliveries';
 import type { StoreDialect } from './dialect';
@@ -644,13 +644,17 @@ async function applyImport(
     tx,
     document.deliveries.filter((delivery) => settle('deliveries', delivery.id)),
   );
+  // The references wait for their deliveries; restore them one statement per
+  // delivery and id chunk, not one round trip per task (MMR-380's batching rule).
+  const tasksByDelivery = new Map<string, string[]>();
   for (const node of document.nodes) {
     if (newNodes.has(node.id) && node.delivery !== null) {
-      await tx
-        .updateTable('node')
-        .set({ delivery: node.delivery })
-        .where('id', '=', node.id)
-        .execute();
+      tasksByDelivery.set(node.delivery, [...(tasksByDelivery.get(node.delivery) ?? []), node.id]);
+    }
+  }
+  for (const [delivery, ids] of tasksByDelivery) {
+    for (const chunk of inLists(ids, dialect.maxParameters)) {
+      await tx.updateTable('node').set({ delivery }).where('id', 'in', chunk).execute();
     }
   }
   await insertExportedSeeds(tx, dialect, seeds);
