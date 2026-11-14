@@ -41,6 +41,7 @@ const STORE_SCOPE = 'store';
 /** The closed code vocabulary this backend reports. */
 type SqlCheck =
   | 'counter-behind'
+  | 'invalid-delivery'
   | 'dangling-edge'
   | 'dangling-parent'
   | 'malformed-timestamp'
@@ -463,6 +464,24 @@ async function countRecords(db: Kysely<DB>): Promise<Map<string, number>> {
   return new Map(rows.rows.map((row) => [row.key, Number(row.records)]));
 }
 
+async function checkDeliveryReferences(db: Kysely<DB>): Promise<DoctorFinding[]> {
+  const rows = await sql<{ id: string; delivery: string }>`
+    select n.id, n.delivery from node n left join delivery d on d.id = n.delivery
+    where n.delivery is not null and
+      (n.type <> 'task' or d.id is null or n.project_key <> d.project_key or n.parent_id is null or n.parent_id <> d.phase)
+  `.execute(db);
+  return rows.rows.map((row) =>
+    finding({
+      check: 'invalid-delivery',
+      evidence: { delivery: row.delivery },
+      locator: `node/${row.id}`,
+      message: 'delivery must name an attempt in the task project whose phase is its parent',
+      stem: row.id,
+      where: 'delivery',
+    }),
+  );
+}
+
 /** Findings for `scope`, or all of them when the run is unscoped. */
 async function diagnose(
   db: Kysely<DB>,
@@ -478,6 +497,7 @@ async function diagnose(
   }
   const findings = (
     await Promise.all([
+      checkDeliveryReferences(db),
       checkDanglingParent(db),
       checkDanglingEdge(db),
       checkCounterBehind(db),
@@ -500,6 +520,7 @@ const CAUSES: Readonly<Record<string, string>> = {
   'counter-behind': 'counter behind',
   'dangling-edge': 'dangling dependency',
   'dangling-parent': 'dangling parent',
+  'invalid-delivery': 'invalid delivery reference',
   'malformed-timestamp': 'malformed timestamp',
   'orphan-link': 'orphan link',
   'schema-version': 'schema version mismatch',

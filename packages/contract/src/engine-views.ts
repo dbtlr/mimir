@@ -62,6 +62,7 @@ export function nodeSchema<T extends z.ZodType>(instant: T) {
     children: z.array(nodeRefSchema).optional(),
     completedAt: instant.nullable().optional(),
     createdAt: instant,
+    delivery: z.string().nullable().optional(),
     deps: z
       .object({
         awaitingOn: z.array(nodeRefSchema.extend({ via: z.string().optional() })),

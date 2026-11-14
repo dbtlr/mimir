@@ -176,6 +176,7 @@ function fieldPairs(node: NodeView, p: Presentation): [string, string][] {
     ['pinned', node.pinned === true ? 'yes' : undefined],
     ['remote', node.remote],
     ['external ref', node.externalRef],
+    ['delivery', node.delivery],
     ['upstream', node.upstream],
     ['host', node.host],
     ['harness', node.harness],

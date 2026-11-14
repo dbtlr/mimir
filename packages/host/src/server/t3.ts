@@ -61,7 +61,7 @@ export type T3AdapterOptions = {
   settings: T3Settings;
   secrets: HostSecretStore;
   /** The Engine reads the catalog and launch use, and the queue write a launch ends with. */
-  engine: Pick<Engine, 'getNode' | 'queue'>;
+  engine: Pick<Engine, 'getNode' | 'getDelivery' | 'queue'>;
   /** The host build, sent as the MCP client version. */
   version: string;
   fetch?: T3Fetch;
@@ -565,7 +565,13 @@ export function createT3Adapter(options: T3AdapterOptions) {
    * Step 1: whether this attempt already launched (its thread is the task's
    * main session), or the task may be queued; otherwise `taken` or `not_ready`.
    */
-  const checkTask = (input: T3LaunchRequest, task: Task): 'go' | T3LaunchResult => {
+  const checkTask = async (input: T3LaunchRequest, task: Task): Promise<'go' | T3LaunchResult> => {
+    if (task.delivery && task.lifecycle !== 'done' && task.lifecycle !== 'abandoned') {
+      const delivery = await engine.getDelivery({ id: task.delivery });
+      if (delivery.lifecycle !== 'landed' && delivery.lifecycle !== 'abandoned') {
+        return { state: 'not_ready' };
+      }
+    }
     const thread = attempts.thread(input.attempt);
     const open = task.lifecycle !== undefined && OPEN_LIFECYCLES.has(task.lifecycle);
     if (task.type === 'task' && open && thread !== undefined && task.session === thread.threadId) {
@@ -657,7 +663,7 @@ export function createT3Adapter(options: T3AdapterOptions) {
       return { field: 'attempt', state: 'invalid' };
     }
     const task = await engine.getNode({ facets: ['home'], id: input.task });
-    const step1 = checkTask(input, task);
+    const step1 = await checkTask(input, task);
     if (step1 !== 'go') {
       return step1;
     }

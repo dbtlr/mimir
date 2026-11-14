@@ -99,6 +99,7 @@ export const transferSchema = z.object({
         branch: nullableText,
         completed_at: nullableText,
         created_at: text,
+        delivery: nullableText.optional(),
         description: nullableText,
         external_ref: nullableText,
         // Absent in a document written before the field existed (ADR 0033); the
@@ -143,6 +144,7 @@ export const transferSchema = z.object({
           ...node,
           block_owner:
             node.block_owner ?? (node.hold === 'blocked' ? defaultBlockOwner(node.upstream) : null),
+          delivery: node.delivery ?? null,
           grooming: node.grooming ?? (node.type === 'task' ? ('not_groomed' as const) : null),
           worker_harness: node.worker_harness ?? null,
           worker_session: node.worker_session ?? null,
@@ -190,6 +192,7 @@ export const transferSchema = z.object({
       z.literal(6),
       z.literal(7),
       z.literal(8),
+      z.literal(9),
       z.literal(STORE_EXPORT_SCHEMA_VERSION),
     ])
     .transform((): typeof STORE_EXPORT_SCHEMA_VERSION => STORE_EXPORT_SCHEMA_VERSION),

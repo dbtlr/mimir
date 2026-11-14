@@ -257,7 +257,11 @@ describe.each(arms)('$name', (arm) => {
     const f = await arm.make();
     try {
       await seedWorkingSet(f.store);
-      await new LocalEngine(f.store).deliveryCreate({ phase: 'MMR-2', title: 'Attempt' });
+      await new LocalEngine(f.store).deliveryCreate({
+        phase: 'MMR-2',
+        tasks: [],
+        title: 'Attempt',
+      });
       await sql.raw("UPDATE project SET last_delivery_seq = 0 WHERE key = 'MMR'").execute(f.db);
 
       const findings = byCode((await f.doctor.diagnose(undefined)).findings, 'counter-behind');
@@ -385,7 +389,11 @@ describe.each(arms)('$name', (arm) => {
       try {
         await seedWorkingSet(f.store);
         const engine = new LocalEngine(f.store);
-        const delivery = await engine.deliveryCreate({ phase: 'MMR-2', title: 'Attempt' });
+        const delivery = await engine.deliveryCreate({
+          phase: 'MMR-2',
+          tasks: [],
+          title: 'Attempt',
+        });
         await f.store.deliveries.patch('MMR', 1, {}, [
           {
             at: '2026-09-01T00:00:00.000Z',

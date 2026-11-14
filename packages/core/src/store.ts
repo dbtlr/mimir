@@ -13,7 +13,7 @@ import type {
 
 import type { ArtifactStore } from './artifacts/store';
 import type { BodySectionStore, NextFacet } from './body-sections/store';
-import type { DeliveryStore } from './deliveries/store';
+import type { StoredDelivery, DeliveryStore } from './deliveries/store';
 import type { ImportOptions, ImportReport, StoreExport } from './export';
 import type { Artifact, Dependency, Node, Project } from './model';
 import type { ScratchpadStore } from './scratchpads/store';
@@ -99,6 +99,8 @@ export type NewNodeRecord = {
   size?: Size | null;
   rank?: number | null;
   external_ref?: string | null;
+  /** The task's delivery reservation (ADR 0042). */
+  delivery?: string | null;
   /** The requester-side seed pointer (`KEY-sN`), nullable (MMR-244). */
   upstream?: string | null;
   /** The in-flight resume handles (ADR 0026 Decision 3, MMR-320). */
@@ -131,6 +133,8 @@ export type NodePatch = {
   size?: Size | null;
   rank?: number | null;
   external_ref?: string | null;
+  /** The task's delivery reservation (ADR 0042). */
+  delivery?: string | null;
   /** The requester-side seed pointer (`KEY-sN`), nullable (MMR-244). */
   upstream?: string | null;
   /** The in-flight resume handles (ADR 0026 Decision 3, MMR-320) — `null` clears. */
@@ -214,6 +218,14 @@ export type RankedTask = {
  * it (MMR-379).
  */
 export type StoreWriter = {
+  loadDelivery: (
+    id: string,
+  ) => Promise<Pick<StoredDelivery, 'phase' | 'lifecycle' | 'key'> | undefined>;
+  appendDeliveryMember: (
+    delivery: string,
+    task: string,
+    event: 'joined' | 'left' | 'abandoned',
+  ) => Promise<void>;
   /** The in-scope bulk snapshot the mutation guards derive over. */
   loadWorkingSet: () => Promise<WorkingSet>;
 

@@ -88,6 +88,10 @@ export function createDeliveryCommand(ports: Ports) {
   })
     .argument('title', { description: 'The delivery title.' })
     .option('phase', { ...text('The phase this attempt delivers.'), required: true })
+    .option('task', {
+      ...text('Only include this task; repeat for several tasks.'),
+      multiple: true,
+    })
     .option('agreement', text('The whole delivery agreement.'))
     .option('ref', text('The milestone pull request.'))
     .option('branch', text('The integration branch.'))
@@ -112,6 +116,7 @@ export function createDeliveryCommand(ports: Ports) {
             host: options.host,
             phase: options.phase,
             session: options.session,
+            tasks: options.task.length === 0 ? undefined : options.task,
             time_cap_minutes: timeCap,
             title,
           }),

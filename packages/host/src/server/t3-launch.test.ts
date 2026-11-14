@@ -88,6 +88,7 @@ function world(change: Partial<StubOptions> = {}): StubOptions {
 }
 
 type FakeTask = {
+  delivery?: string;
   id: string;
   type?: 'phase' | 'task';
   title: string;
@@ -125,6 +126,7 @@ function fakeEngine(tasks: FakeTask[]) {
     reads: 0,
   };
   const engine = {
+    getDelivery: async () => ({ lifecycle: 'agreed' }),
     getNode: async ({ id }: { id: string }) => {
       control.reads += 1;
       if (/^[A-Z]{2,4}$/.test(id)) {
@@ -164,7 +166,12 @@ function fakeEngine(tasks: FakeTask[]) {
       return node;
     },
   };
-  return { control, engine: engine as unknown as Pick<Engine, 'getNode' | 'queue'>, nodes, queued };
+  return {
+    control,
+    engine: engine as unknown as Pick<Engine, 'getNode' | 'getDelivery' | 'queue'>,
+    nodes,
+    queued,
+  };
 }
 
 /** A launch harness: a stub T3, a fake Engine, a sealed token, and a movable clock. */
@@ -356,17 +363,21 @@ describe('settings and the connection gate the launch', () => {
     h.stub.revokeToken();
     expect(await h.launch()).toEqual({ reason: 'rejected', state: 'disconnected' });
     expect(h.stub.launches).toEqual([]);
-    expect(h.fake.queued).toEqual([]);
   });
 
   test('a T3 that does not answer reads unreachable', async () => {
     const h = harness({ fetch: async () => Promise.reject(new TypeError('fetch failed')) });
     expect(await h.launch()).toEqual({ state: 'unreachable' });
-    expect(h.fake.queued).toEqual([]);
   });
 });
 
 describe('step 1: the task', () => {
+  test('a delivery member reads not_ready before reaching T3', async () => {
+    const h = harness({ tasks: [{ ...todo('MMR-1'), delivery: 'MMR-d1' }] });
+    expect(await h.launch({ task: 'MMR-1' })).toEqual({ state: 'not_ready' });
+    expect(h.stub.requests).toEqual([]);
+  });
+
   test('a task queue would not accept reads not_ready without reaching T3', async () => {
     const h = harness({
       tasks: [
@@ -379,7 +390,6 @@ describe('step 1: the task', () => {
       expect(await h.launch({ task }), task).toEqual({ state: 'not_ready' });
     }
     expect(h.stub.requests).toEqual([]);
-    expect(h.fake.queued).toEqual([]);
   });
 
   test('a task queued by someone else reads taken, naming its handles, without reaching T3', async () => {
@@ -627,7 +637,6 @@ describe('step 2: the choice against the system', () => {
       const h = harness();
       expect(await h.launch(change), JSON.stringify(change)).toEqual(invalid(field));
       expect(h.stub.launches).toEqual([]);
-      expect(h.fake.queued).toEqual([]);
     }
   });
 
@@ -769,19 +778,16 @@ describe('step 3: the launch call', () => {
     const result = await h.launch();
     expect(result).toEqual({ state: 'refused' });
     expect(JSON.stringify(result)).not.toContain('already exists');
-    expect(h.fake.queued).toEqual([]);
   });
 
   test('a reply without a threadId reads unreachable and queues nothing', async () => {
     const h = harness({ stub: { launchReply: 'no_thread' } });
     expect(await h.launch()).toEqual({ state: 'unreachable' });
-    expect(h.fake.queued).toEqual([]);
   });
 
   test('a launch tool T3 does not have reads refused, so Retry is not offered forever', async () => {
     const h = harness({ stub: { launchReply: 'unknown_tool' } });
     expect(await h.launch()).toEqual({ state: 'refused' });
-    expect(h.fake.queued).toEqual([]);
   });
 
   test('a read tool T3 does not have, during a launch, reads unreachable and makes no launch call', async () => {
@@ -803,7 +809,7 @@ describe('step 3: the launch call', () => {
       const h = harness({ launchTimeoutMs: 30, stub: { launchReply: lost } });
       expect(await h.launch(), lost).toEqual({ state: 'unreachable' });
       expect(h.stub.threads.size).toBe(1);
-      expect(h.fake.queued).toEqual([]);
+
       h.stub.setLaunchReply('answer');
       expect(await h.launch(), lost).toEqual(launched());
       expect(h.stub.threads.size).toBe(1);

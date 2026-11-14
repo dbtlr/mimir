@@ -51,6 +51,7 @@ type UpdateOptions = {
   size?: string;
   target?: string;
   ref?: string;
+  delivery?: string;
   upstream?: string;
   host?: string;
   harness?: string;
@@ -96,6 +97,7 @@ type Owner = 'artifact' | 'project' | 'seed';
  */
 const FIELD_FLAGS: readonly (readonly [flag: keyof UpdateOptions, owners: readonly Owner[]])[] = [
   ['branch', []],
+  ['delivery', []],
   ['desc', ['project', 'seed']],
   ['clear-desc', ['project', 'seed']],
   ['ref', []],
@@ -316,6 +318,7 @@ export function updateCommand(ports: Ports) {
       withClearHint(() =>
         engine.update({
           branch: options.branch,
+          delivery: options.delivery === 'none' ? null : options.delivery,
           description,
           externalRef: options.ref,
           harness: options.harness,
@@ -417,6 +420,7 @@ export function updateCommand(ports: Ports) {
     .option('size', text('s, m, or l.', 's|m|l'))
     .option('target', text("A phase's target, such as 2026-11.", 'date'))
     .option('ref', text("A task's external reference.", 'ref'))
+    .option('delivery', text('Join a delivery, or none to leave.', 'KEY-dN|none'))
     .option('upstream', text("A task's seed on another board, or none to clear.", 'KEY-sN|none'))
     .option('host', text('Resume handle: the host working on it.'))
     .option('harness', text('Main conversation: the agent harness.'))

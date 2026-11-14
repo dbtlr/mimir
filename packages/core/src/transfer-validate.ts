@@ -196,6 +196,21 @@ function assertReferences(document: StoreExport): void {
       faults.push(`${field} references node ${id} outside project ${project}`);
     }
   };
+  for (const node of document.nodes) {
+    if (node.delivery !== null) {
+      const delivery = document.deliveries.find((d) => d.id === node.delivery);
+      if (
+        node.type !== 'task' ||
+        delivery === undefined ||
+        delivery.project_key !== node.project_id ||
+        delivery.phase !== node.parent_id
+      ) {
+        faults.push(
+          `node ${node.id}.delivery must name a delivery in its project whose phase is its parent; only tasks carry delivery`,
+        );
+      }
+    }
+  }
   for (const delivery of document.deliveries) {
     projectRef(delivery.project_key, delivery.id);
     const phase = nodes.get(delivery.phase);

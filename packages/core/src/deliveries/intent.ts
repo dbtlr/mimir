@@ -133,7 +133,7 @@ export async function createDelivery(
   store: Store,
   input: EngineInput<'deliveryCreate'>,
 ): Promise<DeliveryView> {
-  const { phase, ...terms } = input;
+  const { phase, tasks, ...terms } = input;
   const patch = patchOf(terms);
   const { key } = await requirePhase(store, phase);
   const create: DeliveryCreate = {
@@ -147,6 +147,7 @@ export async function createDelivery(
     ...patch,
     key,
     phase,
+    tasks,
     title: input.title,
   };
   return viewOf(await store.deliveries.create(create));

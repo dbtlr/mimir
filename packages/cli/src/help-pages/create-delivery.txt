@@ -8,6 +8,7 @@ ARGUMENTS
 
 OPTIONS
       --phase <text>      The phase this attempt delivers.  (required)
+      --task <text>       Only include this task; repeat for several tasks.  (repeatable)
       --agreement <text>  The whole delivery agreement.
       --ref <text>        The milestone pull request.
       --branch <text>     The integration branch.

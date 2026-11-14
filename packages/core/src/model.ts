@@ -58,6 +58,7 @@ export type Node = {
   /** The requester-side pointer at a seed (`KEY-sN`), nullable (MMR-244). Reference
    * only in v1 (explicit block/unblock on the requester task); a gating cross-project
    * dependency is deferred. Round-trips through the store like `external_ref`. */
+  delivery: string | null;
   upstream: string | null;
   /**
    * The in-flight execution metadata — the **resume handles** (ADR 0026

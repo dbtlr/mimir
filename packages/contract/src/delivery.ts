@@ -56,6 +56,7 @@ export const deliveryRecordSchema = z.strictObject({
 export const deliveryViewSchema = deliveryRecordSchema.extend({
   elapsed_minutes: z.number().nonnegative().nullable(),
   history: z.array(deliveryHistorySchema),
+  members: z.array(z.string()),
 });
 export const deliveryEngineSchema = deliveryViewSchema.extend({
   created_at: z.date(),
@@ -93,6 +94,7 @@ export function deliverySchemas<P extends z.ZodType<string>>(project: P) {
       input: z.strictObject({
         ...deliveryFields,
         phase: z.string(),
+        tasks: z.array(z.string()).optional(),
         title: z.string().min(1),
       }),
       kind: 'mutation',

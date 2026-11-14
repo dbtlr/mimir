@@ -1,3 +1,4 @@
+import { memberDelivery, refuseMember } from '../deliveries/membership';
 import { conflict, validation } from '../errors';
 import { RELEASED_HOLD } from '../hold-release';
 import type { Node } from '../model';
@@ -101,6 +102,7 @@ export async function queueTask(
 ): Promise<Node> {
   return store.transact(async (w) => {
     const task = await requireTask(w, id);
+    await refuseMember(w, task);
     if (task.lifecycle !== 'todo') {
       throw validation(`only a todo task can be queued (is ${String(task.lifecycle)})`);
     }
@@ -255,6 +257,14 @@ export async function abandonTask(store: Store, id: string, reason?: string): Pr
     if (task.lifecycle === 'done' || task.lifecycle === 'abandoned') {
       throw validation(`task is already ${task.lifecycle}`);
     }
+    const member = await memberDelivery(w, task);
+    if (member !== null && task.lifecycle === 'staged') {
+      throw validation('a staged member cannot be abandoned', `return ${id} first`);
+    }
+    if (member !== null) {
+      await w.updateNode(id, { delivery: null });
+      await w.appendDeliveryMember(member, id, 'abandoned');
+    }
     const patch: NodePatch = { ...RELEASED_HOLD, lifecycle: 'abandoned', rank: null };
     const handles = clearHandles(patch, task);
     await w.updateNode(id, patch);
@@ -288,6 +298,9 @@ export async function reopenTask(store: Store, id: string, reason?: string): Pro
       throw validation(
         `only a done or abandoned task can be reopened (is ${String(task.lifecycle)})`,
       );
+    }
+    if (task.delivery !== null && (await w.loadDelivery(task.delivery))?.lifecycle === 'landed') {
+      await w.updateNode(id, { delivery: null });
     }
     // re-enter the rankable set at the bottom (a reopen is a natural re-triage point)
     const rank = await appendRank(w, task.project_id);

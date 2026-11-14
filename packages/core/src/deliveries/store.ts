@@ -33,11 +33,13 @@ export type StoredDelivery = {
   time_cap_minutes: number | null;
   created_at: string;
   updated_at: string;
+  members: string[];
   history: DeliveryHistory[];
 };
 
 /** The terms a new delivery is written with; the verb has validated every one. */
 export type DeliveryCreate = {
+  tasks?: string[];
   /** The owning project's key, the phase's own. */
   key: string;
   phase: string;
@@ -52,11 +54,11 @@ export type DeliveryCreate = {
 };
 
 /** The fields a write replaces; an absent key is left alone, `null` clears. */
-export type DeliveryPatch = Partial<Omit<DeliveryCreate, 'key' | 'phase'>>;
+export type DeliveryPatch = Partial<Omit<DeliveryCreate, 'key' | 'phase' | 'tasks'>>;
 
 export type DeliveryStore = {
   /** Allocate the next `KEY-dN` seq and write the delivery, born `agreed` with
-   * hold `none` and no history; returns the record as written. */
+   * hold `none`, joining the selected eligible phase tasks atomically. */
   create: (input: DeliveryCreate) => Promise<StoredDelivery>;
   /** One delivery with its history, or `undefined` when absent. */
   load: (key: string, seq: number) => Promise<StoredDelivery | undefined>;

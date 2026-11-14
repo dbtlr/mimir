@@ -34,6 +34,7 @@ function newNodeRow(
     branch: row.branch ?? null,
     completed_at: null,
     created_at: timestamp,
+    delivery: row.delivery ?? null,
     description: row.description,
     external_ref: row.external_ref ?? null,
     // A task is born ungroomed; a container carries no grooming state (ADR 0033).
@@ -78,6 +79,22 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
     undefined;
 
   return {
+    async appendDeliveryMember(delivery, task, event) {
+      const at = now();
+      await tx
+        .insertInto('delivery_history')
+        .values({
+          at,
+          delivery_id: delivery,
+          from_value: null,
+          kind: 'member',
+          reason: null,
+          task,
+          to_value: event,
+        })
+        .execute();
+      await tx.updateTable('delivery').set({ updated_at: at }).where('id', '=', delivery).execute();
+    },
     async appendTransition(row: NewTransitionRecord) {
       // Fail loud on an unresolvable target rather than dropping the row: a lost
       // transition is lost History. Creation is not a transition (ADR 0003).
@@ -107,7 +124,6 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
         })
         .execute();
     },
-
     async deleteDependency(edge) {
       const deleted = await tx
         .deleteFrom('dependency')
@@ -116,7 +132,6 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
         .executeTakeFirst();
       return (deleted.numDeletedRows ?? 0n) > 0n;
     },
-
     async deleteTags(entityType, entityId, tags) {
       if (tags.length === 0) {
         return 0;
@@ -129,7 +144,6 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
         .executeTakeFirst();
       return Number(deleted.numDeletedRows ?? 0n);
     },
-
     async insertAnnotation(row) {
       if (!(await nodeExists(row.node_id))) {
         throw invariant('an annotation targets a node absent from the snapshot');
@@ -139,7 +153,6 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
         .values({ content: row.content, created_at: row.created_at, node_id: row.node_id })
         .execute();
     },
-
     async insertDependency(edge) {
       await tx
         .insertInto('dependency')
@@ -147,7 +160,6 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
         .onConflict((oc) => oc.doNothing())
         .execute();
     },
-
     async insertNode(row: NewNodeRecord): Promise<Node> {
       // The counter bump IS the allocation (ADR 0006), inside this transaction:
       // two concurrent creates serialize on the project row rather than racing.
@@ -176,7 +188,6 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
       // set reads it back as null — the prose is body-authoritative (MMR-162).
       return { ...toNode(values, dialect), description: row.description };
     },
-
     async insertProject(row: NewProjectRecord): Promise<Project> {
       const timestamp = now();
       const project: Project = {
@@ -212,7 +223,6 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
       }
       return project;
     },
-
     async insertTag(row) {
       const inserted = await tx
         .insertInto('tag')
@@ -221,7 +231,6 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
         .executeTakeFirst();
       return (inserted.numInsertedOrUpdatedRows ?? 0n) > 0n;
     },
-
     async listChildren(parentId) {
       const rows = await tx
         .selectFrom('node')
@@ -231,7 +240,6 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
         .execute();
       return rows.map((row) => row.id);
     },
-
     async listPrereqsOf(nodeId) {
       const rows = await tx
         .selectFrom('dependency')
@@ -241,7 +249,6 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
         .execute();
       return rows.map((row) => row.depends_on_node_id);
     },
-
     async listRankedTasks(projectId) {
       const rows = await tx
         .selectFrom('node')
@@ -255,7 +262,6 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
         row.rank === null ? [] : [{ id: row.id, rank: row.rank, seq: row.seq }],
       );
     },
-
     async loadArtifact(id): Promise<Artifact | undefined> {
       const row = await tx
         .selectFrom('artifact')
@@ -273,12 +279,18 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
             title: row.title,
           };
     },
-
+    async loadDelivery(id) {
+      const row = await tx
+        .selectFrom('delivery')
+        .select(['phase', 'lifecycle', 'project_key'])
+        .where('id', '=', id)
+        .executeTakeFirst();
+      return row === undefined ? undefined : { ...row, key: row.project_key };
+    },
     async loadNode(id) {
       const row = await tx.selectFrom('node').selectAll().where('id', '=', id).executeTakeFirst();
       return row === undefined ? undefined : toNode(row, dialect);
     },
-
     async loadProject(key) {
       const row = await tx
         .selectFrom('project')
@@ -287,9 +299,7 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
         .executeTakeFirst();
       return row === undefined ? undefined : toProject(row, dialect);
     },
-
     loadWorkingSet: () => loadWorkingSet(tx, dialect),
-
     async readNextSection(entityType, entityId) {
       // The two `next_*` columns on the transaction itself: read-your-writes is
       // what the transaction already gives, so a section this same `transact`
@@ -310,7 +320,6 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
         text: storedProse(row?.next_text),
       };
     },
-
     async setNextSection(entityType, entityId, write) {
       // Presence is DERIVED, never asserted by the caller (see
       // {@link NextSectionWrite}): a null text is absence, and any text is
@@ -325,7 +334,6 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
         ? tx.updateTable('node').set(values).where('id', '=', entityId).execute()
         : tx.updateTable('project').set(values).where('key', '=', entityId).execute());
     },
-
     async updateNode(id, patch) {
       if (!(await nodeExists(id))) {
         throw invariant('the record vanished mid-transaction');
@@ -342,7 +350,6 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
       }
       await tx.updateTable('node').set(columns).where('id', '=', id).execute();
     },
-
     async updateProject(key, patch) {
       if (!(await projectExists(key))) {
         throw invariant('the record vanished mid-transaction');

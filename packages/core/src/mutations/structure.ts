@@ -1,5 +1,6 @@
 import type { NodeType } from '@mimir/contract';
 
+import { refuseMember } from '../deliveries/membership';
 import { deriveSet, lineageIds, writeIntroducesDerivationCycle } from '../derive';
 import type { DerivationSet } from '../derive';
 import { validation } from '../errors';
@@ -107,6 +108,7 @@ export async function moveNode(
 ): Promise<Node> {
   return store.transact(async (w) => {
     const node = await requireNode(w, id);
+    await refuseMember(w, node);
 
     if (newParentId === null) {
       if (node.type !== 'initiative') {

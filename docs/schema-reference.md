@@ -377,7 +377,7 @@ The host's `/health` reports `schema` as the schema version it expects. A schema
 
 `mimir store export <file>` writes the whole store as one JSON document, and `mimir store import <file>` reads it. It is the **portable form** of the store: backend-neutral, so it moves facts between SQLite and PostgreSQL, and it is the backup for either ([ADR 0030](decisions/0030-postgres-store-backend-shared-store-bridge.md) Decision 4, [ADR 0032](decisions/0032-sqlite-local-tier-shared-sql-store.md) Decisions 5 and 6). A store from a Norn vault enters the same way: export it with mimir v0.20, then import the document (see [Moving from a Norn vault](guides/store-transfer.md#moving-from-a-norn-vault)).
 
-The document carries every **stored fact** and nothing derived. Its top level holds `schema_version` (the document's own version, separate from the database schema version: `9` since deliveries; import also reads `1` through `8`, defaulting each task to `not_groomed`, each blocked task's owner by its `upstream`, each project to unpinned, each project's remote to none, absent worker identity to none, and absent deliveries to none with a zero delivery counter, and refuses any other), `exported_at` (the only field a re-export may differ in, except that a done or abandoned task carrying a hold imports unheld, at any document version), and these collections:
+The document carries every **stored fact** and nothing derived. Its top level holds `schema_version` (the document's own version, separate from the database schema version: `10` since delivery membership; import also reads `1` through `9`, defaulting each task to `not_groomed`, each blocked task's owner by its `upstream`, each project to unpinned, each project's remote to none, absent worker identity to none, and absent deliveries to none with a zero delivery counter, and refuses any other), `exported_at` (the only field a re-export may differ in, except that a done or abandoned task carrying a hold imports unheld, at any document version), and these collections:
 
 | Collection     | Holds                                                                                     |
 | -------------- | ----------------------------------------------------------------------------------------- |
@@ -404,3 +404,15 @@ The database enforces integrity itself: a foreign key for every single-valued re
 ## Status
 
 The schema is **settled and maintained**: the tables, the value sets, and the timestamp format above are the shape the store's read and write paths are built from. It moves with the model — a schema-affecting change adds a migration and updates this reference in step.
+
+## Delivery membership
+
+Store migration 0016 adds nullable `node.delivery`, a foreign key to
+`delivery.id` carried only by tasks. The referenced delivery belongs to the
+task's project and its phase equals the task's parent. Transfer schema 10
+carries this field; older documents import it as null. Import writes nodes,
+then deliveries, then task references.
+
+Membership events append `delivery_history` rows in the task transaction:
+`kind=member`, `from_value=null`, `to_value=joined|left|abandoned`, and
+`task` naming the task. They add no `transition_log` rows.

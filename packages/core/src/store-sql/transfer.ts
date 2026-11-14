@@ -555,6 +555,7 @@ async function applyImport(
     newNodes.add(node.id);
     nodeRows.push({
       ...nodeValues(node, dialect),
+      delivery: null,
       // `description` is a body section in the document and a column here, so
       // it rides the row rather than a follow-up UPDATE per node.
       description: ownedSectionsByStem.get(node.id)?.description ?? null,
@@ -643,6 +644,15 @@ async function applyImport(
     tx,
     document.deliveries.filter((delivery) => settle('deliveries', delivery.id)),
   );
+  for (const node of document.nodes) {
+    if (newNodes.has(node.id) && node.delivery !== null) {
+      await tx
+        .updateTable('node')
+        .set({ delivery: node.delivery })
+        .where('id', '=', node.id)
+        .execute();
+    }
+  }
   await insertExportedSeeds(tx, dialect, seeds);
   await insertScratchpads(tx, dialect, pads);
 
@@ -758,6 +768,7 @@ function nodeValues(node: Node, dialect: StoreDialect): Insertable<NodeTable> {
     branch: node.branch,
     completed_at: node.completed_at,
     created_at: node.created_at,
+    delivery: node.delivery,
     description: null,
     external_ref: node.external_ref,
     grooming: node.grooming,

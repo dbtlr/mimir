@@ -124,6 +124,7 @@ export type NodeTable = {
   size: Size | null;
   rank: number | null;
   external_ref: string | null;
+  delivery: string | null;
   upstream: string | null;
   host: string | null;
   harness: string | null;

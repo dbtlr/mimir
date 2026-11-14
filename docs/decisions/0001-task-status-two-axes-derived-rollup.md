@@ -273,3 +273,12 @@ optional step after the review gate:
 - **Stored rows.** Migration `0014` widens the lifecycle CHECK in both stores.
   SQLite rebuilds `node` and its dependants to do so, as migration `0007` did for
   `queued`. The transfer document admits the new value.
+
+## Refinement — delivery membership reserves work (2026-11-14, MMR-682)
+
+A member is a live task naming a non-terminal delivery (ADR 0042). `queue`
+and `move` refuse a member and name `update <task> --delivery none`.
+Task `abandon` clears membership and logs `abandoned` in the delivery history.
+A staged member refuses both leave and task abandon and names `return`.
+`reopen` clears a reference to a landed delivery. Membership changes add no
+task transition kind or row.

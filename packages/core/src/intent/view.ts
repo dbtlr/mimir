@@ -78,6 +78,7 @@ export async function buildNodeView(
     view.holdReason = node.hold_reason;
     view.blockOwner = node.block_owner;
     view.externalRef = node.external_ref;
+    view.delivery = node.delivery;
     view.upstream = node.upstream;
     // The resume handles (MMR-320) ride like every other task scalar — present
     // and null when unset, so a consumer reads one stable key set per task.
