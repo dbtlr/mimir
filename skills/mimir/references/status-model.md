@@ -97,7 +97,8 @@ its branch, but not yet on `main`, such as a task merged into an integration
 branch that a later pull request lands:
 
 - `stage <id>` — `under_review → staged`. Only an `under_review` task can be
-  staged; any other refuses and names `submit`. Handles stay on the task.
+  staged; any other refuses, naming `submit` when the task was never submitted
+  (`todo`, `queued`, or `in_progress`). Handles stay on the task.
 - `done <id>` — the code reached `main` (`staged → done`).
 - `return <id> "what to change"` — the accepted work needs rework after all
   (`staged → in_progress`, back at the bottom of the rankable set).
