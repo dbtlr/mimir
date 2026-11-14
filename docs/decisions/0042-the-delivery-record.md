@@ -144,8 +144,9 @@ grammar ([ADR 0024](0024-cli-command-taxonomy.md)).
   `submit`, `stage`, `return`, `park`, `block`) are not gated by the
   delivery's lifecycle or hold.
 - **After the end.** A task keeps its reference only when `land` completed it,
-  so the reference records the delivery that landed it. `reopen` on such a task
-  clears the reference, because the landing it recorded no longer holds. A
+  so the reference records the delivery that landed it. `reopen` clears a
+  task's reference, because the landing it recorded no longer holds; a
+  reopened task rejoins only through the join rules. A
   task that names a terminal delivery is not a member, and
   `update <task> --delivery none` refuses it.
 
@@ -301,8 +302,8 @@ phases of the same design. Each records its own ADR or refinement.
   (MMR-682), the verbs with `land` and the releasing `abandon` (MMR-683), and
   the board rules (MMR-684). Accepted records gain refinements with them:
   - ADR 0001, with MMR-682: `queue`, `move`, `done`, and `abandon` on a
-    staged member refuse for a member, and `reopen` clears a reference to a
-    landed delivery.
+    staged member refuse for a member, and `reopen` clears a task's
+    reference.
   - ADR 0040, with MMR-682: the T3 launch reads a member as `not_ready`.
   - ADR 0001, with MMR-683: the release edges into `todo`.
   - ADR 0001, with MMR-684: the same-delivery dependency rule and the
