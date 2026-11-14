@@ -1,9 +1,10 @@
 import type { DeliveryHistory } from '@mimir/contract';
 import type { Kysely, Transaction } from 'kysely';
 
+import { assertBoardActive } from '../archive-lock';
 import type { DeliveryStore, StoredDelivery } from '../deliveries/store';
 import { assertLiveDelivery } from '../deliveries/store';
-import { notFound, projectNotFound } from '../errors';
+import { notFound, validation } from '../errors';
 import type { StoreExport } from '../export';
 import { renderDeliveryRef } from '../ids';
 import { now } from '../time';
@@ -63,6 +64,24 @@ async function storedOf(
   return rows.map((row) => toStored(row, histories.get(row.id) ?? []));
 }
 
+/** The largest seq both stores can hold: the columns and the transfer schema are int32. */
+const MAX_DELIVERY_SEQ = 2_147_483_647;
+
+/**
+ * Hold the board's archive lock inside the write it guards. The verbs check it
+ * first for their error; this read sits in the same transaction as the write, so
+ * an archive that commits between that check and the write cannot be overwritten.
+ */
+async function lockActiveBoard(tx: Transaction<DB>, key: string): Promise<number> {
+  const project = await tx
+    .selectFrom('project')
+    .select(['archived_at', 'last_delivery_seq'])
+    .where('key', '=', key)
+    .executeTakeFirst();
+  assertBoardActive(project, key);
+  return project?.last_delivery_seq ?? 0;
+}
+
 async function appendHistory(
   tx: Transaction<DB>,
   id: string,
@@ -81,16 +100,16 @@ export function createSqlDeliveryStore(db: Kysely<DB>, dialect: StoreDialect): D
   return {
     create(input) {
       return dialect.write(db, async (tx) => {
-        const allocated = await tx
-          .updateTable('project')
-          .set((eb) => ({ last_delivery_seq: eb('last_delivery_seq', '+', 1) }))
-          .where('key', '=', input.key)
-          .returning('last_delivery_seq')
-          .executeTakeFirst();
-        if (allocated === undefined) {
-          throw projectNotFound(input.key);
+        const last = await lockActiveBoard(tx, input.key);
+        if (last >= MAX_DELIVERY_SEQ) {
+          throw validation(`project ${input.key} has used every delivery id it can hold`);
         }
-        const seq = allocated.last_delivery_seq;
+        const seq = last + 1;
+        await tx
+          .updateTable('project')
+          .set({ last_delivery_seq: seq })
+          .where('key', '=', input.key)
+          .execute();
         const at = now();
         const { key, ...terms } = input;
         const id = stemOf(key, seq);
@@ -139,6 +158,7 @@ export function createSqlDeliveryStore(db: Kysely<DB>, dialect: StoreDialect): D
 
     async patch(key, seq, patch, history = []) {
       await dialect.write(db, async (tx) => {
+        await lockActiveBoard(tx, key);
         const id = stemOf(key, seq);
         const row = await tx
           .selectFrom('delivery')

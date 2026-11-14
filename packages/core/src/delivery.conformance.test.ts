@@ -334,6 +334,58 @@ describe.each(backends)('delivery record ($name)', (backend) => {
     }
   });
 
+  test('a create past the last int32 delivery seq is refused as validation', async () => {
+    const document = await documentWith((_delivery, doc) => {
+      Object.assign(doc, { deliveries: [] });
+      const project = doc.projects[0];
+      if (project !== undefined) {
+        project.counters.delivery = INT32_OVERFLOW - 1;
+      }
+    });
+    const target = await backend.make();
+    try {
+      await target.store.import(document, { dryRun: false, mode: 'fresh' });
+      const phase = document.nodes.find((node) => node.type === 'phase')?.id ?? '';
+      const engine = new LocalEngine(target.store);
+      expect((await errorOf(engine.deliveryCreate({ phase, title: 'Overflow' }))).code).toBe(
+        'validation',
+      );
+      expect(await engine.deliveries({ project: 'DEL' })).toEqual([]);
+    } finally {
+      await target.close();
+    }
+  });
+
+  test('the store refuses a write to an archived project inside the write itself', async () => {
+    const { engine, instance, phase } = await seeded();
+    try {
+      // The verbs check the board first; the store must hold the lock too, so an
+      // archive that lands between that check and the write cannot be overwritten.
+      await engine.archive({ id: 'DEL' });
+      const deliveries = instance.store.deliveries;
+      expect((await errorOf(deliveries.patch('DEL', 1, { title: 'After archive' }))).code).toBe(
+        'conflict',
+      );
+      const create = deliveries.create({
+        agreement: null,
+        branch: null,
+        external_ref: null,
+        harness: null,
+        host: null,
+        key: 'DEL',
+        phase,
+        session: null,
+        time_cap_minutes: null,
+        title: 'After archive',
+      });
+      expect((await errorOf(create)).code).toBe('conflict');
+      expect((await deliveries.load('DEL', 1))?.title).toBe('Attempt');
+      expect(await deliveries.load('DEL', 2)).toBeUndefined();
+    } finally {
+      await instance.close();
+    }
+  });
+
   test('the store patch writes fields and history in one write, and refuses an absent delivery', async () => {
     const { instance } = await seeded();
     try {
