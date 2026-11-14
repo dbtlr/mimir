@@ -233,6 +233,15 @@ describe.each(backends)('delivery record ($name)', (backend) => {
     }
   });
 
+  test('an imported member row that names a phase or initiative is refused', async () => {
+    for (const container of ['DEL-1', 'DEL-2']) {
+      const document = await documentWith((delivery) => {
+        delivery.history.push(member({ task: container }));
+      });
+      expect(await importRefusal(document)).toContain(`member history names ${container}`);
+    }
+  });
+
   test('an imported lifecycle row that names a task is refused', async () => {
     const document = await documentWith((delivery) => {
       delivery.lifecycle = 'running';

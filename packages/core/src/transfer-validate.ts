@@ -211,6 +211,12 @@ function assertReferences(document: StoreExport): void {
     for (const entry of delivery.history) {
       if (entry.task !== null) {
         nodeRef(entry.task, delivery.id, delivery.project_key);
+        const named = nodes.get(entry.task);
+        if (named !== undefined && named.type !== 'task') {
+          faults.push(
+            `${delivery.id} member history names ${entry.task}, a ${named.type}, not a task`,
+          );
+        }
       }
     }
   }
