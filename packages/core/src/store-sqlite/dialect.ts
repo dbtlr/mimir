@@ -26,6 +26,7 @@ import { statements as pairingRequests } from './migrations/0010-pairing-request
 import { statements as terminalHold } from './migrations/0011-terminal-hold';
 import { statements as hostSecrets } from './migrations/0012-host-secrets';
 import { statements as runs } from './migrations/0013-runs';
+import { statements as taskStaged } from './migrations/0014-task-staged';
 
 /**
  * The SQLite dialect of the shared SQL store (ADR 0032) — the local tier's
@@ -120,6 +121,7 @@ export const sqliteDialect: StoreDialect = {
     '0011_terminal_hold': terminalHold,
     '0012_host_secrets': hostSecrets,
     '0013_runs': runs,
+    '0014_task_staged': taskStaged,
   },
   // A local store migrates forward whenever it is opened (ADR 0032 Decision
   // 3), so a gap only shows to a reader that skipped the opener.

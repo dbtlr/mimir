@@ -8,6 +8,7 @@ export {
   unqueueTask,
   reopenTask,
   returnTask,
+  stageTask,
   startTask,
   submitTask,
 } from './lifecycle';

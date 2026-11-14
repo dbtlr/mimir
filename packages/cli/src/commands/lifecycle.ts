@@ -1,5 +1,5 @@
 /**
- * The fourteen uniform verbs (ADR 0025): queue, unqueue, start, submit, return,
+ * The fifteen uniform verbs (ADR 0025): queue, unqueue, start, submit, stage, return,
  * done, abandon, reopen, park, unpark, block, unblock, archive, and unarchive. Each command's
  * description, arguments, and options derive from its operation fact in
  * `OP_FACTS`; only the worked examples are hand-authored. A verb calls the
@@ -110,6 +110,9 @@ const EXAMPLES: Record<UniformVerb, { command: string; note: string }[]> = {
   ],
   reopen: [{ command: 'reopen MMR-3', note: 'back to in_progress' }],
   return: [{ command: 'return MMR-3 "needs tests"', note: 'send it back with a reason' }],
+  stage: [
+    { command: 'stage MMR-3', note: 'review passed; accepted on its branch, not yet on main' },
+  ],
   start: [
     { command: 'start MMR-3', note: 'begin the task' },
     {
@@ -341,7 +344,7 @@ const reasonArgumentFor = (verb: UniformVerb) =>
 const subjectOf = (op: OpFact): string =>
   op.seeds === true ? SUBJECT_DESCRIPTIONS.taskOrSeed : SUBJECT_DESCRIPTIONS.task;
 
-/** A task verb that takes no reason: submit, done, unblock, unpark. */
+/** A task verb that takes no reason: submit, stage, done, unblock, unpark. */
 function plainTask(verb: UniformVerb, ports: Ports) {
   return new Command(verb, header(verb))
     .argument('id', { description: subjectOf(fact(verb)), required: true })
@@ -566,6 +569,7 @@ export const unqueueVerb = (ports: Ports) => reasonedTask('unqueue', ports);
 export const startVerb = (ports: Ports) => handleVerb('start', ports);
 export const blockVerb = blockCommand;
 export const submitVerb = (ports: Ports) => plainTask('submit', ports);
+export const stageVerb = (ports: Ports) => plainTask('stage', ports);
 export const returnVerb = (ports: Ports) => reasonedTask('return', ports);
 export const doneVerb = (ports: Ports) => plainTask('done', ports);
 export const abandonVerb = (ports: Ports) => reasonedTask('abandon', ports);

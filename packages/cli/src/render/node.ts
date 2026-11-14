@@ -22,11 +22,16 @@ const STATUS_STYLE: Record<StatusWord, StatusStyle> = {
   parked: { ascii: '=', color: 90, icon: '⏸' },
   queued: { ascii: '=', color: 34, icon: '◷' },
   ready: { ascii: '*', color: 32, icon: '●' },
+  staged: { ascii: '+', color: 35, icon: '◉' },
   under_review: { ascii: '?', color: 35, icon: '◎' },
 };
 
+/** The style for a word this build does not know, such as one a newer host added. */
+const UNKNOWN_STATUS_STYLE: StatusStyle = { ascii: '?', color: 90, icon: '◌' };
+
 export function statusCell(status: StatusWord, width: number, plain: boolean): string {
-  const style = STATUS_STYLE[status];
+  const style =
+    (STATUS_STYLE as Partial<Record<string, StatusStyle>>)[status] ?? UNKNOWN_STATUS_STYLE;
   return color(`${plain ? style.ascii : style.icon} ${status.padEnd(width)}`, style.color, plain);
 }
 

@@ -62,6 +62,8 @@ export const statusChipVariants = cva(
           'bg-status-queued/12 text-status-queued-foreground inset-ring inset-ring-status-queued/24',
         ready:
           'bg-status-ready/12 text-status-ready-foreground inset-ring inset-ring-status-ready/24',
+        staged:
+          'bg-status-staged/12 text-status-staged-foreground inset-ring inset-ring-status-staged/24',
         under_review:
           'bg-status-under-review/12 text-status-under-review-foreground inset-ring inset-ring-status-under-review/24',
       },

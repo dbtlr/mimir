@@ -267,6 +267,24 @@ describe('work page sections', () => {
     expect(now).toHaveTextContent('Latest note, 9m ago: “Seam extracted”');
   });
 
+  it('keeps a staged task in Now, timed from its submit', async () => {
+    await open(
+      scope,
+      engineWork({
+        now: [
+          makeNowRow(
+            { lifecycle: 'staged', status: 'staged', title: 'Reviewed task' },
+            { startedAt: minutesAgo(180), submittedAt: minutesAgo(20) },
+          ),
+        ],
+      }),
+    );
+    const now = await section('Now · 1');
+    expect(now).toHaveTextContent('Reviewed task');
+    expect(now).toHaveTextContent(/Staged\s*·\s*submitted 20m ago/);
+    expect(now).not.toHaveTextContent(/started/i);
+  });
+
   it('shows a reservation as queued in Now', async () => {
     await open(
       scope,

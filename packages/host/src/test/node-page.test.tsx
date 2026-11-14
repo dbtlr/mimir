@@ -13,6 +13,7 @@ import {
   move,
   park,
   returnTask,
+  stage,
   scratchList,
   start,
   tag,
@@ -746,6 +747,26 @@ describe('task page verbs (MMR-453)', () => {
     await waitFor(() => {
       expect(unqueue).toHaveBeenCalledWith({ data: { id: 'MMR-417', reason: 'run cancelled' } });
     });
+  });
+
+  it('Stage on a task under review fires stage, and a staged task offers done and return', async () => {
+    const rail = await openTask(
+      engineTask({ id: 'MMR-70', lifecycle: 'under_review', status: 'under_review' }),
+    );
+
+    await userEvent.click(within(rail).getByRole('button', { name: 'Stage' }));
+
+    expect(stage).toHaveBeenCalledWith({ data: { id: 'MMR-70' } });
+  });
+
+  it('offers a staged task done and return but not stage', async () => {
+    const rail = await openTask(
+      engineTask({ id: 'MMR-71', lifecycle: 'staged', status: 'staged' }),
+    );
+
+    expect(within(rail).getByRole('button', { name: 'Mark done' })).toBeInTheDocument();
+    expect(within(rail).getByRole('button', { name: 'Send back…' })).toBeInTheDocument();
+    expect(within(rail).queryByRole('button', { name: 'Stage' })).not.toBeInTheDocument();
   });
 
   it('Approve in the verdict block fires done', async () => {

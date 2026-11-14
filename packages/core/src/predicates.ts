@@ -55,10 +55,11 @@ export type StaleOptions = {
 
 /**
  * `stale` — a task whose Status word is `in_progress`, `ready`, `blocked`, or
- * `under_review`, or `queued` and whose `updated_at` is older than the threshold (glossary).
+ * `under_review`, `staged`, or `queued` and whose `updated_at` is older than the threshold (glossary).
  * Mutes `parked` and `awaiting` (auto-clearing / deliberately set aside — don't
  * nag); chases `blocked` (untouched-for-weeks is exactly the nudge) and
- * `under_review` (a review gate nobody cleared is the same rot).
+ * `under_review` (a review gate nobody cleared is the same rot) and `staged`
+ * (code accepted on its branch that never reached `main`).
  */
 export function isStale(set: DerivationSet, task: Node, options: StaleOptions = {}): boolean {
   if (task.type !== 'task') {
@@ -70,7 +71,8 @@ export function isStale(set: DerivationSet, task: Node, options: StaleOptions = 
     word !== 'in_progress' &&
     word !== 'ready' &&
     word !== 'blocked' &&
-    word !== 'under_review'
+    word !== 'under_review' &&
+    word !== 'staged'
   ) {
     return false;
   }

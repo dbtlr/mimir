@@ -17,6 +17,7 @@ const TRANSITION_DOT: Record<string, string> = {
   in_progress: 'bg-status-in-progress',
   parked: 'bg-status-parked',
   queued: 'bg-status-queued',
+  staged: 'bg-status-staged',
   under_review: 'bg-status-under-review',
 };
 

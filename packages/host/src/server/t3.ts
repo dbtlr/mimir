@@ -396,6 +396,7 @@ const OPEN_LIFECYCLES: ReadonlySet<string> = new Set([
   'queued',
   'in_progress',
   'under_review',
+  'staged',
 ]);
 
 async function readEnvironment(mcp: McpSession, environmentId?: string) {

@@ -67,14 +67,16 @@ const AGENT_DESCRIPTIONS: Record<string, string> = {
     'Archive a project — freeze + hide it and its subtree (reversible). Optionally records a reason on the transition. Echoes the project.',
   block:
     'Mark as externally blocked. Optionally records a reason on the transition. Optional on (you|others): who can clear the block (default: others when the task has an upstream, else you). Echoes the updated node.',
-  done: 'Complete a task (approves a review). Echoes the updated node.',
+  done: 'Complete a task (approves a review or lands a staged task). Echoes the updated node.',
   park: `Put a task on hold. Optionally records a reason on the transition. Echoes the updated node.${SEED_CLAUSE}`,
   queue:
     'Reserve a task for an autonomous run (todo → queued). Requires session. Echoes the updated node.',
   reopen:
     'Reopen a terminal task (done/abandoned → in_progress). Optionally records a reason on the transition. Echoes the updated node.',
   return:
-    'Send back for changes (under_review → in_progress). Optionally records a reason on the transition. Echoes the updated node.',
+    'Send back for changes (under_review/staged → in_progress). Optionally records a reason on the transition. Echoes the updated node.',
+  stage:
+    'Mark reviewed work accepted on its branch, not yet on main (under_review → staged). Echoes the updated node.',
   start:
     'Begin a task (todo/queued → in_progress). Echoes the updated node. Preserves the main conversation. Explicit worker-session assigns a distinct whole-task owner; worker-harness is optional and is never inferred from the shell.',
   submit: 'Submit for review (in_progress → under_review). Echoes the updated node.',

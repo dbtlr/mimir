@@ -5,6 +5,7 @@ export type TransitionVerb =
   | 'start'
   | 'unqueue'
   | 'submit'
+  | 'stage'
   | 'return'
   | 'done'
   | 'abandon'
@@ -28,6 +29,7 @@ const LABEL: Record<TransitionVerb, string> = {
   park: 'Park for later',
   reopen: 'Reopen',
   return: 'Send back',
+  stage: 'Stage',
   start: 'Start',
   submit: 'Submit for review',
   unblock: 'Unblock',
@@ -65,7 +67,8 @@ const VERBS: Partial<Record<StatusWord, TransitionVerb[]>> = {
   parked: ['unpark', 'abandon'],
   queued: ['start', 'unqueue', 'done', 'abandon'],
   ready: ['start', 'park', 'block', 'abandon'],
-  under_review: ['done', 'return', 'park', 'block', 'abandon'],
+  staged: ['done', 'return', 'park', 'block', 'abandon'],
+  under_review: ['stage', 'done', 'return', 'park', 'block', 'abandon'],
 };
 
 export function availableTransitions(status: StatusWord): VerbSpec[] {

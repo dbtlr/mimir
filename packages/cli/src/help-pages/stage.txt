@@ -1,0 +1,19 @@
+mimir stage · Mark reviewed work accepted on its branch, not yet on main (under_review → staged).
+
+USAGE
+  mimir stage <id> [options]
+
+ARGUMENTS
+  id  The task: KEY-seq.
+
+OPTIONS
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help      Show this help.
+      --no-input  Ask no questions, and take every answer from options.  (default: true)
+
+EXAMPLES
+  $ mimir stage MMR-3
+    review passed; accepted on its branch, not yet on main

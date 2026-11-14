@@ -14,6 +14,7 @@ import {
   reopenTask,
   returnTask,
   startTask,
+  stageTask,
   submitTask,
 } from '../mutations';
 import { createScratchpadService } from '../scratchpads';
@@ -249,6 +250,20 @@ test('a task awaiting an in-flight prerequisite is one step away', async () => {
     status: 'in_progress',
     title: 'a',
   });
+  expect(ids(report.frontier.nextToUnlock[0]?.tasks ?? [])).toEqual([b]);
+});
+
+test('a task awaiting a staged prerequisite is one step away', async () => {
+  const a = await task(phaseA, 'a');
+  const b = await task(phaseA, 'b');
+  await depend(store, b, [a]);
+  await groomTasks(store, [b], 'groomed');
+  await startTask(store, a);
+  await submitTask(store, a);
+  await stageTask(store, a);
+
+  const report = await page('MMR');
+  expect(report.frontier.nextToUnlock.map((g) => g.prerequisite.status)).toEqual(['staged']);
   expect(ids(report.frontier.nextToUnlock[0]?.tasks ?? [])).toEqual([b]);
 });
 
@@ -634,6 +649,28 @@ test('a review in now keeps the time it was started and carries the time it was 
   const row = (await page('MMR')).now.find((n) => n.task.id === r);
   expect(row?.startedAt).toBe('2026-10-01T09:00:00.000Z');
   expect(row?.submittedAt).toBe('2026-10-03T17:00:00.000Z');
+});
+
+test('a staged task keeps its submit time, and a return from staged keeps its start', async () => {
+  const r = await task(phaseA, 'staged');
+  try {
+    setSystemTime(new Date('2026-10-01T09:00:00Z'));
+    await startTask(store, r);
+    setSystemTime(new Date('2026-10-02T09:00:00Z'));
+    await submitTask(store, r);
+    setSystemTime(new Date('2026-10-03T09:00:00Z'));
+    await stageTask(store, r);
+  } finally {
+    setSystemTime();
+  }
+  const staged = (await page('MMR')).now.find((n) => n.task.id === r);
+  expect(staged?.startedAt).toBe('2026-10-01T09:00:00.000Z');
+  expect(staged?.submittedAt).toBe('2026-10-02T09:00:00.000Z');
+
+  await returnTask(store, r, 'rework after staging');
+  const returned = (await page('MMR')).now.find((n) => n.task.id === r);
+  expect(returned?.startedAt).toBe('2026-10-01T09:00:00.000Z');
+  expect(returned?.submittedAt).toBeNull();
 });
 
 test('a review sent back and resubmitted carries its latest submit time', async () => {

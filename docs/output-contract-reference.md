@@ -23,7 +23,7 @@ Commands differ in **one axis only — how they identify rows.** Everything down
 
 Supersedes `--predicate`. Three orthogonal pieces, AND-composed; **no OR** (accepted — `--in` covers within-field any-of). The DTO field renames `state` → **`status`** in the same stroke (one word on every surface; ADR 0008 Refinement).
 
-- **`--status <word>`** — the selection **universe**. Vocabulary = the closed status words (`ready` `awaiting` `queued` `in_progress` `under_review` `blocked` `parked` `done` `abandoned`) + unions: **`live`** (the default — today's misnamed `all`), **`terminal`**, **`all`** (now honestly everything). Terminal selections order by `completed_at` desc (no rank outside the rankable set).
+- **`--status <word>`** — the selection **universe**. Vocabulary = the closed status words (`ready` `awaiting` `queued` `in_progress` `under_review` `staged` `blocked` `parked` `done` `abandoned`) + unions: **`live`** (the default — today's misnamed `all`), **`terminal`**, **`all`** (now honestly everything). Terminal selections order by `completed_at` desc (no rank outside the rankable set).
 - **`--is <verdict>` / `--not-is`** — the derived verdicts that aren't statuses: `stale`, `blocking`, `orphaned` (future `buried`). Repeatable.
 - **Field operators** — Norn's dogfooded `find` dialect, ported verbatim: `--eq`/`--not-eq FIELD:VALUE` · `--in`/`--not-in FIELD:V1,V2` (ANY-of) · `--has`/`--missing FIELD` · the five date ops `--on`/`--before`/`--after`/`--at-or-before`/`--at-or-after FIELD:DATE` ([ADR 0029](decisions/0029-caller-zoned-date-semantics.md)). Repeatable, AND-ed. **Queryable fields = the projection's bare fields** (no second vocabulary). **`tag` is a multi-valued pseudo-field**: `eq` = contains, `in` = any, `not-in` = none, `missing` = untagged.
 - **Date filters are caller-zoned** — one grammar for every date-bearing resource: the three node timestamps, an artifact's `created_at`, a seed's `created_at`. A bare `YYYY-MM-DD` is the **caller's** calendar day, resolved through one request-wide IANA timezone — the CLI's `--tz` (default: the invoking system's zone), MCP's `tz` argument, the browser's detected zone from the console. MCP and the Engine **refuse** a bare date with no zone. Windows are half-open (`on` runs from the day's opening instant up to the next day's, so a 23- or 25-hour DST day is exactly that long); `after` starts at the next day's opening instant and `at-or-before` ends there. A timestamp must carry `Z` or a numeric offset — zone-less is refused — and `before`/`after` are strict where `at-or-before`/`at-or-after` include the instant. `on` takes a bare date only.
@@ -80,7 +80,7 @@ One **flat, closed** vocabulary on every selection front-end — _the dot-facet 
 | `description`                                | all   |                                                                                                                                                             |
 | `priority`                                   | task  | `p0`–`p3` or null (signal, ADR 0007)                                                                                                                        |
 | `size`                                       | task  | `small` \| `medium` \| `large` or null                                                                                                                      |
-| `lifecycle`                                  | task  | raw axis — `todo` \| `queued` \| `in_progress` \| `under_review` \| `done` \| `abandoned`                                                                                                 |
+| `lifecycle`                                  | task  | raw axis — `todo` \| `queued` \| `in_progress` \| `under_review` \| `staged` \| `done` \| `abandoned`                                                                                    |
 | `hold`                                       | task  | raw axis — `none` \| `blocked` \| `parked`                                                                                                                  |
 | `hold_reason`                                | task  | or null                                                                                                                                                     |
 | `block_owner`                                | task  | who can clear a block (ADR 0001, `MMR-438`) — `you` \| `others` while `hold` is `blocked`, otherwise null; `--eq block_owner:you` filters; absent on a container |
@@ -300,7 +300,7 @@ refusal. Field names follow the work page's convention above.
 - `projects`: every active project, pinned first, then newest `last_activity_at`
   first, then key. Each carries `key`, `name`, and counts: `decisions`, `triage`
   (untriaged seeds + going cold + `doctor` findings), `in_flight` (status
-  `queued`, `in_progress`, or `under_review`, the `now` rows), `live` (the `--status live` group: every status other than
+  `queued`, `in_progress`, `under_review`, or `staged`, the `now` rows), `live` (the `--status live` group: every status other than
   `done` and `abandoned`, so parked work counts), and `going_cold` (tasks past the stale threshold).
 
 ## Doctor diagnostics

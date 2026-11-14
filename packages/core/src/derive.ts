@@ -178,7 +178,9 @@ export function isTerminalWord(word: StatusWord): boolean {
  * this one rule, so their counts agree.
  */
 export function isInFlightWord(word: StatusWord): boolean {
-  return word === 'queued' || word === 'in_progress' || word === 'under_review';
+  return (
+    word === 'queued' || word === 'in_progress' || word === 'under_review' || word === 'staged'
+  );
 }
 
 /** Idle = no live work under the node: an all-terminal rollup, or empty (`new`). */

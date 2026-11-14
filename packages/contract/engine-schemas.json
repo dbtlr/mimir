@@ -744,6 +744,7 @@
                               "queued",
                               "in_progress",
                               "under_review",
+                              "staged",
                               "done",
                               "abandoned"
                             ]
@@ -769,6 +770,27 @@
             "additionalProperties": false
           },
           "submit": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "stage": {
             "type": "object",
             "properties": {
               "kind": {
@@ -2150,6 +2172,7 @@
           "unqueue",
           "start",
           "submit",
+          "stage",
           "return",
           "done",
           "abandon",
@@ -2328,6 +2351,7 @@
           "queued",
           "in_progress",
           "under_review",
+          "staged",
           "done",
           "abandoned",
           "live",
@@ -3044,6 +3068,7 @@
                       "queued",
                       "in_progress",
                       "under_review",
+                      "staged",
                       "done",
                       "abandoned",
                       "new"
@@ -3117,6 +3142,20 @@
             "additionalProperties": false
           },
           "submit": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema20"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "stage": {
             "type": "object",
             "properties": {
               "kind": {
@@ -4010,6 +4049,7 @@
           "unqueue",
           "start",
           "submit",
+          "stage",
           "return",
           "done",
           "abandon",
@@ -4219,6 +4259,7 @@
           "queued",
           "in_progress",
           "under_review",
+          "staged",
           "done",
           "abandoned",
           "new"
@@ -4501,7 +4542,7 @@
           },
           "lifecycle": {
             "type": "string",
-            "enum": ["todo", "queued", "in_progress", "under_review", "done", "abandoned"]
+            "enum": ["todo", "queued", "in_progress", "under_review", "staged", "done", "abandoned"]
           },
           "next": {
             "type": "string"
@@ -4553,6 +4594,7 @@
               "queued",
               "in_progress",
               "under_review",
+              "staged",
               "done",
               "abandoned",
               "new"
@@ -4635,6 +4677,7 @@
             "queued",
             "in_progress",
             "under_review",
+            "staged",
             "done",
             "abandoned",
             "new"
@@ -5145,7 +5188,7 @@
       },
       "__schema45": {
         "type": "string",
-        "enum": ["todo", "queued", "in_progress", "under_review", "done", "abandoned"]
+        "enum": ["todo", "queued", "in_progress", "under_review", "staged", "done", "abandoned"]
       },
       "__schema46": {
         "type": "string"
@@ -5197,6 +5240,7 @@
           "queued",
           "in_progress",
           "under_review",
+          "staged",
           "done",
           "abandoned",
           "new"
@@ -5424,6 +5468,7 @@
                   "queued",
                   "in_progress",
                   "under_review",
+                  "staged",
                   "done",
                   "abandoned",
                   "new"
@@ -5623,6 +5668,7 @@
                         "queued",
                         "in_progress",
                         "under_review",
+                        "staged",
                         "done",
                         "abandoned",
                         "new",

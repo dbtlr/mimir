@@ -15,7 +15,7 @@ import {
   LocalEngine,
   startTask,
 } from '@mimir/core';
-import { createTestStore, errorOf, pairTestDevice } from '@mimir/core/testing';
+import { createTestStore, errorOf, pairTestDevice, WINDOW_VERSION } from '@mimir/core/testing';
 import type { TestStore } from '@mimir/core/testing';
 
 import { RemoteEngine } from './client';
@@ -89,7 +89,7 @@ beforeAll(async () => {
   local = new LocalEngine(store);
   const handle = createEngineHandler(local, {
     verifyToken: fixture.tokens.verify,
-    version: '0.26.0',
+    version: WINDOW_VERSION,
   });
   remote = new RemoteEngine({
     fetch: async (input, init) => {
@@ -98,7 +98,7 @@ beforeAll(async () => {
     },
     headers: { authorization },
     url: 'http://engine.test/trpc',
-    version: '0.26.0',
+    version: WINDOW_VERSION,
   });
 });
 

@@ -37,11 +37,24 @@ describe('availableTransitions', () => {
     ]);
   });
 
-  it('under_review offers approve (done) + request-changes (return) + holds (MMR-84)', () => {
+  it('under_review offers stage + approve (done) + request-changes (return) + holds (MMR-84)', () => {
     const specs = availableTransitions('under_review');
-    expect(specs.map((v) => v.verb)).toStrictEqual(['done', 'return', 'park', 'block', 'abandon']);
+    expect(specs.map((v) => v.verb)).toStrictEqual([
+      'stage',
+      'done',
+      'return',
+      'park',
+      'block',
+      'abandon',
+    ]);
     expect(specs.find((s) => s.verb === 'return')?.needsReason).toBe(true);
     expect(specs.find((s) => s.verb === 'done')?.needsReason).toBe(false);
+  });
+
+  it('staged leaves by done, return, holds, or abandon, and cannot stage again', () => {
+    const specs = availableTransitions('staged');
+    expect(specs.map((v) => v.verb)).toStrictEqual(['done', 'return', 'park', 'block', 'abandon']);
+    expect(specs.find((s) => s.verb === 'return')?.needsReason).toBe(true);
   });
 
   it('held columns offer only their release + abandon', () => {
@@ -75,6 +88,7 @@ describe('transition labels', () => {
     const labels = availableTransitions('parked').map((s) => s.label);
     expect(labels).toStrictEqual(['Resume', 'Abandon']);
     expect(availableTransitions('under_review').map((s) => s.label)).toStrictEqual([
+      'Stage',
       'Mark done',
       'Send back',
       'Park for later',

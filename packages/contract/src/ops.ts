@@ -5,8 +5,8 @@ import type { DataFieldKey } from './fields';
 
 /**
  * The operation facts (ADR 0025 Decision 3/4) — the pure-fact half of the
- * operation registry, the verb analogue of {@link FIELD_FACTS}. The fourteen
- * **uniform verbs** (eight lifecycle, four hold, `archive`/`unarchive` — the
+ * operation registry, the verb analogue of {@link FIELD_FACTS}. The fifteen
+ * **uniform verbs** (nine lifecycle, four hold, `archive`/`unarchive` — the
  * "subject id + optional reason" shape) declare their dispatch facts here once:
  * the subject id-kind, the reason policy, the (descriptive) state transition,
  * and one canonical summary sentence. From this one table the transports derive
@@ -25,13 +25,14 @@ import type { DataFieldKey } from './fields';
  * job, not one way forced onto every job (ADR 0025 Decision 3).
  */
 
-/** The fourteen uniform-verb names, in concern-grouped order (lifecycle → hold →
+/** The fifteen uniform-verb names, in concern-grouped order (lifecycle → hold →
  * project), the order the transports iterate for grouped rendering. */
 export const UNIFORM_VERBS = [
   'queue',
   'unqueue',
   'start',
   'submit',
+  'stage',
   'return',
   'done',
   'abandon',
@@ -143,7 +144,7 @@ export const OP_FACTS = {
     summary: 'abandon a task (kept, not deleted)',
     transition: {
       axis: 'lifecycle',
-      from: ['todo', 'queued', 'in_progress', 'under_review'],
+      from: ['todo', 'queued', 'in_progress', 'under_review', 'staged'],
       to: 'abandoned',
     },
   },
@@ -169,10 +170,10 @@ export const OP_FACTS = {
   done: {
     reason: 'none',
     subject: 'task',
-    summary: 'complete a task (approves a review)',
+    summary: 'complete a task (approves a review or lands a staged task)',
     transition: {
       axis: 'lifecycle',
-      from: ['todo', 'queued', 'in_progress', 'under_review'],
+      from: ['todo', 'queued', 'in_progress', 'under_review', 'staged'],
       to: 'done',
     },
   },
@@ -201,7 +202,13 @@ export const OP_FACTS = {
     reason: 'optional',
     subject: 'task',
     summary: 'send back for changes',
-    transition: { axis: 'lifecycle', from: ['under_review'], to: 'in_progress' },
+    transition: { axis: 'lifecycle', from: ['under_review', 'staged'], to: 'in_progress' },
+  },
+  stage: {
+    reason: 'none',
+    subject: 'task',
+    summary: 'mark reviewed work accepted on its branch, not yet on main',
+    transition: { axis: 'lifecycle', from: ['under_review'], to: 'staged' },
   },
   start: {
     // Starting preserves the main conversation and any explicitly assigned worker.
@@ -245,7 +252,7 @@ export const OP_FACTS = {
   },
 } as const satisfies Record<UniformVerb, OpFact>;
 
-/** Is `verb` one of the fourteen uniform verbs? The transport membership gate. */
+/** Is `verb` one of the fifteen uniform verbs? The transport membership gate. */
 export function isUniformVerb(verb: string): verb is UniformVerb {
   return verb in OP_FACTS;
 }

@@ -296,7 +296,7 @@ for (const verb of UNIFORM_VERBS) {
 }
 
 /**
- * The fourteen uniform verbs as Engine methods, derived from the operation
+ * The fifteen uniform verbs as Engine methods, derived from the operation
  * registry (ADR 0025) rather than written out. `LocalEngine` extends it.
  */
 // The loop above installs exactly the UNIFORM_VERBS methods this type names.

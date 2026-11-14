@@ -163,6 +163,7 @@ const SAMPLES: Readonly<Record<string, Sample>> = {
  */
 const SAME_BUILDER_AS: Readonly<Record<string, string>> = {
   resolve: 'reject',
+  stage: 'done',
   submit: 'done',
   unblock: 'done',
   unpark: 'done',

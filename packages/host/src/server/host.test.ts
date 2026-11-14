@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { configPath, SQLITE_FILE, warnConfigPermissions } from '@mimir/core';
+import { WINDOW_VERSION } from '@mimir/core/testing';
 import { RemoteEngine } from '@mimir/wire/client';
 
 import { readHostConfig } from './config';
@@ -20,7 +21,7 @@ afterEach(async () => {
 test('the host shares Engine reads and completions over tRPC', async () => {
   const root = await mkdtemp(join(tmpdir(), 'mimir-host-engine-'));
   roots.push(root);
-  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), '0.26.0');
+  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), WINDOW_VERSION);
   const server = Bun.serve({
     fetch: (request) => host.handleTrpc(request),
     hostname: '127.0.0.1',
@@ -29,7 +30,7 @@ test('the host shares Engine reads and completions over tRPC', async () => {
   try {
     const unpaired = new RemoteEngine({
       url: new URL('/trpc', server.url).href,
-      version: '0.26.0',
+      version: WINDOW_VERSION,
     });
     const refusal: unknown = await unpaired.projects({}).catch((error: unknown) => error);
     expect(refusal).toMatchObject({
@@ -59,7 +60,7 @@ test('the host shares Engine reads and completions over tRPC', async () => {
     const remote = new RemoteEngine({
       headers: { authorization: `Bearer ${token}` },
       url: new URL('/trpc', server.url).href,
-      version: '0.26.0',
+      version: WINDOW_VERSION,
     });
     const read = await remote.getNode({ id: 'TST-2' });
     expect(read).toMatchObject({ lifecycle: 'todo', title: 'Complete over tRPC' });
@@ -82,13 +83,16 @@ test('host migrates a named SQLite directory and preserves writes after reopenin
   const root = await mkdtemp(join(tmpdir(), 'mimir-host-'));
   roots.push(root);
   const directory = join(root, 'data');
-  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: directory }), '0.26.0');
+  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: directory }), WINDOW_VERSION);
   try {
     await host.engine.create({ key: 'TST', name: 'Disposable container project', type: 'project' });
   } finally {
     await host.close();
   }
-  const reopened = await openHost(await readHostConfig({ MIMIR_DATA_DIR: directory }), '0.26.0');
+  const reopened = await openHost(
+    await readHostConfig({ MIMIR_DATA_DIR: directory }),
+    WINDOW_VERSION,
+  );
   try {
     const projects = await reopened.engine.projects({});
     expect(projects).toMatchObject([{ id: 'TST', title: 'Disposable container project' }]);
@@ -117,7 +121,7 @@ test('development host refuses Postgres without authority before connecting', as
       MIMIR_DATABASE_URL: 'postgres://live:secret@production.invalid/live',
     });
     // oxlint-disable-next-line typescript/await-thenable -- Bun awaits async matchers at runtime.
-    await expect(openHost(config, '0.26.0')).rejects.toThrow('registered live installation');
+    await expect(openHost(config, WINDOW_VERSION)).rejects.toThrow('registered live installation');
   } finally {
     if (saved !== undefined) {
       process.env.MIMIR_SANDBOX_AUTHORITY = saved;
@@ -150,7 +154,7 @@ test('host doctor excludes findings from an unsafe CLI configuration', async () 
     const warnings: string[] = [];
     warnConfigPermissions(undefined, file, (line) => warnings.push(line));
     expect(warnings.join('\n')).toContain('chmod 600');
-    host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: paths.data }), '0.26.0');
+    host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: paths.data }), WINDOW_VERSION);
     expect(await host.doctor(undefined)).toMatchObject({
       finding_total: 0,
       groups: [],
@@ -175,11 +179,11 @@ test('host logs applied SQLite migrations and refuses a schema ahead with an ima
   roots.push(root);
   const config = await readHostConfig({ MIMIR_DATA_DIR: root });
   const logs: string[] = [];
-  const host = await openHost(config, '0.26.0', (line) => logs.push(line));
+  const host = await openHost(config, WINDOW_VERSION, (line) => logs.push(line));
   await host.close();
   expect(logs).toContain('host: applied migration 0005_project_pinned');
   logs.length = 0;
-  const current = await openHost(config, '0.26.0', (line) => logs.push(line));
+  const current = await openHost(config, WINDOW_VERSION, (line) => logs.push(line));
   await current.close();
   expect(logs).toEqual([]);
   const database = new Database(join(root, 'store.sqlite'));
@@ -189,7 +193,7 @@ test('host logs applied SQLite migrations and refuses a schema ahead with an ima
   database.close();
   let refusal: unknown;
   try {
-    await openHost(config, '0.26.0');
+    await openHost(config, WINDOW_VERSION);
   } catch (error) {
     refusal = error;
   }
@@ -203,7 +207,7 @@ const total = (groups: { findings: number }[]) =>
 test('the host Engine counts stored record findings in console.review', async () => {
   const root = await mkdtemp(join(tmpdir(), 'mimir-host-review-findings-'));
   roots.push(root);
-  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), '0.26.0');
+  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), WINDOW_VERSION);
   try {
     await host.engine.create({ key: 'TST', name: 'Findings fixture', type: 'project' });
     const database = new Database(join(root, 'store.sqlite'));
@@ -222,7 +226,7 @@ test('the host Engine counts stored record findings in console.review', async ()
 test('Host guard, version window, and bearer check run in order while local Engine calls stay outside them', async () => {
   const root = await mkdtemp(join(tmpdir(), 'mimir-host-window-'));
   roots.push(root);
-  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), '0.26.0');
+  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), WINDOW_VERSION);
   const log = spyOn(console, 'error').mockReturnValue(undefined);
   try {
     const guarded = guardEveryRoute(host.handleTrpc, Promise.resolve(hostGuard(['allowed.test'])));
@@ -242,7 +246,7 @@ test('Host guard, version window, and bearer check run in order while local Engi
     expect(await missing.text()).toContain('missing x-mimir-version');
     const unauthorized = await guarded(
       new Request('http://allowed.test/trpc/projects', {
-        headers: { host: 'allowed.test', 'x-mimir-version': '0.26.0' },
+        headers: { host: 'allowed.test', 'x-mimir-version': WINDOW_VERSION },
       }),
     );
     expect(unauthorized.status).toBe(401);
@@ -266,7 +270,7 @@ test('a host with T3 misconfigured boots, warns by setting name, and reports the
       MIMIR_HOSTS: '',
       MIMIR_T3_URL: 'https://t3.example',
     }),
-    '0.26.0',
+    WINDOW_VERSION,
     (line) => lines.push(line),
   );
   try {
@@ -300,7 +304,7 @@ test('a host without MIMIR_T3_URL logs nothing about T3', async () => {
   const lines: string[] = [];
   const host = await openHost(
     await readHostConfig({ MIMIR_DATA_DIR: root, MIMIR_SECRET_KEY: 'not a key' }),
-    '0.26.0',
+    WINDOW_VERSION,
     (line) => lines.push(line),
   );
   try {
@@ -320,7 +324,7 @@ test('an unreadable git credentials file warns by setting name at boot, and noth
       MIMIR_DATA_DIR: root,
       MIMIR_GIT_CREDENTIALS_FILE: join(root, 'missing-credentials'),
     }),
-    '0.26.0',
+    WINDOW_VERSION,
     (line) => lines.push(line),
   );
   try {
@@ -345,7 +349,7 @@ test('a misconfigured agent runtime warns by setting name at boot and still open
       MIMIR_AGENT_TOKEN_FILE: join(root, 'missing-token'),
       MIMIR_DATA_DIR: root,
     }),
-    '0.26.0',
+    WINDOW_VERSION,
     (line) => lines.push(line),
   );
   try {
@@ -366,7 +370,7 @@ test('the host interrupts a stale run at boot and exposes the runs, the agent ru
   const root = await mkdtemp(join(tmpdir(), 'mimir-host-runs-'));
   roots.push(root);
   const config = await readHostConfig({ MIMIR_DATA_DIR: root });
-  const first = await openHost(config, '0.26.0', () => {});
+  const first = await openHost(config, WINDOW_VERSION, () => {});
   await first.runs.admit({
     budget: { dailyTokens: 1_000, since: '2000-01-01T00:00:00.000Z' },
     id: 'dead-run',
@@ -386,7 +390,7 @@ test('the host interrupts a stale run at boot and exposes the runs, the agent ru
   database.close();
 
   const lines: string[] = [];
-  const host = await openHost(config, '0.26.0', (line) => lines.push(line));
+  const host = await openHost(config, WINDOW_VERSION, (line) => lines.push(line));
   try {
     expect((await host.runs.get('dead-run'))?.state).toBe('interrupted');
     expect(lines).toContain('host: interrupted 1 agent run whose runner stopped heartbeating');
@@ -420,7 +424,7 @@ test('a fresh run of another host survives boot and keeps the slot', async () =>
   const root = await mkdtemp(join(tmpdir(), 'mimir-host-runs-'));
   roots.push(root);
   const config = await readHostConfig({ MIMIR_DATA_DIR: root });
-  const first = await openHost(config, '0.26.0', () => {});
+  const first = await openHost(config, WINDOW_VERSION, () => {});
   await first.runs.admit({
     budget: { dailyTokens: 1_000, since: '2000-01-01T00:00:00.000Z' },
     id: 'live-run',
@@ -436,7 +440,7 @@ test('a fresh run of another host survives boot and keeps the slot', async () =>
   await first.close();
 
   const lines: string[] = [];
-  const host = await openHost(config, '0.26.0', (line) => lines.push(line));
+  const host = await openHost(config, WINDOW_VERSION, (line) => lines.push(line));
   try {
     expect(await host.runs.running()).toMatchObject({ id: 'live-run', state: 'running' });
     expect(lines.filter((line) => line.includes('agent run'))).toEqual([]);

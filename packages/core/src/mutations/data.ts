@@ -645,7 +645,7 @@ export async function reorder(
     const task = await requireTask(w, id, reorderContainerHint);
     if (task.rank === null) {
       throw validation(
-        'cannot reorder a task outside the rankable set (terminal, held, or under review)',
+        'cannot reorder a task outside the rankable set (terminal, held, under review, or staged)',
       );
     }
     await reorderTask(w, task.project_id, id, position, refId);

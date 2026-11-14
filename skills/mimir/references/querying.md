@@ -28,7 +28,7 @@ Sections, attention-ordered: **header** (project rollup distribution + status
 word) · **direction** (the owned `## Next` prose, verbatim, of the project and of
 every container parenting live work — in flight or ready; top 5 of the true
 count, the rest named) · **in flight** (`queued` + `in_progress` +
-`under_review`, uncapped, each row showing its resume handles as
+`under_review` + `staged`, uncapped, each row showing its resume handles as
 `harness@host · branch · session` plus a distinct worker when set) · **active scratchpads** (true
 count, top 5 — `uuid · project · title · N open Agenda · age · linked KEY…`,
 interrupted freezes flagged `freezing`; the resume surface for unsettled
@@ -56,7 +56,7 @@ overlap — attach it with `mimir attach <task> --file retro.md -t session_summa
 
 - **Only handle-moving boundaries are visible.** `queue`, `start`, and the clearing verbs
   (`unqueue`, `done`/`abandon`, `park`/`block`) echo handles. Explicit identity
-  updates append assignment history. `submit`/`return`/`reopen`/`unpark`/`unblock`
+  updates append assignment history. `submit`/`stage`/`return`/`reopen`/`unpark`/`unblock`
   do not attach a new identity. A session that only reviewed work shows up solely
   through its retrospective, as a knowledge-only entry.
 - **A takeover must re-state its session.** A clearing row echoes whatever the

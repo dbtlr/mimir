@@ -685,7 +685,7 @@ export type OverviewDirection = {
  * attention-ordered sections: the project header (id, status word, rollup
  * distribution — what `status KEY` answers), `direction` (the owned `## Next`
  * prose of the project and of the containers holding live work), `inFlight`
- * tasks (`queued` + `in_progress` + `under_review`, uncapped), `next` (the ready-queue
+ * tasks (`queued` + `in_progress` + `under_review` + `staged`, uncapped), `next` (the ready-queue
  * head, top 5), `awaiting` (dependency-gated tasks, top 5, each carrying the
  * upstream ids it awaits), `sessions` (recent session activity with its joined
  * summary ledes, top 5), and `hygiene` counts with their capped listings.
@@ -716,13 +716,13 @@ export type WorkScope = {
 /** A Scratchpad linked to a work-page task (its id and title, for the agent context). */
 export type WorkScratchpad = { id: string; title: string };
 
-/** A task on the work page's "now" list: queued, in progress, or under review, with its reservation/start time, submit time, and last note. */
+/** A task on the work page's "now" list: queued, in progress, under review, or staged, with its reservation/start time, submit time, and last note. */
 export type WorkNowTask = {
   /** Carries the agent context fields (harness, branch, host, session, externalRef). */
   task: NodeView;
   /** When the task entered queued, or last entered in-progress after it started. */
   startedAt: string;
-  /** When an under-review task last entered review; null for a queued or in-progress task. */
+  /** When an under-review or staged task last entered review; null for a queued or in-progress task. */
   submittedAt: string | null;
   latestNote: AnnotationView | null;
   /** Active Scratchpads anchored to the task. */
@@ -848,7 +848,7 @@ export type ReviewProject = ReviewProjectRef & {
   decisions: number;
   /** Untriaged seeds, plus tasks going cold, plus `doctor` findings. */
   triage: number;
-  /** Tasks whose status word is `queued`, `in_progress`, or `under_review`: the `now` rows. */
+  /** Tasks whose status word is `queued`, `in_progress`, `under_review`, or `staged`: the `now` rows. */
   inFlight: number;
   /**
    * Open tasks: the `--status live` group, every task whose status word is not

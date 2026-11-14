@@ -25,6 +25,7 @@ import { statements as deviceTokensStatements } from './migrations/0009-device-t
 import { statements as pairingRequestsStatements } from './migrations/0010-pairing-requests';
 import { statements as terminalHoldStatements } from './migrations/0011-terminal-hold';
 import { statements as hostSecretsStatements } from './migrations/0012-host-secrets';
+import { statements as runsStatements } from './migrations/0013-runs';
 
 /**
  * The SQLite store's file-backed behavior (ADR 0032 Decision 3): what opening
@@ -79,6 +80,7 @@ test('opening a new file creates it, migrates it, and puts it in WAL mode', asyn
         '0011_terminal_hold',
         '0012_host_secrets',
         '0013_runs',
+        '0014_task_staged',
       ],
       from: 0,
       to: SCHEMA_VERSION,
@@ -131,6 +133,7 @@ test('0002_grooming upgrades a version-1 store: tasks not_groomed, containers NU
         '0011_terminal_hold',
         '0012_host_secrets',
         '0013_runs',
+        '0014_task_staged',
       ],
       from: 1,
       to: SCHEMA_VERSION,
@@ -190,6 +193,7 @@ test('0003_block_owner upgrades a version-2 store: blocked tasks get an owner by
         '0011_terminal_hold',
         '0012_host_secrets',
         '0013_runs',
+        '0014_task_staged',
       ],
       from: 2,
       to: SCHEMA_VERSION,
@@ -256,6 +260,7 @@ test('0004_seed_parked upgrades a version-3 store: seeds and their history survi
         '0011_terminal_hold',
         '0012_host_secrets',
         '0013_runs',
+        '0014_task_staged',
       ],
       from: 3,
       to: SCHEMA_VERSION,
@@ -343,6 +348,7 @@ test('0005_project_pinned upgrades a version-4 store: projects keep their data a
         '0011_terminal_hold',
         '0012_host_secrets',
         '0013_runs',
+        '0014_task_staged',
       ],
       from: 4,
       to: SCHEMA_VERSION,
@@ -403,6 +409,7 @@ test('0006_project_remote upgrades a version-5 store: projects keep their data a
         '0011_terminal_hold',
         '0012_host_secrets',
         '0013_runs',
+        '0014_task_staged',
       ],
       from: 5,
       to: SCHEMA_VERSION,
@@ -852,6 +859,7 @@ test.each([6, 7])(
               '0011_terminal_hold',
               '0012_host_secrets',
               '0013_runs',
+              '0014_task_staged',
             ]
           : [
               '0007_task_queued',
@@ -861,6 +869,7 @@ test.each([6, 7])(
               '0011_terminal_hold',
               '0012_host_secrets',
               '0013_runs',
+              '0014_task_staged',
             ],
       );
       const store = createSqliteStore(handle.db);
@@ -983,7 +992,13 @@ test('0010_pairing_requests upgrades a version-9 store: pending codes go and dev
   const handle = await openSqlite(path);
   try {
     expect(handle.upgrade).toEqual({
-      applied: ['0010_pairing_requests', '0011_terminal_hold', '0012_host_secrets', '0013_runs'],
+      applied: [
+        '0010_pairing_requests',
+        '0011_terminal_hold',
+        '0012_host_secrets',
+        '0013_runs',
+        '0014_task_staged',
+      ],
       from: 9,
       to: SCHEMA_VERSION,
     });
@@ -1062,7 +1077,7 @@ test('0011_terminal_hold upgrades a version-10 store: terminal tasks lose their 
   const handle = await openSqlite(path);
   try {
     expect(handle.upgrade).toEqual({
-      applied: ['0011_terminal_hold', '0012_host_secrets', '0013_runs'],
+      applied: ['0011_terminal_hold', '0012_host_secrets', '0013_runs', '0014_task_staged'],
       from: 10,
       to: SCHEMA_VERSION,
     });
@@ -1119,7 +1134,7 @@ test('0012_host_secrets upgrades a version-11 store: an empty host_secrets table
   const handle = await openSqlite(path);
   try {
     expect(handle.upgrade).toEqual({
-      applied: ['0012_host_secrets', '0013_runs'],
+      applied: ['0012_host_secrets', '0013_runs', '0014_task_staged'],
       from: 11,
       to: SCHEMA_VERSION,
     });
@@ -1172,7 +1187,11 @@ test('0013_runs upgrades a version-12 store: an empty runs table that admits one
 
   const handle = await openSqlite(path);
   try {
-    expect(handle.upgrade).toEqual({ applied: ['0013_runs'], from: 12, to: SCHEMA_VERSION });
+    expect(handle.upgrade).toEqual({
+      applied: ['0013_runs', '0014_task_staged'],
+      from: 12,
+      to: SCHEMA_VERSION,
+    });
     expect(await handle.db.selectFrom('runs').selectAll().execute()).toEqual([]);
     expect(await handle.db.selectFrom('host_secrets').select('name').execute()).toEqual([
       { name: 'kept' },
@@ -1211,6 +1230,110 @@ test('0013_runs upgrades a version-12 store: an empty runs table that admits one
       .insertInto('runs')
       .values({ ...row, id: 'r4', state: 'failed' })
       .execute();
+  } finally {
+    await handle.close();
+  }
+});
+
+test('0014_task_staged upgrades a version-13 store: node rows, ids, links, and sequences survive, staged is admitted, junk is refused', async () => {
+  const old = new Database(path, { create: true });
+  for (const statement of [
+    ...initStatements,
+    ...groomingStatements,
+    ...blockOwnerStatements,
+    ...seedParkedStatements,
+    ...projectPinnedStatements,
+    ...projectRemoteStatements,
+    ...taskQueuedStatements,
+    ...mainWorkerStatements,
+    ...deviceTokensStatements,
+    ...pairingRequestsStatements,
+    ...terminalHoldStatements,
+    ...hostSecretsStatements,
+    ...runsStatements,
+  ]) {
+    old.run(statement);
+  }
+  old.run(
+    `INSERT INTO schema_version (version, applied_at) VALUES (1, 't'), (2, 't'), (3, 't'), (4, 't'), (5, 't'), (6, 't'), (7, 't'), (8, 't'), (9, 't'), (10, 't'), (11, 't'), (12, 't'), (13, 't')`,
+  );
+  old.run(
+    `INSERT INTO project (key, name, created_at, updated_at) VALUES ('MMR', 'Mimir', 't', 't')`,
+  );
+  old.run(
+    `INSERT INTO node (id, project_key, type, seq, title, lifecycle, hold, grooming, worker_harness, worker_session, harness, session, created_at, updated_at)
+     VALUES ('MMR-1', 'MMR', 'task', 1, 'one', 'under_review', 'none', 'groomed', 'codex', 'w-1', 'claude', 's-1', 't', 't'),
+            ('MMR-2', 'MMR', 'task', 2, 'two', 'queued', 'none', 'not_groomed', NULL, NULL, 'claude', 's-2', 't', 't')`,
+  );
+  old.run(`INSERT INTO dependency (node_id, depends_on_node_id) VALUES ('MMR-2', 'MMR-1')`);
+  old.run(
+    `INSERT INTO annotation (node_id, content, created_at) VALUES ('MMR-1', 'a', 't'), ('MMR-1', 'b', 't')`,
+  );
+  old.run(`DELETE FROM annotation WHERE content = 'b'`);
+  old.run(
+    `INSERT INTO artifact (id, project_key, seq, title, content, created_at, updated_at) VALUES ('art-1', 'MMR', 1, 'a', 'c', 't', 't')`,
+  );
+  old.run(`INSERT INTO artifact_link (artifact_id, node_id) VALUES ('art-1', 'MMR-1')`);
+  old.run(
+    `INSERT INTO transition_log (node_id, kind, from_value, to_value, at) VALUES ('MMR-1', 'lifecycle', 'in_progress', 'under_review', 't'), ('MMR-1', 'assignment', NULL, NULL, 't')`,
+  );
+  old.run(`DELETE FROM transition_log WHERE kind = 'assignment'`);
+  old.close();
+
+  const handle = await openSqlite(path);
+  try {
+    expect(handle.upgrade).toEqual({ applied: ['0014_task_staged'], from: 13, to: SCHEMA_VERSION });
+    const nodes = await sql<Record<string, unknown>>`
+      select id, lifecycle, grooming, worker_harness, worker_session, harness, session from node order by id
+    `.execute(handle.db);
+    expect(nodes.rows).toEqual([
+      {
+        grooming: 'groomed',
+        harness: 'claude',
+        id: 'MMR-1',
+        lifecycle: 'under_review',
+        session: 's-1',
+        worker_harness: 'codex',
+        worker_session: 'w-1',
+      },
+      {
+        grooming: 'not_groomed',
+        harness: 'claude',
+        id: 'MMR-2',
+        lifecycle: 'queued',
+        session: 's-2',
+        worker_harness: null,
+        worker_session: null,
+      },
+    ]);
+    expect((await sql`select * from dependency`.execute(handle.db)).rows).toHaveLength(1);
+    expect((await sql`select * from artifact_link`.execute(handle.db)).rows).toHaveLength(1);
+    // The high-water marks survive the rebuild, including ids deleted before it.
+    await sql`insert into annotation (node_id, content, created_at) values ('MMR-1', 'c', 't')`.execute(
+      handle.db,
+    );
+    await sql`insert into transition_log (node_id, kind, at) values ('MMR-1', 'assignment', 't')`.execute(
+      handle.db,
+    );
+    expect(
+      (await sql<{ id: number }>`select id from annotation order by id`.execute(handle.db)).rows,
+    ).toEqual([{ id: 1 }, { id: 3 }]);
+    expect(
+      (await sql<{ id: number }>`select max(id) as id from transition_log`.execute(handle.db)).rows,
+    ).toEqual([{ id: 3 }]);
+    await sql`update node set lifecycle = 'staged' where id = 'MMR-1'`.execute(handle.db);
+    expect(
+      await refusal(
+        sql`update node set lifecycle = 'merged' where id = 'MMR-1'`.execute(handle.db),
+      ),
+    ).toContain('CHECK');
+    expect(
+      await refusal(
+        sql`insert into node (id, project_key, type, seq, title, created_at, updated_at) values ('MMR-9', 'NOPE', 'task', 9, 't', 't', 't')`.execute(
+          handle.db,
+        ),
+      ),
+    ).toContain('FOREIGN KEY');
   } finally {
     await handle.close();
   }

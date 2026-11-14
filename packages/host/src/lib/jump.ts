@@ -71,6 +71,7 @@ export function hitStatus(hit: Pick<EngineSearchHit, 'lifecycle'>): StatusWord |
     case 'queued':
     case 'in_progress':
     case 'under_review':
+    case 'staged':
     case 'done':
     case 'abandoned': {
       return hit.lifecycle;

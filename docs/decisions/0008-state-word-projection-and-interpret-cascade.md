@@ -103,3 +103,17 @@ before blocked, parked, new, and the terminal fallback. The empty-container guar
 and terminal rules remain unchanged. This replaces the earlier ordering of ready
 and awaiting: outstanding dependency gates take precedence when no child is
 active, in review, or reserved.
+
+## 2026-11-14 refinement: staged status and precedence (MMR-675)
+
+`staged` (ADR 0001, MMR-675 refinement; design MMR-a398) is a task and container
+status word. After terminal and hold checks, the task projection is
+`in_progress > under_review > staged > queued > awaiting > ready`, so a held
+staged task reads as its hold word, like a held review.
+
+The container cascade inserts `staged` just below `under_review`:
+`in_progress > under_review > staged > queued > awaiting > ready`, then blocked,
+parked, new, and the terminal fallback. Work in review outranks accepted work
+because it still needs a verdict, and accepted work outranks reservations and
+unstarted work because it is further along. A phase whose live tasks are all
+staged reads `staged`.

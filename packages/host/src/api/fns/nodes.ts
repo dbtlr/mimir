@@ -95,6 +95,11 @@ export const submit = createServerFn({ method: 'POST' })
   .validator((input: EngineInput<'submit'>) => parseEngineInput(engineSchemas.submit.input, input))
   .handler(async ({ data }) => (await engine()).submit(data));
 
+/** Stage reviewed work: accepted on its branch, not yet on main. */
+export const stage = createServerFn({ method: 'POST' })
+  .validator((input: EngineInput<'stage'>) => parseEngineInput(engineSchemas.stage.input, input))
+  .handler(async ({ data }) => (await engine()).stage(data));
+
 /** Send a task back from review (the Engine method `return`). */
 export const returnTask = createServerFn({ method: 'POST' })
   .validator((input: EngineInput<'return'>) => parseEngineInput(engineSchemas.return.input, input))

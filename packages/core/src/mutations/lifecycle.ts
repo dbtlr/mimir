@@ -13,7 +13,7 @@ import type { HandleFields, MainHandleFields } from './handles';
  * transaction. Queue reserves a todo task for a run; start claims todo work or
  * preserves the main conversation while attaching an optional whole-task worker. Both preserve rank.
  * Unqueue clears the reservation handles and preserves rank. Terminal verbs
- * clear handles and rank; submit/return retain handles through human review.
+ * clear handles and rank; submit/stage/return retain handles through human review.
  * Terminal verbs also release any hold (MMR-616): a terminal task has no hold,
  * so a finished task never reads as blocked or parked and a reopen never
  * revives a stale one. The release logs its own hold row just before the
@@ -172,17 +172,46 @@ export async function submitTask(store: Store, id: string): Promise<Node> {
   });
 }
 
-export async function returnTask(store: Store, id: string, reason?: string): Promise<Node> {
+/**
+ * Mark a reviewed task's code accepted on its branch but not yet on `main`
+ * (MMR-675). Only `under_review` can be staged; like submit it clears rank,
+ * keeps every owner handle, and applies no hold check.
+ */
+export async function stageTask(store: Store, id: string): Promise<Node> {
   return store.transact(async (w) => {
     const task = await requireTask(w, id);
     if (task.lifecycle !== 'under_review') {
-      throw validation(`only an under_review task can be returned (is ${String(task.lifecycle)})`);
+      const unsubmitted = ['todo', 'queued', 'in_progress'].includes(String(task.lifecycle));
+      throw validation(
+        `only an under_review task can be staged (is ${String(task.lifecycle)})`,
+        unsubmitted ? 'submit the task for review first' : undefined,
+      );
+    }
+    await w.updateNode(id, { lifecycle: 'staged', rank: null });
+    await logTransition(w, {
+      from_value: 'under_review',
+      kind: 'lifecycle',
+      node_id: id,
+      to_value: 'staged',
+    });
+    await stamp(w, id);
+    return reloadNode(w, id);
+  });
+}
+
+export async function returnTask(store: Store, id: string, reason?: string): Promise<Node> {
+  return store.transact(async (w) => {
+    const task = await requireTask(w, id);
+    if (task.lifecycle !== 'under_review' && task.lifecycle !== 'staged') {
+      throw validation(
+        `only an under_review or staged task can be returned (is ${String(task.lifecycle)})`,
+      );
     }
     // re-enter the rankable set at the bottom (a return is a natural re-triage point)
     const rank = await appendRank(w, task.project_id);
     await w.updateNode(id, { lifecycle: 'in_progress', rank });
     await logTransition(w, {
-      from_value: 'under_review',
+      from_value: task.lifecycle,
       kind: 'lifecycle',
       node_id: id,
       reason: reason ?? null,

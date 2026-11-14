@@ -26,6 +26,7 @@ export const MIGRATIONS = [
   { name: '0011_terminal_hold', version: 11 },
   { name: '0012_host_secrets', version: 12 },
   { name: '0013_runs', version: 13 },
+  { name: '0014_task_staged', version: 14 },
 ] as const;
 
 export type Migration = (typeof MIGRATIONS)[number];

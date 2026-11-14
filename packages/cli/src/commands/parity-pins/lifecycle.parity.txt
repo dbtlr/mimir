@@ -1000,10 +1000,45 @@ exit 1
 --- state
 unchanged
 
+### stage argv: MMR-5
+exit 0
+--- stdout
+| [ok] staged MMR-5 · under_review -> staged
+| MMR-5
+|   type            task
+|   status          + staged
+|   title           Ship it
+|   parent          MMR-2
+|   priority        p0
+|   lifecycle       staged
+|   grooming        not_groomed
+|   hold            none
+|   harness         codex
+|   session         main-session
+|   worker harness  claude
+|   worker session  task-worker-session
+--- state
++ nodes[MMR-5].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":null,"to":"staged"}
+~ nodes[MMR-5].lifecycle: "under_review" -> "staged"
+
+### stage argv: MMR-3
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "submit the task for review first"
+|   ],
+|   "message": "only an under_review task can be staged (is todo)"
+| }
+--- state
+unchanged
+
 ### return argv: MMR-5
 exit 0
 --- stdout
-| [ok] returned MMR-5 · under_review -> in_progress
+| [ok] returned MMR-5 -> in_progress
 | MMR-5
 |   type            task
 |   status          > in_progress
@@ -1024,7 +1059,7 @@ exit 0
 ### return argv: MMR-5 needs tests
 exit 0
 --- stdout
-| [ok] returned MMR-5 · under_review -> in_progress · needs tests
+| [ok] returned MMR-5 -> in_progress · needs tests
 | MMR-5
 |   type            task
 |   status          > in_progress
@@ -1042,6 +1077,27 @@ exit 0
 + nodes[MMR-5].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":"needs tests","to":"in_progress"}
 ~ nodes[MMR-5].lifecycle: "under_review" -> "in_progress"
 
+### return argv: MMR-5 from staged
+exit 0
+--- stdout
+| [ok] returned MMR-5 -> in_progress · from staged
+| MMR-5
+|   type            task
+|   status          > in_progress
+|   title           Ship it
+|   parent          MMR-2
+|   priority        p0
+|   lifecycle       in_progress
+|   grooming        not_groomed
+|   hold            none
+|   harness         codex
+|   session         main-session
+|   worker harness  claude
+|   worker session  task-worker-session
+--- state
++ nodes[MMR-5].history[@3]: {"at":"2026-10-01T12:00:00.000Z","from":"staged","kind":"lifecycle","reason":"from staged","to":"in_progress"}
+~ nodes[MMR-5].lifecycle: "staged" -> "in_progress"
+
 ### return argv: MMR-3 nope
 exit 1
 --- stdout
@@ -1049,7 +1105,7 @@ exit 1
 | {
 |   "code": "validation",
 |   "hints": [],
-|   "message": "only an under_review task can be returned (is todo)"
+|   "message": "only an under_review or staged task can be returned (is todo)"
 | }
 --- state
 unchanged

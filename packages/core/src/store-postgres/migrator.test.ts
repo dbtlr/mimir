@@ -17,6 +17,7 @@ import { statements as deviceTokensStatements } from './migrations/0009-device-t
 import { statements as pairingRequestsStatements } from './migrations/0010-pairing-requests';
 import { statements as terminalHoldStatements } from './migrations/0011-terminal-hold';
 import { statements as hostSecretsStatements } from './migrations/0012-host-secrets';
+import { statements as runsStatements } from './migrations/0013-runs';
 import { createPgliteDialect } from './pglite';
 import { bootEmptyPglite, createEmptyPglite } from './testing';
 
@@ -77,6 +78,7 @@ test('an upgrade names the migrations it applied and lands the current version',
         '0011_terminal_hold',
         '0012_host_secrets',
         '0013_runs',
+        '0014_task_staged',
       ],
       from: 0,
       to: SCHEMA_VERSION,
@@ -244,7 +246,7 @@ test('0013_runs upgrades a version-12 store: an empty runs table that admits one
     );
 
     expect(await upgradeSchema(db)).toEqual({
-      applied: ['0013_runs'],
+      applied: ['0013_runs', '0014_task_staged'],
       from: 12,
       to: SCHEMA_VERSION,
     });
@@ -283,6 +285,53 @@ test('0013_runs upgrades a version-12 store: an empty runs table that admits one
       .insertInto('runs')
       .values({ ...row, id: 'r4', state: 'failed' })
       .execute();
+  } finally {
+    await db.destroy();
+  }
+});
+
+test('0014_task_staged upgrades a version-13 store: nodes survive, staged is admitted, junk is refused', async () => {
+  const db = await freshDb();
+  try {
+    for (const statement of [
+      ...initStatements,
+      ...groomingStatements,
+      ...blockOwnerStatements,
+      ...seedParkedStatements,
+      ...projectPinnedStatements,
+      ...projectRemoteStatements,
+      ...taskQueuedStatements,
+      ...mainWorkerStatements,
+      ...deviceTokensStatements,
+      ...pairingRequestsStatements,
+      ...terminalHoldStatements,
+      ...hostSecretsStatements,
+      ...runsStatements,
+    ]) {
+      await sql.raw(statement).execute(db);
+    }
+    await sql`insert into schema_version (version, applied_at) values (1, 't'), (2, 't'), (3, 't'), (4, 't'), (5, 't'), (6, 't'), (7, 't'), (8, 't'), (9, 't'), (10, 't'), (11, 't'), (12, 't'), (13, 't')`.execute(
+      db,
+    );
+    await sql`insert into project (key, name, created_at, updated_at) values ('MMR', 'Mimir', 't', 't')`.execute(
+      db,
+    );
+    await sql`insert into node (id, project_key, type, seq, title, lifecycle, hold, created_at, updated_at) values ('MMR-1', 'MMR', 'task', 1, 'one', 'under_review', 'none', 't', 't')`.execute(
+      db,
+    );
+
+    expect(await upgradeSchema(db)).toEqual({
+      applied: ['0014_task_staged'],
+      from: 13,
+      to: SCHEMA_VERSION,
+    });
+    expect(await sql`select id, lifecycle from node`.execute(db)).toMatchObject({
+      rows: [{ id: 'MMR-1', lifecycle: 'under_review' }],
+    });
+    await sql`update node set lifecycle = 'staged' where id = 'MMR-1'`.execute(db);
+    expect(await rejectionOf(sql`update node set lifecycle = 'merged'`.execute(db))).toContain(
+      'check constraint',
+    );
   } finally {
     await db.destroy();
   }

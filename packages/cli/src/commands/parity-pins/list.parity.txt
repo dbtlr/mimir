@@ -932,7 +932,7 @@ exit 2
 | {
 |   "code": "usage",
 |   "hints": [],
-|   "message": "invalid status: bogus (expected ready|awaiting|blocked|parked|queued|in_progress|under_review|done|abandoned|live|terminal|all)"
+|   "message": "invalid status: bogus (expected ready|awaiting|blocked|parked|queued|in_progress|under_review|staged|done|abandoned|live|terminal|all)"
 | }
 
 ### list -s MMR --status archived
@@ -944,7 +944,7 @@ exit 2
 |   "hints": [
 |     "archived projects are listed by 'mimir projects --status archived'"
 |   ],
-|   "message": "invalid status: archived (expected ready|awaiting|blocked|parked|queued|in_progress|under_review|done|abandoned|live|terminal|all)"
+|   "message": "invalid status: archived (expected ready|awaiting|blocked|parked|queued|in_progress|under_review|staged|done|abandoned|live|terminal|all)"
 | }
 
 ### list -s MMR -p zz

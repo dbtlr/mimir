@@ -1,4 +1,4 @@
-mimir return · Send back for changes (under_review → in_progress).
+mimir return · Send back for changes (under_review/staged → in_progress).
 
 USAGE
   mimir return <id> [reason...] [options]

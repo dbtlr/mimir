@@ -9,7 +9,7 @@ import { writeCases } from '../testing/writes';
 import type { Setup, SetupCase } from '../testing/writes';
 
 /**
- * The fourteen uniform verbs, pinned. A verb writes, so each case runs on its
+ * The fifteen uniform verbs, pinned. A verb writes, so each case runs on its
  * own copy of the board at one frozen instant (testing/writes.ts) and pins its output and
  * the records it changed. A refused verb must leave the board as it found it.
  *
@@ -80,6 +80,10 @@ const engineStep =
   };
 
 const underReview = engineStep((engine) => engine.submit({ id: 'MMR-5' }));
+const staged = engineStep(async (engine) => {
+  await engine.submit({ id: 'MMR-5' });
+  await engine.stage({ id: 'MMR-5' });
+});
 const parked = engineStep((engine) => engine.park({ id: 'MMR-3' }));
 const seedParked = engineStep((engine) => engine.park({ id: 'MMR-s1' }));
 const archived = engineStep((engine) => engine.archive({ id: 'XX' }));
@@ -156,11 +160,14 @@ const SUBMIT: SetupCase[] = [
   argv('submit MMR-5'),
   argv('submit MMR-5', { tty: true }),
   argv('submit MMR-3'),
+  argv('stage MMR-5', { setup: underReview }),
+  argv('stage MMR-3'),
 ];
 
 const RETURN: SetupCase[] = [
   argv('return MMR-5', { setup: underReview }),
   argv('return MMR-5 needs tests', { setup: underReview }),
+  argv('return MMR-5 from staged', { setup: staged }),
   argv('return MMR-3 nope'),
 ];
 
