@@ -8,7 +8,7 @@ import { isTerminalDelivery } from './store';
 
 /**
  * Delivery membership (ADR 0042): the one member predicate, the one join
- * rule, and the writes
+ * rule, the one rule for which stored references are valid, and the writes
  * that change membership. Every write here runs through the writer, inside the
  * transaction it guards.
  */
@@ -41,6 +41,52 @@ export function canJoin(
   member: boolean,
 ): boolean {
   return task.type === 'task' && task.lifecycle === 'todo' && task.parent_id === phase && !member;
+}
+
+/** The delivery facts a reference is judged against. */
+export type ReferencedDelivery = {
+  key: string;
+  lifecycle: DeliveryLifecycle;
+  phase: string;
+};
+
+/**
+ * Why a node's stored `delivery` reference is one no verb produces, or `null`
+ * when it is valid. A reference is valid on a member (a live, unqueued task
+ * in the delivery's phase naming a non-terminal delivery) and on a task that
+ * `land` completed (done, naming a landed delivery, wherever it has moved
+ * since). Import refuses and doctor reports every other state.
+ */
+export function deliveryReferenceFault(
+  node: Pick<Node, 'type' | 'lifecycle' | 'parent_id' | 'project_id'>,
+  delivery: ReferencedDelivery | undefined,
+): string | null {
+  if (node.type !== 'task') {
+    return 'is set, but only tasks carry delivery';
+  }
+  if (delivery === undefined) {
+    return 'names a missing delivery';
+  }
+  if (delivery.key !== node.project_id) {
+    return 'names a delivery in another project';
+  }
+  if (node.lifecycle === 'done') {
+    return delivery.lifecycle === 'landed'
+      ? null
+      : 'is on a done task, so its delivery must have landed';
+  }
+  if (node.lifecycle === 'abandoned') {
+    return 'is on an abandoned task, which names no delivery';
+  }
+  if (node.lifecycle === 'queued') {
+    return 'is on a queued task, which cannot be a member';
+  }
+  if (isTerminalDelivery(delivery.lifecycle)) {
+    return 'is on a live task, so its delivery must be non-terminal';
+  }
+  return node.parent_id === delivery.phase
+    ? null
+    : "is on a member, so the task's parent must be the delivery's phase";
 }
 
 /** The delivery `task` is a member of, read inside the transaction it guards. */

@@ -326,3 +326,155 @@ describe.each(backends)('ending a member ($name)', (backend) => {
     }
   });
 });
+
+/**
+ * A store holding a live delivery, a landed one, and a landed delivery in
+ * another project, exported once: each reference case edits a copy of the
+ * document and imports it.
+ */
+async function referenceFixture(store: Store) {
+  const engine = new LocalEngine(store);
+  const { phase, root, tasks } = await phaseOfTasks(store, ['Task']);
+  const later = await createPhase(store, { parentId: root, title: 'Later' });
+  await createProject(store, { key: 'OTH', name: 'Other' });
+  const otherRoot = await createInitiative(store, { projectId: 'OTH', title: 'Plan' });
+  const otherPhase = await createPhase(store, { parentId: otherRoot.id, title: 'Phase' });
+  const live = await engine.deliveryCreate({ phase, tasks: [], title: 'Live' });
+  const landed = await engine.deliveryCreate({ phase, tasks: [], title: 'Landed' });
+  const abandoned = await engine.deliveryCreate({ phase, tasks: [], title: 'Abandoned' });
+  const foreign = await engine.deliveryCreate({
+    phase: otherPhase.id,
+    tasks: [],
+    title: 'Foreign',
+  });
+  const document = structuredClone(await store.export());
+  for (const record of document.deliveries) {
+    if (record.id === landed.id || record.id === foreign.id) {
+      record.lifecycle = 'landed';
+    }
+    if (record.id === abandoned.id) {
+      record.lifecycle = 'abandoned';
+    }
+  }
+  return {
+    abandoned: abandoned.id,
+    document,
+    foreign: foreign.id,
+    landed: landed.id,
+    later: later.id,
+    live: live.id,
+    phase,
+    task: tasks[0] ?? '',
+  };
+}
+
+type Fixture = Awaited<ReturnType<typeof referenceFixture>>;
+type DocNode = Fixture['document']['nodes'][number];
+
+/** Edit the fixture's task (or another node) in a copy of the document. */
+function withNode(fixture: Fixture, edit: (node: DocNode) => void, id = fixture.task) {
+  const document = structuredClone(fixture.document);
+  const node = document.nodes.find((n) => n.id === id);
+  if (node === undefined) {
+    throw new Error(`missing fixture node ${id}`);
+  }
+  edit(node);
+  return document;
+}
+
+const finished = (lifecycle: 'done' | 'abandoned') => (node: DocNode) => {
+  node.lifecycle = lifecycle;
+  node.rank = null;
+  node.completed_at = lifecycle === 'done' ? node.updated_at : null;
+};
+
+describe.each(backends)('delivery references on import ($name)', (backend) => {
+  test('a landed task keeps its reference through a move and a second round trip', async () => {
+    const source = await backend.make();
+    const target = await backend.make();
+    const again = await backend.make();
+    try {
+      const fixture = await referenceFixture(source.store);
+      const document = withNode(fixture, (node) => {
+        finished('done')(node);
+        node.delivery = fixture.landed;
+      });
+      await target.store.import(document, { dryRun: false, mode: 'fresh' });
+      const engine = new LocalEngine(target.store);
+      expect((await engine.getDelivery({ id: fixture.landed })).members).toEqual([]);
+      expect(await refusalOf(updateNode(target.store, fixture.task, { delivery: null }))).toContain(
+        'not a member',
+      );
+      await moveNode(target.store, fixture.task, fixture.later);
+      await again.store.import(await target.store.export(), { dryRun: false, mode: 'fresh' });
+      expect(await nodeOf(again.store, fixture.task)).toMatchObject({
+        delivery: fixture.landed,
+        lifecycle: 'done',
+        parent_id: fixture.later,
+      });
+    } finally {
+      await source.close();
+      await target.close();
+      await again.close();
+    }
+  });
+
+  test('every reference state the verbs cannot produce is refused', async () => {
+    const source = await backend.make();
+    const target = await backend.make();
+    try {
+      const f = await referenceFixture(source.store);
+      const at = (delivery: string, ...edits: ((node: DocNode) => void)[]) =>
+        withNode(f, (node) => {
+          for (const edit of edits) {
+            edit(node);
+          }
+          node.delivery = delivery;
+        });
+      const cases: [string, Fixture['document'], string][] = [
+        [
+          'a non-task',
+          withNode(f, (node) => void (node.delivery = f.live), f.phase),
+          'only tasks carry delivery',
+        ],
+        ['a missing delivery', at('MEM-d99'), 'names a missing delivery'],
+        [
+          'a queued task',
+          at(f.live, (node) => {
+            node.lifecycle = 'queued';
+            node.session = 'reservation';
+          }),
+          'queued',
+        ],
+        ['an abandoned task', at(f.live, finished('abandoned')), 'abandoned'],
+        ['a live task naming a landed delivery', at(f.landed), 'non-terminal'],
+        ['a live task naming an abandoned delivery', at(f.abandoned), 'non-terminal'],
+        ['a done task naming a live delivery', at(f.live, finished('done')), 'landed'],
+        ['a done task naming an abandoned delivery', at(f.abandoned, finished('done')), 'landed'],
+        [
+          'a member outside the phase',
+          at(f.live, (node) => void (node.parent_id = f.later)),
+          "the delivery's phase",
+        ],
+        ['a done task naming another project', at(f.foreign, finished('done')), 'another project'],
+      ];
+      for (const [name, document, fault] of cases) {
+        const refusal = await refusalOf(
+          target.store.import(document, { dryRun: false, mode: 'fresh' }),
+        );
+        expect(refusal, name).toContain(
+          `${document === cases[0]?.[1] ? f.phase : f.task}.delivery`,
+        );
+        expect(refusal, name).toContain(fault);
+      }
+      // Every refusal left the target empty, so the valid member still imports.
+      await target.store.import(at(f.live), { dryRun: false, mode: 'fresh' });
+      expect((await new LocalEngine(target.store).getDelivery({ id: f.live })).members).toEqual([
+        f.task,
+      ]);
+    } finally {
+      await source.close();
+      await target.close();
+    }
+  });
+});

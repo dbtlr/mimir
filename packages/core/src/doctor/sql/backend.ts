@@ -17,10 +17,13 @@
  * and doctor's own nonzero exit reports it: an unreachable store has no record
  * health to report, clean or otherwise.
  */
+import type { DeliveryLifecycle } from '@mimir/contract';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 
+import { deliveryReferenceFault } from '../../deliveries/membership';
 import { parseIdentity } from '../../ids';
+import type { Node } from '../../model';
 import { inLists } from '../../store-sql/batch';
 import type { StoreDialect } from '../../store-sql/dialect';
 import { readSchemaVersion, SCHEMA_VERSION } from '../../store-sql/migrator';
@@ -464,22 +467,47 @@ async function countRecords(db: Kysely<DB>): Promise<Map<string, number>> {
   return new Map(rows.rows.map((row) => [row.key, Number(row.records)]));
 }
 
+/**
+ * Every task reference no verb produces. The rule is the import validator's
+ * ({@link deliveryReferenceFault}); the rows it judges are read here.
+ */
 async function checkDeliveryReferences(db: Kysely<DB>): Promise<DoctorFinding[]> {
-  const rows = await sql<{ id: string; delivery: string }>`
-    select n.id, n.delivery from node n left join delivery d on d.id = n.delivery
-    where n.delivery is not null and
-      (n.type <> 'task' or d.id is null or n.project_key <> d.project_key or n.parent_id is null or n.parent_id <> d.phase)
+  const rows = await sql<{
+    id: string;
+    type: Node['type'];
+    lifecycle: Node['lifecycle'];
+    parent_id: string | null;
+    project_key: string;
+    delivery: string;
+    delivery_key: string | null;
+    delivery_lifecycle: DeliveryLifecycle | null;
+    delivery_phase: string | null;
+  }>`
+    select n.id, n.type, n.lifecycle, n.parent_id, n.project_key, n.delivery,
+      d.project_key as delivery_key, d.lifecycle as delivery_lifecycle, d.phase as delivery_phase
+    from node n left join delivery d on d.id = n.delivery
+    where n.delivery is not null
+    order by n.project_key, n.seq
   `.execute(db);
-  return rows.rows.map((row) =>
-    finding({
-      check: 'invalid-delivery',
-      evidence: { delivery: row.delivery },
-      locator: `node/${row.id}`,
-      message: 'delivery must name an attempt in the task project whose phase is its parent',
-      stem: row.id,
-      where: 'delivery',
-    }),
-  );
+  return rows.rows.flatMap((row) => {
+    const delivery =
+      row.delivery_key === null || row.delivery_lifecycle === null || row.delivery_phase === null
+        ? undefined
+        : { key: row.delivery_key, lifecycle: row.delivery_lifecycle, phase: row.delivery_phase };
+    const fault = deliveryReferenceFault({ ...row, project_id: row.project_key }, delivery);
+    return fault === null
+      ? []
+      : [
+          finding({
+            check: 'invalid-delivery',
+            evidence: { delivery: row.delivery },
+            locator: `node/${row.id}`,
+            message: `delivery ${row.delivery} ${fault}`,
+            stem: row.id,
+            where: 'node · delivery',
+          }),
+        ];
+  });
 }
 
 /** Findings for `scope`, or all of them when the run is unscoped. */

@@ -10,6 +10,7 @@ import { isMember } from '@mimir/helpers';
 
 import { hasRedundantWorker } from './assignment';
 import { cycleEdges } from './cycles';
+import { deliveryReferenceFault } from './deliveries/membership';
 import { isTerminalDelivery } from './deliveries/store';
 import { validation } from './errors';
 import type { StoreExport } from './export';
@@ -196,18 +197,17 @@ function assertReferences(document: StoreExport): void {
       faults.push(`${field} references node ${id} outside project ${project}`);
     }
   };
+  const deliveries = new Map(
+    document.deliveries.map((d) => [
+      d.id,
+      { key: d.project_key, lifecycle: d.lifecycle, phase: d.phase },
+    ]),
+  );
   for (const node of document.nodes) {
     if (node.delivery !== null) {
-      const delivery = document.deliveries.find((d) => d.id === node.delivery);
-      if (
-        node.type !== 'task' ||
-        delivery === undefined ||
-        delivery.project_key !== node.project_id ||
-        delivery.phase !== node.parent_id
-      ) {
-        faults.push(
-          `node ${node.id}.delivery must name a delivery in its project whose phase is its parent; only tasks carry delivery`,
-        );
+      const fault = deliveryReferenceFault(node, deliveries.get(node.delivery));
+      if (fault !== null) {
+        faults.push(`node ${node.id}.delivery ${node.delivery} ${fault}`);
       }
     }
   }

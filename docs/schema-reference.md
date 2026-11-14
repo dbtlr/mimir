@@ -409,7 +409,11 @@ The schema is **settled and maintained**: the tables, the value sets, and the ti
 
 Store migration 0016 adds nullable `node.delivery`, a foreign key to
 `delivery.id` carried only by tasks. The referenced delivery belongs to the
-task's project and its phase equals the task's parent. Transfer schema 10
+task's project. A reference is valid in two states: on a member, a live task
+that is not `queued`, naming a non-terminal delivery whose phase is the task's
+parent; and on a `done` task naming a `landed` delivery, wherever the task has
+moved since. Import refuses and `doctor` reports (`invalid-delivery`) every
+other reference. Transfer schema 10
 carries this field; older documents import it as null. Import writes nodes,
 then deliveries, then task references.
 
