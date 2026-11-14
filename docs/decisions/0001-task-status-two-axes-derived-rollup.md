@@ -247,8 +247,8 @@ becomes `none`, and its reason and owner are cleared.
 
 ## Refinement (2026-11-14, MMR-675): `staged` is accepted work not yet on `main`
 
-The build-runs design (MMR-a398) delivers several tasks on one integration
-branch through one milestone pull request. A task in such a run passes its
+The delivery design (MMR-a398) delivers several tasks on one integration
+branch through one milestone pull request. A task in such a delivery passes its
 review and is merged into the branch long before its code reaches `main`.
 Neither `under_review` nor `done` says that truthfully, so the lifecycle gains an
 optional step after the review gate:
@@ -258,7 +258,7 @@ optional step after the review gate:
   checks passed and the code is accepted on its branch, but not on `main`. Any
   other lifecycle refuses. The refusal names `submit` when the task has not
   been submitted yet (`todo`, `queued`, or `in_progress`). `under_review → done`
-  stays legal, so a task outside a build run never needs the step.
+  stays legal, so a task outside a delivery never needs the step.
 - **`staged` is work in flight, not terminal.** It keeps its handles, as
   `under_review` does (ADR 0026). It leaves the rankable set and `next`, and
   `stale` chases it, because accepted work that never reaches `main` is the same

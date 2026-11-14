@@ -56,8 +56,12 @@ it out and `queue` refuses it.
 **Land**: The verb that ends a delivery when its milestone pull request
 merges, moving every staged member to `done` in one transaction.
 
-**Stop**: A delivery's `stopped` hold: the agent cannot continue without the
-operator, and only the operator clears it.
+**Stopped**: A delivery's hold, set by `block`, that says the agent cannot
+continue without the operator. Only the operator clears it. A stopped delivery
+is also called a stop.
+
+**Paused**: A delivery's hold, set by `park`, that says the operator paused the
+attempt on purpose.
 
 **Agent run**: One execution of an agent by the host on behalf of a task, such
 as a grooming run, recorded as a host-owned row with its state, usage, and

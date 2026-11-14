@@ -26,9 +26,9 @@ their phase, and each one holds a reference to its delivery.
 | Hold      | `none`, `stopped`, or `paused`. A held value carries a reason                                          |
 | Agreement | A body text, replaced whole on each write, like a container's `## Next` direction                      |
 | Link      | `external_ref`: the milestone pull request, as on a task                                               |
-| Handles   | `branch` (integration branch), and the orchestrator's `harness`, `session`, and `thread`               |
+| Handles   | `branch` (integration branch), and the orchestrator's `host`, `harness`, and `session`                 |
 | Time cap  | A whole number of minutes, optional. Elapsed time is derived from the first `start` transition         |
-| History   | An append-only log of the delivery's lifecycle, hold, and membership changes ([ADR 0003](0003-append-only-transition-log.md)) |
+| History   | An append-only log of the delivery's lifecycle, hold, and membership changes ([ADR 0003](0003-append-only-transition-log.md)); see *The log* |
 
 - A delivery is born `agreed` with hold `none`. `landed` and `abandoned` are
   terminal. A terminal delivery has no hold, as a terminal task has none
@@ -43,9 +43,12 @@ their phase, and each one holds a reference to its delivery.
 - The handles are plain fields that only `create` and `update` write. No hold
   and no lifecycle verb clears them: a stopped or paused delivery is still the
   same attempt on the same branch.
-- `thread` is the orchestrator's conversation thread as the host addresses it,
-  such as a T3 thread id. It is a general handle, beside `harness` and
-  `session`, and names no consumer's concept ([ADR 0002](0002-general-purpose-primitives-not-baked-in-semantics.md)).
+- The orchestrator's handles mean what a task's main handles mean
+  ([ADR 0026](0026-work-state-composition.md)). When the orchestrator runs in a
+  T3 thread, `session` is that thread and `host` is its environment, as for a
+  task the host launched in T3 ([ADR 0040](0040-outbound-integrations-and-host-secrets.md)).
+  A delivery stores no consumer-named field
+  ([ADR 0002](0002-general-purpose-primitives-not-baked-in-semantics.md)).
 - Elapsed time and spend are not stored. Mimir stores the cap as an agreed term
   and derives elapsed time from the log; other spend stays in the session
   ([ADR 0026](0026-work-state-composition.md)).
@@ -66,7 +69,7 @@ grammar ([ADR 0024](0024-cli-command-taxonomy.md)).
 | `unpark`  | hold `paused → none`           | not paused                                                                      | none                     |
 | `submit`  | `running → milestone`          | held                                                                            | none                     |
 | `return`  | `milestone → running`          | held                                                                            | reason, optional         |
-| `land`    | `milestone → landed`           | held; any member is live and not `staged`; no member is `staged`                | none                     |
+| `land`    | `milestone → landed`           | held; any member is live and not `staged`; any member is held; no member is `staged` | none                |
 | `abandon` | any non-terminal → `abandoned` | terminal                                                                        | reason, required         |
 
 - A delivery verb refuses the inputs it does not use: the handle flags of task
@@ -74,15 +77,20 @@ grammar ([ADR 0024](0024-cli-command-taxonomy.md)).
 - Each refusal names its fix: "add a member with `update <task> --delivery
   KEY-dN`", "set the agreement with `update KEY-dN --agreement …`", "unblock
   it first", and so on.
-- **`land`** moves every `staged` member to `done` in the same transaction.
-  Each task logs the lifecycle change. The landed tasks keep their reference.
+- **`land`** completes every `staged` member in the same transaction, as `done`
+  completes a task: it sets `completed_at`, clears and records the handles, and
+  logs the lifecycle change. A held member refuses the land and names `unblock`
+  or `unpark`, so no hold is dropped silently. The landed tasks keep their
+  reference.
 - **`abandon`** releases every live member in the same transaction. A released
   task returns to `todo` and leaves the delivery. It keeps its hold, its hold
-  reason, and its block owner. It loses its main and worker handles, as
-  `unqueue` clears them. It gets an appended rank when it is unheld and has
-  none. Each task logs the lifecycle change with the delivery's reason. These
-  are new edges into `todo` (from `in_progress`, `under_review`, and `staged`);
-  only `abandon` on a delivery takes them.
+  reason, and its block owner. It loses every resume handle, which its log row
+  records, as `unqueue` clears and records them. It gets an appended rank when
+  it is unheld and has none. A member that moved past `todo` logs the
+  lifecycle change with the delivery's reason. A member still in `todo` writes
+  no task row; its release is a row in the delivery's history only. The moves
+  from `in_progress`, `under_review`, and `staged` back to `todo` are new
+  edges, and only `abandon` on a delivery takes them.
 - `abandon` on a held delivery ends the hold and logs the release, as a
   terminal verb does on a held task.
 - `land` and `abandon` are one store transaction each, and each checks the
@@ -97,17 +105,21 @@ grammar ([ADR 0024](0024-cli-command-taxonomy.md)).
 - **A member** is a live task (not `done` or `abandoned`) whose `delivery`
   names a non-terminal delivery. A task is a member of at most one delivery.
 - Every member's parent is the delivery's phase.
+- **Only unclaimed work joins.** A task can join only while its lifecycle is
+  `todo`, with any hold, and it is not a member. Work another session has
+  queued, started, or submitted stays with that session. So everything a member
+  does after `todo` happens inside its delivery, and releasing it to `todo`
+  undoes only the delivery's own work. This is a declared limitation: a task
+  already in progress cannot join a delivery.
 - **Joining at create.** `create delivery <title> --phase <phase>` takes every
-  live task in the phase that is neither `queued`, `staged`, nor a member of
-  another delivery. That includes tasks another session has in progress: the
-  delivery's orchestrator takes over the phase's open work. Naming `--task`
-  ids takes only those tasks instead, and one ineligible id refuses the whole
-  create.
+  `todo` task in the phase that is not a member of another delivery. Naming
+  `--task` ids takes only those tasks instead, and one ineligible id refuses
+  the whole create. `--phase` must name a phase, and an initiative refuses.
+  Tasks directly under an initiative cannot be delivered.
 - **Joining later.** `update <task> --delivery KEY-dN` adds a member. It
-  refuses unless the task is live and neither `queued` nor `staged`, the
-  delivery is non-terminal, the task's parent is the delivery's phase, and the
-  task is not already a member of a delivery. To switch deliveries, leave the
-  first one.
+  refuses unless the task can join, the delivery is non-terminal, and the
+  task's parent is the delivery's phase. To switch deliveries, leave the first
+  one.
 - **Leaving.** `update <task> --delivery none` removes a member. It refuses a
   `staged` member, whose accepted code is on the delivery's branch: `return`
   it first. It refuses a task that is not a member.
@@ -117,19 +129,29 @@ grammar ([ADR 0024](0024-cli-command-taxonomy.md)).
 - **Move.** `move` of a member refuses and names `update <task> --delivery
   none`. Moving the phase itself is unaffected, because the delivery stores
   the phase.
-- **Ending a member.** Task `abandon` on a member clears its reference. `done`
-  on a member refuses and names `land`. Other task verbs on a member (`start`,
+- **Ending a member.** Task `abandon` on a member clears its reference, except
+  on a `staged` member, which refuses and names `return`. `done` on a member
+  refuses and names `land`. Other task verbs on a member (`start`,
   `submit`, `stage`, `return`, `park`, `block`) are not gated by the
   delivery's lifecycle or hold.
 - **After the end.** A task keeps its reference only when `land` completed it,
-  so the reference records the delivery that landed it. A task that names a
-  terminal delivery is not a member: it may join a new delivery, and the new
-  reference replaces the old one. `update <task> --delivery none` refuses it,
-  because it is not a member.
-- **The log.** Every membership change (join, leave, release, the clear on task
-  `abandon`) is a row in the non-terminal delivery's history, naming the task.
-  The task's own log keeps only its lifecycle and hold changes, so
-  `transition_log` needs no new kind.
+  so the reference records the delivery that landed it. `reopen` on such a task
+  clears the reference, because the landing it recorded no longer holds. A
+  task that names a terminal delivery is not a member, and
+  `update <task> --delivery none` refuses it.
+
+### The log
+
+- `delivery_history` has its own closed kind set, `lifecycle`, `hold`, and
+  `member`. It does not use the task log's `TransitionKind`. Each row has
+  `from_value`, `to_value`, an optional `reason`, a nullable `task` (the task
+  id, set only on `member` rows), and `at`.
+- A `member` row's `to_value` says what happened to the task: `joined`, `left`
+  (`update --delivery none`), `released` (`abandon` on the delivery), or
+  `abandoned` (task `abandon` on a member). `land` writes a `lifecycle` row for
+  the delivery, and each landed task logs its own `done`.
+- Membership changes add no rows to `transition_log` and no kind to it. Every
+  existing task transition kind is unchanged.
 
 ### Board rules
 
@@ -144,12 +166,24 @@ grammar ([ADR 0024](0024-cli-command-taxonomy.md)).
   never gates `start`.
 - Settledness becomes relative to the dependent. `blocking` applies the same
   rule from the prerequisite's side: a prerequisite is not `blocking` a
-  dependent that counts it as settled. `became_ready_at` takes the time the
-  prerequisite began to count (its `submit`, or its `done` for an outside
-  dependent) and the time the dependent joined, whichever is later.
+  dependent that counts it as settled.
+- `became_ready_at` keeps ADR 0003's formula and adds two terms. It is the
+  latest of the dependent's last readiness-relevant transition, the latest
+  `completed_at` among its prerequisites, the latest `submit` of each
+  prerequisite that counts by the same-delivery rule, and the latest `member`
+  row in the delivery's history for the dependent or any of those
+  prerequisites.
 - A readiness change flows through the existing rollup, so a phase's
   distribution can change when a member's readiness changes. No rollup rule
   changes.
+
+### Archived projects
+
+A delivery follows its project's archive state, as a seed does
+([ADR 0015](0015-project-archive-frozen-and-hidden.md),
+[ADR 0020](0020-seeds-grooming-queue-entity.md)). Every write to a delivery
+refuses while its project is archived, and `deliveries` hides an archived
+project's deliveries.
 
 ### Out of scope here
 
@@ -177,7 +211,9 @@ phases of the same design. Each records its own ADR or refinement.
   (`abandon`). Per-task writes would leave the board half-landed between calls.
 - **Membership is the reservation.** The task's reference keeps other sessions
   off it, which is why `next` leaves members out and `queue` refuses them.
-  Using `queue` as well would store the same fact twice.
+  Using `queue` as well would store the same fact twice. For the same reason,
+  only unclaimed `todo` work joins: a delivery never takes over work another
+  session holds, so releasing it never resets that session's work.
 - **A released task is unowned work.** Abandoning an attempt frees its tasks
   for the next one, so a release clears the owner handles as `unqueue` does,
   and a new session can start the task without a takeover.
@@ -186,8 +222,8 @@ phases of the same design. Each records its own ADR or refinement.
   anyway (to ship a smaller milestone, remove the unfinished members, then
   `land`), and the same per-task edit adds one.
 - **A staged member stays.** Its code is accepted on the delivery's branch.
-  Letting it leave, or join from elsewhere, would move accepted code between
-  branches on the board while the code stays where it is.
+  Letting it leave, or be abandoned, would take it off the board's account of
+  that branch while the code stays there.
 - **`start` and `land` need real members.** `start` requires a live member and
   an agreement, so the lifecycle word `agreed` means the terms exist. `land`
   requires a staged member, so a delivery that delivered nothing cannot land.
@@ -243,8 +279,9 @@ phases of the same design. Each records its own ADR or refinement.
   project's deliveries, `get` and `update` on a `KEY-dN` id, `--delivery` on
   `update` and `next`, the reused verbs on a `KEY-dN` id, and `land`. ADR 0024
   gains two amendments with MMR-676: `create` also creates a delivery, the one
-  record whose creation names a tree parent, and `deliveries` joins the flat
-  read verbs as `artifacts` did. The contract snapshot and the version window
+  record whose creation names a phase, taking `--phase` because a phase is not
+  the delivery's parent; and `deliveries` joins the flat read verbs as
+  `artifacts` did. The contract snapshot and the version window
   change with them ([ADR 0038](0038-device-pairing-and-the-version-window.md)).
 - A project that never creates a delivery behaves exactly as before.
 - The work lands in four pull requests: the record (MMR-676), membership
