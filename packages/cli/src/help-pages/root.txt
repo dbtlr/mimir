@@ -45,7 +45,7 @@ COMMANDS
   submit             Submit for review (in_progress → under_review).
   stage              Mark reviewed work accepted on its branch, not yet on main (under_review → staged).
   return             Send back for changes (under_review/staged → in_progress).
-  done               Complete a task (approves a review).
+  done               Complete a task (approves a review or lands a staged task).
   abandon            Abandon a task (kept, not deleted).
   reopen             Reopen a terminal task (done/abandoned → in_progress).
   park               Put a task on hold. Also takes a seed (KEY-sN).

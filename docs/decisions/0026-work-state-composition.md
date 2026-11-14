@@ -173,3 +173,10 @@ handle, and a task's handles do not change when an agent run acts on it. An
 agent run is distinct from the queued run above, which is a session in an
 outside harness. The rows are
 host transport data, outside the work-state model and the export.
+
+## 2026-11-14 refinement: a staged task keeps its handles (MMR-675)
+
+Decision 3 keeps the handles through `under_review`. They are kept through
+`staged` as well (ADR 0001, MMR-675 refinement): `stage` and a `return` from
+`staged` change no handle, because the branch and session still point at work
+that has not reached `main`. `done`, `abandon`, and holds clear them as before.

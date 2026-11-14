@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { WINDOW_VERSION } from '@mimir/core/testing';
 import { RemoteEngine } from '@mimir/wire/client';
 import { z } from 'zod';
 
@@ -15,7 +16,7 @@ let lines: string[];
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), 'mimir-auth-'));
   lines = [];
-  host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), '0.26.0', (line) =>
+  host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), WINDOW_VERSION, (line) =>
     lines.push(line),
   );
 });
@@ -24,7 +25,7 @@ afterEach(async () => {
   await rm(root, { force: true, recursive: true });
 });
 
-function remote(authorization?: string, version = '0.26.0') {
+function remote(authorization?: string, version = WINDOW_VERSION) {
   return new RemoteEngine({
     fetch: async (input, init) => {
       const response = await host.handleTrpc(new Request(input, init));
@@ -134,7 +135,7 @@ test.each(['projects,removed', 'projects%2Cremoved'])(
   async (path) => {
     const response = await host.handleTrpc(
       new Request(`http://host.test/trpc/${path}?batch=1`, {
-        headers: { 'x-mimir-version': '0.26.0' },
+        headers: { 'x-mimir-version': WINDOW_VERSION },
       }),
     );
     expect(response.status).toBe(401);

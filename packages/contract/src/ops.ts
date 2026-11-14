@@ -170,7 +170,7 @@ export const OP_FACTS = {
   done: {
     reason: 'none',
     subject: 'task',
-    summary: 'complete a task (approves a review)',
+    summary: 'complete a task (approves a review or lands a staged task)',
     transition: {
       axis: 'lifecycle',
       from: ['todo', 'queued', 'in_progress', 'under_review', 'staged'],

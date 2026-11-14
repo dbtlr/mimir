@@ -1,4 +1,4 @@
-mimir done · Complete a task (approves a review).
+mimir done · Complete a task (approves a review or lands a staged task).
 
 USAGE
   mimir done <id> [options]

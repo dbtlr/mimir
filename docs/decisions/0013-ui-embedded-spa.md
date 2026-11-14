@@ -759,3 +759,18 @@ in-flight count) are revised:
   block.
 - **The review page's project in-flight count includes reviews,** because it
   counts the same _Now_ bucket. It now matches the overview's in-flight list.
+
+## Refinement (2026-11-14, MMR-675): staged tasks in Now and the Frontier
+
+`staged` (ADR 0001, MMR-675 refinement) is work in flight, so it joins the
+in-flight set this ADR's MMR-615 refinement defined:
+
+- **_Now_ lists tasks whose status word is `queued`, `in_progress`,
+  `under_review`, or `staged`.** A staged row reads _Staged · submitted …_,
+  timed from its latest submit, as a review row is. The review page's project
+  in-flight count and the overview's in-flight list include staged tasks too.
+- **The Frontier's one-step prerequisite set is `in_progress`,
+  `under_review`, `staged`, or `ready`.** A staged prerequisite is closer to
+  done than one under review, so its dependents stay under _Next to unlock_.
+- **A staged task's record offers Mark done, Send back…, Park, Block, and
+  Abandon.** A task under review also offers Stage.

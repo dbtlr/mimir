@@ -181,9 +181,10 @@ export async function stageTask(store: Store, id: string): Promise<Node> {
   return store.transact(async (w) => {
     const task = await requireTask(w, id);
     if (task.lifecycle !== 'under_review') {
+      const unsubmitted = ['todo', 'queued', 'in_progress'].includes(String(task.lifecycle));
       throw validation(
         `only an under_review task can be staged (is ${String(task.lifecycle)})`,
-        'submit the task for review first',
+        unsubmitted ? 'submit the task for review first' : undefined,
       );
     }
     await w.updateNode(id, { lifecycle: 'staged', rank: null });

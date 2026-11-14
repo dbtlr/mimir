@@ -256,7 +256,8 @@ optional step after the review gate:
 
 - **`stage` moves `under_review → staged` only.** It claims the review and
   checks passed and the code is accepted on its branch, but not on `main`. Any
-  other lifecycle refuses, and the refusal names `submit`. `under_review → done`
+  other lifecycle refuses. The refusal names `submit` when the task has not
+  been submitted yet (`todo`, `queued`, or `in_progress`). `under_review → done`
   stays legal, so a task outside a build run never needs the step.
 - **`staged` is work in flight, not terminal.** It keeps its handles, as
   `under_review` does (ADR 0026). It leaves the rankable set and `next`, and

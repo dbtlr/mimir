@@ -13,7 +13,7 @@ import {
   startTask,
   MimirError,
 } from '@mimir/core';
-import { createTestStore, errorOf, pairTestDevice } from '@mimir/core/testing';
+import { createTestStore, errorOf, pairTestDevice, WINDOW_VERSION } from '@mimir/core/testing';
 import type { TestStore } from '@mimir/core/testing';
 
 import { RemoteEngine } from './client';
@@ -39,7 +39,7 @@ beforeEach(async () => {
   local = new LocalEngine(fixture.store);
   const handle = createEngineHandler(local, {
     verifyToken: fixture.tokens.verify,
-    version: '0.26.0',
+    version: WINDOW_VERSION,
   });
   remote = new RemoteEngine({
     fetch: async (input, init) => {
@@ -48,7 +48,7 @@ beforeEach(async () => {
     },
     headers: { authorization },
     url: 'http://engine.test/trpc',
-    version: '0.26.0',
+    version: WINDOW_VERSION,
   });
 });
 
@@ -94,7 +94,7 @@ test('a MimirError raised by a custom fetch reaches the caller unchanged', async
   const client = new RemoteEngine({
     fetch: () => Promise.reject(refusal),
     url: 'http://engine.test/trpc',
-    version: '0.26.0',
+    version: WINDOW_VERSION,
   });
   expect(await errorOf(client.projects({}))).toBe(refusal);
   expect(await errorOf(client.annotate({ content: 'x', id: 'ENG-1' }))).toBe(refusal);
@@ -155,7 +155,7 @@ test('explicit undefined survives serialization as an own property', async () =>
   });
   const handle = createEngineHandler(withOverride(local, { getNode }), {
     verifyToken: fixture.tokens.verify,
-    version: '0.26.0',
+    version: WINDOW_VERSION,
   });
   const client = new RemoteEngine({
     fetch: async (input, init) => {
@@ -164,7 +164,7 @@ test('explicit undefined survives serialization as an own property', async () =>
     },
     headers: { authorization },
     url: 'http://engine.test/trpc',
-    version: '0.26.0',
+    version: WINDOW_VERSION,
   });
   const actual = await client.getNode({ id });
   expect(Object.hasOwn(actual, 'next')).toBe(true);
@@ -180,7 +180,7 @@ test('unexpected wire faults log their details without sending library text or s
         throw fault;
       },
     }),
-    { verifyToken: fixture.tokens.verify, version: '0.26.0' },
+    { verifyToken: fixture.tokens.verify, version: WINDOW_VERSION },
   );
   const client = new RemoteEngine({
     fetch: async (input, init) => {
@@ -189,7 +189,7 @@ test('unexpected wire faults log their details without sending library text or s
     },
     headers: { authorization },
     url: 'http://engine.test/trpc',
-    version: '0.26.0',
+    version: WINDOW_VERSION,
   });
   try {
     const failure: unknown = await client.done({ id }).catch((error: unknown) => error);
@@ -225,12 +225,12 @@ test('a credential store fault fails closed with the generic wire refusal', asyn
   const log = spyOn(console, 'error').mockReturnValue(undefined);
   const handle = createEngineHandler(local, {
     verifyToken: () => Promise.reject(new Error('credential database private detail')),
-    version: '0.26.0',
+    version: WINDOW_VERSION,
   });
   try {
     const response = await handle(
       new Request('http://engine.test/trpc/projects', {
-        headers: { authorization, 'x-mimir-version': '0.26.0' },
+        headers: { authorization, 'x-mimir-version': WINDOW_VERSION },
       }),
     );
     expect(response.status).toBe(500);
@@ -261,7 +261,7 @@ test('an output-schema fault logs the failing fields its stack omits, never send
   const broken = { getNode } as unknown as Partial<Engine>;
   const handle = createEngineHandler(withOverride(local, broken), {
     verifyToken: fixture.tokens.verify,
-    version: '0.26.0',
+    version: WINDOW_VERSION,
   });
   const client = new RemoteEngine({
     fetch: async (input, init) => {
@@ -270,7 +270,7 @@ test('an output-schema fault logs the failing fields its stack omits, never send
     },
     headers: { authorization },
     url: 'http://engine.test/trpc',
-    version: '0.26.0',
+    version: WINDOW_VERSION,
   });
   try {
     const failure: unknown = await client.getNode({ id }).catch((error: unknown) => error);

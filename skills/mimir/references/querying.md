@@ -28,7 +28,7 @@ Sections, attention-ordered: **header** (project rollup distribution + status
 word) · **direction** (the owned `## Next` prose, verbatim, of the project and of
 every container parenting live work — in flight or ready; top 5 of the true
 count, the rest named) · **in flight** (`queued` + `in_progress` +
-`under_review`, uncapped, each row showing its resume handles as
+`under_review` + `staged`, uncapped, each row showing its resume handles as
 `harness@host · branch · session` plus a distinct worker when set) · **active scratchpads** (true
 count, top 5 — `uuid · project · title · N open Agenda · age · linked KEY…`,
 interrupted freezes flagged `freezing`; the resume surface for unsettled

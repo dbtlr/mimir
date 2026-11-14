@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { afterEach, beforeEach, expect, setSystemTime, test } from 'bun:test';
 
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import { childDistribution, deriveSet, isInFlightWord, nodeStatusWord } from './derive';
@@ -110,7 +110,7 @@ test('stage clears rank, keeps every owner handle, and reads as staged', async (
   expect(nodeStatusWord(await setOf(), node!)).toBe('staged');
 });
 
-test('stage is refused outside under_review, and the hint names submit', async () => {
+test('stage is refused outside under_review; only unsubmitted work is pointed at submit', async () => {
   const todo = await todoTask('a');
   const started = await todoTask('b');
   await startTask(store, started);
@@ -121,7 +121,7 @@ test('stage is refused outside under_review, and the hint names submit', async (
   const abandoned = await todoTask('e');
   await abandonTask(store, abandoned);
   const already = await stagedTask('f');
-  for (const id of [todo, started, queued, done, abandoned, already]) {
+  const refusal = async (id: string): Promise<MimirError> => {
     const error = await stageTask(store, id).then(
       () => undefined,
       (caught: unknown) => caught,
@@ -129,7 +129,13 @@ test('stage is refused outside under_review, and the hint names submit', async (
     expect(error).toBeInstanceOf(MimirError);
     expect((error as MimirError).code).toBe('validation');
     expect((error as MimirError).message).toContain('only an under_review task can be staged');
-    expect((error as MimirError).hint).toContain('submit');
+    return error as MimirError;
+  };
+  for (const id of [todo, started, queued]) {
+    expect((await refusal(id)).hint).toContain('submit');
+  }
+  for (const id of [done, abandoned, already]) {
+    expect((await refusal(id)).hint).toBeUndefined();
   }
 });
 
@@ -191,6 +197,20 @@ test('a dependent of a staged prerequisite still reads awaiting', async () => {
   const dependent = await todoTask('dependent');
   await depend(store, dependent, [prereq]);
   expect(nodeStatusWord(await setOf(), (await load(dependent))!)).toBe('awaiting');
+});
+
+test('stage stamps the task, so stale counts from the stage, not the submit', async () => {
+  const id = await todoTask();
+  try {
+    setSystemTime(new Date('2026-10-01T09:00:00Z'));
+    await startTask(store, id);
+    await submitTask(store, id);
+    setSystemTime(new Date('2026-10-20T09:00:00Z'));
+    await stageTask(store, id);
+  } finally {
+    setSystemTime();
+  }
+  expect((await load(id))?.updated_at).toBe('2026-10-20T09:00:00.000Z');
 });
 
 test('stale chases a staged task left too long', async () => {

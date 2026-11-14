@@ -415,14 +415,17 @@ describe('step 1: the task', () => {
     expect(h.stub.threads.size).toBe(1);
   });
 
-  test('a known attempt whose task is now under review still reads launched without reaching T3', async () => {
-    const h = harness();
-    expect(await h.launch()).toEqual(launched());
-    const sent = h.stub.requests.length;
-    Object.assign(h.fake.nodes.get('MMR-1')!, { lifecycle: 'under_review' });
-    expect(await h.launch()).toEqual(launched());
-    expect(h.stub.requests).toHaveLength(sent);
-  });
+  test.each(['under_review', 'staged'])(
+    'a known attempt whose task is now %s still reads launched without reaching T3',
+    async (lifecycle) => {
+      const h = harness();
+      expect(await h.launch()).toEqual(launched());
+      const sent = h.stub.requests.length;
+      Object.assign(h.fake.nodes.get('MMR-1')!, { lifecycle });
+      expect(await h.launch()).toEqual(launched());
+      expect(h.stub.requests).toHaveLength(sent);
+    },
+  );
 
   test('a task the Engine does not know is its refusal, not a T3 state', async () => {
     const h = harness();

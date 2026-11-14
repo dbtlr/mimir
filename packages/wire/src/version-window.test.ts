@@ -1,13 +1,29 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
-import { MimirError } from '@mimir/contract';
+import { MIN_CLIENT, MimirError } from '@mimir/contract';
 import { LocalEngine } from '@mimir/core';
-import { createTestStore, pairTestDevice } from '@mimir/core/testing';
+import { createTestStore, pairTestDevice, WINDOW_VERSION } from '@mimir/core/testing';
 import type { TestStore } from '@mimir/core/testing';
+import { parse } from 'semver';
 
 import { RemoteEngine } from './client';
 import { createEngineHandler } from './server';
 import { versionWindow } from './version-window';
+
+const MIN = parse(WINDOW_VERSION);
+if (!MIN) {
+  throw new Error('WINDOW_VERSION must be SemVer');
+}
+/** A release of the minimum's own minor, so host and client sit in one window. */
+const HOST = `${MIN.major}.${MIN.minor}.${MIN.patch}-next.10`;
+/** Just below the minimum client, on the previous minor. */
+const BELOW = `${MIN.major}.${MIN.minor - 1}.99`;
+/** A prerelease of the minor after the host's. */
+const NEWER_MINOR = `${MIN.major}.${MIN.minor + 1}.0-next.1`;
+/** A release of the minor after the host's. */
+const NEWER_MINOR_RELEASE = `${MIN.major}.${MIN.minor + 1}.0`;
+/** A patch release above the minimum, with the `v` prefix and build metadata a tag carries. */
+const TAGGED = `v${MIN.major}.${MIN.minor}.${MIN.patch + 1}+build.2`;
 
 let fixture: TestStore;
 let authorization: string;
@@ -19,7 +35,7 @@ beforeEach(async () => {
 });
 afterEach(async () => fixture.close());
 
-function client(version: string, stripVersion = false, hostVersion = '0.26.0-next.10') {
+function client(version: string, stripVersion = false, hostVersion = HOST) {
   const handle = createEngineHandler(local, {
     verifyToken: fixture.tokens.verify,
     version: hostVersion,
@@ -40,7 +56,7 @@ function client(version: string, stripVersion = false, hostVersion = '0.26.0-nex
 }
 
 test('an older client receives the update-this-CLI remedy as a MimirError', async () => {
-  const failure: unknown = await client('0.25.99')
+  const failure: unknown = await client(BELOW)
     .projects({})
     .catch((error: unknown) => error);
   expect(failure).toBeInstanceOf(MimirError);
@@ -51,12 +67,12 @@ test('an older client receives the update-this-CLI remedy as a MimirError', asyn
   if (!(failure instanceof MimirError)) {
     throw new Error('expected MimirError');
   }
-  expect(failure.message).toContain('0.25.99');
-  expect(failure.message).toContain('0.26.0-next');
+  expect(failure.message).toContain(BELOW);
+  expect(failure.message).toContain(MIN_CLIENT);
 });
 
 test('a newer minor client receives the update-host-first remedy', async () => {
-  const failure: unknown = await client('0.27.0-next.1')
+  const failure: unknown = await client(NEWER_MINOR)
     .projects({})
     .catch((error: unknown) => error);
   expect(failure).toBeInstanceOf(MimirError);
@@ -64,12 +80,12 @@ test('a newer minor client receives the update-host-first remedy', async () => {
   if (!(failure instanceof MimirError)) {
     throw new Error('expected MimirError');
   }
-  expect(failure.message).toContain('0.27.0-next.1');
-  expect(failure.message).toContain('0.26.0-next.10');
+  expect(failure.message).toContain(NEWER_MINOR);
+  expect(failure.message).toContain(HOST);
 });
 
 test('a missing header is refused with the CLI update remedy', async () => {
-  const failure: unknown = await client('0.26.0', true)
+  const failure: unknown = await client(WINDOW_VERSION, true)
     .projects({})
     .catch((error: unknown) => error);
   expect(failure).toBeInstanceOf(MimirError);
@@ -84,7 +100,7 @@ test.each(['garbage'])('malformed version %s is a domain refusal', async (versio
   expect(failure).toMatchObject({ code: 'validation', hint: 'update this CLI' });
 });
 
-test.each(['v0.26.1+build.2'])('in-window client %s can read and mutate', async (version) => {
+test.each([TAGGED])('in-window client %s can read and mutate', async (version) => {
   const remote = client(version);
   expect(await remote.projects({})).toEqual([]);
   await remote.create({ key: 'WIN', name: 'In window', type: 'project' });
@@ -99,7 +115,7 @@ test('newer major clients are refused even when their minor is lower', async () 
 });
 
 test('refused mutation and console requests stop before input parsing or Engine work', async () => {
-  const remote = client('0.27.0');
+  const remote = client(NEWER_MINOR_RELEASE);
   const mutation: unknown = await remote
     .create({ key: 'NO', name: 'Refused', type: 'project' })
     .catch((error: unknown) => error);
@@ -115,7 +131,7 @@ test('refused mutation and console requests stop before input parsing or Engine 
 test('the async headers hook runs on every call alongside the build version', async () => {
   const handle = createEngineHandler(local, {
     verifyToken: fixture.tokens.verify,
-    version: '0.26.0',
+    version: WINDOW_VERSION,
   });
   let calls = 0;
   const seen: { device: string | null; version: string | null }[] = [];
@@ -130,23 +146,25 @@ test('the async headers hook runs on every call alongside the build version', as
       return { json: () => response.json(), ok: response.ok };
     },
     headers: async () => ({
-      'X-Mimir-Version': '0.25.0',
+      'X-Mimir-Version': BELOW,
       authorization,
       'x-device': String(++calls),
     }),
     url: 'http://engine.test/trpc',
-    version: '0.26.0',
+    version: WINDOW_VERSION,
   });
   await remote.projects({});
   await remote.console.openTasks({ q: '' });
   expect(seen).toEqual([
-    { device: '1', version: '0.26.0' },
-    { device: '2', version: '0.26.0' },
+    { device: '1', version: WINDOW_VERSION },
+    { device: '2', version: WINDOW_VERSION },
   ]);
 });
 
 test('the window admits an older minor still above the minimum client', async () => {
-  expect(await client('0.27.1', false, '0.28.0').projects({})).toEqual([]);
+  expect(
+    await client(`${MIN.major}.${MIN.minor}.1`, false, NEWER_MINOR_RELEASE).projects({}),
+  ).toEqual([]);
 });
 
 test('an invalid host version cannot silently disable the upper bound', () => {
@@ -160,7 +178,7 @@ test.each(['removed procedure', 'changed procedure kind'])(
   async (scenario) => {
     const handle = createEngineHandler(local, {
       verifyToken: fixture.tokens.verify,
-      version: '0.26.0',
+      version: WINDOW_VERSION,
     });
     const remote = new RemoteEngine({
       fetch: async (input, init) => {
@@ -173,7 +191,7 @@ test.each(['removed procedure', 'changed procedure kind'])(
       },
       headers: { authorization },
       url: 'http://engine.test/trpc',
-      version: '0.25.0',
+      version: BELOW,
     });
     const error: unknown = await remote.projects({}).catch((failure: unknown) => failure);
     expect(error).toBeInstanceOf(MimirError);
@@ -186,11 +204,11 @@ test.each(['projects,projectsLegacy', 'projects%2CprojectsLegacy'])(
   async (path) => {
     const handle = createEngineHandler(local, {
       verifyToken: fixture.tokens.verify,
-      version: '0.26.0',
+      version: WINDOW_VERSION,
     });
     const response = await handle(
       new Request(`http://engine.test/trpc/${path}?batch=1`, {
-        headers: { 'x-mimir-version': '0.25.0' },
+        headers: { 'x-mimir-version': BELOW },
       }),
     );
     expect(response.status).toBe(400);
@@ -226,8 +244,8 @@ test.each([
 });
 
 test('the minimum client defaults to the contract constant', () => {
-  expect(versionWindow('0.0.1', '0.26.0')).toBe('below-minimum');
-  expect(versionWindow('0.26.0', '0.26.0')).toBe('inside');
+  expect(versionWindow(BELOW, WINDOW_VERSION)).toBe('below-minimum');
+  expect(versionWindow(MIN_CLIENT, WINDOW_VERSION)).toBe('inside');
 });
 
 // A host's /health minimum is its own text; one that is not SemVer must not throw.

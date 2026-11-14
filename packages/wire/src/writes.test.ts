@@ -22,7 +22,7 @@ import {
   submitTask,
   tagEntities,
 } from '@mimir/core';
-import { createTestStore, errorOf, pairTestDevice } from '@mimir/core/testing';
+import { createTestStore, errorOf, pairTestDevice, WINDOW_VERSION } from '@mimir/core/testing';
 import type { TestStore } from '@mimir/core/testing';
 
 import { RemoteEngine } from './client';
@@ -102,7 +102,7 @@ async function buildFixture(): Promise<Fixture> {
   const local = new LocalEngine(store);
   const handle = createEngineHandler(local, {
     verifyToken: fixture.tokens.verify,
-    version: '0.26.0',
+    version: WINDOW_VERSION,
   });
   const remote = new RemoteEngine({
     fetch: async (input, init) => {
@@ -111,7 +111,7 @@ async function buildFixture(): Promise<Fixture> {
     },
     headers: { authorization },
     url: 'http://engine.test/trpc',
-    version: '0.26.0',
+    version: WINDOW_VERSION,
   });
   return {
     close: fixture.close,

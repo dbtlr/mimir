@@ -842,7 +842,7 @@ export async function overviewOf(
 
   const tasks = set.ws.nodes.filter((n) => n.type === 'task' && n.project_id === scopeId);
 
-  // in flight — the tasks under active hand (queued + in_progress + under_review), uncapped.
+  // in flight — the tasks under active hand (queued + in_progress + under_review + staged), uncapped.
   const inFlightNodes = tasks
     .filter((n) => isInFlightWord(nodeStatusWord(set, n)))
     .toSorted(byRankOrder(set));

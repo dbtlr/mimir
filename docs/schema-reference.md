@@ -105,7 +105,7 @@ One table absorbs the semi-regular hierarchy (a monorepo sub-project, a phaseles
 | `title`        | text    | all, required                 | free text                                                                                           |
 | `description`  | text    | all, optional                 | the node's prose; uncapped. Only the short `summary` lede has a length limit                         |
 | `summary`      | text    | all, optional                 | the short list lede; the write verbs reject over 256 chars                                          |
-| `lifecycle`    | text    | **task**; set by the writer   | `todo` \| `queued` \| `in_progress` \| `under_review` \| `done` \| `abandoned`                                  |
+| `lifecycle`    | text    | **task**; set by the writer   | `todo` \| `queued` \| `in_progress` \| `under_review` \| `staged` \| `done` \| `abandoned`                     |
 | `hold`         | text    | **task**, optional            | `none` \| `blocked` \| `parked`; null reads as `none`                                               |
 | `hold_reason`  | text    | **task**, optional            | context for the current hold; every verb that releases a hold clears it, and an import refuses an open task that has a reason with no hold (the transition reason itself rides `transition_log`)                  |
 | `grooming`     | text    | **task**; set by the writer | `not_groomed` on create, then `needs_answers` \| `groomed`; null on a container ([ADR 0033](decisions/0033-task-grooming-state.md)) |
@@ -297,7 +297,7 @@ Each closed vocabulary has a `CHECK` on its column; values outside its set canno
 | Column                                  | Values                                                     |
 | --------------------------------------- | ---------------------------------------------------------- |
 | `node.type`                             | `initiative`, `phase`, `task`                              |
-| `node.lifecycle`                        | `todo`, `queued`, `in_progress`, `under_review`, `done`, `abandoned` |
+| `node.lifecycle`                        | `todo`, `queued`, `in_progress`, `under_review`, `staged`, `done`, `abandoned` |
 | `node.hold`                             | `none`, `blocked`, `parked`                                |
 | `node.grooming`                         | `not_groomed`, `needs_answers`, `groomed`                  |
 | `node.block_owner`                      | `you`, `others` (null unless the hold is `blocked`)        |
@@ -312,7 +312,7 @@ Each closed vocabulary has a `CHECK` on its column; values outside its set canno
 
 `node.open_ended` is a boolean, and the Agenda item state (`open`, `done`, `superseded`) lives inside the `agenda` JSON, so the application validates it rather than a `CHECK`.
 
-The **status word** vocabulary (`ready`, `awaiting`, `queued`, `blocked`, `parked`, `in_progress`, `under_review`, `done`, `abandoned`, and `new` for empty containers — [ADR 0008](decisions/0008-state-word-projection-and-interpret-cascade.md)) is a **derived projection**, not a stored column.
+The **status word** vocabulary (`ready`, `awaiting`, `queued`, `blocked`, `parked`, `in_progress`, `under_review`, `staged`, `done`, `abandoned`, and `new` for empty containers — [ADR 0008](decisions/0008-state-word-projection-and-interpret-cascade.md)) is a **derived projection**, not a stored column.
 
 ## Derived — never stored
 

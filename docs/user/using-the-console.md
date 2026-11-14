@@ -24,9 +24,10 @@ project at once. Its main column has three sections:
   page: Answer… on a task that needs answers. A block has no action here. Clear
   it outside Mimir, then unblock the task from its page.
 - **Now** lists the work in flight across your projects: tasks queued, in
-  progress, or in review. A task in review waits on its review gate, such as
+  progress, in review, or staged. A task in review waits on its review gate, such as
   a pull request, which asks for you when it needs you. Approve and Send
-  back… are on the task's page.
+  back… are on the task's page. A staged task passed its review and is
+  accepted on its branch, but its code has not reached `main` yet.
 - **Shipped** lists what finished in the last 7 days, grouped by day, newest
   first.
 
@@ -74,8 +75,8 @@ its own address: `/p/MMR` for the project, `/p/MMR/417` for `MMR-417`,
 `/mmr` redirects to its page.
 
 - **A project, initiative, or phase opens as its work page.** The main column
-  answers five questions in order: _Now_ (what is queued, running, or in
-  review, with when it started, where, and its latest note), _Needs you_
+  answers five questions in order: _Now_ (what is queued, running, in
+  review, or staged, with when it started, where, and its latest note), _Needs you_
   (blocks you can clear and tasks that need answers, each with its reason),
   _Frontier_ (what is runnable now, what is next to unlock, what is left to
   groom, and what is waiting on others, folded), _Shipped_ (the last seven

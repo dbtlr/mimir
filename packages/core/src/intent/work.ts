@@ -154,7 +154,7 @@ export function needsYouReasonOf(
 }
 
 /** The statuses a prerequisite can hold and still be "one step away" from done. */
-const ONE_STEP_STATUSES = new Set(['in_progress', 'under_review', 'ready']);
+const ONE_STEP_STATUSES = new Set(['in_progress', 'under_review', 'staged', 'ready']);
 
 /**
  * Is this todo task (or break-down container) on the frontier — ready, or

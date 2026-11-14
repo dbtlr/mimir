@@ -685,7 +685,7 @@ export type OverviewDirection = {
  * attention-ordered sections: the project header (id, status word, rollup
  * distribution — what `status KEY` answers), `direction` (the owned `## Next`
  * prose of the project and of the containers holding live work), `inFlight`
- * tasks (`queued` + `in_progress` + `under_review`, uncapped), `next` (the ready-queue
+ * tasks (`queued` + `in_progress` + `under_review` + `staged`, uncapped), `next` (the ready-queue
  * head, top 5), `awaiting` (dependency-gated tasks, top 5, each carrying the
  * upstream ids it awaits), `sessions` (recent session activity with its joined
  * summary ledes, top 5), and `hygiene` counts with their capped listings.
@@ -848,7 +848,7 @@ export type ReviewProject = ReviewProjectRef & {
   decisions: number;
   /** Untriaged seeds, plus tasks going cold, plus `doctor` findings. */
   triage: number;
-  /** Tasks whose status word is `queued`, `in_progress`, or `under_review`: the `now` rows. */
+  /** Tasks whose status word is `queued`, `in_progress`, `under_review`, or `staged`: the `now` rows. */
   inFlight: number;
   /**
    * Open tasks: the `--status live` group, every task whose status word is not

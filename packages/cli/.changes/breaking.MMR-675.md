@@ -5,7 +5,7 @@
 
 **Affected surface.** Engine clients and scripts that read a task's `lifecycle` or status word, and a host serving clients of this release.
 
-**Why.** The Engine contract gains the `stage` method and the `staged` value in the lifecycle and status vocabularies. A reader that switches over a closed list of statuses meets a value it does not know.
+**Why.** The Engine contract gains the `stage` method and the `staged` value in the lifecycle and status vocabularies. A reader that switches over a closed list of statuses meets a value it does not know. Earlier CLIs are such readers: their table output fails on a `staged` task. `MIN_CLIENT` rises to `0.29.0-next`, so a host of this release refuses them with the update to run. From this release on, the CLI renders a status word it does not know instead of failing.
 
 **Before and after.**
 
@@ -17,6 +17,7 @@
 **Steps.**
 
 1. Update the host before its clients, as for every Engine change.
-2. In scripts that branch on a task's status, treat `staged` as live, non-terminal work.
+2. Update every CLI paired with that host to this release; the host refuses an older one and names the update.
+3. In scripts that branch on a task's status, treat `staged` as live, non-terminal work.
 
 **Validation.** Run `mimir stage <id>` on a task under review, then `mimir get <id>` and check that it reads `staged`.

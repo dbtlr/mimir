@@ -67,7 +67,7 @@ const AGENT_DESCRIPTIONS: Record<string, string> = {
     'Archive a project — freeze + hide it and its subtree (reversible). Optionally records a reason on the transition. Echoes the project.',
   block:
     'Mark as externally blocked. Optionally records a reason on the transition. Optional on (you|others): who can clear the block (default: others when the task has an upstream, else you). Echoes the updated node.',
-  done: 'Complete a task (approves a review). Echoes the updated node.',
+  done: 'Complete a task (approves a review or lands a staged task). Echoes the updated node.',
   park: `Put a task on hold. Optionally records a reason on the transition. Echoes the updated node.${SEED_CLAUSE}`,
   queue:
     'Reserve a task for an autonomous run (todo → queued). Requires session. Echoes the updated node.',

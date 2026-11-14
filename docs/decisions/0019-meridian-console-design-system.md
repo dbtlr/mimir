@@ -524,3 +524,30 @@ state. The red marks the consequence of the click, and the label names it.
   pattern elsewhere: it is a status hue filling a button, which §1 rules
   out. A neutral outline for destructive actions: the hairline is the only
   cue before the click that the action cannot be undone.
+
+## Refinement (2026-11-14, MMR-675): `staged` takes green
+
+ADR 0001's MMR-675 refinement adds `staged`, accepted work not yet on `main`.
+It takes the green between `under_review`'s chartreuse and `done`'s jade, so
+amber, chartreuse, green, then jade reads as the path to done.
+
+| Token                              | Dark      | Light     |
+| ---------------------------------- | --------- | --------- |
+| `--color-status-staged`            | `#78c066` | `#428c2a` |
+| `--color-status-staged-foreground` | `#a4d48d` | `#356a18` |
+
+- **Distance.** Its OKLab distance (ΔE ×100) is 5.3 to `under_review` and 5.8
+  to `done` in the dark theme, 4.7 and 6.6 in the light theme. Those are its
+  nearest status hues. The closest status pairs stay `queued` and `ready` at
+  5.2 dark and `awaiting` and `abandoned` at 4.0 light.
+- **Contrast.** On a status chip's 12% wash, the foreground measures 9.12:1
+  against the dark page and 8.55:1 against the dark panel, and 4.91:1 and
+  5.62:1 light, all above AA's 4.5:1. The base, used for dots and borders,
+  measures 8.53:1 and 8.09:1 dark, and 3.61:1 and 4.19:1 light.
+- **Considered and rejected.** Teal (`#45b5b0` dark, `#1b8580` light) drifted
+  toward `ready`'s blue. Mint (`#8ad0a8` dark, `#3f9468` light) read as a pale
+  `done`.
+- **The vocabulary is eleven.** §3's status vocabulary is closed at eleven
+  words, and each takes one status hue.
+- The CLI's ANSI status colors are out of scope; `staged` is magenta there,
+  beside `under_review`, with its own glyph.

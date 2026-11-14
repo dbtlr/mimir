@@ -253,6 +253,20 @@ test('a task awaiting an in-flight prerequisite is one step away', async () => {
   expect(ids(report.frontier.nextToUnlock[0]?.tasks ?? [])).toEqual([b]);
 });
 
+test('a task awaiting a staged prerequisite is one step away', async () => {
+  const a = await task(phaseA, 'a');
+  const b = await task(phaseA, 'b');
+  await depend(store, b, [a]);
+  await groomTasks(store, [b], 'groomed');
+  await startTask(store, a);
+  await submitTask(store, a);
+  await stageTask(store, a);
+
+  const report = await page('MMR');
+  expect(report.frontier.nextToUnlock.map((g) => g.prerequisite.status)).toEqual(['staged']);
+  expect(ids(report.frontier.nextToUnlock[0]?.tasks ?? [])).toEqual([b]);
+});
+
 test('a task awaiting a blocked prerequisite is not on the frontier', async () => {
   const a = await task(phaseA, 'a');
   const b = await task(phaseA, 'b');
