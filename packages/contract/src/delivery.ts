@@ -1,0 +1,109 @@
+import { z } from 'zod';
+
+export const DELIVERY_LIFECYCLE_VALUES = [
+  'agreed',
+  'running',
+  'milestone',
+  'landed',
+  'abandoned',
+] as const;
+export const DELIVERY_HOLD_VALUES = ['none', 'stopped', 'paused'] as const;
+export const DELIVERY_HISTORY_KIND_VALUES = ['lifecycle', 'hold', 'member'] as const;
+export const deliveryFields = {
+  agreement: z.string().nullable().optional(),
+  branch: z.string().nullable().optional(),
+  external_ref: z.string().nullable().optional(),
+  harness: z.string().nullable().optional(),
+  host: z.string().nullable().optional(),
+  session: z.string().nullable().optional(),
+  time_cap_minutes: z.number().int().positive().nullable().optional(),
+};
+export const deliveryHistorySchema = z.strictObject({
+  at: z.string(),
+  from_value: z.string().nullable(),
+  kind: z.enum(DELIVERY_HISTORY_KIND_VALUES),
+  reason: z.string().nullable(),
+  task: z.string().nullable(),
+  to_value: z.string().nullable(),
+});
+export const deliveryRecordSchema = z.strictObject({
+  agreement: z.string().nullable(),
+  branch: z.string().nullable(),
+  created_at: z.string(),
+  external_ref: z.string().nullable(),
+  harness: z.string().nullable(),
+  hold: z.enum(DELIVERY_HOLD_VALUES),
+  hold_reason: z.string().nullable(),
+  host: z.string().nullable(),
+  id: z.string(),
+  lifecycle: z.enum(DELIVERY_LIFECYCLE_VALUES),
+  phase: z.string(),
+  project_key: z.string(),
+  seq: z.number().int().positive(),
+  session: z.string().nullable(),
+  time_cap_minutes: z.number().int().positive().nullable(),
+  title: z.string(),
+  updated_at: z.string(),
+});
+export const deliveryViewSchema = deliveryRecordSchema.extend({
+  elapsed_minutes: z.number().nonnegative().nullable(),
+  history: z.array(deliveryHistorySchema),
+});
+export const deliveryEngineSchema = deliveryViewSchema.extend({
+  created_at: z.date(),
+  history: z.array(deliveryHistorySchema.extend({ at: z.date() })),
+  updated_at: z.date(),
+});
+export type EngineDelivery = z.output<typeof deliveryEngineSchema>;
+export function decodeDelivery(view: DeliveryView): EngineDelivery {
+  return {
+    ...view,
+    created_at: new Date(view.created_at),
+    history: view.history.map((entry) => ({ ...entry, at: new Date(entry.at) })),
+    updated_at: new Date(view.updated_at),
+  };
+}
+export function encodeDelivery(view: EngineDelivery): DeliveryView {
+  return {
+    ...view,
+    created_at: view.created_at.toISOString(),
+    history: view.history.map((entry) => ({ ...entry, at: entry.at.toISOString() })),
+    updated_at: view.updated_at.toISOString(),
+  };
+}
+export type DeliveryRecord = z.output<typeof deliveryRecordSchema>;
+export type DeliveryHistory = z.output<typeof deliveryHistorySchema>;
+export type DeliveryView = z.output<typeof deliveryViewSchema>;
+export function deliverySchemas<P extends z.ZodType<string>>(project: P) {
+  return {
+    deliveries: {
+      input: z.strictObject({ project }),
+      kind: 'query',
+      output: z.array(deliveryEngineSchema),
+    },
+    deliveryCreate: {
+      input: z.strictObject({
+        ...deliveryFields,
+        phase: z.string(),
+        project,
+        title: z.string().min(1),
+      }),
+      kind: 'mutation',
+      output: deliveryEngineSchema,
+    },
+    deliveryUpdate: {
+      input: z.strictObject({
+        ...deliveryFields,
+        id: z.string(),
+        title: z.string().min(1).optional(),
+      }),
+      kind: 'mutation',
+      output: deliveryEngineSchema,
+    },
+    getDelivery: {
+      input: z.strictObject({ id: z.string() }),
+      kind: 'query',
+      output: deliveryEngineSchema,
+    },
+  } as const;
+}

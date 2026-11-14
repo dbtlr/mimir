@@ -35,6 +35,8 @@ test.each([
   ['artifacts', ['artifacts', '--help']],
   ['search', ['search', '--help']],
   ['seeds', ['seeds', '--help']],
+  ['deliveries', ['deliveries', '--help']],
+  ['create-delivery', ['create', 'delivery', '--help']],
   ['scratch', ['scratch', '--help']],
   ['scratch-list', ['scratch', 'list', '--help']],
   ['scratch-get', ['scratch', 'get', '--help']],

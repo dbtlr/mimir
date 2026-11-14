@@ -483,3 +483,18 @@ session or create a worker assignment. Worker fields are fully explicit; supplyi
 worker flags on a direct start also requires an explicit or established main session. Updates remain explicit and identity
 changes append assignment history. Park, block, unqueue, and settlement clear
 all handles; submit and return preserve them.
+
+## Delivery records
+
+`create delivery`, `get KEY-dN`, and `update KEY-dN` return a delivery object.
+`deliveries` returns `{ deliveries, total }` in JSON and one delivery per line
+in JSONL. Records and table formats show the record fields. The object carries
+`id`, `project_key`, `seq`, `phase`, `title`, `lifecycle`, `hold`, `hold_reason`,
+`agreement`, `external_ref`, `branch`, `host`, `harness`, `session`,
+`time_cap_minutes`, `created_at`, `updated_at`, `history`, and `elapsed_minutes`.
+Nullable fields are explicit nulls. Engine timestamps are `Date` values; CLI
+and MCP timestamps are ISO strings. History entries carry `kind`, `from_value`,
+`to_value`, `reason`, `task`, and `at`. `get --col history` includes the log.
+Elapsed minutes are derived from the first lifecycle row entering `running`,
+and are null before that transition. Agreement is replaced whole, and
+`--clear-agreement` clears it. `--time-cap none` clears the cap.

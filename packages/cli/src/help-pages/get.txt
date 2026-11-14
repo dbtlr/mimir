@@ -1,10 +1,10 @@
-mimir get · Read one full record: a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), or a seed (KEY-sN).
+mimir get · Read one full record: a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), a seed (KEY-sN), or a delivery (KEY-dN).
 
 USAGE
   mimir get <id> [options]
 
 ARGUMENTS
-  id  KEY-seq, KEY, KEY-aN, or KEY-sN.
+  id  KEY-seq, KEY, KEY-aN, KEY-sN, or KEY-dN.
 
 OPTIONS
       --col <col>        Add a column (deps tags children distribution …). Repeat it, or separate with commas.  (repeatable)

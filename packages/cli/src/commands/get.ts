@@ -5,7 +5,7 @@
 import { Command } from '@loomcli/core';
 import { helpCommand } from '@loomcli/plugins/help/extension';
 import { mcpCommand } from '@loomcli/plugins/mcp/extension';
-import { CHEAP_FACETS, intentEncoders } from '@mimir/contract';
+import { encodeDelivery, CHEAP_FACETS, intentEncoders } from '@mimir/contract';
 
 import { asciiOption, colOption } from '../options';
 import { parseFacets } from '../parse';
@@ -36,6 +36,13 @@ async function readRecord(
   presentation: Presentation,
 ): Promise<GetValue> {
   const kind = ports.grammar.idKind(id);
+  if (kind === 'delivery') {
+    const delivery = encodeDelivery(await (await ports.engine()).getDelivery({ id }));
+    const shown = cols.some((col) => col.split(',').includes('history'))
+      ? delivery
+      : { ...delivery, history: [] };
+    return { delivery: shown, kind, presentation, wire: { ...shown } };
+  }
   if (kind === 'artifact') {
     const engine = await ports.engine();
     const artifact = intentEncoders.artifactDetail.parse(
@@ -66,7 +73,7 @@ async function readRecord(
 export function getCommand(ports: Ports) {
   return new Command('get', {
     description:
-      'Read one full record: a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), or a seed (KEY-sN).',
+      'Read one full record: a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), a seed (KEY-sN), or a delivery (KEY-dN).',
     extensions: [
       helpCommand({
         examples: [
@@ -81,7 +88,7 @@ export function getCommand(ports: Ports) {
     ],
   })
     .argument('id', {
-      description: 'KEY-seq, KEY, KEY-aN, or KEY-sN.',
+      description: 'KEY-seq, KEY, KEY-aN, KEY-sN, or KEY-dN.',
       required: true,
     })
     .option('col', colOption)

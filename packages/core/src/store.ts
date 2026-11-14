@@ -13,6 +13,7 @@ import type {
 
 import type { ArtifactStore } from './artifacts/store';
 import type { BodySectionStore, NextFacet } from './body-sections/store';
+import type { DeliveryStore } from './deliveries/store';
 import type { ImportOptions, ImportReport, StoreExport } from './export';
 import type { Artifact, Dependency, Node, Project } from './model';
 import type { ScratchpadStore } from './scratchpads/store';
@@ -271,6 +272,7 @@ export type StoreWriter = {
 };
 
 export type Store = {
+  deliveries: DeliveryStore;
   /** The coarse bulk read every selection/derivation view starts from. */
   loadWorkingSet: () => Promise<WorkingSet>;
 

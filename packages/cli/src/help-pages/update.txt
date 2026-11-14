@@ -1,12 +1,15 @@
-mimir update · Change a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), or a seed (KEY-sN).
+mimir update · Change a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), a seed (KEY-sN), or a delivery (KEY-dN).
 
 USAGE
   mimir update <id> [options]
 
 ARGUMENTS
-  id  KEY-seq, KEY, KEY-aN, or KEY-sN.
+  id  KEY-seq, KEY, KEY-aN, KEY-sN, or KEY-dN.
 
 OPTIONS
+      --agreement <text>        Replace the delivery agreement.
+      --clear-agreement         Clear the delivery agreement.
+      --time-cap <text>         Delivery minutes, or none to clear.
       --title <text>            The new title.
       --desc <text>             The new description.
       --clear-desc              Clear the description. Blank --desc text is refused.

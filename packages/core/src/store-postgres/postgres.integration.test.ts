@@ -75,6 +75,7 @@ lane('upgradeSchema builds the schema from empty, and the gate then passes', asy
           '0012_host_secrets',
           '0013_runs',
           '0014_task_staged',
+          '0015_delivery',
         ],
         from: 0,
         to: SCHEMA_VERSION,
@@ -510,3 +511,34 @@ lane(
     });
   },
 );
+
+lane('delivery records round-trip through the socket-backed store', async () => {
+  await onFreshSchema(async (url) => {
+    const handle = openPostgres(url);
+    try {
+      await upgradeSchema(handle.db);
+      const store = createPostgresStore(handle.db);
+      const engine = new LocalEngine(store);
+      await createProject(store, { key: 'DEL', name: 'Delivery' });
+      const initiative = await createInitiative(store, { projectId: 'DEL', title: 'Plan' });
+      const phase = await createPhase(store, { parentId: initiative.id, title: 'Phase' });
+      const delivery = await engine.deliveryCreate({
+        phase: phase.id,
+        project: 'DEL',
+        title: 'Attempt',
+      });
+      const updated = await engine.deliveryUpdate({
+        agreement: 'Ship',
+        id: delivery.id,
+        time_cap_minutes: 30,
+      });
+      expect(await engine.getDelivery({ id: delivery.id })).toEqual(updated);
+      expect(await engine.deliveries({ project: 'DEL' })).toEqual([updated]);
+      const exported = await store.export();
+      expect(exported.projects[0]?.counters.delivery).toBe(1);
+      expect(exported.deliveries[0]?.agreement).toBe('Ship');
+    } finally {
+      await handle.close();
+    }
+  });
+});

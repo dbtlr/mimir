@@ -136,3 +136,14 @@ went terminal, appends the resolution annotation
 - A task the pass cannot reconcile (a flaky read, a refused write) lands in a
   `failures` section instead of aborting the pass. Always a report, never a
   gate — exit 0.
+
+## Delivery records
+
+A delivery (`KEY-dN`) records one attempt to deliver a phase beside the tree.
+`mimir create delivery "Ship the phase" --phase MMR-2 --agreement "Terms"`
+creates it in the phase's project. `mimir deliveries --project MMR` lists attempts.
+`mimir get MMR-d1 --col history` reads the log.
+`mimir update MMR-d1 --agreement "Revised terms" --time-cap 60` replaces terms;
+`--clear-agreement` and `--time-cap none` clear them. Handles and the milestone
+reference are editable with `--branch`, `--host`, `--harness`, `--session`, and
+`--ref`. Terminal deliveries and archived projects refuse writes.

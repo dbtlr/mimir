@@ -61,6 +61,9 @@ function resolveWorkScope(set: DerivationSet, id: string): ScopedTasks {
   if (identity?.kind === 'artifact') {
     throw validation(`${id} is an artifact, not a project, initiative, or phase`);
   }
+  if (identity?.kind === 'delivery') {
+    throw validation(`${id} is a delivery, not a project, initiative, or phase`);
+  }
   if (identity?.kind === 'seed') {
     throw validation(`${id} is a seed, not a project, initiative, or phase`);
   }

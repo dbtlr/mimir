@@ -27,6 +27,7 @@ import { parseTransferDocument } from '../transfer-validate';
 import { exportArtifacts, insertExportedArtifacts } from './artifacts';
 import { insertBatched, pairKey } from './batch';
 import { createSqlBodySectionStore } from './body-sections';
+import { exportDeliveries } from './deliveries';
 import type { StoreDialect } from './dialect';
 import { storedProse } from './prose';
 import type {
@@ -89,7 +90,7 @@ export async function exportSqlStore(ex: Executor, dialect: StoreDialect): Promi
   const workingSet = await loadWorkingSet(ex, dialect);
   const counters = await ex
     .selectFrom('project')
-    .select(['key', 'last_seq', 'last_artifact_seq', 'last_seed_seq'])
+    .select(['key', 'last_seq', 'last_artifact_seq', 'last_seed_seq', 'last_delivery_seq'])
     .execute();
   const countersByKey = new Map(counters.map((row) => [row.key, row]));
   const projects = [...workingSet.projects];
@@ -145,6 +146,7 @@ export async function exportSqlStore(ex: Executor, dialect: StoreDialect): Promi
       archived_at: project.archived_at,
       counters: {
         artifact: row?.last_artifact_seq ?? 0,
+        delivery: row?.last_delivery_seq ?? 0,
         node: row?.last_seq ?? 0,
         seed: row?.last_seed_seq ?? 0,
       },
@@ -162,6 +164,7 @@ export async function exportSqlStore(ex: Executor, dialect: StoreDialect): Promi
     annotations,
     artifacts: await exportArtifacts(ex, dialect),
     bodySections,
+    deliveries: await exportDeliveries(ex),
     edges: [...workingSet.edges],
     exported_at: now(),
     nodes,
@@ -242,6 +245,7 @@ type Bundles = {
   nodes: Map<string, unknown>;
   artifacts: Map<string, unknown>;
   seeds: Map<string, unknown>;
+  deliveries: Map<string, unknown>;
   scratchpads: Map<string, unknown>;
 };
 
@@ -313,6 +317,7 @@ function bundlesOf(
   const history = groupBy(document.transitions, (row) => row.node_id ?? row.project_id ?? '');
   const bundles: Bundles = {
     artifacts: new Map(),
+    deliveries: new Map(document.deliveries.map((row) => [row.id, row])),
     nodes: new Map(),
     projects: new Map(),
     scratchpads: new Map(),
@@ -524,6 +529,7 @@ async function applyImport(
         description: project.description,
         key: project.key,
         last_artifact_seq: counters.artifact,
+        last_delivery_seq: counters.delivery,
         last_seed_seq: counters.seed,
         last_seq: counters.node,
         name: project.name,
@@ -633,6 +639,19 @@ async function applyImport(
     tx.insertInto('transition_log').values(chunk).execute(),
   );
   await insertExportedArtifacts(tx, dialect, artifacts);
+  for (const delivery of document.deliveries) {
+    if (!settle('deliveries', delivery.id)) {
+      continue;
+    }
+    const { history, ...row } = delivery;
+    await tx.insertInto('delivery').values(row).execute();
+    for (const entry of history) {
+      await tx
+        .insertInto('delivery_history')
+        .values({ ...entry, delivery_id: row.id })
+        .execute();
+    }
+  }
   await insertExportedSeeds(tx, dialect, seeds);
   await insertScratchpads(tx, dialect, pads);
 
@@ -647,6 +666,7 @@ type CarriedSequences = {
   artifact: ReadonlyMap<string, number>;
   node: ReadonlyMap<string, number>;
   seed: ReadonlyMap<string, number>;
+  delivery: ReadonlyMap<string, number>;
 };
 
 function raise(highest: Map<string, number>, key: string, seq: number): void {
@@ -666,7 +686,11 @@ function carriedSequences(document: StoreExport): CarriedSequences {
   for (const row of document.seeds) {
     raise(seed, row.key, row.seq);
   }
-  return { artifact, node, seed };
+  const delivery = new Map<string, number>();
+  for (const row of document.deliveries) {
+    raise(delivery, row.project_key, row.seq);
+  }
+  return { artifact, delivery, node, seed };
 }
 
 /**
@@ -683,9 +707,10 @@ function carriedSequences(document: StoreExport): CarriedSequences {
 function importedCounters(
   carried: CarriedSequences,
   project: ExportedProject,
-): { artifact: number; node: number; seed: number } {
+): { artifact: number; node: number; seed: number; delivery: number } {
   return {
     artifact: Math.max(project.counters.artifact, carried.artifact.get(project.key) ?? 0),
+    delivery: Math.max(project.counters.delivery, carried.delivery.get(project.key) ?? 0),
     node: Math.max(project.counters.node, carried.node.get(project.key) ?? 0),
     seed: Math.max(project.counters.seed, carried.seed.get(project.key) ?? 0),
   };
@@ -696,6 +721,7 @@ const EMPTY_COLLECTIONS = {
   annotations: [],
   artifacts: [],
   bodySections: [],
+  deliveries: [],
   edges: [],
   nodes: [],
   projects: [],
@@ -713,18 +739,19 @@ const EMPTY_COLLECTIONS = {
 async function raiseCounters(
   tx: Transaction<DB>,
   key: string,
-  counters: { artifact: number; node: number; seed: number },
+  counters: { artifact: number; node: number; seed: number; delivery: number },
 ): Promise<void> {
   await tx
     .updateTable('project')
     .set((eb) => {
       const atLeast = (
-        column: 'last_artifact_seq' | 'last_seed_seq' | 'last_seq',
+        column: 'last_artifact_seq' | 'last_seed_seq' | 'last_seq' | 'last_delivery_seq',
         floor: number,
       ): Expression<number> =>
         eb.case().when(column, '<', floor).then(floor).else(eb.ref(column)).end();
       return {
         last_artifact_seq: atLeast('last_artifact_seq', counters.artifact),
+        last_delivery_seq: atLeast('last_delivery_seq', counters.delivery),
         last_seed_seq: atLeast('last_seed_seq', counters.seed),
         last_seq: atLeast('last_seq', counters.node),
       };

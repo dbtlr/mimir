@@ -7,6 +7,7 @@
  *   node      `KEY-seq`      (MMR-22)
  *   artifact  `KEY-aN`       (MMR-a1) — project-scoped, like tasks
  *   seed      `KEY-sN`       (MMR-s1) — project-anchored grooming record (MMR-244)
+ *   delivery  `KEY-dN`       (MMR-d1) — project-anchored phase attempt (MMR-676)
  *
  * Any id-position accepts the full grammar; the *verb* rejects types it
  * can't act on (a behavioral error, not a parse error).
@@ -24,7 +25,8 @@ export type Identity =
   | { kind: 'project'; key: string }
   | { kind: 'node'; key: string; seq: number }
   | { kind: 'artifact'; key: string; seq: number }
-  | { kind: 'seed'; key: string; seq: number };
+  | { kind: 'seed'; key: string; seq: number }
+  | { kind: 'delivery'; key: string; seq: number };
 
 const PROJECT_PATTERN = PROJECT_KEY_PATTERN;
 const NODE_PATTERN = /^([A-Z]{2,4})-(\d+)$/;
@@ -104,7 +106,7 @@ export function parseId(id: string): NodeRef | null {
   return { key, seq: Number(seqText) };
 }
 
-/** Parse any rendered identity — `KEY` | `KEY-seq` | `KEY-aN` — or `null` if malformed. */
+/** Parse any rendered identity — `KEY` | `KEY-seq` | `KEY-aN` | `KEY-sN` | `KEY-dN` — or `null` if malformed. */
 export function parseIdentity(token: string): Identity | null {
   if (PROJECT_PATTERN.test(token)) {
     return { key: token, kind: 'project' };
@@ -123,9 +125,25 @@ export function parseIdentity(token: string): Identity | null {
       return { key, kind: 'seed', seq: Number(seqText) };
     }
   }
+  const delivery = parseDeliveryRef(token);
+  if (delivery !== null) {
+    return { ...delivery, kind: 'delivery' };
+  }
   const node = parseId(token);
   if (node !== null) {
     return { key: node.key, kind: 'node', seq: node.seq };
   }
   return null;
+}
+
+/** Render the project-scoped delivery identity. */
+export function renderDeliveryRef(ref: NodeRef): string {
+  return `${ref.key}-d${String(ref.seq)}`;
+}
+/** Parse a delivery identity without treating it as a tree node. */
+export function parseDeliveryRef(id: string): NodeRef | null {
+  const match = /^([A-Z]{2,4})-d(\d+)$/.exec(id);
+  const key = match?.[1];
+  const seq = match?.[2];
+  return key === undefined || seq === undefined ? null : { key, seq: Number(seq) };
 }

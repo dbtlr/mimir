@@ -1,14 +1,7 @@
-/**
- * `update <id>`: change a task, phase, or initiative, a project, an artifact,
- * or a seed. A project takes its own flags (`--name`, `--pinned`, `--remote`),
- * an artifact `--title` and `--summary`, a seed `--title`, `--kind`, and
- * `--desc`, a node takes the rest, and a flag aimed at the wrong kind is
- * refused by name.
- */
 import { Command } from '@loomcli/core';
 import { helpCommand } from '@loomcli/plugins/help/extension';
 import { mcpCommand } from '@loomcli/plugins/mcp/extension';
-import { intentEncoders, MimirError, SEED_KIND_VALUES } from '@mimir/contract';
+import { encodeDelivery, intentEncoders, MimirError, SEED_KIND_VALUES } from '@mimir/contract';
 
 import { MimirUsageError } from '../failures';
 import {
@@ -23,6 +16,7 @@ import {
 import { asciiOption, text, writeHints } from '../options';
 import { parsePriority, parseSeedKind, parseSize } from '../parse';
 import type { Ports } from '../ports';
+import { renderDelivery } from '../render/deliveries';
 import { idOf, recordsOf, tableOf } from '../render/get';
 import type { GetValue } from '../render/get';
 import { presentationOf } from '../render/presentation';
@@ -32,9 +26,20 @@ import type { SeedEcho } from '../render/seeds';
 import { recordViews } from '../render/views';
 import { nodeEcho, nodeEchoRecords, nodeEchoTable } from '../render/writes';
 import type { NodeEcho } from '../render/writes';
+/**
+ * `update <id>`: change a task, phase, or initiative, a project, an artifact,
+ * or a seed. A project takes its own flags (`--name`, `--pinned`, `--remote`),
+ * an artifact `--title` and `--summary`, a seed `--title`, `--kind`, and
+ * `--desc`, a node takes the rest, and a flag aimed at the wrong kind is
+ * refused by name.
+ */
+import { parseTimeCap } from './deliveries';
 
 /** The flags `update` reads, as the action receives them. */
 type UpdateOptions = {
+  agreement?: string;
+  'clear-agreement'?: boolean;
+  'time-cap'?: string;
   title?: string;
   desc?: string;
   'clear-desc'?: boolean;
@@ -230,7 +235,11 @@ function remoteOf(remote: string | undefined): string | null | undefined {
 }
 
 /** The written record `update` echoes, whichever kind the id named. */
-type UpdateEcho = NodeEcho | SeedEcho | Extract<GetValue, { kind: 'artifact' }>;
+type UpdateEcho =
+  | Extract<GetValue, { kind: 'delivery' }>
+  | NodeEcho
+  | SeedEcho
+  | Extract<GetValue, { kind: 'artifact' }>;
 
 /** Route an echo to the text of the kind it carries: an artifact, a seed, or a node. */
 function textOf(
@@ -241,6 +250,9 @@ function textOf(
     seed: (echo: Readonly<SeedEcho>) => string;
   },
 ): string {
+  if ('delivery' in echo) {
+    return renderDelivery(echo.delivery);
+  }
   if ('artifact' in echo) {
     return render.artifact(echo);
   }
@@ -249,7 +261,10 @@ function textOf(
 
 /** The views of a written artifact, seed, or node; an artifact prints no note, as `get` does not. */
 const updateViews = recordViews<UpdateEcho>({
-  ids: (echo) => textOf(echo, { artifact: idOf, node: (e) => e.node.id, seed: (e) => e.seed.id }),
+  ids: (echo) =>
+    'delivery' in echo
+      ? echo.delivery.id
+      : textOf(echo, { artifact: idOf, node: (e) => e.node.id, seed: (e) => e.seed.id }),
   json: (echo) => echo.wire,
   records: (echo) =>
     textOf(echo, { artifact: recordsOf, node: nodeEchoRecords, seed: seedRecordsOf }),
@@ -349,7 +364,7 @@ export function updateCommand(ports: Ports) {
 
   return new Command('update', {
     description:
-      'Change a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), or a seed (KEY-sN).',
+      'Change a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), a seed (KEY-sN), or a delivery (KEY-dN).',
     extensions: [
       helpCommand({
         examples: [
@@ -381,7 +396,10 @@ export function updateCommand(ports: Ports) {
       }),
     ],
   })
-    .argument('id', { description: 'KEY-seq, KEY, KEY-aN, or KEY-sN.', required: true })
+    .argument('id', { description: 'KEY-seq, KEY, KEY-aN, KEY-sN, or KEY-dN.', required: true })
+    .option('agreement', text('Replace the delivery agreement.'))
+    .option('clear-agreement', { description: 'Clear the delivery agreement.', type: 'boolean' })
+    .option('time-cap', text('Delivery minutes, or none to clear.'))
     .option('title', text('The new title.'))
     .option('desc', text('The new description.'))
     .option('clear-desc', {
@@ -427,6 +445,59 @@ export function updateCommand(ports: Ports) {
     .action(async ({ args, host, options, out }) => {
       const presentation = presentationOf(host, options.ascii);
       const kind = ports.grammar.idKind(args.id);
+      if (kind === 'delivery') {
+        const allowed = new Set([
+          'title',
+          'ref',
+          'branch',
+          'host',
+          'harness',
+          'session',
+          'agreement',
+          'clear-agreement',
+          'time-cap',
+          'ascii',
+        ]);
+        for (const [flag, value] of Object.entries(options).filter(
+          ([candidate]) =>
+            FIELD_FLAGS.some(([field]) => field === candidate) ||
+            PROJECT_ONLY_FLAGS.some(([field]) => field === candidate) ||
+            candidate === 'kind',
+        )) {
+          if (given(value) && !allowed.has(flag)) {
+            throw new MimirUsageError(`--${flag} doesn't apply to a delivery`);
+          }
+        }
+        const agreement = proseOrClear(
+          options.agreement,
+          options['clear-agreement'],
+          'at most one of --agreement | --clear-agreement',
+        );
+        const delivery = encodeDelivery(
+          await (
+            await ports.engine()
+          ).deliveryUpdate({
+            agreement,
+            branch: options.branch,
+            external_ref: options.ref,
+            harness: options.harness,
+            host: options.host,
+            id: args.id,
+            session: options.session,
+            time_cap_minutes: parseTimeCap(options['time-cap']),
+            title: options.title,
+          }),
+        );
+        await out.results({ delivery, kind, presentation, wire: { ...delivery } });
+        return;
+      }
+      if (
+        given(options.agreement) ||
+        given(options['clear-agreement']) ||
+        given(options['time-cap'])
+      ) {
+        throw new MimirUsageError('agreement and time-cap apply only to a delivery');
+      }
       if (kind === 'project') {
         const written = await updateProject(args.id, options);
         await out.results(nodeEcho(ports, written, presentation));

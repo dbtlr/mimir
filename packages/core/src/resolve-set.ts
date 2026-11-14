@@ -31,6 +31,9 @@ export function resolveNodeTokenInSet(
   if (identity?.kind === 'artifact') {
     throw validation(`${token} is an artifact, not a ${expected}`, hints.artifact);
   }
+  if (identity?.kind === 'delivery') {
+    throw validation(`${token} is a delivery, not a ${expected}`);
+  }
   if (identity?.kind === 'seed') {
     // A seed id names a grooming record, not work — reject it as a behavioral
     // kind-error (like project/artifact), never a fake `doesn't exist` (MMR-245/B4).
@@ -75,6 +78,9 @@ export function resolveEntityTokenInSet(set: DerivationSet, token: string): Enti
     // Artifact tags route through the seam by external identity (MMR-143) — no
     // node/project row to resolve; existence is the seam's concern.
     return { entityType: 'artifact', key: identity.key, seq: identity.seq };
+  }
+  if (identity.kind === 'delivery') {
+    throw validation(`${token} is a delivery, not a tree or tag target`);
   }
   if (identity.kind === 'seed') {
     // A seed is not a taggable entity — a behavioral kind-error, not `doesn't exist`.

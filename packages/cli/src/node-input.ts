@@ -46,6 +46,9 @@ export function nodeToken(
   if (kind === 'artifact') {
     throw new MimirError('validation', `${token} is an artifact, not a ${expected}`);
   }
+  if (kind === 'delivery') {
+    throw new MimirError('validation', `${token} is a delivery, not a ${expected}`);
+  }
   if (kind === 'seed') {
     throw new MimirError('validation', `${token} is a seed, not a ${expected}`, SEED_HINT);
   }

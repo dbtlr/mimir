@@ -242,10 +242,26 @@ export function createEngineRouter(engine: Engine) {
         .output(consoleSchemas.upstreamTasks.output)
         .query(({ input }) => engine.console.upstreamTasks(input)),
     }),
+    deliveries: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.deliveries.input, value))
+      .output(engineSchemas.deliveries.output)
+      .query(({ input }) => engine.deliveries(input)),
+    deliveryCreate: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.deliveryCreate.input, value))
+      .output(engineSchemas.deliveryCreate.output)
+      .mutation(({ input }) => engine.deliveryCreate(input)),
+    deliveryUpdate: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.deliveryUpdate.input, value))
+      .output(engineSchemas.deliveryUpdate.output)
+      .mutation(({ input }) => engine.deliveryUpdate(input)),
     getArtifact: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.getArtifact.input, value))
       .output(engineSchemas.getArtifact.output)
       .query(({ input }) => engine.getArtifact(input)),
+    getDelivery: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.getDelivery.input, value))
+      .output(engineSchemas.getDelivery.output)
+      .query(({ input }) => engine.getDelivery(input)),
     getNode: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.getNode.input, value))
       .output(engineSchemas.getNode.output)

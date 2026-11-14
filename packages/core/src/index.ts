@@ -112,3 +112,5 @@ export type { SecretKey } from './secret-seal';
 export type { StoreDialect } from './store-sql/dialect';
 export { sqliteDialect } from './store-sqlite/dialect';
 export { postgresDialect } from './store-postgres/dialect';
+
+export { renderDeliveryRef, parseDeliveryRef } from './ids';

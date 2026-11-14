@@ -1,7 +1,4 @@
-/**
- * `create project|initiative|phase|task`: add a record to the work tree. Each
- * type is a subcommand that declares only the options that type takes.
- */
+/** Create tree records and project-anchored delivery attempts. */
 import { Command, FatalError } from '@loomcli/core';
 import type { StringOption } from '@loomcli/core';
 import { helpCommand, helpInput } from '@loomcli/plugins/help/extension';
@@ -17,6 +14,7 @@ import type { Ports } from '../ports';
 import { okLine, presentationOf } from '../render/presentation';
 import { nodeEcho, nodeEchoViews, noticeViews } from '../render/writes';
 import type { NodeEcho, Notice } from '../render/writes';
+import { createDeliveryCommand } from './deliveries';
 
 const descOption = text('The description.');
 const summaryOption = text('A one-line summary.');
@@ -366,8 +364,9 @@ function taskCommand(ports: Ports) {
 
 export function createCommand(ports: Ports) {
   return new Command('create', {
-    description: 'Create a project, initiative, phase, or task.',
+    description: 'Create a project, initiative, phase, task, or delivery.',
   })
+    .command(createDeliveryCommand(ports))
     .command(projectCommand(ports))
     .command(initiativeCommand(ports))
     .command(phaseCommand(ports))

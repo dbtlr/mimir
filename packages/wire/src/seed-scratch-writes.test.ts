@@ -344,3 +344,30 @@ describe.each(refusals)('refusing %s', (_label, method, input, code) => {
     expect(remoteError.hint).toBe(localError.hint);
   });
 });
+
+test('delivery creation and update preserve their terms and Date instants over tRPC', async () => {
+  const phase = await local.create({
+    parent: ids.initiative,
+    title: 'Delivery phase',
+    type: 'phase',
+  });
+  const created = await remote.deliveryCreate({
+    agreement: 'Terms',
+    phase: phase.id,
+    project: 'ENG',
+    time_cap_minutes: 20,
+    title: 'Attempt',
+  });
+  expect(created.created_at).toBeInstanceOf(Date);
+  expect(created.agreement).toBe('Terms');
+  const updated = await remote.deliveryUpdate({
+    agreement: null,
+    branch: 'work',
+    id: created.id,
+    time_cap_minutes: null,
+  });
+  expect(updated.agreement).toBeNull();
+  expect(updated.time_cap_minutes).toBeNull();
+  expect(updated.branch).toBe('work');
+  expect(updated).toEqual(await local.getDelivery({ id: created.id }));
+});

@@ -246,6 +246,9 @@ function handleArgs(args: UniformArgs, declared: readonly DataFieldKey[]): Handl
 async function uniformEngine(store: Store, verb: UniformVerb, input: unknown) {
   const spec = OPS[verb];
   const args: UniformArgs = parseEngineInput(engineSchemas[verb].input, input);
+  if (parseIdentity(args.id)?.kind === 'delivery') {
+    throw validation(`${args.id} is a delivery — use get or update`);
+  }
   if (spec.subject === 'task') {
     refuseProjectKey(args.id, 'archive or unarchive');
   }

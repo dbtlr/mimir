@@ -1,4 +1,6 @@
 import type {
+  DeliveryRecord,
+  DeliveryHistory,
   BlockOwner,
   ExecutionHandles,
   Grooming,
@@ -95,6 +97,7 @@ export type ProjectTable = {
   last_seq: Generated<number>;
   last_artifact_seq: Generated<number>;
   last_seed_seq: Generated<number>;
+  last_delivery_seq: Generated<number>;
   next_present: Generated<Stored<boolean>>;
   next_text: string | null;
   created_at: string;
@@ -285,6 +288,8 @@ export type RunTable = {
 };
 
 export type DB = {
+  delivery: DeliveryRecord;
+  delivery_history: DeliveryHistory & { id: RowId; delivery_id: string };
   runs: RunTable;
   pairing_requests: PairingRequestTable;
   device_tokens: DeviceTokenTable;

@@ -79,6 +79,7 @@ The scope root. Categorically not a node: it doesn't complete (no status), isn't
 | `archived_at`       | text    | optional | set = archived, null = active ([ADR 0015](decisions/0015-project-archive-frozen-and-hidden.md)) |
 | `last_seq`          | integer | required | node sequence counter, default 0                                                          |
 | `last_artifact_seq` | integer | required | artifact sequence counter, default 0                                                      |
+| `last_delivery_seq` | integer | required | delivery sequence counter, default 0 |
 | `last_seed_seq`     | integer | required | seed sequence counter, default 0                                                          |
 | `next_present`      | boolean | required | whether the `## Next` narrative is set, default false                                     |
 | `next_text`         | text    | optional | the narrative prose                                                                       |
@@ -365,3 +366,21 @@ The database enforces integrity itself: a foreign key for every single-valued re
 ## Status
 
 The schema is **settled and maintained**: the tables, the value sets, and the timestamp format above are the shape the store's read and write paths are built from. It moves with the model — a schema-affecting change adds a migration and updates this reference in step.
+
+## Delivery records
+
+Migration `0015_delivery` adds `project.last_delivery_seq` (default `0`) and
+two tables. `delivery` is project-anchored, with `id` (`KEY-dN`), `project_key`,
+`seq`, immutable `phase` (a node reference), `title`, `lifecycle` (`agreed`,
+`running`, `milestone`, `landed`, `abandoned`), `hold` (`none`, `stopped`,
+`paused`), `hold_reason`, `agreement`, `external_ref`, `branch`, `host`,
+`harness`, `session`, nullable positive integer `time_cap_minutes`, `created_at`,
+and `updated_at`. `(project_key, seq)` is unique. Creation defaults to `agreed`
+and `none`.
+
+`delivery_history` has an auto-incrementing `id`, `delivery_id`, `kind`
+(`lifecycle`, `hold`, `member`), `from_value`, `to_value`, `reason`, nullable
+`task` (a node reference), and `at`. Creation writes no birth row, following
+seeds. Store export version 9 carries each delivery with its ordered history
+and the fourth project counter. Older exports import with no deliveries and a
+zero delivery counter. Import writes nodes before deliveries.

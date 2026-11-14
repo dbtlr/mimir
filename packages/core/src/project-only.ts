@@ -16,6 +16,9 @@ function targetNoun(kind: Identity['kind']): string {
     case 'artifact': {
       return 'an artifact';
     }
+    case 'delivery': {
+      return 'a delivery';
+    }
     case 'seed': {
       return 'a seed';
     }

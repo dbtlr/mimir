@@ -69,6 +69,10 @@ const SAMPLES: Readonly<Record<string, Sample>> = {
   },
   bind: { relation: 'same', words: ['bind', 'MMR'] },
   block: { relation: 'same', words: ['block', 'MMR-3', 'upstream down'] },
+  'create delivery': {
+    relation: 'same',
+    words: ['create', 'delivery', 'Attempt', '--phase', 'MMR-2'],
+  },
   'create initiative': {
     relation: 'same',
     words: ['create', 'initiative', 'Growth', '--parent', 'MMR'],
@@ -76,6 +80,13 @@ const SAMPLES: Readonly<Record<string, Sample>> = {
   'create phase': {
     relation: 'same',
     words: ['create', 'phase', 'Next', '--parent', 'MMR-1'],
+  },
+  deliveries: {
+    before: (board) =>
+      board.engine.deliveryCreate({ phase: 'MMR-2', project: 'MMR', title: 'Attempt' }),
+    records: 'deliveries',
+    relation: 'records',
+    words: ['deliveries', '--project', 'MMR'],
   },
   doctor: {
     before: (board) => {

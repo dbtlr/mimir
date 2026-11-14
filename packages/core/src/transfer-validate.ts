@@ -69,6 +69,9 @@ export function assertSingleValuedIdentities(document: StoreExport): void {
   for (const seed of document.seeds) {
     claim(`seed ${renderSeedRef(seed)}`);
   }
+  for (const row of document.deliveries) {
+    claim(`delivery ${row.id}`);
+  }
   for (const pad of document.scratchpads) {
     claim(`scratchpad ${pad.id}`);
   }
@@ -125,6 +128,41 @@ function assertReferences(document: StoreExport): void {
       faults.push(`${field} references node ${id} outside project ${project}`);
     }
   };
+  for (const delivery of document.deliveries) {
+    projectRef(delivery.project_key, delivery.id);
+    const phase = nodes.get(delivery.phase);
+    if (delivery.id !== `${delivery.project_key}-d${String(delivery.seq)}`) {
+      faults.push(`${delivery.id} identity disagrees with project or seq`);
+    }
+    if (phase?.type !== 'phase' || phase.project_id !== delivery.project_key) {
+      faults.push(`${delivery.id}.phase must name a phase in the same project`);
+    }
+    if (
+      (delivery.lifecycle === 'landed' || delivery.lifecycle === 'abandoned') &&
+      delivery.hold !== 'none'
+    ) {
+      faults.push(`${delivery.id} terminal delivery must have no hold`);
+    }
+    if ((delivery.hold === 'none') !== (delivery.hold_reason === null)) {
+      faults.push(`${delivery.id} hold reason disagrees with hold`);
+    }
+    for (const entry of delivery.history) {
+      if (entry.kind === 'member') {
+        if (
+          entry.from_value !== null ||
+          entry.task === null ||
+          !['joined', 'left', 'released', 'abandoned'].includes(entry.to_value ?? '')
+        ) {
+          faults.push(`${delivery.id} invalid member history`);
+        }
+        if (entry.task !== null) {
+          nodeRef(entry.task, delivery.id, delivery.project_key);
+        }
+      } else if (entry.task !== null) {
+        faults.push(`${delivery.id} only member history names a task`);
+      }
+    }
+  }
   for (const node of document.nodes) {
     const identity = parseId(node.id);
     if (identity === null || node.id !== renderId({ key: node.project_id, seq: node.seq })) {

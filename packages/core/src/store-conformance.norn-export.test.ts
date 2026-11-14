@@ -45,6 +45,7 @@ test('a v0.20 Norn export imports into the SQLite store and re-exports unchanged
     // project unpinned and without a remote.
     const withDefaults: StoreExport = {
       ...document,
+      deliveries: [],
       nodes: document.nodes.map((node) => ({
         ...node,
         block_owner: impliedOwner(node),
@@ -52,8 +53,13 @@ test('a v0.20 Norn export imports into the SQLite store and re-exports unchanged
         worker_harness: null,
         worker_session: null,
       })),
-      projects: document.projects.map((project) => ({ ...project, pinned: false, remote: null })),
-      schema_version: 8,
+      projects: document.projects.map((project) => ({
+        ...project,
+        counters: { ...project.counters, delivery: 0 },
+        pinned: false,
+        remote: null,
+      })),
+      schema_version: 9,
     };
     const reexported = await target.store.export();
     expect(canonicalJson(withoutStamp(reexported))).toBe(canonicalJson(withoutStamp(withDefaults)));

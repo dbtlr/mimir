@@ -27,6 +27,7 @@ import { statements as terminalHold } from './migrations/0011-terminal-hold';
 import { statements as hostSecrets } from './migrations/0012-host-secrets';
 import { statements as runs } from './migrations/0013-runs';
 import { statements as taskStaged } from './migrations/0014-task-staged';
+import { statements as delivery } from './migrations/0015-delivery';
 import { serializable, snapshotRead } from './tx';
 
 /**
@@ -127,6 +128,7 @@ export const postgresDialect: StoreDialect = {
     '0012_host_secrets': hostSecrets,
     '0013_runs': runs,
     '0014_task_staged': taskStaged,
+    '0015_delivery': delivery,
   },
   // A shared store is migrated by the host that owns it when it starts, never as
   // a side effect of another binary opening it (ADR 0030, ADR 0035).

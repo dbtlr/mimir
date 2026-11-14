@@ -1,4 +1,5 @@
 import {
+  decodeDelivery,
   consoleIntentViews,
   consoleSchemas,
   engineSchemas,
@@ -87,6 +88,33 @@ export class LocalEngine extends UniformEngineBase implements Engine {
   private async isActiveProject(key: string) {
     const found = (await this.store.loadProjects()).find((candidate) => candidate.key === key);
     return found !== undefined && found.archived_at === null;
+  }
+
+  async deliveryCreate(input: EngineInput<'deliveryCreate'>) {
+    return decodeDelivery(
+      await this.store.deliveries.create(
+        parseEngineInput(engineSchemas.deliveryCreate.input, input),
+      ),
+    );
+  }
+  async deliveryUpdate(input: EngineInput<'deliveryUpdate'>) {
+    return decodeDelivery(
+      await this.store.deliveries.update(
+        parseEngineInput(engineSchemas.deliveryUpdate.input, input),
+      ),
+    );
+  }
+  async getDelivery(input: EngineInput<'getDelivery'>) {
+    return decodeDelivery(
+      await this.store.deliveries.get(parseEngineInput(engineSchemas.getDelivery.input, input).id),
+    );
+  }
+  async deliveries(input: EngineInput<'deliveries'>) {
+    return (
+      await this.store.deliveries.list(
+        parseEngineInput(engineSchemas.deliveries.input, input).project,
+      )
+    ).map(decodeDelivery);
   }
 
   async artifacts(input: EngineInput<'artifacts'>) {

@@ -1,4 +1,4 @@
-import type { HistoryEntry, Scratchpad } from '@mimir/contract';
+import type { DeliveryRecord, DeliveryHistory, HistoryEntry, Scratchpad } from '@mimir/contract';
 
 import type { ArtifactRecord } from './artifacts/store';
 import type { NextFacet } from './body-sections/store';
@@ -39,9 +39,9 @@ import type { NewAnnotationRecord, NewTagRecord, NewTransitionRecord, Store } fr
  * The transfer document's own schema version, bumped on any shape change so an
  * older binary refuses a document it would read lossily. Version 2 adds the
  * node `grooming` key (ADR 0033); version 3 adds the node `block_owner` key
- * (ADR 0001, MMR-438); version 4 adds the project `pinned` key (MMR-493); version 5 adds the project `remote` key (MMR-543); version 6 admits queued task reservations (MMR-564); version 7 adds optional whole-task worker handles and assignment history (MMR-568); version 8 admits staged tasks (MMR-675).
+ * (ADR 0001, MMR-438); version 4 adds the project `pinned` key (MMR-493); version 5 adds the project `remote` key (MMR-543); version 6 admits queued task reservations (MMR-564); version 7 adds optional whole-task worker handles and assignment history (MMR-568); version 8 admits staged tasks (MMR-675); version 9 adds delivery records and their allocation counter (MMR-676).
  */
-export const STORE_EXPORT_SCHEMA_VERSION = 8;
+export const STORE_EXPORT_SCHEMA_VERSION = 9;
 
 /**
  * Every version this binary imports. A version-1 document predates `grooming`
@@ -61,12 +61,13 @@ export const READABLE_STORE_EXPORT_SCHEMA_VERSIONS: readonly number[] = [
   5,
   6,
   7,
+  8,
   STORE_EXPORT_SCHEMA_VERSION,
 ];
 
 /**
  * One project's sequence-allocation state (ADR 0006): the highest sequence
- * handed out per kind, one counter per id grammar (`KEY-N`, `KEY-aN`, `KEY-sN`).
+ * handed out per kind, one counter per id grammar (`KEY-N`, `KEY-aN`, `KEY-sN`, `KEY-dN`).
  *
  * Carried explicitly: the store keeps them as columns and must write them at
  * import, so the document states them rather than making a backend re-derive
@@ -76,6 +77,7 @@ export type ExportedCounters = {
   node: number;
   artifact: number;
   seed: number;
+  delivery: number;
 };
 
 /** A project row plus its allocation state. */
@@ -161,6 +163,7 @@ export type StoreExport = {
   artifacts: readonly ExportedArtifact[];
   /** Seeds with their description prose and lifecycle history. */
   seeds: readonly ExportedSeed[];
+  deliveries: readonly (DeliveryRecord & { history: DeliveryHistory[] })[];
   /** Temporary episode documents, whole (their body sections are typed state). */
   scratchpads: readonly Scratchpad[];
   /** The owned prose sections of projects and nodes. */
