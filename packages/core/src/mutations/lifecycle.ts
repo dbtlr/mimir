@@ -1,4 +1,4 @@
-import { leaveOnAbandon, refuseMember } from '../deliveries/membership';
+import { leaveOnAbandon, refuseMember, refuseMemberDone } from '../deliveries/membership';
 import { conflict, validation } from '../errors';
 import { RELEASED_HOLD } from '../hold-release';
 import type { Node } from '../model';
@@ -230,6 +230,7 @@ export async function completeTask(store: Store, id: string): Promise<Node> {
     if (task.lifecycle === 'done' || task.lifecycle === 'abandoned') {
       throw validation(`task is already ${task.lifecycle}`);
     }
+    await refuseMemberDone(w, task);
     const patch: NodePatch = {
       ...RELEASED_HOLD,
       completed_at: now(),

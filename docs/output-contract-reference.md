@@ -529,4 +529,5 @@ order. `deliveryCreate` accepts optional `tasks`: omission sweeps eligible
 tasks in the phase; an explicit list selects only those tasks atomically.
 Engine `update` accepts nullable `delivery` to join or leave. CLI and MCP
 `update --delivery none` sends null; repeatable `create delivery --task`
-selects tasks.
+selects tasks. `done` on a member is a `validation` error whose hint names
+`update <task> --delivery none`.

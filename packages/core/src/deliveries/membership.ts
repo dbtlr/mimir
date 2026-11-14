@@ -129,3 +129,13 @@ export async function refuseMember(w: StoreWriter, task: Node): Promise<void> {
     throw validation(`${task.id} is a delivery member`, `update ${task.id} --delivery none first`);
   }
 }
+
+/** A member finishes when its delivery lands, so `done` refuses it. */
+export async function refuseMemberDone(w: StoreWriter, task: Node): Promise<void> {
+  if (await memberDelivery(w, task)) {
+    throw validation(
+      `${task.id} is a delivery member — a member is finished when its delivery lands`,
+      `to finish it alone, leave first: update ${task.id} --delivery none`,
+    );
+  }
+}

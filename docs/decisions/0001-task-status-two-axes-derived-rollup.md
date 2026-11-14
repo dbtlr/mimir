@@ -278,7 +278,9 @@ optional step after the review gate:
 
 A member is a live task naming a non-terminal delivery (ADR 0042). `queue`
 and `move` refuse a member and name `update <task> --delivery none`.
-Task `abandon` clears membership and logs `abandoned` in the delivery history.
-A staged member refuses both leave and task abandon and names `return`.
-`reopen` clears a reference to a landed delivery. Membership changes add no
-task transition kind or row.
+`done` refuses a member: a member is finished when its delivery lands, and
+the refusal names leaving first to finish it alone. Task `abandon` clears
+membership and logs `abandoned` in the delivery history. A staged member
+refuses both leave and task abandon and names `return`. `reopen` clears a
+reference to a landed delivery. Membership changes add no task transition
+kind or row.

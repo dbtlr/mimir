@@ -300,10 +300,11 @@ phases of the same design. Each records its own ADR or refinement.
 - The work lands in four pull requests: the record (MMR-676), membership
   (MMR-682), the verbs with `land` and the releasing `abandon` (MMR-683), and
   the board rules (MMR-684). Accepted records gain refinements with them:
-  - ADR 0001, with MMR-682: `queue`, `move`, and `abandon` on a staged member
-    refuse for a member, and `reopen` clears a reference to a landed delivery.
+  - ADR 0001, with MMR-682: `queue`, `move`, `done`, and `abandon` on a
+    staged member refuse for a member, and `reopen` clears a reference to a
+    landed delivery.
   - ADR 0040, with MMR-682: the T3 launch reads a member as `not_ready`.
   - ADR 0001, with MMR-683: the release edges into `todo`.
-  - ADR 0001, with MMR-684: the same-delivery dependency rule, the `done`
-    refusal, and the board-wide `next` leaving out members.
+  - ADR 0001, with MMR-684: the same-delivery dependency rule and the
+    board-wide `next` leaving out members.
   - ADR 0003, with MMR-684: the two added `became_ready_at` terms.

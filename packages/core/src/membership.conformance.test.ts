@@ -12,6 +12,7 @@ import {
   startTask,
   submitTask,
   stageTask,
+  returnTask,
 } from './mutations';
 import type { Store } from './store';
 import { bootPglite } from './store-postgres/testing';
@@ -287,6 +288,40 @@ describe.each(backends)('membership stamps ($name)', (backend) => {
       expect((await stamps()).delivery).toBe('2027-01-03T09:00:00.000Z');
     } finally {
       setSystemTime();
+      await instance.close();
+    }
+  });
+});
+
+describe.each(backends)('ending a member ($name)', (backend) => {
+  test('done refuses a member and names leaving, and a task that left can be done', async () => {
+    const instance = await backend.make();
+    try {
+      const store = instance.store;
+      const engine = new LocalEngine(store);
+      const {
+        phase,
+        tasks: [task = ''],
+      } = await phaseOfTasks(store, ['Task']);
+      const delivery = await engine.deliveryCreate({ phase, title: 'Attempt' });
+      await startTask(store, task);
+      await submitTask(store, task);
+      await stageTask(store, task);
+      const before = await store.export();
+      const refusal = await refusalOf(engine.done({ id: task }));
+      expect(refusal).toContain('lands');
+      expect(refusal).toContain(`update ${task} --delivery none`);
+      const after = await store.export();
+      expect(after.nodes).toEqual(before.nodes);
+      expect(after.transitions).toEqual(before.transitions);
+      await returnTask(store, task);
+      await updateNode(store, task, { delivery: null });
+      await engine.done({ id: task });
+      expect(await nodeOf(store, task)).toMatchObject({ delivery: null, lifecycle: 'done' });
+      expect(
+        (await engine.getDelivery({ id: delivery.id })).history.map((r) => r.to_value),
+      ).toEqual(['joined', 'left']);
+    } finally {
       await instance.close();
     }
   });

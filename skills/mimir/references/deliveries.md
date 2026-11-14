@@ -34,10 +34,11 @@ one ineligible task refuses the whole creation.
 
 `update KEY-N --delivery KEY-dN` joins an unqueued `todo` task in that
 delivery's phase. Leave with `update KEY-N --delivery none` before switching
-deliveries, queueing, or moving. A staged member must `return` before leaving
-or being abandoned. Task abandon clears membership. Reopen clears a landed
-reference. A task naming only a terminal delivery is not a member and cannot
-leave.
+deliveries, queueing, moving, or finishing it alone: `done` refuses a member,
+which is finished when its delivery lands. A staged member must `return`
+before leaving or being abandoned. Task abandon clears membership. Reopen
+clears a landed reference. A task naming only a terminal delivery is not a
+member and cannot leave.
 
 Task `get` carries `delivery`; delivery reads carry `members`, the live
 tasks naming the attempt. Joins, leaves, and task abandons append `member`
