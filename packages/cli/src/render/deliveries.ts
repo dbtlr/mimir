@@ -3,7 +3,7 @@ import type { DeliveryView } from '@mimir/contract';
 import { arrow } from './presentation';
 import type { Presentation } from './presentation';
 
-/** A delivery's complete record, with history only when requested; plain output keeps to ASCII glyphs. */
+/** A delivery's complete record and its history; plain output keeps to ASCII glyphs. */
 export function renderDelivery(delivery: DeliveryView, p: Presentation): string {
   const { history, ...fields } = delivery;
   const dash = p.plain ? '-' : '—';
