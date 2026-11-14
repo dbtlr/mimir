@@ -535,3 +535,75 @@ describe.each(rawArms)('hand-edited references ($name)', (arm) => {
     }
   });
 });
+
+describe.each(backends)('started members ($name)', (backend) => {
+  test('park and block on a started member leave its delivery', async () => {
+    const instance = await backend.make();
+    try {
+      const store = instance.store;
+      const engine = new LocalEngine(store);
+      const {
+        phase,
+        tasks: [parked = '', blocked = ''],
+      } = await phaseOfTasks(store, ['Parked', 'Blocked']);
+      const delivery = await engine.deliveryCreate({ phase, title: 'Attempt' });
+      await startTask(store, parked);
+      await startTask(store, blocked);
+      await engine.park({ id: parked, reason: 'Wait' });
+      await engine.block({ id: blocked, reason: 'Wait' });
+      expect(await nodeOf(store, parked)).toMatchObject({ delivery: delivery.id, hold: 'parked' });
+      expect(await nodeOf(store, blocked)).toMatchObject({
+        delivery: delivery.id,
+        hold: 'blocked',
+      });
+      expect((await engine.getDelivery({ id: delivery.id })).members).toEqual([parked, blocked]);
+    } finally {
+      await instance.close();
+    }
+  });
+});
+
+describe.each(backends)('the create sweep ($name)', (backend) => {
+  test('takes exactly the todo tasks of the phase that are not members', async () => {
+    const instance = await backend.make();
+    try {
+      const store = instance.store;
+      const engine = new LocalEngine(store);
+      const { phase, tasks } = await phaseOfTasks(store, [
+        'Todo',
+        'Queued',
+        'Started',
+        'Submitted',
+        'Staged',
+        'Done',
+        'Member',
+      ]);
+      const [
+        todo = '',
+        queued = '',
+        started = '',
+        submitted = '',
+        staged = '',
+        done = '',
+        member = '',
+      ] = tasks;
+      const first = await engine.deliveryCreate({ phase, tasks: [member], title: 'First' });
+      await queueTask(store, queued, { session: 'reservation' });
+      for (const id of [started, submitted, staged]) {
+        await startTask(store, id);
+      }
+      for (const id of [submitted, staged]) {
+        await submitTask(store, id);
+      }
+      await stageTask(store, staged);
+      await engine.done({ id: done });
+      const second = await engine.deliveryCreate({ phase, title: 'Second' });
+      expect(second.members).toEqual([todo]);
+      expect(second.history.map((r) => [r.task, r.to_value])).toEqual([[todo, 'joined']]);
+      expect((await engine.getDelivery({ id: first.id })).members).toEqual([member]);
+      expect((await nodeOf(store, member))?.delivery).toBe(first.id);
+    } finally {
+      await instance.close();
+    }
+  });
+});
