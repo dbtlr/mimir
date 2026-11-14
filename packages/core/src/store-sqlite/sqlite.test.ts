@@ -81,6 +81,7 @@ test('opening a new file creates it, migrates it, and puts it in WAL mode', asyn
         '0012_host_secrets',
         '0013_runs',
         '0014_task_staged',
+        '0015_delivery',
       ],
       from: 0,
       to: SCHEMA_VERSION,
@@ -134,6 +135,7 @@ test('0002_grooming upgrades a version-1 store: tasks not_groomed, containers NU
         '0012_host_secrets',
         '0013_runs',
         '0014_task_staged',
+        '0015_delivery',
       ],
       from: 1,
       to: SCHEMA_VERSION,
@@ -194,6 +196,7 @@ test('0003_block_owner upgrades a version-2 store: blocked tasks get an owner by
         '0012_host_secrets',
         '0013_runs',
         '0014_task_staged',
+        '0015_delivery',
       ],
       from: 2,
       to: SCHEMA_VERSION,
@@ -261,6 +264,7 @@ test('0004_seed_parked upgrades a version-3 store: seeds and their history survi
         '0012_host_secrets',
         '0013_runs',
         '0014_task_staged',
+        '0015_delivery',
       ],
       from: 3,
       to: SCHEMA_VERSION,
@@ -349,6 +353,7 @@ test('0005_project_pinned upgrades a version-4 store: projects keep their data a
         '0012_host_secrets',
         '0013_runs',
         '0014_task_staged',
+        '0015_delivery',
       ],
       from: 4,
       to: SCHEMA_VERSION,
@@ -410,6 +415,7 @@ test('0006_project_remote upgrades a version-5 store: projects keep their data a
         '0012_host_secrets',
         '0013_runs',
         '0014_task_staged',
+        '0015_delivery',
       ],
       from: 5,
       to: SCHEMA_VERSION,
@@ -860,6 +866,7 @@ test.each([6, 7])(
               '0012_host_secrets',
               '0013_runs',
               '0014_task_staged',
+              '0015_delivery',
             ]
           : [
               '0007_task_queued',
@@ -870,6 +877,7 @@ test.each([6, 7])(
               '0012_host_secrets',
               '0013_runs',
               '0014_task_staged',
+              '0015_delivery',
             ],
       );
       const store = createSqliteStore(handle.db);
@@ -998,6 +1006,7 @@ test('0010_pairing_requests upgrades a version-9 store: pending codes go and dev
         '0012_host_secrets',
         '0013_runs',
         '0014_task_staged',
+        '0015_delivery',
       ],
       from: 9,
       to: SCHEMA_VERSION,
@@ -1077,7 +1086,13 @@ test('0011_terminal_hold upgrades a version-10 store: terminal tasks lose their 
   const handle = await openSqlite(path);
   try {
     expect(handle.upgrade).toEqual({
-      applied: ['0011_terminal_hold', '0012_host_secrets', '0013_runs', '0014_task_staged'],
+      applied: [
+        '0011_terminal_hold',
+        '0012_host_secrets',
+        '0013_runs',
+        '0014_task_staged',
+        '0015_delivery',
+      ],
       from: 10,
       to: SCHEMA_VERSION,
     });
@@ -1134,7 +1149,7 @@ test('0012_host_secrets upgrades a version-11 store: an empty host_secrets table
   const handle = await openSqlite(path);
   try {
     expect(handle.upgrade).toEqual({
-      applied: ['0012_host_secrets', '0013_runs', '0014_task_staged'],
+      applied: ['0012_host_secrets', '0013_runs', '0014_task_staged', '0015_delivery'],
       from: 11,
       to: SCHEMA_VERSION,
     });
@@ -1188,7 +1203,7 @@ test('0013_runs upgrades a version-12 store: an empty runs table that admits one
   const handle = await openSqlite(path);
   try {
     expect(handle.upgrade).toEqual({
-      applied: ['0013_runs', '0014_task_staged'],
+      applied: ['0013_runs', '0014_task_staged', '0015_delivery'],
       from: 12,
       to: SCHEMA_VERSION,
     });
@@ -1282,7 +1297,11 @@ test('0014_task_staged upgrades a version-13 store: node rows, ids, links, and s
 
   const handle = await openSqlite(path);
   try {
-    expect(handle.upgrade).toEqual({ applied: ['0014_task_staged'], from: 13, to: SCHEMA_VERSION });
+    expect(handle.upgrade).toEqual({
+      applied: ['0014_task_staged', '0015_delivery'],
+      from: 13,
+      to: SCHEMA_VERSION,
+    });
     const nodes = await sql<Record<string, unknown>>`
       select id, lifecycle, grooming, worker_harness, worker_session, harness, session from node order by id
     `.execute(handle.db);

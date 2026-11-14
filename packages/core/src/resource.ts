@@ -2,7 +2,7 @@ import type { FacetName, NodeView, ProjectStatusSelector, TreeView } from '@mimi
 
 import type { DerivationSet } from './derive';
 import { deriveSet, findNodeInSet } from './derive';
-import { notFound, projectNotFound } from './errors';
+import { validation, notFound, projectNotFound } from './errors';
 import { parseIdentity } from './ids';
 import { buildNodeView, buildProjectView } from './intent/view';
 import type { Node } from './model';
@@ -153,6 +153,9 @@ export async function nodeTree(
   }
   if (identity.kind === 'artifact') {
     throw notFound(`${id} is an artifact, not a project or a task/phase/initiative`);
+  }
+  if (identity.kind === 'delivery') {
+    throw validation(`${id} is a delivery, not a tree or tag target`);
   }
   if (identity.kind === 'seed') {
     // A seed has no tree — reject the kind, never a fake `doesn't exist` (MMR-245/B4).

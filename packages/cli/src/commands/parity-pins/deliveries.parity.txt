@@ -1,0 +1,165 @@
+### deliveries -f records
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Ship phase
+| lifecycle: agreed
+| hold: none
+| agreement: Reviewed terms
+| time_cap_minutes: 30
+| created_at: 2026-10-01T12:00:00.000Z
+| updated_at: 2026-10-01T12:00:00.000Z
+
+### get MMR-d1 -f records
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Ship phase
+| lifecycle: agreed
+| hold: none
+| agreement: Reviewed terms
+| time_cap_minutes: 30
+| created_at: 2026-10-01T12:00:00.000Z
+| updated_at: 2026-10-01T12:00:00.000Z
+
+### deliveries -f table
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Ship phase
+| lifecycle: agreed
+| hold: none
+| agreement: Reviewed terms
+| time_cap_minutes: 30
+| created_at: 2026-10-01T12:00:00.000Z
+| updated_at: 2026-10-01T12:00:00.000Z
+
+### get MMR-d1 -f table
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Ship phase
+| lifecycle: agreed
+| hold: none
+| agreement: Reviewed terms
+| time_cap_minutes: 30
+| created_at: 2026-10-01T12:00:00.000Z
+| updated_at: 2026-10-01T12:00:00.000Z
+
+### deliveries -f json
+exit 0
+--- stdout
+| {
+|   "deliveries": [
+|     {
+|       "id": "MMR-d1",
+|       "project_key": "MMR",
+|       "seq": 1,
+|       "phase": "MMR-2",
+|       "title": "Ship phase",
+|       "lifecycle": "agreed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "agreement": "Reviewed terms",
+|       "external_ref": null,
+|       "branch": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "time_cap_minutes": 30,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "elapsed_minutes": null,
+|       "history": []
+|     }
+|   ],
+|   "total": 1
+| }
+
+### get MMR-d1 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-d1",
+|   "project_key": "MMR",
+|   "seq": 1,
+|   "phase": "MMR-2",
+|   "title": "Ship phase",
+|   "lifecycle": "agreed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "agreement": "Reviewed terms",
+|   "external_ref": null,
+|   "branch": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "time_cap_minutes": 30,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "elapsed_minutes": null,
+|   "history": []
+| }
+
+### deliveries -f jsonl
+exit 0
+--- stdout
+| {"id":"MMR-d1","project_key":"MMR","seq":1,"phase":"MMR-2","title":"Ship phase","lifecycle":"agreed","hold":"none","hold_reason":null,"agreement":"Reviewed terms","external_ref":null,"branch":null,"host":null,"harness":null,"session":null,"time_cap_minutes":30,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","elapsed_minutes":null,"history":[]}
+
+### get MMR-d1 -f jsonl
+exit 0
+--- stdout
+| {
+|   "id": "MMR-d1",
+|   "project_key": "MMR",
+|   "seq": 1,
+|   "phase": "MMR-2",
+|   "title": "Ship phase",
+|   "lifecycle": "agreed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "agreement": "Reviewed terms",
+|   "external_ref": null,
+|   "branch": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "time_cap_minutes": 30,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "elapsed_minutes": null,
+|   "history": []
+| }
+
+### deliveries -f ids
+exit 0
+--- stdout
+| MMR-d1
+
+### get MMR-d1 -f ids
+exit 0
+--- stdout
+| MMR-d1
+
+### archive refuses a delivery identity
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "MMR-d1 is a delivery — only get and update act on it"
+| }
+

@@ -1,9 +1,10 @@
-mimir create · Create a project, initiative, phase, or task.
+mimir create · Create a project, initiative, phase, task, or delivery.
 
 USAGE
   mimir create <command> [options]
 
 COMMANDS
+  delivery    Create an attempt to deliver a phase.
   project     Create a project. Its key is immutable, so creating one asks for confirmation.
   initiative  Create an initiative under a project.
   phase       Create a phase under an initiative.

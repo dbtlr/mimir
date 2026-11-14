@@ -1,5 +1,8 @@
 import type {
   BlockOwner,
+  DeliveryHistory,
+  DeliveryHold,
+  DeliveryLifecycle,
   ExecutionHandles,
   Grooming,
   Hold,
@@ -95,6 +98,7 @@ export type ProjectTable = {
   last_seq: Generated<number>;
   last_artifact_seq: Generated<number>;
   last_seed_seq: Generated<number>;
+  last_delivery_seq: Generated<number>;
   next_present: Generated<Stored<boolean>>;
   next_text: string | null;
   created_at: string;
@@ -284,7 +288,33 @@ export type RunTable = {
   outcome: string | null;
 };
 
+/** A delivery (MMR-676): one attempt at a phase, keyed by its `KEY-dN` stem. */
+export type DeliveryTable = {
+  id: string;
+  project_key: string;
+  seq: number;
+  phase: string;
+  title: string;
+  lifecycle: DeliveryLifecycle;
+  hold: DeliveryHold;
+  hold_reason: string | null;
+  agreement: string | null;
+  external_ref: string | null;
+  branch: string | null;
+  host: string | null;
+  harness: string | null;
+  session: string | null;
+  time_cap_minutes: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** A delivery's append-only log; its insertion id is its order. */
+export type DeliveryHistoryTable = DeliveryHistory & { id: RowId; delivery_id: string };
+
 export type DB = {
+  delivery: DeliveryTable;
+  delivery_history: DeliveryHistoryTable;
   runs: RunTable;
   pairing_requests: PairingRequestTable;
   device_tokens: DeviceTokenTable;
@@ -307,6 +337,7 @@ export type ProjectRow = Selectable<ProjectTable>;
 export type NodeRow = Selectable<NodeTable>;
 export type ArtifactRow = Selectable<ArtifactTable>;
 export type SeedRow = Selectable<SeedTable>;
+export type DeliveryRow = Selectable<DeliveryTable>;
 export type ScratchpadRow = Selectable<ScratchpadTable>;
 export type NodeUpdate = Updateable<NodeTable>;
 export type ProjectUpdate = Updateable<ProjectTable>;

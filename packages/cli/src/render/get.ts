@@ -1,9 +1,10 @@
 /**
  * The record `get` reads, and the text of its views, which the writes that
- * echo an artifact or a seed print as well.
+ * echo an artifact, a seed, or a delivery print as well.
  */
-import type { ArtifactDetail, NodeView, SeedView } from '@mimir/contract';
+import type { ArtifactDetail, DeliveryView, NodeView, SeedView } from '@mimir/contract';
 
+import { renderDelivery } from './deliveries';
 import { renderRecords, renderTable } from './node';
 import type { Presentation } from './presentation';
 import { renderArtifactRecords, renderArtifactTable, renderSeedRecords } from './records';
@@ -13,10 +14,14 @@ export type GetValue = { presentation: Presentation; wire: Record<string, unknow
   | { kind: 'node'; node: NodeView; expandAnnotations: boolean }
   | { kind: 'artifact'; artifact: ArtifactDetail }
   | { kind: 'seed'; seed: SeedView }
+  | { kind: 'delivery'; delivery: DeliveryView }
 );
 
 /** The styled `records` text of a record `get` read. */
 export function recordsOf(value: Readonly<GetValue>): string {
+  if (value.kind === 'delivery') {
+    return renderDelivery(value.delivery, value.presentation);
+  }
   if (value.kind === 'node') {
     return renderRecords(value.node, value.presentation, value.expandAnnotations);
   }
@@ -28,6 +33,9 @@ export function recordsOf(value: Readonly<GetValue>): string {
 
 /** A seed has no table of its own: its `table` is its record. */
 export function tableOf(value: Readonly<GetValue>): string {
+  if (value.kind === 'delivery') {
+    return renderDelivery(value.delivery, value.presentation);
+  }
   if (value.kind === 'node') {
     const one = { items: [value.node], returned: 1, startsAt: 0, total: 1 };
     return renderTable(one, value.presentation, 'task');
@@ -40,6 +48,9 @@ export function tableOf(value: Readonly<GetValue>): string {
 
 /** The id the `ids` view prints for a record. */
 export function idOf(value: Readonly<GetValue>): string {
+  if (value.kind === 'delivery') {
+    return value.delivery.id;
+  }
   if (value.kind === 'node') {
     return value.node.id;
   }

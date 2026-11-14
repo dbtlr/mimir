@@ -483,3 +483,40 @@ session or create a worker assignment. Worker fields are fully explicit; supplyi
 worker flags on a direct start also requires an explicit or established main session. Updates remain explicit and identity
 changes append assignment history. Park, block, unqueue, and settlement clear
 all handles; submit and return preserve them.
+
+## Delivery records
+
+`create delivery`, `get KEY-dN`, and `update KEY-dN` return a delivery object.
+`deliveries` returns `{ deliveries, total }` in JSON and one delivery per line
+in JSONL. Records and table formats show the record fields. The object carries
+`id`, `project_key`, `seq`, `phase`, `title`, `lifecycle`, `hold`, `hold_reason`,
+`agreement`, `external_ref`, `branch`, `host`, `harness`, `session`,
+`time_cap_minutes`, `created_at`, `updated_at`, `elapsed_minutes`, and `history`.
+Nullable fields are explicit nulls. Engine timestamps are `Date` values; CLI
+and MCP timestamps are ISO strings. History entries carry `kind`, `from_value`,
+`to_value`, `reason`, `task`, and `at`.
+
+- **Every surface carries the whole history.** `create delivery`, `get KEY-dN`,
+  `update KEY-dN`, and `deliveries` each return the full log, so an empty
+  `history` always means an empty log. `get KEY-dN` is a detail read like
+  `get KEY-sN`, which always carries a seed's description: `--col` changes
+  nothing for a delivery.
+- **Elapsed minutes** are derived from the first lifecycle row entering
+  `running`, never below zero, and are null before that transition.
+- **The project is the phase's.** `create delivery` takes `--phase`; a phase
+  id that does not exist is `not_found`, and a task, initiative, or another
+  record's id is a `validation` error. The Engine's `deliveryCreate` takes no
+  `project`.
+- **Terms.** Agreement is replaced whole, and `--clear-agreement` clears it;
+  blank `--agreement` text is refused with a `validation` error that names
+  `--clear-agreement` (on create, that omitting the flag starts without one).
+  Blank `--branch`, `--host`, `--harness`, or `--session` text clears that
+  handle, as on a task; `--ref` has no clear form, as on a task.
+  `--time-cap` takes a plain positive decimal whole number up to 2147483647, or
+  `none` to clear the cap; any other text is a usage error.
+- **Refusals.** `deliveries` refuses an unknown or archived project as
+  `not_found` with the create hint, as `seeds` does. `get KEY-dN` reads a
+  delivery of an archived project as not found, and every write to one is a
+  `conflict`. A terminal delivery refuses every write. `get` and `update` on
+  the delivery Engine methods refuse another record's id as a `validation`
+  error, and a node verb refuses a `KEY-dN` id as a `validation` error.

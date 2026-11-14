@@ -227,3 +227,4 @@ Read the matching reference before you act in its area.
 | Understand a status word, group, or rollup                              | `references/status-model.md` |
 | Classify with tags                                                      | `references/tags.md`         |
 | File or triage grooming-queue records: ideas, bugs, cross-board asks    | `references/seeds.md`        |
+| Record an attempt to deliver a phase: create, read, and update it       | `references/deliveries.md`   |

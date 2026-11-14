@@ -179,11 +179,12 @@ async function checkDanglingEdge(db: Kysely<DB>): Promise<DoctorFinding[]> {
   });
 }
 
-/** The three per-project sequence counters, and the column each allocates for. */
+/** The four per-project sequence counters, and the column each allocates for. */
 const COUNTERS = [
   { column: 'last_seq', highest: 'node_max', kind: 'node' },
   { column: 'last_artifact_seq', highest: 'artifact_max', kind: 'artifact' },
   { column: 'last_seed_seq', highest: 'seed_max', kind: 'seed' },
+  { column: 'last_delivery_seq', highest: 'delivery_max', kind: 'delivery' },
 ] as const;
 
 /**
@@ -198,15 +199,18 @@ async function checkCounterBehind(db: Kysely<DB>): Promise<DoctorFinding[]> {
     last_seq: number;
     last_artifact_seq: number;
     last_seed_seq: number;
+    last_delivery_seq: number;
     node_max: number;
     artifact_max: number;
     seed_max: number;
+    delivery_max: number;
   }>`
     select p.key,
-           p.last_seq, p.last_artifact_seq, p.last_seed_seq,
+           p.last_seq, p.last_artifact_seq, p.last_seed_seq, p.last_delivery_seq,
            (select coalesce(max(seq), 0) from node     where project_key = p.key) as node_max,
            (select coalesce(max(seq), 0) from artifact where project_key = p.key) as artifact_max,
-           (select coalesce(max(seq), 0) from seed     where project_key = p.key) as seed_max
+           (select coalesce(max(seq), 0) from seed     where project_key = p.key) as seed_max,
+           (select coalesce(max(seq), 0) from delivery where project_key = p.key) as delivery_max
       from project p
      order by p.key
   `.execute(db);
@@ -338,6 +342,8 @@ const TIMESTAMP_COLUMNS = [
   },
   { columns: ['created_at', 'updated_at'], key: 'id', stem: 'id', table: 'seed' },
   { columns: ['at'], key: 'id', stem: 'seed_id', table: 'seed_history' },
+  { columns: ['created_at', 'updated_at'], key: 'id', stem: 'id', table: 'delivery' },
+  { columns: ['at'], key: 'id', stem: 'delivery_id', table: 'delivery_history' },
   {
     columns: ['created_at', 'updated_at', 'freezing_at'],
     key: 'id',

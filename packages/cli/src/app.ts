@@ -88,6 +88,7 @@ import { artifactsCommand } from './commands/artifacts';
 import { attachCommand } from './commands/attach';
 import { bindCommand, LEGACY_BINDING_FILE } from './commands/bind';
 import { createCommand } from './commands/create';
+import { deliveriesCommand } from './commands/deliveries';
 import { dependCommand, undependCommand } from './commands/depend';
 import { doctorCommand } from './commands/doctor';
 import { getCommand } from './commands/get';
@@ -801,6 +802,7 @@ export function createApp(source: CliSource) {
       .command(artifactsCommand(ports))
       .command(searchCommand(ports))
       .command(seedsCommand(ports))
+      .command(deliveriesCommand(ports))
       .command(seedCommand(ports))
       .command(promoteCommand(ports))
       .command(rejectCommand(ports))

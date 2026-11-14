@@ -1,0 +1,17 @@
+mimir deliveries · Read one project's delivery records.
+
+USAGE
+  mimir deliveries [options]
+
+OPTIONS
+  -p, --project <text>   The project key; defaults to the clone binding.
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, table by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help      Show this help.
+      --no-input  Ask no questions, and take every answer from options.  (default: true)
+
+EXAMPLES
+  $ mimir deliveries --project MMR
+    read the project attempts

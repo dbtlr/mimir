@@ -64,6 +64,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0039](0039-changelog-and-versioning-on-loom.md)                 | Changelog and versioning on Loom (supersedes 0022)                 |
 | [0040](0040-outbound-integrations-and-host-secrets.md)            | Outbound integrations and host secrets (refined by 0041)           |
 | [0041](0041-agent-runtime-on-the-host.md)                         | The agent runtime runs on the host                                 |
+| [0042](0042-the-delivery-record.md)                               | The delivery — one attempt to deliver a phase through one branch   |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete model

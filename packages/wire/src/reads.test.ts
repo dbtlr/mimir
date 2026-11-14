@@ -7,6 +7,7 @@ import {
   archiveProject,
   attachArtifact,
   createInitiative,
+  createPhase,
   createProject,
   createScratchpadService,
   createTask,
@@ -87,6 +88,11 @@ beforeAll(async () => {
     seed: seed.id,
   };
   local = new LocalEngine(store);
+  const deliveryPhase = await createPhase(store, {
+    parentId: elsewhere.id,
+    title: 'Delivery phase',
+  });
+  await local.deliveryCreate({ phase: deliveryPhase.id, title: 'Read attempt' });
   const handle = createEngineHandler(local, {
     verifyToken: fixture.tokens.verify,
     version: WINDOW_VERSION,
@@ -128,12 +134,24 @@ const reads: { [K in ReadMethod]: ReadCase<K> } = {
       timeZone: 'UTC',
     }),
   },
+  deliveries: {
+    check: (rows) => {
+      expect(rows[0]?.title).toBe('Read attempt');
+    },
+    input: () => ({ project: 'OTH' }),
+  },
   getArtifact: {
     check: (artifact) => {
       expect(artifact.content).toBe('Frozen body');
       expect(artifact.createdAt).toBeInstanceOf(Date);
     },
     input: () => ({ content: true, id: ids.artifact }),
+  },
+  getDelivery: {
+    check: (row) => {
+      expect(row.created_at).toBeInstanceOf(Date);
+    },
+    input: () => ({ id: 'OTH-d1' }),
   },
   getSeed: {
     check: (seed) => {

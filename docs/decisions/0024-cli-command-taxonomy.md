@@ -214,3 +214,17 @@ The CLI opens only a SQLite store, which migrates when it opens, and the host
 migrates its own store at startup ([ADR 0030](0030-postgres-store-backend-shared-store-bridge.md)'s
 2026-10-29 addendum). `store` keeps `export` and `import`, which satisfy the
 loner rule on their own.
+
+## Amendment (2026-11-14, MMR-676): `create` also creates a delivery
+
+`create delivery <title> --phase <phase>` creates the project-anchored record
+in [ADR 0042](0042-the-delivery-record.md). The phase is fixed for the attempt's
+life. It is not the delivery's parent, so creation takes `--phase` rather than
+`--parent`. The delivery stays beside the work tree.
+
+## Amendment (2026-11-14, MMR-676): `deliveries` is a flat read verb
+
+`deliveries` reads one project's delivery records, as `seeds` reads its grooming
+queue and `artifacts` reads its frozen records. It honors the clone binding and
+takes `--project KEY`. An archived project's deliveries are hidden. `get` and
+`update` dispatch `KEY-dN` identities to delivery methods.

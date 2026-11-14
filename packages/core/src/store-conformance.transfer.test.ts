@@ -104,7 +104,7 @@ describe.each(backends)('$name', (backend) => {
     try {
       await target.store.import(document, { dryRun: false, mode: 'fresh' });
       const exported = await target.store.export();
-      expect(exported.schema_version).toBe(8);
+      expect(exported.schema_version).toBe(9);
       expect(exported.nodes.map((n) => n.id)).toEqual(source.document.nodes.map((n) => n.id));
     } finally {
       await target.close();

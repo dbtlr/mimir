@@ -10,6 +10,8 @@ import {
   SEED_LIFECYCLE_VALUES,
   SIZE_VALUES,
   TRANSITION_KIND_VALUES,
+  deliveryRecordSchema,
+  deliveryHistorySchema,
 } from '@mimir/contract';
 import type { Hold } from '@mimir/contract';
 import { z } from 'zod';
@@ -83,6 +85,9 @@ export const transferSchema = z.object({
       stem: text,
     }),
   ),
+  deliveries: z
+    .array(deliveryRecordSchema.extend({ history: z.array(deliveryHistorySchema) }))
+    .default([]),
   edges: z.array(z.object({ depends_on_node_id: text, node_id: text })),
   exported_at: text,
   nodes: z.array(
@@ -149,7 +154,12 @@ export const transferSchema = z.object({
     z
       .object({
         archived_at: nullableText,
-        counters: z.object({ artifact: integer, node: integer, seed: integer }),
+        counters: z.object({
+          artifact: integer,
+          delivery: integer.nonnegative().default(0),
+          node: integer,
+          seed: integer,
+        }),
         created_at: text,
         description: nullableText,
         key,
@@ -179,6 +189,7 @@ export const transferSchema = z.object({
       z.literal(5),
       z.literal(6),
       z.literal(7),
+      z.literal(8),
       z.literal(STORE_EXPORT_SCHEMA_VERSION),
     ])
     .transform((): typeof STORE_EXPORT_SCHEMA_VERSION => STORE_EXPORT_SCHEMA_VERSION),

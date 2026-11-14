@@ -1,11 +1,11 @@
 /**
  * `get <id>`: one full record, routed by the id's grammar to the Engine's
- * node, artifact, or seed read.
+ * node, artifact, seed, or delivery read.
  */
 import { Command } from '@loomcli/core';
 import { helpCommand } from '@loomcli/plugins/help/extension';
 import { mcpCommand } from '@loomcli/plugins/mcp/extension';
-import { CHEAP_FACETS, intentEncoders } from '@mimir/contract';
+import { CHEAP_FACETS, encodeDelivery, intentEncoders } from '@mimir/contract';
 
 import { asciiOption, colOption } from '../options';
 import { parseFacets } from '../parse';
@@ -36,6 +36,12 @@ async function readRecord(
   presentation: Presentation,
 ): Promise<GetValue> {
   const kind = ports.grammar.idKind(id);
+  if (kind === 'delivery') {
+    // A delivery's detail read carries its whole history, as a seed's carries
+    // its description, on every transport and whatever `--col` names.
+    const delivery = encodeDelivery(await (await ports.engine()).getDelivery({ id }));
+    return { delivery, kind, presentation, wire: { ...delivery } };
+  }
   if (kind === 'artifact') {
     const engine = await ports.engine();
     const artifact = intentEncoders.artifactDetail.parse(
@@ -66,7 +72,7 @@ async function readRecord(
 export function getCommand(ports: Ports) {
   return new Command('get', {
     description:
-      'Read one full record: a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), or a seed (KEY-sN).',
+      'Read one full record: a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), a seed (KEY-sN), or a delivery (KEY-dN).',
     extensions: [
       helpCommand({
         examples: [
@@ -75,13 +81,14 @@ export function getCommand(ports: Ports) {
           { command: 'get MMR-16 --col annotations', note: 'expand annotation bodies' },
           { command: 'get MMR-a1 --col content', note: "an artifact's frozen body" },
           { command: 'get MMR-s1', note: 'a seed, with its description' },
+          { command: 'get MMR-d1', note: 'a delivery, with its history' },
         ],
       }),
       mcpCommand({ annotations: { openWorld: false, readOnly: true } }),
     ],
   })
     .argument('id', {
-      description: 'KEY-seq, KEY, KEY-aN, or KEY-sN.',
+      description: 'KEY-seq, KEY, KEY-aN, KEY-sN, or KEY-dN.',
       required: true,
     })
     .option('col', colOption)

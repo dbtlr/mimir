@@ -25,10 +25,11 @@ mimir store export board.json
 The document holds the stored work-state facts: the projects with their sequence
 counters, the nodes, the dependency edges, the tags, the annotations, the
 artifacts with their frozen content, the seeds with their history, the
-scratchpads, the owned prose sections, and the transition log. It holds nothing
+deliveries with their history, the scratchpads, the owned prose sections, and
+the transition log. It holds nothing
 derived — status and rollups are recomputed on read from these same
-facts. Identity is preserved: every `KEY-seq`, `KEY-aN`, and `KEY-sN`, every
-timestamp, and the counters. The document carries a `schema_version` of its own,
+facts. Identity is preserved: every `KEY-seq`, `KEY-aN`, `KEY-sN`, and `KEY-dN`,
+every timestamp, and the counters. The document carries a `schema_version` of its own,
 separate from the database schema version, so a later binary knows what it
 reads. The transfer document carries work state only. The database schema
 enforces its identities and references when records are written.
@@ -95,8 +96,8 @@ mimir overview
 mimir doctor
 ```
 
-Identity is preserved end to end: every `KEY-seq`, `KEY-aN`, and `KEY-sN`, every
-timestamp, and the sequence counters, so a create after the import never
+Identity is preserved end to end: every `KEY-seq`, `KEY-aN`, `KEY-sN`, and
+`KEY-dN`, every timestamp, and the sequence counters, so a create after the import never
 collides with an imported id.
 
 A failed import leaves nothing behind on either backend: the whole import is one

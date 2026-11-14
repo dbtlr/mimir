@@ -1,6 +1,8 @@
 /**
- * `create project|initiative|phase|task`: add a record to the work tree. Each
- * type is a subcommand that declares only the options that type takes.
+ * `create project|initiative|phase|task|delivery`: add a record to the work
+ * tree, or a delivery beside it. Each type is a subcommand that declares only
+ * the options that type takes; a delivery names its phase with `--phase`,
+ * because a phase is not its parent.
  */
 import { Command, FatalError } from '@loomcli/core';
 import type { StringOption } from '@loomcli/core';
@@ -17,6 +19,7 @@ import type { Ports } from '../ports';
 import { okLine, presentationOf } from '../render/presentation';
 import { nodeEcho, nodeEchoViews, noticeViews } from '../render/writes';
 import type { NodeEcho, Notice } from '../render/writes';
+import { createDeliveryCommand } from './deliveries';
 
 const descOption = text('The description.');
 const summaryOption = text('A one-line summary.');
@@ -41,7 +44,7 @@ const notOpenEndedOption = {
  * how a title that leads with a dash arrives). Absent, it is the usage error
  * that points at the `--` terminator.
  */
-function requireTitle(
+export function requireTitle(
   title: string | undefined,
   passthrough: readonly string[],
   type: string,
@@ -366,8 +369,9 @@ function taskCommand(ports: Ports) {
 
 export function createCommand(ports: Ports) {
   return new Command('create', {
-    description: 'Create a project, initiative, phase, or task.',
+    description: 'Create a project, initiative, phase, task, or delivery.',
   })
+    .command(createDeliveryCommand(ports))
     .command(projectCommand(ports))
     .command(initiativeCommand(ports))
     .command(phaseCommand(ports))

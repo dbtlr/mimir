@@ -484,7 +484,7 @@ function call(engine: Engine, method: WriteMethod, input: unknown) {
 }
 
 /** Seed and Scratchpad writes (MMR-518) are proved in seed-scratch-writes.test.ts. */
-const SEED_SCRATCH_WRITE = /^(?:seed|scratch)[A-Z]|^triage$/;
+const SEED_SCRATCH_WRITE = /^(?:seed|scratch|delivery)[A-Z]|^triage$/;
 
 test('the write table names every node-write mutation method in the contract', () => {
   const mutations = Object.entries(engineSchemas)

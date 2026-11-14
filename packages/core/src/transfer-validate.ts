@@ -1,13 +1,27 @@
 import { isDeepStrictEqual } from 'node:util';
 
-import { FIELD_FACTS } from '@mimir/contract';
+import {
+  DELIVERY_HOLD_VALUES,
+  DELIVERY_LIFECYCLE_VALUES,
+  DELIVERY_MEMBER_EVENT_VALUES,
+  FIELD_FACTS,
+} from '@mimir/contract';
+import { isMember } from '@mimir/helpers';
 
 import { hasRedundantWorker } from './assignment';
 import { cycleEdges } from './cycles';
+import { isTerminalDelivery } from './deliveries/store';
 import { validation } from './errors';
 import type { StoreExport } from './export';
 import { READABLE_STORE_EXPORT_SCHEMA_VERSIONS } from './export';
-import { isSeedRef, parseId, renderId, renderArtifactRef, renderSeedRef } from './ids';
+import {
+  isSeedRef,
+  parseId,
+  renderArtifactRef,
+  renderDeliveryRef,
+  renderId,
+  renderSeedRef,
+} from './ids';
 import {
   lintScratchpadValue,
   decodeScratchpadBody,
@@ -22,6 +36,60 @@ import { transferSchema } from './transfer-schema';
  * backend-neutral too — one implementation, or two backends would disagree
  * about which documents are importable.
  */
+
+/** The values each kind of delivery history row moves between; a member row is an event. */
+const DELIVERY_HISTORY_VALUES: Readonly<Record<'hold' | 'lifecycle', readonly string[]>> = {
+  hold: DELIVERY_HOLD_VALUES,
+  lifecycle: DELIVERY_LIFECYCLE_VALUES,
+};
+
+/**
+ * The facts a delivery carries that no verb can write (ADR 0042): a blank
+ * title, a held terminal record, a hold and reason that disagree, a
+ * non-canonical instant, or a history row outside its kind's values. Each
+ * problem is worded to follow the delivery's id.
+ */
+function deliveryFaults(delivery: StoreExport['deliveries'][number]): string[] {
+  const problems: string[] = [];
+  if (delivery.title.trim() === '') {
+    problems.push('title is blank');
+  }
+  for (const field of ['created_at', 'updated_at'] as const) {
+    if (!isCanonicalInstant(delivery[field])) {
+      problems.push(`${field} must be a canonical instant`);
+    }
+  }
+  if (isTerminalDelivery(delivery.lifecycle) && delivery.hold !== 'none') {
+    problems.push('terminal delivery must have no hold');
+  }
+  if ((delivery.hold === 'none') !== (delivery.hold_reason === null)) {
+    problems.push('hold reason disagrees with hold');
+  }
+  for (const entry of delivery.history) {
+    if (!isCanonicalInstant(entry.at)) {
+      problems.push('history at must be a canonical instant');
+    }
+    if (entry.kind === 'member') {
+      const event = entry.to_value ?? '';
+      if (
+        entry.from_value !== null ||
+        entry.task === null ||
+        !isMember(event, DELIVERY_MEMBER_EVENT_VALUES)
+      ) {
+        problems.push('invalid member history');
+      }
+      continue;
+    }
+    if (entry.task !== null) {
+      problems.push('only member history names a task');
+    }
+    const values = DELIVERY_HISTORY_VALUES[entry.kind];
+    if (!values.includes(entry.from_value ?? '') || !values.includes(entry.to_value ?? '')) {
+      problems.push(`${entry.kind} history must move between ${entry.kind} values`);
+    }
+  }
+  return problems;
+}
 
 /** How many offending identities a refusal names before it stops. */
 export const REFUSAL_SAMPLE = 20;
@@ -68,6 +136,9 @@ export function assertSingleValuedIdentities(document: StoreExport): void {
   }
   for (const seed of document.seeds) {
     claim(`seed ${renderSeedRef(seed)}`);
+  }
+  for (const row of document.deliveries) {
+    claim(`delivery ${row.id}`);
   }
   for (const pad of document.scratchpads) {
     claim(`scratchpad ${pad.id}`);
@@ -125,6 +196,30 @@ function assertReferences(document: StoreExport): void {
       faults.push(`${field} references node ${id} outside project ${project}`);
     }
   };
+  for (const delivery of document.deliveries) {
+    projectRef(delivery.project_key, delivery.id);
+    const phase = nodes.get(delivery.phase);
+    if (delivery.id !== renderDeliveryRef({ key: delivery.project_key, seq: delivery.seq })) {
+      faults.push(`${delivery.id} identity disagrees with project or seq`);
+    }
+    if (phase?.type !== 'phase' || phase.project_id !== delivery.project_key) {
+      faults.push(`${delivery.id}.phase must name a phase in the same project`);
+    }
+    for (const problem of deliveryFaults(delivery)) {
+      faults.push(`${delivery.id} ${problem}`);
+    }
+    for (const entry of delivery.history) {
+      if (entry.task !== null) {
+        nodeRef(entry.task, delivery.id, delivery.project_key);
+        const named = nodes.get(entry.task);
+        if (named !== undefined && named.type !== 'task') {
+          faults.push(
+            `${delivery.id} member history names ${entry.task}, a ${named.type}, not a task`,
+          );
+        }
+      }
+    }
+  }
   for (const node of document.nodes) {
     const identity = parseId(node.id);
     if (identity === null || node.id !== renderId({ key: node.project_id, seq: node.seq })) {

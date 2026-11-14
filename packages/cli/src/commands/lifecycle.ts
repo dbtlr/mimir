@@ -208,6 +208,9 @@ function engineArgs(call: Invocation): UniformArgs {
  */
 function refuseWrongSubject(ports: Ports, op: OpFact, id: string): void {
   const kind = ports.grammar.idKind(id);
+  if (kind === 'delivery') {
+    throw new MimirError('validation', `${id} is a delivery — only get and update act on it`);
+  }
   if (op.subject === 'project') {
     if (kind !== 'project') {
       throw projectNotFound(id);

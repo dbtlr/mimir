@@ -1,0 +1,29 @@
+mimir create delivery · Create an attempt to deliver a phase.
+
+USAGE
+  mimir create delivery [title] --phase <text> [options]
+
+ARGUMENTS
+  title  The delivery title.
+
+OPTIONS
+      --phase <text>      The phase this attempt delivers.  (required)
+      --agreement <text>  The whole delivery agreement.
+      --ref <text>        The milestone pull request.
+      --branch <text>     The integration branch.
+      --host <text>       The orchestrator host.
+      --harness <text>    The orchestrator harness.
+      --session <text>    The orchestrator session.
+      --time-cap <text>   A positive whole number of minutes.
+      --ascii             Print without color, in ASCII glyphs.
+  -f, --format <format>   Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help      Show this help.
+      --no-input  Ask no questions, and take every answer from options.  (default: true)
+
+EXAMPLES
+  $ mimir create delivery "Ship the phase" --phase MMR-2
+    record an agreed attempt
+  $ mimir create delivery --phase MMR-2 -- "--weird title"
+    a title that starts with a dash

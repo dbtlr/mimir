@@ -8,7 +8,7 @@ import { updateNode } from '../mutations';
 import { createRunStore } from '../runs';
 import { sandboxPostgresUrlFromEnvironment } from '../sandbox-authority';
 import type { StoreDialect } from '../store-sql/dialect';
-import { observe, seedWorkingSet, withoutStamp } from '../testing/conformance';
+import { errorOf, observe, seedWorkingSet, withoutStamp } from '../testing/conformance';
 import { pairTestDevice } from '../testing/store';
 import { createTokenStore } from '../tokens';
 import { openPostgres } from './client';
@@ -75,6 +75,7 @@ lane('upgradeSchema builds the schema from empty, and the gate then passes', asy
           '0012_host_secrets',
           '0013_runs',
           '0014_task_staged',
+          '0015_delivery',
         ],
         from: 0,
         to: SCHEMA_VERSION,
@@ -510,3 +511,55 @@ lane(
     });
   },
 );
+
+lane('delivery records round-trip through the socket-backed store', async () => {
+  await onFreshSchema(async (url) => {
+    const handle = openPostgres(url);
+    try {
+      await upgradeSchema(handle.db);
+      const store = createPostgresStore(handle.db);
+      const engine = new LocalEngine(store);
+      await createProject(store, { key: 'DEL', name: 'Delivery' });
+      const initiative = await createInitiative(store, { projectId: 'DEL', title: 'Plan' });
+      const phase = await createPhase(store, { parentId: initiative.id, title: 'Phase' });
+      const delivery = await engine.deliveryCreate({
+        phase: phase.id,
+        title: 'Attempt',
+      });
+      const updated = await engine.deliveryUpdate({
+        agreement: 'Ship',
+        id: delivery.id,
+        time_cap_minutes: 30,
+      });
+      expect(await engine.getDelivery({ id: delivery.id })).toEqual(updated);
+      expect(await engine.deliveries({ project: 'DEL' })).toEqual([updated]);
+      const exported = await store.export();
+      expect(exported.projects[0]?.counters.delivery).toBe(1);
+      expect(exported.deliveries[0]?.agreement).toBe('Ship');
+      // int32 columns: a value past them is the Engine's validation refusal, never 22003.
+      const overflow = await errorOf(
+        engine.deliveryUpdate({ id: delivery.id, time_cap_minutes: 2 ** 31 }),
+      );
+      expect(overflow.code).toBe('validation');
+      const seq = structuredClone(exported);
+      const row = seq.deliveries[0];
+      if (row !== undefined) {
+        Object.assign(row, { id: `DEL-d${String(2 ** 31)}`, seq: 2 ** 31 });
+      }
+      await onFreshSchema(async (targetUrl) => {
+        const target = openPostgres(targetUrl);
+        try {
+          await upgradeSchema(target.db);
+          const refused = await errorOf(
+            createPostgresStore(target.db).import(seq, { dryRun: false, mode: 'fresh' }),
+          );
+          expect(refused.code).toBe('validation');
+        } finally {
+          await target.close();
+        }
+      });
+    } finally {
+      await handle.close();
+    }
+  });
+});

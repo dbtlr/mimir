@@ -181,13 +181,14 @@ function document(overrides: Partial<StoreExport> = {}): StoreExport {
     annotations: [],
     artifacts: [],
     bodySections: [],
+    deliveries: [],
     edges: [],
     exported_at: STAMP,
     nodes: [],
     projects: [
       {
         archived_at: null,
-        counters: { artifact: 0, node: 1, seed: 0 },
+        counters: { artifact: 0, delivery: 0, node: 1, seed: 0 },
         created_at: STAMP,
         description: null,
         key: 'MMR',
@@ -333,13 +334,14 @@ function wideDocument(count: number): StoreExport {
     annotations: [],
     artifacts: [],
     bodySections: [],
+    deliveries: [],
     edges: [],
     exported_at: STAMP,
     nodes,
     projects: [
       {
         archived_at: null,
-        counters: { artifact: 0, node: count, seed: 0 },
+        counters: { artifact: 0, delivery: 0, node: count, seed: 0 },
         created_at: STAMP,
         description: null,
         key: 'WIDE',

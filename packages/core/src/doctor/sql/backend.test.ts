@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, test } from 'bun:test';
 import { Kysely, sql } from 'kysely';
 
 import { createProject } from '../../create';
+import { LocalEngine } from '../../engine';
 import type { Store } from '../../store';
 import { postgresDialect } from '../../store-postgres/index';
 import { createPgliteDialect } from '../../store-postgres/pglite';
@@ -252,6 +253,22 @@ describe.each(arms)('$name', (arm) => {
     }
   });
 
+  test(`${arm.name}: a delivery counter below its highest delivery reports counter-behind`, async () => {
+    const f = await arm.make();
+    try {
+      await seedWorkingSet(f.store);
+      await new LocalEngine(f.store).deliveryCreate({ phase: 'MMR-2', title: 'Attempt' });
+      await sql.raw("UPDATE project SET last_delivery_seq = 0 WHERE key = 'MMR'").execute(f.db);
+
+      const findings = byCode((await f.doctor.diagnose(undefined)).findings, 'counter-behind');
+      expect(findings.map((item) => [item.evidence.kind, item.where])).toEqual([
+        ['delivery', 'project · last_delivery_seq'],
+      ]);
+    } finally {
+      await f.close();
+    }
+  });
+
   test(`${arm.name}: an artifact link and a scratchpad anchor to a missing node both report orphan-link`, async () => {
     const f = await arm.make();
     try {
@@ -355,6 +372,41 @@ describe.each(arms)('$name', (arm) => {
         // The project-keyed transition is OPS's, so a scope reaches it and only it.
         const scoped = byCode((await f.doctor.diagnose('OPS')).findings, 'malformed-timestamp');
         expect(scoped.map((item) => item.where)).toEqual(['transition_log · at']);
+      } finally {
+        await f.close();
+      }
+    },
+  );
+
+  testOnSqlite(
+    `${arm.name}: a malformed timestamp on a delivery or its history is attributed to the delivery`,
+    async () => {
+      const f = await arm.make();
+      try {
+        await seedWorkingSet(f.store);
+        const engine = new LocalEngine(f.store);
+        const delivery = await engine.deliveryCreate({ phase: 'MMR-2', title: 'Attempt' });
+        await f.store.deliveries.patch('MMR', 1, {}, [
+          {
+            at: '2026-09-01T00:00:00.000Z',
+            from_value: 'none',
+            kind: 'hold',
+            reason: 'wait',
+            task: null,
+            to_value: 'paused',
+          },
+        ]);
+        await sql.raw(`UPDATE delivery SET created_at = '2026-09-01'`).execute(f.db);
+        await sql.raw(`UPDATE delivery_history SET at = 'x'`).execute(f.db);
+
+        const findings = byCode(
+          (await f.doctor.diagnose(undefined)).findings,
+          'malformed-timestamp',
+        );
+        expect(findings.map((item) => [item.stem, item.scopeKey, item.where])).toEqual([
+          [delivery.id, 'MMR', 'delivery · created_at'],
+          [delivery.id, 'MMR', 'delivery_history · at'],
+        ]);
       } finally {
         await f.close();
       }

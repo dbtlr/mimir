@@ -7,14 +7,17 @@ import type { Identity } from './ids';
  * who typed the wrong id learns so rather than having the flag silently dropped.
  */
 
-/** What an id names, in the words a project-only refusal uses. */
-function targetNoun(kind: Identity['kind']): string {
+/** What an id names, in the words a kind refusal uses. */
+export function identityNoun(kind: Identity['kind']): string {
   switch (kind) {
     case 'project': {
       return 'a project';
     }
     case 'artifact': {
       return 'an artifact';
+    }
+    case 'delivery': {
+      return 'a delivery';
     }
     case 'seed': {
       return 'a seed';
@@ -42,5 +45,5 @@ export function projectOnlyRefusal(
 ): string | null {
   return kind === 'project'
     ? null
-    : `${subject} doesn't apply to ${targetNoun(kind)} — only a project can be ${rule}`;
+    : `${subject} doesn't apply to ${identityNoun(kind)} — only a project can be ${rule}`;
 }

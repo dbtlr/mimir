@@ -34,6 +34,7 @@ export * from './format';
 export { now } from './time';
 export type * from './artifacts';
 export * from './seeds';
+export * from './deliveries';
 export * from './scratchpads';
 export type * from './body-sections';
 export type * from './transitions';
@@ -112,3 +113,5 @@ export type { SecretKey } from './secret-seal';
 export type { StoreDialect } from './store-sql/dialect';
 export { sqliteDialect } from './store-sqlite/dialect';
 export { postgresDialect } from './store-postgres/dialect';
+
+export { parseDeliveryRef, renderDeliveryRef } from './ids';
