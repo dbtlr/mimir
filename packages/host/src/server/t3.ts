@@ -1,5 +1,5 @@
 import type { Engine } from '@mimir/contract';
-import { openSecret, sealSecret, tryNormalizeRemote } from '@mimir/core';
+import { isDeliveryMember, openSecret, sealSecret, tryNormalizeRemote } from '@mimir/core';
 import type { HostSecretStore, SecretKey } from '@mimir/core';
 import { z } from 'zod';
 
@@ -566,11 +566,9 @@ export function createT3Adapter(options: T3AdapterOptions) {
    * main session), or the task may be queued; otherwise `taken` or `not_ready`.
    */
   const checkTask = async (input: T3LaunchRequest, task: Task): Promise<'go' | T3LaunchResult> => {
-    if (task.delivery && task.lifecycle !== 'done' && task.lifecycle !== 'abandoned') {
-      const delivery = await engine.getDelivery({ id: task.delivery });
-      if (delivery.lifecycle !== 'landed' && delivery.lifecycle !== 'abandoned') {
-        return { state: 'not_ready' };
-      }
+    // A member is reserved for its delivery, so launch cannot queue it (ADR 0040).
+    if (task.delivery && isDeliveryMember(task, await engine.getDelivery({ id: task.delivery }))) {
+      return { state: 'not_ready' };
     }
     const thread = attempts.thread(input.attempt);
     const open = task.lifecycle !== undefined && OPEN_LIFECYCLES.has(task.lifecycle);

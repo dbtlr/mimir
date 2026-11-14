@@ -1,4 +1,4 @@
-import { memberDelivery, refuseMember } from '../deliveries/membership';
+import { leaveOnAbandon, refuseMember } from '../deliveries/membership';
 import { conflict, validation } from '../errors';
 import { RELEASED_HOLD } from '../hold-release';
 import type { Node } from '../model';
@@ -257,14 +257,7 @@ export async function abandonTask(store: Store, id: string, reason?: string): Pr
     if (task.lifecycle === 'done' || task.lifecycle === 'abandoned') {
       throw validation(`task is already ${task.lifecycle}`);
     }
-    const member = await memberDelivery(w, task);
-    if (member !== null && task.lifecycle === 'staged') {
-      throw validation('a staged member cannot be abandoned', `return ${id} first`);
-    }
-    if (member !== null) {
-      await w.updateNode(id, { delivery: null });
-      await w.appendDeliveryMember(member, id, 'abandoned');
-    }
+    await leaveOnAbandon(w, task);
     const patch: NodePatch = { ...RELEASED_HOLD, lifecycle: 'abandoned', rank: null };
     const handles = clearHandles(patch, task);
     await w.updateNode(id, patch);

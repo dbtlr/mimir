@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, test } from 'bun:test';
+import { beforeAll, describe, expect, setSystemTime, test } from 'bun:test';
 
 import { encodeDelivery } from '@mimir/contract';
 
@@ -13,6 +13,7 @@ import {
   submitTask,
   stageTask,
 } from './mutations';
+import type { Store } from './store';
 import { bootPglite } from './store-postgres/testing';
 import { backends, refusalOf } from './testing/conformance';
 
@@ -234,4 +235,59 @@ describe.each(backends)('held membership ($name)', (backend) => {
       }
     },
   );
+});
+
+/** The node a store holds, read through the seam. */
+async function nodeOf(store: Store, id: string) {
+  return (await store.loadWorkingSet()).nodes.find((n) => n.id === id);
+}
+
+/** A project with a phase of tasks, ready for a delivery. */
+async function phaseOfTasks(store: Store, titles: readonly string[]) {
+  await createProject(store, { key: 'MEM', name: 'Members' });
+  const root = await createInitiative(store, { projectId: 'MEM', title: 'Plan' });
+  const phase = await createPhase(store, { parentId: root.id, title: 'Phase' });
+  const tasks: string[] = [];
+  for (const title of titles) {
+    tasks.push((await createTask(store, { parentId: phase.id, title })).id);
+  }
+  return { phase: phase.id, root: root.id, tasks };
+}
+
+describe.each(backends)('membership stamps ($name)', (backend) => {
+  test('join, leave, and abandon stamp both the task and the delivery', async () => {
+    const instance = await backend.make();
+    try {
+      const store = instance.store;
+      const engine = new LocalEngine(store);
+      const {
+        phase,
+        tasks: [task = ''],
+      } = await phaseOfTasks(store, ['Task']);
+      const delivery = await engine.deliveryCreate({ phase, tasks: [], title: 'Attempt' });
+      const stamps = async () => ({
+        delivery: encodeDelivery(await engine.getDelivery({ id: delivery.id })).updated_at,
+        task: (await nodeOf(store, task))?.updated_at,
+      });
+      setSystemTime(new Date('2027-01-01T09:00:00Z'));
+      await updateNode(store, task, { delivery: delivery.id });
+      expect(await stamps()).toEqual({
+        delivery: '2027-01-01T09:00:00.000Z',
+        task: '2027-01-01T09:00:00.000Z',
+      });
+      setSystemTime(new Date('2027-01-02T09:00:00Z'));
+      await updateNode(store, task, { delivery: null });
+      expect(await stamps()).toEqual({
+        delivery: '2027-01-02T09:00:00.000Z',
+        task: '2027-01-02T09:00:00.000Z',
+      });
+      await updateNode(store, task, { delivery: delivery.id });
+      setSystemTime(new Date('2027-01-03T09:00:00Z'));
+      await abandonTask(store, task);
+      expect((await stamps()).delivery).toBe('2027-01-03T09:00:00.000Z');
+    } finally {
+      setSystemTime();
+      await instance.close();
+    }
+  });
 });

@@ -5,6 +5,7 @@ import { renderId } from '../ids';
 import type { Artifact, Node, Project } from '../model';
 import type { NewNodeRecord, NewProjectRecord, NewTransitionRecord, StoreWriter } from '../store';
 import { now } from '../time';
+import { appendMemberEvent } from './delivery-history';
 import type { StoreDialect } from './dialect';
 import { storedProse } from './prose';
 import type { DB, NodeUpdate, ProjectUpdate } from './schema';
@@ -79,22 +80,7 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
     undefined;
 
   return {
-    async appendDeliveryMember(delivery, task, event) {
-      const at = now();
-      await tx
-        .insertInto('delivery_history')
-        .values({
-          at,
-          delivery_id: delivery,
-          from_value: null,
-          kind: 'member',
-          reason: null,
-          task,
-          to_value: event,
-        })
-        .execute();
-      await tx.updateTable('delivery').set({ updated_at: at }).where('id', '=', delivery).execute();
-    },
+    appendDeliveryMember: (delivery, task, event) => appendMemberEvent(tx, delivery, task, event),
     async appendTransition(row: NewTransitionRecord) {
       // Fail loud on an unresolvable target rather than dropping the row: a lost
       // transition is lost History. Creation is not a transition (ADR 0003).

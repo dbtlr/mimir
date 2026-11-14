@@ -279,9 +279,9 @@ export async function updateNode(store: Store, id: string, fields: UpdateFields)
     refuseBlankProse(fields);
 
     const patch: NodePatch = {};
+    // Membership stamps the task itself, so a delivery-only update writes once.
     if (fields.delivery !== undefined) {
       await changeMembership(w, node, fields.delivery);
-      patch.updated_at = now();
     }
     if (fields.title !== undefined) {
       patch.title = fields.title;
