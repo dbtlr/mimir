@@ -1,5 +1,5 @@
 ---
-description: Canonical terms for Mimir’s client/host boundary, task session ownership, and task lifecycle steps.
+description: Canonical terms for Mimir’s client/host boundary, task session ownership, task lifecycle steps, and deliveries.
 ---
 
 # Mimir glossary
@@ -8,8 +8,9 @@ This glossary defines the client and host boundary terms used in
 [ADR 0034](decisions/0034-engine-interface-and-trpc-wire.md),
 [ADR 0035](decisions/0035-tanstack-start-container-host.md),
 [ADR 0038](decisions/0038-device-pairing-and-the-version-window.md), and
-[ADR 0041](decisions/0041-agent-runtime-on-the-host.md), and the task lifecycle
-terms used in [ADR 0001](decisions/0001-task-status-two-axes-derived-rollup.md).
+[ADR 0041](decisions/0041-agent-runtime-on-the-host.md), the task lifecycle
+terms used in [ADR 0001](decisions/0001-task-status-two-axes-derived-rollup.md),
+and the delivery terms used in [ADR 0042](decisions/0042-the-delivery-record.md).
 
 **Host**: The Mimir server that serves the operator console and remote clients
 and owns their shared store.
@@ -42,12 +43,27 @@ on its branch, but not yet on `main`. It is not terminal: it leaves by `done`
 when the code lands, or by `return` for rework
 ([ADR 0001](decisions/0001-task-status-two-axes-derived-rollup.md)).
 
+**Delivery**: One attempt to deliver a phase, or part of one, on one
+integration branch through one milestone pull request. It is a record beside
+the work tree with its own lifecycle and hold, and its tasks stay in their
+phase ([ADR 0042](decisions/0042-the-delivery-record.md)). Not to be confused
+with an agent run.
+
+**Member**: A task that belongs to a delivery that has not ended. Membership
+reserves the task for that delivery, so the board-wide `next` leaves it out.
+
+**Land**: The verb that ends a delivery when its milestone pull request
+merges, moving every staged member to `done` in one transaction.
+
+**Stop**: A delivery's `stopped` hold: the agent cannot continue without the
+operator, and only the operator clears it.
+
 **Agent run**: One execution of an agent by the host on behalf of a task, such
 as a grooming run, recorded as a host-owned row with its state, usage, and
 outcome ([ADR 0041](decisions/0041-agent-runtime-on-the-host.md)). An agent
 run is not a task's session and changes none of its handles. It is distinct
 from the run a queued task is reserved for (ADR 0026), which is a session in an
-outside harness.
+outside harness, and from a build run, which is a **delivery**.
 
 **Run grant**: The board access an agent run is given: the reads its kind
 needs within its project, and writes limited to its own task or to new records
