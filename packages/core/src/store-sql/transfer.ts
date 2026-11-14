@@ -649,7 +649,12 @@ async function applyImport(
   const tasksByDelivery = new Map<string, string[]>();
   for (const node of document.nodes) {
     if (newNodes.has(node.id) && node.delivery !== null) {
-      tasksByDelivery.set(node.delivery, [...(tasksByDelivery.get(node.delivery) ?? []), node.id]);
+      const ids = tasksByDelivery.get(node.delivery);
+      if (ids === undefined) {
+        tasksByDelivery.set(node.delivery, [node.id]);
+      } else {
+        ids.push(node.id);
+      }
     }
   }
   for (const [delivery, ids] of tasksByDelivery) {
