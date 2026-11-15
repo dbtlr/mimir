@@ -232,7 +232,9 @@ takes `--project KEY`. An archived project's deliveries are hidden. `get` and
 ## Amendment (2026-11-15, MMR-677): `decide` creates a decision
 
 `decide <question>` creates the project-anchored record in
-[ADR 0043](0043-the-decision-record.md), as `seed` creates a seed: the verb
-names the claim, and the record sits beside the work tree. `confirm` and
+[ADR 0043](0043-the-decision-record.md). It joins `seed` and `attach` under the
+creation grammar's test, because its creation ergonomics are the feature: an
+agent records a decision mid-task, many times a delivery, and the verb is the
+claim it makes. `create decision` was rejected for that reason. `confirm` and
 `overturn` are flat work-state verbs on a `KEY-qN` id. `get` and `update`
 dispatch `KEY-qN` identities to decision methods.
