@@ -6,7 +6,7 @@
 
 **Why.** One milestone lands or releases all of an attempt's work atomically.
 
-**Before and after.** The Engine gains nine delivery verb methods. Existing task verbs dispatch delivery ids to those methods. Delivery reasons are required for block, park, and abandon; task start handles and block --on are refused on deliveries.
+**Before and after.** The Engine gains nine delivery verb methods. Existing task verbs dispatch delivery ids to those methods. Delivery reasons are required for block, park, and abandon, and recorded in the delivery history; a blank return reason records none. Task start handles and block --on are refused on deliveries. Each delivery verb's help and MCP description names its own delivery transition and reason policy, and its id argument names `KEY-dN`. A task-only verb (queue, unqueue, stage, done, reopen, archive, unarchive) refuses a `KEY-dN` before checking its own inputs, with `done` naming `land` and the rest listing the delivery verbs.
 
 **Steps.** Update the host before clients and regenerate Engine adapters from the contract snapshot.
 

@@ -530,7 +530,8 @@ tasks in the phase; an explicit list selects only those tasks atomically.
 Engine `update` accepts nullable `delivery` to join or leave. CLI and MCP
 `update --delivery none` sends null; repeatable `create delivery --task`
 selects tasks. `done` on a member is a `validation` error whose hint names
-`update <task> --delivery none`.
+`land KEY-dN` first, then leaving with `update <task> --delivery none` to
+finish the task alone.
 
 ### Delivery lifecycle writes
 
@@ -541,8 +542,20 @@ dispatch a `KEY-dN` to the corresponding `deliveryStart`, `deliveryBlock`,
 `deliveryLand`. CLI and MCP echo the complete delivery object in JSON, as
 `get KEY-dN` does, including members and history. Block, park, and abandon
 require a nonblank reason; return accepts an optional reason. The other
-methods accept only the id. Delivery start refuses task handle flags and
-skips shell identity fill; block refuses `--on`.
+methods accept only the id. A blank optional reason is stored as null. Delivery
+start refuses task handle flags and skips shell identity fill; block refuses
+`--on`.
+
+A verb that does not act on a delivery (`queue`, `unqueue`, `stage`, `done`,
+`reopen`, `archive`, `unarchive`) refuses a `KEY-dN` with a `validation` error
+before it checks its own inputs. The hint of `done` names `land KEY-dN`; every
+other hint lists the verbs a delivery takes. A lifecycle refusal's hint names
+the step the delivery's current lifecycle allows, and a land refused by an
+unstaged member names the steps that bring that member to `staged`.
+
+The `records` view of a delivery hangs every further line of a multi-line
+value or history reason under the column where that value began, so a reason
+cannot print a line that reads as a history row.
 
 Lifecycle and hold changes append delivery history rows. Land completes every
 staged member atomically and retains its reference. Abandon releases every

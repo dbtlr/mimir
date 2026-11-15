@@ -48,13 +48,16 @@ events in the delivery history, without adding task transition rows.
 
 `start KEY-dN` moves agreed to running. It requires a live member, an agreement,
 and no hold. `submit` moves running to milestone; `return` moves milestone
-back to running with an optional reason. Both refuse a held delivery.
+back to running with an optional reason; a blank one records none. Both refuse
+a held delivery.
 
 `block KEY-dN "reason"` sets stopped; `unblock` clears stopped. `park KEY-dN
 "reason"` sets paused; `unpark` clears paused. Block and park require an unheld,
 non-terminal delivery and a reason. Delivery start takes no handle flags and
 never fills identity from the shell; delivery block refuses `--on`.
-Set delivery handles with `update`; every verb preserves them.
+Set delivery handles with `update`; every verb preserves them. A task-only verb
+(`queue`, `unqueue`, `stage`, `done`, `reopen`) refuses a delivery id: `done`
+names `land`, and the others list the verbs a delivery takes.
 
 `land KEY-dN` ends a milestone attempt. It requires at least one staged member,
 every live member staged, and no hold on the delivery or any member. It
