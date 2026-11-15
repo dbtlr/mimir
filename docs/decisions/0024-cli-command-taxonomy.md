@@ -280,5 +280,5 @@ group only when both hold:
 
 A new record type fails the first part and takes flat verbs. An append-only
 list whose only operation is a specific add verb fails both: a delivery's known
-limitations and declined findings are written by the flat verbs `limitation`
-and `decline`.
+limitations and declined findings take the flat verbs `limitation` and
+`decline` when their ADR lands.
