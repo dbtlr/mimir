@@ -566,3 +566,12 @@ and rank and log no task transition. Release retains task holds and block
 owners. A held delivery's abandon logs its hold release before its terminal
 lifecycle row. Elapsed minutes become non-null after the first start and
 continue to derive from that original row after return or termination.
+
+## Delivery selection in next (MMR-684)
+
+`next --delivery KEY-dN` (Engine `next.delivery`, optional string; MCP
+`next.delivery`) selects only ready members of that delivery, in rank order.
+The project scope and existing filters still apply. A delivery outside the
+selected project refuses. Without the flag, `next` excludes every member.
+A terminal delivery lists no members; a non-delivery id or an archived
+project refuses. The set output shape is unchanged.

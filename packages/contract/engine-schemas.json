@@ -404,6 +404,9 @@
                   },
                   "verdicts": {
                     "$ref": "#/$defs/__schema11"
+                  },
+                  "delivery": {
+                    "type": "string"
                   }
                 },
                 "required": ["project"],

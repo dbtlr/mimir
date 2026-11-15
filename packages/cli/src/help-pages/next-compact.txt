@@ -5,6 +5,7 @@ USAGE
 
 OPTIONS
   -s, --scope <KEY>                The project to read. Defaults to the clone binding.
+      --delivery <KEY-dN>          List ready members of this delivery, in rank order.
   -q, --query <text>               A case-insensitive substring of the title or id.
   -p, --priority <p0..p3>          Only this priority (a signal, not a sort): p0, p1, p2, or p3.
       --size <s|m|l>               Only this size: s, m, or l.

@@ -71,3 +71,15 @@ an appended rank if unheld and rankless. Untouched todo members keep handles
 and rank and write no task transition. Every release clears membership and
 adds a `released` member history row. Abandon also clears and logs a delivery
 hold. Terminal attempts keep their own handles and refuse further writes.
+
+## Board rules
+
+Board-wide `mimir next` omits all members. Use `mimir next --delivery KEY-dN`
+for that attempt's ready members, in rank order. A terminal delivery returns
+none; a non-delivery id or an archived project refuses the read.
+
+A prerequisite under review or staged counts as settled only for a direct
+dependent that is also a member of the same non-terminal delivery. This reads
+lifecycle, so even a held prerequisite counts. Other dependents still await
+it. `blocking` follows the same rule. Dependencies remain advisory and never
+gate `start`; container dependency rules stay unchanged.

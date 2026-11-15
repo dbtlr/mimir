@@ -113,6 +113,7 @@ test('neither tag nor untag writes the transition log', async () => {
 test('resolveEntityToken rejects unknown project/node and malformed tokens', async () => {
   // Pure resolver logic — an empty in-memory working set, no store needed.
   const set = deriveSet({
+    deliveries: new Map(),
     edges: [],
     nodeTags: new Map(),
     nodes: [],

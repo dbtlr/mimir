@@ -54,6 +54,7 @@ export async function boardProject(
   explicit: string | undefined,
   verb: string,
   notify: (line: string) => void,
+  fallback?: string,
 ): Promise<string> {
   if (explicit === 'all') {
     throw new MimirUsageError(
@@ -61,7 +62,7 @@ export async function boardProject(
       "name it with -s KEY; 'mimir projects' lists the keys",
     );
   }
-  return targetProject(explicit ?? (await ports.scope(notify)), undefined, {
+  return targetProject(explicit ?? (await ports.scope(notify)), fallback, {
     hint: "pass -s KEY, or bind this clone with 'mimir bind KEY'",
     message: `${verb} needs a project`,
   });

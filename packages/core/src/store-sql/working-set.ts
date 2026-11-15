@@ -168,7 +168,9 @@ export async function loadWorkingSet(ex: Executor, dialect: StoreDialect): Promi
     'project',
     new Map(projects.map((project) => [project.key, project.created_at])),
   );
+  const deliveries = await ex.selectFrom('delivery').select(['id', 'lifecycle']).execute();
   return {
+    deliveries: new Map(deliveries.map((row) => [row.id, row])),
     edges: edges.map((edge): Dependency => ({
       depends_on_node_id: edge.depends_on_node_id,
       node_id: edge.node_id,

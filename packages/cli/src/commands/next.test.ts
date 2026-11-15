@@ -114,3 +114,74 @@ test('a value warning under -f json is a JSON line on stderr', async () => {
     },
   });
 });
+
+test('next --delivery passes the selector to the Engine', async () => {
+  const f = await parityBoard();
+  try {
+    const task = await f.engine.create({ parent: 'MMR-2', title: 'Delivery work', type: 'task' });
+    const delivery = await f.engine.deliveryCreate({
+      phase: 'MMR-2',
+      tasks: [task.id],
+      title: 'Attempt',
+    });
+    const run = await runArgv(f.app(), [
+      'next',
+      '-s',
+      'MMR',
+      '--delivery',
+      delivery.id,
+      '-f',
+      'ids',
+    ]);
+    expect(run.exitCode).toBe(0);
+    expect(run.stdout).toBe(`${task.id}\n`);
+  } finally {
+    await f.close();
+  }
+});
+
+test('next --delivery with no project takes the project from the delivery id', async () => {
+  const f = await parityBoard();
+  try {
+    const task = await f.engine.create({ parent: 'MMR-2', title: 'Delivery work', type: 'task' });
+    const delivery = await f.engine.deliveryCreate({
+      phase: 'MMR-2',
+      tasks: [task.id],
+      title: 'Attempt',
+    });
+    const run = await runArgv(f.app(), ['next', '--delivery', delivery.id, '-f', 'ids']);
+    expect(run.exitCode).toBe(0);
+    expect(run.stdout).toBe(`${task.id}\n`);
+  } finally {
+    await f.close();
+  }
+});
+
+test('next --delivery with a task id and no project names the wrong kind, not a missing project', async () => {
+  const f = await parityBoard();
+  try {
+    const task = await f.engine.create({ parent: 'MMR-2', title: 'Not a delivery', type: 'task' });
+    const run = await runArgv(f.app(), ['next', '--delivery', task.id]);
+    expect(run.exitCode).not.toBe(0);
+    expect(run.stderr).toContain('not a delivery');
+    expect(run.stderr).not.toContain('needs a project');
+  } finally {
+    await f.close();
+  }
+});
+
+test('an empty next --delivery points at the delivery, not at the awaiting list', async () => {
+  const f = await parityBoard();
+  try {
+    const delivery = await f.engine.deliveryCreate({ phase: 'MMR-2', title: 'Empty attempt' });
+    const run = await runArgv(f.app(), ['next', '--delivery', delivery.id, '-p', 'p0'], {
+      tty: true,
+    });
+    expect(run.stdout).toContain(
+      `No ready members in ${delivery.id} — mimir get ${delivery.id} lists its members`,
+    );
+    expect(run.stdout).not.toContain('awaiting');
+  } finally {
+    await f.close();
+  }
+});

@@ -200,3 +200,13 @@ Formats: `table`/`records` (human, never parse) · `ids`/`json`/`jsonl` (stable
 machine contract, no color). Piped output defaults to `ids`. Exit codes: 0 ok
 (including empty sets), 1 operational (missing id, invariant), 2 bad invocation.
 Rank is never a field — **array order is the order**.
+
+## Delivery work
+
+`mimir next` excludes delivery members. `mimir next --delivery KEY-dN` lists
+that attempt's ready members in the same rank order. Other query filters still
+apply. Terminal attempts list none; wrong-kind ids and archived projects
+refuse. Within one non-terminal delivery, a direct prerequisite's submitted or
+staged lifecycle settles its dependent's readiness even when held. Outside
+the delivery, ordinary dependency rules apply. `blocking` and the `deps`
+facet's `awaitingOn` agree with this relative settledness.

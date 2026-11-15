@@ -26,6 +26,8 @@ import type {
 import type { ArtifactListQuery } from '../artifacts/store';
 import { dateFilterWindows } from '../dates';
 import type { DateFilter } from '../dates';
+import { requireDeliveryRef } from '../deliveries/intent';
+import { isDeliveryMember } from '../deliveries/membership';
 import type { DerivationSet } from '../derive';
 import {
   deriveSet,
@@ -38,7 +40,7 @@ import {
 } from '../derive';
 import { notFound, projectNotFound, validation } from '../errors';
 import { canonicalSetOrder } from '../export';
-import { parseIdentity, renderArtifactRef, renderSeedRef } from '../ids';
+import { parseIdentity, renderArtifactRef, renderDeliveryRef, renderSeedRef } from '../ids';
 import type { Node } from '../model';
 import { isAwaiting, isBlocking, isOrphaned, isReady, isStale } from '../predicates';
 import { compileFilters } from '../query';
@@ -277,6 +279,7 @@ const emptyResult = (warnings: ValueWarning[]): SetResult<NodeView> => ({
 });
 
 export type NextOptions = {
+  delivery?: string;
   /** Case-insensitive substring over the title or the rendered id (MMR-78, MMR-454; LIKE, FTS5 deferred). */
   q?: string;
   scope?: string;
@@ -306,11 +309,29 @@ export async function nextTasks(
   }
   const set = deriveSet(await store.loadWorkingSet());
   const scopeId = opts.scope === undefined ? undefined : resolveScope(set, opts.scope);
+  let delivery: string | undefined;
+  if (opts.delivery !== undefined) {
+    const ref = requireDeliveryRef(opts.delivery);
+    const deliveryId = renderDeliveryRef(ref);
+    if (set.archivedProjects.has(ref.key) || !set.ws.deliveries.has(deliveryId)) {
+      throw notFound(`${opts.delivery} doesn't exist`);
+    }
+    if (scopeId !== undefined && scopeId !== ref.key) {
+      throw validation(
+        'delivery must belong to the selected project',
+        `${deliveryId} belongs to ${ref.key}; pass -s ${ref.key}`,
+      );
+    }
+    delivery = deliveryId;
+  }
   const matchesQ = nodeQueryMatcher(opts.q);
   const candidates = set.ws.nodes
     .filter(
       (n) =>
         n.type === 'task' &&
+        (delivery === undefined
+          ? !isDeliveryMember(n, set.ws.deliveries.get(n.delivery ?? ''))
+          : n.delivery === delivery && isDeliveryMember(n, set.ws.deliveries.get(delivery))) &&
         n.lifecycle === 'todo' &&
         n.hold === 'none' &&
         n.rank !== null &&

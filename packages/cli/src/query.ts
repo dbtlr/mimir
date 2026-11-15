@@ -172,7 +172,8 @@ export type NodeSetAction = {
  * The action `next` and `list` share: parse the query, resolve the project,
  * make the Engine call `bind` returns, and print the set. `bind` runs before
  * the store opens, so it parses whatever else the verb reads; `empty` is the
- * line a terminal prints for an empty set.
+ * line a terminal prints for an empty set. `fallbackProject` names the project
+ * when neither `-s` nor the clone binding does.
  */
 export async function readNodeSet(
   ports: Ports,
@@ -180,13 +181,14 @@ export async function readNodeSet(
   verb: 'next' | 'list',
   empty: (project: string) => string,
   bind: (query: NodeQuery) => (engine: Engine, project: string) => Promise<unknown>,
+  fallbackProject?: string,
 ): Promise<void> {
   const query = parseNodeQuery(ports, options, host.timeZone, verb);
   const call = bind(query);
   const notify = (line: string): void => {
     void out.print(line);
   };
-  const project = await boardProject(ports, options.scope, verb, notify);
+  const project = await boardProject(ports, options.scope, verb, notify, fallbackProject);
   const engine = await ports.engine();
   const result = intentEncoders.nodeSet.parse(await call(engine, project));
   const presentation = presentationOf(host, options.ascii, query.timeZone);

@@ -32,7 +32,7 @@ type Ref = { key: string; seq: number };
 
 /** The delivery an id names, or the refusal for one that names something else.
  * Another record's id is a behavioral kind error (ADR 0042), not a missing record. */
-function requireDeliveryRef(id: string): Ref {
+export function requireDeliveryRef(id: string): Ref {
   const identity = parseIdentity(id);
   if (identity === null) {
     throw notFound(`${id} is not a delivery id`, 'delivery ids look like KEY-dN');

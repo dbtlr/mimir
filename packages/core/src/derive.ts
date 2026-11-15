@@ -1,5 +1,6 @@
 import type { StatusWord } from '@mimir/contract';
 
+import { isDeliveryMember } from './deliveries/membership';
 import { MimirError, invariant } from './errors';
 import { parseId } from './ids';
 import type { Node, Project } from './model';
@@ -248,6 +249,32 @@ export function isNodeSettled(
   return full !== undefined && isTerminalWord(nodeStatusWord(set, full));
 }
 
+/** ADR 0042's narrow exception for a direct edge between members of one attempt. */
+export function countsBySameDelivery(
+  set: DerivationSet,
+  prerequisite: Node,
+  dependentId: string,
+): boolean {
+  const dependent = set.nodeById.get(dependentId);
+  return (
+    prerequisite.type === 'task' &&
+    (prerequisite.lifecycle === 'under_review' || prerequisite.lifecycle === 'staged') &&
+    dependent?.type === 'task' &&
+    prerequisite.delivery === dependent.delivery &&
+    isDeliveryMember(prerequisite, set.ws.deliveries.get(prerequisite.delivery ?? '')) &&
+    isDeliveryMember(dependent, set.ws.deliveries.get(dependent.delivery ?? ''))
+  );
+}
+
+/** Relative settledness for a declared edge; container edges keep their node-only rule. */
+export function isPrereqSettled(
+  set: DerivationSet,
+  prerequisite: Node,
+  dependentId: string,
+): boolean {
+  return isNodeSettled(set, prerequisite) || countsBySameDelivery(set, prerequisite, dependentId);
+}
+
 /** A node and all of its ancestors (walking `parent_id` to the root). */
 export function lineageIds(set: DerivationSet, nodeId: string): string[] {
   const ids: string[] = [];
@@ -281,7 +308,7 @@ export function hasUnsettledPrereq(set: DerivationSet, taskId: string): boolean 
       if (set.archivedProjects.has(prereq.project_id)) {
         continue;
       }
-      if (!isNodeSettled(set, prereq)) {
+      if (!isPrereqSettled(set, prereq, ancestorId)) {
         return true;
       }
     }
