@@ -32,3 +32,28 @@ lifecycles. Archived projects hide decisions and refuse writes.
 
 A blocking question still uses grooming `needs_answers`, `block --on you`, or a
 seed on another board. A provisional decision gates no work-state verb.
+
+## Read decisions and the cap
+
+`mimir decisions` reads the bound project's provisional decisions, oldest first
+by decision sequence. `-p/--project KEY` selects another project.
+`--status provisional|confirmed|overturned|all` selects the lifecycle.
+Repeat `--class product|architecture|other` for alternatives. `--delivery KEY-dN`
+keeps decisions linked to that delivery. `--linked` requires at least one linked
+task whose lifecycle is not `abandoned`; done tasks count. Filters combine with
+AND, while classes combine with OR. An archived project refuses as not found.
+
+The cap query is `decisions --class product --class architecture --linked`,
+narrowed with `--delivery` when the cap is per delivery. There is no dedicated
+cap verb.
+
+```sh
+mimir decisions -p MMR
+mimir decisions --status all
+mimir decisions --class product --class architecture --linked
+mimir decisions --class product --class architecture --linked --delivery MMR-d3
+mimir overview -s MMR
+```
+
+Overview counts every provisional decision in the project, including unlinked
+decisions and class `other`. This count is not the cap subset.

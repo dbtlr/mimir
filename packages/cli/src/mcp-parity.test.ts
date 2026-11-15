@@ -73,6 +73,31 @@ const rows = (...ids: string[]) => ({ tasks: ids.map((id) => ({ id })), total: i
 const padReceipt = (openAgenda: number) => ({ open_agenda: openAgenda, project: 'MMR' });
 
 const CASES: readonly McpCase[] = [
+  holding(
+    'decide records a linked answer',
+    'decide',
+    {
+      class: 'product',
+      option: ['Here', 'There'],
+      project: 'MMR',
+      question: 'Where?',
+      recommend: '1',
+      task: ['MMR-3'],
+    },
+    { id: 'MMR-q1', lifecycle: 'provisional' },
+  ),
+  holding(
+    'decisions cap filters use class alternatives and linked work',
+    'decisions',
+    {
+      class: ['product', 'architecture'],
+      linked: true,
+      project: 'MMR',
+      status: 'provisional',
+    },
+    { decisions: [{ id: 'MMR-q1' }], total: 1 },
+  ),
+
   // Every record was created at 2026-10-01T12:00Z. On Kiritimati (UTC+14), 2 October begins
   // at 2026-10-01T10:00Z, so the bound admits every row in that zone and none in UTC. MMR-3
   // blocks MMR-4, so `not-is: blocking` leaves it out.

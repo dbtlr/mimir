@@ -66,6 +66,7 @@ function windowOf(from: string, to: string): string {
       inFlight: { count: 0, tasks: [] },
       next: { count: 0, tasks: [] },
       project: { distribution: {}, id: 'MMR', status: 'in_progress' },
+      provisionalDecisions: 0,
       scratchpads: { count: 0, scratchpads: [] },
       sessions: { entries: [entry], shown: 1 },
     },

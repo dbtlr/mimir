@@ -173,6 +173,7 @@
 --- state
 + artifacts[MMR-a2]: {"content":"# Notes\n\nInline body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3"],"project":"MMR","summary":"inline","tags":[],"title":"Inline"}
 ~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-5, MMR-4, MMR-3, MMR-6, MMR-7, MMR-8, MMR-9]
++ nodes[MMR-3].decisions[MMR-q1]: {"id":"MMR-q1","lifecycle":"provisional"}
 + nodes[MMR-3].tags[@1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}
 + nodes[MMR-4].tags[@1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}
 ~ nodes[MMR-8].completedAt: null -> "2026-10-01T12:00:00.000Z"
@@ -200,6 +201,7 @@
 | create_project(desc: string, key: string, name: string, remote: string, tag: array, yes: boolean)
 | create_task(branch: string, desc: string, groomed: boolean, harness: string, host: string, parent: string, priority: string, ref: string, session: string, size: string, summary: string, tag: array, title: string, upstream: string)
 | decide(class: string, delivery: string, option: array, project: string, question: string, recommend: string, take: string, task: array, why: string)
+| decisions(class: array, delivery: string, linked: boolean, project: string, status: string)
 | deliveries(project: string)
 | depend(id: string, on: string)
 | done(id: string)

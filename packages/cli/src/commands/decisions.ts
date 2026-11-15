@@ -1,15 +1,18 @@
 import { Command } from '@loomcli/core';
 import { helpCommand } from '@loomcli/plugins/help/extension';
 import { mcpCommand } from '@loomcli/plugins/mcp/extension';
-import { encodeDecision, DECISION_CLASS_VALUES } from '@mimir/contract';
+import { encodeDecision, DECISION_CLASS_VALUES, DECISION_LIFECYCLE_VALUES } from '@mimir/contract';
+import type { DecisionView } from '@mimir/contract';
 
 import { MimirUsageError } from '../failures';
 import { asciiOption, text, writeHints } from '../options';
 import type { Ports } from '../ports';
-import { decisionEchoViews } from '../render/decisions';
+import { decisionEchoViews, renderDecision } from '../render/decisions';
 import type { DecisionValue } from '../render/decisions';
 import { presentationOf } from '../render/presentation';
-import { boundProject } from '../scope';
+import type { Presentation } from '../render/presentation';
+import { recordViews } from '../render/views';
+import { boardProject, boundProject } from '../scope';
 
 function numberOf(value: string | undefined): number | undefined {
   if (value === undefined) {
@@ -122,5 +125,77 @@ export function decisionAnswerCommand(ports: Ports, verb: 'confirm' | 'overturn'
         decision: encodeDecision(decision),
         presentation: presentationOf(host, options.ascii),
       });
+    });
+}
+
+type DecisionsValue = { decisions: DecisionView[]; presentation: Presentation };
+const listViews = recordViews<DecisionsValue>({
+  ids: (v) => v.decisions.map((d) => d.id).join('\n'),
+  json: (v) => ({ decisions: v.decisions, total: v.decisions.length }),
+  jsonl: (v) => v.decisions,
+  records: (v) =>
+    v.decisions.length
+      ? v.decisions.map((d) => renderDecision(d, v.presentation)).join('\n\n')
+      : 'No decisions.',
+});
+
+export function decisionsCommand(ports: Ports) {
+  return new Command('decisions', {
+    description: "Read one project's decisions, oldest first; provisional by default.",
+    extensions: [
+      helpCommand({
+        examples: [
+          {
+            command: 'decisions --class product --class architecture --linked',
+            note: 'read decisions counted toward the cap',
+          },
+        ],
+      }),
+      mcpCommand({ annotations: { openWorld: false, readOnly: true } }),
+    ],
+  })
+    .option('project', { ...text('The project key; defaults to the clone binding.'), short: 'p' })
+    .option('status', text('provisional (default), confirmed, overturned, or all.'))
+    .option('class', {
+      ...text('product, architecture, or other; repeat for alternatives.'),
+      multiple: true,
+    })
+    .option('delivery', text('Only decisions linked to this delivery (KEY-dN).'))
+    .option('linked', {
+      description: 'At least one linked task is not abandoned.',
+      type: 'boolean',
+    })
+    .option('ascii', asciiOption)
+    .result<DecisionsValue>({ views: listViews })
+    .views({ table: listViews.table }, { default: 'table' })
+    .action(async ({ host, options, out }) => {
+      const status = [...DECISION_LIFECYCLE_VALUES, 'all' as const].find(
+        (s) => s === (options.status ?? 'provisional'),
+      );
+      if (!status) {
+        throw new MimirUsageError('--status must be provisional, confirmed, overturned, or all');
+      }
+      const classes = options.class.map((value) => {
+        const cls = DECISION_CLASS_VALUES.find((c) => c === value);
+        if (!cls) {
+          throw new MimirUsageError('--class must be product, architecture, or other');
+        }
+        return cls;
+      });
+      const project = await boardProject(ports, options.project, 'decisions', (line) => {
+        void out.print(line);
+      });
+      const decisions = (
+        await (
+          await ports.engine()
+        ).listDecisions({
+          classes,
+          delivery: options.delivery,
+          linked: options.linked,
+          project,
+          status,
+        })
+      ).map(encodeDecision);
+      await out.results({ decisions, presentation: presentationOf(host, options.ascii) });
     });
 }

@@ -149,6 +149,10 @@ export function renderOverview(report: OverviewReport, p: Presentation): string 
 
   taskSection('in flight', report.inFlight.count, report.inFlight.tasks, handleClause);
 
+  out.push(
+    '',
+    `provisional decisions (${String(report.provisionalDecisions)}) — run 'mimir decisions -p ${id}'`,
+  );
   out.push('', `active scratchpads (${String(report.scratchpads.count)})`);
   const now = Date.now();
   for (const scratchpad of report.scratchpads.scratchpads) {

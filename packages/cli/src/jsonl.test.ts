@@ -81,6 +81,19 @@ const SAMPLES: Readonly<Record<string, Sample>> = {
     relation: 'same',
     words: ['create', 'phase', 'Next', '--parent', 'MMR-1'],
   },
+  decisions: {
+    before: (board) =>
+      board.engine.decide({
+        class: 'product',
+        options: ['Here', 'There'],
+        project: 'MMR',
+        question: 'Where?',
+        recommended: 1,
+      }),
+    records: 'decisions',
+    relation: 'records',
+    words: ['decisions', '--project', 'MMR'],
+  },
   deliveries: {
     before: (board) => board.engine.deliveryCreate({ phase: 'MMR-2', title: 'Attempt' }),
     records: 'deliveries',
