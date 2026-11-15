@@ -50,8 +50,13 @@ function emptyDataDir(): Promise<Blob> {
 
 function migratedDataDir(): Promise<Blob> {
   migratedSnapshot ??= (async () => {
-    const pg = new PGlite({ loadDataDir: await emptyDataDir() });
+    // Reuse the initialized database for migration instead of booting a second
+    // instance from the empty dump. Isolated parallel files each pay this boot.
+    const pg = new PGlite();
     try {
+      await pg.exec('checkpoint');
+      emptySnapshot ??= pg.dumpDataDir('none');
+      await emptySnapshot;
       // Not destroyed: destroying the Kysely handle would close `pg` before the dump.
       await upgradeSchema(new Kysely<DB>({ dialect: createPgliteDialect(pg) }));
     } catch (error) {

@@ -1,14 +1,12 @@
-import { afterEach, beforeAll, describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'bun:test';
 
 import type { Scratchpad } from '@mimir/contract';
 
 import type { ArtifactCreate, ArtifactRecord, ArtifactStore } from '../artifacts/store';
 import { createInitiative, createProject } from '../create';
-import { bootPglite, createPgliteTestStore } from '../store-postgres/testing';
+import { createSqliteTestStore } from '../store-sqlite/testing';
 import { createScratchpadService } from './service';
 import type { ScratchpadStore } from './store';
-
-beforeAll(bootPglite);
 
 const ID = '123e4567-e89b-42d3-a456-426614174000';
 const T0 = '2026-08-03T12:00:00.000Z';
@@ -24,7 +22,7 @@ async function rejection(run: () => Promise<unknown>, pattern: RegExp): Promise<
   expect((error as Error).message).toMatch(pattern);
 }
 
-const fixtures: Awaited<ReturnType<typeof createPgliteTestStore>>[] = [];
+const fixtures: Awaited<ReturnType<typeof createSqliteTestStore>>[] = [];
 afterEach(async () => {
   for (const fixture of fixtures.splice(0)) {
     await fixture.close();
@@ -32,7 +30,7 @@ afterEach(async () => {
 });
 
 async function harness() {
-  const fixture = await createPgliteTestStore();
+  const fixture = await createSqliteTestStore();
   fixtures.push(fixture);
   await createProject(fixture.store, { key: 'MMR', name: 'Mimir' });
   await createInitiative(fixture.store, { projectId: 'MMR', title: 'First' });

@@ -281,48 +281,39 @@ test('a request that exceeds its timeout is a transient failure', async () => {
 test.each(['timeout', 'abort'])(
   'an interrupted response body reports a transient request %s',
   async (mode) => {
-    const server = Bun.serve({
-      fetch: () =>
-        new Response(
+    const abort = new AbortController();
+    const client = new HostClient({
+      fetch: async (_input, init) => {
+        // Deliver headers before interrupting the body. A real socket plus a
+        // short timeout can expire before headers arrive under parallel load.
+        const response = new Response(
           new ReadableStream({
             start(controller) {
               controller.enqueue(new TextEncoder().encode('{"private":"response secret"'));
+              init.signal?.addEventListener('abort', () => controller.error(init.signal?.reason), {
+                once: true,
+              });
             },
           }),
           { headers: { 'content-type': 'application/json' } },
-        ),
-      hostname: '127.0.0.1',
-      port: 0,
+        );
+        if (mode === 'abort') {
+          abort.abort(new Error('private cancellation reason'));
+        }
+        return response;
+      },
+      origin: ORIGIN,
+      timeoutMs: mode === 'abort' ? 1_000 : 50,
     });
-    try {
-      const abort = new AbortController();
-      const client = new HostClient({
-        ...(mode === 'abort'
-          ? {
-              fetch: async (input: string, init: RequestInit) => {
-                const response = await fetch(input, init);
-                abort.abort(new Error('private cancellation reason'));
-                return response;
-              },
-            }
-          : {}),
-        origin: server.url.origin,
-        timeoutMs: mode === 'abort' ? 1_000 : 50,
-      });
-      const error = await refusal(
-        mode === 'abort'
-          ? client.pollPairing('private poll secret', abort.signal)
-          : client.health(),
-      );
-      expect(error).toMatchObject({ code: 'invariant', status: 200, transient: true });
-      expect(error.message).toBe(
-        `the request to ${server.url.origin} ${mode === 'abort' ? 'was aborted' : 'timed out'}`,
-      );
-      expect(error.hint).toBe('try again, or check the host or proxy response and the host logs');
-      expect(`${error.message} ${String(error.hint)}`).not.toMatch(/private|response secret/);
-    } finally {
-      await server.stop(true);
-    }
+    const error = await refusal(
+      mode === 'abort' ? client.pollPairing('private poll secret', abort.signal) : client.health(),
+    );
+    expect(error).toMatchObject({ code: 'invariant', status: 200, transient: true });
+    expect(error.message).toBe(
+      `the request to ${ORIGIN} ${mode === 'abort' ? 'was aborted' : 'timed out'}`,
+    );
+    expect(error.hint).toBe('try again, or check the host or proxy response and the host logs');
+    expect(`${error.message} ${String(error.hint)}`).not.toMatch(/private|response secret/);
   },
 );
 

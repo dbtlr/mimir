@@ -132,6 +132,21 @@ The usual causes, and their fixes:
 
 Confirm a fix with a stress run under the default timeouts.
 
+The default Bun lane runs files in isolated processes with three parallel
+workers. This caps contention on the three-core macOS release runner and leaves
+capacity on the four-vCPU Linux gate. Tests must use unique temporary directories
+and ephemeral ports (`port: 0`); a child process must receive its fixture's paths
+instead of opening the checkout's shared `.dev` store.
+
+[`test-timings.json`](test-timings.json) records per-file durations in milliseconds.
+Bun uses it only to start slower files first, not to select tests or enforce the
+budget. Missing files or entries and entries for removed tests do not fail a run.
+After a substantial change to test costs, refresh and commit it:
+
+```sh
+bun run test --update-timings
+```
+
 CI's gate checks the default bun lane's timings with `bun run test:budget`
 (`packages/cli/scripts/test-budget.ts`). A test over 3 s fails the gate, and a
 test over 1 s or a file over 15 s is reported in the log. Bun counts
