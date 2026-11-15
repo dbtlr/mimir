@@ -45,6 +45,7 @@ test('a v0.20 Norn export imports into the SQLite store and re-exports unchanged
     // project unpinned and without a remote.
     const withDefaults: StoreExport = {
       ...document,
+      checklist_items: [],
       decisions: [],
       deliveries: [],
       nodes: document.nodes.map((node) => ({

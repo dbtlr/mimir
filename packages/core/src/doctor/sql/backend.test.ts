@@ -413,9 +413,9 @@ describe.each(arms)('$name', (arm) => {
       }
       await engine.itemCheck({ number: 1, task: 'MMR-4' });
       await engine.itemDrop({ number: 2, reason: 'no', task: 'MMR-4' });
-      expect(byCode((await f.doctor.diagnose(undefined)).findings, 'invalid-checklist-item')).toEqual(
-        [],
-      );
+      expect(
+        byCode((await f.doctor.diagnose(undefined)).findings, 'invalid-checklist-item'),
+      ).toEqual([]);
       await arm.unconstrained(f.db, [
         "UPDATE checklist_item SET number = 0 WHERE node_id = 'MMR-4' AND number = 4",
         "UPDATE checklist_item SET content = ' ' WHERE node_id = 'MMR-4' AND number = 3",

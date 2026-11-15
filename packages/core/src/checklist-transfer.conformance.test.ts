@@ -113,11 +113,7 @@ describe.each(backends)('checklist transfer ($name)', (backend) => {
       ['dropped without a reason', [{ ...dropped, reason: null }], 'is dropped without a reason'],
       ['dropped with a blank reason', [{ ...dropped, reason: ' ' }], 'is dropped without a reason'],
       ['open with a reason', [{ ...open, reason: 'why' }], 'is open but carries a reason'],
-      [
-        'checked with a reason',
-        [{ ...checked, reason: 'why' }],
-        'is checked but carries a reason',
-      ],
+      ['checked with a reason', [{ ...checked, reason: 'why' }], 'is checked but carries a reason'],
       [
         'open with a settled_at',
         [{ ...open, settled_at: open.created_at }],
@@ -134,9 +130,10 @@ describe.each(backends)('checklist transfer ($name)', (backend) => {
         'settled_at is before its created_at',
       ],
     ];
-    for (const [name, items, message] of cases) {
-      const target = await backend.make();
-      try {
+    // A refused import writes nothing, so one target serves every case.
+    const target = await backend.make();
+    try {
+      for (const [name, items, message] of cases) {
         const refusal = await refusalOf(
           target.store.import(
             { ...structuredClone(document), checklist_items: items },
@@ -145,9 +142,9 @@ describe.each(backends)('checklist transfer ($name)', (backend) => {
         );
         expect(refusal, name).toContain(message);
         expect((await target.store.export()).projects, name).toEqual([]);
-      } finally {
-        await target.close();
       }
+    } finally {
+      await target.close();
     }
   });
 });

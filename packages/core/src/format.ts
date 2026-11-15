@@ -101,6 +101,10 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
   if (node.decisions !== undefined) {
     wire.decisions = node.decisions;
   }
+  // A task `get` carries its checklist (ADR 0044), in number order.
+  if (node.items !== undefined) {
+    wire.items = node.items;
+  }
   // `description` is a facet now (MMR-162) — present only when read (detail get),
   // like the other opt-in fields; absent from bulk list/next rows.
   if (node.description !== undefined) {

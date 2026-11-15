@@ -34,9 +34,8 @@ describe.each(backends)('checklist items ($name)', (backend) => {
         [2, 'second', 'open'],
         [3, 'third', 'open'],
       ]);
-      expect(third.items[0]).toEqual({
+      expect(third.items[0]).toMatchObject({
         content: 'first',
-        created_at: third.items[0]?.created_at,
         number: 1,
         reason: null,
         settled_at: null,

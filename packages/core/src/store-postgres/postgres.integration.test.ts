@@ -714,7 +714,9 @@ lane('concurrent item adds on one task get distinct consecutive numbers', async 
       const parent = await createInitiative(store, { projectId: 'CHK', title: 'i' });
       const task = await createTask(store, { parentId: parent.id, title: 't' });
       await Promise.all(
-        Array.from({ length: 8 }, (_, i) => engine.itemAdd({ content: `item ${i}`, task: task.id })),
+        Array.from({ length: 8 }, (_, i) =>
+          engine.itemAdd({ content: `item ${i}`, task: task.id }),
+        ),
       );
       const items = (await engine.getNode({ id: task.id })).items ?? [];
       expect(items.map((item) => item.number)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
