@@ -114,6 +114,11 @@ describe.each(backends)('decision reads ($name)', (backend) => {
       ]);
     } finally { await own.close(); }
   });
+  test('linked false refuses rather than selecting unlinked decisions', async () => {
+    // @ts-expect-error Exercise an invalid transport input at the Engine boundary.
+    const result = e.listDecisions({ project: 'DEC', linked: false });
+    expect(await errorOf(result)).toMatchObject({ code: 'validation' });
+  });
   test('archived and unknown projects are not found', async () => {
     for (const project of ['OLD', 'GONE']) {
       expect(await errorOf(e.listDecisions({ project }))).toMatchObject({

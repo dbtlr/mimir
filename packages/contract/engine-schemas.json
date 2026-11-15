@@ -1143,7 +1143,8 @@
                     "type": "string"
                   },
                   "linked": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "const": true
                   },
                   "project": {
                     "$ref": "#/$defs/__schema4"

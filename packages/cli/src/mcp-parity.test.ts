@@ -269,3 +269,11 @@ test('a refusal is a failed call whose structured content is the failure form', 
     failure: { code: 'not-found', exitCode: 1 },
   });
 });
+
+test('decisions refuses linked false over MCP', async () => {
+  const answer = await loomServer.call('decisions', { linked: false });
+  expect(answer.isError).toBe(true);
+  expect(answer.structured).toMatchObject({
+    exitCode: 1, failure: { code: 'validation', exitCode: 1 },
+  });
+});
