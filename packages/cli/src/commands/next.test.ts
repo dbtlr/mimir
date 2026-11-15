@@ -161,7 +161,9 @@ test('an empty next --delivery points at the delivery, not at the awaiting list'
   const f = await parityBoard();
   try {
     const delivery = await f.engine.deliveryCreate({ phase: 'MMR-2', title: 'Empty attempt' });
-    const run = await runArgv(f.app(), ['next', '--delivery', delivery.id, '-p', 'p0'], { tty: true });
+    const run = await runArgv(f.app(), ['next', '--delivery', delivery.id, '-p', 'p0'], {
+      tty: true,
+    });
     expect(run.stdout).toContain(
       `No ready members in ${delivery.id} — mimir get ${delivery.id} lists its members`,
     );
