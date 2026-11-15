@@ -69,7 +69,7 @@ function migratedDataDir(): Promise<Blob> {
 }
 
 /**
- * Build this process's migrated snapshot, and the empty one it starts from, so
+ * Build this file's migrated snapshot, and the empty one it starts from, so
  * the cost lands in a hook rather than a test (MMR-642).
  *
  * The first build compiles PGlite's WebAssembly and runs initdb: about 0.7 s
@@ -79,7 +79,7 @@ function migratedDataDir(): Promise<Blob> {
  * first, as `beforeAll(bootPglite)`; Bun counts a `beforeAll` in the file's time,
  * not a test's. A file that only opens empty databases calls
  * {@link bootEmptyPglite} instead. Opening a store before either has run is
- * refused, so a file that forgets the hook fails when it runs alone.
+ * refused, so a file that forgets the hook fails, alone and in the default lane.
  */
 export async function bootPglite(): Promise<void> {
   await migratedDataDir();
