@@ -1,0 +1,19 @@
+mimir land · Land a milestone delivery and complete every staged member.
+
+USAGE
+  mimir land <id> [options]
+
+ARGUMENTS
+  id  The delivery (KEY-dN).
+
+OPTIONS
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help      Show this help.
+      --no-input  Ask no questions, and take every answer from options.  (default: true)
+
+EXAMPLES
+  $ mimir land MMR-d1
+    complete the milestone

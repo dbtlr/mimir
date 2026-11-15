@@ -1,4 +1,4 @@
-mimir abandon · Abandon a task (kept, not deleted).
+mimir abandon · Abandon a task (kept, not deleted). Also takes a delivery (KEY-dN); delivery reasons are required for block, park, and abandon; task handle flags and block --on are refused.
 
 USAGE
   mimir abandon <id> [reason...] [options]

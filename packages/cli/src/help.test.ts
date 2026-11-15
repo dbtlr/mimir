@@ -23,6 +23,16 @@ const page = (name: string): string =>
 
 test.each([
   ['root', ['--help']],
+  ['start', ['start', '--help']],
+  ['block', ['block', '--help']],
+  ['unblock', ['unblock', '--help']],
+  ['park', ['park', '--help']],
+  ['unpark', ['unpark', '--help']],
+  ['submit', ['submit', '--help']],
+  ['return', ['return', '--help']],
+  ['abandon', ['abandon', '--help']],
+  ['land', ['land', '--help']],
+
   ['get', ['get', '--help']],
   ['next', ['next', '--help']],
   ['next-compact', ['next', '-h']],

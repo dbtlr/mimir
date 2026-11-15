@@ -2,6 +2,7 @@ import type { DeliveryView } from '@mimir/contract';
 
 import { arrow } from './presentation';
 import type { Presentation } from './presentation';
+import { recordViews } from './views';
 
 /** A delivery's complete record and its history; plain output keeps to ASCII glyphs. */
 export function renderDelivery(delivery: DeliveryView, p: Presentation): string {
@@ -17,3 +18,10 @@ export function renderDelivery(delivery: DeliveryView, p: Presentation): string 
       .join('\n') + (history.length ? `\nHistory\n${history.map(line).join('\n')}` : '')
   );
 }
+
+export type DeliveryValue = { delivery: DeliveryView; presentation: Presentation };
+export const deliveryEchoViews = recordViews<DeliveryValue>({
+  ids: (v) => v.delivery.id,
+  json: (v) => v.delivery,
+  records: (v) => renderDelivery(v.delivery, v.presentation),
+});

@@ -1,11 +1,13 @@
+import type { View } from '@loomcli/core';
+
 /**
  * The echo of a lifecycle write: what the verb left behind. A task, phase, or
  * initiative echoes like any node write and a seed like any seed write; this
  * file adds the project and the dependents an archive freed, and composes the
  * three under one set of views.
  */
-import type { View } from '@loomcli/core';
-
+import { deliveryEchoViews } from './deliveries';
+import type { DeliveryValue } from './deliveries';
 import { okLine, warnGlyph } from './presentation';
 import type { Presentation } from './presentation';
 import { seedEchoViews } from './seeds';
@@ -26,7 +28,7 @@ export type ProjectEcho = {
 };
 
 /** What a lifecycle verb echoes: a node, a seed, or a project. */
-export type LifecycleEcho = NodeEcho | SeedEcho | ProjectEcho;
+export type LifecycleEcho = NodeEcho | SeedEcho | ProjectEcho | DeliveryValue;
 
 /** The line, then the dependents the archive freed; a project has no record. */
 function projectStyled(echo: Readonly<ProjectEcho>): string {
@@ -56,6 +58,9 @@ function composed(format: Format): View<LifecycleEcho> {
   return {
     ...(node.mediaType === undefined ? {} : { mediaType: node.mediaType }),
     render: (echo, context) => {
+      if ('delivery' in echo) {
+        return deliveryEchoViews[format].render(echo, context);
+      }
       if ('node' in echo) {
         return node.render(echo, context);
       }

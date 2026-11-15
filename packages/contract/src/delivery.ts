@@ -90,6 +90,16 @@ export function deliverySchemas<P extends z.ZodType<string>>(project: P) {
       kind: 'query',
       output: z.array(deliveryEngineSchema),
     },
+    deliveryAbandon: {
+      input: z.strictObject({ id: z.string(), reason: z.string() }),
+      kind: 'mutation',
+      output: deliveryEngineSchema,
+    },
+    deliveryBlock: {
+      input: z.strictObject({ id: z.string(), reason: z.string() }),
+      kind: 'mutation',
+      output: deliveryEngineSchema,
+    },
     deliveryCreate: {
       input: z.strictObject({
         ...deliveryFields,
@@ -97,6 +107,41 @@ export function deliverySchemas<P extends z.ZodType<string>>(project: P) {
         tasks: z.array(z.string()).optional(),
         title: z.string().min(1),
       }),
+      kind: 'mutation',
+      output: deliveryEngineSchema,
+    },
+    deliveryLand: {
+      input: z.strictObject({ id: z.string() }),
+      kind: 'mutation',
+      output: deliveryEngineSchema,
+    },
+    deliveryPark: {
+      input: z.strictObject({ id: z.string(), reason: z.string() }),
+      kind: 'mutation',
+      output: deliveryEngineSchema,
+    },
+    deliveryReturn: {
+      input: z.strictObject({ id: z.string(), reason: z.string().optional() }),
+      kind: 'mutation',
+      output: deliveryEngineSchema,
+    },
+    deliveryStart: {
+      input: z.strictObject({ id: z.string() }),
+      kind: 'mutation',
+      output: deliveryEngineSchema,
+    },
+    deliverySubmit: {
+      input: z.strictObject({ id: z.string() }),
+      kind: 'mutation',
+      output: deliveryEngineSchema,
+    },
+    deliveryUnblock: {
+      input: z.strictObject({ id: z.string() }),
+      kind: 'mutation',
+      output: deliveryEngineSchema,
+    },
+    deliveryUnpark: {
+      input: z.strictObject({ id: z.string() }),
       kind: 'mutation',
       output: deliveryEngineSchema,
     },
@@ -115,4 +160,65 @@ export function deliverySchemas<P extends z.ZodType<string>>(project: P) {
       output: deliveryEngineSchema,
     },
   } as const;
+}
+
+/** Delivery claims shared by domain rules and transport descriptors (ADR 0025). */
+export const DELIVERY_OP_FACTS = {
+  abandon: {
+    axis: 'lifecycle',
+    from: ['agreed', 'running', 'milestone'],
+    method: 'deliveryAbandon',
+    reason: 'required',
+    to: 'abandoned',
+  },
+  block: {
+    axis: 'hold',
+    from: ['none'],
+    method: 'deliveryBlock',
+    reason: 'required',
+    to: 'stopped',
+  },
+  land: {
+    axis: 'lifecycle',
+    from: ['milestone'],
+    method: 'deliveryLand',
+    reason: 'none',
+    to: 'landed',
+  },
+  park: { axis: 'hold', from: ['none'], method: 'deliveryPark', reason: 'required', to: 'paused' },
+  return: {
+    axis: 'lifecycle',
+    from: ['milestone'],
+    method: 'deliveryReturn',
+    reason: 'optional',
+    to: 'running',
+  },
+  start: {
+    axis: 'lifecycle',
+    from: ['agreed'],
+    method: 'deliveryStart',
+    reason: 'none',
+    to: 'running',
+  },
+  submit: {
+    axis: 'lifecycle',
+    from: ['running'],
+    method: 'deliverySubmit',
+    reason: 'none',
+    to: 'milestone',
+  },
+  unblock: {
+    axis: 'hold',
+    from: ['stopped'],
+    method: 'deliveryUnblock',
+    reason: 'none',
+    to: 'none',
+  },
+  unpark: { axis: 'hold', from: ['paused'], method: 'deliveryUnpark', reason: 'none', to: 'none' },
+} as const;
+export type DeliveryVerb = keyof typeof DELIVERY_OP_FACTS;
+
+/** Whether a flat verb has delivery semantics. */
+export function isDeliveryVerb(verb: string): verb is DeliveryVerb {
+  return Object.hasOwn(DELIVERY_OP_FACTS, verb);
 }

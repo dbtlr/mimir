@@ -284,3 +284,13 @@ membership and logs `abandoned` in the delivery history. A staged member
 refuses both leave and task abandon and names `return`. `reopen` clears the
 task's delivery reference. Membership changes add no task transition kind or
 row.
+
+## 2026-11-15 refinement: delivery release edges into todo (MMR-683)
+
+Delivery `abandon` adds `in_progress → todo`, `under_review → todo`, and
+`staged → todo` release edges (ADR 0042). Only delivery abandon takes these
+edges. It releases every live member atomically, retaining each task's hold,
+hold reason, and block owner. A task past todo loses all resume handles,
+recorded with the delivery's reason on its lifecycle row, and receives an
+appended rank if unheld and rankless. A todo member retains its handles and
+rank and logs only its membership release in the delivery history.

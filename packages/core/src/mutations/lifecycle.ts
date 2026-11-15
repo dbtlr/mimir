@@ -231,25 +231,31 @@ export async function completeTask(store: Store, id: string): Promise<Node> {
       throw validation(`task is already ${task.lifecycle}`);
     }
     await refuseMemberDone(w, task);
-    const patch: NodePatch = {
-      ...RELEASED_HOLD,
-      completed_at: now(),
-      lifecycle: 'done',
-      rank: null,
-    };
-    const handles = clearHandles(patch, task);
-    await w.updateNode(id, patch);
-    await logTerminalRelease(w, task);
-    await logTransition(w, {
-      from_value: task.lifecycle,
-      handles,
-      kind: 'lifecycle',
-      node_id: id,
-      to_value: 'done',
-    });
-    await stamp(w, id);
-    return reloadNode(w, id);
+    return completeTaskInTransaction(w, task);
   });
+}
+
+/** Complete a task already checked by done or by the atomic delivery land. */
+export async function completeTaskInTransaction(w: StoreWriter, task: Node): Promise<Node> {
+  const id = task.id;
+  const patch: NodePatch = {
+    ...RELEASED_HOLD,
+    completed_at: now(),
+    lifecycle: 'done',
+    rank: null,
+  };
+  const handles = clearHandles(patch, task);
+  await w.updateNode(id, patch);
+  await logTerminalRelease(w, task);
+  await logTransition(w, {
+    from_value: task.lifecycle,
+    handles,
+    kind: 'lifecycle',
+    node_id: id,
+    to_value: 'done',
+  });
+  await stamp(w, id);
+  return reloadNode(w, id);
 }
 
 export async function abandonTask(store: Store, id: string, reason?: string): Promise<Node> {

@@ -1,6 +1,7 @@
 import type { DeliveryHistory, DeliveryHold, DeliveryLifecycle } from '@mimir/contract';
 
 import { validation } from '../errors';
+import type { StoreWriter } from '../store';
 
 /**
  * The delivery storage seam (MMR-676, ADR 0042): one attempt to deliver a
@@ -56,7 +57,19 @@ export type DeliveryCreate = {
 /** The fields a write replaces; an absent key is left alone, `null` clears. */
 export type DeliveryPatch = Partial<Omit<DeliveryCreate, 'key' | 'phase' | 'tasks'>>;
 
+export type DeliveryStatePatch = Partial<
+  Pick<StoredDelivery, 'lifecycle' | 'hold' | 'hold_reason'>
+>;
 export type DeliveryStore = {
+  /** Run rules and member writes against one consistent write transaction. */
+  transact: (
+    key: string,
+    seq: number,
+    apply: (
+      delivery: StoredDelivery,
+      writer: StoreWriter,
+    ) => Promise<{ patch: DeliveryStatePatch; history: DeliveryHistory[] }>,
+  ) => Promise<StoredDelivery>;
   /** Allocate the next `KEY-dN` seq and write the delivery, born `agreed` with
    * hold `none`, joining the selected eligible phase tasks atomically. */
   create: (input: DeliveryCreate) => Promise<StoredDelivery>;
@@ -86,6 +99,9 @@ export function isTerminalDelivery(lifecycle: DeliveryLifecycle): boolean {
  * (ADR 0042: a terminal delivery "refuses every write"). */
 export function assertLiveDelivery(id: string, lifecycle: DeliveryLifecycle): void {
   if (isTerminalDelivery(lifecycle)) {
-    throw validation(`${id} is ${lifecycle} — a terminal delivery refuses every write`);
+    throw validation(
+      `${id} is ${lifecycle} — a terminal delivery refuses every write`,
+      'create a new delivery for another attempt',
+    );
   }
 }

@@ -1,14 +1,18 @@
-import type { DeliveryHistory, DeliveryView, EngineInput } from '@mimir/contract';
+import { DELIVERY_OP_FACTS } from '@mimir/contract';
+import type { DeliveryVerb, DeliveryHistory, DeliveryView, EngineInput } from '@mimir/contract';
 
 import { assertBoardActive } from '../archive-lock';
 import { blankProse, notFound, projectNotFound, validation } from '../errors';
 import { parseIdentity, renderDeliveryRef } from '../ids';
-import type { Project } from '../model';
-import { normalizeHandle } from '../mutations/handles';
+import type { Node, Project } from '../model';
+import { logTransition } from '../mutations/common';
+import { normalizeHandle, clearHandles } from '../mutations/handles';
+import { completeTaskInTransaction } from '../mutations/lifecycle';
 import { identityNoun } from '../project-only';
-import type { Store } from '../store';
+import { appendRank } from '../rank';
+import type { NodePatch, Store } from '../store';
 import { now } from '../time';
-import type { DeliveryCreate, DeliveryPatch, StoredDelivery } from './store';
+import type { DeliveryStatePatch, DeliveryCreate, DeliveryPatch, StoredDelivery } from './store';
 
 /**
  * The delivery verbs (MMR-676, ADR 0042): the transport-agnostic rules above
@@ -194,4 +198,160 @@ export async function updateDelivery(
     throw notFound(`${id} doesn't exist`);
   }
   return viewOf(stored);
+}
+
+/** Apply a delivery claim and its member effects in the write snapshot that guards them. */
+export async function transitionDelivery(
+  store: Store,
+  verb: DeliveryVerb,
+  input: { id: string; reason?: string },
+): Promise<DeliveryView> {
+  const { key, seq } = requireDeliveryRef(input.id);
+  return viewOf(
+    await store.deliveries.transact(key, seq, async (delivery, w) => {
+      const { id, reason } = input;
+      if (
+        DELIVERY_OP_FACTS[verb].reason === 'required' &&
+        (reason === undefined || reason.trim() === '')
+      ) {
+        throw validation(`${verb} requires a nonblank reason`, `${verb} ${id} "reason"`);
+      }
+      const patch: DeliveryStatePatch = {};
+      const history: DeliveryHistory[] = [];
+      const log = (kind: 'hold' | 'lifecycle', from: string, to: string) => {
+        history.push({
+          at: now(),
+          from_value: from,
+          kind,
+          reason: reason ?? null,
+          task: null,
+          to_value: to,
+        });
+      };
+      const clearHold = () => {
+        patch.hold = 'none';
+        patch.hold_reason = null;
+        log('hold', delivery.hold, 'none');
+      };
+      const held = () => {
+        if (delivery.hold !== 'none') {
+          throw validation(
+            `${id} is ${delivery.hold}`,
+            `${delivery.hold === 'stopped' ? 'unblock' : 'unpark'} ${id} first`,
+          );
+        }
+      };
+      if (verb === 'block' || verb === 'park') {
+        held();
+        patch.hold = verb === 'block' ? 'stopped' : 'paused';
+        patch.hold_reason = reason ?? null;
+        log('hold', 'none', patch.hold);
+        return { history, patch };
+      }
+      if (verb === 'unblock' || verb === 'unpark') {
+        const expected = verb === 'unblock' ? 'stopped' : 'paused';
+        if (delivery.hold !== expected) {
+          throw validation(
+            `${id} is not ${expected}`,
+            delivery.hold === 'none'
+              ? `use ${verb === 'unblock' ? 'block' : 'park'} ${id} "reason" first`
+              : `${delivery.hold === 'stopped' ? 'unblock' : 'unpark'} ${id} first`,
+          );
+        }
+        clearHold();
+        return { history, patch };
+      }
+      if (verb !== 'abandon') {
+        held();
+      }
+      const source = DELIVERY_OP_FACTS[verb].from[0];
+      if (verb !== 'abandon' && delivery.lifecycle !== source) {
+        let fix = `create delivery for a new agreed attempt`;
+        if (verb !== 'start') {
+          fix = `submit ${id} first`;
+          if (delivery.lifecycle === 'agreed') {
+            fix = `start ${id} first, then submit it`;
+          }
+          if (verb === 'submit' && delivery.lifecycle === 'milestone') {
+            fix = `return ${id} first`;
+          }
+        }
+        throw validation(`${verb} requires a ${source} delivery (is ${delivery.lifecycle})`, fix);
+      }
+      const members: Node[] = [];
+      for (const taskId of delivery.members) {
+        const task = await w.loadNode(taskId);
+        if (task !== undefined) {
+          members.push(task);
+        }
+      }
+      if (verb === 'start') {
+        if (members.length === 0) {
+          throw validation(
+            `${id} has no live member`,
+            `add a member with update <task> --delivery ${id}`,
+          );
+        }
+        if (delivery.agreement === null || delivery.agreement.trim() === '') {
+          throw validation(
+            `${id} has no agreement`,
+            `set the agreement with update ${id} --agreement …`,
+          );
+        }
+      }
+      if (verb === 'land') {
+        for (const task of members) {
+          if (task.hold !== 'none') {
+            throw validation(
+              `${task.id} is held`,
+              `${task.hold === 'blocked' ? 'unblock' : 'unpark'} ${task.id} first`,
+            );
+          }
+          if (task.lifecycle !== 'staged') {
+            throw validation(
+              `${task.id} is not staged`,
+              `stage ${task.id} first, or update ${task.id} --delivery none`,
+            );
+          }
+        }
+        if (members.length === 0) {
+          throw validation(
+            `${id} has no staged member`,
+            `add a member with update <task> --delivery ${id}, then submit and stage it`,
+          );
+        }
+        for (const task of members) {
+          await completeTaskInTransaction(w, task);
+        }
+      }
+      if (verb === 'abandon') {
+        for (const task of members) {
+          if (task.lifecycle !== 'todo') {
+            const taskPatch: NodePatch = { lifecycle: 'todo' };
+            const handles = clearHandles(taskPatch, task);
+            if (task.hold === 'none' && task.rank === null) {
+              taskPatch.rank = await appendRank(w, key);
+            }
+            await w.updateNode(task.id, taskPatch);
+            await logTransition(w, {
+              from_value: task.lifecycle,
+              handles,
+              kind: 'lifecycle',
+              node_id: task.id,
+              reason: reason ?? null,
+              to_value: 'todo',
+            });
+          }
+          await w.updateNode(task.id, { delivery: null, updated_at: now() });
+          await w.appendDeliveryMember(id, task.id, 'released');
+        }
+        if (delivery.hold !== 'none') {
+          clearHold();
+        }
+      }
+      patch.lifecycle = DELIVERY_OP_FACTS[verb].to;
+      log('lifecycle', delivery.lifecycle, patch.lifecycle);
+      return { history, patch };
+    }),
+  );
 }

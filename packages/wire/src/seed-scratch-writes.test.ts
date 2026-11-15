@@ -384,3 +384,31 @@ test('delivery creation and update preserve their terms and Date instants over t
   expect(remoteError.code).toBe('validation');
   expect(remoteError.message).toBe(localError.message);
 });
+
+test('delivery verbs preserve Date histories and atomic landing and release over tRPC', async () => {
+  const phase = await local.create({
+    parent: ids.initiative,
+    title: 'Delivery phase',
+    type: 'phase',
+  });
+  const task = await local.create({ parent: phase.id, title: 'Member', type: 'task' });
+  const d = await remote.deliveryCreate({ agreement: 'Terms', phase: phase.id, title: 'Attempt' });
+  await remote.deliveryStart({ id: d.id });
+  await remote.deliveryBlock({ id: d.id, reason: 'decision' });
+  await remote.deliveryUnblock({ id: d.id });
+  await remote.deliveryPark({ id: d.id, reason: 'later' });
+  await remote.deliveryUnpark({ id: d.id });
+  await remote.deliverySubmit({ id: d.id });
+  await remote.deliveryReturn({ id: d.id });
+  await remote.deliverySubmit({ id: d.id });
+  await remote.start({ id: task.id });
+  await remote.submit({ id: task.id });
+  await remote.stage({ id: task.id });
+  const landed = await remote.deliveryLand({ id: d.id });
+  expect(landed.lifecycle).toBe('landed');
+  expect(landed.history.every((row) => row.at instanceof Date)).toBe(true);
+  const next = await remote.deliveryCreate({ phase: phase.id, title: 'Next' });
+  expect((await remote.deliveryAbandon({ id: next.id, reason: 'cancel' })).lifecycle).toBe(
+    'abandoned',
+  );
+});

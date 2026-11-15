@@ -39,8 +39,14 @@ const nested = (path: string, ...methods: string[]): Surface => ({
 
 /** The uniform verbs that also answer a seed id, through a seed-typed Engine method. */
 const SEED_VARIANT: Readonly<Record<string, readonly string[]>> = {
-  park: ['seedPark'],
-  unpark: ['seedUnpark'],
+  abandon: ['deliveryAbandon'],
+  block: ['deliveryBlock'],
+  park: ['seedPark', 'deliveryPark'],
+  return: ['deliveryReturn'],
+  start: ['deliveryStart'],
+  submit: ['deliverySubmit'],
+  unblock: ['deliveryUnblock'],
+  unpark: ['seedUnpark', 'deliveryUnpark'],
 };
 
 const SURFACES: readonly Surface[] = [
@@ -56,6 +62,7 @@ const SURFACES: readonly Surface[] = [
   same('search'),
   same('seeds'),
   same('deliveries'),
+  same('land', 'deliveryLand'),
   nested('create delivery', 'deliveryCreate'),
   same('status'),
   same('tree'),

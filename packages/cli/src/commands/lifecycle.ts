@@ -9,9 +9,12 @@ import { Command } from '@loomcli/core';
 import { helpCommand } from '@loomcli/plugins/help/extension';
 import { mcpCommand } from '@loomcli/plugins/mcp/extension';
 import {
+  DELIVERY_OP_FACTS,
+  encodeDelivery,
   HANDLE_FIELD_ARGS,
   HANDLE_FIELD_KEYS,
   intentEncoders,
+  isDeliveryVerb,
   isTerminalLifecycle,
   MimirError,
   OP_FACTS,
@@ -56,7 +59,10 @@ function arrowOf(op: OpFact): string {
 export function describeVerb(verb: UniformVerb): string {
   const op = fact(verb);
   const seeds = op.seeds === true ? ' Also takes a seed (KEY-sN).' : '';
-  return `${capitalized(op.summary)}${arrowOf(op)}.${seeds}`;
+  const delivery = isDeliveryVerb(verb)
+    ? ' Also takes a delivery (KEY-dN); delivery reasons are required for block, park, and abandon; task handle flags and block --on are refused.'
+    : '';
+  return `${capitalized(op.summary)}${arrowOf(op)}.${seeds}${delivery}`;
 }
 
 /** The description an agent reads: the summary with its reason, choice, echo, and seed clauses. */
@@ -78,11 +84,14 @@ export function describeVerbForAgent(verb: UniformVerb): string {
     op.seeds === true
       ? ' A seed id (KEY-sN) is accepted too: it moves the seed between untriaged and parked and echoes the seed.'
       : '';
+  const delivery = isDeliveryVerb(verb)
+    ? ' A delivery (KEY-dN) uses its own lifecycle and echoes the whole delivery. Block, park and abandon require a reason. Delivery start refuses handle flags and never fills shell identity; block refuses on. Delivery verbs preserve delivery handles.'
+    : '';
   const ownership =
     verb === 'start'
       ? ' Preserves the main conversation. Explicit worker-session assigns a distinct whole-task owner; worker-harness is optional and is never inferred from the shell.'
       : '';
-  return `${capitalized(op.summary)}${arrowOf(op)}.${reason}${required}${choice} ${echo}${seeds}${ownership}`;
+  return `${capitalized(op.summary)}${arrowOf(op)}.${reason}${required}${choice} ${echo}${seeds}${ownership}${delivery}`;
 }
 
 /** The worked examples: the one part of a verb's help the facts do not carry. */
@@ -209,7 +218,7 @@ function engineArgs(call: Invocation): UniformArgs {
 function refuseWrongSubject(ports: Ports, op: OpFact, id: string): void {
   const kind = ports.grammar.idKind(id);
   if (kind === 'delivery') {
-    throw new MimirError('validation', `${id} is a delivery — only get and update act on it`);
+    throw new MimirError('validation', `${id} is a delivery — use a delivery verb`);
   }
   if (op.subject === 'project') {
     if (kind !== 'project') {
@@ -253,6 +262,29 @@ function callUniform(engine: Engine, verb: UniformVerb, args: UniformArgs): Prom
 /** Run one verb and shape what the Engine echoed. Only the Engine reads or writes work state. */
 async function runVerb(ports: Ports, call: Invocation): Promise<LifecycleEcho> {
   const op = fact(call.verb);
+  if (ports.grammar.idKind(call.id) === 'delivery' && isDeliveryVerb(call.verb)) {
+    if (
+      call.on !== undefined ||
+      Object.values(call.handles ?? {}).some((value) => value !== undefined)
+    ) {
+      throw new MimirError(
+        'validation',
+        `delivery ${call.verb} refuses task handle flags and --on`,
+        'use update to set delivery handles; omit --on',
+      );
+    }
+    const engine = await ports.engine();
+    const opDelivery = DELIVERY_OP_FACTS[call.verb];
+    let result;
+    if (opDelivery.reason === 'required') {
+      result = await engine[opDelivery.method]({ id: call.id, reason: call.reason });
+    } else if (opDelivery.reason === 'optional') {
+      result = await engine[opDelivery.method]({ id: call.id, reason: call.reason || undefined });
+    } else {
+      result = await engine[opDelivery.method]({ id: call.id });
+    }
+    return { delivery: encodeDelivery(result), presentation: call.presentation };
+  }
   if (call.id.trim() === '') {
     throw new MimirUsageError(
       `${call.verb} requires ${op.subject === 'project' ? 'a project KEY' : 'an id (KEY-seq)'}`,
@@ -497,7 +529,7 @@ function handleVerb(verb: 'queue' | 'start', ports: Ports) {
       }
       const presentation = presentationOf(host, options.ascii);
       const observed =
-        verb === 'start'
+        verb === 'start' && ports.grammar.idKind(args.id) !== 'delivery'
           ? await withListHint([args.id], async () =>
               (await ports.engine()).getNode({ id: nodeToken(ports.grammar, args.id, 'task') }),
             )
@@ -510,7 +542,11 @@ function handleVerb(verb: 'queue' | 'start', ports: Ports) {
               lifecycle: observed.lifecycle ?? null,
               session: observed.session ?? null,
             };
-      const handles = await runHandles(
+      const handles = await (
+        ports.grammar.idKind(args.id) === 'delivery'
+          ? async (explicit: Handles) => explicit
+          : runHandles
+      )(
         {
           branch: options.branch,
           harness: options.harness,

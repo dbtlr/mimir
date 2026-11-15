@@ -7,7 +7,8 @@ import type { DeliveryView } from '@mimir/contract';
 import { MimirUsageError } from '../failures';
 import { asciiOption, text, writeHints } from '../options';
 import type { Ports } from '../ports';
-import { renderDelivery } from '../render/deliveries';
+import { renderDelivery, deliveryEchoViews } from '../render/deliveries';
+import type { DeliveryValue } from '../render/deliveries';
 import { presentationOf } from '../render/presentation';
 import type { Presentation } from '../render/presentation';
 import { recordViews } from '../render/views';
@@ -48,16 +49,7 @@ async function withCreateHint<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 
-/** A delivery and how the styled views render it. */
-type DeliveryValue = { delivery: DeliveryView; presentation: Presentation };
-/** The deliveries read and how the styled views render them. */
 type DeliveriesValue = { deliveries: DeliveryView[]; presentation: Presentation };
-
-const views = recordViews<DeliveryValue>({
-  ids: (v) => v.delivery.id,
-  json: (v) => v.delivery,
-  records: (v) => renderDelivery(v.delivery, v.presentation),
-});
 const listViews = recordViews<DeliveriesValue>({
   ids: (v) => v.deliveries.map((d) => d.id).join('\n'),
   json: (v) => ({ deliveries: v.deliveries, total: v.deliveries.length }),
@@ -100,8 +92,8 @@ export function createDeliveryCommand(ports: Ports) {
     .option('session', text('The orchestrator session.'))
     .option('time-cap', text('A positive whole number of minutes.'))
     .option('ascii', asciiOption)
-    .result<DeliveryValue>({ views })
-    .views({ records: views.records }, { default: 'records' })
+    .result<DeliveryValue>({ views: deliveryEchoViews })
+    .views({ records: deliveryEchoViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out, passthrough }) => {
       const title = requireTitle(args.title, passthrough, 'delivery');
       const timeCap = parseTimeCap(options['time-cap']);
@@ -145,5 +137,29 @@ export function deliveriesCommand(ports: Ports) {
       });
       const deliveries = (await (await ports.engine()).deliveries({ project })).map(encodeDelivery);
       await out.results({ deliveries, presentation: presentationOf(host, options.ascii) });
+    });
+}
+
+/** Land a milestone and all its staged members atomically. */
+export function landVerb(ports: Ports) {
+  return new Command('land', {
+    description: 'Land a milestone delivery and complete every staged member.',
+    extensions: [
+      helpCommand({ examples: [{ command: 'land MMR-d1', note: 'complete the milestone' }] }),
+      mcpCommand({ annotations: writeHints }),
+    ],
+  })
+    .argument('id', { description: 'The delivery (KEY-dN).', required: true })
+    .option('ascii', asciiOption)
+    .result<DeliveryValue>({ views: deliveryEchoViews })
+    .views({ records: deliveryEchoViews.records }, { default: 'records' })
+    .action(async ({ args, options, host, out, passthrough }) => {
+      if (passthrough.length > 0) {
+        throw new MimirUsageError(`unexpected argument: ${passthrough.join(' ')}`);
+      }
+      await out.results({
+        delivery: encodeDelivery(await (await ports.engine()).deliveryLand({ id: args.id })),
+        presentation: presentationOf(host, options.ascii),
+      });
     });
 }

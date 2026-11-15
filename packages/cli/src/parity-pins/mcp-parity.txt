@@ -203,6 +203,7 @@
 | done(id: string)
 | get(col: array, id: string)
 | groom(ids: string, note: array, state: string)
+| land(id: string)
 | list(after: array, at-or-after: array, at-or-before: array, before: array, col: array, eq: array, has: array, in: array, is: array, limit: string, missing: array, not-eq: array, not-in: array, not-is: array, on: array, priority: string, query: string, scope: string, size: string, status: string, tag: string, tz: string)
 | move(id: string, to: string)
 | next(after: array, at-or-after: array, at-or-before: array, before: array, col: array, eq: array, has: array, in: array, is: array, limit: string, missing: array, not-eq: array, not-in: array, not-is: array, on: array, priority: string, query: string, scope: string, size: string, tz: string)

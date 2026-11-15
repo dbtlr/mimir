@@ -246,10 +246,46 @@ export function createEngineRouter(engine: Engine) {
       .input((value: unknown) => parseEngineInput(engineSchemas.deliveries.input, value))
       .output(engineSchemas.deliveries.output)
       .query(({ input }) => engine.deliveries(input)),
+    deliveryAbandon: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.deliveryAbandon.input, value))
+      .output(engineSchemas.deliveryAbandon.output)
+      .mutation(({ input }) => engine.deliveryAbandon(input)),
+    deliveryBlock: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.deliveryBlock.input, value))
+      .output(engineSchemas.deliveryBlock.output)
+      .mutation(({ input }) => engine.deliveryBlock(input)),
     deliveryCreate: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.deliveryCreate.input, value))
       .output(engineSchemas.deliveryCreate.output)
       .mutation(({ input }) => engine.deliveryCreate(input)),
+    deliveryLand: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.deliveryLand.input, value))
+      .output(engineSchemas.deliveryLand.output)
+      .mutation(({ input }) => engine.deliveryLand(input)),
+    deliveryPark: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.deliveryPark.input, value))
+      .output(engineSchemas.deliveryPark.output)
+      .mutation(({ input }) => engine.deliveryPark(input)),
+    deliveryReturn: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.deliveryReturn.input, value))
+      .output(engineSchemas.deliveryReturn.output)
+      .mutation(({ input }) => engine.deliveryReturn(input)),
+    deliveryStart: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.deliveryStart.input, value))
+      .output(engineSchemas.deliveryStart.output)
+      .mutation(({ input }) => engine.deliveryStart(input)),
+    deliverySubmit: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.deliverySubmit.input, value))
+      .output(engineSchemas.deliverySubmit.output)
+      .mutation(({ input }) => engine.deliverySubmit(input)),
+    deliveryUnblock: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.deliveryUnblock.input, value))
+      .output(engineSchemas.deliveryUnblock.output)
+      .mutation(({ input }) => engine.deliveryUnblock(input)),
+    deliveryUnpark: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.deliveryUnpark.input, value))
+      .output(engineSchemas.deliveryUnpark.output)
+      .mutation(({ input }) => engine.deliveryUnpark(input)),
     deliveryUpdate: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.deliveryUpdate.input, value))
       .output(engineSchemas.deliveryUpdate.output)

@@ -1,4 +1,4 @@
-mimir start · Begin a task (todo/queued → in_progress).
+mimir start · Begin a task (todo/queued → in_progress). Also takes a delivery (KEY-dN); delivery reasons are required for block, park, and abandon; task handle flags and block --on are refused.
 
 USAGE
   mimir start <id> [options]

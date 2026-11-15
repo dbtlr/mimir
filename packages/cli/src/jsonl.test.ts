@@ -96,6 +96,23 @@ const SAMPLES: Readonly<Record<string, Sample>> = {
   },
   done: { relation: 'same', words: ['done', 'MMR-5'] },
   get: { relation: 'same', words: ['get', 'MMR-3'] },
+  land: {
+    before: async (board) => {
+      const d = await board.engine.deliveryCreate({
+        agreement: 'Terms',
+        phase: 'MMR-2',
+        tasks: ['MMR-3'],
+        title: 'Attempt',
+      });
+      await board.engine.deliveryStart({ id: d.id });
+      await board.engine.deliverySubmit({ id: d.id });
+      await board.engine.start({ id: 'MMR-3' });
+      await board.engine.submit({ id: 'MMR-3' });
+      await board.engine.stage({ id: 'MMR-3' });
+    },
+    relation: 'same',
+    words: ['land', 'MMR-d1'],
+  },
   list: { records: 'tasks', relation: 'records', words: ['list', '-s', 'MMR'] },
   overview: { relation: 'compact', words: ['overview', '-s', 'MMR'] },
   promote: {

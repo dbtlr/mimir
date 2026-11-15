@@ -301,6 +301,6 @@ exit 1
 | {
 |   "code": "validation",
 |   "hints": [],
-|   "message": "MMR-d1 is a delivery — only get and update act on it"
+|   "message": "MMR-d1 is a delivery — use a delivery verb"
 | }
 

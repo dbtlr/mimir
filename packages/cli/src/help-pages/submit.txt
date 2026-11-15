@@ -1,4 +1,4 @@
-mimir submit · Submit for review (in_progress → under_review).
+mimir submit · Submit for review (in_progress → under_review). Also takes a delivery (KEY-dN); delivery reasons are required for block, park, and abandon; task handle flags and block --on are refused.
 
 USAGE
   mimir submit <id> [options]

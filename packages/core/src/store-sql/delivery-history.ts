@@ -28,7 +28,7 @@ export async function appendMemberEvent(
   tx: Transaction<DB>,
   delivery: string,
   task: string,
-  event: 'joined' | 'left' | 'abandoned',
+  event: 'joined' | 'left' | 'released' | 'abandoned',
 ): Promise<void> {
   const at = now();
   await appendDeliveryHistory(tx, delivery, [
