@@ -69,7 +69,8 @@ creation verb for tree nodes — four types sharing one shape take one verb
 with a type positional, not four top-level verbs. A record type gets its own
 creation verb only when its creation ergonomics are the feature: `seed`
 (zero-friction capture) and `attach` (the node relation is the command's
-essence). No new top-level creation verbs beyond these.
+essence). No new top-level creation verbs beyond these. (The MMR-677 amendment
+below adds `decide` under this test.)
 
 **`overview` is born into the taxonomy** (MMR-278): a flat, id-free,
 scope-honoring read verb, sibling to `next`/`list`/`get`/`status`/`tree`,

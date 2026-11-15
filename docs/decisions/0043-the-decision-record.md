@@ -24,7 +24,7 @@ status to any node.
 | Field             | Shape                                                                                                     |
 | ----------------- | --------------------------------------------------------------------------------------------------------- |
 | `id`              | `KEY-qN`, allocated per project (`project.last_decision_seq`), never reused                               |
-| `project`         | The project key                                                                                           |
+| `project_key`, `seq` | The project key and the decision's sequence number, as on a delivery                                   |
 | `question`        | Text, required                                                                                            |
 | `options`         | An ordered list of at least two texts, numbered from 1, each required. Stored on the decision row as a JSON array of strings |
 | `recommended`     | The number of the option the agent recommends                                                             |
@@ -48,7 +48,7 @@ status to any node.
   fixed at `decide`. The operator answers the question as it was put to them.
 - **Blank text.** The question and every option must be non-blank, and `decide`
   refuses a blank one. A blank `why` or a blank note counts as absent and is
-  stored as null.
+  stored as null. Text that is not blank is stored as given.
 - **Class** is the agent's judgment of what the answer governs. It is a closed
   set because the reads filter on it, and Mimir attaches no behavior to any
   value ([ADR 0002](0002-general-purpose-primitives-not-baked-in-semantics.md)):
@@ -85,8 +85,9 @@ mimir overturn MMR-q4 "Neither: drop snapshots"
   `--delivery` is given, and otherwise `--project KEY` (`-p`) or the clone's
   binding, as `seed` resolves its board. A `--project` that disagrees with the
   delivery's project refuses, and so does a call with no project. A task named
-  twice refuses. `decide` validates every input before it writes, so one bad
-  `--task` refuses the whole decision.
+  twice refuses. `decide` validates every input inside its store transaction
+  before it writes, so one bad `--task`, or a delivery that ended meanwhile,
+  refuses the whole decision.
 - **`confirm`** accepts the answer taken. Its note, when given, is the
   outcome note.
 - **`overturn`** rejects the answer taken. `--option N` records that the
@@ -192,9 +193,10 @@ from the reads below.
   with filters by lifecycle, class, delivery, and whether the decision has
   work built on it. **Work built on it** means at least one linked task that
   is not `abandoned`.
-- **The cap query** is that read narrowed to provisional `product` and
-  `architecture` decisions with work built on them, optionally in one
-  delivery. A decision with no work built on it does not count, because no
+- **The cap query** is that read, with filters the caller composes, narrowed
+  to provisional `product` and `architecture` decisions with work built on
+  them, optionally in one delivery. It is not a built-in read, and Mimir gives
+  neither class any meaning of its own. A decision with no work built on it does not count, because no
   work is at risk if it is overturned. An agent links a task before building on
   an answer, so the count rises when the risk does.
 - The overview counts a project's provisional decisions.
@@ -205,8 +207,8 @@ from the reads below.
 
 - `decision_history` has its own closed kind set: `lifecycle`, `link`, and
   `delivery`. Each row has `from_value`, `to_value`, an optional `reason`, a
-  nullable `task` (set only on `link` rows), and `at`. Rows read in insertion
-  order.
+  nullable `task` (set only and always on `link` rows), and `at`. Rows read in
+  insertion order.
 - A `lifecycle` row records `provisional → confirmed` or
   `provisional → overturned`. Its reason is the outcome note. A decision's
   birth is its `created_at` and writes no lifecycle row, as a delivery's
@@ -215,8 +217,10 @@ from the reads below.
   `to_value` is `linked` or `unlinked`, and its `task` names the task.
 - A `delivery` row records the delivery link's old and new ids, either of
   which may be null.
-- `decide` writes one `link` row per linked task, then one `delivery` row
-  (null to the delivery) when `--delivery` is given.
+- `decide` writes one `link` row per linked task, in task-sequence order, then
+  one `delivery` row (null to the delivery) when `--delivery` is given. An
+  `update` writes its `unlinked` rows, then its `linked` rows, each in
+  task-sequence order, then its `delivery` row.
 - Decision writes add no rows to `transition_log`. The overturn annotations
   are ordinary task annotations.
 
@@ -239,18 +243,21 @@ decision refuses while its project is archived. `get KEY-qN` resolves
   preserves the history's document order and never sorts it by `at`.
 - Import writes decisions after nodes and deliveries, then their links and
   history, because a decision names a delivery and a link names a task.
-- **Import refuses, and doctor reports,** a decision that breaks a rule the
-  verbs keep:
-  - fewer than two options, a blank question or option, or a `recommended`,
-    `taken`, or `overturn_option` outside the options;
+- **Import refuses, and doctor reports,** a decision that breaks any rule the
+  verbs keep, including:
+  - fewer than two options, a blank question or option, a `why` or
+    `outcome_note` stored as blank text, a value outside a closed set, or a
+    `recommended`, `taken`, or `overturn_option` outside the options;
   - a delivery that is missing or in another project;
   - a link to a missing record, to a node that is not a task, or to a task in
-    another project;
+    another project, or the same pair linked twice;
+  - a `link` history row with no task, or another kind of row that names one;
   - an `overturn_option` or `outcome_note` on a provisional decision, an
     `overturn_option` on a confirmed one, an `overturn_option` equal to
     `taken`, or an overturned decision with neither an option nor a note;
-  - a lifecycle that disagrees with the last `lifecycle` row in its history,
-    or a sequence above its project's counter.
+  - a provisional decision with any `lifecycle` row, a terminal decision
+    without exactly one `lifecycle` row to its lifecycle, a row whose reason
+    differs from `outcome_note`, or a sequence above its project's counter.
 
 ## Why
 
