@@ -604,14 +604,38 @@ describe('publishRelease', () => {
   test('treats a rate limit as transient and waits at least the hinted retry-after', async () => {
     github.failUploads('mimir-linux-x64', 1, '429');
 
+    // File I/O before the retry can outlast sleep(0), even without awaiting it.
+    // Observe consumption too, so that race cannot conceal a missing await.
+    class RetrySleep extends Promise<void> {
+      // oxlint-disable-next-line unicorn/no-thenable -- Observe the Promise contract itself.
+      override then<TResult1 = void, TResult2 = never>(
+        onfulfilled?: ((value: void) => TResult1 | PromiseLike<TResult1>) | null,
+        onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+      ): Promise<TResult1 | TResult2> {
+        github.events.push('awaited-sleep');
+        return super.then(onfulfilled, onrejected);
+      }
+    }
     const waits: number[] = [];
     const { log, outcome } = await run({
-      sleep: async (milliseconds) => {
+      sleep: (milliseconds) => {
         waits.push(milliseconds);
+        return new RetrySleep((resolve) => {
+          void Bun.sleep(0).then(() => {
+            github.events.push('slept');
+            return resolve();
+          });
+        });
       },
     });
 
     expect(outcome.status).toBe('published');
+    expect(
+      github.events.filter(
+        (event) =>
+          event === 'awaited-sleep' || event === 'slept' || event === 'upload:mimir-linux-x64',
+      ),
+    ).toEqual(['awaited-sleep', 'slept', 'upload:mimir-linux-x64']);
     expect(waits).toHaveLength(1);
     expect(waits[0]).toBeGreaterThanOrEqual(1_000);
     expect(log.some((line) => line.includes('HTTP 429 rate limited, wait 1s'))).toBe(true);

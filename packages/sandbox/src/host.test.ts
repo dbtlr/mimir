@@ -62,28 +62,33 @@ test('sandbox host runs the development server in the host package with loopback
 
 test('sandbox host timeout stops descendants and retains the sandbox', async () => {
   const root = await mkdtemp(join(tmpdir(), 'mimir-host-timeout-'));
+  let descendant: number | undefined;
   try {
     const host = join(root, 'packages', 'host');
     await mkdir(host, { recursive: true });
-    await writeFile(join(host, 'package.json'), JSON.stringify({ scripts: { dev: 'bun dev.ts' } }));
-    await writeFile(
-      join(host, 'dev.ts'),
-      `Bun.spawn([process.execPath, '-e', "await Bun.write('started', 'yes'); await Bun.sleep(75); await Bun.write('escaped', 'yes')"], { stdout: 'ignore', stderr: 'ignore' }); await Bun.sleep(10000);`,
-    );
+    await writeFile(join(host, 'package.json'), JSON.stringify({ scripts: { dev: 'sh dev.sh' } }));
+    // One Bun startup, then a shell that becomes the descendant we observe.
+    await writeFile(join(host, 'dev.sh'), 'echo $$ > started; exec sleep 60');
     let failure: unknown;
     try {
-      await launchHost(root, authority, { timeout: 50 });
+      await launchHost(root, authority, { timeout: 200 });
     } catch (error) {
       failure = error;
     }
     expect(failure).toBeInstanceOf(Error);
     expect(failure instanceof Error && failure.message).toContain('timed out');
-    expect(await Bun.file(join(host, 'started')).text()).toBe('yes');
-    // The descendant writes `started` before its 75 ms delay. Even if it
-    // started just before the timeout, it would escape within this wait.
-    await Bun.sleep(100);
-    expect(await Bun.file(join(host, 'escaped')).exists()).toBe(false);
+    expect(failure instanceof Error && failure.message).toContain('sandbox remains available');
+    descendant = Number((await readFile(join(host, 'started'), 'utf8')).trim());
+    expect(descendant).toBeGreaterThan(0);
+    const deadline = performance.now() + 1_000;
+    while (!stopped(descendant) && performance.now() < deadline) {
+      await Bun.sleep(10);
+    }
+    expect(stopped(descendant)).toBe(true);
   } finally {
+    if (descendant !== undefined) {
+      killDescendant(descendant);
+    }
     await rm(root, { force: true, recursive: true });
   }
 });
@@ -132,3 +137,29 @@ test('a detached sandbox host does not consume launcher stdin', async () => {
     await rm(root, { force: true, recursive: true });
   }
 });
+
+// Orphans may remain as zombies until init reaps them. A zombie is dead,
+// but still answers signal 0; ps distinguishes it from a surviving child.
+function stopped(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ESRCH') {
+      return true;
+    }
+    throw error;
+  }
+  const state = Bun.spawnSync(['ps', '-o', 'stat=', '-p', String(pid)]);
+  return state.stdout.toString().trim().startsWith('Z');
+}
+
+// Also clean up a descendant that survives a broken group kill.
+function killDescendant(pid: number): void {
+  try {
+    process.kill(pid, 'SIGKILL');
+  } catch (error) {
+    if (!(error instanceof Error && 'code' in error && error.code === 'ESRCH')) {
+      throw error;
+    }
+  }
+}

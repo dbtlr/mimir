@@ -568,12 +568,14 @@ test("a writer waits out another process's lock without stalling the event loop"
     const write = store.transact((writer) =>
       writer.insertProject({ description: null, key: 'MMR', name: 'Mimir', tags: [] }),
     );
-    const held = 80;
+    // Six busy loops on four CPUs peaked at 46 ms between ticks. Allow 80 ms
+    // for scheduling and 10 ms busy tries, well below the 180 ms lock hold.
+    const held = 180;
     await Bun.sleep(held);
     other.run('commit');
     await write;
     clearInterval(timer);
-    expect(longest).toBeLessThan(held / 2);
+    expect(longest).toBeLessThan(80);
     expect((await store.loadProjects()).map((project) => project.key)).toEqual(['MMR']);
   } finally {
     other.close();
