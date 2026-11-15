@@ -46,6 +46,11 @@ test.each([
     hint: undefined,
     message: '--class must be product, architecture, or other',
   },
+  {
+    flags: ['--no-linked'],
+    hint: undefined,
+    message: '--linked takes no false value: omit it to leave links unfiltered',
+  },
   ...['MMR-q1', 'MMR-d9', 'OTH-d1'].map((delivery) => ({
     flags: ['--delivery', delivery],
     hint: 'pass a same-project --delivery',

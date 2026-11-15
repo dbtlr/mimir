@@ -183,6 +183,13 @@ export function decisionsCommand(ports: Ports) {
       if (options.status !== undefined && !status) {
         throw new MimirUsageError('--status must be provisional, confirmed, overturned, or all');
       }
+      // `--linked` only narrows; there is no "only unlinked" filter, so an explicit
+      // false (--no-linked, or MCP `linked: false`) is refused rather than ignored.
+      if (supplied.options.linked !== undefined && !options.linked) {
+        throw new MimirUsageError(
+          '--linked takes no false value: omit it to leave links unfiltered',
+        );
+      }
       const classes = options.class.map((value) => {
         const cls = DECISION_CLASS_VALUES.find((c) => c === value);
         if (!cls) {
@@ -207,7 +214,7 @@ export function decisionsCommand(ports: Ports) {
           parseEngineInput(engineSchemas.decisions.input, {
             classes,
             delivery: options.delivery,
-            linked: supplied.options.linked === undefined ? undefined : options.linked,
+            linked: options.linked ? true : undefined,
             project,
             status,
           }),

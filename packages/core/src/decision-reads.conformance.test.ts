@@ -43,6 +43,11 @@ describe.each(backends)('decision reads ($name)', (backend) => {
     const oldRoot = await createInitiative(f.store, { projectId: 'OLD', title: 'Old plan' });
     const oldPhase = await createPhase(f.store, { parentId: oldRoot.id, title: 'Old phase' });
     await e.deliveryCreate({ phase: oldPhase.id, title: 'Other attempt' });
+    // An active project's delivery, so the cross-project refusal is not only an archived one.
+    await createProject(f.store, { key: 'OTH', name: 'Other' });
+    const othRoot = await createInitiative(f.store, { projectId: 'OTH', title: 'Other plan' });
+    const othPhase = await createPhase(f.store, { parentId: othRoot.id, title: 'Other phase' });
+    await e.deliveryCreate({ phase: othPhase.id, title: 'Active attempt' });
     await e.deliveryAbandon({ id: delivery.id, reason: 'Stop' });
     await e.archive({ id: 'OLD' });
   });
@@ -91,7 +96,7 @@ describe.each(backends)('decision reads ($name)', (backend) => {
     expect((await e.overview({ project: 'DEC' })).provisionalDecisions).toBe((await ids()).length);
   });
   test('missing and cross-project delivery filters refuse with a resolution', async () => {
-    for (const delivery of ['DEC-d9', 'OLD-d1']) {
+    for (const delivery of ['DEC-d9', 'OLD-d1', 'OTH-d1']) {
       expect(await errorOf(e.decisions({ delivery, project: 'DEC' }))).toMatchObject({
         code: 'validation',
         hint: 'pass a same-project --delivery',
