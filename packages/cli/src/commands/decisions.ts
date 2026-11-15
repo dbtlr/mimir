@@ -48,7 +48,10 @@ export function decideCommand(ports: Ports) {
     .option('ascii', asciiOption)
     .result<DecisionValue>({ views: decisionEchoViews })
     .views({ records: decisionEchoViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out }) => {
+    .action(async ({ args, host, options, out, passthrough }) => {
+      if (passthrough.length) {
+        throw new MimirUsageError('quote the question as one argument');
+      }
       const cls = DECISION_CLASS_VALUES.find((c) => c === options.class);
       if (!cls) {
         throw new MimirUsageError('--class must be product, architecture, or other');

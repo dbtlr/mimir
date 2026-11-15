@@ -4,7 +4,7 @@ import type { Kysely } from 'kysely';
 import { assertBoardActive } from '../archive-lock';
 import type { DecisionStore } from '../decisions/store';
 import { invariant, notFound, validation } from '../errors';
-import { inLists } from './batch';
+import { inLists, insertBatched } from './batch';
 import type { StoreDialect } from './dialect';
 import type { DB, Executor, DecisionTable } from './schema';
 import { createSqlWriter } from './writer';
@@ -144,6 +144,35 @@ export async function writeDecision(
       .values({ ...entry, decision_id: value.id })
       .execute();
   }
+}
+
+/**
+ * Write imported decisions with their links and history, one statement per
+ * chunk rather than one round trip per row (MMR-380's batching rule). History
+ * rows are inserted in document order, so their ids keep it.
+ */
+export async function insertExportedDecisions(
+  ex: Executor,
+  dialect: StoreDialect,
+  decisions: readonly DecisionView[],
+): Promise<void> {
+  const rows = decisions.map(({ tasks: _tasks, history: _history, ...row }) => ({
+    ...row,
+    options: dialect.codecs.json.encode(row.options),
+  }));
+  await insertBatched(rows, dialect.maxParameters, (chunk) =>
+    ex.insertInto('decision').values(chunk).execute(),
+  );
+  const links = decisions.flatMap((d) => d.tasks.map((task) => ({ decision_id: d.id, task })));
+  await insertBatched(links, dialect.maxParameters, (chunk) =>
+    ex.insertInto('decision_task').values(chunk).execute(),
+  );
+  const history = decisions.flatMap((d) =>
+    d.history.map((entry) => ({ ...entry, decision_id: d.id })),
+  );
+  await insertBatched(history, dialect.maxParameters, (chunk) =>
+    ex.insertInto('decision_history').values(chunk).execute(),
+  );
 }
 
 export function createSqlDecisionStore(db: Kysely<DB>, dialect: StoreDialect): DecisionStore {

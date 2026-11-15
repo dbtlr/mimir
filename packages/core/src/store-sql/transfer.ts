@@ -27,7 +27,7 @@ import { parseTransferDocument } from '../transfer-validate';
 import { exportArtifacts, insertExportedArtifacts } from './artifacts';
 import { inLists, insertBatched, pairKey } from './batch';
 import { createSqlBodySectionStore } from './body-sections';
-import { exportDecisions, writeDecision } from './decisions';
+import { exportDecisions, insertExportedDecisions } from './decisions';
 import { exportDeliveries, insertExportedDeliveries } from './deliveries';
 import type { StoreDialect } from './dialect';
 import { storedProse } from './prose';
@@ -657,11 +657,11 @@ async function applyImport(
     tx,
     document.deliveries.filter((delivery) => settle('deliveries', delivery.id)),
   );
-  for (const decision of document.decisions) {
-    if (settle('decisions', decision.id)) {
-      await writeDecision(tx, dialect, decision);
-    }
-  }
+  await insertExportedDecisions(
+    tx,
+    dialect,
+    document.decisions.filter((decision) => settle('decisions', decision.id)),
+  );
 
   // The references wait for their deliveries; restore them one statement per
   // delivery and id chunk, not one round trip per task (MMR-380's batching rule).

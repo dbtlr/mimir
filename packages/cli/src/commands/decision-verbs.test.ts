@@ -76,3 +76,31 @@ test('decision records echo identity first and separate linked tasks with commas
     await board.close();
   }
 });
+
+test('decide refuses words beyond the quoted question, before or after --', async () => {
+  const board = await parityBoard();
+  try {
+    const rest = [
+      '--option',
+      'A',
+      '--option',
+      'B',
+      '--recommend',
+      '1',
+      '--class',
+      'other',
+      '-p',
+      'MMR',
+    ];
+    const unquoted = await runArgv(board.app(), ['decide', 'Store', 'snapshots', ...rest]);
+    expect(unquoted.exitCode).toBe(2);
+    expect(unquoted.stderr).toContain('accepts 1 argument');
+    const passthrough = await runArgv(board.app(), ['decide', 'Store', ...rest, '--', 'snapshots']);
+    expect(passthrough.exitCode).toBe(2);
+    expect(passthrough.stderr).toContain('quote the question as one argument');
+    const get = await runArgv(board.app(), ['get', 'MMR-q1']);
+    expect(get.exitCode).not.toBe(0);
+  } finally {
+    await board.close();
+  }
+});
