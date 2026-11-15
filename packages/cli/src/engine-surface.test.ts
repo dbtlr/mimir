@@ -105,6 +105,10 @@ const SURFACES: readonly Surface[] = [
   same('resolve', 'seedResolve'),
   same('triage'),
   // Scratchpad writes. `scratch agenda` takes the action as an argument.
+  // The checklist group: one subcommand and MCP tool per Engine method.
+  nested('item add', 'itemAdd'),
+  nested('item check', 'itemCheck'),
+  nested('item drop', 'itemDrop'),
   nested('scratch agenda', 'scratchAgendaAdd', 'scratchAgendaComplete', 'scratchAgendaSupersede'),
   nested('scratch checkpoint', 'scratchCheckpoint'),
   nested('scratch create', 'scratchCreate'),

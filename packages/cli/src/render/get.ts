@@ -18,7 +18,7 @@ import { renderArtifactRecords, renderArtifactTable, renderSeedRecords } from '.
 
 /** The record `get` read, with its wire object and how the styled views render it. */
 export type GetValue = { presentation: Presentation; wire: Record<string, unknown> } & (
-  | { kind: 'node'; node: NodeView; expandAnnotations: boolean }
+  | { kind: 'node'; node: NodeView; expandAnnotations: boolean; expandItems: boolean }
   | { kind: 'artifact'; artifact: ArtifactDetail }
   | { kind: 'seed'; seed: SeedView }
   | { kind: 'decision'; decision: DecisionView }
@@ -34,7 +34,12 @@ export function recordsOf(value: Readonly<GetValue>): string {
     return renderDelivery(value.delivery, value.presentation);
   }
   if (value.kind === 'node') {
-    return renderRecords(value.node, value.presentation, value.expandAnnotations);
+    return renderRecords(
+      value.node,
+      value.presentation,
+      value.expandAnnotations,
+      value.expandItems,
+    );
   }
   if (value.kind === 'artifact') {
     return renderArtifactRecords(value.artifact, value.presentation);

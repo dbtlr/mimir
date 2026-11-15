@@ -162,6 +162,34 @@ const CASES: readonly McpCase[] = [
     { ids: 'MMR-3,MMR-4', tags: ['beta'] },
     { tagged: { ids: ['MMR-3', 'MMR-4'], tags: ['beta'] } },
   ),
+  // The item tools take the content as words and the number as a word, and no CLI `-f json`
+  // pin covers a tool's whole answer, so each answer is pinned.
+  pinned(
+    'item_add takes the content as words',
+    'item_add',
+    { content: ['First', 'item'], task: 'MMR-3' },
+    { task: 'MMR-3' },
+  ),
+  pinned(
+    'item_add adds a second item',
+    'item_add',
+    { content: ['Second', 'item'], task: 'MMR-3' },
+    { task: 'MMR-3' },
+  ),
+  pinned(
+    'item_check takes the number as a word',
+    'item_check',
+    { number: '1', task: 'MMR-3' },
+    {
+      task: 'MMR-3',
+    },
+  ),
+  pinned(
+    'item_drop takes the number as a word and keeps the reason',
+    'item_drop',
+    { number: '2', reason: 'Not needed', task: 'MMR-3' },
+    { task: 'MMR-3' },
+  ),
   // `scratch agenda` and `scratch checkpoint` have no `-f json` CLI pin.
   pinned(
     'scratch_agenda add takes the item as words',

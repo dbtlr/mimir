@@ -1,0 +1,20 @@
+mimir item add · Add an open item to a task's checklist.
+
+USAGE
+  mimir item add <task> [content...] [options]
+
+ARGUMENTS
+  task     The task (KEY-seq).
+  content  The item, the rest of the line.
+
+OPTIONS
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help      Show this help.
+      --no-input  Ask no questions, and take every answer from options.  (default: true)
+
+EXAMPLES
+  $ mimir item add MMR-12 "Remove the retired --since hint from flag-owners"
+    a follow-up kept with its task

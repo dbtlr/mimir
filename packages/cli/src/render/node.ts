@@ -7,6 +7,7 @@
 import type { AnnotationView, NodeView, SetResult, StatusWord } from '@mimir/contract';
 import { formatInstant } from '@mimir/helpers';
 
+import { itemCounts, itemsExpanded } from './checklist';
 import { arrow, bold, color, countLine, dimmed } from './presentation';
 import type { Presentation } from './presentation';
 
@@ -213,6 +214,7 @@ function facetPairs(
   node: NodeView,
   p: Presentation,
   expandAnnotations: boolean,
+  expandItems: boolean,
 ): [string, string][] {
   const pairs: [string, string][] = [];
   const deps = node.deps;
@@ -248,6 +250,9 @@ function facetPairs(
         : String(node.annotations.length),
     ]);
   }
+  if (node.items !== undefined && node.items.length > 0) {
+    pairs.push(['items', expandItems ? itemsExpanded(node.items) : itemCounts(node.items)]);
+  }
   if (node.artifacts !== undefined && node.artifacts.length > 0) {
     pairs.push(['artifacts', String(node.artifacts.length)]);
   }
@@ -273,9 +278,15 @@ function facetPairs(
  * `records`: a bold id header and aligned `label  value` rows, bare fields then
  * facets, and a container's onward hint on a terminal. `expandAnnotations` is
  * the `--col annotations` opt-in; by default the annotations row is a count.
+ * `expandItems` is `--col items`, which lists each checklist item instead of counting them.
  */
-export function renderRecords(node: NodeView, p: Presentation, expandAnnotations = false): string {
-  const pairs = [...fieldPairs(node, p), ...facetPairs(node, p, expandAnnotations)];
+export function renderRecords(
+  node: NodeView,
+  p: Presentation,
+  expandAnnotations = false,
+  expandItems = false,
+): string {
+  const pairs = [...fieldPairs(node, p), ...facetPairs(node, p, expandAnnotations, expandItems)];
   const labelW = Math.max(...pairs.map(([label]) => label.length));
   const lines = [bold(node.id, p.plain), ...pairs.map(([l, v]) => recordRow(l, v, labelW))];
   const hint = onwardHint(node, p);

@@ -59,6 +59,7 @@ These hold for every table; the per-entity sections below don't repeat them.
 - **work node** (`node`) — the typed adjacency tree (`initiative | phase | task`), one table with type-gated columns. Only **tasks** carry status (`lifecycle`/`hold`) and `rank`.
 - **dependency** (`dependency`) — a node's prerequisites, one row per edge. `blocked`/`ready`/`blocking` are _derived_ from these, never stored.
 - **annotation** (`annotation`) — freeform in-flight notes on a node.
+- **checklist item** (`checklist_item`) — a numbered item on a task, added, then checked or dropped ([ADR 0044](decisions/0044-checklist-items.md)). Not a node, and it stores no status on any node.
 - **transition / history** (`transition_log`) — the append-only log ([ADR 0003](decisions/0003-append-only-transition-log.md)), keyed to a node or (for `archive`) a project.
 - **artifact** (`artifact`, `artifact_link`) — frozen markdown blob, anchored to one project, linked to 0..N nodes ([ADR 0004](decisions/0004-artifact-model-project-anchored-flexibly-linked.md)).
 - **seed** (`seed`, `seed_history`) — the grooming-queue record ([ADR 0020](decisions/0020-seeds-grooming-queue-entity.md)): project-anchored, its own `KEY-sN` id, **not** a node.
@@ -378,7 +379,7 @@ The host's `/health` reports `schema` as the schema version it expects. A schema
 
 `mimir store export <file>` writes the whole store as one JSON document, and `mimir store import <file>` reads it. It is the **portable form** of the store: backend-neutral, so it moves facts between SQLite and PostgreSQL, and it is the backup for either ([ADR 0030](decisions/0030-postgres-store-backend-shared-store-bridge.md) Decision 4, [ADR 0032](decisions/0032-sqlite-local-tier-shared-sql-store.md) Decisions 5 and 6). A store from a Norn vault enters the same way: export it with mimir v0.20, then import the document (see [Moving from a Norn vault](guides/store-transfer.md#moving-from-a-norn-vault)).
 
-The document carries every **stored fact** and nothing derived. Its top level holds `schema_version` (the document's own version, separate from the database schema version: `11` since decisions; import also reads `1` through `10`, defaulting each task to `not_groomed`, each blocked task's owner by its `upstream`, each project to unpinned, each project's remote to none, absent worker identity to none, and absent deliveries to none with a zero delivery counter, absent decisions to none with a zero decision counter, and refuses any other), `exported_at` (the only field a re-export may differ in, except that a done or abandoned task carrying a hold imports unheld, at any document version), and these collections:
+The document carries every **stored fact** and nothing derived. Its top level holds `schema_version` (the document's own version, separate from the database schema version: `12` since checklist items; import also reads `1` through `11`, defaulting each task to `not_groomed`, each blocked task's owner by its `upstream`, each project to unpinned, each project's remote to none, absent worker identity to none, and absent deliveries to none with a zero delivery counter, absent decisions to none with a zero decision counter, absent checklist items to none, and refuses any other), `exported_at` (the only field a re-export may differ in, except that a done or abandoned task carrying a hold imports unheld, at any document version), and these collections:
 
 | Collection     | Holds                                                                                     |
 | -------------- | ----------------------------------------------------------------------------------------- |
@@ -387,6 +388,7 @@ The document carries every **stored fact** and nothing derived. Its top level ho
 | `edges`        | the dependency edges                                                                      |
 | `tags`         | project and node tag applications (an artifact's tags ride its own record)                |
 | `annotations`  | node annotations                                                                          |
+| `checklist_items` | task checklist items, each with its `task`, in project-key, task-sequence, then number order; import writes them after the nodes |
 | `artifacts`    | artifacts with frozen `content`, `source_scratch`, tags, and links                        |
 | `seeds`        | seeds with `description` and their own `history`                                          |
 | `deliveries`   | deliveries with their own ordered `history`; import writes them after the nodes they name |
@@ -436,3 +438,30 @@ task; birth writes no lifecycle row. Terminal decisions refuse all writes.
 Overturn annotations and the lifecycle change commit in one transaction.
 Transfer schema 11 carries decisions with their tasks and history and the fifth
 project counter; older documents default to empty decisions and a zero counter.
+
+## Checklist items
+
+A `checklist_item` is a numbered item on a task ([ADR 0044](decisions/0044-checklist-items.md)),
+added open and then checked or dropped for good. Migration 0018 creates it,
+keyed by `(node_id, number)`; `node_id` is a foreign key to `node.id` and
+carries only tasks. `number` starts at 1 per task and is never reused, so the
+next number is one more than the task's highest; no counter is stored.
+
+| Column       | Type    | Null     | Allowed / default                                                       |
+| ------------ | ------- | -------- | ----------------------------------------------------------------------- |
+| `node_id`    | text    | primary  | the task                                                                |
+| `number`     | integer | primary  | positive, per task                                                      |
+| `content`    | text    | required | not blank                                                               |
+| `state`      | text    | required | `open` \| `checked` \| `dropped`                                         |
+| `reason`     | text    | optional | required for `dropped`, null otherwise                                  |
+| `created_at` | text    | required | the instant `add` recorded                                              |
+| `settled_at` | text    | optional | null while `open`; set by `check` or `drop`, never before `created_at`  |
+
+The row is its own log, so no `transition_log` row is written. Each verb stamps
+the task's `updated_at` first, in the same transaction. Import refuses and
+`doctor` reports (`invalid-checklist-item`) an item that names a missing node or
+a node that is not a task, a number below 1 or used twice on one task, blank
+content, a dropped item without a reason or another state with one, an open item
+with a `settled_at` or a settled item without one, and a `settled_at` before its
+`created_at`. Transfer schema 12 carries the items; older documents import with
+none.

@@ -133,6 +133,90 @@
 |   "children": []
 | }
 
+### item_add takes the content as words
+| {
+|   "items": [
+|     {
+|       "number": 1,
+|       "content": "First item",
+|       "state": "open",
+|       "reason": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": null
+|     }
+|   ],
+|   "task": "MMR-3"
+| }
+
+### item_add adds a second item
+| {
+|   "items": [
+|     {
+|       "number": 1,
+|       "content": "First item",
+|       "state": "open",
+|       "reason": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": null
+|     },
+|     {
+|       "number": 2,
+|       "content": "Second item",
+|       "state": "open",
+|       "reason": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": null
+|     }
+|   ],
+|   "task": "MMR-3"
+| }
+
+### item_check takes the number as a word
+| {
+|   "items": [
+|     {
+|       "number": 1,
+|       "content": "First item",
+|       "state": "checked",
+|       "reason": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "number": 2,
+|       "content": "Second item",
+|       "state": "open",
+|       "reason": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": null
+|     }
+|   ],
+|   "task": "MMR-3"
+| }
+
+### item_drop takes the number as a word and keeps the reason
+| {
+|   "items": [
+|     {
+|       "number": 1,
+|       "content": "First item",
+|       "state": "checked",
+|       "reason": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "number": 2,
+|       "content": "Second item",
+|       "state": "dropped",
+|       "reason": "Not needed",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "task": "MMR-3"
+| }
+
 ### scratch_agenda add takes the item as words
 | {
 |   "id": "<uuid>",
@@ -174,6 +258,8 @@
 + artifacts[MMR-a2]: {"content":"# Notes\n\nInline body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3"],"project":"MMR","summary":"inline","tags":[],"title":"Inline"}
 ~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-5, MMR-4, MMR-3, MMR-6, MMR-7, MMR-8, MMR-9]
 + nodes[MMR-3].decisions[MMR-q1]: {"id":"MMR-q1","lifecycle":"provisional"}
++ nodes[MMR-3].items[@0]: {"content":"First item","created_at":"2026-10-01T12:00:00.000Z","number":1,"reason":null,"settled_at":"2026-10-01T12:00:00.000Z","state":"checked"}
++ nodes[MMR-3].items[@1]: {"content":"Second item","created_at":"2026-10-01T12:00:00.000Z","number":2,"reason":"Not needed","settled_at":"2026-10-01T12:00:00.000Z","state":"dropped"}
 + nodes[MMR-3].tags[@1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}
 + nodes[MMR-4].tags[@1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}
 ~ nodes[MMR-8].completedAt: null -> "2026-10-01T12:00:00.000Z"
@@ -207,6 +293,9 @@
 | done(id: string)
 | get(col: array, id: string)
 | groom(ids: string, note: array, state: string)
+| item_add(content: array, task: string)
+| item_check(number: string, task: string)
+| item_drop(number: string, reason: string, task: string, words: array)
 | land(id: string)
 | list(after: array, at-or-after: array, at-or-before: array, before: array, col: array, eq: array, has: array, in: array, is: array, limit: string, missing: array, not-eq: array, not-in: array, not-is: array, on: array, priority: string, query: string, scope: string, size: string, status: string, tag: string, tz: string)
 | move(id: string, to: string)

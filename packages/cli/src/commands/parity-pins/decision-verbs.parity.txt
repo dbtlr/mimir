@@ -465,6 +465,7 @@ exit 0
 |       "lifecycle": "provisional"
 |     }
 |   ],
+|   "items": [],
 |   "description": "Open the store once.\n\nKeep it open.",
 |   "summary": "one store per run",
 |   "priority": "p1",

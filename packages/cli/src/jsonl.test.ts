@@ -226,6 +226,9 @@ const ELSEWHERE: Readonly<Record<string, string>> = {
   groom: 'groom.parity.test.ts pins `groom MMR-4 groomed -f jsonl`',
   'installation-protocol':
     'prints the protocol line core probes for under every format (installation.test.ts)',
+  'item add': 'item.parity.test.ts covers all formats',
+  'item check': 'item.parity.test.ts covers all formats',
+  'item drop': 'item.parity.test.ts covers all formats',
   move: 'place.parity.test.ts pins `move MMR-5 --to MMR-1 -f jsonl`',
   next: 'next.parity.test.ts pins `next -s MMR -f jsonl`',
   overturn: 'decision-verbs.parity.test.ts covers jsonl',

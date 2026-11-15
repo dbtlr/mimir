@@ -603,3 +603,32 @@ MCP dates are ISO instants. Overview adds `provisionalDecisions` in Engine and
 `provisional_decisions` in CLI and MCP JSON: the count of every provisional
 decision in the project, without cap filters. Records render the count with a
 `mimir decisions` follow-up command.
+
+## Checklist items
+
+`item add`, `item check`, and `item drop` ([ADR 0044](decisions/0044-checklist-items.md))
+each return the task's whole checklist in number order, in the same shape:
+
+```json
+{ "task": "MMR-12",
+  "items": [ { "number": 1, "content": "…", "state": "dropped",
+               "reason": "Covered by MMR-14",
+               "created_at": "2026-11-16T09:00:00.000Z",
+               "settled_at": "2026-11-16T10:00:00.000Z" } ] }
+```
+
+`state` is `open`, `checked`, or `dropped`. `reason` and `settled_at` are `null`
+when the record has none. `json` and `jsonl` print that object, `ids` prints the
+task id, and `records` and `table` show the one item the subcommand changed as
+`MMR-12 item 3. open: …`. The Engine methods `itemAdd`, `itemCheck`, and
+`itemDrop` return the same object with `Date` instants, and the MCP tools
+`item_add`, `item_check`, and `item_drop` return the `json` view. The item
+number is a positive whole number; the CLI refuses any other as a usage error
+before the store opens, and the Engine refuses it as `validation`.
+
+A task's `get` carries its items in number order. `json` and `jsonl` always
+include `items`, an array of the item fields without `task`, empty when the task
+has none; a phase, initiative, or project `get` has no `items` key. `records`
+shows one line with the count by state (`2 open · 1 checked · 1 dropped`, no
+line when there are no items), and `--col items` expands it to one line per item,
+`2. dropped: content (reason)`. No list, overview, or board read counts items.
