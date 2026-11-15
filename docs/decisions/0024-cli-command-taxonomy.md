@@ -258,3 +258,15 @@ archived project's `decisions` refuses as not found, as `deliveries` does.
 
 The Engine read is `decisions`, matching `deliveries`; the MCP tool and tRPC
 route use the same name. Engine `linked` accepts only `true` or omission.
+
+## Amendment (2026-11-16, MMR-678): `item` is a work-plane noun group
+
+`item add`, `item check`, and `item drop` keep the checklist items of
+[ADR 0044](0044-checklist-items.md) on a task. They are a second exception to
+the flat work-plane rule, beside Scratchpads. An item is a numbered sub-record
+inside a task, and its operations are generic words: flat, `check` and `drop`
+would sit beside `done` and `abandon`, where `mimir drop MMR-12 3` reads as
+deleting the task. The group scopes those words to a checklist. Each
+subcommand is its own MCP tool (`item_add`, `item_check`, `item_drop`). The
+exception covers sub-records of a work record, not records themselves: a new
+record type still takes flat verbs.

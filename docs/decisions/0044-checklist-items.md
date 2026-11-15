@@ -6,16 +6,19 @@ date: 2026-11-16
 
 # ADR 0044: Checklist items — small items a task adds, then checks or drops
 
-A **checklist item** is a small, numbered item on a task. The task's owner
-adds it, then checks it when it is done or drops it with a reason when it will
-not be done. A delivery's cleanup task keeps its follow-up findings this way
-across deliveries, and any other task can keep a short list of the same kind.
+A **checklist item** is a small, numbered item on a task. A caller adds it,
+then checks it when it is done or drops it with a reason when it will not be
+done. A cleanup task that collects review follow-ups from several deliveries
+([ADR 0042](0042-the-delivery-record.md)) keeps them this way, and any other
+task can keep a short list of the same kind. This is one of the later phases
+ADR 0042 names under *Out of scope here*.
 
 Items are general. They carry no delivery link and no tag-named meaning
-([ADR 0002](0002-general-purpose-primitives-not-baked-in-semantics.md)): the
-build-run shaping rejected one tagged item primitive for limitations, declined
-findings, and cleanup items, because a reader would then have to know tag
-names. Limitations and declined findings are lists on the delivery instead.
+([ADR 0002](0002-general-purpose-primitives-not-baked-in-semantics.md)). One
+tagged item primitive for a delivery's known limitations, its declined
+findings, and cleanup items was rejected, because a reader would then have to
+know tag names. Limitations and declined findings are lists on the delivery
+instead, recorded with the delivery journal.
 
 ## Decision
 
@@ -29,13 +32,12 @@ names. Limitations and declined findings are lists on the delivery instead.
 | `state`      | `open`, `checked`, or `dropped`                                                |
 | `reason`     | Required and not blank for `dropped`; null for `open` and `checked`            |
 | `created_at` | The instant `add` recorded the item                                            |
-| `settled_at` | The instant `check` or `drop` recorded, or null while the item is `open`       |
+| `settled_at` | The instant `check` or `drop` recorded, or null while the item is `open`. It is never earlier than `created_at`: a settle whose clock reads earlier records `created_at` instead |
 
 - An item is born `open`. `checked` and `dropped` are final: neither verb
   undoes the other or itself, and no verb reopens an item. A task that needs
-  the work again adds a new item. A settled item is then a fact, which keeps
-  the since read (phase 4 of the build-run work) to at most two events per
-  item.
+  the work again adds a new item. A settled item is then a fact, and a
+  reader of its history sees at most two events: the add and the settle.
 - Items are never deleted, so the next number is one more than the task's
   highest. No counter is stored.
 - The item row is its own log. `created_at` records the add and `settled_at`
@@ -47,8 +49,8 @@ names. Limitations and declined findings are lists on the delivery instead.
 
 ### Verbs
 
-One command, `item`, takes the action as its first argument, as
-`scratch agenda` does:
+`item` is a work-plane noun group with three subcommands, by the amendment to
+[ADR 0024](0024-cli-command-taxonomy.md) below:
 
 ```sh
 mimir item add MMR-12 "Remove the retired --since hint from flag-owners"
@@ -56,26 +58,64 @@ mimir item check MMR-12 2
 mimir item drop MMR-12 3 "Covered by MMR-14"
 ```
 
-| Action  | Effect                     | Refuses when                                                      | Input                     |
+| Subcmd  | Effect                     | Refuses when                                                      | Input                     |
 | ------- | -------------------------- | ----------------------------------------------------------------- | ------------------------- |
 | `add`   | Adds an `open` item        | the id is not a task; the content is blank                        | content                   |
 | `check` | `open → checked`           | the id is not a task; no such item; the item is settled           | item number               |
 | `drop`  | `open → dropped`           | the id is not a task; no such item; the item is settled; no reason | item number, reason       |
 
-- Each action is its own Engine method (`itemAdd`, `itemCheck`, `itemDrop`),
-  and the MCP tool is `item`, as `scratch_agenda` is one tool. Each returns the
-  task's whole checklist, in number order. The CLI echoes the task id, and its
-  records view shows the item the action changed.
+- **Output.** Every subcommand returns the same shape, the task's whole
+  checklist in number order:
+
+  ```json
+  { "task": "MMR-12",
+    "items": [ { "number": 1, "content": "…", "state": "dropped",
+                 "reason": "Covered by MMR-14",
+                 "created_at": "2026-11-16T09:00:00.000Z",
+                 "settled_at": "2026-11-16T10:00:00.000Z" } ] }
+  ```
+
+  `reason` and `settled_at` are `null` when the record has none. The CLI's
+  `json` view prints this object, `ids` prints the task id, and `records`
+  shows the item the subcommand changed.
+- **One transaction.** Each subcommand runs in one store transaction. It stamps
+  the task's `updated_at` first, which serializes concurrent writers on the
+  task row, then allocates the number or checks the item's state, writes, and
+  reads the checklist back. Two concurrent adds on one task get consecutive
+  numbers; two concurrent settles of one item leave one settled and the other
+  refused as settled.
+- Each subcommand is its own Engine method (`itemAdd`, `itemCheck`,
+  `itemDrop`) and its own MCP tool (`item_add`, `item_check`, `item_drop`),
+  with typed inputs: the task id, then the content, the number, or the number
+  and the reason. Each returns the task's whole checklist, in number order.
+  The CLI echoes the task id, and its records view shows the item the
+  subcommand changed.
 - The task can be in any status, `done` and `abandoned` included. A finding
   can arrive after its task closed, and adding it there keeps it with the work
   it belongs to.
 - A phase, an initiative, a project, a seed, a delivery, a decision, or an
-  artifact id is refused with a behavioral error that names the id's kind.
+  artifact id is refused as `validation`, naming the id's kind.
   An id that is not a Mimir id is a usage error.
-- An unknown item number is `not_found`. A settled item refuses with the state
-  it is in and when it settled.
-- Every action moves the task's `updated_at`, as `annotate` does, because
+- **Errors.** The CLI refuses an item number that is not a positive integer
+  as a usage error, before the store opens, as `scratch agenda` does; the
+  Engine schema refuses it as `validation`. A missing task is `not_found`.
+  Blank content and a blank or missing drop reason are `validation`. An
+  unknown item number is `not_found` (`MMR-12 has no item 7`). A settled item
+  is `conflict`, naming its state and when it settled
+  (`MMR-12 item 2 is already checked (2026-11-16 10:00)`).
+- Every subcommand moves the task's `updated_at`, as `annotate` does, because
   activity on a task affects whether it reads as stale.
+
+### The ADR 0024 amendment
+
+ADR 0024 makes every work-state mutation a flat top-level verb and allows
+Scratchpads the only noun group, an exception it says does not generalize.
+Items are a second exception, for the reason Scratchpads are one: an item is a
+numbered sub-record inside another record, and its operations are generic
+words. Flat, `check` and `drop` would sit at the top level beside `done` and
+`abandon`, where `mimir drop MMR-12 3` reads as deleting the task, and other
+records' sub-items could claim the same words later. The group keeps those
+words scoped to a checklist. The amendment is recorded in ADR 0024 itself.
 
 ### Reads
 
@@ -109,7 +149,7 @@ refuses while the project is archived, as every other node write does.
 
 ## Why
 
-- **Fleet's cleanup task needs a list that outlives one delivery.** Its
+- **A cleanup task needs a list that outlives one delivery.** Its
   findings arrive from several runs, each one settles separately, and the
   operator wants to see which are done. Annotations are free text and cannot
   be checked off. Child tasks are too heavy for a one-line finding, and they
@@ -132,6 +172,13 @@ refuses while the project is archived, as every other node write does.
 - **Items gate `done`.** That would turn a reader's cue into a rule Mimir
   enforces, and dependencies and grooming already gate nothing.
 - **Editable content.** A changed item no longer says what was checked.
+- **Flat verbs** (`mimir item MMR-12 "…"`, `mimir tick`, `mimir strike`). They
+  follow ADR 0024 as written, but they add three top-level verbs whose words
+  read less plainly than `item check` and `item drop`.
+- **The Agenda's words** (`complete` and `supersede`, `done` and
+  `superseded`). A checklist item is not superseded by another item; it is
+  dropped, with a reason. `checked` also keeps `done` for the task status it
+  already names.
 
 ## Consequences
 
@@ -141,5 +188,8 @@ refuses while the project is archived, as every other node write does.
   tool, and the `items` facet on `get`.
 - The store export's schema version increments, and doctor gains the item
   checks above.
-- The since read on a delivery (phase 4) reports a member's item adds and
-  settles from `created_at` and `settled_at`.
+- ADR 0024 gains an amendment for the `item` group.
+- The since read on a delivery, a later phase of ADR 0042's design, can report
+  item adds and settles from `created_at` and `settled_at` on the tasks it
+  covers. Which tasks it covers is that read's own decision; a cleanup task
+  outside the delivery is not one of them unless that read says so.
