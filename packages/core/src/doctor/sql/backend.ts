@@ -21,6 +21,7 @@ import type { DeliveryLifecycle } from '@mimir/contract';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 
+import { decisionFaults } from '../../decisions/validate';
 import { deliveryReferenceFault } from '../../deliveries/membership';
 import { parseIdentity } from '../../ids';
 import type { Node } from '../../model';
@@ -28,6 +29,7 @@ import { inLists } from '../../store-sql/batch';
 import type { StoreDialect } from '../../store-sql/dialect';
 import { readSchemaVersion, SCHEMA_VERSION } from '../../store-sql/migrator';
 import type { DB } from '../../store-sql/schema';
+import { exportSqlStore } from '../../store-sql/transfer';
 import { isCanonicalInstant, now } from '../../time';
 import type { DoctorBackend, DoctorDiagnosis, DoctorFinding, DoctorScopeMatch } from '../contract';
 import { isUnscoped } from '../contract';
@@ -45,6 +47,7 @@ const STORE_SCOPE = 'store';
 type SqlCheck =
   | 'counter-behind'
   | 'invalid-delivery'
+  | 'invalid-decision'
   | 'dangling-edge'
   | 'dangling-parent'
   | 'malformed-timestamp'
@@ -510,6 +513,26 @@ async function checkDeliveryReferences(db: Kysely<DB>): Promise<DoctorFinding[]>
   });
 }
 
+/** An orphaned owned link must remain visible even when its decision row is absent. */
+async function checkOrphanDecisionLinks(db: Kysely<DB>): Promise<DoctorFinding[]> {
+  const rows = await db
+    .selectFrom('decision_task')
+    .leftJoin('decision', 'decision.id', 'decision_task.decision_id')
+    .select(['decision_task.decision_id', 'decision_task.task'])
+    .where('decision.id', 'is', null)
+    .execute();
+  return rows.map((row) =>
+    finding({
+      check: 'invalid-decision',
+      evidence: { task: row.task },
+      locator: `decision_task/${row.decision_id}/${row.task}`,
+      message: 'link names a missing decision',
+      stem: row.decision_id,
+      where: 'decision_task',
+    }),
+  );
+}
+
 /** Findings for `scope`, or all of them when the run is unscoped. */
 async function diagnose(
   db: Kysely<DB>,
@@ -526,6 +549,19 @@ async function diagnose(
   const findings = (
     await Promise.all([
       checkDeliveryReferences(db),
+      checkOrphanDecisionLinks(db),
+      exportSqlStore(db, dialect).then((document) =>
+        decisionFaults(document).map((message) =>
+          finding({
+            check: 'invalid-decision',
+            evidence: {},
+            locator: `decision/${message.split(' ')[0] ?? ''}`,
+            message,
+            stem: message.split(' ')[0] ?? '',
+            where: 'decision',
+          }),
+        ),
+      ),
       checkDanglingParent(db),
       checkDanglingEdge(db),
       checkCounterBehind(db),
@@ -548,6 +584,7 @@ const CAUSES: Readonly<Record<string, string>> = {
   'counter-behind': 'counter behind',
   'dangling-edge': 'dangling dependency',
   'dangling-parent': 'dangling parent',
+  'invalid-decision': 'invalid decision',
   'invalid-delivery': 'invalid delivery reference',
   'malformed-timestamp': 'malformed timestamp',
   'orphan-link': 'orphan link',

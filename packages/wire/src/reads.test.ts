@@ -93,6 +93,13 @@ beforeAll(async () => {
     title: 'Delivery phase',
   });
   await local.deliveryCreate({ phase: deliveryPhase.id, title: 'Read attempt' });
+  await local.decide({
+    class: 'other',
+    options: ['Here', 'There'],
+    project: 'OTH',
+    question: 'Where?',
+    recommended: 1,
+  });
   const handle = createEngineHandler(local, {
     verifyToken: fixture.tokens.verify,
     version: WINDOW_VERSION,
@@ -146,6 +153,12 @@ const reads: { [K in ReadMethod]: ReadCase<K> } = {
       expect(artifact.createdAt).toBeInstanceOf(Date);
     },
     input: () => ({ content: true, id: ids.artifact }),
+  },
+  getDecision: {
+    check: (row) => {
+      expect(row.question).toBe('Where?');
+    },
+    input: () => ({ id: 'OTH-q1' }),
   },
   getDelivery: {
     check: (row) => {

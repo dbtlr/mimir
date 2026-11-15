@@ -1,4 +1,5 @@
 import {
+  decisionViewSchema,
   AGENDA_ITEM_STATE_VALUES,
   BLOCK_OWNER_VALUES,
   GROOMING_VALUES,
@@ -85,6 +86,7 @@ export const transferSchema = z.object({
       stem: text,
     }),
   ),
+  decisions: z.array(decisionViewSchema).default([]),
   deliveries: z
     .array(deliveryRecordSchema.extend({ history: z.array(deliveryHistorySchema) }))
     .default([]),
@@ -158,6 +160,7 @@ export const transferSchema = z.object({
         archived_at: nullableText,
         counters: z.object({
           artifact: integer,
+          decision: integer.nonnegative().default(0),
           delivery: integer.nonnegative().default(0),
           node: integer,
           seed: integer,
@@ -193,6 +196,7 @@ export const transferSchema = z.object({
       z.literal(7),
       z.literal(8),
       z.literal(9),
+      z.literal(10),
       z.literal(STORE_EXPORT_SCHEMA_VERSION),
     ])
     .transform((): typeof STORE_EXPORT_SCHEMA_VERSION => STORE_EXPORT_SCHEMA_VERSION),

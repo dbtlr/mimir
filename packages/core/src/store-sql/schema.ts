@@ -1,4 +1,6 @@
 import type {
+  DecisionView,
+  DecisionHistory,
   BlockOwner,
   DeliveryHistory,
   DeliveryHold,
@@ -99,6 +101,7 @@ export type ProjectTable = {
   last_artifact_seq: Generated<number>;
   last_seed_seq: Generated<number>;
   last_delivery_seq: Generated<number>;
+  last_decision_seq: Generated<number>;
   next_present: Generated<Stored<boolean>>;
   next_text: string | null;
   created_at: string;
@@ -313,7 +316,14 @@ export type DeliveryTable = {
 /** A delivery's append-only log; its insertion id is its order. */
 export type DeliveryHistoryTable = DeliveryHistory & { id: RowId; delivery_id: string };
 
+export type DecisionTable = Omit<DecisionView, 'tasks' | 'history' | 'options'> & {
+  options: Stored<string[]>;
+};
+
 export type DB = {
+  decision: DecisionTable;
+  decision_task: { decision_id: string; task: string };
+  decision_history: DecisionHistory & { id: RowId; decision_id: string };
   delivery: DeliveryTable;
   delivery_history: DeliveryHistoryTable;
   runs: RunTable;

@@ -18,6 +18,7 @@ import type {
 } from '@mimir/contract';
 
 import { createNode } from './create';
+import { refuseDecisionInput } from './decisions/refusal';
 import { deriveSet } from './derive';
 import { notFound, validation } from './errors';
 import { isSeedRef, parseIdentity } from './ids';
@@ -86,6 +87,7 @@ function refuseProjectKey(id: string, instead: string) {
 }
 
 export async function createEngine(store: Store, input: EngineInput<'create'>) {
+  refuseDecisionInput(input);
   const parsed = parseEngineInput(engineSchemas.create.input, input);
   if (parsed.type === 'task') {
     requireSeedUpstream(parsed.upstream);
@@ -100,6 +102,7 @@ export async function createEngine(store: Store, input: EngineInput<'create'>) {
 }
 
 export async function updateEngine(store: Store, input: EngineInput<'update'>) {
+  refuseDecisionInput(input);
   const { id, ...fields } = parseEngineInput(engineSchemas.update.input, input);
   refuseProjectKey(id, 'updateProject');
   requireSeedUpstream(fields.upstream);
@@ -111,11 +114,13 @@ export async function updateEngine(store: Store, input: EngineInput<'update'>) {
 }
 
 export async function updateProjectEngine(store: Store, input: EngineInput<'updateProject'>) {
+  refuseDecisionInput(input);
   const { id, ...fields } = parseEngineInput(engineSchemas.updateProject.input, input);
   return projectEcho(store, await updateProject(store, id, fields));
 }
 
 export async function annotateEngine(store: Store, input: EngineInput<'annotate'>) {
+  refuseDecisionInput(input);
   const { id, content } = parseEngineInput(engineSchemas.annotate.input, input);
   requireText(content, 'annotate content');
   await annotate(store, id, content);
@@ -167,24 +172,28 @@ export async function updateArtifactEngine(
 }
 
 export async function dependEngine(store: Store, input: EngineInput<'depend'>) {
+  refuseDecisionInput(input);
   const { id, on } = parseEngineInput(engineSchemas.depend.input, input);
   await depend(store, id, on);
   return nodeEcho(store, id);
 }
 
 export async function undependEngine(store: Store, input: EngineInput<'undepend'>) {
+  refuseDecisionInput(input);
   const { id, on } = parseEngineInput(engineSchemas.undepend.input, input);
   await undepend(store, id, on);
   return nodeEcho(store, id);
 }
 
 export async function moveEngine(store: Store, input: EngineInput<'move'>) {
+  refuseDecisionInput(input);
   const { id, to } = parseEngineInput(engineSchemas.move.input, input);
   await moveNode(store, id, to);
   return nodeEcho(store, id);
 }
 
 export async function reorderEngine(store: Store, input: EngineInput<'reorder'>) {
+  refuseDecisionInput(input);
   const parsed = parseEngineInput(engineSchemas.reorder.input, input);
   const ref = 'ref' in parsed ? parsed.ref : null;
   await reorder(store, parsed.id, parsed.position, ref);
@@ -192,6 +201,7 @@ export async function reorderEngine(store: Store, input: EngineInput<'reorder'>)
 }
 
 export async function groomEngine(store: Store, input: EngineInput<'groom'>) {
+  refuseDecisionInput(input);
   const { ids, state, note } = parseEngineInput(engineSchemas.groom.input, input);
   const nodes = await groomTasks(store, ids, state, note);
   // One snapshot and one derivation serve every echoed node.
@@ -214,12 +224,14 @@ async function tagTargets(store: Store, ids: string[]) {
 }
 
 export async function tagEngine(store: Store, input: EngineInput<'tag'>) {
+  refuseDecisionInput(input);
   const { ids, tags } = parseEngineInput(engineSchemas.tag.input, input);
   await tagEntities(store, await tagTargets(store, ids), tags);
   return { ids, tags };
 }
 
 export async function untagEngine(store: Store, input: EngineInput<'untag'>) {
+  refuseDecisionInput(input);
   const { ids, tags } = parseEngineInput(engineSchemas.untag.input, input);
   const removed = await untagEntities(store, await tagTargets(store, ids), tags);
   return { ids, removed, tags };
@@ -245,6 +257,7 @@ function handleArgs(args: UniformArgs, declared: readonly DataFieldKey[]): Handl
  */
 async function uniformEngine(store: Store, verb: UniformVerb, input: unknown) {
   const spec = OPS[verb];
+  refuseDecisionInput(input);
   const args: UniformArgs = parseEngineInput(engineSchemas[verb].input, input);
   if (parseIdentity(args.id)?.kind === 'delivery') {
     throw validation(`${args.id} is a delivery — use get or update`);

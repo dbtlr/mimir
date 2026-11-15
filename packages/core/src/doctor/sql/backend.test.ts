@@ -274,6 +274,43 @@ describe.each(arms)('$name', (arm) => {
     }
   });
 
+  test(`${arm.name}: doctor reports decision invariants kept by the verbs`, async () => {
+    const f = await arm.make();
+    try {
+      await seedWorkingSet(f.store);
+      const engine = new LocalEngine(f.store);
+      const d = await engine.decide({
+        class: 'other',
+        options: ['Here', 'There'],
+        project: 'MMR',
+        question: 'Where?',
+        recommended: 1,
+        tasks: ['MMR-4'],
+      });
+      expect(byCode((await f.doctor.diagnose(undefined)).findings, 'invalid-decision')).toEqual([]);
+      await f.db
+        .updateTable('decision')
+        .set({ options: arm.dialect.codecs.json.encode(['Only']), why: ' ' })
+        .where('id', '=', d.id)
+        .execute();
+      const findings = byCode((await f.doctor.diagnose(undefined)).findings, 'invalid-decision');
+      expect(findings.some((item) => item.stem === d.id && item.message.includes('options'))).toBe(
+        true,
+      );
+      expect(findings.some((item) => item.message.includes('blank'))).toBe(true);
+      await arm.unconstrained(f.db, [
+        "INSERT INTO decision_task (decision_id, task) VALUES ('MMR-q99', 'MMR-4')",
+      ]);
+      expect(
+        byCode((await f.doctor.diagnose(undefined)).findings, 'invalid-decision').some(
+          (item) => item.stem === 'MMR-q99',
+        ),
+      ).toBe(true);
+    } finally {
+      await f.close();
+    }
+  });
+
   test(`${arm.name}: delivery references the verbs produce diagnose clean, and every other state reports invalid-delivery`, async () => {
     const f = await arm.make();
     try {

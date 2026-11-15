@@ -25,7 +25,7 @@ These hold for every table; the per-entity sections below don't repeat them.
   | delivery                          | `KEY-dN`  | `delivery`   |
   | scratchpad                        | UUID v4   | `scratchpad` |
 
-  `KEY` is two to four uppercase letters (`[A-Z]{2,4}`), immutable, and consumer-supplied. `seq`/`N` are per-project sequence integers, 1-based, with one sequence each for nodes, artifacts, seeds, and deliveries. A sequence component is never reused. Scratchpads are the deliberate exception to the sequenced identity grammar: their temporary identity is a cryptographically generated UUID v4.
+  `KEY` is two to four uppercase letters (`[A-Z]{2,4}`), immutable, and consumer-supplied. `seq`/`N` are per-project sequence integers, 1-based, with one sequence each for nodes, artifacts, seeds, deliveries, and decisions. A sequence component is never reused. Scratchpads are the deliberate exception to the sequenced identity grammar: their temporary identity is a cryptographically generated UUID v4.
 
 - **Sequences are counters on `project`.** `last_seq`, `last_artifact_seq`, `last_seed_seq`, and `last_delivery_seq` hold the highest sequence handed out per kind. Allocation increments the counter inside the writing transaction, so two writers never mint one identity twice. An import writes each counter to the highest imported sequence of its kind.
 
@@ -49,7 +49,7 @@ These hold for every table; the per-entity sections below don't repeat them.
 
   SQLite tables are `STRICT`, so a column holds only its declared type, as PostgreSQL enforces. `AUTOINCREMENT` never reuses an id, so a log's id order stays its append order.
 
-- **Id order is append order for the four logs.** `annotation`, `transition_log`, `seed_history`, and `delivery_history` carry a surrogate key (`id`), because their insertion order is the fact.
+- **Id order is append order for the five logs.** `annotation`, `transition_log`, `seed_history`, `delivery_history`, and `decision_history` carry a surrogate key (`id`), because their insertion order is the fact.
 
 ---
 
@@ -82,6 +82,7 @@ The scope root. Categorically not a node: it doesn't complete (no status), isn't
 | `last_seq`          | integer | required | node sequence counter, default 0                                                          |
 | `last_artifact_seq` | integer | required | artifact sequence counter, default 0                                                      |
 | `last_seed_seq`     | integer | required | seed sequence counter, default 0                                                          |
+| `last_decision_seq` | integer | required | decision sequence counter, default 0 |
 | `last_delivery_seq` | integer | required | delivery sequence counter, default 0                                                      |
 | `next_present`      | boolean | required | whether the `## Next` narrative is set, default false                                     |
 | `next_text`         | text    | optional | the narrative prose                                                                       |
@@ -377,11 +378,11 @@ The host's `/health` reports `schema` as the schema version it expects. A schema
 
 `mimir store export <file>` writes the whole store as one JSON document, and `mimir store import <file>` reads it. It is the **portable form** of the store: backend-neutral, so it moves facts between SQLite and PostgreSQL, and it is the backup for either ([ADR 0030](decisions/0030-postgres-store-backend-shared-store-bridge.md) Decision 4, [ADR 0032](decisions/0032-sqlite-local-tier-shared-sql-store.md) Decisions 5 and 6). A store from a Norn vault enters the same way: export it with mimir v0.20, then import the document (see [Moving from a Norn vault](guides/store-transfer.md#moving-from-a-norn-vault)).
 
-The document carries every **stored fact** and nothing derived. Its top level holds `schema_version` (the document's own version, separate from the database schema version: `10` since delivery membership; import also reads `1` through `9`, defaulting each task to `not_groomed`, each blocked task's owner by its `upstream`, each project to unpinned, each project's remote to none, absent worker identity to none, and absent deliveries to none with a zero delivery counter, and refuses any other), `exported_at` (the only field a re-export may differ in, except that a done or abandoned task carrying a hold imports unheld, at any document version), and these collections:
+The document carries every **stored fact** and nothing derived. Its top level holds `schema_version` (the document's own version, separate from the database schema version: `11` since decisions; import also reads `1` through `10`, defaulting each task to `not_groomed`, each blocked task's owner by its `upstream`, each project to unpinned, each project's remote to none, absent worker identity to none, and absent deliveries to none with a zero delivery counter, absent decisions to none with a zero decision counter, and refuses any other), `exported_at` (the only field a re-export may differ in, except that a done or abandoned task carrying a hold imports unheld, at any document version), and these collections:
 
 | Collection     | Holds                                                                                     |
 | -------------- | ----------------------------------------------------------------------------------------- |
-| `projects`     | every project, archived included, with its `pinned` flag and its four sequence `counters` and its `remote` (a document written before `pinned` existed imports every project unpinned, and before `remote` without one) |
+| `projects`     | every project, archived included, with its `pinned` flag and its five sequence `counters` and its `remote` (a document written before `pinned` existed imports every project unpinned, and before `remote` without one) |
 | `nodes`        | every node (a document written before `grooming` existed imports its tasks as `not_groomed`; one written before `block_owner` existed gives each blocked task the owner its `upstream` implies; a done or abandoned task imports with no hold, reason, or owner; an open task with no hold and a reason is refused, MMR-621, including one an earlier release's import stored) |
 | `edges`        | the dependency edges                                                                      |
 | `tags`         | project and node tag applications (an artifact's tags ride its own record)                |
@@ -393,7 +394,7 @@ The document carries every **stored fact** and nothing derived. Its top level ho
 | `bodySections` | the owned prose of projects and nodes: `description` and the `next` narrative with its presence |
 | `transitions`  | the `transition_log` rows, with their resume handles                                      |
 
-Identity is preserved: every `KEY`, `KEY-seq`, `KEY-aN`, `KEY-sN`, and `KEY-dN`, every timestamp, and the counters. Set-valued fields (tags, links) are written in one canonical order, and transitions in one canonical order, so two stores holding the same facts export byte-identical documents (apart from `exported_at`).
+Identity is preserved: every `KEY`, `KEY-seq`, `KEY-aN`, `KEY-sN`, `KEY-dN`, and `KEY-qN`, every timestamp, and the counters. Set-valued fields (tags, links) are written in one canonical order, and transitions in one canonical order, so two stores holding the same facts export byte-identical documents (apart from `exported_at`).
 
 Export is **fail-closed**: it refuses, and names the records, when the store holds something the document cannot carry, so a backup is never quietly narrower than the store. Import validates the whole document before it touches the target. The preview and the apply run the same transaction, and the preview rolls it back. See the [store transfer guide](guides/store-transfer.md#back-up) for the operator workflow.
 
@@ -420,3 +421,18 @@ then deliveries, then task references.
 Membership events append `delivery_history` rows in the task transaction:
 `kind=member`, `from_value=null`, `to_value=joined|left|abandoned`, and
 `task` naming the task. They add no `transition_log` rows.
+
+## Decision records
+
+A `decision` is a project-anchored answer with identity `KEY-qN`, allocated by
+`project.last_decision_seq`. It stores question, JSON string-array options,
+recommended and taken option numbers, class, nullable why and delivery,
+lifecycle (`provisional`, `confirmed`, `overturned`), nullable overturn_option
+and outcome_note, and creation/update instants.
+
+`decision_task` owns unique decision/task pairs. `decision_history` records
+lifecycle, link, and delivery changes in insertion order. Only link rows name a
+task; birth writes no lifecycle row. Terminal decisions refuse all writes.
+Overturn annotations and the lifecycle change commit in one transaction.
+Transfer schema 11 carries decisions with their tasks and history and the fifth
+project counter; older documents default to empty decisions and a zero counter.

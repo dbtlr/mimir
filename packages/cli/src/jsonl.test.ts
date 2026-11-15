@@ -205,14 +205,17 @@ const SAME_BUILDER_AS: Readonly<Record<string, string>> = {
 const ELSEWHERE: Readonly<Record<string, string>> = {
   abandon: 'same builder as park; lifecycle.parity.test.ts pins `park MMR-s1 -f jsonl`',
   attach: 'attach.parity.test.ts pins `attach MMR-5 --file <file> -f jsonl`',
+  confirm: 'decision-verbs.parity.test.ts covers jsonl',
   'create project': 'create.parity.test.ts pins `create project Gamma --key GAM -y -f jsonl`',
   'create task': 'create.parity.test.ts pins `create task "Ship docs" --parent MMR-2 -f jsonl`',
+  decide: 'decision-verbs.parity.test.ts covers all formats',
   depend: 'depend.parity.test.ts pins `depend MMR-5 --on MMR-3 -f jsonl`',
   groom: 'groom.parity.test.ts pins `groom MMR-4 groomed -f jsonl`',
   'installation-protocol':
     'prints the protocol line core probes for under every format (installation.test.ts)',
   move: 'place.parity.test.ts pins `move MMR-5 --to MMR-1 -f jsonl`',
   next: 'next.parity.test.ts pins `next -s MMR -f jsonl`',
+  overturn: 'decision-verbs.parity.test.ts covers jsonl',
   pair: 'needs a pairing host; pair.test.ts holds its jsonl to one record',
   park: 'lifecycle.parity.test.ts pins `park MMR-s1 -f jsonl`',
   projects: 'projects.parity.test.ts pins `projects -f jsonl`',

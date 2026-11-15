@@ -29,6 +29,7 @@ export const MIGRATIONS = [
   { name: '0014_task_staged', version: 14 },
   { name: '0015_delivery', version: 15 },
   { name: '0016_delivery_membership', version: 16 },
+  { name: '0017_decision', version: 17 },
 ] as const;
 
 export type Migration = (typeof MIGRATIONS)[number];

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { decisionSchemas } from './decision';
 import { deliverySchemas } from './delivery';
 import { FACET_NAMES } from './dto';
 import type { ConsoleEngine } from './engine-console';
@@ -156,6 +157,7 @@ export const engineSchemas = {
     output: engineViews.tree,
   },
   ...deliverySchemas(project),
+  ...decisionSchemas(project),
   ...nodeWriteSchemas(project),
   ...seedScratchSchemas(project),
 } as const;

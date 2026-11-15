@@ -3,6 +3,7 @@ import type { Kysely } from 'kysely';
 import type { Store } from '../store';
 import { createSqlArtifactStore } from './artifacts';
 import { createSqlBodySectionStore } from './body-sections';
+import { createSqlDecisionStore } from './decisions';
 import { createSqlDeliveryStore } from './deliveries';
 import type { StoreDialect } from './dialect';
 import { loadProjectActivity } from './project-activity';
@@ -44,6 +45,7 @@ export function createSqlStore(db: Kysely<DB>, dialect: StoreDialect): Store {
   return {
     artifacts: createSqlArtifactStore(db, dialect),
     bodySections: createSqlBodySectionStore(db, dialect),
+    decisions: createSqlDecisionStore(db, dialect),
     deliveries: createSqlDeliveryStore(db, dialect),
     export: () => exportSqlStoreFrom(db, dialect),
     import: (document, opts) => importSqlStore(db, dialect, document, opts),

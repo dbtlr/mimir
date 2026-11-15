@@ -13,6 +13,7 @@ import type {
 
 import type { ArtifactStore } from './artifacts/store';
 import type { BodySectionStore, NextFacet } from './body-sections/store';
+import type { DecisionStore } from './decisions/store';
 import type { StoredDelivery, DeliveryStore } from './deliveries/store';
 import type { ImportOptions, ImportReport, StoreExport } from './export';
 import type { Artifact, Dependency, Node, Project } from './model';
@@ -389,6 +390,7 @@ export type Store = {
    * project-anchored like seeds, keyed by the `KEY-dN` external identity.
    */
   readonly deliveries: DeliveryStore;
+  readonly decisions: DecisionStore;
 
   /** UUID-addressed, project-owned temporary episode documents. */
   readonly scratchpads: ScratchpadStore;

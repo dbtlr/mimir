@@ -2,8 +2,15 @@
  * The record `get` reads, and the text of its views, which the writes that
  * echo an artifact, a seed, or a delivery print as well.
  */
-import type { ArtifactDetail, DeliveryView, NodeView, SeedView } from '@mimir/contract';
+import type {
+  ArtifactDetail,
+  DecisionView,
+  DeliveryView,
+  NodeView,
+  SeedView,
+} from '@mimir/contract';
 
+import { renderDecision } from './decisions';
 import { renderDelivery } from './deliveries';
 import { renderRecords, renderTable } from './node';
 import type { Presentation } from './presentation';
@@ -14,11 +21,15 @@ export type GetValue = { presentation: Presentation; wire: Record<string, unknow
   | { kind: 'node'; node: NodeView; expandAnnotations: boolean }
   | { kind: 'artifact'; artifact: ArtifactDetail }
   | { kind: 'seed'; seed: SeedView }
+  | { kind: 'decision'; decision: DecisionView }
   | { kind: 'delivery'; delivery: DeliveryView }
 );
 
 /** The styled `records` text of a record `get` read. */
 export function recordsOf(value: Readonly<GetValue>): string {
+  if (value.kind === 'decision') {
+    return renderDecision(value.decision, value.presentation);
+  }
   if (value.kind === 'delivery') {
     return renderDelivery(value.delivery, value.presentation);
   }
@@ -33,6 +44,9 @@ export function recordsOf(value: Readonly<GetValue>): string {
 
 /** A seed has no table of its own: its `table` is its record. */
 export function tableOf(value: Readonly<GetValue>): string {
+  if (value.kind === 'decision') {
+    return renderDecision(value.decision, value.presentation);
+  }
   if (value.kind === 'delivery') {
     return renderDelivery(value.delivery, value.presentation);
   }
@@ -48,6 +62,9 @@ export function tableOf(value: Readonly<GetValue>): string {
 
 /** The id the `ids` view prints for a record. */
 export function idOf(value: Readonly<GetValue>): string {
+  if (value.kind === 'decision') {
+    return value.decision.id;
+  }
   if (value.kind === 'delivery') {
     return value.delivery.id;
   }

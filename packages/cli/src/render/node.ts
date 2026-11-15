@@ -181,6 +181,12 @@ function fieldPairs(node: NodeView, p: Presentation): [string, string][] {
     ['remote', node.remote],
     ['external ref', node.externalRef],
     ['delivery', node.delivery],
+    [
+      'decisions',
+      node.decisions?.length
+        ? node.decisions.map((d) => `${d.id} (${d.lifecycle})`).join(', ')
+        : undefined,
+    ],
     ['upstream', node.upstream],
     ['host', node.host],
     ['harness', node.harness],

@@ -25,7 +25,7 @@ import type {
 import type { Machine } from './machine';
 
 /** The kind of record an id names, by its grammar alone. */
-export type IdKind = 'project' | 'node' | 'artifact' | 'seed' | 'delivery';
+export type IdKind = 'project' | 'node' | 'artifact' | 'seed' | 'delivery' | 'decision';
 
 /** The input grammar core owns. Each parser throws a `MimirError` the command reports as usage. */
 export type Grammar = {

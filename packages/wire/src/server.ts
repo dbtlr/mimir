@@ -212,6 +212,10 @@ export function createEngineRouter(engine: Engine) {
       .input((value: unknown) => parseEngineInput(engineSchemas.artifacts.input, value))
       .output(engineSchemas.artifacts.output)
       .query(({ input }) => engine.artifacts(input)),
+    confirm: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.confirm.input, value))
+      .output(engineSchemas.confirm.output)
+      .mutation(({ input }) => engine.confirm(input)),
     console: t.router({
       nodeWork: procedure
         .input((value: unknown) => parseEngineInput(consoleSchemas.nodeWork.input, value))
@@ -242,6 +246,14 @@ export function createEngineRouter(engine: Engine) {
         .output(consoleSchemas.upstreamTasks.output)
         .query(({ input }) => engine.console.upstreamTasks(input)),
     }),
+    decide: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.decide.input, value))
+      .output(engineSchemas.decide.output)
+      .mutation(({ input }) => engine.decide(input)),
+    decisionUpdate: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.decisionUpdate.input, value))
+      .output(engineSchemas.decisionUpdate.output)
+      .mutation(({ input }) => engine.decisionUpdate(input)),
     deliveries: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.deliveries.input, value))
       .output(engineSchemas.deliveries.output)
@@ -294,6 +306,10 @@ export function createEngineRouter(engine: Engine) {
       .input((value: unknown) => parseEngineInput(engineSchemas.getArtifact.input, value))
       .output(engineSchemas.getArtifact.output)
       .query(({ input }) => engine.getArtifact(input)),
+    getDecision: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.getDecision.input, value))
+      .output(engineSchemas.getDecision.output)
+      .query(({ input }) => engine.getDecision(input)),
     getDelivery: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.getDelivery.input, value))
       .output(engineSchemas.getDelivery.output)
@@ -314,6 +330,10 @@ export function createEngineRouter(engine: Engine) {
       .input((value: unknown) => parseEngineInput(engineSchemas.next.input, value))
       .output(engineSchemas.next.output)
       .query(({ input }) => engine.next(input)),
+    overturn: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.overturn.input, value))
+      .output(engineSchemas.overturn.output)
+      .mutation(({ input }) => engine.overturn(input)),
     overview: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.overview.input, value))
       .output(engineSchemas.overview.output)

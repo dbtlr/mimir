@@ -363,7 +363,7 @@ exit 0
 |   created      2026-10-01 12:00 UTC
 --- state
 + board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
-+ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","delivery":null,"deps":{"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","decisions":[],"delivery":null,"deps":{"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 ~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
 + seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
 
@@ -373,7 +373,7 @@ exit 0
 | MMR-10
 --- state
 + board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
-+ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","delivery":null,"deps":{"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","decisions":[],"delivery":null,"deps":{"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 ~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
 + seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
 
@@ -399,7 +399,7 @@ exit 0
 | }
 --- state
 + board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
-+ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","delivery":null,"deps":{"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","decisions":[],"delivery":null,"deps":{"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 ~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
 + seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
 
@@ -418,7 +418,7 @@ exit 0
 |   created      2026-10-01 12:00 UTC
 --- state
 + board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
-+ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","delivery":null,"deps":{"dependsOn":[]},"description":"Spawned body.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":"p1","session":null,"size":"small","summary":null,"tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}],"title":"Add the hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","decisions":[],"delivery":null,"deps":{"dependsOn":[]},"description":"Spawned body.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":"p1","session":null,"size":"small","summary":null,"tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}],"title":"Add the hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 ~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
 + seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
 
@@ -435,7 +435,7 @@ exit 0
 |   created    2026-10-01 12:00 UTC
 --- state
 + board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
-+ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","delivery":null,"deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Cache the plan","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","decisions":[],"delivery":null,"deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Cache the plan","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 ~ seeds.MMR[MMR-s2].lifecycle: "new" -> "promoted"
 + seeds.MMR[MMR-s2].spawned[@0]: "MMR-10"
 
@@ -502,7 +502,7 @@ exit 0
 |   created      2026-10-01 12:00 UTC
 --- state
 + board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
-+ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","delivery":null,"deps":{"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":"medium","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","decisions":[],"delivery":null,"deps":{"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":"medium","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 ~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
 + seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
 
@@ -593,7 +593,7 @@ exit 0
 |   created    2026-10-01 12:00 UTC
 --- state
 + board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
-+ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","delivery":null,"deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Export","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","decisions":[],"delivery":null,"deps":{"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"Export","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 ~ seeds.MMR[MMR-s4].readyToResolve: true -> false
 + seeds.MMR[MMR-s4].spawned[@1]: "MMR-10"
 
@@ -640,7 +640,7 @@ exit 0
 |   created      2026-10-01 12:00 UTC
 --- state
 + board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
-+ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","delivery":null,"deps":{"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":"p1","session":null,"size":null,"summary":null,"tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","decisions":[],"delivery":null,"deps":{"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":"p1","session":null,"size":null,"summary":null,"tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 ~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
 + seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
 
@@ -659,7 +659,7 @@ exit 0
 |   created      2026-10-01 12:00 UTC
 --- state
 + board.MMR.nodes.items[MMR-10]: {"id":"MMR-10"}
-+ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","delivery":null,"deps":{"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
++ nodes[MMR-10]: {"annotations":[],"blockOwner":null,"branch":null,"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","decisions":[],"delivery":null,"deps":{"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"workerHarness":null,"workerSession":null}
 ~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
 + seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
 

@@ -575,3 +575,13 @@ The project scope and existing filters still apply. A delivery outside the
 selected project refuses. Without the flag, `next` excludes every member.
 A terminal delivery lists no members; a non-delivery id or an archived
 project refuses. The set output shape is unchanged.
+
+## Decisions
+
+`decide`, `confirm`, `overturn`, `update KEY-qN`, and `get KEY-qN` return the full
+decision record: id, project_key, seq, question, options, recommended, taken,
+class, why, delivery, lifecycle, overturn_option, outcome_note, created_at,
+updated_at, tasks, and history. Options retain input order; tasks read in task
+sequence order; history reads in insertion order. Each history row carries
+kind, from_value, to_value, reason, task, and at. Task `get` adds `decisions`, a
+list of id/lifecycle pairs in decision sequence order. Other task reads omit it.

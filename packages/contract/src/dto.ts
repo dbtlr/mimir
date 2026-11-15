@@ -391,6 +391,7 @@ export type NodeView = {
   blockOwner?: BlockOwner | null;
   externalRef?: string | null;
   /** The requester-side seed pointer (`KEY-sN`, MMR-244/245) — reference-only. */
+  decisions?: { id: string; lifecycle: 'provisional' | 'confirmed' | 'overturned' }[];
   delivery?: string | null;
   upstream?: string | null;
   /**

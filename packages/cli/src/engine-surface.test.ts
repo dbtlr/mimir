@@ -52,7 +52,10 @@ const SEED_VARIANT: Readonly<Record<string, readonly string[]>> = {
 const SURFACES: readonly Surface[] = [
   // Reads.
   same('artifacts'),
-  same('get', 'getNode', 'getArtifact', 'getSeed', 'getDelivery'),
+  same('get', 'getNode', 'getArtifact', 'getSeed', 'getDelivery', 'getDecision'),
+  same('decide'),
+  same('confirm'),
+  same('overturn'),
   same('list'),
   same('next'),
   same('overview'),
@@ -83,7 +86,15 @@ const SURFACES: readonly Surface[] = [
   same('tag'),
   same('undepend'),
   same('untag'),
-  same('update', 'update', 'updateProject', 'updateArtifact', 'seedUpdate', 'deliveryUpdate'),
+  same(
+    'update',
+    'update',
+    'updateProject',
+    'updateArtifact',
+    'seedUpdate',
+    'deliveryUpdate',
+    'decisionUpdate',
+  ),
   // The uniform verbs, one CLI command and MCP tool each.
   ...UNIFORM_VERBS.map((verb) => same(verb, verb, ...(SEED_VARIANT[verb] ?? []))),
   // Seed writes.

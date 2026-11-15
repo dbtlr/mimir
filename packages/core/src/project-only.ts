@@ -16,6 +16,9 @@ export function identityNoun(kind: Identity['kind']): string {
     case 'artifact': {
       return 'an artifact';
     }
+    case 'decision': {
+      return 'a decision (use get, update, confirm, or overturn; decide records a new decision)';
+    }
     case 'delivery': {
       return 'a delivery';
     }

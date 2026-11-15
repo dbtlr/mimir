@@ -42,6 +42,7 @@ exit 0
 |       "stem": "MMR-3"
 |     }
 |   ],
+|   "decisions": [],
 |   "deliveries": [],
 |   "edges": [
 |     {
@@ -409,6 +410,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 1,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 8,
 |         "seed": 1
@@ -425,6 +427,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 0,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 3,
 |         "seed": 0
@@ -438,7 +441,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 10,
+|   "schema_version": 11,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -561,6 +564,7 @@ exit 0
 |       "stem": "MMR-3"
 |     }
 |   ],
+|   "decisions": [],
 |   "deliveries": [],
 |   "edges": [
 |     {
@@ -928,6 +932,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 1,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 8,
 |         "seed": 1
@@ -944,6 +949,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 0,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 3,
 |         "seed": 0
@@ -957,7 +963,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 10,
+|   "schema_version": 11,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -1080,6 +1086,7 @@ exit 0
 |       "stem": "MMR-3"
 |     }
 |   ],
+|   "decisions": [],
 |   "deliveries": [],
 |   "edges": [
 |     {
@@ -1447,6 +1454,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 1,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 8,
 |         "seed": 1
@@ -1463,6 +1471,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 0,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 3,
 |         "seed": 0
@@ -1476,7 +1485,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 10,
+|   "schema_version": 11,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -1599,6 +1608,7 @@ exit 0
 |       "stem": "MMR-3"
 |     }
 |   ],
+|   "decisions": [],
 |   "deliveries": [],
 |   "edges": [
 |     {
@@ -1966,6 +1976,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 1,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 8,
 |         "seed": 1
@@ -1982,6 +1993,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 0,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 3,
 |         "seed": 0
@@ -1995,7 +2007,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 10,
+|   "schema_version": 11,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -2118,6 +2130,7 @@ exit 0
 |       "stem": "MMR-3"
 |     }
 |   ],
+|   "decisions": [],
 |   "deliveries": [],
 |   "edges": [
 |     {
@@ -2485,6 +2498,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 1,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 8,
 |         "seed": 1
@@ -2501,6 +2515,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 0,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 3,
 |         "seed": 0
@@ -2514,7 +2529,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 10,
+|   "schema_version": 11,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -2596,7 +2611,7 @@ exit 0
 ### store export <file>
 exit 0
 --- stdout
-| {"artifacts":1,"nodes":11,"projects":2,"scratchpads":0,"seeds":1,"exported_at":"2026-01-01T00:00:00.000Z","path":"<dir>/a.json","schema_version":10}
+| {"artifacts":1,"nodes":11,"projects":2,"scratchpads":0,"seeds":1,"exported_at":"2026-01-01T00:00:00.000Z","path":"<dir>/a.json","schema_version":11}
 --- file
 | {
 |   "annotations": [
@@ -2639,6 +2654,7 @@ exit 0
 |       "stem": "MMR-3"
 |     }
 |   ],
+|   "decisions": [],
 |   "deliveries": [],
 |   "edges": [
 |     {
@@ -3006,6 +3022,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 1,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 8,
 |         "seed": 1
@@ -3022,6 +3039,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 0,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 3,
 |         "seed": 0
@@ -3035,7 +3053,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 10,
+|   "schema_version": 11,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -3160,6 +3178,7 @@ exit 0
 |       "stem": "MMR-3"
 |     }
 |   ],
+|   "decisions": [],
 |   "deliveries": [],
 |   "edges": [
 |     {
@@ -3527,6 +3546,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 1,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 8,
 |         "seed": 1
@@ -3543,6 +3563,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 0,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 3,
 |         "seed": 0
@@ -3556,7 +3577,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 10,
+|   "schema_version": 11,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -3681,6 +3702,7 @@ exit 0
 |       "stem": "MMR-3"
 |     }
 |   ],
+|   "decisions": [],
 |   "deliveries": [],
 |   "edges": [
 |     {
@@ -4048,6 +4070,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 1,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 8,
 |         "seed": 1
@@ -4064,6 +4087,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 0,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 3,
 |         "seed": 0
@@ -4077,7 +4101,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 10,
+|   "schema_version": 11,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -4202,6 +4226,7 @@ exit 0
 |       "stem": "MMR-3"
 |     }
 |   ],
+|   "decisions": [],
 |   "deliveries": [],
 |   "edges": [
 |     {
@@ -4569,6 +4594,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 1,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 8,
 |         "seed": 1
@@ -4585,6 +4611,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 0,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 3,
 |         "seed": 0
@@ -4598,7 +4625,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 10,
+|   "schema_version": 11,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -4680,7 +4707,7 @@ exit 0
 ### store export <file> -f json
 exit 0
 --- stdout
-| {"artifacts":1,"nodes":11,"projects":2,"scratchpads":0,"seeds":1,"exported_at":"2026-01-01T00:00:00.000Z","path":"<dir>/e.json","schema_version":10}
+| {"artifacts":1,"nodes":11,"projects":2,"scratchpads":0,"seeds":1,"exported_at":"2026-01-01T00:00:00.000Z","path":"<dir>/e.json","schema_version":11}
 --- file
 | {
 |   "annotations": [
@@ -4723,6 +4750,7 @@ exit 0
 |       "stem": "MMR-3"
 |     }
 |   ],
+|   "decisions": [],
 |   "deliveries": [],
 |   "edges": [
 |     {
@@ -5090,6 +5118,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 1,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 8,
 |         "seed": 1
@@ -5106,6 +5135,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 0,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 3,
 |         "seed": 0
@@ -5119,7 +5149,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 10,
+|   "schema_version": 11,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -5201,7 +5231,7 @@ exit 0
 ### store export <file> -f jsonl
 exit 0
 --- stdout
-| {"artifacts":1,"nodes":11,"projects":2,"scratchpads":0,"seeds":1,"exported_at":"2026-01-01T00:00:00.000Z","path":"<dir>/f.json","schema_version":10}
+| {"artifacts":1,"nodes":11,"projects":2,"scratchpads":0,"seeds":1,"exported_at":"2026-01-01T00:00:00.000Z","path":"<dir>/f.json","schema_version":11}
 --- file
 | {
 |   "annotations": [
@@ -5244,6 +5274,7 @@ exit 0
 |       "stem": "MMR-3"
 |     }
 |   ],
+|   "decisions": [],
 |   "deliveries": [],
 |   "edges": [
 |     {
@@ -5611,6 +5642,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 1,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 8,
 |         "seed": 1
@@ -5627,6 +5659,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 0,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 3,
 |         "seed": 0
@@ -5640,7 +5673,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 10,
+|   "schema_version": 11,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -5937,7 +5970,7 @@ exit 1
 | {
 |   "code": "validation",
 |   "hints": [
-|     "this binary reads schema versions 1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
+|     "this binary reads schema versions 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11"
 |   ],
 |   "message": "unsupported transfer document schema version 99"
 | }
@@ -5949,7 +5982,7 @@ exit 1
 | {
 |   "code": "validation",
 |   "hints": [
-|     "this binary reads schema versions 1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
+|     "this binary reads schema versions 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11"
 |   ],
 |   "message": "unsupported transfer document schema version 99"
 | }
@@ -6028,6 +6061,7 @@ exit 0
 |       "stem": "MMR-3"
 |     }
 |   ],
+|   "decisions": [],
 |   "deliveries": [],
 |   "edges": [
 |     {
@@ -6395,6 +6429,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 1,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 8,
 |         "seed": 1
@@ -6411,6 +6446,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 0,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 3,
 |         "seed": 0
@@ -6424,7 +6460,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 10,
+|   "schema_version": 11,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -6564,6 +6600,7 @@ exit 0
 |       "stem": "MMR-3"
 |     }
 |   ],
+|   "decisions": [],
 |   "deliveries": [],
 |   "edges": [
 |     {
@@ -6931,6 +6968,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 1,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 8,
 |         "seed": 1
@@ -6947,6 +6985,7 @@ exit 0
 |       "archived_at": null,
 |       "counters": {
 |         "artifact": 0,
+|         "decision": 0,
 |         "delivery": 0,
 |         "node": 3,
 |         "seed": 0
@@ -6960,7 +6999,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 10,
+|   "schema_version": 11,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
