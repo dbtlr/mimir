@@ -10,14 +10,13 @@ A **checklist item** is a small, numbered item on a task. A caller adds it,
 then checks it when it is done or drops it with a reason when it will not be
 done. A cleanup task that collects review follow-ups from several deliveries
 ([ADR 0042](0042-the-delivery-record.md)) keeps them this way, and any other
-task can keep a short list of the same kind. This is one of the later phases
-ADR 0042 names under *Out of scope here*.
+task can keep a short list of the same kind.
 
 Items are general. They carry no delivery link and no tag-named meaning
 ([ADR 0002](0002-general-purpose-primitives-not-baked-in-semantics.md)). One
 tagged item primitive for a delivery's known limitations, its declined
-findings, and cleanup items was rejected, because a reader would then have to
-know tag names. Limitations and declined findings are lists on the delivery
+findings, and cleanup items was rejected, because Mimir's own delivery reads
+would then have to interpret tag names, which ADR 0002 forbids the core to do. Limitations and declined findings are lists on the delivery
 instead, recorded with the delivery journal.
 
 ## Decision
@@ -95,7 +94,7 @@ mimir item drop MMR-12 3 "Covered by MMR-14"
   it belongs to.
 - A phase, an initiative, a project, a seed, a delivery, a decision, or an
   artifact id is refused as `validation`, naming the id's kind.
-  An id that is not a Mimir id is a usage error.
+  An id that is not a Mimir id is `not_found`, as on `annotate`.
 - **Errors.** The CLI refuses an item number that is not a positive integer
   as a usage error, before the store opens, as `scratch agenda` does; the
   Engine schema refuses it as `validation`. A missing task is `not_found`.
@@ -110,12 +109,13 @@ mimir item drop MMR-12 3 "Covered by MMR-14"
 
 ADR 0024 makes every work-state mutation a flat top-level verb and allows
 Scratchpads the only noun group, an exception it says does not generalize.
-Items are a second exception, for the reason Scratchpads are one: an item is a
-numbered sub-record inside another record, and its operations are generic
+Items are a second exception, for one of the reasons Scratchpads are one: an
+item is a numbered sub-record inside a task, and its operations are generic
 words. Flat, `check` and `drop` would sit at the top level beside `done` and
 `abandon`, where `mimir drop MMR-12 3` reads as deleting the task, and other
 records' sub-items could claim the same words later. The group keeps those
-words scoped to a checklist. The amendment is recorded in ADR 0024 itself.
+words scoped to a checklist. The amendment, with its placement test, is
+recorded in ADR 0024 itself.
 
 ### Reads
 
@@ -164,9 +164,9 @@ refuses while the project is archived, as every other node write does.
 
 ## Considered and rejected
 
-- **One general tagged item primitive** shared by tasks and deliveries. A
-  reader would need to know the tag names to tell a limitation from a cleanup
-  item, which ADR 0002 forbids.
+- **One general tagged item primitive** shared by tasks and deliveries.
+  Mimir's delivery reads would have to interpret tag names to tell a
+  limitation from a cleanup item, which ADR 0002 forbids the core to do.
 - **`uncheck` and `undrop`.** They make an item's state reversible, and so its
   history needs a log of its own. A new item records the same intent.
 - **Items gate `done`.** That would turn a reader's cue into a rule Mimir
@@ -184,8 +184,8 @@ refuses while the project is archived, as every other node write does.
 
 - A new `checklist_item` table, migration 0018 on SQLite and Postgres, keyed by
   `(node_id, number)`.
-- Three Engine methods, their wire routes, the `item` CLI command and MCP
-  tool, and the `items` facet on `get`.
+- Three Engine methods, their wire routes, the `item` CLI group and its three
+  MCP tools, and the `items` facet on `get`.
 - The store export's schema version increments, and doctor gains the item
   checks above.
 - ADR 0024 gains an amendment for the `item` group.

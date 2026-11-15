@@ -126,7 +126,8 @@ invalid status whose error points at the new verb. MCP gains a matching
 use UUID handles outside the sequenced work-id grammar and expose a complete
 temporary-state lifecycle, so `mimir scratch <operation>` keeps their generic
 operations from overloading the established work verbs. This exception does not
-generalize to tasks, Seeds, Artifacts, or future work types.
+generalize to tasks, Seeds, Artifacts, or future work types. (Checklist items
+are a second, narrowly bounded exception: see the MMR-678 amendment.)
 
 **Rename policy (pre-1.0): hard breaks, no aliases.** A rename removes the
 old verb outright — no alias or shim table, which would let two names mean
@@ -267,6 +268,17 @@ the flat work-plane rule, beside Scratchpads. An item is a numbered sub-record
 inside a task, and its operations are generic words: flat, `check` and `drop`
 would sit beside `done` and `abandon`, where `mimir drop MMR-12 3` reads as
 deleting the task. The group scopes those words to a checklist. Each
-subcommand is its own MCP tool (`item_add`, `item_check`, `item_drop`). The
-exception covers sub-records of a work record, not records themselves: a new
-record type still takes flat verbs.
+subcommand is its own MCP tool (`item_add`, `item_check`, `item_drop`).
+
+The placement test for this exception has two parts, and a command takes a noun
+group only when both hold:
+
+1. Its operations address a sub-record by its parent's id plus a number, after
+   the sub-record was created (`item check MMR-12 2`).
+2. Those operations are generic words that would collide with or read as
+   existing top-level verbs (`check`, `drop`).
+
+A new record type fails the first part and takes flat verbs. An append-only
+list whose only operation is a specific add verb fails both: a delivery's known
+limitations and declined findings are written by the flat verbs `limitation`
+and `decline`.
