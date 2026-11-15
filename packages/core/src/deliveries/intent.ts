@@ -1,14 +1,25 @@
-import type { DeliveryHistory, DeliveryView, EngineInput } from '@mimir/contract';
+import { DELIVERY_OP_FACTS } from '@mimir/contract';
+import type {
+  DeliveryHistory,
+  DeliveryLifecycle,
+  DeliveryVerb,
+  DeliveryView,
+  EngineInput,
+  Lifecycle,
+} from '@mimir/contract';
 
 import { assertBoardActive } from '../archive-lock';
 import { blankProse, notFound, projectNotFound, validation } from '../errors';
 import { parseIdentity, renderDeliveryRef } from '../ids';
-import type { Project } from '../model';
+import type { Node, Project } from '../model';
 import { normalizeHandle } from '../mutations/handles';
+import { completeTaskInTransaction } from '../mutations/lifecycle';
 import { identityNoun } from '../project-only';
+import { rankAppender } from '../rank';
 import type { Store } from '../store';
 import { now } from '../time';
-import type { DeliveryCreate, DeliveryPatch, StoredDelivery } from './store';
+import { releaseMember } from './membership';
+import type { DeliveryStatePatch, DeliveryCreate, DeliveryPatch, StoredDelivery } from './store';
 
 /**
  * The delivery verbs (MMR-676, ADR 0042): the transport-agnostic rules above
@@ -194,4 +205,171 @@ export async function updateDelivery(
     throw notFound(`${id} doesn't exist`);
   }
   return viewOf(stored);
+}
+
+/** The indefinite article a lifecycle word takes: `an agreed`, `a running`. */
+const article = (word: string): string => (/^[aeiou]/.test(word) ? `an ${word}` : `a ${word}`);
+
+/**
+ * The fix for a lifecycle verb that meets a live delivery in the wrong
+ * lifecycle, read from where the delivery is now: what moves it on toward the
+ * verb, or, when it is already past the verb, what it takes next.
+ */
+function lifecycleFix(verb: DeliveryVerb, id: string, lifecycle: DeliveryLifecycle): string {
+  if (lifecycle === 'agreed') {
+    return verb === 'submit' ? `start ${id} first` : `start ${id} first, then submit it`;
+  }
+  if (lifecycle === 'running') {
+    return verb === 'start'
+      ? `it is already running; submit ${id} when its milestone is ready`
+      : `submit ${id} first`;
+  }
+  return `it is already at its milestone; land ${id}, or return ${id} to keep working`;
+}
+
+/** The steps that bring a live, unstaged member to `staged`, read from its lifecycle. */
+function stagingFix(task: Pick<Node, 'id' | 'lifecycle'>): string {
+  const steps: Partial<Record<Lifecycle, string>> = {
+    in_progress: `submit ${task.id}, then stage it`,
+    under_review: `stage ${task.id}`,
+  };
+  const fix = steps[task.lifecycle ?? 'todo'] ?? `start ${task.id}, submit it, then stage it`;
+  return `${fix}, or update ${task.id} --delivery none`;
+}
+
+/**
+ * A delivery verb's reason, normalized: blank text is no reason, so an
+ * optional reason stores `null` and a required one refuses (ADR 0042 Verbs).
+ */
+function reasonOf(verb: DeliveryVerb, id: string, given: string | undefined): string | null {
+  const reason = given === undefined || given.trim() === '' ? null : given;
+  if (reason === null && DELIVERY_OP_FACTS[verb].reason === 'required') {
+    throw validation(`${verb} requires a nonblank reason`, `${verb} ${id} "reason"`);
+  }
+  return reason;
+}
+
+/** Apply a delivery claim and its member effects in the write snapshot that guards them. */
+export async function transitionDelivery(
+  store: Store,
+  verb: DeliveryVerb,
+  input: { id: string; reason?: string },
+): Promise<DeliveryView> {
+  const { key, seq } = requireDeliveryRef(input.id);
+  return viewOf(
+    await store.deliveries.transact(key, seq, async (delivery, w) => {
+      const { id } = input;
+      const reason = reasonOf(verb, id, input.reason);
+      const patch: DeliveryStatePatch = {};
+      const history: DeliveryHistory[] = [];
+      const log = (kind: 'hold' | 'lifecycle', from: string, to: string) => {
+        history.push({
+          at: now(),
+          from_value: from,
+          kind,
+          reason,
+          task: null,
+          to_value: to,
+        });
+      };
+      const clearHold = () => {
+        patch.hold = 'none';
+        patch.hold_reason = null;
+        log('hold', delivery.hold, 'none');
+      };
+      const held = () => {
+        if (delivery.hold !== 'none') {
+          throw validation(
+            `${id} is ${delivery.hold}`,
+            `${delivery.hold === 'stopped' ? 'unblock' : 'unpark'} ${id} first`,
+          );
+        }
+      };
+      if (verb === 'block' || verb === 'park') {
+        held();
+        patch.hold = verb === 'block' ? 'stopped' : 'paused';
+        patch.hold_reason = reason;
+        log('hold', 'none', patch.hold);
+        return { history, patch };
+      }
+      if (verb === 'unblock' || verb === 'unpark') {
+        const expected = verb === 'unblock' ? 'stopped' : 'paused';
+        if (delivery.hold !== expected) {
+          throw validation(
+            `${id} is not ${expected}`,
+            delivery.hold === 'none'
+              ? `use ${verb === 'unblock' ? 'block' : 'park'} ${id} "reason" first`
+              : `${delivery.hold === 'stopped' ? 'unblock' : 'unpark'} ${id} first`,
+          );
+        }
+        clearHold();
+        return { history, patch };
+      }
+      if (verb !== 'abandon') {
+        held();
+      }
+      const source = DELIVERY_OP_FACTS[verb].from[0];
+      if (verb !== 'abandon' && delivery.lifecycle !== source) {
+        throw validation(
+          `${verb} requires ${article(source)} delivery (is ${delivery.lifecycle})`,
+          lifecycleFix(verb, id, delivery.lifecycle),
+        );
+      }
+      const members: Node[] = [];
+      for (const taskId of delivery.members) {
+        const task = await w.loadNode(taskId);
+        if (task !== undefined) {
+          members.push(task);
+        }
+      }
+      if (verb === 'start') {
+        if (members.length === 0) {
+          throw validation(
+            `${id} has no live member`,
+            `add a member with update <task> --delivery ${id}`,
+          );
+        }
+        if (delivery.agreement === null || delivery.agreement.trim() === '') {
+          throw validation(
+            `${id} has no agreement`,
+            `set the agreement with update ${id} --agreement …`,
+          );
+        }
+      }
+      if (verb === 'land') {
+        for (const task of members) {
+          if (task.hold !== 'none') {
+            throw validation(
+              `${task.id} is held`,
+              `${task.hold === 'blocked' ? 'unblock' : 'unpark'} ${task.id} first`,
+            );
+          }
+          if (task.lifecycle !== 'staged') {
+            throw validation(`${task.id} is not staged`, stagingFix(task));
+          }
+        }
+        if (members.length === 0) {
+          throw validation(
+            `${id} has no staged member`,
+            `add a member with update <task> --delivery ${id}, then submit and stage it`,
+          );
+        }
+        for (const task of members) {
+          await completeTaskInTransaction(w, task);
+        }
+      }
+      if (verb === 'abandon') {
+        const nextRank = rankAppender(w, key);
+        for (const task of members) {
+          await releaseMember(w, task, id, reason, nextRank);
+        }
+        if (delivery.hold !== 'none') {
+          clearHold();
+        }
+      }
+      patch.lifecycle = DELIVERY_OP_FACTS[verb].to;
+      log('lifecycle', delivery.lifecycle, patch.lifecycle);
+      return { history, patch };
+    }),
+  );
 }

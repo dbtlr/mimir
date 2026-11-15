@@ -42,17 +42,18 @@ COMMANDS
   version            Print the version of this build.
   queue              Reserve a task for an autonomous run (todo → queued).
   unqueue            Cancel a reservation and return the task to todo (queued → todo).
-  start              Begin a task (todo/queued → in_progress).
-  submit             Submit for review (in_progress → under_review).
+  start              Begin a task (todo/queued → in_progress). Also takes a delivery (KEY-dN): agreed → running; task handle flags are refused.
+  submit             Submit for review (in_progress → under_review). Also takes a delivery (KEY-dN): running → milestone.
   stage              Mark reviewed work accepted on its branch, not yet on main (under_review → staged).
-  return             Send back for changes (under_review/staged → in_progress).
+  land               Land a milestone delivery and complete every staged member.
+  return             Send back for changes (under_review/staged → in_progress). Also takes a delivery (KEY-dN): milestone → running, with an optional reason.
   done               Complete a task (approves a review or lands a staged task).
-  abandon            Abandon a task (kept, not deleted).
+  abandon            Abandon a task (kept, not deleted). Also takes a delivery (KEY-dN): agreed/running/milestone → abandoned, with a required reason.
   reopen             Reopen a terminal task (done/abandoned → in_progress).
-  park               Put a task on hold. Also takes a seed (KEY-sN).
-  unpark             Clear the parked hold. Also takes a seed (KEY-sN).
-  block              Mark as externally blocked.
-  unblock            Clear the blocked hold.
+  park               Put a task on hold. Also takes a seed (KEY-sN). Also takes a delivery (KEY-dN): hold none → paused, with a required reason.
+  unpark             Clear the parked hold. Also takes a seed (KEY-sN). Also takes a delivery (KEY-dN): hold paused → none.
+  block              Mark as externally blocked. Also takes a delivery (KEY-dN): hold none → stopped, with a required reason; --on is refused.
+  unblock            Clear the blocked hold. Also takes a delivery (KEY-dN): hold stopped → none.
   archive            Archive a project — freeze + hide it and its subtree (reversible).
   unarchive          Restore an archived project.
 

@@ -224,7 +224,7 @@ export type StoreWriter = {
   appendDeliveryMember: (
     delivery: string,
     task: string,
-    event: 'joined' | 'left' | 'abandoned',
+    event: 'joined' | 'left' | 'released' | 'abandoned',
   ) => Promise<void>;
   /** The in-scope bulk snapshot the mutation guards derive over. */
   loadWorkingSet: () => Promise<WorkingSet>;

@@ -300,7 +300,9 @@ exit 1
 --- failure
 | {
 |   "code": "validation",
-|   "hints": [],
-|   "message": "MMR-d1 is a delivery — only get and update act on it"
+|   "hints": [
+|     "a delivery takes start, block, unblock, park, unpark, submit, return, land, and abandon"
+|   ],
+|   "message": "archive does not apply to a delivery: MMR-d1 is a delivery"
 | }
 

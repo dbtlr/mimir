@@ -9,15 +9,19 @@ import { Command } from '@loomcli/core';
 import { helpCommand } from '@loomcli/plugins/help/extension';
 import { mcpCommand } from '@loomcli/plugins/mcp/extension';
 import {
+  DELIVERY_OP_FACTS,
+  encodeDelivery,
   HANDLE_FIELD_ARGS,
   HANDLE_FIELD_KEYS,
   intentEncoders,
+  isDeliveryVerb,
   isTerminalLifecycle,
   MimirError,
   OP_FACTS,
   projectNotFound,
 } from '@mimir/contract';
 import type {
+  DeliveryVerb,
   Engine,
   HandleFieldArg,
   HandleFieldKey,
@@ -52,11 +56,46 @@ function arrowOf(op: OpFact): string {
     : '';
 }
 
-/** The one-line description: the canonical summary, with its transition arrow and seed note. */
+/** The move a delivery verb makes, from its fact: `agreed → running`, `hold none → stopped`. */
+function deliveryMove(verb: DeliveryVerb): string {
+  const op = DELIVERY_OP_FACTS[verb];
+  return `${op.axis === 'hold' ? 'hold ' : ''}${op.from.join('/')} → ${op.to}`;
+}
+
+/** The task inputs a delivery verb refuses (ADR 0042), in the CLI's words and the agent's. */
+const DELIVERY_REFUSALS: Partial<Record<DeliveryVerb, { cli: string; agent: string }>> = {
+  block: { agent: ' It refuses on.', cli: '; --on is refused' },
+  start: {
+    agent: ' It refuses every handle field and never fills identity from the shell.',
+    cli: '; task handle flags are refused',
+  },
+};
+
+/** The one-line description: the canonical summary, with its transition arrow, seed, and delivery notes. */
 export function describeVerb(verb: UniformVerb): string {
   const op = fact(verb);
   const seeds = op.seeds === true ? ' Also takes a seed (KEY-sN).' : '';
-  return `${capitalized(op.summary)}${arrowOf(op)}.${seeds}`;
+  let delivery = '';
+  if (isDeliveryVerb(verb)) {
+    const reason = {
+      none: '',
+      optional: ', with an optional reason',
+      required: ', with a required reason',
+    }[DELIVERY_OP_FACTS[verb].reason];
+    const refused = DELIVERY_REFUSALS[verb]?.cli ?? '';
+    delivery = ` Also takes a delivery (KEY-dN): ${deliveryMove(verb)}${reason}${refused}.`;
+  }
+  return `${capitalized(op.summary)}${arrowOf(op)}.${seeds}${delivery}`;
+}
+
+/** What a delivery verb's `KEY-dN` does, for an agent: its move, reason, echo, and refusals. */
+function deliveryClauseForAgent(verb: DeliveryVerb): string {
+  const reason = {
+    none: '',
+    optional: ', optionally recording a reason in the delivery history',
+    required: ', requiring a reason recorded in the delivery history',
+  }[DELIVERY_OP_FACTS[verb].reason];
+  return ` A delivery id (KEY-dN) is accepted too: it moves the delivery ${deliveryMove(verb)}${reason}, keeps the delivery's handles, and echoes the whole delivery.${DELIVERY_REFUSALS[verb]?.agent ?? ''}`;
 }
 
 /** The description an agent reads: the summary with its reason, choice, echo, and seed clauses. */
@@ -78,11 +117,12 @@ export function describeVerbForAgent(verb: UniformVerb): string {
     op.seeds === true
       ? ' A seed id (KEY-sN) is accepted too: it moves the seed between untriaged and parked and echoes the seed.'
       : '';
+  const delivery = isDeliveryVerb(verb) ? deliveryClauseForAgent(verb) : '';
   const ownership =
     verb === 'start'
       ? ' Preserves the main conversation. Explicit worker-session assigns a distinct whole-task owner; worker-harness is optional and is never inferred from the shell.'
       : '';
-  return `${capitalized(op.summary)}${arrowOf(op)}.${reason}${required}${choice} ${echo}${seeds}${ownership}`;
+  return `${capitalized(op.summary)}${arrowOf(op)}.${reason}${required}${choice} ${echo}${seeds}${ownership}${delivery}`;
 }
 
 /** The worked examples: the one part of a verb's help the facts do not carry. */
@@ -208,9 +248,6 @@ function engineArgs(call: Invocation): UniformArgs {
  */
 function refuseWrongSubject(ports: Ports, op: OpFact, id: string): void {
   const kind = ports.grammar.idKind(id);
-  if (kind === 'delivery') {
-    throw new MimirError('validation', `${id} is a delivery — only get and update act on it`);
-  }
   if (op.subject === 'project') {
     if (kind !== 'project') {
       throw projectNotFound(id);
@@ -221,6 +258,44 @@ function refuseWrongSubject(ports: Ports, op: OpFact, id: string): void {
     return;
   }
   nodeToken(ports.grammar, id, 'task');
+}
+
+/** The delivery verb that does a task-only verb's job on a delivery, where one exists. */
+const DELIVERY_COUNTERPART: Partial<Record<UniformVerb, DeliveryVerb>> = { done: 'land' };
+
+/** Where each delivery verb sits in its lifecycle; a Record, so a new verb must be placed. */
+const DELIVERY_VERB_PLACE: Record<DeliveryVerb, number> = {
+  abandon: 8,
+  block: 1,
+  land: 7,
+  park: 3,
+  return: 6,
+  start: 0,
+  submit: 5,
+  unblock: 2,
+  unpark: 4,
+};
+
+/** The verbs a delivery takes, in the order its lifecycle reaches them. */
+const DELIVERY_VERBS = Object.keys(DELIVERY_VERB_PLACE)
+  .filter(isDeliveryVerb)
+  .toSorted((a, b) => DELIVERY_VERB_PLACE[a] - DELIVERY_VERB_PLACE[b]);
+
+/**
+ * Refuse a delivery id on a verb that cannot act on one, before any input of
+ * the verb's own is checked: naming the delivery verb that does the job, or
+ * the verbs a delivery takes.
+ */
+function refuseDeliverySubject(verb: UniformVerb, id: string): never {
+  const counterpart = DELIVERY_COUNTERPART[verb];
+  const last = DELIVERY_VERBS.at(-1) ?? '';
+  throw new MimirError(
+    'validation',
+    `${verb} does not apply to a delivery: ${id} is a delivery`,
+    counterpart === undefined
+      ? `a delivery takes ${DELIVERY_VERBS.slice(0, -1).join(', ')}, and ${last}`
+      : `use ${counterpart} ${id}`,
+  );
 }
 
 /** The seed verbs `park` and `unpark` reach the Engine through their own methods. */
@@ -253,6 +328,32 @@ function callUniform(engine: Engine, verb: UniformVerb, args: UniformArgs): Prom
 /** Run one verb and shape what the Engine echoed. Only the Engine reads or writes work state. */
 async function runVerb(ports: Ports, call: Invocation): Promise<LifecycleEcho> {
   const op = fact(call.verb);
+  if (ports.grammar.idKind(call.id) === 'delivery' && isDeliveryVerb(call.verb)) {
+    if (
+      call.on !== undefined ||
+      Object.values(call.handles ?? {}).some((value) => value !== undefined)
+    ) {
+      throw new MimirError(
+        'validation',
+        `delivery ${call.verb} refuses task handle flags and --on`,
+        'use update to set delivery handles; omit --on',
+      );
+    }
+    const engine = await ports.engine();
+    const opDelivery = DELIVERY_OP_FACTS[call.verb];
+    let result;
+    if (opDelivery.reason === 'required') {
+      result = await engine[opDelivery.method]({ id: call.id, reason: call.reason });
+    } else if (opDelivery.reason === 'optional') {
+      result = await engine[opDelivery.method]({ id: call.id, reason: call.reason || undefined });
+    } else {
+      result = await engine[opDelivery.method]({ id: call.id });
+    }
+    return { delivery: encodeDelivery(result), presentation: call.presentation };
+  }
+  if (ports.grammar.idKind(call.id) === 'delivery') {
+    refuseDeliverySubject(call.verb, call.id);
+  }
   if (call.id.trim() === '') {
     throw new MimirUsageError(
       `${call.verb} requires ${op.subject === 'project' ? 'a project KEY' : 'an id (KEY-seq)'}`,
@@ -333,24 +434,39 @@ function refuseStray(passthrough: readonly string[]): void {
 const SUBJECT_DESCRIPTIONS = {
   project: 'The project key (bare KEY).',
   task: 'The task: KEY-seq.',
+  taskOrDelivery: 'The task (KEY-seq) or the delivery (KEY-dN).',
   taskOrSeed: 'The task (KEY-seq) or the seed (KEY-sN).',
+  taskSeedOrDelivery: 'The task (KEY-seq), the seed (KEY-sN), or the delivery (KEY-dN).',
 } as const;
 
-/** The reason argument; its help says whether the verb's fact requires the reason. */
-const reasonArgumentFor = (verb: UniformVerb) =>
-  ({
-    description: `The reason is ${fact(verb).reason === 'required' ? 'required' : 'optional'}; it is recorded in the transition log.`,
-    variadic: true,
-  }) as const;
+/**
+ * The reason argument; its help says, for each subject the verb takes, whether
+ * the reason is required and where it is recorded.
+ */
+function reasonArgumentFor(verb: UniformVerb) {
+  const op = fact(verb);
+  const required = op.reason === 'required' ? 'required' : 'optional';
+  let description = `The reason is ${required}; it is recorded in the transition log.`;
+  if (isDeliveryVerb(verb)) {
+    const subjects = op.seeds === true ? 'a task or a seed' : 'a task';
+    description = `For ${subjects} the reason is ${required} and recorded in the transition log; for a delivery it is ${DELIVERY_OP_FACTS[verb].reason} and recorded in the delivery history.`;
+  }
+  return { description, variadic: true } as const;
+}
 
-/** The subject's description: a seed too where the fact accepts one. */
-const subjectOf = (op: OpFact): string =>
-  op.seeds === true ? SUBJECT_DESCRIPTIONS.taskOrSeed : SUBJECT_DESCRIPTIONS.task;
+/** The subject's description: a seed or a delivery too where the verb accepts one. */
+function subjectOf(verb: UniformVerb): string {
+  const seeds = fact(verb).seeds === true;
+  if (isDeliveryVerb(verb)) {
+    return seeds ? SUBJECT_DESCRIPTIONS.taskSeedOrDelivery : SUBJECT_DESCRIPTIONS.taskOrDelivery;
+  }
+  return seeds ? SUBJECT_DESCRIPTIONS.taskOrSeed : SUBJECT_DESCRIPTIONS.task;
+}
 
 /** A task verb that takes no reason: submit, stage, done, unblock, unpark. */
 function plainTask(verb: UniformVerb, ports: Ports) {
   return new Command(verb, header(verb))
-    .argument('id', { description: subjectOf(fact(verb)), required: true })
+    .argument('id', { description: subjectOf(verb), required: true })
     .option('ascii', asciiOption)
     .result<LifecycleEcho>({ views: echoViews })
     .views({ records: echoViews.records }, { default: 'records' })
@@ -366,7 +482,7 @@ function reasonedTask(verb: UniformVerb, ports: Ports) {
   const run = (id: string, reason: string, ascii: boolean, host: PresentationHost) =>
     runVerb(ports, { id, presentation: presentationOf(host, ascii), reason, verb });
   return new Command(verb, header(verb))
-    .argument('id', { description: subjectOf(fact(verb)), required: true })
+    .argument('id', { description: subjectOf(verb), required: true })
     .argument('reason', reasonArgumentFor(verb))
     .option('ascii', asciiOption)
     .result<LifecycleEcho>({ views: echoViews })
@@ -472,7 +588,7 @@ function handleVerb(verb: 'queue' | 'start', ports: Ports) {
   const describe = (key: HandleFieldKey, summary: string) =>
     text(handleDescription(verb, key, summary));
   const base = new Command(verb, header(verb))
-    .argument('id', { description: SUBJECT_DESCRIPTIONS.task, required: true })
+    .argument('id', { description: subjectOf(verb), required: true })
     .option('host', describe('host', 'The machine the work is happening on.'))
     .option('harness', describe('harness', 'The main conversation or workflow harness.'))
     .option('session', describe('session', 'The main conversation or workflow session.'))
@@ -497,7 +613,7 @@ function handleVerb(verb: 'queue' | 'start', ports: Ports) {
       }
       const presentation = presentationOf(host, options.ascii);
       const observed =
-        verb === 'start'
+        verb === 'start' && ports.grammar.idKind(args.id) !== 'delivery'
           ? await withListHint([args.id], async () =>
               (await ports.engine()).getNode({ id: nodeToken(ports.grammar, args.id, 'task') }),
             )
@@ -510,7 +626,11 @@ function handleVerb(verb: 'queue' | 'start', ports: Ports) {
               lifecycle: observed.lifecycle ?? null,
               session: observed.session ?? null,
             };
-      const handles = await runHandles(
+      const handles = await (
+        ports.grammar.idKind(args.id) === 'delivery'
+          ? async (explicit: Handles) => explicit
+          : runHandles
+      )(
         {
           branch: options.branch,
           harness: options.harness,
@@ -547,7 +667,7 @@ function handleVerb(verb: 'queue' | 'start', ports: Ports) {
 function blockCommand(ports: Ports) {
   const choice = OP_FACTS.block.choice;
   return new Command('block', header('block'))
-    .argument('id', { description: SUBJECT_DESCRIPTIONS.task, required: true })
+    .argument('id', { description: subjectOf('block'), required: true })
     .argument('reason', reasonArgumentFor('block'))
     .option(choice.name, text(`${capitalized(choice.summary)}.`, choice.values.join('|')))
     .option('ascii', asciiOption)

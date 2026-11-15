@@ -1,11 +1,11 @@
-mimir park · Put a task on hold. Also takes a seed (KEY-sN).
+mimir park · Put a task on hold. Also takes a seed (KEY-sN). Also takes a delivery (KEY-dN): hold none → paused, with a required reason.
 
 USAGE
   mimir park <id> [reason...] [options]
 
 ARGUMENTS
-  id      The task (KEY-seq) or the seed (KEY-sN).
-  reason  The reason is optional; it is recorded in the transition log.
+  id      The task (KEY-seq), the seed (KEY-sN), or the delivery (KEY-dN).
+  reason  For a task or a seed the reason is optional and recorded in the transition log; for a delivery it is required and recorded in the delivery history.
 
 OPTIONS
       --ascii            Print without color, in ASCII glyphs.

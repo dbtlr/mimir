@@ -88,7 +88,7 @@ import { artifactsCommand } from './commands/artifacts';
 import { attachCommand } from './commands/attach';
 import { bindCommand, LEGACY_BINDING_FILE } from './commands/bind';
 import { createCommand } from './commands/create';
-import { deliveriesCommand } from './commands/deliveries';
+import { landVerb, deliveriesCommand } from './commands/deliveries';
 import { dependCommand, undependCommand } from './commands/depend';
 import { doctorCommand } from './commands/doctor';
 import { getCommand } from './commands/get';
@@ -838,6 +838,7 @@ export function createApp(source: CliSource) {
       .command(startVerb(ports))
       .command(submitVerb(ports))
       .command(stageVerb(ports))
+      .command(landVerb(ports))
       .command(returnVerb(ports))
       .command(doneVerb(ports))
       .command(abandonVerb(ports))

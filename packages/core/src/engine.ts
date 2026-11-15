@@ -8,7 +8,13 @@ import {
 } from '@mimir/contract';
 import type { ConsoleEngine, Engine, EngineInput, Scratchpad } from '@mimir/contract';
 
-import { createDelivery, getDelivery, listDeliveries, updateDelivery } from './deliveries';
+import {
+  createDelivery,
+  getDelivery,
+  listDeliveries,
+  updateDelivery,
+  transitionDelivery,
+} from './deliveries';
 import {
   annotateEngine,
   attachEngine,
@@ -89,6 +95,51 @@ export class LocalEngine extends UniformEngineBase implements Engine {
   private async isActiveProject(key: string) {
     const found = (await this.store.loadProjects()).find((candidate) => candidate.key === key);
     return found !== undefined && found.archived_at === null;
+  }
+
+  async deliveryStart(input: EngineInput<'deliveryStart'>) {
+    const args = parseEngineInput(engineSchemas.deliveryStart.input, input);
+    return decodeDelivery(await transitionDelivery(this.store, 'start', args));
+  }
+
+  async deliveryBlock(input: EngineInput<'deliveryBlock'>) {
+    const args = parseEngineInput(engineSchemas.deliveryBlock.input, input);
+    return decodeDelivery(await transitionDelivery(this.store, 'block', args));
+  }
+
+  async deliveryUnblock(input: EngineInput<'deliveryUnblock'>) {
+    const args = parseEngineInput(engineSchemas.deliveryUnblock.input, input);
+    return decodeDelivery(await transitionDelivery(this.store, 'unblock', args));
+  }
+
+  async deliveryPark(input: EngineInput<'deliveryPark'>) {
+    const args = parseEngineInput(engineSchemas.deliveryPark.input, input);
+    return decodeDelivery(await transitionDelivery(this.store, 'park', args));
+  }
+
+  async deliveryUnpark(input: EngineInput<'deliveryUnpark'>) {
+    const args = parseEngineInput(engineSchemas.deliveryUnpark.input, input);
+    return decodeDelivery(await transitionDelivery(this.store, 'unpark', args));
+  }
+
+  async deliverySubmit(input: EngineInput<'deliverySubmit'>) {
+    const args = parseEngineInput(engineSchemas.deliverySubmit.input, input);
+    return decodeDelivery(await transitionDelivery(this.store, 'submit', args));
+  }
+
+  async deliveryReturn(input: EngineInput<'deliveryReturn'>) {
+    const args = parseEngineInput(engineSchemas.deliveryReturn.input, input);
+    return decodeDelivery(await transitionDelivery(this.store, 'return', args));
+  }
+
+  async deliveryLand(input: EngineInput<'deliveryLand'>) {
+    const args = parseEngineInput(engineSchemas.deliveryLand.input, input);
+    return decodeDelivery(await transitionDelivery(this.store, 'land', args));
+  }
+
+  async deliveryAbandon(input: EngineInput<'deliveryAbandon'>) {
+    const args = parseEngineInput(engineSchemas.deliveryAbandon.input, input);
+    return decodeDelivery(await transitionDelivery(this.store, 'abandon', args));
   }
 
   async deliveryCreate(input: EngineInput<'deliveryCreate'>) {

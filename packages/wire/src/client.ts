@@ -77,6 +77,42 @@ export class RemoteEngine extends UniformEngineBase implements Engine {
     this.console = consoleBindings(this.client);
   }
 
+  deliveryStart(input: EngineInput<'deliveryStart'>) {
+    return domainResult(this.client.deliveryStart.mutate(input));
+  }
+
+  deliveryBlock(input: EngineInput<'deliveryBlock'>) {
+    return domainResult(this.client.deliveryBlock.mutate(input));
+  }
+
+  deliveryUnblock(input: EngineInput<'deliveryUnblock'>) {
+    return domainResult(this.client.deliveryUnblock.mutate(input));
+  }
+
+  deliveryPark(input: EngineInput<'deliveryPark'>) {
+    return domainResult(this.client.deliveryPark.mutate(input));
+  }
+
+  deliveryUnpark(input: EngineInput<'deliveryUnpark'>) {
+    return domainResult(this.client.deliveryUnpark.mutate(input));
+  }
+
+  deliverySubmit(input: EngineInput<'deliverySubmit'>) {
+    return domainResult(this.client.deliverySubmit.mutate(input));
+  }
+
+  deliveryReturn(input: EngineInput<'deliveryReturn'>) {
+    return domainResult(this.client.deliveryReturn.mutate(input));
+  }
+
+  deliveryLand(input: EngineInput<'deliveryLand'>) {
+    return domainResult(this.client.deliveryLand.mutate(input));
+  }
+
+  deliveryAbandon(input: EngineInput<'deliveryAbandon'>) {
+    return domainResult(this.client.deliveryAbandon.mutate(input));
+  }
+
   deliveryCreate(input: EngineInput<'deliveryCreate'>) {
     return domainResult(this.client.deliveryCreate.mutate(input));
   }

@@ -2,7 +2,8 @@ import type { DeliveryLifecycle, Lifecycle } from '@mimir/contract';
 
 import { notFound, validation } from '../errors';
 import type { Node } from '../model';
-import type { StoreWriter } from '../store';
+import { clearToTodo } from '../mutations/handles';
+import type { NodePatch, StoreWriter } from '../store';
 import { now } from '../time';
 import { isTerminalDelivery } from './store';
 
@@ -107,7 +108,7 @@ async function recordMembership(
   w: StoreWriter,
   task: string,
   reference: string | null,
-  event: { delivery: string; to: 'joined' | 'left' | 'abandoned' },
+  event: { delivery: string; to: 'joined' | 'left' | 'released' | 'abandoned' },
 ): Promise<void> {
   await w.updateNode(task, { delivery: reference, updated_at: now() });
   await w.appendDeliveryMember(event.delivery, task, event.to);
@@ -169,6 +170,32 @@ export async function leaveOnAbandon(w: StoreWriter, task: Node): Promise<void> 
   await recordMembership(w, task.id, null, { delivery: current, to: 'abandoned' });
 }
 
+/**
+ * `abandon` on a delivery releases one live member (ADR 0042). A member past
+ * `todo` returns to it, clearing and recording its handles with the delivery's
+ * reason, and gets an appended rank only when it is unheld and has none; a
+ * `todo` member changes only its membership. Either way the task keeps its
+ * hold, hold reason, and block owner, and the delivery logs `released`.
+ * `nextRank` hands out the release's appended ranks (one ranked-set read per
+ * abandon, not per member).
+ */
+export async function releaseMember(
+  w: StoreWriter,
+  task: Node,
+  delivery: string,
+  reason: string | null,
+  nextRank: () => Promise<number>,
+): Promise<void> {
+  if (task.lifecycle !== 'todo') {
+    const extra: NodePatch = {};
+    if (task.hold === 'none' && task.rank === null) {
+      extra.rank = await nextRank();
+    }
+    await clearToTodo(w, task, reason, extra);
+  }
+  await recordMembership(w, task.id, null, { delivery, to: 'released' });
+}
+
 /** A member has one reservation; queue and move require an explicit leave. */
 export async function refuseMember(w: StoreWriter, task: Node): Promise<void> {
   if (await memberDelivery(w, task)) {
@@ -181,7 +208,7 @@ export async function refuseMemberDone(w: StoreWriter, task: Node): Promise<void
   if (await memberDelivery(w, task)) {
     throw validation(
       `${task.id} is a delivery member — a member is finished when its delivery lands`,
-      `to finish it alone, leave first: update ${task.id} --delivery none`,
+      `land ${task.delivery ?? 'KEY-dN'}, or to finish it alone, leave first: update ${task.id} --delivery none`,
     );
   }
 }

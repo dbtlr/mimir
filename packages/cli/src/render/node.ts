@@ -83,12 +83,16 @@ export function renderTable(
  * column. Labels are fixed ASCII vocabulary, so they pad by length.
  */
 export function recordRow(label: string, value: string, labelW: number): string {
-  const [first, ...rest] = value.split('\n');
-  if (rest.length === 0) {
-    return `  ${label.padEnd(labelW)}  ${first}`;
-  }
-  const indent = ' '.repeat(labelW + 4);
-  return [`  ${label.padEnd(labelW)}  ${first}`, ...rest.map((line) => indent + line)].join('\n');
+  return hangingIndent(`  ${label.padEnd(labelW)}  `, value);
+}
+
+/**
+ * `head` then `value`, with each further line of `value` indented to where
+ * `value` began: a continuation line can never start a row of its own.
+ */
+export function hangingIndent(head: string, value: string): string {
+  const indent = ' '.repeat(head.length);
+  return `${head}${value.split('\n').join(`\n${indent}`)}`;
 }
 
 /** The `--col annotations` expansion: each entry's timestamp leads its content, one entry per line. */

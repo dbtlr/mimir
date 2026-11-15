@@ -5,7 +5,8 @@ import { hasRedundantWorker } from '../assignment';
 import { validation } from '../errors';
 import { flattenHandle, HANDLE_SEP, isEchoSafeHandle } from '../history-codec';
 import type { Node } from '../model';
-import type { NodePatch } from '../store';
+import type { NodePatch, StoreWriter } from '../store';
+import { logTransition } from './common';
 
 /**
  * The resume-handle machinery (ADR 0026 Decision 3, MMR-320) — the in-flight
@@ -126,6 +127,30 @@ export function clearHandles(patch: NodePatch, task: Node): ExecutionHandles {
     }
   }
   return cleared;
+}
+
+/**
+ * Return a claimed task to `todo`, clearing and recording its resume handles
+ * with `reason` on the lifecycle row: the one step `unqueue` and a delivery
+ * release share. `extra` carries the caller's other columns (a release's rank).
+ */
+export async function clearToTodo(
+  w: StoreWriter,
+  task: Node,
+  reason: string | null,
+  extra: NodePatch = {},
+): Promise<void> {
+  const patch: NodePatch = { ...extra, lifecycle: 'todo' };
+  const handles = clearHandles(patch, task);
+  await w.updateNode(task.id, patch);
+  await logTransition(w, {
+    from_value: task.lifecycle,
+    handles,
+    kind: 'lifecycle',
+    node_id: task.id,
+    reason,
+    to_value: 'todo',
+  });
 }
 
 /** Main conversation and optional whole-task worker identity, including nulls for lossless audit snapshots. */

@@ -564,3 +564,89 @@ lane('delivery records round-trip through the socket-backed store', async () => 
     }
   });
 });
+
+for (const verb of ['land', 'abandon'] as const) {
+  lane(
+    `delivery ${verb} retries a concurrent member write without partial member effects`,
+    async () => {
+      await onFreshSchema(async (url) => {
+        const handle = openPostgres(url);
+        try {
+          await upgradeSchema(handle.db);
+          const store = createPostgresStore(handle.db);
+          const engine = new LocalEngine(store);
+          await createProject(store, { key: 'DEL', name: 'Delivery race' });
+          const initiative = await createInitiative(store, { projectId: 'DEL', title: 'Plan' });
+          const phase = await createPhase(store, { parentId: initiative.id, title: 'Phase' });
+          const tasks = [];
+          for (let i = 0; i < 3; i++) {
+            tasks.push(await createTask(store, { parentId: phase.id, title: `Task ${i}` }));
+          }
+          const delivery = await engine.deliveryCreate({
+            agreement: 'Terms',
+            phase: phase.id,
+            title: 'Attempt',
+          });
+          await engine.deliveryStart({ id: delivery.id });
+          await engine.deliverySubmit({ id: delivery.id });
+          for (const task of tasks) {
+            await engine.start({ id: task.id });
+            await engine.submit({ id: task.id });
+            await engine.stage({ id: task.id });
+          }
+          const { promise: inside, resolve: entered } = Promise.withResolvers<void>();
+          const { promise: changed, resolve: resume } = Promise.withResolvers<void>();
+          const transact = store.deliveries.transact;
+          let first = true;
+          store.deliveries.transact = (key, seq, apply) =>
+            transact(key, seq, async (snapshot, writer) => {
+              if (first) {
+                first = false;
+                entered();
+                await changed;
+              }
+              return apply(snapshot, writer);
+            });
+          const operation =
+            verb === 'land'
+              ? engine.deliveryLand({ id: delivery.id })
+              : engine.deliveryAbandon({ id: delivery.id, reason: 'reset' });
+          // Attach a rejection handler before the overlapping write can finish.
+          const outcome = operation.then(
+            (value) => ({ value }),
+            (error) => ({ error }),
+          );
+          await inside;
+          const task = tasks[1];
+          if (task === undefined) {
+            throw new Error('missing fixture');
+          }
+          await engine.return({ id: task.id });
+          resume();
+          const result = await outcome;
+          const document = await store.export();
+          const members = document.nodes.filter((n) => n.delivery === delivery.id);
+          if (verb === 'land') {
+            expect('error' in result).toBe(true);
+            expect(members.map((n) => n.lifecycle)).toEqual(['staged', 'in_progress', 'staged']);
+            expect(document.deliveries[0]?.lifecycle).toBe('milestone');
+            expect(document.transitions.some((r) => r.to_value === 'done')).toBe(false);
+          } else {
+            expect('value' in result).toBe(true);
+            expect(members).toHaveLength(0);
+            expect(document.nodes.filter((n) => n.type === 'task').map((n) => n.lifecycle)).toEqual(
+              ['todo', 'todo', 'todo'],
+            );
+            expect(
+              document.deliveries[0]?.history.filter((r) => r.to_value === 'released'),
+            ).toHaveLength(3);
+            expect(document.transitions.filter((r) => r.to_value === 'todo')).toHaveLength(3);
+          }
+        } finally {
+          await handle.close();
+        }
+      });
+    },
+    30_000,
+  );
+}

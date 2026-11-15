@@ -24,7 +24,7 @@ mimir update MMR-d1 --agreement "Revised terms" --time-cap 60
   first start, never stored.
 - **Refusals.** A terminal delivery (`landed`, `abandoned`) refuses every
   write. An archived project hides its deliveries and refuses writes to them.
-  Task verbs refuse a `KEY-dN` id.
+  Verbs dispatch by the id kind; see the delivery verbs below.
 
 ## Membership
 
@@ -43,3 +43,31 @@ member and cannot leave.
 Task `get` carries `delivery`; delivery reads carry `members`, the live
 tasks naming the attempt. Joins, leaves, and task abandons append `member`
 events in the delivery history, without adding task transition rows.
+
+## Delivery verbs
+
+`start KEY-dN` moves agreed to running. It requires a live member, an agreement,
+and no hold. `submit` moves running to milestone; `return` moves milestone
+back to running with an optional reason; a blank one records none. Both refuse
+a held delivery.
+
+`block KEY-dN "reason"` sets stopped; `unblock` clears stopped. `park KEY-dN
+"reason"` sets paused; `unpark` clears paused. Block and park require an unheld,
+non-terminal delivery and a reason. Delivery start takes no handle flags and
+never fills identity from the shell; delivery block refuses `--on`.
+Set delivery handles with `update`; every verb preserves them. A task-only verb
+(`queue`, `unqueue`, `stage`, `done`, `reopen`) refuses a delivery id: `done`
+names `land`, and the others list the verbs a delivery takes.
+
+`land KEY-dN` ends a milestone attempt. It requires at least one staged member,
+every live member staged, and no hold on the delivery or any member. It
+completes every staged task atomically, clearing and logging task handles.
+Landed tasks retain their delivery reference.
+
+`abandon KEY-dN "reason"` ends any non-terminal attempt and releases all live
+members atomically. Worked members return to todo, clearing and logging every
+resume handle with the reason; they retain holds and block owners and receive
+an appended rank if unheld and rankless. Untouched todo members keep handles
+and rank and write no task transition. Every release clears membership and
+adds a `released` member history row. Abandon also clears and logs a delivery
+hold. Terminal attempts keep their own handles and refuse further writes.

@@ -157,6 +157,21 @@ test('return sends a staged task back, re-ranking it and logging staged as the s
   expect(log?.reason).toBe('main moved');
 });
 
+test('return of a held task keeps it out of the rankable set until the hold lifts', async () => {
+  // A held task is not rankable (ADR 0007), so a return gives it no rank; the
+  // release that lifts the hold appends one, as every other hold release does.
+  for (const held of [await reviewedTask('under review'), await stagedTask('staged')]) {
+    await blockTask(store, held, 'waiting');
+    await returnTask(store, held, 'rework');
+    const returned = await load(held);
+    expect(returned?.lifecycle).toBe('in_progress');
+    expect(returned?.hold).toBe('blocked');
+    expect(returned?.rank).toBeNull();
+    await unblockTask(store, held);
+    expect((await load(held))?.rank).not.toBeNull();
+  }
+});
+
 test('done completes a staged task, logging staged as the source', async () => {
   const id = await stagedTask();
   await completeTask(store, id);

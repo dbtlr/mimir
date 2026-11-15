@@ -228,6 +228,39 @@ export function createSqlDeliveryStore(db: Kysely<DB>, dialect: StoreDialect): D
         await appendDeliveryHistory(tx, id, history);
       });
     },
+    transact(key, seq, apply) {
+      return dialect.write(db, async (tx) => {
+        await lockActiveBoard(tx, key);
+        const id = stemOf(key, seq);
+        const row = await tx
+          .selectFrom('delivery')
+          .selectAll()
+          .where('id', '=', id)
+          .executeTakeFirst();
+        if (row === undefined) {
+          throw notFound(`${id} doesn't exist`);
+        }
+        assertLiveDelivery(id, row.lifecycle);
+        const stored = (await storedOf(tx, dialect, [row]))[0];
+        if (stored === undefined) {
+          throw notFound(`${id} doesn't exist`);
+        }
+        const { patch, history } = await apply(stored, createSqlWriter(tx, dialect));
+        await tx
+          .updateTable('delivery')
+          .set({ ...patch, updated_at: now() })
+          .where('id', '=', id)
+          .execute();
+        await appendDeliveryHistory(tx, id, history);
+        const updated = await tx
+          .selectFrom('delivery')
+          .selectAll()
+          .where('id', '=', id)
+          .executeTakeFirstOrThrow();
+        const result = (await storedOf(tx, dialect, [updated]))[0];
+        return result ?? toStored(updated, []);
+      });
+    },
   };
 }
 

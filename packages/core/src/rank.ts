@@ -69,6 +69,20 @@ export async function appendRank(w: StoreWriter, projectId: string): Promise<num
 }
 
 /**
+ * Append-to-bottom ranks for several tasks in one write: one read of the
+ * ranked set, then consecutive steps, so ranking N tasks costs one read rather
+ * than N (each `appendRank` reads the whole set). The first call is lazy, so a
+ * write that ranks nothing reads nothing.
+ */
+export function rankAppender(w: StoreWriter, projectId: string): () => Promise<number> {
+  let last: number | undefined;
+  return async () => {
+    last = last === undefined ? await appendRank(w, projectId) : last + RANK_STEP;
+    return last;
+  };
+}
+
+/**
  * Re-spread a project's rankable set to clean multiples of `RANK_STEP`,
  * preserving order (rank asc, `seq` asc as a stable tiebreak). Idempotent — a
  * second run is a no-op. The deliberate O(n), bounded to one project's

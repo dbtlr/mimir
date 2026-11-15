@@ -2,11 +2,17 @@ import { leaveOnAbandon, refuseMember, refuseMemberDone } from '../deliveries/me
 import { conflict, validation } from '../errors';
 import { RELEASED_HOLD } from '../hold-release';
 import type { Node } from '../model';
-import { appendRank } from '../rank';
+import { appendRank, isRankable } from '../rank';
 import type { NodePatch, Store, StoreWriter } from '../store';
 import { now } from '../time';
 import { logTransition, reloadNode, requireTask, stamp } from './common';
-import { applyHandlePatch, clearHandles, handlesOf, validateAssignment } from './handles';
+import {
+  applyHandlePatch,
+  clearHandles,
+  clearToTodo,
+  handlesOf,
+  validateAssignment,
+} from './handles';
 import type { HandleFields, MainHandleFields } from './handles';
 
 /**
@@ -138,17 +144,7 @@ export async function unqueueTask(store: Store, id: string, reason?: string): Pr
     if (reason === undefined || reason.trim() === '') {
       throw validation('unqueue requires a nonblank reason');
     }
-    const patch: NodePatch = { lifecycle: 'todo' };
-    const handles = clearHandles(patch, task);
-    await w.updateNode(id, patch);
-    await logTransition(w, {
-      from_value: 'queued',
-      handles,
-      kind: 'lifecycle',
-      node_id: id,
-      reason,
-      to_value: 'todo',
-    });
+    await clearToTodo(w, task, reason);
     await stamp(w, id);
     return reloadNode(w, id);
   });
@@ -209,8 +205,10 @@ export async function returnTask(store: Store, id: string, reason?: string): Pro
         `only an under_review or staged task can be returned (is ${String(task.lifecycle)})`,
       );
     }
-    // re-enter the rankable set at the bottom (a return is a natural re-triage point)
-    const rank = await appendRank(w, task.project_id);
+    // Re-enter the rankable set at the bottom (a return is a natural re-triage
+    // point), unless a hold keeps the task out of it (ADR 0007): the release
+    // that lifts the hold appends the rank then.
+    const rank = isRankable('in_progress', task.hold) ? await appendRank(w, task.project_id) : null;
     await w.updateNode(id, { lifecycle: 'in_progress', rank });
     await logTransition(w, {
       from_value: task.lifecycle,
@@ -231,25 +229,31 @@ export async function completeTask(store: Store, id: string): Promise<Node> {
       throw validation(`task is already ${task.lifecycle}`);
     }
     await refuseMemberDone(w, task);
-    const patch: NodePatch = {
-      ...RELEASED_HOLD,
-      completed_at: now(),
-      lifecycle: 'done',
-      rank: null,
-    };
-    const handles = clearHandles(patch, task);
-    await w.updateNode(id, patch);
-    await logTerminalRelease(w, task);
-    await logTransition(w, {
-      from_value: task.lifecycle,
-      handles,
-      kind: 'lifecycle',
-      node_id: id,
-      to_value: 'done',
-    });
-    await stamp(w, id);
-    return reloadNode(w, id);
+    return completeTaskInTransaction(w, task);
   });
+}
+
+/** Complete a task already checked by done or by the atomic delivery land. */
+export async function completeTaskInTransaction(w: StoreWriter, task: Node): Promise<Node> {
+  const id = task.id;
+  const patch: NodePatch = {
+    ...RELEASED_HOLD,
+    completed_at: now(),
+    lifecycle: 'done',
+    rank: null,
+  };
+  const handles = clearHandles(patch, task);
+  await w.updateNode(id, patch);
+  await logTerminalRelease(w, task);
+  await logTransition(w, {
+    from_value: task.lifecycle,
+    handles,
+    kind: 'lifecycle',
+    node_id: id,
+    to_value: 'done',
+  });
+  await stamp(w, id);
+  return reloadNode(w, id);
 }
 
 export async function abandonTask(store: Store, id: string, reason?: string): Promise<Node> {
