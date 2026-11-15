@@ -3,7 +3,6 @@ import type { DeliveryLifecycle, Lifecycle } from '@mimir/contract';
 import { notFound, validation } from '../errors';
 import type { Node } from '../model';
 import { clearToTodo } from '../mutations/handles';
-import { appendRank } from '../rank';
 import type { NodePatch, StoreWriter } from '../store';
 import { now } from '../time';
 import { isTerminalDelivery } from './store';
@@ -177,17 +176,20 @@ export async function leaveOnAbandon(w: StoreWriter, task: Node): Promise<void> 
  * reason, and gets an appended rank only when it is unheld and has none; a
  * `todo` member changes only its membership. Either way the task keeps its
  * hold, hold reason, and block owner, and the delivery logs `released`.
+ * `nextRank` hands out the release's appended ranks (one ranked-set read per
+ * abandon, not per member).
  */
 export async function releaseMember(
   w: StoreWriter,
   task: Node,
   delivery: string,
   reason: string | null,
+  nextRank: () => Promise<number>,
 ): Promise<void> {
   if (task.lifecycle !== 'todo') {
     const extra: NodePatch = {};
     if (task.hold === 'none' && task.rank === null) {
-      extra.rank = await appendRank(w, task.project_id);
+      extra.rank = await nextRank();
     }
     await clearToTodo(w, task, reason, extra);
   }

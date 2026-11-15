@@ -15,6 +15,7 @@ import type { Node, Project } from '../model';
 import { normalizeHandle } from '../mutations/handles';
 import { completeTaskInTransaction } from '../mutations/lifecycle';
 import { identityNoun } from '../project-only';
+import { rankAppender } from '../rank';
 import type { Store } from '../store';
 import { now } from '../time';
 import { releaseMember } from './membership';
@@ -358,8 +359,9 @@ export async function transitionDelivery(
         }
       }
       if (verb === 'abandon') {
+        const nextRank = rankAppender(w, key);
         for (const task of members) {
-          await releaseMember(w, task, id, reason);
+          await releaseMember(w, task, id, reason, nextRank);
         }
         if (delivery.hold !== 'none') {
           clearHold();
