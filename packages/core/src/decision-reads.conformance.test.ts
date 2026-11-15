@@ -99,6 +99,21 @@ describe.each(backends)('decision reads ($name)', (backend) => {
       });
     }
   });
+  test('orders double-digit decision sequences numerically, oldest first', async () => {
+    const own = await backend.make();
+    try {
+      const engine = new LocalEngine(own.store);
+      await createProject(own.store, { key: 'SEQ', name: 'Sequence' });
+      for (let i = 0; i < 10; i++) {
+        await engine.decide({ class: 'other', options: ['A', 'B'], project: 'SEQ',
+          question: 'Which?', recommended: 1 });
+      }
+      expect((await engine.listDecisions({ project: 'SEQ' })).map((d) => d.id)).toEqual([
+        'SEQ-q1', 'SEQ-q2', 'SEQ-q3', 'SEQ-q4', 'SEQ-q5',
+        'SEQ-q6', 'SEQ-q7', 'SEQ-q8', 'SEQ-q9', 'SEQ-q10',
+      ]);
+    } finally { await own.close(); }
+  });
   test('archived and unknown projects are not found', async () => {
     for (const project of ['OLD', 'GONE']) {
       expect(await errorOf(e.listDecisions({ project }))).toMatchObject({
