@@ -178,7 +178,7 @@ grammar ([ADR 0024](0024-cli-command-taxonomy.md)).
 - Settledness becomes relative to the dependent. `blocking` applies the same
   rule from the prerequisite's side: a prerequisite is not `blocking` a
   dependent that counts it as settled.
-- `became_ready_at` keeps ADR 0003's formula and adds two terms. It is the
+- `became_ready_at` (no read derives it yet; MMR-689) keeps ADR 0003's formula and adds two terms. It is the
   latest of the dependent's last readiness-relevant transition, the latest
   `completed_at` among its prerequisites, the latest `submit` of each
   prerequisite that counts by the same-delivery rule, and the latest `member`

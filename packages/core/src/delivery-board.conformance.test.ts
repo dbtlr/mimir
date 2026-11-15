@@ -1,7 +1,6 @@
-import { beforeAll, describe, expect, test, setSystemTime } from 'bun:test';
+import { beforeAll, describe, expect, test } from 'bun:test';
 
 import { createInitiative, createPhase, createProject, createTask } from './create';
-import { deriveSet, becameReadyAt } from './derive';
 import { LocalEngine } from './engine';
 import { bootPglite } from './store-postgres/testing';
 import { backends, refusalOf } from './testing/conformance';
@@ -137,43 +136,6 @@ describe.each(backends)('delivery board ($name)', (backend) => {
       expect((await f.engine.next({ project: 'DEL' })).items.map((n) => n.id)).toEqual([f.b.id]);
       expect((await f.engine.next({ delivery: d.id, project: 'DEL' })).items).toEqual([]);
     } finally {
-      await f.close();
-    }
-  });
-  test('ready time follows submit, join, and release history, guarded by current readiness', async () => {
-    const f = await fixture();
-    const readyAt = async () => becameReadyAt(deriveSet(await f.store.loadWorkingSet()), f.b.id);
-    try {
-      await f.engine.depend({ id: f.b.id, on: [f.a.id] });
-      expect(await readyAt()).toBeNull();
-      await f.engine.start({ id: f.a.id });
-      setSystemTime(new Date('2030-01-01T00:00:00.000Z'));
-      await f.engine.submit({ id: f.a.id });
-      expect(await readyAt()).toBe('2030-01-01T00:00:00.000Z');
-      await f.engine.update({ delivery: null, id: f.b.id });
-      expect(await readyAt()).toBeNull();
-      setSystemTime(new Date('2030-01-02T00:00:00.000Z'));
-      await f.engine.update({ delivery: f.delivery.id, id: f.b.id });
-      expect(await readyAt()).toBe('2030-01-02T00:00:00.000Z');
-      setSystemTime(new Date('2030-01-03T00:00:00.000Z'));
-      await f.engine.deliveryAbandon({ id: f.delivery.id, reason: 'release' });
-      expect(await readyAt()).toBeNull();
-      await f.engine.start({ id: f.a.id });
-      await f.engine.done({ id: f.a.id });
-      expect(await readyAt()).toBe('2030-01-03T00:00:00.000Z');
-      const d = await f.engine.deliveryCreate({
-        phase: f.phase.id,
-        tasks: [f.b.id],
-        title: 'Release untouched',
-      });
-      setSystemTime(new Date('2030-01-04T00:00:00.000Z'));
-      await f.engine.deliveryAbandon({ id: d.id, reason: 'release todo' });
-      expect(await readyAt()).toBe('2030-01-04T00:00:00.000Z');
-      setSystemTime(new Date('2030-01-05T00:00:00.000Z'));
-      await f.engine.update({ id: f.b.id, title: 'Renamed without a readiness change' });
-      expect(await readyAt()).toBe('2030-01-04T00:00:00.000Z');
-    } finally {
-      setSystemTime();
       await f.close();
     }
   });

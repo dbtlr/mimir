@@ -62,5 +62,4 @@ released task therefore counts as newly ready. Scalar edits and assignment
 history are not readiness-relevant. A ready task with no timestamp among
 these terms has no derived flip time.
 
-The derivation reads batched task and delivery history in the same snapshot
-as its current-state inputs. No derived timestamp is stored.
+No read derives `became_ready_at` yet. The first `newly_ready` or `became_ready_at` read implements the formula, these two terms included (tracked as MMR-689).

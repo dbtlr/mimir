@@ -169,47 +169,15 @@ export async function loadWorkingSet(ex: Executor, dialect: StoreDialect): Promi
     new Map(projects.map((project) => [project.key, project.created_at])),
   );
   const deliveries = await ex.selectFrom('delivery').select(['id', 'lifecycle']).execute();
-  // Aggregate in SQL: history grows over time, but this projection stays bounded by nodes.
-  const transitions = await ex
-    .selectFrom('transition_log')
-    .select('node_id')
-    .select((eb) => eb.fn.max<string>('at').as('at'))
-    .where('kind', 'in', ['lifecycle', 'hold', 'dependency', 'move'])
-    .groupBy('node_id')
-    .execute();
-  const submits = await ex
-    .selectFrom('transition_log')
-    .select('node_id')
-    .select((eb) => eb.fn.max<string>('at').as('at'))
-    .where('kind', '=', 'lifecycle')
-    .where('to_value', '=', 'under_review')
-    .groupBy('node_id')
-    .execute();
-  const members = await ex
-    .selectFrom('delivery_history')
-    .select('task')
-    .select((eb) => eb.fn.max<string>('at').as('at'))
-    .where('kind', '=', 'member')
-    .groupBy('task')
-    .execute();
   return {
     deliveries: new Map(deliveries.map((row) => [row.id, row])),
     edges: edges.map((edge): Dependency => ({
       depends_on_node_id: edge.depends_on_node_id,
       node_id: edge.node_id,
     })),
-    membershipChanges: new Map(
-      members.flatMap((row) => (row.task === null ? [] : [[row.task, row.at]])),
-    ),
     nodeTags,
     nodes: nodeRows.map((row) => toNode(row, dialect)),
     projectTags,
     projects,
-    readinessTransitions: new Map(
-      transitions.flatMap((row) => (row.node_id === null ? [] : [[row.node_id, row.at]])),
-    ),
-    submits: new Map(
-      submits.flatMap((row) => (row.node_id === null ? [] : [[row.node_id, row.at]])),
-    ),
   };
 }

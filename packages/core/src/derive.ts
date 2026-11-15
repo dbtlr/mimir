@@ -412,37 +412,3 @@ function compareNodeIds(a: string, b: string): number {
   }
   return left.seq - right.seq;
 }
-
-/** ADR 0003 ready flip time, guarded by current readiness. */
-export function becameReadyAt(set: DerivationSet, taskId: string): string | null {
-  const task = set.nodeById.get(taskId);
-  if (
-    task === undefined ||
-    task.type !== 'task' ||
-    nodeStatusWord(set, task) !== 'ready' ||
-    set.archivedProjects.has(task.project_id)
-  ) {
-    return null;
-  }
-  let at = set.ws.readinessTransitions.get(taskId) ?? null;
-  const include = (candidate: string | null | undefined) => {
-    if (candidate !== null && candidate !== undefined && (at === null || candidate > at)) {
-      at = candidate;
-    }
-  };
-  include(set.ws.membershipChanges.get(taskId));
-  for (const ancestorId of lineageIds(set, taskId)) {
-    for (const prereqId of set.prereqsByNode.get(ancestorId) ?? []) {
-      const prerequisite = set.nodeById.get(prereqId);
-      if (prerequisite === undefined) {
-        continue;
-      }
-      include(prerequisite.completed_at);
-      include(set.ws.membershipChanges.get(prereqId));
-      if (countsBySameDelivery(set, prerequisite, ancestorId)) {
-        include(set.ws.submits.get(prereqId));
-      }
-    }
-  }
-  return at;
-}

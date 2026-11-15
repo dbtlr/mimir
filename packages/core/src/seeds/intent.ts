@@ -103,13 +103,10 @@ function buildResolver(projects: readonly Project[], nodes: readonly Node[]): Se
   const set = deriveSet({
     deliveries: new Map(),
     edges: [],
-    membershipChanges: new Map(),
     nodeTags: new Map(),
     nodes,
     projectTags: new Map(),
     projects,
-    readinessTransitions: new Map(),
-    submits: new Map(),
   });
   return { projectKeys: activeKeys(projects), set };
 }

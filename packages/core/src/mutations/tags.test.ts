@@ -115,13 +115,10 @@ test('resolveEntityToken rejects unknown project/node and malformed tokens', asy
   const set = deriveSet({
     deliveries: new Map(),
     edges: [],
-    membershipChanges: new Map(),
     nodeTags: new Map(),
     nodes: [],
     projectTags: new Map(),
     projects: [],
-    readinessTransitions: new Map(),
-    submits: new Map(),
   });
   await expectMimirError('not_found', async () => resolveEntityTokenInSet(set, 'ZZZ'));
   await expectMimirError('not_found', async () => resolveEntityTokenInSet(set, 'MMR-99'));

@@ -1,4 +1,4 @@
-- **Apply delivery board rules (MMR-684).** Board-wide next excludes delivery members; next --delivery lists an attempt's ready members in rank order. A submitted or staged prerequisite settles a direct dependency only for another member of the same live delivery, even when held. Blocking and readiness timestamps follow the same rule, with membership history included in ready flip times.
+- **Apply delivery board rules (MMR-684).** Board-wide next excludes delivery members; next --delivery lists an attempt's ready members in rank order. A submitted or staged prerequisite settles a direct dependency only for another member of the same live delivery, even when held. Blocking follows the same rule.
 
 ### Migration
 

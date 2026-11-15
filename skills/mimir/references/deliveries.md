@@ -83,7 +83,3 @@ dependent that is also a member of the same non-terminal delivery. This reads
 lifecycle, so even a held prerequisite counts. Other dependents still await
 it. `blocking` follows the same rule. Dependencies remain advisory and never
 gate `start`; container dependency rules stay unchanged.
-
-Ready flip times include the settling prerequisite's latest submit and the
-latest membership event naming the dependent or any prerequisite, including
-a release. These timestamps are derived from history, never stored.
