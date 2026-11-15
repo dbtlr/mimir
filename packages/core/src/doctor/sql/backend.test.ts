@@ -305,6 +305,25 @@ describe.each(arms)('$name', (arm) => {
       expect(refusal).toContain('decisions.0.options');
       expect(refusal).toContain('repair the document');
       expect(refusal).not.toContain('unexpected error');
+      // Verbs and reads refuse the damaged row; nothing commits through it.
+      const engine = new LocalEngine(f.store);
+      for (const attempt of [
+        () => engine.overturn({ id: d.id, note: 'Move', option: 5 }),
+        () => engine.confirm({ id: d.id }),
+        () => engine.getDecision({ id: d.id }),
+        () => engine.decisionUpdate({ id: d.id, tasks: ['MMR-4'] }),
+      ]) {
+        const damaged = await refusalOf(attempt());
+        expect(damaged).toContain(`${d.id} has damaged options`);
+        expect(damaged).toContain('mimir doctor');
+        expect(damaged).not.toContain('unexpected error');
+      }
+      const after = await f.db
+        .selectFrom('decision')
+        .select(['lifecycle', 'overturn_option'])
+        .where('id', '=', d.id)
+        .executeTakeFirstOrThrow();
+      expect(after).toEqual({ lifecycle: 'provisional', overturn_option: null });
     } finally {
       await f.close();
       await target.close();

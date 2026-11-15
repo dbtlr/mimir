@@ -3,21 +3,49 @@ import type { Kysely } from 'kysely';
 
 import { assertBoardActive } from '../archive-lock';
 import type { DecisionStore } from '../decisions/store';
-import { notFound, validation } from '../errors';
+import { invariant, notFound, validation } from '../errors';
 import { inLists } from './batch';
 import type { StoreDialect } from './dialect';
 import type { DB, Executor, DecisionTable } from './schema';
 import { createSqlWriter } from './writer';
 
-// Backup export preserves undecodable stored text; import validates the resulting shape.
-function optionsOf(row: DecisionTable['options'], dialect: StoreDialect): string[] {
+/**
+ * The stored options as an export carries them: decoded, or the raw stored
+ * text when it does not decode, so a backup of a damaged row loses nothing and
+ * import refuses it by shape.
+ */
+function exportedOptionsOf(row: DecisionTable['options'], dialect: StoreDialect): string[] {
   try {
     return dialect.codecs.json.decode(row);
   } catch {
-    // The typed export deliberately carries damaged values, just like other stored columns.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- damaged backups retain raw values for repair
     return row as unknown as string[];
   }
+}
+
+/**
+ * The stored options as a verb or read uses them. A row whose options are not
+ * a list of strings is damaged: refuse it, so no write commits through it and
+ * no read renders it.
+ */
+function loadedOptionsOf(
+  id: string,
+  row: DecisionTable['options'],
+  dialect: StoreDialect,
+): string[] {
+  let options: unknown;
+  try {
+    options = dialect.codecs.json.decode(row);
+  } catch {
+    options = undefined;
+  }
+  if (!Array.isArray(options) || !options.every((o) => typeof o === 'string')) {
+    throw invariant(
+      `${id} has damaged options and cannot be read or changed`,
+      'run `mimir doctor` to find it, then repair the row from a backup',
+    );
+  }
+  return options;
 }
 
 /** Normalize echoes and loaded rows to table column order. */
@@ -77,7 +105,7 @@ async function load(
   return toStored({
     ...row,
     history: history.map(({ id: _id, decision_id: _decision, ...r }) => r),
-    options: optionsOf(row.options, dialect),
+    options: loadedOptionsOf(id, row.options, dialect),
     tasks: tasks.map((r) => r.task),
   });
 }
@@ -218,7 +246,7 @@ export async function exportDecisions(
     toStored({
       ...row,
       history: histories.get(row.id) ?? [],
-      options: optionsOf(row.options, dialect),
+      options: exportedOptionsOf(row.options, dialect),
       tasks: links.get(row.id) ?? [],
     }),
   );
