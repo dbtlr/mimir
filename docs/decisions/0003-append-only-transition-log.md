@@ -48,3 +48,19 @@ in `from` and `to`, encoded as JSON, and echo the resulting handles. This keeps
 worker succession recoverable even when ownership changes without a lifecycle
 move. Lifecycle and clearing transitions continue to carry complete handles.
 The log remains additive history; current columns remain the read authority.
+
+## 2026-11-15 refinement: delivery readiness times (MMR-684)
+
+`became_ready_at` retains the currently-ready guard and existing maximum of
+the task's last readiness-relevant transition and its prerequisites'
+`completed_at`. It adds the latest submit of each prerequisite that counts
+as settled by the same-delivery rule, and the latest `member` row in any
+delivery's history naming the dependent or one of its prerequisites
+([ADR 0042](0042-the-delivery-record.md)). A release is a member row, including
+when an untouched todo member writes no task transition. A currently-ready
+released task therefore counts as newly ready. Scalar edits and assignment
+history are not readiness-relevant. A ready task with no timestamp among
+these terms has no derived flip time.
+
+The derivation reads batched task and delivery history in the same snapshot
+as its current-state inputs. No derived timestamp is stored.

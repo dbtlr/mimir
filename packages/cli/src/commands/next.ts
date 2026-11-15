@@ -6,7 +6,7 @@ import { Command } from '@loomcli/core';
 import { helpCommand } from '@loomcli/plugins/help/extension';
 import { mcpCommand } from '@loomcli/plugins/mcp/extension';
 
-import { asciiOption, colOption, scopeOption, tzOption } from '../options';
+import { asciiOption, colOption, scopeOption, text, tzOption } from '../options';
 import type { Ports } from '../ports';
 import { filterOptions, nodeQueryOptions, readNodeSet } from '../query';
 import { nodeSetViews } from '../render/node-set';
@@ -30,6 +30,7 @@ export function nextCommand(ports: Ports) {
     ],
   })
     .option('scope', scopeOption)
+    .option('delivery', text('List ready members of this delivery, in rank order.', 'KEY-dN'))
     .option('query', nodeQueryOptions.query)
     .option('priority', nodeQueryOptions.priority)
     .option('size', nodeQueryOptions.size)
@@ -59,7 +60,8 @@ export function nextCommand(ports: Ports) {
         'next',
         (project) =>
           `No ready tasks in ${project} — mimir list --status awaiting -s ${project} shows what's queued`,
-        (query) => (engine, project) => engine.next({ ...query, project }),
+        (query) => (engine, project) =>
+          engine.next({ ...query, delivery: options.delivery, project }),
       ),
     );
 }

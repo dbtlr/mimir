@@ -320,3 +320,16 @@ test('scratchGet keeps the not_found refusal across the wire for an archived pro
   expect(remoteError.message).toBe(localError.message);
   expect(remoteError.hint).toBe(localError.hint);
 });
+
+test('next transports delivery selection', async () => {
+  const phase = await createPhase(fixture.store, {
+    parentId: ids.initiative,
+    title: 'Attempt phase',
+  });
+  const task = await createTask(fixture.store, { parentId: phase.id, title: 'Member' });
+  const delivery = await local.deliveryCreate({ phase: phase.id, title: 'Selected attempt' });
+  expect(
+    (await remote.next({ delivery: delivery.id, project: 'ENG' })).items.map((n) => n.id),
+  ).toEqual([task.id]);
+  expect((await remote.next({ project: 'ENG' })).items.map((n) => n.id)).not.toContain(task.id);
+});

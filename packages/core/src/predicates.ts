@@ -1,7 +1,13 @@
 import type { Verdicts } from '@mimir/contract';
 
 import type { DerivationSet } from './derive';
-import { hasUnsettledPrereq, isNodeSettled, isTerminalWord, nodeStatusWord } from './derive';
+import {
+  hasUnsettledPrereq,
+  isNodeSettled,
+  countsBySameDelivery,
+  isTerminalWord,
+  nodeStatusWord,
+} from './derive';
 import type { Node } from './model';
 import { now } from './time';
 
@@ -37,7 +43,11 @@ export function isBlocked(task: Node): boolean {
 export function isBlocking(set: DerivationSet, node: Node): boolean {
   for (const dependentId of set.dependentsByNode.get(node.id) ?? []) {
     const dependent = set.nodeById.get(dependentId);
-    if (dependent !== undefined && !isNodeSettled(set, dependent)) {
+    if (
+      dependent !== undefined &&
+      !isNodeSettled(set, dependent) &&
+      !countsBySameDelivery(set, node, dependentId)
+    ) {
       return true;
     }
   }

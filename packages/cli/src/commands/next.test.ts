@@ -114,3 +114,28 @@ test('a value warning under -f json is a JSON line on stderr', async () => {
     },
   });
 });
+
+test('next --delivery passes the selector to the Engine', async () => {
+  const f = await parityBoard();
+  try {
+    const task = await f.engine.create({ parent: 'MMR-2', title: 'Delivery work', type: 'task' });
+    const delivery = await f.engine.deliveryCreate({
+      phase: 'MMR-2',
+      tasks: [task.id],
+      title: 'Attempt',
+    });
+    const run = await runArgv(f.app(), [
+      'next',
+      '-s',
+      'MMR',
+      '--delivery',
+      delivery.id,
+      '-f',
+      'ids',
+    ]);
+    expect(run.exitCode).toBe(0);
+    expect(run.stdout).toBe(`${task.id}\n`);
+  } finally {
+    await f.close();
+  }
+});

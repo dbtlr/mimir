@@ -294,3 +294,19 @@ hold reason, and block owner. A task past todo loses all resume handles,
 recorded with the delivery's reason on its lifecycle row, and receives an
 appended rank if unheld and rankless. A todo member retains its handles and
 rank and logs only its membership release in the delivery history.
+
+## 2026-11-15 refinement: delivery board rules (MMR-684)
+
+A direct prerequisite whose lifecycle is `under_review` or `staged` counts as
+settled for a dependent only when both tasks are members of the same
+non-terminal delivery ([ADR 0042](0042-the-delivery-record.md)). The rule reads
+lifecycle, so a held prerequisite still counts. Node-only settledness,
+container dependencies, inherited container dependencies, and rollup rules
+are unchanged. The existing rollup reflects the resulting readiness change.
+Dependencies remain advisory: this changes `ready` versus `awaiting`, never
+whether `start` is allowed. `blocking` applies the exception from the
+prerequisite's side: it does not block a dependent that counts it as settled.
+
+Board-wide `next` excludes every member. `next --delivery KEY-dN` lists only
+that delivery's ready members in rank order. A terminal delivery has no
+members. A project with no delivery keeps its existing behavior.

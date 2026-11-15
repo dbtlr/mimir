@@ -16,7 +16,7 @@ import {
   childDistribution,
   deriveSet,
   findProjectInSet,
-  isNodeSettled,
+  isPrereqSettled,
   leafDistribution,
   lineageIds,
   nodeStatusWord,
@@ -203,7 +203,7 @@ export function buildAwaitingOn(set: DerivationSet, nodeId: string): AwaitingRef
         continue;
       }
       const prereq = set.nodeById.get(prereqId);
-      if (prereq === undefined || isNodeSettled(set, prereq)) {
+      if (prereq === undefined || isPrereqSettled(set, prereq, ancestorId)) {
         continue;
       }
       // A prereq in an archived project reads as absent — don't surface it (ADR 0015).

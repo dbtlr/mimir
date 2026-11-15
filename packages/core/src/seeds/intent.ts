@@ -101,11 +101,15 @@ function spawnedTargetKeys(records: readonly Pick<SeedRecord, 'spawned'>[]): str
  * (settledness never consults edges), so the derived set carries none. */
 function buildResolver(projects: readonly Project[], nodes: readonly Node[]): SeedResolver {
   const set = deriveSet({
+    deliveries: new Map(),
     edges: [],
+    membershipChanges: new Map(),
     nodeTags: new Map(),
     nodes,
     projectTags: new Map(),
     projects,
+    readinessTransitions: new Map(),
+    submits: new Map(),
   });
   return { projectKeys: activeKeys(projects), set };
 }

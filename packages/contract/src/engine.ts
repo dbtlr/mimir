@@ -99,7 +99,7 @@ export const engineSchemas = {
     output: engineViews.nodeSet,
   },
   next: {
-    input: nextInput,
+    input: nextInput.extend({ delivery: z.string().optional() }),
     kind: 'query',
     output: engineViews.nodeSet,
   },

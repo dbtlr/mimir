@@ -46,6 +46,11 @@ import type { TransitionsFeed } from './transitions/store';
 export type NodeTag = { tag: string; created_at: string };
 
 export type WorkingSet = {
+  /** Delivery state and readiness event maxima from the same snapshot. */
+  deliveries: ReadonlyMap<string, Pick<StoredDelivery, 'lifecycle'>>;
+  readinessTransitions: ReadonlyMap<string, string>;
+  submits: ReadonlyMap<string, string>;
+  membershipChanges: ReadonlyMap<string, string>;
   /** Every project, key-ordered, archived included. */
   projects: readonly Project[];
   nodes: readonly Node[];
