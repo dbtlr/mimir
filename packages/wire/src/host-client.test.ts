@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
 
 import { MimirError } from '@mimir/contract';
 import { healthOf } from '@mimir/core';
@@ -278,53 +278,76 @@ test('a request that exceeds its timeout is a transient failure', async () => {
   expect(await refusal(client.pollPairing('secret'))).toMatchObject({ transient: true });
 });
 
-test.each(['timeout', 'abort'])(
-  'an interrupted response body reports a transient request %s',
-  async (mode) => {
-    const server = Bun.serve({
-      fetch: () =>
-        new Response(
-          new ReadableStream({
-            start(controller) {
-              controller.enqueue(new TextEncoder().encode('{"private":"response secret"'));
-            },
-          }),
-          { headers: { 'content-type': 'application/json' } },
-        ),
-      hostname: '127.0.0.1',
-      port: 0,
-    });
-    try {
-      const abort = new AbortController();
-      const client = new HostClient({
-        ...(mode === 'abort'
-          ? {
-              fetch: async (input: string, init: RequestInit) => {
-                const response = await fetch(input, init);
-                abort.abort(new Error('private cancellation reason'));
-                return response;
-              },
-            }
-          : {}),
-        origin: server.url.origin,
-        timeoutMs: mode === 'abort' ? 1_000 : 50,
-      });
-      const error = await refusal(
-        mode === 'abort'
-          ? client.pollPairing('private poll secret', abort.signal)
-          : client.health(),
-      );
-      expect(error).toMatchObject({ code: 'invariant', status: 200, transient: true });
-      expect(error.message).toBe(
-        `the request to ${server.url.origin} ${mode === 'abort' ? 'was aborted' : 'timed out'}`,
-      );
-      expect(error.hint).toBe('try again, or check the host or proxy response and the host logs');
-      expect(`${error.message} ${String(error.hint)}`).not.toMatch(/private|response secret/);
-    } finally {
-      await server.stop(true);
-    }
-  },
-);
+test('an interrupted response body reports a transient request abort', async () => {
+  const server = Bun.serve({
+    fetch: () =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('{"private":"response secret"'));
+          },
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      ),
+    hostname: '127.0.0.1',
+    port: 0,
+  });
+  const abort = new AbortController();
+  const realFetch = globalThis.fetch;
+  // Observe real headers without bypassing HostClient's default fetch. The
+  // caller aborts only once Bun has opened the response body.
+  const fetch = spyOn(globalThis, 'fetch').mockImplementation(
+    Object.assign(
+      async (...args: Parameters<typeof realFetch>) => {
+        const response = await realFetch(...args);
+        abort.abort(new Error('private cancellation reason'));
+        return response;
+      },
+      { preconnect: realFetch.preconnect },
+    ),
+  );
+  try {
+    const client = new HostClient({ origin: server.url.origin, timeoutMs: 1_000 });
+    const error = await refusal(client.pollPairing('private poll secret', abort.signal));
+    expect(error).toMatchObject({ code: 'invariant', status: 200, transient: true });
+    expect(error.message).toBe(`the request to ${server.url.origin} was aborted`);
+    expect(error.hint).toBe('try again, or check the host or proxy response and the host logs');
+    expect(`${error.message} ${String(error.hint)}`).not.toMatch(/private|response secret/);
+  } finally {
+    fetch.mockRestore();
+    await server.stop(true);
+  }
+});
+
+test('an interrupted response body reports a transient request timeout', async () => {
+  const client = new HostClient({
+    fetch: async (_input, init) =>
+      // Deliver headers synchronously: socket startup must not consume the
+      // short deadline before the test reaches the body read.
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('{"private":"response secret"'));
+            init.signal?.addEventListener('abort', () => controller.error(init.signal?.reason), {
+              once: true,
+            });
+          },
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      ),
+    origin: ORIGIN,
+    timeoutMs: 50,
+  });
+  // Supply a live caller signal too, so dropping the timeout from the
+  // combined signal cannot leave the body read waiting forever unnoticed.
+  const error = await refusal(
+    client.pollPairing('private poll secret', new AbortController().signal),
+  );
+  expect(error).toMatchObject({ code: 'invariant', status: 200, transient: true });
+  expect(error.message).toBe(`the request to ${ORIGIN} timed out`);
+  expect(error.hint).toBe('try again, or check the host or proxy response and the host logs');
+  expect(`${error.message} ${String(error.hint)}`).not.toMatch(/private|response secret/);
+});
 
 /**
  * A raw TCP host that answers any request with a `content-length` it never

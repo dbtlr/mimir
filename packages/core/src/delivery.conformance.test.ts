@@ -46,22 +46,29 @@ describe.each(backends)('delivery record ($name)', (backend) => {
     return { delivery, engine, instance, phase: phase.id, task: task.id };
   }
 
-  /** The seeded store's export, with its one delivery edited by `edit`. */
-  async function documentWith(
-    edit: (delivery: ExportedDelivery, document: StoreExport) => void,
-  ): Promise<StoreExport> {
+  // Import-validation cases edit copies of one export; rebuilding its source
+  // database per input adds PGlite boots without exercising another behavior.
+  let sourceDocument: StoreExport;
+  beforeAll(async () => {
     const { instance } = await seeded();
     try {
-      const document = structuredClone(await instance.store.export());
-      const delivery = document.deliveries[0];
-      if (delivery === undefined) {
-        throw new Error('missing fixture');
-      }
-      edit(delivery, document);
-      return document;
+      sourceDocument = await instance.store.export();
     } finally {
       await instance.close();
     }
+  });
+
+  /** The seeded store's export, with its one delivery edited by `edit`. */
+  function documentWith(
+    edit: (delivery: ExportedDelivery, document: StoreExport) => void,
+  ): StoreExport {
+    const document = structuredClone(sourceDocument);
+    const delivery = document.deliveries[0];
+    if (delivery === undefined) {
+      throw new Error('missing fixture');
+    }
+    edit(delivery, document);
+    return document;
   }
 
   /** Import `document` fresh into an empty store; returns the refusal or the target. */
@@ -139,12 +146,12 @@ describe.each(backends)('delivery record ($name)', (backend) => {
   });
 
   test('an imported seq or time cap past int32 is refused as validation', async () => {
-    const seq = await documentWith((delivery) => {
+    const seq = documentWith((delivery) => {
       delivery.seq = INT32_OVERFLOW;
       delivery.id = `DEL-d${String(INT32_OVERFLOW)}`;
     });
     await importRefusal(seq);
-    const cap = await documentWith((delivery) => {
+    const cap = documentWith((delivery) => {
       delivery.time_cap_minutes = INT32_OVERFLOW;
     });
     await importRefusal(cap);
@@ -154,14 +161,14 @@ describe.each(backends)('delivery record ($name)', (backend) => {
     ['created_at', '2026-01-01'],
     ['updated_at', '2026-01-01T00:00:00Z'],
   ] as const)('an imported delivery with a non-canonical %s is refused', async (field, value) => {
-    const document = await documentWith((delivery) => {
+    const document = documentWith((delivery) => {
       delivery[field] = value;
     });
     expect(await importRefusal(document)).toContain(`${field} must be a canonical instant`);
   });
 
   test('an imported delivery history row with a non-canonical at is refused', async () => {
-    const document = await documentWith((delivery) => {
+    const document = documentWith((delivery) => {
       delivery.lifecycle = 'running';
       delivery.history.push(lifecycleRow('agreed', 'running', 'yesterday'));
     });
@@ -183,21 +190,21 @@ describe.each(backends)('delivery record ($name)', (backend) => {
       { ...lifecycleRow('agreed', 'stopped', minutesAgo(1)), kind: 'hold' as const },
     ],
   ])('an imported delivery with %s is refused', async (_name, row) => {
-    const document = await documentWith((delivery) => {
+    const document = documentWith((delivery) => {
       delivery.history.push(row);
     });
     expect(await importRefusal(document)).toContain('history');
   });
 
   test('an imported delivery with a blank title is refused', async () => {
-    const document = await documentWith((delivery) => {
+    const document = documentWith((delivery) => {
       delivery.title = '   ';
     });
     expect(await importRefusal(document)).toContain('title is blank');
   });
 
   test('an imported terminal delivery that is held is refused', async () => {
-    const document = await documentWith((delivery) => {
+    const document = documentWith((delivery) => {
       delivery.lifecycle = 'landed';
       delivery.hold = 'stopped';
       delivery.hold_reason = 'waiting';
@@ -209,14 +216,14 @@ describe.each(backends)('delivery record ($name)', (backend) => {
     ['a reason with no hold', { hold: 'none' as const, hold_reason: 'stray' }],
     ['a hold with no reason', { hold: 'paused' as const, hold_reason: null }],
   ])('an imported delivery with %s is refused', async (_name, fields) => {
-    const document = await documentWith((delivery) => {
+    const document = documentWith((delivery) => {
       Object.assign(delivery, fields);
     });
     expect(await importRefusal(document)).toContain('hold reason disagrees with hold');
   });
 
   test('an imported member row that is not a valid event is refused', async () => {
-    const valid = await documentWith((delivery) => {
+    const valid = documentWith((delivery) => {
       delivery.history.push(member({}));
     });
     const target = await backend.make();
@@ -226,7 +233,7 @@ describe.each(backends)('delivery record ($name)', (backend) => {
       await target.close();
     }
     for (const overrides of [{ from_value: 'joined' }, { to_value: 'wandered' }, { task: null }]) {
-      const document = await documentWith((delivery) => {
+      const document = documentWith((delivery) => {
         delivery.history.push(member(overrides));
       });
       expect(await importRefusal(document)).toContain('invalid member history');
@@ -235,7 +242,7 @@ describe.each(backends)('delivery record ($name)', (backend) => {
 
   test('an imported member row that names a phase or initiative is refused', async () => {
     for (const container of ['DEL-1', 'DEL-2']) {
-      const document = await documentWith((delivery) => {
+      const document = documentWith((delivery) => {
         delivery.history.push(member({ task: container }));
       });
       expect(await importRefusal(document)).toContain(`member history names ${container}`);
@@ -243,7 +250,7 @@ describe.each(backends)('delivery record ($name)', (backend) => {
   });
 
   test('an imported lifecycle row that names a task is refused', async () => {
-    const document = await documentWith((delivery) => {
+    const document = documentWith((delivery) => {
       delivery.lifecycle = 'running';
       delivery.history.push({ ...lifecycleRow('agreed', 'running', minutesAgo(1)), task: 'DEL-3' });
     });
@@ -251,14 +258,14 @@ describe.each(backends)('delivery record ($name)', (backend) => {
   });
 
   test('an imported delivery whose id disagrees with its seq is refused', async () => {
-    const document = await documentWith((delivery) => {
+    const document = documentWith((delivery) => {
       delivery.id = 'DEL-d5';
     });
     expect(await importRefusal(document)).toContain('identity disagrees');
   });
 
   test('a fresh import allocates past the highest carried delivery seq', async () => {
-    const document = await documentWith((delivery, doc) => {
+    const document = documentWith((delivery, doc) => {
       delivery.seq = 3;
       delivery.id = 'DEL-d3';
       const project = doc.projects[0];
@@ -278,7 +285,7 @@ describe.each(backends)('delivery record ($name)', (backend) => {
   });
 
   test('a resume raises the delivery counter of a project it already holds', async () => {
-    const document = await documentWith((_delivery, doc) => {
+    const document = documentWith((_delivery, doc) => {
       Object.assign(doc, { deliveries: [] });
       const project = doc.projects[0];
       if (project !== undefined) {
@@ -304,7 +311,7 @@ describe.each(backends)('delivery record ($name)', (backend) => {
   });
 
   test('elapsed time runs from the first start, never below zero', async () => {
-    const document = await documentWith((delivery, doc) => {
+    const document = documentWith((delivery, doc) => {
       delivery.lifecycle = 'running';
       delivery.history.push(
         {
@@ -344,7 +351,7 @@ describe.each(backends)('delivery record ($name)', (backend) => {
   });
 
   test('a create past the last int32 delivery seq is refused as validation', async () => {
-    const document = await documentWith((_delivery, doc) => {
+    const document = documentWith((_delivery, doc) => {
       Object.assign(doc, { deliveries: [] });
       const project = doc.projects[0];
       if (project !== undefined) {

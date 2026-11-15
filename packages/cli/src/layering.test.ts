@@ -57,8 +57,9 @@ const absolute = (filename: string): string =>
  * graphical or into annotations that drop the rule's custom help.
  */
 function lint(paths: readonly string[]): Map<string, string> {
-  const args = ['x', 'vp', 'lint', '--format', 'json', '-A', 'all', '-D', 'no-restricted-imports'];
-  const run = spawnSync('bun', [...args, ...paths], {
+  // Skip bun x's extra resolution and startup while retaining vp's config loading.
+  const args = ['lint', '--format', 'json', '-A', 'all', '-D', 'no-restricted-imports'];
+  const run = spawnSync(resolve(repository, 'node_modules/.bin/vp'), [...args, ...paths], {
     cwd: repository,
     encoding: 'utf8',
     env: { ...process.env, MIMIR_LINT_TYPE_AWARE: '0' },

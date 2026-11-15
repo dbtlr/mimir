@@ -132,20 +132,38 @@ The usual causes, and their fixes:
 
 Confirm a fix with a stress run under the default timeouts.
 
+The default Bun lane runs files across three worker processes. Each file gets
+a fresh global and module registry. The worker limit caps contention on the
+three-core macOS release runner and leaves capacity on the four-vCPU Linux gate.
+Tests must use unique temporary directories and ephemeral ports (`port: 0`); a
+child process must receive its fixture's paths instead of opening the checkout's
+shared `.dev` store.
+
+[`test-timings.json`](test-timings.json) records per-file durations in milliseconds.
+Bun uses it only to start slower files first, not to select tests or enforce the
+budget. Missing files or entries and entries for removed tests do not fail a run.
+After a substantial change to test costs, refresh and commit it:
+
+```sh
+bun run test --update-timings
+```
+
+The refresh merges new times into the file and keeps entries for removed files.
+Delete `test-timings.json` before refreshing to prune those entries.
+
 CI's gate checks the default bun lane's timings with `bun run test:budget`
 (`packages/cli/scripts/test-budget.ts`). A test over 3 s fails the gate, and a
 test over 1 s or a file over 15 s is reported in the log. Bun counts
 `beforeEach` and `afterEach` in a test's time but `beforeAll` and `afterAll`
 only in its file's, so a slow shared setup shows as a slow file. A test file
 that opens a PGlite store runs `beforeAll(bootPglite)` first
-(`bootEmptyPglite` when it opens only unmigrated databases), so the one-off
+(`bootEmptyPglite` when it opens only unmigrated databases), so each file's
 snapshot build, about 1.8 s on the gate, counts in that file's time and in no
-test's. A file that forgets the hook fails when it runs alone; in a run of
-several files it passes if an earlier file has already booted. A test over
-the limit may be exempted only against the task that will make it fast; remove
-the exemption in that task. An exemption that names a test the run did not
-include, as after a rename, fails the gate. To check a local run, write a
-report and pass it:
+test's. A file that forgets the hook fails both alone and in the default lane,
+because each file gets a fresh module registry. A test over the limit may be
+exempted only against the task that will make it fast; remove the exemption in
+that task. An exemption that names a test the run did not include, as after a
+rename, fails the gate. To check a local run, write a report and pass it:
 
 ```sh
 bun run test --reporter=junit --reporter-outfile=.scratch/bun-junit.xml
