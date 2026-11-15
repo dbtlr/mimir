@@ -319,7 +319,7 @@ export async function nextTasks(
     if (scopeId !== undefined && scopeId !== ref.key) {
       throw validation(
         'delivery must belong to the selected project',
-        `${deliveryId} belongs to ${ref.key}; pass -s ${ref.key}, or omit -s`,
+        `${deliveryId} belongs to ${ref.key}; pass -s ${ref.key}`,
       );
     }
     delivery = deliveryId;

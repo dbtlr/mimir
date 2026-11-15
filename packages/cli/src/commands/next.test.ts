@@ -157,6 +157,19 @@ test('next --delivery with no project takes the project from the delivery id', a
   }
 });
 
+test('next --delivery with a task id and no project names the wrong kind, not a missing project', async () => {
+  const f = await parityBoard();
+  try {
+    const task = await f.engine.create({ parent: 'MMR-2', title: 'Not a delivery', type: 'task' });
+    const run = await runArgv(f.app(), ['next', '--delivery', task.id]);
+    expect(run.exitCode).not.toBe(0);
+    expect(run.stderr).toContain('not a delivery');
+    expect(run.stderr).not.toContain('needs a project');
+  } finally {
+    await f.close();
+  }
+});
+
 test('an empty next --delivery points at the delivery, not at the awaiting list', async () => {
   const f = await parityBoard();
   try {

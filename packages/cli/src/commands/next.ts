@@ -65,9 +65,9 @@ export function nextCommand(ports: Ports) {
         (query) => (engine, project) =>
           engine.next({ ...query, delivery: options.delivery, project }),
         // A delivery id names its project, so `next --delivery` needs no -s or binding.
-        options.delivery !== undefined && ports.grammar.idKind(options.delivery) === 'delivery'
-          ? ports.grammar.projectKey(options.delivery)
-          : undefined,
+        // Any id's key will do: the Engine then refuses an id of the wrong kind in its
+        // own words, rather than the CLI reporting a missing project.
+        options.delivery === undefined ? undefined : ports.grammar.projectKey(options.delivery),
       ),
     );
 }
