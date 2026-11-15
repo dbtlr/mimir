@@ -568,7 +568,7 @@ test("a writer waits out another process's lock without stalling the event loop"
     const write = store.transact((writer) =>
       writer.insertProject({ description: null, key: 'MMR', name: 'Mimir', tags: [] }),
     );
-    const held = 600;
+    const held = 80;
     await Bun.sleep(held);
     other.run('commit');
     await write;

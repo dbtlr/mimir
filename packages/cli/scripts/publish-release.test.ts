@@ -604,11 +604,16 @@ describe('publishRelease', () => {
   test('treats a rate limit as transient and waits at least the hinted retry-after', async () => {
     github.failUploads('mimir-linux-x64', 1, '429');
 
-    const started = Date.now();
-    const { log, outcome } = await run();
+    const waits: number[] = [];
+    const { log, outcome } = await run({
+      sleep: async (milliseconds) => {
+        waits.push(milliseconds);
+      },
+    });
 
     expect(outcome.status).toBe('published');
-    expect(Date.now() - started).toBeGreaterThanOrEqual(1_000);
+    expect(waits).toHaveLength(1);
+    expect(waits[0]).toBeGreaterThanOrEqual(1_000);
     expect(log.some((line) => line.includes('HTTP 429 rate limited, wait 1s'))).toBe(true);
     expect(github.events.filter((e) => e === 'upload:mimir-linux-x64')).toHaveLength(1);
   });

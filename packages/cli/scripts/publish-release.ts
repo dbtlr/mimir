@@ -68,6 +68,8 @@ export type PublishOptions = {
   /** Once this much time has passed, no further retries are started. */
   budgetMs: number;
   log: (line: string) => void;
+  /** Retry delay; defaults to a real timer. */
+  sleep?: (milliseconds: number) => Promise<unknown>;
 };
 
 export type PublishOutcome =
@@ -218,7 +220,7 @@ class Retrier {
           failures.push(`time budget of ${this.options.budgetMs} ms exhausted; not retrying`);
           break;
         }
-        await Bun.sleep(delay);
+        await (this.options.sleep ?? Bun.sleep)(delay);
       }
     }
     throw new GaveUpError(label, attempts, failures);

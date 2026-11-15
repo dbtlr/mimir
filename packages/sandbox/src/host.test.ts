@@ -68,18 +68,20 @@ test('sandbox host timeout stops descendants and retains the sandbox', async () 
     await writeFile(join(host, 'package.json'), JSON.stringify({ scripts: { dev: 'bun dev.ts' } }));
     await writeFile(
       join(host, 'dev.ts'),
-      `Bun.spawn([process.execPath, '-e', "await Bun.sleep(500); await Bun.write('escaped', 'yes')"], { stdout: 'ignore', stderr: 'ignore' }); await Bun.write('started', 'yes'); await Bun.sleep(10000);`,
+      `Bun.spawn([process.execPath, '-e', "await Bun.write('started', 'yes'); await Bun.sleep(75); await Bun.write('escaped', 'yes')"], { stdout: 'ignore', stderr: 'ignore' }); await Bun.sleep(10000);`,
     );
     let failure: unknown;
     try {
-      await launchHost(root, authority, { timeout: 200 });
+      await launchHost(root, authority, { timeout: 50 });
     } catch (error) {
       failure = error;
     }
     expect(failure).toBeInstanceOf(Error);
     expect(failure instanceof Error && failure.message).toContain('timed out');
     expect(await Bun.file(join(host, 'started')).text()).toBe('yes');
-    await Bun.sleep(600);
+    // The descendant writes `started` before its 75 ms delay. Even if it
+    // started just before the timeout, it would escape within this wait.
+    await Bun.sleep(100);
     expect(await Bun.file(join(host, 'escaped')).exists()).toBe(false);
   } finally {
     await rm(root, { force: true, recursive: true });
