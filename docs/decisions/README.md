@@ -66,6 +66,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0041](0041-agent-runtime-on-the-host.md)                         | The agent runtime runs on the host                                 |
 | [0042](0042-the-delivery-record.md)                               | The delivery — one attempt to deliver a phase through one branch   |
 | [0043](0043-the-decision-record.md)                               | The decision — a question answered without stopping                |
+| [0044](0044-checklist-items.md)                                   | Checklist items — small items a task adds, then checks or drops    |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete model
