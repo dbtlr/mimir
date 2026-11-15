@@ -2,7 +2,7 @@ import { leaveOnAbandon, refuseMember, refuseMemberDone } from '../deliveries/me
 import { conflict, validation } from '../errors';
 import { RELEASED_HOLD } from '../hold-release';
 import type { Node } from '../model';
-import { appendRank } from '../rank';
+import { appendRank, isRankable } from '../rank';
 import type { NodePatch, Store, StoreWriter } from '../store';
 import { now } from '../time';
 import { logTransition, reloadNode, requireTask, stamp } from './common';
@@ -205,8 +205,10 @@ export async function returnTask(store: Store, id: string, reason?: string): Pro
         `only an under_review or staged task can be returned (is ${String(task.lifecycle)})`,
       );
     }
-    // re-enter the rankable set at the bottom (a return is a natural re-triage point)
-    const rank = await appendRank(w, task.project_id);
+    // Re-enter the rankable set at the bottom (a return is a natural re-triage
+    // point), unless a hold keeps the task out of it (ADR 0007): the release
+    // that lifts the hold appends the rank then.
+    const rank = isRankable('in_progress', task.hold) ? await appendRank(w, task.project_id) : null;
     await w.updateNode(id, { lifecycle: 'in_progress', rank });
     await logTransition(w, {
       from_value: task.lifecycle,
