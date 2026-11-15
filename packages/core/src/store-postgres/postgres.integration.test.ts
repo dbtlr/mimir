@@ -702,3 +702,51 @@ lane(
   },
   30000,
 );
+
+lane('concurrent item adds on one task get distinct consecutive numbers', async () => {
+  await onFreshSchema(async (url) => {
+    const handle = openPostgres(url);
+    try {
+      await upgradeSchema(handle.db);
+      const store = createPostgresStore(handle.db);
+      const engine = new LocalEngine(store);
+      await createProject(store, { key: 'CHK', name: 'Checklists' });
+      const parent = await createInitiative(store, { projectId: 'CHK', title: 'i' });
+      const task = await createTask(store, { parentId: parent.id, title: 't' });
+      await Promise.all(
+        Array.from({ length: 8 }, (_, i) => engine.itemAdd({ content: `item ${i}`, task: task.id })),
+      );
+      const items = (await engine.getNode({ id: task.id })).items ?? [];
+      expect(items.map((item) => item.number)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+      expect(new Set(items.map((item) => item.content)).size).toBe(8);
+    } finally {
+      await handle.close();
+    }
+  });
+});
+
+lane('two concurrent settles of one item leave one settled and one refused', async () => {
+  await onFreshSchema(async (url) => {
+    const handle = openPostgres(url);
+    try {
+      await upgradeSchema(handle.db);
+      const store = createPostgresStore(handle.db);
+      const engine = new LocalEngine(store);
+      await createProject(store, { key: 'CHK', name: 'Checklists' });
+      const parent = await createInitiative(store, { projectId: 'CHK', title: 'i' });
+      const task = await createTask(store, { parentId: parent.id, title: 't' });
+      await engine.itemAdd({ content: 'one', task: task.id });
+      const results = await Promise.allSettled([
+        engine.itemCheck({ number: 1, task: task.id }),
+        engine.itemDrop({ number: 1, reason: 'race', task: task.id }),
+      ]);
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      const refused = results.find((r) => r.status === 'rejected');
+      expect(refused?.status === 'rejected' && refused.reason).toMatchObject({ code: 'conflict' });
+      const [item] = (await engine.getNode({ id: task.id })).items ?? [];
+      expect(item?.state === 'checked' || item?.state === 'dropped').toBe(true);
+    } finally {
+      await handle.close();
+    }
+  });
+});

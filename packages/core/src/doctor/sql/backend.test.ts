@@ -403,6 +403,52 @@ describe.each(arms)('$name', (arm) => {
     }
   });
 
+  test(`${arm.name}: doctor reports checklist items that break a rule the verbs keep`, async () => {
+    const f = await arm.make();
+    try {
+      await seedWorkingSet(f.store);
+      const engine = new LocalEngine(f.store);
+      for (const content of ['one', 'two', 'three', 'four']) {
+        await engine.itemAdd({ content, task: 'MMR-4' });
+      }
+      await engine.itemCheck({ number: 1, task: 'MMR-4' });
+      await engine.itemDrop({ number: 2, reason: 'no', task: 'MMR-4' });
+      expect(byCode((await f.doctor.diagnose(undefined)).findings, 'invalid-checklist-item')).toEqual(
+        [],
+      );
+      await arm.unconstrained(f.db, [
+        "UPDATE checklist_item SET number = 0 WHERE node_id = 'MMR-4' AND number = 4",
+        "UPDATE checklist_item SET content = ' ' WHERE node_id = 'MMR-4' AND number = 3",
+        "UPDATE checklist_item SET reason = NULL WHERE node_id = 'MMR-4' AND number = 2",
+        "UPDATE checklist_item SET reason = 'why' WHERE node_id = 'MMR-4' AND number = 1",
+        "UPDATE checklist_item SET settled_at = NULL WHERE node_id = 'MMR-4' AND number = 1",
+        "INSERT INTO checklist_item (node_id, number, content, state, reason, created_at, settled_at) VALUES ('MMR-404', 1, 'x', 'open', NULL, '2026-01-01T00:00:00.000Z', NULL)",
+        "INSERT INTO checklist_item (node_id, number, content, state, reason, created_at, settled_at) VALUES ('MMR-1', 1, 'x', 'open', NULL, '2026-01-01T00:00:00.000Z', '2026-01-02T00:00:00.000Z')",
+        "INSERT INTO checklist_item (node_id, number, content, state, reason, created_at, settled_at) VALUES ('MMR-1', 2, 'x', 'checked', NULL, '2026-01-02T00:00:00.000Z', '2026-01-01T00:00:00.000Z')",
+      ]);
+      const messages = byCode(
+        (await f.doctor.diagnose(undefined)).findings,
+        'invalid-checklist-item',
+      ).map((item) => item.message);
+      expect(messages.toSorted()).toEqual(
+        [
+          'MMR-4 item 0 number must be a positive integer',
+          'MMR-4 item 3 content is blank',
+          'MMR-4 item 2 is dropped without a reason',
+          'MMR-4 item 1 is checked but carries a reason',
+          'MMR-4 item 1 is checked without a settled_at',
+          'MMR-404 item 1 names a missing task',
+          'MMR-1 item 1 names an initiative, not a task',
+          'MMR-1 item 1 is open but has a settled_at',
+          'MMR-1 item 2 names an initiative, not a task',
+          'MMR-1 item 2 settled_at is before its created_at',
+        ].toSorted(),
+      );
+    } finally {
+      await f.close();
+    }
+  });
+
   test(`${arm.name}: delivery references the verbs produce diagnose clean, and every other state reports invalid-delivery`, async () => {
     const f = await arm.make();
     try {

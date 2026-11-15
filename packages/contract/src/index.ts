@@ -17,3 +17,5 @@ export * from './version';
 export * from './delivery';
 
 export * from './decision';
+
+export * from './checklist';

@@ -1,3 +1,4 @@
+import type { ChecklistItem } from './checklist';
 import type {
   AgendaItemState,
   BlockOwner,
@@ -391,6 +392,8 @@ export type NodeView = {
   blockOwner?: BlockOwner | null;
   externalRef?: string | null;
   /** The requester-side seed pointer (`KEY-sN`, MMR-244/245) — reference-only. */
+  /** A task's checklist in number order (ADR 0044); a task `get` carries it. */
+  items?: ChecklistItem[];
   decisions?: { id: string; lifecycle: 'provisional' | 'confirmed' | 'overturned' }[];
   delivery?: string | null;
   upstream?: string | null;

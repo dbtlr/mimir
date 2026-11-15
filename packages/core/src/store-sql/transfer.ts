@@ -27,6 +27,7 @@ import { parseTransferDocument } from '../transfer-validate';
 import { exportArtifacts, insertExportedArtifacts } from './artifacts';
 import { inLists, insertBatched, pairKey } from './batch';
 import { createSqlBodySectionStore } from './body-sections';
+import { exportChecklist, insertExportedChecklist } from './checklist';
 import { exportDecisions, insertExportedDecisions } from './decisions';
 import { exportDeliveries, insertExportedDeliveries } from './deliveries';
 import type { StoreDialect } from './dialect';
@@ -173,6 +174,7 @@ export async function exportSqlStore(ex: Executor, dialect: StoreDialect): Promi
     annotations,
     artifacts: await exportArtifacts(ex, dialect),
     bodySections,
+    checklist_items: await exportChecklist(ex),
     decisions: await exportDecisions(ex, dialect),
     deliveries: await exportDeliveries(ex, dialect),
     edges: [...workingSet.edges],
@@ -327,6 +329,7 @@ function bundlesOf(
   const owned = new Map(document.bodySections.map((sections) => [sections.stem, sections]));
   const tags = indexTags(document);
   const annotations = groupBy(document.annotations, (row) => row.node_id);
+  const items = groupBy(document.checklist_items, (row) => row.task);
   const prereqs = groupBy(document.edges, (edge) => edge.node_id);
   const history = groupBy(document.transitions, (row) => row.node_id ?? row.project_id ?? '');
   const bundles: Bundles = {
@@ -368,6 +371,10 @@ function bundlesOf(
       })),
       description: storedProse(owned.get(node.id)?.description),
       history: (history.get(node.id) ?? []).map(comparableTransition),
+      // A document may list a task's items in any order; the store reads them by number.
+      items: (items.get(node.id) ?? [])
+        .map(({ task: _task, ...item }) => item)
+        .toSorted((a, b) => a.number - b.number),
       next: comparableNext(owned.get(node.id)?.next),
       prereqs: canonicalSetOrder(
         (prereqs.get(node.id) ?? []).map((edge) => edge.depends_on_node_id),
@@ -659,6 +666,11 @@ async function applyImport(
   await insertBatched(annotationRows, dialect.maxParameters, (chunk) =>
     tx.insertInto('annotation').values(chunk).execute(),
   );
+  await insertExportedChecklist(
+    tx,
+    dialect,
+    document.checklist_items.filter((item) => newNodes.has(item.task)),
+  );
   await insertBatched(transitionRows, dialect.maxParameters, (chunk) =>
     tx.insertInto('transition_log').values(chunk).execute(),
   );
@@ -766,6 +778,7 @@ const EMPTY_COLLECTIONS = {
   annotations: [],
   artifacts: [],
   bodySections: [],
+  checklist_items: [],
   decisions: [],
   deliveries: [],
   edges: [],

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { checklistItemSchema } from './checklist';
 import {
   AGENDA_ITEM_STATE_VALUES,
   BLOCK_OWNER_VALUES,
@@ -113,6 +114,9 @@ export function nodeSchema<T extends z.ZodType>(instant: T) {
       .optional(),
     host: z.string().nullable().optional(),
     id: z.string(),
+    items: z
+      .array(checklistItemSchema.extend({ created_at: instant, settled_at: instant.nullable() }))
+      .optional(),
     lastActivityAt: instant.optional(),
     leafCounts: distributionSchema.optional(),
     lede: z.string().nullable().optional(),

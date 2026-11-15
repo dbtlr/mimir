@@ -82,6 +82,7 @@ test('an upgrade names the migrations it applied and lands the current version',
         '0015_delivery',
         '0016_delivery_membership',
         '0017_decision',
+        '0018_checklist_item',
       ],
       from: 0,
       to: SCHEMA_VERSION,
@@ -255,6 +256,7 @@ test('0013_runs upgrades a version-12 store: an empty runs table that admits one
         '0015_delivery',
         '0016_delivery_membership',
         '0017_decision',
+        '0018_checklist_item',
       ],
       from: 12,
       to: SCHEMA_VERSION,
@@ -330,7 +332,13 @@ test('0014_task_staged upgrades a version-13 store: nodes survive, staged is adm
     );
 
     expect(await upgradeSchema(db)).toEqual({
-      applied: ['0014_task_staged', '0015_delivery', '0016_delivery_membership', '0017_decision'],
+      applied: [
+        '0014_task_staged',
+        '0015_delivery',
+        '0016_delivery_membership',
+        '0017_decision',
+        '0018_checklist_item',
+      ],
       from: 13,
       to: SCHEMA_VERSION,
     });
