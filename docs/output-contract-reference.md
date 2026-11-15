@@ -585,3 +585,21 @@ updated_at, tasks, and history. Options retain input order; tasks read in task
 sequence order; history reads in insertion order. Each history row carries
 kind, from_value, to_value, reason, task, and at. Task `get` adds `decisions`, a
 list of id/lifecycle pairs in decision sequence order. Other task reads omit it.
+
+`decisions` returns `{ decisions, total }` in JSON, one full decision per line
+in JSONL, and decision ids in `ids`. Records and table formats show full records.
+It reads one project (`-p/--project`, otherwise the clone binding), oldest first
+by sequence. `--status provisional|confirmed|overturned|all` defaults to
+`provisional`. Repeatable `--class` selects alternative classes. `--delivery`
+selects an existing same-project delivery link, including a terminal delivery; `--linked` requires at least one linked task whose
+lifecycle is not `abandoned`, including done tasks. Filters combine with AND.
+The cap query is `decisions --class product --class architecture --linked`,
+narrowed with `--delivery` for a delivery cap. Unknown and archived projects
+refuse as `not_found`.
+
+Engine `decisions` accepts strict input with `project`, optional `status`,
+`classes`, `delivery`, and `linked: true`. Omit `linked` to leave links unfiltered; `false` refuses validation. Engine dates remain `Date` values; CLI and
+MCP dates are ISO instants. Overview adds `provisionalDecisions` in Engine and
+`provisional_decisions` in CLI and MCP JSON: the count of every provisional
+decision in the project, without cap filters. Records render the count with a
+`mimir decisions` follow-up command.

@@ -934,6 +934,7 @@ export async function overviewOf(
     inFlight: { count: inFlightNodes.length, tasks: inFlightTasks },
     next: { count: readyNodes.length, tasks: nextTop },
     project: { distribution, id: scopeId, status },
+    provisionalDecisions: await store.decisions.countProvisional(scopeId),
     scratchpads: { count: scratchpads.length, scratchpads: scratchpads.slice(0, OVERVIEW_CAP) },
     sessions,
   };

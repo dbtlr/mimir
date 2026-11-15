@@ -141,6 +141,13 @@ const reads: { [K in ReadMethod]: ReadCase<K> } = {
       timeZone: 'UTC',
     }),
   },
+  decisions: {
+    check: (rows) => {
+      expect(rows.map((row) => row.id)).toEqual(['OTH-q1']);
+      expect(rows[0]?.created_at).toBeInstanceOf(Date);
+    },
+    input: () => ({ project: 'OTH' }),
+  },
   deliveries: {
     check: (rows) => {
       expect(rows[0]?.title).toBe('Read attempt');

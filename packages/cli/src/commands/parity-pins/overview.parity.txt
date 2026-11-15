@@ -202,6 +202,7 @@ exit 0
 |     "id": "MMR",
 |     "status": "in_progress"
 |   },
+|   "provisional_decisions": 0,
 |   "sessions": {
 |     "entries": [
 |       {
@@ -425,6 +426,7 @@ exit 0
 |     "id": "MMR",
 |     "status": "in_progress"
 |   },
+|   "provisional_decisions": 0,
 |   "sessions": {
 |     "entries": [
 |       {
@@ -451,6 +453,8 @@ exit 0
 |
 | in flight (1)
 |   MMR-5   > in_progress   p0   MMR-2   Ship it · codex · main-session · worker claude · task-worker-session
+|
+| provisional decisions (0) — run 'mimir decisions -p MMR'
 |
 | active scratchpads (1)
 |   <uuid> · MMR · Shape it · 0 open Agenda · now · linked MMR-3
@@ -479,6 +483,8 @@ exit 0
 | in flight (1)
 |   MMR-5   > in_progress   p0   MMR-2   Ship it · codex · main-session · worker claude · task-worker-session
 |
+| provisional decisions (0) — run 'mimir decisions -p MMR'
+|
 | active scratchpads (1)
 |   <uuid> · MMR · Shape it · 0 open Agenda · now · linked MMR-3
 |
@@ -504,6 +510,8 @@ exit 0
 | XX · * ready · ready:1
 |
 | in flight (0)
+|
+| provisional decisions (0) — run 'mimir decisions -p XX'
 |
 | active scratchpads (0)
 |
@@ -588,6 +596,7 @@ exit 0
 |     "id": "XX",
 |     "status": "ready"
 |   },
+|   "provisional_decisions": 0,
 |   "sessions": {
 |     "entries": [],
 |     "shown": 0
@@ -798,6 +807,7 @@ exit 0
 |     "id": "MMR",
 |     "status": "in_progress"
 |   },
+|   "provisional_decisions": 0,
 |   "sessions": {
 |     "entries": [
 |       {
@@ -824,6 +834,8 @@ exit 0
 |
 | in flight (1)
 |   MMR-5   > in_progress   p0   MMR-2   Ship it · codex · main-session · worker claude · task-worker-session
+|
+| provisional decisions (0) — run 'mimir decisions -p MMR'
 |
 | active scratchpads (1)
 |   <uuid> · MMR · Shape it · 0 open Agenda · now · linked MMR-3
@@ -915,6 +927,7 @@ exit 0
 |     "id": "XX",
 |     "status": "ready"
 |   },
+|   "provisional_decisions": 0,
 |   "sessions": {
 |     "entries": [],
 |     "shown": 0
@@ -1149,6 +1162,7 @@ exit 0
 |     "id": "MMR",
 |     "status": "in_progress"
 |   },
+|   "provisional_decisions": 0,
 |   "sessions": {
 |     "entries": [
 |       {
@@ -1175,6 +1189,8 @@ exit 0
 |
 | in flight (1)
 |   MMR-5   > in_progress   p0   MMR-2   Ship it · codex · main-session · worker claude · task-worker-session
+|
+| provisional decisions (0) — run 'mimir decisions -p MMR'
 |
 | active scratchpads (1)
 |   <uuid> · MMR · Shape it · 0 open Agenda · now · linked MMR-3
@@ -1230,7 +1246,7 @@ exit 2
 ### overview argv: -s MMR -f jsonl
 exit 0
 --- stdout
-| {"active_scratchpads":{"count":1,"scratchpads":[{"id":"<uuid>","linked_work":["MMR-3"],"open_agenda":0,"project":"MMR","state":"active","title":"Shape it","updated_at":"2026-10-01T12:00:00.000Z"}]},"awaiting":{"count":1,"tasks":[{"id":"MMR-4","parent":"MMR-2","status":"awaiting","title":"Render views","type":"task","summary":null,"priority":null,"size":null,"lifecycle":"todo","grooming":"not_groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"delivery":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","awaiting_on":["MMR-3"]}]},"direction":{"containers":[],"count":0,"project":null},"hygiene":{"blocked":1,"listings":{"blocked":[{"id":"MMR-6","parent":"MMR-2","status":"blocked","title":"Wait on review","type":"task","summary":null,"priority":null,"size":null,"lifecycle":"todo","grooming":"not_groomed","hold":"blocked","hold_reason":"needs a reviewer","block_owner":"you","external_ref":null,"delivery":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","stale":false}],"stale":[],"untriaged":[{"id":"MMR-s1","lede":"Ask the other board for a hook.","title":"A hook"}]},"parked_seeds":0,"stale":0,"untriaged":1},"in_flight":{"count":1,"tasks":[{"id":"MMR-5","parent":"MMR-2","status":"in_progress","title":"Ship it","type":"task","summary":null,"priority":"p0","size":null,"lifecycle":"in_progress","grooming":"not_groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"delivery":null,"upstream":null,"host":null,"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session","branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z"}]},"next":{"count":2,"tasks":[{"id":"MMR-3","parent":"MMR-2","status":"ready","title":"Wire the store","type":"task","summary":"one store per run","priority":"p1","size":"small","lifecycle":"todo","grooming":"groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"delivery":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z"},{"id":"MMR-8","parent":"MMR-2","status":"ready","title":"Tidy docs","type":"task","summary":null,"priority":"p2","size":null,"lifecycle":"todo","grooming":"not_groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"delivery":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z"}]},"project":{"distribution":{"in_progress":1},"id":"MMR","status":"in_progress"},"sessions":{"entries":[{"from":"2026-10-01T12:00:00.000Z","id":"main-session","tasks":[{"id":"MMR-5","title":"Ship it"}],"to":"2026-10-01T12:00:00.000Z","transitions":1}],"shown":1}}
+| {"active_scratchpads":{"count":1,"scratchpads":[{"id":"<uuid>","linked_work":["MMR-3"],"open_agenda":0,"project":"MMR","state":"active","title":"Shape it","updated_at":"2026-10-01T12:00:00.000Z"}]},"awaiting":{"count":1,"tasks":[{"id":"MMR-4","parent":"MMR-2","status":"awaiting","title":"Render views","type":"task","summary":null,"priority":null,"size":null,"lifecycle":"todo","grooming":"not_groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"delivery":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","awaiting_on":["MMR-3"]}]},"direction":{"containers":[],"count":0,"project":null},"hygiene":{"blocked":1,"listings":{"blocked":[{"id":"MMR-6","parent":"MMR-2","status":"blocked","title":"Wait on review","type":"task","summary":null,"priority":null,"size":null,"lifecycle":"todo","grooming":"not_groomed","hold":"blocked","hold_reason":"needs a reviewer","block_owner":"you","external_ref":null,"delivery":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","stale":false}],"stale":[],"untriaged":[{"id":"MMR-s1","lede":"Ask the other board for a hook.","title":"A hook"}]},"parked_seeds":0,"stale":0,"untriaged":1},"in_flight":{"count":1,"tasks":[{"id":"MMR-5","parent":"MMR-2","status":"in_progress","title":"Ship it","type":"task","summary":null,"priority":"p0","size":null,"lifecycle":"in_progress","grooming":"not_groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"delivery":null,"upstream":null,"host":null,"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session","branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z"}]},"next":{"count":2,"tasks":[{"id":"MMR-3","parent":"MMR-2","status":"ready","title":"Wire the store","type":"task","summary":"one store per run","priority":"p1","size":"small","lifecycle":"todo","grooming":"groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"delivery":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z"},{"id":"MMR-8","parent":"MMR-2","status":"ready","title":"Tidy docs","type":"task","summary":null,"priority":"p2","size":null,"lifecycle":"todo","grooming":"not_groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"delivery":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z"}]},"project":{"distribution":{"in_progress":1},"id":"MMR","status":"in_progress"},"provisional_decisions":0,"sessions":{"entries":[{"from":"2026-10-01T12:00:00.000Z","id":"main-session","tasks":[{"id":"MMR-5","title":"Ship it"}],"to":"2026-10-01T12:00:00.000Z","transitions":1}],"shown":1}}
 
 ### overview argv: -s MMR (terminal)
 exit 0
@@ -1239,6 +1255,8 @@ exit 0
 |
 | in flight (1)
 |   MMR-5   ␛[36m▶ in_progress␛[39m   p0   MMR-2   Ship it · codex · main-session · worker claude · task-worker-session
+|
+| provisional decisions (0) — run 'mimir decisions -p MMR'
 |
 | active scratchpads (1)
 |   <uuid> · MMR · Shape it · 0 open Agenda · now · linked MMR-3
@@ -1267,6 +1285,8 @@ exit 0
 | in flight (1)
 |   MMR-5   ␛[36m▶ in_progress␛[39m   p0   MMR-2   Ship it · codex · main-session · worker claude · task-worker-session
 |
+| provisional decisions (0) — run 'mimir decisions -p MMR'
+|
 | active scratchpads (1)
 |   <uuid> · MMR · Shape it · 0 open Agenda · now · linked MMR-3
 |
@@ -1293,6 +1313,8 @@ exit 0
 |
 | in flight (0)
 |
+| provisional decisions (0) — run 'mimir decisions -p XX'
+|
 | active scratchpads (0)
 |
 | next (1)
@@ -1312,6 +1334,8 @@ exit 0
 |
 | in flight (1)
 |   MMR-5   > in_progress   p0   MMR-2   Ship it · codex · main-session · worker unknown-provider-worker
+|
+| provisional decisions (0) — run 'mimir decisions -p MMR'
 |
 | active scratchpads (2)
 |   <uuid> · MMR · Index rewrite · 2 open Agenda · now · linked MMR-3
@@ -1344,6 +1368,8 @@ exit 0
 |
 | in flight (1)
 |   MMR-5   > in_progress   p0   MMR-2   Ship it · codex · main-session
+|
+| provisional decisions (0) — run 'mimir decisions -p MMR'
 |
 | active scratchpads (2)
 |   <uuid> · MMR · Index rewrite · 2 open Agenda · now · linked MMR-3

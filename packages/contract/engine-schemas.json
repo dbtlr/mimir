@@ -1101,6 +1101,45 @@
             "required": ["kind", "schema"],
             "additionalProperties": false
           },
+          "decisions": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "classes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": ["product", "architecture", "other"]
+                    }
+                  },
+                  "delivery": {
+                    "type": "string"
+                  },
+                  "linked": {
+                    "type": "boolean",
+                    "const": true
+                  },
+                  "project": {
+                    "$ref": "#/$defs/__schema4"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["provisional", "confirmed", "overturned", "all"]
+                  }
+                },
+                "required": ["project"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
           "getDecision": {
             "type": "object",
             "properties": {
@@ -2697,6 +2736,7 @@
           "confirm",
           "decide",
           "decisionUpdate",
+          "decisions",
           "getDecision",
           "overturn",
           "queue",
@@ -3887,6 +3927,23 @@
             "required": ["kind", "schema"],
             "additionalProperties": false
           },
+          "decisions": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema81"
+                }
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
           "getDecision": {
             "type": "object",
             "properties": {
@@ -4883,6 +4940,7 @@
           "confirm",
           "decide",
           "decisionUpdate",
+          "decisions",
           "getDecision",
           "overturn",
           "queue",
@@ -6364,6 +6422,9 @@
             "required": ["distribution", "id", "status"],
             "additionalProperties": false
           },
+          "provisionalDecisions": {
+            "type": "number"
+          },
           "scratchpads": {
             "type": "object",
             "properties": {
@@ -6442,6 +6503,7 @@
           "inFlight",
           "next",
           "project",
+          "provisionalDecisions",
           "scratchpads",
           "sessions"
         ],

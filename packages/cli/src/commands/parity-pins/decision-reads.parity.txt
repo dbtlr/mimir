@@ -1,0 +1,488 @@
+### decisions -f records
+exit 0
+--- stdout
+| id: MMR-q1
+| project_key: MMR
+| seq: 1
+| question: Where?
+| recommended: 1
+| taken: 1
+| class: product
+| delivery: MMR-d1
+| lifecycle: provisional
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| tasks: MMR-3
+| Options
+|   1. Here
+|   2. There
+| History
+| 2026-10-01 12:00 UTC link: none -> linked MMR-3
+| 2026-10-01 12:00 UTC delivery: none -> MMR-d1
+
+### decisions -f table
+exit 0
+--- stdout
+| id: MMR-q1
+| project_key: MMR
+| seq: 1
+| question: Where?
+| recommended: 1
+| taken: 1
+| class: product
+| delivery: MMR-d1
+| lifecycle: provisional
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| tasks: MMR-3
+| Options
+|   1. Here
+|   2. There
+| History
+| 2026-10-01 12:00 UTC link: none -> linked MMR-3
+| 2026-10-01 12:00 UTC delivery: none -> MMR-d1
+
+### decisions -f json
+exit 0
+--- stdout
+| {
+|   "decisions": [
+|     {
+|       "id": "MMR-q1",
+|       "project_key": "MMR",
+|       "seq": 1,
+|       "question": "Where?",
+|       "options": [
+|         "Here",
+|         "There"
+|       ],
+|       "recommended": 1,
+|       "taken": 1,
+|       "class": "product",
+|       "why": null,
+|       "delivery": "MMR-d1",
+|       "lifecycle": "provisional",
+|       "overturn_option": null,
+|       "outcome_note": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "tasks": [
+|         "MMR-3"
+|       ],
+|       "history": [
+|         {
+|           "kind": "link",
+|           "from_value": null,
+|           "to_value": "linked",
+|           "reason": null,
+|           "task": "MMR-3",
+|           "at": "2026-10-01T12:00:00.000Z"
+|         },
+|         {
+|           "kind": "delivery",
+|           "from_value": null,
+|           "to_value": "MMR-d1",
+|           "reason": null,
+|           "task": null,
+|           "at": "2026-10-01T12:00:00.000Z"
+|         }
+|       ]
+|     }
+|   ],
+|   "total": 1
+| }
+
+### decisions -f jsonl
+exit 0
+--- stdout
+| {"id":"MMR-q1","project_key":"MMR","seq":1,"question":"Where?","options":["Here","There"],"recommended":1,"taken":1,"class":"product","why":null,"delivery":"MMR-d1","lifecycle":"provisional","overturn_option":null,"outcome_note":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","tasks":["MMR-3"],"history":[{"kind":"link","from_value":null,"to_value":"linked","reason":null,"task":"MMR-3","at":"2026-10-01T12:00:00.000Z"},{"kind":"delivery","from_value":null,"to_value":"MMR-d1","reason":null,"task":null,"at":"2026-10-01T12:00:00.000Z"}]}
+
+### decisions -f ids
+exit 0
+--- stdout
+| MMR-q1
+
+### decisions {"status":"all"}
+exit 0
+--- stdout
+| {
+|   "decisions": [
+|     {
+|       "id": "MMR-q1",
+|       "project_key": "MMR",
+|       "seq": 1,
+|       "question": "Where?",
+|       "options": [
+|         "Here",
+|         "There"
+|       ],
+|       "recommended": 1,
+|       "taken": 1,
+|       "class": "product",
+|       "why": null,
+|       "delivery": "MMR-d1",
+|       "lifecycle": "provisional",
+|       "overturn_option": null,
+|       "outcome_note": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "tasks": [
+|         "MMR-3"
+|       ],
+|       "history": [
+|         {
+|           "kind": "link",
+|           "from_value": null,
+|           "to_value": "linked",
+|           "reason": null,
+|           "task": "MMR-3",
+|           "at": "2026-10-01T12:00:00.000Z"
+|         },
+|         {
+|           "kind": "delivery",
+|           "from_value": null,
+|           "to_value": "MMR-d1",
+|           "reason": null,
+|           "task": null,
+|           "at": "2026-10-01T12:00:00.000Z"
+|         }
+|       ]
+|     },
+|     {
+|       "id": "MMR-q2",
+|       "project_key": "MMR",
+|       "seq": 2,
+|       "question": "Where?",
+|       "options": [
+|         "Here",
+|         "There"
+|       ],
+|       "recommended": 1,
+|       "taken": 1,
+|       "class": "other",
+|       "why": null,
+|       "delivery": null,
+|       "lifecycle": "confirmed",
+|       "overturn_option": null,
+|       "outcome_note": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "tasks": [],
+|       "history": [
+|         {
+|           "kind": "lifecycle",
+|           "from_value": "provisional",
+|           "to_value": "confirmed",
+|           "reason": null,
+|           "task": null,
+|           "at": "2026-10-01T12:00:00.000Z"
+|         }
+|       ]
+|     },
+|     {
+|       "id": "MMR-q3",
+|       "project_key": "MMR",
+|       "seq": 3,
+|       "question": "Where?",
+|       "options": [
+|         "Here",
+|         "There"
+|       ],
+|       "recommended": 1,
+|       "taken": 1,
+|       "class": "architecture",
+|       "why": null,
+|       "delivery": null,
+|       "lifecycle": "overturned",
+|       "overturn_option": 2,
+|       "outcome_note": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "tasks": [],
+|       "history": [
+|         {
+|           "kind": "lifecycle",
+|           "from_value": "provisional",
+|           "to_value": "overturned",
+|           "reason": null,
+|           "task": null,
+|           "at": "2026-10-01T12:00:00.000Z"
+|         }
+|       ]
+|     }
+|   ],
+|   "total": 3
+| }
+
+### decisions {"status":"confirmed"}
+exit 0
+--- stdout
+| {
+|   "decisions": [
+|     {
+|       "id": "MMR-q2",
+|       "project_key": "MMR",
+|       "seq": 2,
+|       "question": "Where?",
+|       "options": [
+|         "Here",
+|         "There"
+|       ],
+|       "recommended": 1,
+|       "taken": 1,
+|       "class": "other",
+|       "why": null,
+|       "delivery": null,
+|       "lifecycle": "confirmed",
+|       "overturn_option": null,
+|       "outcome_note": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "tasks": [],
+|       "history": [
+|         {
+|           "kind": "lifecycle",
+|           "from_value": "provisional",
+|           "to_value": "confirmed",
+|           "reason": null,
+|           "task": null,
+|           "at": "2026-10-01T12:00:00.000Z"
+|         }
+|       ]
+|     }
+|   ],
+|   "total": 1
+| }
+
+### decisions {"status":"overturned"}
+exit 0
+--- stdout
+| {
+|   "decisions": [
+|     {
+|       "id": "MMR-q3",
+|       "project_key": "MMR",
+|       "seq": 3,
+|       "question": "Where?",
+|       "options": [
+|         "Here",
+|         "There"
+|       ],
+|       "recommended": 1,
+|       "taken": 1,
+|       "class": "architecture",
+|       "why": null,
+|       "delivery": null,
+|       "lifecycle": "overturned",
+|       "overturn_option": 2,
+|       "outcome_note": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "tasks": [],
+|       "history": [
+|         {
+|           "kind": "lifecycle",
+|           "from_value": "provisional",
+|           "to_value": "overturned",
+|           "reason": null,
+|           "task": null,
+|           "at": "2026-10-01T12:00:00.000Z"
+|         }
+|       ]
+|     }
+|   ],
+|   "total": 1
+| }
+
+### decisions {"class":["product","architecture"],"linked":true}
+exit 0
+--- stdout
+| {
+|   "decisions": [
+|     {
+|       "id": "MMR-q1",
+|       "project_key": "MMR",
+|       "seq": 1,
+|       "question": "Where?",
+|       "options": [
+|         "Here",
+|         "There"
+|       ],
+|       "recommended": 1,
+|       "taken": 1,
+|       "class": "product",
+|       "why": null,
+|       "delivery": "MMR-d1",
+|       "lifecycle": "provisional",
+|       "overturn_option": null,
+|       "outcome_note": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "tasks": [
+|         "MMR-3"
+|       ],
+|       "history": [
+|         {
+|           "kind": "link",
+|           "from_value": null,
+|           "to_value": "linked",
+|           "reason": null,
+|           "task": "MMR-3",
+|           "at": "2026-10-01T12:00:00.000Z"
+|         },
+|         {
+|           "kind": "delivery",
+|           "from_value": null,
+|           "to_value": "MMR-d1",
+|           "reason": null,
+|           "task": null,
+|           "at": "2026-10-01T12:00:00.000Z"
+|         }
+|       ]
+|     }
+|   ],
+|   "total": 1
+| }
+
+### decisions {"delivery":"MMR-d1"}
+exit 0
+--- stdout
+| {
+|   "decisions": [
+|     {
+|       "id": "MMR-q1",
+|       "project_key": "MMR",
+|       "seq": 1,
+|       "question": "Where?",
+|       "options": [
+|         "Here",
+|         "There"
+|       ],
+|       "recommended": 1,
+|       "taken": 1,
+|       "class": "product",
+|       "why": null,
+|       "delivery": "MMR-d1",
+|       "lifecycle": "provisional",
+|       "overturn_option": null,
+|       "outcome_note": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "tasks": [
+|         "MMR-3"
+|       ],
+|       "history": [
+|         {
+|           "kind": "link",
+|           "from_value": null,
+|           "to_value": "linked",
+|           "reason": null,
+|           "task": "MMR-3",
+|           "at": "2026-10-01T12:00:00.000Z"
+|         },
+|         {
+|           "kind": "delivery",
+|           "from_value": null,
+|           "to_value": "MMR-d1",
+|           "reason": null,
+|           "task": null,
+|           "at": "2026-10-01T12:00:00.000Z"
+|         }
+|       ]
+|     }
+|   ],
+|   "total": 1
+| }
+
+### decisions {"class":["wrong"]}
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "--class must be product, architecture, or other"
+| }
+
+### decisions {"status":"wrong"}
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "--status must be provisional, confirmed, overturned, or all"
+| }
+
+### decisions {"delivery":"MMR-d9"}
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "pass a same-project --delivery"
+|   ],
+|   "message": "MMR-d9 must name a delivery in the same project"
+| }
+
+### decisions {"delivery":"OTH-d1"}
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "pass a same-project --delivery"
+|   ],
+|   "message": "OTH-d1 must name a delivery in the same project"
+| }
+
+### decisions {"project":"OLD"}
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key OLD -y"
+|   ],
+|   "message": "OLD doesn't exist"
+| }
+
+### decisions {"project":"GONE"}
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key GONE -y"
+|   ],
+|   "message": "GONE doesn't exist"
+| }
+
+### decisions unbound
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "pass -p KEY, or bind this clone with 'mimir bind KEY'"
+|   ],
+|   "message": "decisions needs a project"
+| }
+
+### deliveries unbound
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "pass -p KEY, or bind this clone with 'mimir bind KEY'"
+|   ],
+|   "message": "deliveries needs a project"
+| }
+

@@ -66,6 +66,7 @@ function windowOf(from: string, to: string): string {
       inFlight: { count: 0, tasks: [] },
       next: { count: 0, tasks: [] },
       project: { distribution: {}, id: 'MMR', status: 'in_progress' },
+      provisionalDecisions: 0,
       scratchpads: { count: 0, scratchpads: [] },
       sessions: { entries: [entry], shown: 1 },
     },
@@ -102,4 +103,10 @@ test('a session window with an unreadable endpoint collapses to the placeholder'
     expect(text).not.toContain('— ->');
     expect(text).not.toContain('-> —');
   }
+});
+
+test('zero provisional decisions stays visible beside the zero scratchpad count', () => {
+  const report = windowOf('2026-08-05T13:14:00.000Z', '2026-08-05T13:43:00.000Z');
+  expect(report).toContain("provisional decisions (0) — run 'mimir decisions -p MMR'");
+  expect(report).toContain('active scratchpads (0)');
 });

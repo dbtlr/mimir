@@ -696,6 +696,7 @@ export type OverviewDirection = {
  * JSON envelope when piped.
  */
 export type OverviewReport = {
+  provisionalDecisions: number;
   project: { id: string; status: StatusWord; distribution: Distribution };
   scratchpads: OverviewScratchpads;
   direction: OverviewDirection;

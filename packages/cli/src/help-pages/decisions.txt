@@ -1,0 +1,21 @@
+mimir decisions · Read one project's decisions, oldest first; provisional by default.
+
+USAGE
+  mimir decisions [options]
+
+OPTIONS
+  -p, --project <text>   The project key; defaults to the clone binding.
+      --status <text>    provisional (default), confirmed, overturned, or all.
+      --class <text>     product, architecture, or other; repeat for alternatives.  (repeatable)
+      --delivery <text>  Only decisions linked to this delivery (KEY-dN).
+      --[no-]linked      At least one linked task is not abandoned.
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, table by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help      Show this help.
+      --no-input  Ask no questions, and take every answer from options.  (default: true)
+
+EXAMPLES
+  $ mimir decisions --class product --class architecture --linked
+    read decisions counted toward the cap

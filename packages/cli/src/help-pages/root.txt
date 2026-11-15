@@ -18,6 +18,7 @@ COMMANDS
   search             Find any record of one project (task, container, seed, artifact) by id, title, or description.
   seeds              Read one project's grooming queue: live seeds oldest-first (FIFO triage).
   deliveries         Read one project's delivery records.
+  decisions          Read one project's decisions, oldest first; provisional by default.
   decide             Record a provisional answer without stopping work.
   confirm            Confirm a provisional decision.
   overturn           Overturn a provisional decision.

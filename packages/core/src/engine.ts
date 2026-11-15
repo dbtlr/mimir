@@ -9,7 +9,7 @@ import {
 } from '@mimir/contract';
 import type { ConsoleEngine, Engine, EngineInput, Scratchpad } from '@mimir/contract';
 
-import { decide, getDecision, updateDecision, answerDecision } from './decisions/intent';
+import { decide, decisions, getDecision, updateDecision, answerDecision } from './decisions/intent';
 import { refuseDecisionInput } from './decisions/refusal';
 import {
   createDelivery,
@@ -100,6 +100,11 @@ export class LocalEngine extends UniformEngineBase implements Engine {
     return found !== undefined && found.archived_at === null;
   }
 
+  async decisions(input: EngineInput<'decisions'>) {
+    return (
+      await decisions(this.store, parseEngineInput(engineSchemas.decisions.input, input))
+    ).map(decodeDecision);
+  }
   async decide(input: EngineInput<'decide'>) {
     return decodeDecision(
       await decide(this.store, parseEngineInput(engineSchemas.decide.input, input)),

@@ -1,0 +1,173 @@
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+
+import type { EngineInput } from '@mimir/contract';
+
+import { createProject, createTask, createInitiative, createPhase } from './create';
+import { LocalEngine } from './engine';
+import { bootPglite } from './store-postgres/testing';
+import { backends, errorOf } from './testing/conformance';
+import type { Instance } from './testing/conformance';
+
+beforeAll(bootPglite);
+describe.each(backends)('decision reads ($name)', (backend) => {
+  let f: Instance;
+  let e: LocalEngine;
+  beforeAll(async () => {
+    f = await backend.make();
+    e = new LocalEngine(f.store);
+    await createProject(f.store, { key: 'DEC', name: 'Decisions' });
+    await createProject(f.store, { key: 'OLD', name: 'Archived' });
+    const root = await createInitiative(f.store, { projectId: 'DEC', title: 'Plan' });
+    const phase = await createPhase(f.store, { parentId: root.id, title: 'Phase' });
+    const done = await createTask(f.store, { parentId: phase.id, title: 'Done' });
+    const abandoned = await createTask(f.store, { parentId: phase.id, title: 'Abandoned' });
+    await e.start({ id: done.id });
+    await e.done({ id: done.id });
+    await e.abandon({ id: abandoned.id, reason: 'Stop' });
+    const delivery = await e.deliveryCreate({ phase: phase.id, tasks: [], title: 'Attempt' });
+    const base = { options: ['Here', 'There'], project: 'DEC', question: 'Where?', recommended: 1 };
+    for (const fields of [
+      { class: 'product' },
+      { class: 'architecture', delivery: delivery.id, tasks: [abandoned.id] },
+      { class: 'product', delivery: delivery.id, tasks: [done.id, abandoned.id] },
+      { class: 'architecture', tasks: [done.id] },
+      { class: 'other', tasks: [done.id] },
+      { class: 'product', tasks: [done.id] },
+      { class: 'architecture', tasks: [done.id] },
+    ] satisfies Partial<EngineInput<'decide'>>[]) {
+      await e.decide({ ...base, ...fields });
+    }
+    await e.confirm({ id: 'DEC-q6' });
+    await e.overturn({ id: 'DEC-q7', option: 2 });
+    await e.decide({ ...base, class: 'other', project: 'OLD' });
+    const oldRoot = await createInitiative(f.store, { projectId: 'OLD', title: 'Old plan' });
+    const oldPhase = await createPhase(f.store, { parentId: oldRoot.id, title: 'Old phase' });
+    await e.deliveryCreate({ phase: oldPhase.id, title: 'Other attempt' });
+    // An active project's delivery, so the cross-project refusal is not only an archived one.
+    await createProject(f.store, { key: 'OTH', name: 'Other' });
+    const othRoot = await createInitiative(f.store, { projectId: 'OTH', title: 'Other plan' });
+    const othPhase = await createPhase(f.store, { parentId: othRoot.id, title: 'Other phase' });
+    await e.deliveryCreate({ phase: othPhase.id, title: 'Active attempt' });
+    await e.deliveryAbandon({ id: delivery.id, reason: 'Stop' });
+    await e.archive({ id: 'OLD' });
+  });
+  afterAll(async () => {
+    await f.close();
+  });
+  const ids = async (fields: Omit<EngineInput<'decisions'>, 'project'> = {}) =>
+    (await e.decisions({ project: 'DEC', ...fields })).map((d) => d.id);
+  test('defaults to provisional, and names each lifecycle or all in sequence order', async () => {
+    expect(await ids()).toEqual(['DEC-q1', 'DEC-q2', 'DEC-q3', 'DEC-q4', 'DEC-q5']);
+    expect(await ids({ status: 'provisional' })).toEqual(await ids());
+    expect(await ids({ status: 'confirmed' })).toEqual(['DEC-q6']);
+    expect(await ids({ status: 'overturned' })).toEqual(['DEC-q7']);
+    expect(await ids({ status: 'all' })).toEqual([
+      'DEC-q1',
+      'DEC-q2',
+      'DEC-q3',
+      'DEC-q4',
+      'DEC-q5',
+      'DEC-q6',
+      'DEC-q7',
+    ]);
+  });
+  test('classes are alternatives; linked includes done and excludes abandoned-only links', async () => {
+    expect(await ids({ classes: ['product', 'architecture'] })).toEqual([
+      'DEC-q1',
+      'DEC-q2',
+      'DEC-q3',
+      'DEC-q4',
+    ]);
+    expect(await ids({ linked: true })).toEqual(['DEC-q3', 'DEC-q4', 'DEC-q5']);
+  });
+  test('delivery and cap filters combine with AND', async () => {
+    expect(await ids({ delivery: 'DEC-d01' })).toEqual(['DEC-q2', 'DEC-q3']);
+    expect(await ids({ classes: ['product', 'architecture'], linked: true })).toEqual([
+      'DEC-q3',
+      'DEC-q4',
+    ]);
+    expect(
+      await ids({ classes: ['product', 'architecture'], delivery: 'DEC-d1', linked: true }),
+    ).toEqual(['DEC-q3']);
+    expect((await e.decisions({ linked: true, project: 'DEC' }))[0]?.tasks).toHaveLength(2);
+  });
+  test('overview counts all provisional decisions, including those outside the cap', async () => {
+    expect((await e.overview({ project: 'DEC' })).provisionalDecisions).toBe(5);
+    expect((await e.overview({ project: 'DEC' })).provisionalDecisions).toBe((await ids()).length);
+  });
+  test('missing and cross-project delivery filters refuse with a resolution', async () => {
+    for (const delivery of ['DEC-d9', 'OLD-d1', 'OTH-d1']) {
+      expect(await errorOf(e.decisions({ delivery, project: 'DEC' }))).toMatchObject({
+        code: 'validation',
+        hint: 'pass a same-project --delivery',
+        message: `${delivery} must name a delivery in the same project`,
+      });
+    }
+  });
+  test('orders double-digit decision sequences numerically, oldest first', async () => {
+    const own = await backend.make();
+    try {
+      const engine = new LocalEngine(own.store);
+      await createProject(own.store, { key: 'SEQ', name: 'Sequence' });
+      for (let i = 0; i < 10; i++) {
+        await engine.decide({
+          class: 'other',
+          options: ['A', 'B'],
+          project: 'SEQ',
+          question: 'Which?',
+          recommended: 1,
+        });
+      }
+      expect((await engine.decisions({ project: 'SEQ' })).map((d) => d.id)).toEqual([
+        'SEQ-q1',
+        'SEQ-q2',
+        'SEQ-q3',
+        'SEQ-q4',
+        'SEQ-q5',
+        'SEQ-q6',
+        'SEQ-q7',
+        'SEQ-q8',
+        'SEQ-q9',
+        'SEQ-q10',
+      ]);
+    } finally {
+      await own.close();
+    }
+  });
+  test('linked false refuses rather than selecting unlinked decisions', async () => {
+    // @ts-expect-error Exercise an invalid transport input at the Engine boundary.
+    const result = e.decisions({ linked: false, project: 'DEC' });
+    expect(await errorOf(result)).toMatchObject({
+      code: 'validation',
+      hint: undefined,
+      message: '✖ Invalid input: expected true\n  → at linked',
+    });
+  });
+  test('bad lifecycle and class refuse with their full validation messages', async () => {
+    // @ts-expect-error Invalid lifecycle supplied by a transport.
+    const status = e.decisions({ project: 'DEC', status: 'bad' });
+    expect(await errorOf(status)).toMatchObject({
+      code: 'validation',
+      hint: undefined,
+      message:
+        '✖ Invalid option: expected one of "provisional"|"confirmed"|"overturned"|"all"\n  → at status',
+    });
+    // @ts-expect-error Invalid class supplied by a transport.
+    const classes = e.decisions({ classes: ['bad'], project: 'DEC' });
+    expect(await errorOf(classes)).toMatchObject({
+      code: 'validation',
+      hint: undefined,
+      message:
+        '✖ Invalid option: expected one of "product"|"architecture"|"other"\n  → at classes[0]',
+    });
+  });
+  test('archived and unknown projects are not found', async () => {
+    for (const project of ['OLD', 'GONE']) {
+      expect(await errorOf(e.decisions({ project }))).toMatchObject({
+        code: 'not_found',
+        hint: `create it: mimir create project "Name" --key ${project} -y`,
+        message: `${project} doesn't exist`,
+      });
+    }
+  });
+});
