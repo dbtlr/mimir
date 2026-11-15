@@ -40,6 +40,10 @@ describe.each(backends)('decision reads ($name)', (backend) => {
     await e.confirm({ id: 'DEC-q6' });
     await e.overturn({ id: 'DEC-q7', option: 2 });
     await e.decide({ ...base, class: 'other', project: 'OLD' });
+    const oldRoot = await createInitiative(f.store, { projectId: 'OLD', title: 'Old plan' });
+    const oldPhase = await createPhase(f.store, { parentId: oldRoot.id, title: 'Old phase' });
+    await e.deliveryCreate({ phase: oldPhase.id, title: 'Other attempt' });
+    await e.deliveryAbandon({ id: delivery.id, reason: 'Stop' });
     await e.archive({ id: 'OLD' });
   });
   afterAll(async () => {
@@ -86,9 +90,21 @@ describe.each(backends)('decision reads ($name)', (backend) => {
     expect((await e.overview({ project: 'DEC' })).provisionalDecisions).toBe(5);
     expect((await e.overview({ project: 'DEC' })).provisionalDecisions).toBe((await ids()).length);
   });
+  test('missing and cross-project delivery filters refuse with a resolution', async () => {
+    for (const delivery of ['DEC-d9', 'OLD-d1']) {
+      expect(await errorOf(e.listDecisions({ project: 'DEC', delivery }))).toMatchObject({
+        code: 'validation',
+        message: `${delivery} must name a delivery in the same project`,
+        hint: 'pass a same-project --delivery',
+      });
+    }
+  });
   test('archived and unknown projects are not found', async () => {
     for (const project of ['OLD', 'GONE']) {
-      expect((await errorOf(e.listDecisions({ project }))).code).toBe('not_found');
+      expect(await errorOf(e.listDecisions({ project }))).toMatchObject({
+        code: 'not_found', message: `${project} doesn't exist`,
+        hint: `create it: mimir create project "Name" --key ${project} -y`,
+      });
     }
   });
 });

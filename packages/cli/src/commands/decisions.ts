@@ -170,9 +170,9 @@ export function decisionsCommand(ports: Ports) {
     .views({ table: listViews.table }, { default: 'table' })
     .action(async ({ host, options, out }) => {
       const status = [...DECISION_LIFECYCLE_VALUES, 'all' as const].find(
-        (s) => s === (options.status ?? 'provisional'),
+        (s) => s === options.status,
       );
-      if (!status) {
+      if (options.status !== undefined && !status) {
         throw new MimirUsageError('--status must be provisional, confirmed, overturned, or all');
       }
       const classes = options.class.map((value) => {

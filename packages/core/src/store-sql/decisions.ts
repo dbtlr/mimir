@@ -219,8 +219,8 @@ export function createSqlDecisionStore(db: Kysely<DB>, dialect: StoreDialect): D
     list: (input) =>
       dialect.snapshot(db, async (tx) => {
         let query = tx.selectFrom('decision').selectAll().where('project_key', '=', input.project);
-        if (input.status !== 'all') {
-          query = query.where('lifecycle', '=', input.status ?? 'provisional');
+        if (input.status !== undefined && input.status !== 'all') {
+          query = query.where('lifecycle', '=', input.status);
         }
         if (input.classes?.length) {
           query = query.where('class', 'in', input.classes);

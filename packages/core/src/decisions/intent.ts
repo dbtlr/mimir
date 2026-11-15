@@ -17,7 +17,7 @@ function ref(id: string): string {
   }
   return renderDecisionRef(parsed);
 }
-async function deliveryOf(w: StoreWriter, id: string, key?: string) {
+async function deliveryOf(w: Pick<StoreWriter, 'loadDelivery'>, id: string, key?: string) {
   const parsed = parseDeliveryRef(id);
   const delivery = parsed ? await w.loadDelivery(renderDeliveryRef(parsed)) : undefined;
   if (!delivery || (key !== undefined && key !== delivery.key)) {
@@ -26,10 +26,14 @@ async function deliveryOf(w: StoreWriter, id: string, key?: string) {
       'pass a same-project --delivery',
     );
   }
+  return { ...delivery, id: parsed ? renderDeliveryRef(parsed) : id };
+}
+async function liveDeliveryOf(w: StoreWriter, id: string, key?: string) {
+  const delivery = await deliveryOf(w, id, key);
   if (isTerminalDelivery(delivery.lifecycle)) {
     throw validation(`${id} is terminal`, 'pass a nonterminal --delivery');
   }
-  return { ...delivery, id: parsed ? renderDeliveryRef(parsed) : id };
+  return delivery;
 }
 async function tasksOf(w: StoreWriter, ids: string[], key: string): Promise<string[]> {
   if (new Set(ids).size !== ids.length) {
@@ -72,7 +76,7 @@ export function decide(store: Store, input: EngineInput<'decide'>): Promise<Deci
       }
     }
     const delivery =
-      input.delivery === undefined ? undefined : await deliveryOf(w, input.delivery, input.project);
+      input.delivery === undefined ? undefined : await liveDeliveryOf(w, input.delivery, input.project);
     const key = delivery?.key ?? input.project;
     if (!key) {
       throw validation('a decision requires a project', 'pass --project KEY or --delivery KEY-dN');
@@ -143,7 +147,7 @@ export function updateDecision(
     const delivery =
       input.delivery == null
         ? input.delivery
-        : (await deliveryOf(w, input.delivery, d.project_key)).id;
+        : (await liveDeliveryOf(w, input.delivery, d.project_key)).id;
     if (delivery !== undefined) {
       if (delivery === d.delivery) {
         throw validation('delivery is already set to that value', 'pass a different --delivery');
@@ -217,12 +221,15 @@ export async function listDecisions(
   ) {
     throw projectNotFound(input.project);
   }
-  const delivery = input.delivery === undefined ? undefined : parseDeliveryRef(input.delivery);
-  if (input.delivery !== undefined && !delivery) {
-    throw validation(`${input.delivery} is not a delivery id`, 'delivery ids look like KEY-dN');
-  }
+  const delivery = input.delivery === undefined ? undefined : await deliveryOf({
+    loadDelivery: async (id) => {
+      const parsed = parseDeliveryRef(id);
+      return parsed ? store.deliveries.load(parsed.key, parsed.seq) : undefined;
+    },
+  }, input.delivery, input.project);
   return store.decisions.list({
     ...input,
-    delivery: delivery ? renderDeliveryRef(delivery) : undefined,
+    status: input.status ?? 'provisional',
+    delivery: delivery?.id,
   });
 }
