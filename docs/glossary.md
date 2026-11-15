@@ -10,7 +10,8 @@ This glossary defines the client and host boundary terms used in
 [ADR 0038](decisions/0038-device-pairing-and-the-version-window.md), and
 [ADR 0041](decisions/0041-agent-runtime-on-the-host.md), the task lifecycle
 terms used in [ADR 0001](decisions/0001-task-status-two-axes-derived-rollup.md),
-and the delivery terms used in [ADR 0042](decisions/0042-the-delivery-record.md).
+the delivery terms used in [ADR 0042](decisions/0042-the-delivery-record.md),
+and the decision record in [ADR 0043](decisions/0043-the-decision-record.md).
 
 **Host**: The Mimir server that serves the operator console and remote clients
 and owns their shared store.
@@ -61,6 +62,16 @@ continue without the operator. Only the operator clears it.
 
 **Paused**: A delivery's hold, set by `park`, that says the operator paused the
 attempt on purpose.
+
+**Decision**: A question an agent answered provisionally without stopping
+its work. It records the question, the options, the recommendation, the
+answer taken, and a class, and it links the tasks built on that answer. It is
+`provisional` until the operator confirms or overturns it, and an overturn
+annotates every linked task
+([ADR 0043](decisions/0043-the-decision-record.md)). A question that stops the
+work stays `needs_answers` or `block --on you`. The console's review page also
+calls its groups of tasks that need the operator "decisions"; those are tasks,
+not decision records.
 
 **Agent run**: One execution of an agent by the host on behalf of a task, such
 as a grooming run, recorded as a host-owned row with its state, usage, and

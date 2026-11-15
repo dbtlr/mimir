@@ -228,3 +228,11 @@ life. It is not the delivery's parent, so creation takes `--phase` rather than
 queue and `artifacts` reads its frozen records. It honors the clone binding and
 takes `--project KEY`. An archived project's deliveries are hidden. `get` and
 `update` dispatch `KEY-dN` identities to delivery methods.
+
+## Amendment (2026-11-15, MMR-677): `decide` creates a decision
+
+`decide <question>` creates the project-anchored record in
+[ADR 0043](0043-the-decision-record.md), as `seed` creates a seed: the verb
+names the claim, and the record sits beside the work tree. `confirm` and
+`overturn` are flat work-state verbs on a `KEY-qN` id. `get` and `update`
+dispatch `KEY-qN` identities to decision methods.
