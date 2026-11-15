@@ -77,8 +77,8 @@ export class RemoteEngine extends UniformEngineBase implements Engine {
     this.console = consoleBindings(this.client);
   }
 
-  listDecisions(input: EngineInput<'listDecisions'>) {
-    return domainResult(this.client.listDecisions.query(input));
+  decisions(input: EngineInput<'decisions'>) {
+    return domainResult(this.client.decisions.query(input));
   }
   decide(input: EngineInput<'decide'>) {
     return domainResult(this.client.decide.mutate(input));

@@ -87,12 +87,7 @@ export function decisionSchemas<P extends z.ZodType<string>>(project: P) {
       kind: 'mutation',
       output: decisionEngineSchema,
     },
-    getDecision: {
-      input: z.strictObject({ id: z.string() }),
-      kind: 'query',
-      output: decisionEngineSchema,
-    },
-    listDecisions: {
+    decisions: {
       input: z.strictObject({
         classes: z.array(z.enum(DECISION_CLASS_VALUES)).optional(),
         delivery: z.string().optional(),
@@ -102,6 +97,11 @@ export function decisionSchemas<P extends z.ZodType<string>>(project: P) {
       }),
       kind: 'query',
       output: z.array(decisionEngineSchema),
+    },
+    getDecision: {
+      input: z.strictObject({ id: z.string() }),
+      kind: 'query',
+      output: decisionEngineSchema,
     },
     overturn: {
       input: z.strictObject({

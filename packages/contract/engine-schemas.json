@@ -1101,28 +1101,7 @@
             "required": ["kind", "schema"],
             "additionalProperties": false
           },
-          "getDecision": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "type": "string",
-                "const": "query"
-              },
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "id": {
-                    "type": "string"
-                  }
-                },
-                "required": ["id"],
-                "additionalProperties": false
-              }
-            },
-            "required": ["kind", "schema"],
-            "additionalProperties": false
-          },
-          "listDecisions": {
+          "decisions": {
             "type": "object",
             "properties": {
               "kind": {
@@ -1155,6 +1134,27 @@
                   }
                 },
                 "required": ["project"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "getDecision": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id"],
                 "additionalProperties": false
               }
             },
@@ -2736,8 +2736,8 @@
           "confirm",
           "decide",
           "decisionUpdate",
+          "decisions",
           "getDecision",
-          "listDecisions",
           "overturn",
           "queue",
           "unqueue",
@@ -3927,21 +3927,7 @@
             "required": ["kind", "schema"],
             "additionalProperties": false
           },
-          "getDecision": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "type": "string",
-                "const": "query"
-              },
-              "schema": {
-                "$ref": "#/$defs/__schema81"
-              }
-            },
-            "required": ["kind", "schema"],
-            "additionalProperties": false
-          },
-          "listDecisions": {
+          "decisions": {
             "type": "object",
             "properties": {
               "kind": {
@@ -3953,6 +3939,20 @@
                 "items": {
                   "$ref": "#/$defs/__schema81"
                 }
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "getDecision": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema81"
               }
             },
             "required": ["kind", "schema"],
@@ -4940,8 +4940,8 @@
           "confirm",
           "decide",
           "decisionUpdate",
+          "decisions",
           "getDecision",
-          "listDecisions",
           "overturn",
           "queue",
           "unqueue",

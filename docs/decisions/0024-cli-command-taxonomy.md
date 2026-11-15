@@ -248,9 +248,13 @@ It honors the clone binding and takes `--project KEY` (`-p`). It lists
 provisional decisions by default, oldest first. `--status
 provisional|confirmed|overturned|all` names the lifecycle, as `seeds --status`
 does. `--class` repeats, and the classes it names are alternatives.
-`--delivery KEY-dN` keeps the decisions linked to that delivery. `--linked`
+`--delivery KEY-dN` keeps the decisions linked to that delivery, including a
+terminal delivery. A missing delivery or one in another project refuses. `--linked`
 keeps the decisions with work built on them: at least one linked task that is
 not `abandoned`. The filters combine, so the cap query is
 `decisions --class product --class architecture --linked`, narrowed with
 `--delivery` when the cap is per delivery. No verb is dedicated to the cap. An
 archived project's `decisions` refuses as not found, as `deliveries` does.
+
+The Engine read is `decisions`, matching `deliveries`; the MCP tool and tRPC
+route use the same name. Engine `linked` accepts only `true` or omission.

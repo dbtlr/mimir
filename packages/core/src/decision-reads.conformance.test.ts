@@ -49,8 +49,8 @@ describe.each(backends)('decision reads ($name)', (backend) => {
   afterAll(async () => {
     await f.close();
   });
-  const ids = async (fields: Omit<EngineInput<'listDecisions'>, 'project'> = {}) =>
-    (await e.listDecisions({ project: 'DEC', ...fields })).map((d) => d.id);
+  const ids = async (fields: Omit<EngineInput<'decisions'>, 'project'> = {}) =>
+    (await e.decisions({ project: 'DEC', ...fields })).map((d) => d.id);
   test('defaults to provisional, and names each lifecycle or all in sequence order', async () => {
     expect(await ids()).toEqual(['DEC-q1', 'DEC-q2', 'DEC-q3', 'DEC-q4', 'DEC-q5']);
     expect(await ids({ status: 'provisional' })).toEqual(await ids());
@@ -84,7 +84,7 @@ describe.each(backends)('decision reads ($name)', (backend) => {
     expect(
       await ids({ classes: ['product', 'architecture'], delivery: 'DEC-d1', linked: true }),
     ).toEqual(['DEC-q3']);
-    expect((await e.listDecisions({ linked: true, project: 'DEC' }))[0]?.tasks).toHaveLength(2);
+    expect((await e.decisions({ linked: true, project: 'DEC' }))[0]?.tasks).toHaveLength(2);
   });
   test('overview counts all provisional decisions, including those outside the cap', async () => {
     expect((await e.overview({ project: 'DEC' })).provisionalDecisions).toBe(5);
@@ -92,10 +92,10 @@ describe.each(backends)('decision reads ($name)', (backend) => {
   });
   test('missing and cross-project delivery filters refuse with a resolution', async () => {
     for (const delivery of ['DEC-d9', 'OLD-d1']) {
-      expect(await errorOf(e.listDecisions({ project: 'DEC', delivery }))).toMatchObject({
+      expect(await errorOf(e.decisions({ delivery, project: 'DEC' }))).toMatchObject({
         code: 'validation',
-        message: `${delivery} must name a delivery in the same project`,
         hint: 'pass a same-project --delivery',
+        message: `${delivery} must name a delivery in the same project`,
       });
     }
   });
@@ -105,25 +105,63 @@ describe.each(backends)('decision reads ($name)', (backend) => {
       const engine = new LocalEngine(own.store);
       await createProject(own.store, { key: 'SEQ', name: 'Sequence' });
       for (let i = 0; i < 10; i++) {
-        await engine.decide({ class: 'other', options: ['A', 'B'], project: 'SEQ',
-          question: 'Which?', recommended: 1 });
+        await engine.decide({
+          class: 'other',
+          options: ['A', 'B'],
+          project: 'SEQ',
+          question: 'Which?',
+          recommended: 1,
+        });
       }
-      expect((await engine.listDecisions({ project: 'SEQ' })).map((d) => d.id)).toEqual([
-        'SEQ-q1', 'SEQ-q2', 'SEQ-q3', 'SEQ-q4', 'SEQ-q5',
-        'SEQ-q6', 'SEQ-q7', 'SEQ-q8', 'SEQ-q9', 'SEQ-q10',
+      expect((await engine.decisions({ project: 'SEQ' })).map((d) => d.id)).toEqual([
+        'SEQ-q1',
+        'SEQ-q2',
+        'SEQ-q3',
+        'SEQ-q4',
+        'SEQ-q5',
+        'SEQ-q6',
+        'SEQ-q7',
+        'SEQ-q8',
+        'SEQ-q9',
+        'SEQ-q10',
       ]);
-    } finally { await own.close(); }
+    } finally {
+      await own.close();
+    }
   });
   test('linked false refuses rather than selecting unlinked decisions', async () => {
     // @ts-expect-error Exercise an invalid transport input at the Engine boundary.
-    const result = e.listDecisions({ project: 'DEC', linked: false });
-    expect(await errorOf(result)).toMatchObject({ code: 'validation' });
+    const result = e.decisions({ linked: false, project: 'DEC' });
+    expect(await errorOf(result)).toMatchObject({
+      code: 'validation',
+      hint: undefined,
+      message: '✖ Invalid input: expected true\n  → at linked',
+    });
+  });
+  test('bad lifecycle and class refuse with their full validation messages', async () => {
+    // @ts-expect-error Invalid lifecycle supplied by a transport.
+    const status = e.decisions({ project: 'DEC', status: 'bad' });
+    expect(await errorOf(status)).toMatchObject({
+      code: 'validation',
+      hint: undefined,
+      message:
+        '✖ Invalid option: expected one of "provisional"|"confirmed"|"overturned"|"all"\n  → at status',
+    });
+    // @ts-expect-error Invalid class supplied by a transport.
+    const classes = e.decisions({ classes: ['bad'], project: 'DEC' });
+    expect(await errorOf(classes)).toMatchObject({
+      code: 'validation',
+      hint: undefined,
+      message:
+        '✖ Invalid option: expected one of "product"|"architecture"|"other"\n  → at classes[0]',
+    });
   });
   test('archived and unknown projects are not found', async () => {
     for (const project of ['OLD', 'GONE']) {
-      expect(await errorOf(e.listDecisions({ project }))).toMatchObject({
-        code: 'not_found', message: `${project} doesn't exist`,
+      expect(await errorOf(e.decisions({ project }))).toMatchObject({
+        code: 'not_found',
         hint: `create it: mimir create project "Name" --key ${project} -y`,
+        message: `${project} doesn't exist`,
       });
     }
   });

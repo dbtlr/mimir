@@ -132,9 +132,16 @@ export function deliveriesCommand(ports: Ports) {
     .result<DeliveriesValue>({ views: listViews })
     .views({ table: listViews.table }, { default: 'table' })
     .action(async ({ host, options, out }) => {
-      const project = await boardProject(ports, options.project, 'deliveries', (line) => {
-        void out.print(line);
-      }, undefined, '-p');
+      const project = await boardProject(
+        ports,
+        options.project,
+        'deliveries',
+        (line) => {
+          void out.print(line);
+        },
+        undefined,
+        '-p',
+      );
       const deliveries = (await (await ports.engine()).deliveries({ project })).map(encodeDelivery);
       await out.results({ deliveries, presentation: presentationOf(host, options.ascii) });
     });

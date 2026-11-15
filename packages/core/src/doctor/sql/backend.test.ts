@@ -311,7 +311,7 @@ describe.each(arms)('$name', (arm) => {
         () => engine.overturn({ id: d.id, note: 'Move', option: 5 }),
         () => engine.confirm({ id: d.id }),
         () => engine.getDecision({ id: d.id }),
-        () => engine.listDecisions({ project: 'MMR' }),
+        () => engine.decisions({ project: 'MMR' }),
         () => engine.decisionUpdate({ id: d.id, tasks: ['MMR-4'] }),
       ]) {
         const damaged = await refusalOf(attempt());

@@ -7,7 +7,7 @@ import { runArgv } from '../testing/run';
 let board: ParityBoard;
 beforeAll(async () => {
   board = await parityBoard();
-  await board.engine.create({ type: 'project', key: 'OLD', name: 'Archived' });
+  await board.engine.create({ key: 'OLD', name: 'Archived', type: 'project' });
   await board.engine.archive({ id: 'OLD' });
   await board.engine.deliveryCreate({ phase: 'MMR-2', title: 'Attempt' });
   const base = { options: ['Here', 'There'], project: 'MMR', question: 'Where?', recommended: 1 };
@@ -30,35 +30,55 @@ test.each([
   { flags: ['--delivery', 'MMR-d1'], ids: ['MMR-q1'] },
 ])('decisions parses $flags and uses the clone binding', async ({ flags, ids }) => {
   const run = await runArgv(board.app('MMR'), ['decisions', ...flags, '-f', 'ids']);
-  expect(run.exitCode).toBe(0);
+  expect(run.exitCode, run.stderr).toBe(0);
   expect(run.stderr).toBe('');
   expect(run.stdout.trim()).toBe(ids.join('\n'));
 });
 
 test.each([
-  { flags: ['--status', 'bad'], message: '--status must be provisional, confirmed, overturned, or all', hint: undefined },
-  { flags: ['--class', 'bad'], message: '--class must be product, architecture, or other', hint: undefined },
+  {
+    flags: ['--status', 'bad'],
+    hint: undefined,
+    message: '--status must be provisional, confirmed, overturned, or all',
+  },
+  {
+    flags: ['--class', 'bad'],
+    hint: undefined,
+    message: '--class must be product, architecture, or other',
+  },
   ...['MMR-q1', 'MMR-d9', 'OTH-d1'].map((delivery) => ({
-    flags: ['--delivery', delivery], message: `${delivery} must name a delivery in the same project`,
+    flags: ['--delivery', delivery],
     hint: 'pass a same-project --delivery',
+    message: `${delivery} must name a delivery in the same project`,
   })),
-  ...['OLD', 'GONE'].map((project) => ({ flags: ['-p', project], message: `${project} doesn't exist`,
+  ...['OLD', 'GONE'].map((project) => ({
+    flags: ['-p', project],
     hint: `create it: mimir create project "Name" --key ${project} -y`,
+    message: `${project} doesn't exist`,
   })),
 ])('decisions refuses $flags with the full resolution', async ({ flags, message, hint }) => {
   const run = await runArgv(board.app('MMR'), ['decisions', ...flags, '-f', 'json']);
   expect(run.exitCode).not.toBe(0);
   expect(JSON.parse(run.stderr).error).toMatchObject({
-    message, hints: hint === undefined ? ['Run "mimir decisions --help" to see the usage.'] : [hint],
+    hints: hint === undefined ? ['Run "mimir decisions --help" to see the usage.'] : [hint],
+    message,
   });
 });
 
 test.each([
-  ['decisions', '-p'], ['deliveries', '-p'], ['artifacts', '-s'],
-  ['search', '-s'], ['list', '-s'], ['next', '-s'], ['overview', '-s'], ['seeds', '-s'],
+  ['decisions', '-p'],
+  ['deliveries', '-p'],
+  ['artifacts', '-s'],
+  ['search', '-s'],
+  ['list', '-s'],
+  ['next', '-s'],
+  ['overview', '-s'],
+  ['seeds', '-s'],
   ['scratch', '-s'],
 ])('%s names its accepted project flag when unbound', async (verb, flag) => {
-  const args = verb === 'scratch' ? [verb, 'list'] : verb === 'search' ? [verb, 'needle'] : [verb];
+  const args = [verb];
+  if (verb === 'scratch') args.push('list');
+  if (verb === 'search') args.push('needle');
   const run = await runArgv(board.app(), [...args, '-f', 'json']);
   expect(run.stderr).toContain(`pass ${flag} KEY, or bind this clone with 'mimir bind KEY'`);
 });

@@ -274,6 +274,7 @@ test('decisions refuses linked false over MCP', async () => {
   const answer = await loomServer.call('decisions', { linked: false });
   expect(answer.isError).toBe(true);
   expect(answer.structured).toMatchObject({
-    exitCode: 1, failure: { code: 'validation', exitCode: 1 },
+    exitCode: 1,
+    failure: { code: 'validation', exitCode: 1 },
   });
 });

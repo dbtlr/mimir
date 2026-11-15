@@ -8,7 +8,7 @@ OPTIONS
       --status <text>    provisional (default), confirmed, overturned, or all.
       --class <text>     product, architecture, or other; repeat for alternatives.  (repeatable)
       --delivery <text>  Only decisions linked to this delivery (KEY-dN).
-      --linked           At least one linked task is not abandoned.
+      --[no-]linked      At least one linked task is not abandoned.
       --ascii            Print without color, in ASCII glyphs.
   -f, --format <format>  Select the output format, table by default. One of: ids, json, jsonl, records, table.
 

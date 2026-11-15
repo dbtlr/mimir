@@ -254,6 +254,10 @@ export function createEngineRouter(engine: Engine) {
       .input((value: unknown) => parseEngineInput(engineSchemas.decisionUpdate.input, value))
       .output(engineSchemas.decisionUpdate.output)
       .mutation(({ input }) => engine.decisionUpdate(input)),
+    decisions: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.decisions.input, value))
+      .output(engineSchemas.decisions.output)
+      .query(({ input }) => engine.decisions(input)),
     deliveries: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.deliveries.input, value))
       .output(engineSchemas.deliveries.output)
@@ -326,10 +330,6 @@ export function createEngineRouter(engine: Engine) {
       .input((value: unknown) => parseEngineInput(engineSchemas.list.input, value))
       .output(engineSchemas.list.output)
       .query(({ input }) => engine.list(input)),
-    listDecisions: procedure
-      .input((value: unknown) => parseEngineInput(engineSchemas.listDecisions.input, value))
-      .output(engineSchemas.listDecisions.output)
-      .query(({ input }) => engine.listDecisions(input)),
     next: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.next.input, value))
       .output(engineSchemas.next.output)

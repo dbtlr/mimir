@@ -65,7 +65,7 @@ const SURFACES: readonly Surface[] = [
   same('search'),
   same('seeds'),
   same('deliveries'),
-  same('decisions', 'listDecisions'),
+  same('decisions'),
   same('land', 'deliveryLand'),
   nested('create delivery', 'deliveryCreate'),
   same('status'),

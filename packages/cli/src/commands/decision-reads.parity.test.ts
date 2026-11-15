@@ -33,7 +33,7 @@ for (const options of filters) {
 cases.push({ name: 'decisions unbound', path: ['decisions'] });
 cases.push({ name: 'deliveries unbound', path: ['deliveries'] });
 parityCases(import.meta.url, cases, async (board) => {
-  await board.engine.create({ type: 'project', key: 'OLD', name: 'Archived' });
+  await board.engine.create({ key: 'OLD', name: 'Archived', type: 'project' });
   await board.engine.archive({ id: 'OLD' });
   await board.engine.deliveryCreate({ phase: 'MMR-2', title: 'Attempt' });
   const base = { options: ['Here', 'There'], project: 'MMR', question: 'Where?', recommended: 1 };

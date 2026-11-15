@@ -1,7 +1,13 @@
 import { Command } from '@loomcli/core';
 import { helpCommand } from '@loomcli/plugins/help/extension';
 import { mcpCommand } from '@loomcli/plugins/mcp/extension';
-import { encodeDecision, DECISION_CLASS_VALUES, DECISION_LIFECYCLE_VALUES } from '@mimir/contract';
+import {
+  encodeDecision,
+  DECISION_CLASS_VALUES,
+  DECISION_LIFECYCLE_VALUES,
+  engineSchemas,
+  parseEngineInput,
+} from '@mimir/contract';
 import type { DecisionView } from '@mimir/contract';
 
 import { MimirUsageError } from '../failures';
@@ -163,12 +169,14 @@ export function decisionsCommand(ports: Ports) {
     .option('delivery', text('Only decisions linked to this delivery (KEY-dN).'))
     .option('linked', {
       description: 'At least one linked task is not abandoned.',
+      // Preserve an explicit false through Loom so Engine validation can refuse it.
+      polarity: 'both',
       type: 'boolean',
     })
     .option('ascii', asciiOption)
     .result<DecisionsValue>({ views: listViews })
     .views({ table: listViews.table }, { default: 'table' })
-    .action(async ({ host, options, out }) => {
+    .action(async ({ host, options, out, supplied }) => {
       const status = [...DECISION_LIFECYCLE_VALUES, 'all' as const].find(
         (s) => s === options.status,
       );
@@ -182,19 +190,28 @@ export function decisionsCommand(ports: Ports) {
         }
         return cls;
       });
-      const project = await boardProject(ports, options.project, 'decisions', (line) => {
-        void out.print(line);
-      }, undefined, '-p');
+      const project = await boardProject(
+        ports,
+        options.project,
+        'decisions',
+        (line) => {
+          void out.print(line);
+        },
+        undefined,
+        '-p',
+      );
       const decisions = (
         await (
           await ports.engine()
-        ).listDecisions({
-          classes,
-          delivery: options.delivery,
-          linked: options.linked,
-          project,
-          status,
-        })
+        ).decisions(
+          parseEngineInput(engineSchemas.decisions.input, {
+            classes,
+            delivery: options.delivery,
+            linked: supplied.options.linked === undefined ? undefined : options.linked,
+            project,
+            status,
+          }),
+        )
       ).map(encodeDecision);
       await out.results({ decisions, presentation: presentationOf(host, options.ascii) });
     });

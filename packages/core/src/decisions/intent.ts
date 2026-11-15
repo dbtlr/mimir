@@ -76,7 +76,9 @@ export function decide(store: Store, input: EngineInput<'decide'>): Promise<Deci
       }
     }
     const delivery =
-      input.delivery === undefined ? undefined : await liveDeliveryOf(w, input.delivery, input.project);
+      input.delivery === undefined
+        ? undefined
+        : await liveDeliveryOf(w, input.delivery, input.project);
     const key = delivery?.key ?? input.project;
     if (!key) {
       throw validation('a decision requires a project', 'pass --project KEY or --delivery KEY-dN');
@@ -212,24 +214,31 @@ export function answerDecision(
 }
 
 /** Read one active project's decisions, oldest first, with intersecting filters. */
-export async function listDecisions(
+export async function decisions(
   store: Store,
-  input: EngineInput<'listDecisions'>,
+  input: EngineInput<'decisions'>,
 ): Promise<DecisionView[]> {
   if (
     !(await store.loadProjects()).some((p) => p.key === input.project && p.archived_at === null)
   ) {
     throw projectNotFound(input.project);
   }
-  const delivery = input.delivery === undefined ? undefined : await deliveryOf({
-    loadDelivery: async (id) => {
-      const parsed = parseDeliveryRef(id);
-      return parsed ? store.deliveries.load(parsed.key, parsed.seq) : undefined;
-    },
-  }, input.delivery, input.project);
+  const delivery =
+    input.delivery === undefined
+      ? undefined
+      : await deliveryOf(
+          {
+            loadDelivery: async (id) => {
+              const parsed = parseDeliveryRef(id);
+              return parsed ? store.deliveries.load(parsed.key, parsed.seq) : undefined;
+            },
+          },
+          input.delivery,
+          input.project,
+        );
   return store.decisions.list({
     ...input,
-    status: input.status ?? 'provisional',
     delivery: delivery?.id,
+    status: input.status ?? 'provisional',
   });
 }

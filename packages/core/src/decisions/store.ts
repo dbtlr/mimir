@@ -10,7 +10,7 @@ export type DecisionStore = {
     id: string,
     apply: (decision: DecisionView, writer: StoreWriter) => Promise<DecisionView>,
   ) => Promise<DecisionView>;
-  list: (input: EngineInput<'listDecisions'>) => Promise<DecisionView[]>;
+  list: (input: EngineInput<'decisions'>) => Promise<DecisionView[]>;
   countProvisional: (project: string) => Promise<number>;
   load: (id: string) => Promise<DecisionView | undefined>;
   forTask: (id: string) => Promise<Pick<DecisionView, 'id' | 'lifecycle'>[]>;
