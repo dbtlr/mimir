@@ -239,3 +239,18 @@ agent records a decision mid-task, many times a delivery, and the verb is the
 claim it makes. `create decision` was rejected for that reason. `confirm` and
 `overturn` are flat work-state verbs on a `KEY-qN` id. `get` and `update`
 dispatch `KEY-qN` identities to decision methods.
+
+## Amendment (2026-11-15, MMR-690): `decisions` is a flat read verb
+
+`decisions` reads one project's decision records
+([ADR 0043](0043-the-decision-record.md)), as `deliveries` reads its attempts.
+It honors the clone binding and takes `--project KEY` (`-p`). It lists
+provisional decisions by default, oldest first. `--status
+provisional|confirmed|overturned|all` names the lifecycle, as `seeds --status`
+does. `--class` repeats, and the classes it names are alternatives.
+`--delivery KEY-dN` keeps the decisions linked to that delivery. `--linked`
+keeps the decisions with work built on them: at least one linked task that is
+not `abandoned`. The filters combine, so the cap query is
+`decisions --class product --class architecture --linked`, narrowed with
+`--delivery` when the cap is per delivery. No verb is dedicated to the cap. An
+archived project's `decisions` refuses as not found, as `deliveries` does.
