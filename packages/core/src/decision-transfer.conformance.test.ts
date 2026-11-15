@@ -1,5 +1,5 @@
 /* oxlint-disable no-map-spread -- each fixture is an independent copy of valid history. */
-import { beforeAll, describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 
 import type { DecisionView } from '@mimir/contract';
 
@@ -11,42 +11,58 @@ import { backends, refusalOf, withoutStamp } from './testing/conformance';
 
 beforeAll(bootPglite);
 describe.each(backends)('decision transfer ($name)', (backend) => {
-  test('round trip preserves decisions, ordered history and allocation; invalid documents write nothing', async () => {
-    const source = await backend.make();
+  // One source store holds every record the cases read; each test then imports
+  // into its own target, so no test pays for building the fixture again.
+  let source: Awaited<ReturnType<typeof backend.make>>;
+  let document: Awaited<ReturnType<typeof source.store.export>>;
+  let task: Awaited<ReturnType<typeof createTask>>;
+  let parent: Awaited<ReturnType<typeof createInitiative>>;
+  let otherTask: Awaited<ReturnType<typeof createTask>>;
+  let otherDelivery: Awaited<ReturnType<LocalEngine['deliveryCreate']>>;
+
+  beforeAll(async () => {
+    source = await backend.make();
+    const e = new LocalEngine(source.store);
+    await createProject(source.store, { key: 'DEC', name: 'Decisions' });
+    parent = await createInitiative(source.store, { projectId: 'DEC', title: 'Plan' });
+    task = await createTask(source.store, { parentId: parent.id, title: 'Build' });
+    const d = await e.decide({
+      class: 'other',
+      options: ['Here', 'There'],
+      project: 'DEC',
+      question: 'Where?',
+      recommended: 1,
+      tasks: [task.id],
+    });
+    await e.overturn({ id: d.id, note: 'Move', option: 2 });
+    await createProject(source.store, { key: 'OTH', name: 'Other' });
+    const otherParent = await createInitiative(source.store, {
+      projectId: 'OTH',
+      title: 'Other',
+    });
+    otherTask = await createTask(source.store, {
+      parentId: otherParent.id,
+      title: 'Other task',
+    });
+    const otherPhase = await createPhase(source.store, {
+      parentId: otherParent.id,
+      title: 'Other phase',
+    });
+    otherDelivery = await e.deliveryCreate({
+      phase: otherPhase.id,
+      tasks: [],
+      title: 'Other delivery',
+    });
+    document = await source.store.export();
+  });
+
+  afterAll(async () => {
+    await source.close();
+  });
+
+  test('round trip preserves decisions, ordered history and allocation', async () => {
     const target = await backend.make();
     try {
-      const e = new LocalEngine(source.store);
-      await createProject(source.store, { key: 'DEC', name: 'Decisions' });
-      const parent = await createInitiative(source.store, { projectId: 'DEC', title: 'Plan' });
-      const task = await createTask(source.store, { parentId: parent.id, title: 'Build' });
-      const d = await e.decide({
-        class: 'other',
-        options: ['Here', 'There'],
-        project: 'DEC',
-        question: 'Where?',
-        recommended: 1,
-        tasks: [task.id],
-      });
-      await e.overturn({ id: d.id, note: 'Move', option: 2 });
-      await createProject(source.store, { key: 'OTH', name: 'Other' });
-      const otherParent = await createInitiative(source.store, {
-        projectId: 'OTH',
-        title: 'Other',
-      });
-      const otherTask = await createTask(source.store, {
-        parentId: otherParent.id,
-        title: 'Other task',
-      });
-      const otherPhase = await createPhase(source.store, {
-        parentId: otherParent.id,
-        title: 'Other phase',
-      });
-      const otherDelivery = await e.deliveryCreate({
-        phase: otherPhase.id,
-        tasks: [],
-        title: 'Other delivery',
-      });
-      const document = await source.store.export();
       await target.store.import(document, { dryRun: false, mode: 'fresh' });
       expect(withoutStamp(await target.store.export())).toEqual(withoutStamp(document));
       expect(
@@ -60,6 +76,14 @@ describe.each(backends)('decision transfer ($name)', (backend) => {
           })
         ).id,
       ).toBe('DEC-q2');
+    } finally {
+      await target.close();
+    }
+  });
+
+  test('each invalid document is refused alone and writes nothing', async () => {
+    const fresh = await backend.make();
+    try {
       const original = document.decisions[0];
       if (!original) {
         throw new Error('missing decision');
@@ -252,50 +276,47 @@ describe.each(backends)('decision transfer ($name)', (backend) => {
         ],
       ];
       for (const [name, decision, message] of cases) {
-        const fresh = await backend.make();
-        try {
-          const invalid = { ...document, decisions: [decision] };
-          expect(decisionFaults(invalid), name).toEqual([{ id: decision.id, message }]);
-          const refusal = await refusalOf(
-            fresh.store.import(invalid, { dryRun: false, mode: 'fresh' }),
-          );
-          expect(refusal, name).toContain(`${decision.id} ${message}`);
-          expect(refusal).toContain('repair the document before importing it');
-          expect(refusal).not.toContain('unexpected error');
-          expect((await fresh.store.export()).projects).toEqual([]);
-        } finally {
-          await fresh.close();
-        }
-      }
-      const legacy = await backend.make();
-      try {
-        const { decisions: _decisions, ...old } = document;
-        await legacy.store.import(
-          {
-            ...old,
-            projects: old.projects.map((p) => {
-              const copy = structuredClone(p);
-              return Object.assign(copy, {
-                counters: {
-                  artifact: p.counters.artifact,
-                  delivery: p.counters.delivery,
-                  node: p.counters.node,
-                  seed: p.counters.seed,
-                },
-              });
-            }),
-            schema_version: 10,
-          },
-          { dryRun: false, mode: 'fresh' },
+        const invalid = { ...document, decisions: [decision] };
+        expect(decisionFaults(invalid), name).toEqual([{ id: decision.id, message }]);
+        const refusal = await refusalOf(
+          fresh.store.import(invalid, { dryRun: false, mode: 'fresh' }),
         );
-        expect((await legacy.store.export()).decisions).toEqual([]);
-        expect((await legacy.store.export()).projects[0]?.counters.decision).toBe(0);
-      } finally {
-        await legacy.close();
+        expect(refusal, name).toContain(`${decision.id} ${message}`);
+        expect(refusal).toContain('repair the document before importing it');
+        expect(refusal).not.toContain('unexpected error');
+        expect((await fresh.store.export()).projects, name).toEqual([]);
       }
     } finally {
-      await source.close();
-      await target.close();
+      await fresh.close();
     }
-  }, 30000);
+  });
+
+  test('an export from before decisions imports with none and a zero counter', async () => {
+    const legacy = await backend.make();
+    try {
+      const { decisions: _decisions, ...old } = document;
+      await legacy.store.import(
+        {
+          ...old,
+          projects: old.projects.map((p) => {
+            const copy = structuredClone(p);
+            return Object.assign(copy, {
+              counters: {
+                artifact: p.counters.artifact,
+                delivery: p.counters.delivery,
+                node: p.counters.node,
+                seed: p.counters.seed,
+              },
+            });
+          }),
+          schema_version: 10,
+        },
+        { dryRun: false, mode: 'fresh' },
+      );
+      expect((await legacy.store.export()).decisions).toEqual([]);
+      expect((await legacy.store.export()).projects[0]?.counters.decision).toBe(0);
+    } finally {
+      await legacy.close();
+    }
+  });
 });
