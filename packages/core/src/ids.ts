@@ -26,6 +26,7 @@ export type Identity =
   | { kind: 'node'; key: string; seq: number }
   | { kind: 'artifact'; key: string; seq: number }
   | { kind: 'seed'; key: string; seq: number }
+  | { kind: 'decision'; key: string; seq: number }
   | { kind: 'delivery'; key: string; seq: number };
 
 const PROJECT_PATTERN = PROJECT_KEY_PATTERN;
@@ -125,6 +126,10 @@ export function parseIdentity(token: string): Identity | null {
       return { key, kind: 'seed', seq: Number(seqText) };
     }
   }
+  const decision = /^([A-Z]{2,4})-q(\d+)$/.exec(token);
+  if (decision?.[1] !== undefined && decision[2] !== undefined) {
+    return { key: decision[1], kind: 'decision', seq: Number(decision[2]) };
+  }
   const delivery = parseDeliveryRef(token);
   if (delivery !== null) {
     return { ...delivery, kind: 'delivery' };
@@ -146,4 +151,8 @@ export function parseDeliveryRef(id: string): NodeRef | null {
   const key = match?.[1];
   const seq = match?.[2];
   return key === undefined || seq === undefined ? null : { key, seq: Number(seq) };
+}
+
+export function renderDecisionRef(ref: NodeRef): string {
+  return `${ref.key}-q${String(ref.seq)}`;
 }

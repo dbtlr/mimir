@@ -1,3 +1,4 @@
+import { refuseDecisionInput } from '../decisions/refusal';
 import { deriveSet, lineageIds } from '../derive';
 import { conflict, invariant, notFound, validation } from '../errors';
 import { parseDeliveryRef } from '../ids';
@@ -62,6 +63,7 @@ export async function renderNodeRef(w: StoreWriter, nodeId: string): Promise<str
  * bypassed per-verb.
  */
 export async function requireNode(w: StoreWriter, id: string): Promise<Node> {
+  refuseDecisionInput({ id });
   // A delivery id names a record beside the tree, so a node verb refuses its
   // kind (ADR 0042) rather than calling it missing.
   if (parseDeliveryRef(id) !== null) {

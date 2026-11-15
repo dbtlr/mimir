@@ -88,6 +88,7 @@ import { artifactsCommand } from './commands/artifacts';
 import { attachCommand } from './commands/attach';
 import { bindCommand, LEGACY_BINDING_FILE } from './commands/bind';
 import { createCommand } from './commands/create';
+import { decideCommand, decisionAnswerCommand } from './commands/decisions';
 import { landVerb, deliveriesCommand } from './commands/deliveries';
 import { dependCommand, undependCommand } from './commands/depend';
 import { doctorCommand } from './commands/doctor';
@@ -804,6 +805,9 @@ export function createApp(source: CliSource) {
       .command(searchCommand(ports))
       .command(seedsCommand(ports))
       .command(deliveriesCommand(ports))
+      .command(decideCommand(ports))
+      .command(decisionAnswerCommand(ports, 'confirm'))
+      .command(decisionAnswerCommand(ports, 'overturn'))
       .command(seedCommand(ports))
       .command(promoteCommand(ports))
       .command(rejectCommand(ports))

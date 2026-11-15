@@ -68,7 +68,7 @@ test('either Engine can complete work that the other reads back unchanged', asyn
   expect(done.completedAt).toBeInstanceOf(Date);
   expect(
     await local.getNode({ facets: ['description', 'next', 'children', 'distribution'], id }),
-  ).toEqual(done);
+  ).toEqual({ ...done, decisions: [] });
   expect(await remote.getNode({ id })).toEqual(await local.getNode({ id }));
 });
 
@@ -125,7 +125,7 @@ test('nested timestamps, facets, and resume handles survive serialization', asyn
   expect(done.session).toBeNull();
   expect(
     await remote.getNode({ facets: ['description', 'next', 'children', 'distribution'], id }),
-  ).toEqual(done);
+  ).toEqual({ ...done, decisions: [] });
   expect(await remote.getNode({ id: 'ENG' })).toEqual(await local.getNode({ id: 'ENG' }));
 });
 

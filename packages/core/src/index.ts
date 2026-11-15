@@ -114,4 +114,4 @@ export type { StoreDialect } from './store-sql/dialect';
 export { sqliteDialect } from './store-sqlite/dialect';
 export { postgresDialect } from './store-postgres/dialect';
 
-export { parseDeliveryRef, renderDeliveryRef } from './ids';
+export { renderDecisionRef, parseDeliveryRef, renderDeliveryRef } from './ids';

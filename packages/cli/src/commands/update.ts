@@ -9,7 +9,13 @@
 import { Command } from '@loomcli/core';
 import { helpCommand } from '@loomcli/plugins/help/extension';
 import { mcpCommand } from '@loomcli/plugins/mcp/extension';
-import { encodeDelivery, intentEncoders, MimirError, SEED_KIND_VALUES } from '@mimir/contract';
+import {
+  encodeDecision,
+  encodeDelivery,
+  intentEncoders,
+  MimirError,
+  SEED_KIND_VALUES,
+} from '@mimir/contract';
 
 import { MimirUsageError } from '../failures';
 import {
@@ -24,6 +30,7 @@ import {
 import { asciiOption, text, writeHints } from '../options';
 import { parsePriority, parseSeedKind, parseSize } from '../parse';
 import type { Ports } from '../ports';
+import { renderDecision } from '../render/decisions';
 import { renderDelivery } from '../render/deliveries';
 import { idOf, recordsOf, tableOf } from '../render/get';
 import type { GetValue } from '../render/get';
@@ -239,7 +246,7 @@ function remoteOf(remote: string | undefined): string | null | undefined {
 
 /** The written record `update` echoes, whichever kind the id named. */
 type UpdateEcho =
-  | Extract<GetValue, { kind: 'delivery' }>
+  | Extract<GetValue, { kind: 'delivery' | 'decision' }>
   | NodeEcho
   | SeedEcho
   | Extract<GetValue, { kind: 'artifact' }>;
@@ -253,6 +260,9 @@ function textOf(
     seed: (echo: Readonly<SeedEcho>) => string;
   },
 ): string {
+  if ('decision' in echo) {
+    return renderDecision(echo.decision, echo.presentation);
+  }
   if ('delivery' in echo) {
     return renderDelivery(echo.delivery, echo.presentation);
   }
@@ -264,10 +274,15 @@ function textOf(
 
 /** The views of a written artifact, seed, or node; an artifact prints no note, as `get` does not. */
 const updateViews = recordViews<UpdateEcho>({
-  ids: (echo) =>
-    'delivery' in echo
-      ? echo.delivery.id
-      : textOf(echo, { artifact: idOf, node: (e) => e.node.id, seed: (e) => e.seed.id }),
+  ids: (echo) => {
+    if ('decision' in echo) {
+      return echo.decision.id;
+    }
+    if ('delivery' in echo) {
+      return echo.delivery.id;
+    }
+    return textOf(echo, { artifact: idOf, node: (e) => e.node.id, seed: (e) => e.seed.id });
+  },
   json: (echo) => echo.wire,
   records: (echo) =>
     textOf(echo, { artifact: recordsOf, node: nodeEchoRecords, seed: seedRecordsOf }),
@@ -368,7 +383,7 @@ export function updateCommand(ports: Ports) {
 
   return new Command('update', {
     description:
-      'Change a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), a seed (KEY-sN), or a delivery (KEY-dN).',
+      'Change a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), a seed (KEY-sN), a delivery (KEY-dN), or a decision (KEY-qN).',
     extensions: [
       helpCommand({
         examples: [
@@ -400,7 +415,12 @@ export function updateCommand(ports: Ports) {
       }),
     ],
   })
-    .argument('id', { description: 'KEY-seq, KEY, KEY-aN, KEY-sN, or KEY-dN.', required: true })
+    .argument('id', {
+      description: 'KEY-seq, KEY, KEY-aN, KEY-sN, KEY-dN, or KEY-qN.',
+      required: true,
+    })
+    .option('task', { ...text('Link a task to a decision; repeat.'), multiple: true })
+    .option('untask', { ...text('Unlink a task from a decision; repeat.'), multiple: true })
     .option('agreement', text('Replace the delivery agreement.'))
     .option('clear-agreement', { description: 'Clear the delivery agreement.', type: 'boolean' })
     .option('time-cap', text('Delivery minutes, or none to clear.'))
@@ -450,6 +470,44 @@ export function updateCommand(ports: Ports) {
     .action(async ({ args, host, options, out }) => {
       const presentation = presentationOf(host, options.ascii);
       const kind = ports.grammar.idKind(args.id);
+      if (kind === 'decision') {
+        const allowed = new Set([
+          'task',
+          'untask',
+          'delivery',
+          'ascii',
+          'format',
+          'input',
+          'color',
+          'quiet',
+          'verbose',
+          'help',
+          'version',
+        ]);
+        for (const [flag, value] of Object.entries(options)) {
+          if (given(value) && !(Array.isArray(value) && value.length === 0) && !allowed.has(flag)) {
+            throw new MimirError(
+              'validation',
+              `--${flag} doesn't apply to a decision`,
+              'pass --task, --untask, or --delivery',
+            );
+          }
+        }
+        const result = await (
+          await ports.engine()
+        ).decisionUpdate({
+          delivery: options.delivery === 'none' ? null : options.delivery,
+          id: args.id,
+          tasks: options.task.length ? options.task : undefined,
+          untasks: options.untask.length ? options.untask : undefined,
+        });
+        const decision = encodeDecision(result);
+        await out.results({ decision, kind, presentation, wire: { ...decision } });
+        return;
+      }
+      if (options.task.length || options.untask.length) {
+        throw new MimirUsageError('--task and --untask apply only to a decision');
+      }
       if (kind === 'delivery') {
         const allowed = new Set([
           'title',

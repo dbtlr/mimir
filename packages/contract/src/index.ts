@@ -15,3 +15,5 @@ export * from './health';
 export * from './version';
 
 export * from './delivery';
+
+export * from './decision';

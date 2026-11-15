@@ -7,7 +7,7 @@ COMMANDS
   mcp [command]      Serve this application's tools to an MCP client over stdin and stdout.
   skills <command>   Install this application's agent skills.
   self-update        Replace this application with another release.
-  get                Read one full record: a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), a seed (KEY-sN), or a delivery (KEY-dN).
+  get                Read one full record: a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), a seed (KEY-sN), a delivery (KEY-dN), or a decision (KEY-qN).
   next               List the ready tasks of one project in rank order.
   list               Select the nodes of one project by predicate, status, or tag.
   projects           List the projects, key-ordered. The clone binding never narrows this read.
@@ -18,6 +18,9 @@ COMMANDS
   search             Find any record of one project (task, container, seed, artifact) by id, title, or description.
   seeds              Read one project's grooming queue: live seeds oldest-first (FIFO triage).
   deliveries         Read one project's delivery records.
+  decide             Record a provisional answer without stopping work.
+  confirm            Confirm a provisional decision.
+  overturn           Overturn a provisional decision.
   seed               File a seed: an idea, bug, or feature request on a project, to be triaged later. The title is one quoted argument.
   promote            Promote a seed into work: spawn a task from it, or record existing work with --link.
   reject             Reject a seed: it will not be done. The reason is recorded.
@@ -25,7 +28,7 @@ COMMANDS
   triage             Reconcile a board's seeds: list the untriaged and ready-to-resolve ones, and annotate the tasks whose upstream seed settled. A report, never a gate.
   scratch <command>  Read and keep Scratchpads, the working state of one episode.
   create <command>   Create a project, initiative, phase, task, or delivery.
-  update             Change a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), a seed (KEY-sN), or a delivery (KEY-dN).
+  update             Change a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), a seed (KEY-sN), a delivery (KEY-dN), or a decision (KEY-qN).
   annotate           Append a note to a task, phase, or initiative.
   attach             Attach a document to a project as an artifact, linked to nodes.
   depend             Make a task, phase, or initiative wait on the others named by --on.

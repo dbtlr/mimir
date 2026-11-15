@@ -1,0 +1,20 @@
+mimir confirm · Confirm a provisional decision.
+
+USAGE
+  mimir confirm <id> [note] [options]
+
+ARGUMENTS
+  id    The decision (KEY-qN).
+  note  The outcome note.
+
+OPTIONS
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help      Show this help.
+      --no-input  Ask no questions, and take every answer from options.  (default: true)
+
+EXAMPLES
+  $ mimir confirm MMR-q1 "Answer"
+    settle the answer

@@ -10,6 +10,7 @@ import { isMember } from '@mimir/helpers';
 
 import { hasRedundantWorker } from './assignment';
 import { cycleEdges } from './cycles';
+import { decisionFaults } from './decisions/validate';
 import { deliveryReferenceFault } from './deliveries/membership';
 import { isTerminalDelivery } from './deliveries/store';
 import { validation } from './errors';
@@ -183,7 +184,7 @@ export function parseTransferDocument(input: unknown): StoreExport {
 function assertReferences(document: StoreExport): void {
   const projects = new Set(document.projects.map((project) => project.key));
   const nodes = new Map(document.nodes.map((node) => [node.id, node]));
-  const faults: string[] = [];
+  const faults: string[] = decisionFaults(document).map(({ id, message }) => `${id} ${message}`);
   const projectRef = (key: string, field: string): void => {
     if (!projects.has(key)) {
       faults.push(`${field} references missing project ${key}`);

@@ -40,6 +40,13 @@ export function nodeToken(
   expected = 'task, phase, or initiative',
 ): string {
   const kind = grammar.idKind(token);
+  if (kind === 'decision') {
+    throw new MimirError(
+      'validation',
+      `${token} is a decision, not a ${expected}`,
+      'use get, update, confirm, or overturn; decide records a new decision',
+    );
+  }
   if (kind === 'project') {
     throw new MimirError('validation', `${token} is a project, not a ${expected}`);
   }

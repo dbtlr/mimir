@@ -77,6 +77,7 @@ lane('upgradeSchema builds the schema from empty, and the gate then passes', asy
           '0014_task_staged',
           '0015_delivery',
           '0016_delivery_membership',
+          '0017_decision',
         ],
         from: 0,
         to: SCHEMA_VERSION,
@@ -650,3 +651,54 @@ for (const verb of ['land', 'abandon'] as const) {
     30_000,
   );
 }
+
+lane(
+  'decision overturn races a new task link without losing its annotation',
+  async () => {
+    await onFreshSchema(async (url) => {
+      const handle = openPostgres(url);
+      try {
+        await upgradeSchema(handle.db);
+        const store = createPostgresStore(handle.db);
+        const engine = new LocalEngine(store);
+        await createProject(store, { key: 'DEC', name: 'Decision race' });
+        const parent = await createInitiative(store, { projectId: 'DEC', title: 'Plan' });
+        const task = await createTask(store, { parentId: parent.id, title: 'Build' });
+        const d = await engine.decide({
+          class: 'other',
+          options: ['Here', 'There'],
+          project: 'DEC',
+          question: 'Where?',
+          recommended: 1,
+        });
+        const { promise: inside, resolve: entered } = Promise.withResolvers<void>();
+        const { promise: changed, resolve: resume } = Promise.withResolvers<void>();
+        const transact = store.decisions.transact;
+        let first = true;
+        store.decisions.transact = (id, apply) =>
+          transact(id, async (snapshot, w) => {
+            if (first) {
+              first = false;
+              entered();
+              await changed;
+            }
+            return apply(snapshot, w);
+          });
+        const overturn = engine.overturn({ id: d.id, option: 2 });
+        await inside;
+        await engine.decisionUpdate({ id: d.id, tasks: [task.id] });
+        resume();
+        await overturn;
+        const document = await store.export();
+        expect(document.decisions[0]?.lifecycle).toBe('overturned');
+        expect(document.decisions[0]?.tasks).toEqual([task.id]);
+        expect(document.annotations.map((a) => a.content)).toContain(
+          'decision DEC-q1 overturned: option 2 (There)',
+        );
+      } finally {
+        await handle.close();
+      }
+    });
+  },
+  30000,
+);

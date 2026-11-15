@@ -32,6 +32,9 @@ test.each([
   ['return', ['return', '--help']],
   ['abandon', ['abandon', '--help']],
   ['land', ['land', '--help']],
+  ['decide', ['decide', '--help']],
+  ['confirm', ['confirm', '--help']],
+  ['overturn', ['overturn', '--help']],
 
   ['get', ['get', '--help']],
   ['next', ['next', '--help']],

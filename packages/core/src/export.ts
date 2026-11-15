@@ -1,4 +1,10 @@
-import type { DeliveryRecord, DeliveryHistory, HistoryEntry, Scratchpad } from '@mimir/contract';
+import type {
+  DecisionView,
+  DeliveryRecord,
+  DeliveryHistory,
+  HistoryEntry,
+  Scratchpad,
+} from '@mimir/contract';
 
 import type { ArtifactRecord } from './artifacts/store';
 import type { NextFacet } from './body-sections/store';
@@ -41,7 +47,7 @@ import type { NewAnnotationRecord, NewTagRecord, NewTransitionRecord, Store } fr
  * node `grooming` key (ADR 0033); version 3 adds the node `block_owner` key
  * (ADR 0001, MMR-438); version 4 adds the project `pinned` key (MMR-493); version 5 adds the project `remote` key (MMR-543); version 6 admits queued task reservations (MMR-564); version 7 adds optional whole-task worker handles and assignment history (MMR-568); version 8 admits staged tasks (MMR-675); version 9 adds delivery records and their allocation counter (MMR-676).
  */
-export const STORE_EXPORT_SCHEMA_VERSION = 10;
+export const STORE_EXPORT_SCHEMA_VERSION = 11;
 
 /**
  * Every version this binary imports. A version-1 document predates `grooming`
@@ -63,6 +69,7 @@ export const READABLE_STORE_EXPORT_SCHEMA_VERSIONS: readonly number[] = [
   7,
   8,
   9,
+  10,
   STORE_EXPORT_SCHEMA_VERSION,
 ];
 
@@ -79,6 +86,7 @@ export type ExportedCounters = {
   artifact: number;
   seed: number;
   delivery: number;
+  decision: number;
 };
 
 /** A project row plus its allocation state. */
@@ -144,6 +152,7 @@ export type ExportedBodySections = {
  * would a `Store` read surface that this omits?".
  */
 export type StoreExport = {
+  decisions: readonly DecisionView[];
   schema_version: typeof STORE_EXPORT_SCHEMA_VERSION;
   /** When this document was produced — the only field a re-export may differ in. */
   exported_at: string;

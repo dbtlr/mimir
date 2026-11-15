@@ -2,12 +2,15 @@ import {
   consoleIntentViews,
   consoleSchemas,
   decodeDelivery,
+  decodeDecision,
   engineSchemas,
   intentViews,
   parseEngineInput,
 } from '@mimir/contract';
 import type { ConsoleEngine, Engine, EngineInput, Scratchpad } from '@mimir/contract';
 
+import { decide, getDecision, updateDecision, answerDecision } from './decisions/intent';
+import { refuseDecisionInput } from './decisions/refusal';
 import {
   createDelivery,
   getDelivery,
@@ -97,74 +100,122 @@ export class LocalEngine extends UniformEngineBase implements Engine {
     return found !== undefined && found.archived_at === null;
   }
 
+  async decide(input: EngineInput<'decide'>) {
+    return decodeDecision(
+      await decide(this.store, parseEngineInput(engineSchemas.decide.input, input)),
+    );
+  }
+  async getDecision(input: EngineInput<'getDecision'>) {
+    return decodeDecision(
+      await getDecision(this.store, parseEngineInput(engineSchemas.getDecision.input, input).id),
+    );
+  }
+  async decisionUpdate(input: EngineInput<'decisionUpdate'>) {
+    return decodeDecision(
+      await updateDecision(this.store, parseEngineInput(engineSchemas.decisionUpdate.input, input)),
+    );
+  }
+  async confirm(input: EngineInput<'confirm'>) {
+    return decodeDecision(
+      await answerDecision(
+        this.store,
+        'confirm',
+        parseEngineInput(engineSchemas.confirm.input, input),
+      ),
+    );
+  }
+  async overturn(input: EngineInput<'overturn'>) {
+    return decodeDecision(
+      await answerDecision(
+        this.store,
+        'overturn',
+        parseEngineInput(engineSchemas.overturn.input, input),
+      ),
+    );
+  }
+
   async deliveryStart(input: EngineInput<'deliveryStart'>) {
+    refuseDecisionInput(input);
     const args = parseEngineInput(engineSchemas.deliveryStart.input, input);
     return decodeDelivery(await transitionDelivery(this.store, 'start', args));
   }
 
   async deliveryBlock(input: EngineInput<'deliveryBlock'>) {
+    refuseDecisionInput(input);
     const args = parseEngineInput(engineSchemas.deliveryBlock.input, input);
     return decodeDelivery(await transitionDelivery(this.store, 'block', args));
   }
 
   async deliveryUnblock(input: EngineInput<'deliveryUnblock'>) {
+    refuseDecisionInput(input);
     const args = parseEngineInput(engineSchemas.deliveryUnblock.input, input);
     return decodeDelivery(await transitionDelivery(this.store, 'unblock', args));
   }
 
   async deliveryPark(input: EngineInput<'deliveryPark'>) {
+    refuseDecisionInput(input);
     const args = parseEngineInput(engineSchemas.deliveryPark.input, input);
     return decodeDelivery(await transitionDelivery(this.store, 'park', args));
   }
 
   async deliveryUnpark(input: EngineInput<'deliveryUnpark'>) {
+    refuseDecisionInput(input);
     const args = parseEngineInput(engineSchemas.deliveryUnpark.input, input);
     return decodeDelivery(await transitionDelivery(this.store, 'unpark', args));
   }
 
   async deliverySubmit(input: EngineInput<'deliverySubmit'>) {
+    refuseDecisionInput(input);
     const args = parseEngineInput(engineSchemas.deliverySubmit.input, input);
     return decodeDelivery(await transitionDelivery(this.store, 'submit', args));
   }
 
   async deliveryReturn(input: EngineInput<'deliveryReturn'>) {
+    refuseDecisionInput(input);
     const args = parseEngineInput(engineSchemas.deliveryReturn.input, input);
     return decodeDelivery(await transitionDelivery(this.store, 'return', args));
   }
 
   async deliveryLand(input: EngineInput<'deliveryLand'>) {
+    refuseDecisionInput(input);
     const args = parseEngineInput(engineSchemas.deliveryLand.input, input);
     return decodeDelivery(await transitionDelivery(this.store, 'land', args));
   }
 
   async deliveryAbandon(input: EngineInput<'deliveryAbandon'>) {
+    refuseDecisionInput(input);
     const args = parseEngineInput(engineSchemas.deliveryAbandon.input, input);
     return decodeDelivery(await transitionDelivery(this.store, 'abandon', args));
   }
 
   async deliveryCreate(input: EngineInput<'deliveryCreate'>) {
+    refuseDecisionInput(input);
     return decodeDelivery(
       await createDelivery(this.store, parseEngineInput(engineSchemas.deliveryCreate.input, input)),
     );
   }
 
   async deliveryUpdate(input: EngineInput<'deliveryUpdate'>) {
+    refuseDecisionInput(input);
     return decodeDelivery(
       await updateDelivery(this.store, parseEngineInput(engineSchemas.deliveryUpdate.input, input)),
     );
   }
 
   async getDelivery(input: EngineInput<'getDelivery'>) {
+    refuseDecisionInput(input);
     const { id } = parseEngineInput(engineSchemas.getDelivery.input, input);
     return decodeDelivery(await getDelivery(this.store, id));
   }
 
   async deliveries(input: EngineInput<'deliveries'>) {
+    refuseDecisionInput(input);
     const { project } = parseEngineInput(engineSchemas.deliveries.input, input);
     return (await listDeliveries(this.store, project)).map(decodeDelivery);
   }
 
   async artifacts(input: EngineInput<'artifacts'>) {
+    refuseDecisionInput(input);
     const { project, ...opts } = parseEngineInput(engineSchemas.artifacts.input, input);
     return intentViews.artifactSet.parse(
       await listArtifacts(this.store, { ...opts, scope: project }),
@@ -172,31 +223,41 @@ export class LocalEngine extends UniformEngineBase implements Engine {
   }
 
   async getArtifact(input: EngineInput<'getArtifact'>) {
+    refuseDecisionInput(input);
     const { id, content } = parseEngineInput(engineSchemas.getArtifact.input, input);
     return intentViews.artifactDetail.parse(await getArtifact(this.store, id, { content }));
   }
 
   async getNode(input: EngineInput<'getNode'>) {
+    refuseDecisionInput(input);
     const { id, facets } = parseEngineInput(engineSchemas.getNode.input, input);
-    return intentViews.node.parse(await getNode(this.store, id, { facets }));
+    const node = await getNode(this.store, id, { facets });
+    if (node.type === 'task') {
+      node.decisions = await this.store.decisions.forTask(node.id);
+    }
+    return intentViews.node.parse(node);
   }
 
   async getSeed(input: EngineInput<'getSeed'>) {
+    refuseDecisionInput(input);
     const { id, content } = parseEngineInput(engineSchemas.getSeed.input, input);
     return intentViews.seed.parse(await getSeed(this.store, id, { content }));
   }
 
   async list(input: EngineInput<'list'>) {
+    refuseDecisionInput(input);
     const { project, ...opts } = parseEngineInput(engineSchemas.list.input, input);
     return intentViews.nodeSet.parse(await listNodes(this.store, { ...opts, scope: project }));
   }
 
   async next(input: EngineInput<'next'>) {
+    refuseDecisionInput(input);
     const { project, ...opts } = parseEngineInput(engineSchemas.next.input, input);
     return intentViews.nodeSet.parse(await nextTasks(this.store, { ...opts, scope: project }));
   }
 
   async overview(input: EngineInput<'overview'>) {
+    refuseDecisionInput(input);
     const { project, asOf } = parseEngineInput(engineSchemas.overview.input, input);
     return intentViews.overview.parse(
       await overviewOf(this.store, project, { asOf: asOf?.toISOString() }),
@@ -204,17 +265,20 @@ export class LocalEngine extends UniformEngineBase implements Engine {
   }
 
   async projects(input: EngineInput<'projects'>) {
+    refuseDecisionInput(input);
     const { facets, status } = parseEngineInput(engineSchemas.projects.input, input);
     return intentViews.nodes.parse(await listProjects(this.store, facets, status));
   }
 
   /** Every active project whose Git remote is the same repository as `remote`, key-ordered. */
   async projectsByRemote(input: EngineInput<'projectsByRemote'>) {
+    refuseDecisionInput(input);
     const { facets, remote } = parseEngineInput(engineSchemas.projectsByRemote.input, input);
     return intentViews.nodes.parse(await listProjectsByRemote(this.store, remote, facets));
   }
 
   async scratchGet(input: EngineInput<'scratchGet'>) {
+    refuseDecisionInput(input);
     const { id } = parseEngineInput(engineSchemas.scratchGet.input, input);
     const scratchpad = await this.scratchpads.get(id);
     if (!(await this.isActiveProject(scratchpad.project))) {
@@ -224,6 +288,7 @@ export class LocalEngine extends UniformEngineBase implements Engine {
   }
 
   async scratchList(input: EngineInput<'scratchList'>) {
+    refuseDecisionInput(input);
     const { project } = parseEngineInput(engineSchemas.scratchList.input, input);
     if (!(await this.isActiveProject(project))) {
       throw projectNotFound(project);
@@ -233,6 +298,7 @@ export class LocalEngine extends UniformEngineBase implements Engine {
   }
 
   async search(input: EngineInput<'search'>) {
+    refuseDecisionInput(input);
     const opts = parseEngineInput(engineSchemas.search.input, input);
     return intentViews.searchSet.parse(
       await searchRecords(this.store, { ...opts, projectOnly: true }),
@@ -240,16 +306,19 @@ export class LocalEngine extends UniformEngineBase implements Engine {
   }
 
   async seeds(input: EngineInput<'seeds'>) {
+    refuseDecisionInput(input);
     const opts = parseEngineInput(engineSchemas.seeds.input, input);
     return intentViews.seeds.parse(await listSeeds(this.store, opts));
   }
 
   async status(input: EngineInput<'status'>) {
+    refuseDecisionInput(input);
     const { id } = parseEngineInput(engineSchemas.status.input, input);
     return intentViews.status.parse(await statusOfNode(this.store, id));
   }
 
   async tree(input: EngineInput<'tree'>) {
+    refuseDecisionInput(input);
     const { id, facets } = parseEngineInput(engineSchemas.tree.input, input);
     return intentViews.tree.parse(await nodeTree(this.store, id, facets));
   }
@@ -329,6 +398,7 @@ export class LocalEngine extends UniformEngineBase implements Engine {
   }
 
   async scratchAgendaAdd(input: EngineInput<'scratchAgendaAdd'>) {
+    refuseDecisionInput(input);
     const { id, expectedUpdatedAt, content } = parseEngineInput(
       engineSchemas.scratchAgendaAdd.input,
       input,
@@ -339,6 +409,7 @@ export class LocalEngine extends UniformEngineBase implements Engine {
   }
 
   async scratchAgendaComplete(input: EngineInput<'scratchAgendaComplete'>) {
+    refuseDecisionInput(input);
     const { id, expectedUpdatedAt, number } = parseEngineInput(
       engineSchemas.scratchAgendaComplete.input,
       input,
@@ -349,6 +420,7 @@ export class LocalEngine extends UniformEngineBase implements Engine {
   }
 
   async scratchAgendaSupersede(input: EngineInput<'scratchAgendaSupersede'>) {
+    refuseDecisionInput(input);
     const { id, expectedUpdatedAt, number, reason } = parseEngineInput(
       engineSchemas.scratchAgendaSupersede.input,
       input,
@@ -363,6 +435,7 @@ export class LocalEngine extends UniformEngineBase implements Engine {
   }
 
   async scratchCheckpoint(input: EngineInput<'scratchCheckpoint'>) {
+    refuseDecisionInput(input);
     const { id, expectedUpdatedAt, content } = parseEngineInput(
       engineSchemas.scratchCheckpoint.input,
       input,
@@ -373,11 +446,13 @@ export class LocalEngine extends UniformEngineBase implements Engine {
   }
 
   async scratchCreate(input: EngineInput<'scratchCreate'>) {
+    refuseDecisionInput(input);
     const opts = parseEngineInput(engineSchemas.scratchCreate.input, input);
     return intentViews.scratchpad.parse(await this.scratchpads.create(opts));
   }
 
   async scratchDiscard(input: EngineInput<'scratchDiscard'>) {
+    refuseDecisionInput(input);
     const { id, expectedUpdatedAt, force, reason } = parseEngineInput(
       engineSchemas.scratchDiscard.input,
       input,
@@ -392,6 +467,7 @@ export class LocalEngine extends UniformEngineBase implements Engine {
   }
 
   async scratchFreeze(input: EngineInput<'scratchFreeze'>) {
+    refuseDecisionInput(input);
     const { id, expectedUpdatedAt, summary, tags } = parseEngineInput(
       engineSchemas.scratchFreeze.input,
       input,
@@ -411,6 +487,7 @@ export class LocalEngine extends UniformEngineBase implements Engine {
   }
 
   async scratchUpdate(input: EngineInput<'scratchUpdate'>) {
+    refuseDecisionInput(input);
     const { id, expectedUpdatedAt, anchors, title } = parseEngineInput(
       engineSchemas.scratchUpdate.input,
       input,
@@ -425,41 +502,49 @@ export class LocalEngine extends UniformEngineBase implements Engine {
   }
 
   async seedCreate(input: EngineInput<'seedCreate'>) {
+    refuseDecisionInput(input);
     const opts = parseEngineInput(engineSchemas.seedCreate.input, input);
     return intentViews.seed.parse(await fileSeed(this.store, opts));
   }
 
   async seedPark(input: EngineInput<'seedPark'>) {
+    refuseDecisionInput(input);
     const { id, reason } = parseEngineInput(engineSchemas.seedPark.input, input);
     return intentViews.seed.parse(await parkSeed(this.store, id, reason));
   }
 
   async seedPromote(input: EngineInput<'seedPromote'>) {
+    refuseDecisionInput(input);
     const { id, ...opts } = parseEngineInput(engineSchemas.seedPromote.input, input);
     return intentViews.seedPromotion.parse(await promoteSeed(this.store, id, opts));
   }
 
   async seedReject(input: EngineInput<'seedReject'>) {
+    refuseDecisionInput(input);
     const { id, reason } = parseEngineInput(engineSchemas.seedReject.input, input);
     return intentViews.seed.parse(await transitionSeed(this.store, id, 'rejected', reason));
   }
 
   async seedResolve(input: EngineInput<'seedResolve'>) {
+    refuseDecisionInput(input);
     const { id, reason } = parseEngineInput(engineSchemas.seedResolve.input, input);
     return intentViews.seed.parse(await transitionSeed(this.store, id, 'resolved', reason));
   }
 
   async seedUnpark(input: EngineInput<'seedUnpark'>) {
+    refuseDecisionInput(input);
     const { id } = parseEngineInput(engineSchemas.seedUnpark.input, input);
     return intentViews.seed.parse(await unparkSeed(this.store, id));
   }
 
   async seedUpdate(input: EngineInput<'seedUpdate'>) {
+    refuseDecisionInput(input);
     const { id, ...fields } = parseEngineInput(engineSchemas.seedUpdate.input, input);
     return intentViews.seed.parse(await updateSeed(this.store, id, fields));
   }
 
   async triage(input: EngineInput<'triage'>) {
+    refuseDecisionInput(input);
     const opts = parseEngineInput(engineSchemas.triage.input, input);
     return intentViews.triageReport.parse(await triage(this.store, opts));
   }

@@ -29,6 +29,7 @@ import { statements as runs } from './migrations/0013-runs';
 import { statements as taskStaged } from './migrations/0014-task-staged';
 import { statements as delivery } from './migrations/0015-delivery';
 import { statements as deliveryMembership } from './migrations/0016-delivery-membership';
+import { statements as decision } from './migrations/0017-decision';
 import { serializable, snapshotRead } from './tx';
 
 /**
@@ -131,6 +132,7 @@ export const postgresDialect: StoreDialect = {
     '0014_task_staged': taskStaged,
     '0015_delivery': delivery,
     '0016_delivery_membership': deliveryMembership,
+    '0017_decision': decision,
   },
   // A shared store is migrated by the host that owns it when it starts, never as
   // a side effect of another binary opening it (ADR 0030, ADR 0035).

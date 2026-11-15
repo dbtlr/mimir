@@ -104,7 +104,7 @@ reporting it complete), so the board is never behind the report.
   record with its reason. `reopen <id> "reason"` only corrects a terminal call
   that was wrong: a premature `done` or a wrongly abandoned approach. New work
   found after a genuine `done` is a new task.
-- `annotate <id> "note"` appends a decision, a surprise, or a scope change to
+- `annotate <id> "note"` appends a ruling, a surprise, or a scope change to
   a task's notes.
 
 `references/status-model.md` defines every status word, rollup, and the
@@ -228,3 +228,4 @@ Read the matching reference before you act in its area.
 | Classify with tags                                                      | `references/tags.md`         |
 | File or triage grooming-queue records: ideas, bugs, cross-board asks    | `references/seeds.md`        |
 | Record an attempt to deliver a phase: create, read, and update it       | `references/deliveries.md`   |
+| Record an answer without stopping work: link, confirm, or overturn it | `references/decisions.md` |

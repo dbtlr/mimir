@@ -65,6 +65,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0040](0040-outbound-integrations-and-host-secrets.md)            | Outbound integrations and host secrets (refined by 0041)           |
 | [0041](0041-agent-runtime-on-the-host.md)                         | The agent runtime runs on the host                                 |
 | [0042](0042-the-delivery-record.md)                               | The delivery — one attempt to deliver a phase through one branch   |
+| [0043](0043-the-decision-record.md)                               | The decision — a question answered without stopping                |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete model

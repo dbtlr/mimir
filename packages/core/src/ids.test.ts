@@ -107,3 +107,7 @@ describe('parseIdentity', () => {
     expect(parseIdentity('#1')).toBeNull(); // the dead Phase-3 echo form
   });
 });
+
+test('decision ids normalize numeric padding', () => {
+  expect(parseIdentity('MMR-q04')).toEqual({ key: 'MMR', kind: 'decision', seq: 4 });
+});

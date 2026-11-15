@@ -43,7 +43,7 @@ test('done returns the completed task and refuses a second completion', async ()
     facets: ['description', 'next', 'children', 'distribution'],
     id,
   });
-  expect(read).toEqual(result);
+  expect(read).toEqual({ ...result, decisions: [] });
   expect((await errorOf(engine.done({ id }))).code).toBe('validation');
 });
 

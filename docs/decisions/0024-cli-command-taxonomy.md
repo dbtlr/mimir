@@ -69,7 +69,8 @@ creation verb for tree nodes — four types sharing one shape take one verb
 with a type positional, not four top-level verbs. A record type gets its own
 creation verb only when its creation ergonomics are the feature: `seed`
 (zero-friction capture) and `attach` (the node relation is the command's
-essence). No new top-level creation verbs beyond these.
+essence). No new top-level creation verbs beyond these. (The MMR-677 amendment
+below adds `decide` under this test.)
 
 **`overview` is born into the taxonomy** (MMR-278): a flat, id-free,
 scope-honoring read verb, sibling to `next`/`list`/`get`/`status`/`tree`,
@@ -228,3 +229,13 @@ life. It is not the delivery's parent, so creation takes `--phase` rather than
 queue and `artifacts` reads its frozen records. It honors the clone binding and
 takes `--project KEY`. An archived project's deliveries are hidden. `get` and
 `update` dispatch `KEY-dN` identities to delivery methods.
+
+## Amendment (2026-11-15, MMR-677): `decide` creates a decision
+
+`decide <question>` creates the project-anchored record in
+[ADR 0043](0043-the-decision-record.md). It joins `seed` and `attach` under the
+creation grammar's test, because its creation ergonomics are the feature: an
+agent records a decision mid-task, many times a delivery, and the verb is the
+claim it makes. `create decision` was rejected for that reason. `confirm` and
+`overturn` are flat work-state verbs on a `KEY-qN` id. `get` and `update`
+dispatch `KEY-qN` identities to decision methods.

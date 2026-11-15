@@ -1,0 +1,760 @@
+### decide argv: Where? --option Here --option There --recommend 1 --class architecture -p MMR --task MMR-3 -f records
+exit 0
+--- stdout
+| id: MMR-q2
+| project_key: MMR
+| seq: 2
+| question: Where?
+| recommended: 1
+| taken: 1
+| class: architecture
+| lifecycle: provisional
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| tasks: MMR-3
+| Options
+|   1. Here
+|   2. There
+| History
+| 2026-10-01 12:00 UTC link: none -> linked MMR-3
+--- state
++ nodes[MMR-3].decisions[MMR-q2]: {"id":"MMR-q2","lifecycle":"provisional"}
+
+### decide argv: Where? --option Here --option There --recommend 1 --class architecture -p MMR --task MMR-3 -f table
+exit 0
+--- stdout
+| id: MMR-q2
+| project_key: MMR
+| seq: 2
+| question: Where?
+| recommended: 1
+| taken: 1
+| class: architecture
+| lifecycle: provisional
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| tasks: MMR-3
+| Options
+|   1. Here
+|   2. There
+| History
+| 2026-10-01 12:00 UTC link: none -> linked MMR-3
+--- state
++ nodes[MMR-3].decisions[MMR-q2]: {"id":"MMR-q2","lifecycle":"provisional"}
+
+### decide argv: Where? --option Here --option There --recommend 1 --class architecture -p MMR --task MMR-3 -f ids
+exit 0
+--- stdout
+| MMR-q2
+--- state
++ nodes[MMR-3].decisions[MMR-q2]: {"id":"MMR-q2","lifecycle":"provisional"}
+
+### decide argv: Where? --option Here --option There --recommend 1 --class architecture -p MMR --task MMR-3 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-q2",
+|   "project_key": "MMR",
+|   "seq": 2,
+|   "question": "Where?",
+|   "options": [
+|     "Here",
+|     "There"
+|   ],
+|   "recommended": 1,
+|   "taken": 1,
+|   "class": "architecture",
+|   "why": null,
+|   "delivery": null,
+|   "lifecycle": "provisional",
+|   "overturn_option": null,
+|   "outcome_note": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "tasks": [
+|     "MMR-3"
+|   ],
+|   "history": [
+|     {
+|       "kind": "link",
+|       "from_value": null,
+|       "to_value": "linked",
+|       "reason": null,
+|       "task": "MMR-3",
+|       "at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ]
+| }
+--- state
++ nodes[MMR-3].decisions[MMR-q2]: {"id":"MMR-q2","lifecycle":"provisional"}
+
+### decide argv: Where? --option Here --option There --recommend 1 --class architecture -p MMR --task MMR-3 -f jsonl
+exit 0
+--- stdout
+| {
+|   "id": "MMR-q2",
+|   "project_key": "MMR",
+|   "seq": 2,
+|   "question": "Where?",
+|   "options": [
+|     "Here",
+|     "There"
+|   ],
+|   "recommended": 1,
+|   "taken": 1,
+|   "class": "architecture",
+|   "why": null,
+|   "delivery": null,
+|   "lifecycle": "provisional",
+|   "overturn_option": null,
+|   "outcome_note": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "tasks": [
+|     "MMR-3"
+|   ],
+|   "history": [
+|     {
+|       "kind": "link",
+|       "from_value": null,
+|       "to_value": "linked",
+|       "reason": null,
+|       "task": "MMR-3",
+|       "at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ]
+| }
+--- state
++ nodes[MMR-3].decisions[MMR-q2]: {"id":"MMR-q2","lifecycle":"provisional"}
+
+### decide argv: Where? --option Here --recommend 1 --class product -p MMR
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "add another --option"
+|   ],
+|   "message": "a decision requires at least two options"
+| }
+--- state
+unchanged
+
+### update argv: MMR-q1 --task MMR-4
+exit 0
+--- stdout
+| id: MMR-q1
+| project_key: MMR
+| seq: 1
+| question: Where?
+| recommended: 1
+| taken: 1
+| class: architecture
+| lifecycle: provisional
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| tasks: MMR-3, MMR-4
+| Options
+|   1. Here
+|   2. There
+| History
+| 2026-10-01 12:00 UTC link: none -> linked MMR-3
+| 2026-10-01 12:00 UTC link: none -> linked MMR-4
+--- state
++ nodes[MMR-4].decisions[MMR-q1]: {"id":"MMR-q1","lifecycle":"provisional"}
+
+### update argv: MMR-q1 --untask MMR-3
+exit 0
+--- stdout
+| id: MMR-q1
+| project_key: MMR
+| seq: 1
+| question: Where?
+| recommended: 1
+| taken: 1
+| class: architecture
+| lifecycle: provisional
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| tasks: 
+| Options
+|   1. Here
+|   2. There
+| History
+| 2026-10-01 12:00 UTC link: none -> linked MMR-3
+| 2026-10-01 12:00 UTC link: none -> unlinked MMR-3
+--- state
+- nodes[MMR-3].decisions[MMR-q1]: {"id":"MMR-q1","lifecycle":"provisional"}
+
+### update argv: MMR-q1 --title Wrong
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "pass --task, --untask, or --delivery"
+|   ],
+|   "message": "--title doesn't apply to a decision"
+| }
+--- state
+unchanged
+
+### update argv: MMR-q1 --agreement Terms
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "pass --task, --untask, or --delivery"
+|   ],
+|   "message": "--agreement doesn't apply to a decision"
+| }
+--- state
+unchanged
+
+### update argv: MMR-q1 --agreement Terms --task MMR-4
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "pass --task, --untask, or --delivery"
+|   ],
+|   "message": "--agreement doesn't apply to a decision"
+| }
+--- state
+unchanged
+
+### update argv: MMR-q1 --clear-agreement
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "pass --task, --untask, or --delivery"
+|   ],
+|   "message": "--clear-agreement doesn't apply to a decision"
+| }
+--- state
+unchanged
+
+### update argv: MMR-q1 --clear-agreement --task MMR-4
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "pass --task, --untask, or --delivery"
+|   ],
+|   "message": "--clear-agreement doesn't apply to a decision"
+| }
+--- state
+unchanged
+
+### update argv: MMR-q1 --time-cap 20
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "pass --task, --untask, or --delivery"
+|   ],
+|   "message": "--time-cap doesn't apply to a decision"
+| }
+--- state
+unchanged
+
+### update argv: MMR-q1 --time-cap 20 --task MMR-4
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "pass --task, --untask, or --delivery"
+|   ],
+|   "message": "--time-cap doesn't apply to a decision"
+| }
+--- state
+unchanged
+
+### promote argv: MMR-q1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "use get, update, confirm, or overturn; decide records a new decision"
+|   ],
+|   "message": "promote does not apply to a decision: MMR-q1"
+| }
+--- state
+unchanged
+
+### resolve argv: MMR-q1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "use get, update, confirm, or overturn; decide records a new decision"
+|   ],
+|   "message": "resolve does not apply to a decision: MMR-q1"
+| }
+--- state
+unchanged
+
+### reject argv: MMR-q1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "use get, update, confirm, or overturn; decide records a new decision"
+|   ],
+|   "message": "reject does not apply to a decision: MMR-q1"
+| }
+--- state
+unchanged
+
+### archive argv: MMR-q1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "use get, update, confirm, or overturn; decide records a new decision"
+|   ],
+|   "message": "MMR-q1 is a decision"
+| }
+--- state
+unchanged
+
+### unarchive argv: MMR-q1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "use get, update, confirm, or overturn; decide records a new decision"
+|   ],
+|   "message": "MMR-q1 is a decision"
+| }
+--- state
+unchanged
+
+### promote argv: MMR-d1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "a delivery takes get, update, start, submit, stage, return, block, unblock, land, and abandon"
+|   ],
+|   "message": "promote does not apply to a delivery: MMR-d1"
+| }
+--- state
+unchanged
+
+### resolve argv: MMR-d1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "a delivery takes get, update, start, submit, stage, return, block, unblock, land, and abandon"
+|   ],
+|   "message": "resolve does not apply to a delivery: MMR-d1"
+| }
+--- state
+unchanged
+
+### reject argv: MMR-d1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "a delivery takes get, update, start, submit, stage, return, block, unblock, land, and abandon"
+|   ],
+|   "message": "reject does not apply to a delivery: MMR-d1"
+| }
+--- state
+unchanged
+
+### update argv: MMR-q1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "pass --task, --untask, or --delivery"
+|   ],
+|   "message": "empty decision update"
+| }
+--- state
+unchanged
+
+### get argv: MMR-q1 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-q1",
+|   "project_key": "MMR",
+|   "seq": 1,
+|   "question": "Where?",
+|   "options": [
+|     "Here",
+|     "There"
+|   ],
+|   "recommended": 1,
+|   "taken": 1,
+|   "class": "architecture",
+|   "why": null,
+|   "delivery": null,
+|   "lifecycle": "provisional",
+|   "overturn_option": null,
+|   "outcome_note": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "tasks": [
+|     "MMR-3"
+|   ],
+|   "history": [
+|     {
+|       "kind": "link",
+|       "from_value": null,
+|       "to_value": "linked",
+|       "reason": null,
+|       "task": "MMR-3",
+|       "at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ]
+| }
+--- state
+unchanged
+
+### get argv: MMR-3 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-3",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "Wire the store",
+|   "type": "task",
+|   "decisions": [
+|     {
+|       "id": "MMR-q1",
+|       "lifecycle": "provisional"
+|     }
+|   ],
+|   "description": "Open the store once.\n\nKeep it open.",
+|   "summary": "one store per run",
+|   "priority": "p1",
+|   "size": "small",
+|   "lifecycle": "todo",
+|   "grooming": "groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "delivery": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "deps": {
+|     "awaiting_on": [],
+|     "blocking": [
+|       {
+|         "id": "MMR-4",
+|         "status": "awaiting",
+|         "title": "Render views"
+|       }
+|     ],
+|     "depends_on": []
+|   },
+|   "children": [],
+|   "tags": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "annotations": [
+|     {
+|       "content": "First pass.\nSecond line.",
+|       "created_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "content": "Settled; one; store.",
+|       "created_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "artifacts": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-a1",
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes"
+|     }
+|   ]
+| }
+--- state
+unchanged
+
+### confirm argv: MMR-q1 -f jsonl
+exit 0
+--- stdout
+| {
+|   "id": "MMR-q1",
+|   "project_key": "MMR",
+|   "seq": 1,
+|   "question": "Where?",
+|   "options": [
+|     "Here",
+|     "There"
+|   ],
+|   "recommended": 1,
+|   "taken": 1,
+|   "class": "architecture",
+|   "why": null,
+|   "delivery": null,
+|   "lifecycle": "confirmed",
+|   "overturn_option": null,
+|   "outcome_note": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "tasks": [
+|     "MMR-3"
+|   ],
+|   "history": [
+|     {
+|       "kind": "link",
+|       "from_value": null,
+|       "to_value": "linked",
+|       "reason": null,
+|       "task": "MMR-3",
+|       "at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "kind": "lifecycle",
+|       "from_value": "provisional",
+|       "to_value": "confirmed",
+|       "reason": null,
+|       "task": null,
+|       "at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ]
+| }
+--- state
+~ nodes[MMR-3].decisions[MMR-q1].lifecycle: "provisional" -> "confirmed"
+
+### overturn argv: MMR-q1 --option 2 -f jsonl
+exit 0
+--- stdout
+| {
+|   "id": "MMR-q1",
+|   "project_key": "MMR",
+|   "seq": 1,
+|   "question": "Where?",
+|   "options": [
+|     "Here",
+|     "There"
+|   ],
+|   "recommended": 1,
+|   "taken": 1,
+|   "class": "architecture",
+|   "why": null,
+|   "delivery": null,
+|   "lifecycle": "overturned",
+|   "overturn_option": 2,
+|   "outcome_note": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "tasks": [
+|     "MMR-3"
+|   ],
+|   "history": [
+|     {
+|       "kind": "link",
+|       "from_value": null,
+|       "to_value": "linked",
+|       "reason": null,
+|       "task": "MMR-3",
+|       "at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "kind": "lifecycle",
+|       "from_value": "provisional",
+|       "to_value": "overturned",
+|       "reason": null,
+|       "task": null,
+|       "at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ]
+| }
+--- state
++ nodes[MMR-3].annotations[@2]: {"content":"decision MMR-q1 overturned: option 2 (There)","createdAt":"2026-10-01T12:00:00.000Z"}
+~ nodes[MMR-3].decisions[MMR-q1].lifecycle: "provisional" -> "overturned"
+
+### confirm argv: MMR-q1 "Accepted" -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-q1",
+|   "project_key": "MMR",
+|   "seq": 1,
+|   "question": "Where?",
+|   "options": [
+|     "Here",
+|     "There"
+|   ],
+|   "recommended": 1,
+|   "taken": 1,
+|   "class": "architecture",
+|   "why": null,
+|   "delivery": null,
+|   "lifecycle": "confirmed",
+|   "overturn_option": null,
+|   "outcome_note": "\"Accepted\"",
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "tasks": [
+|     "MMR-3"
+|   ],
+|   "history": [
+|     {
+|       "kind": "link",
+|       "from_value": null,
+|       "to_value": "linked",
+|       "reason": null,
+|       "task": "MMR-3",
+|       "at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "kind": "lifecycle",
+|       "from_value": "provisional",
+|       "to_value": "confirmed",
+|       "reason": "\"Accepted\"",
+|       "task": null,
+|       "at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ]
+| }
+--- state
+~ nodes[MMR-3].decisions[MMR-q1].lifecycle: "provisional" -> "confirmed"
+
+### overturn argv: MMR-q1 --option 2 "Move" -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-q1",
+|   "project_key": "MMR",
+|   "seq": 1,
+|   "question": "Where?",
+|   "options": [
+|     "Here",
+|     "There"
+|   ],
+|   "recommended": 1,
+|   "taken": 1,
+|   "class": "architecture",
+|   "why": null,
+|   "delivery": null,
+|   "lifecycle": "overturned",
+|   "overturn_option": 2,
+|   "outcome_note": "\"Move\"",
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "tasks": [
+|     "MMR-3"
+|   ],
+|   "history": [
+|     {
+|       "kind": "link",
+|       "from_value": null,
+|       "to_value": "linked",
+|       "reason": null,
+|       "task": "MMR-3",
+|       "at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "kind": "lifecycle",
+|       "from_value": "provisional",
+|       "to_value": "overturned",
+|       "reason": "\"Move\"",
+|       "task": null,
+|       "at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ]
+| }
+--- state
++ nodes[MMR-3].annotations[@2]: {"content":"decision MMR-q1 overturned: option 2 (There): \"Move\"","createdAt":"2026-10-01T12:00:00.000Z"}
+~ nodes[MMR-3].decisions[MMR-q1].lifecycle: "provisional" -> "overturned"
+
+### overturn argv: MMR-q1 "Neither"
+exit 0
+--- stdout
+| id: MMR-q1
+| project_key: MMR
+| seq: 1
+| question: Where?
+| recommended: 1
+| taken: 1
+| class: architecture
+| lifecycle: overturned
+| outcome_note: "Neither"
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| tasks: MMR-3
+| Options
+|   1. Here
+|   2. There
+| History
+| 2026-10-01 12:00 UTC link: none -> linked MMR-3
+| 2026-10-01 12:00 UTC lifecycle: provisional -> overturned: "Neither"
+--- state
++ nodes[MMR-3].annotations[@2]: {"content":"decision MMR-q1 overturned: \"Neither\"","createdAt":"2026-10-01T12:00:00.000Z"}
+~ nodes[MMR-3].decisions[MMR-q1].lifecycle: "provisional" -> "overturned"
+
+### overturn argv: MMR-q1 --option 1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "use confirm for the answer taken"
+|   ],
+|   "message": "that is the answer taken"
+| }
+--- state
+unchanged
+

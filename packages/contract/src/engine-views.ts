@@ -62,6 +62,11 @@ export function nodeSchema<T extends z.ZodType>(instant: T) {
     children: z.array(nodeRefSchema).optional(),
     completedAt: instant.nullable().optional(),
     createdAt: instant,
+    decisions: z
+      .array(
+        z.object({ id: z.string(), lifecycle: z.enum(['provisional', 'confirmed', 'overturned']) }),
+      )
+      .optional(),
     delivery: z.string().nullable().optional(),
     deps: z
       .object({
