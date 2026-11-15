@@ -82,9 +82,8 @@ The scope root. Categorically not a node: it doesn't complete (no status), isn't
 | `last_seq`          | integer | required | node sequence counter, default 0                                                          |
 | `last_artifact_seq` | integer | required | artifact sequence counter, default 0                                                      |
 | `last_seed_seq`     | integer | required | seed sequence counter, default 0                                                          |
-| `last_decision_seq` | integer | required | decision sequence counter, default 0 |
 | `last_delivery_seq` | integer | required | delivery sequence counter, default 0                                                      |
-| `last_decision_seq` | integer | required | decision sequence counter, default 0 |
+| `last_decision_seq` | integer | required | decision sequence counter, default 0                                                      |
 | `next_present`      | boolean | required | whether the `## Next` narrative is set, default false                                     |
 | `next_text`         | text    | optional | the narrative prose                                                                       |
 | `pinned`            | boolean | required | the operator's "keep at hand" mark, default false; the console lists pinned projects first |

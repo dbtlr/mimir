@@ -147,6 +147,16 @@ describe.each(backends)('decision transfer ($name)', (backend) => {
           'invalid link history',
         ],
         [
+          'link history naming another project task',
+          {
+            ...provisional,
+            history: provisional.history.map((h) =>
+              h.kind === 'link' ? { ...h, task: otherTask.id } : h,
+            ),
+          },
+          'invalid link history',
+        ],
+        [
           'link with from value',
           { ...provisional, history: history({ from_value: 'linked' }) },
           'invalid link history',
