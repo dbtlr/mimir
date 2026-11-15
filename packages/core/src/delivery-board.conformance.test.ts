@@ -110,6 +110,21 @@ describe.each(backends)('delivery board ($name)', (backend) => {
       await f.close();
     }
   });
+  test('next --delivery reads a zero-padded id and refuses a delivery outside the selected project with a hint', async () => {
+    const f = await fixture();
+    try {
+      expect(
+        (await f.engine.next({ delivery: 'DEL-d01', project: 'DEL' })).items.map((n) => n.id),
+      ).toEqual([f.a.id, f.b.id]);
+      await createProject(f.store, { key: 'OTH', name: 'Other' });
+      const refusal = await refusalOf(f.engine.next({ delivery: f.delivery.id, project: 'OTH' }));
+      expect(refusal).toContain('delivery must belong to the selected project');
+      expect(refusal).toContain('DEL');
+      expect(refusal).toContain('omit -s');
+    } finally {
+      await f.close();
+    }
+  });
   test('abandon restores ready members to next and terminal delivery next is empty; land unlocks outside work', async () => {
     const f = await fixture();
     try {
