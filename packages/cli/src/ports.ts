@@ -31,6 +31,8 @@ export type IdKind = 'project' | 'node' | 'artifact' | 'seed' | 'delivery';
 export type Grammar = {
   /** The kind an id token names, or `undefined` when it names none. */
   idKind: (token: string) => IdKind | undefined;
+  /** The project key an id token names (`MMR` for `MMR-d1`), or `undefined` when it names none. */
+  projectKey: (token: string) => string | undefined;
   /** One `FIELD:VALUE` token (bare `FIELD` for has/missing) as a filter. */
   filterToken: (op: QueryOp, token: string) => FieldFilter;
   /** Refuse an unreadable date bound before the Engine is asked. */

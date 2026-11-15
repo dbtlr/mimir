@@ -736,6 +736,7 @@ export function corePorts(source: CliSource): Ports {
       filterToken: parseFilterToken,
       idKind: (token) => parseIdentity(token)?.kind,
       maxSearchLimit: MAX_SEARCH_LIMIT,
+      projectKey: (token) => parseIdentity(token)?.key,
       timeZone: requireTimeZone,
     },
     installation: {

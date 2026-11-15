@@ -14,11 +14,6 @@ import type { NodeSetValue } from '../render/node-set';
 
 const filters = filterOptions('tasks');
 
-/** The project a delivery id names (`KEY-dN`), for `next --delivery` with no `-s` or binding. */
-function deliveryProject(delivery: string | undefined): string | undefined {
-  return delivery === undefined ? undefined : /^([A-Z]{2,4})-d\d+$/.exec(delivery)?.[1];
-}
-
 export function nextCommand(ports: Ports) {
   return new Command('next', {
     description: 'List the ready tasks of one project in rank order.',
@@ -69,7 +64,10 @@ export function nextCommand(ports: Ports) {
             : `No ready members in ${options.delivery} — mimir get ${options.delivery} lists its members`,
         (query) => (engine, project) =>
           engine.next({ ...query, delivery: options.delivery, project }),
-        deliveryProject(options.delivery),
+        // A delivery id names its project, so `next --delivery` needs no -s or binding.
+        options.delivery !== undefined && ports.grammar.idKind(options.delivery) === 'delivery'
+          ? ports.grammar.projectKey(options.delivery)
+          : undefined,
       ),
     );
 }
