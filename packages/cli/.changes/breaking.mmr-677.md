@@ -1,4 +1,5 @@
-- Add decision records with `decide`, `confirm`, and `overturn`, task links and delivery references through `update KEY-qN`, and full records through `get KEY-qN`. Task detail reads include linked decisions. Overturn annotates every linked task atomically.
+- **Record provisional answers as decisions (MMR-677).** `decide` records a question the agent answered without stopping, with its options, recommendation, answer taken, and class. `update KEY-qN` links the tasks built on it and its delivery, `confirm` and `overturn` settle it, and `get KEY-qN` reads the whole record. Overturn annotates every linked task in the same transaction. A task's `get` lists its linked decisions.
+- **Delivery and decision records show times in your zone (MMR-677).** `get KEY-dN` and `get KEY-qN` records print `created_at`, `updated_at`, and history times in the caller's zone, as task records do. `json` and `jsonl` keep ISO instants.
 
 ### Migration
 

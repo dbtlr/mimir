@@ -533,8 +533,16 @@ async function checkOrphanDecisionLinks(db: Kysely<DB>): Promise<DoctorFinding[]
   );
 }
 
+/**
+ * Validate decisions over one snapshot, so a write committing mid-check never
+ * pairs a decision row with history from after it.
+ */
+function checkDecisions(db: Kysely<DB>, dialect: StoreDialect): Promise<DoctorFinding[]> {
+  return dialect.snapshot(db, (tx) => checkDecisionsIn(tx, dialect));
+}
+
 /** Read only decisions and the identity fields needed to validate their references. */
-async function checkDecisions(db: Kysely<DB>, dialect: StoreDialect): Promise<DoctorFinding[]> {
+async function checkDecisionsIn(db: Kysely<DB>, dialect: StoreDialect): Promise<DoctorFinding[]> {
   const decisions = await exportDecisions(db, dialect);
   const projects: { key: string; counters: { decision: number } }[] = [];
   const nodes: { id: string; type: Node['type']; project_id: string }[] = [];

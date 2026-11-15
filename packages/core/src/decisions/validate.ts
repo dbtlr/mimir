@@ -125,6 +125,33 @@ export function decisionFaults(document: {
         }
       }
     }
+    // The links must be what their own history leaves, once the links and the
+    // link rows are each valid; a bad link already carries its own fault.
+    const linkFault = faults.some(
+      (f) =>
+        f.id === d.id &&
+        (f.message.startsWith('link ') ||
+          [
+            'duplicate task link',
+            'invalid link history',
+            'only link history names a task',
+          ].includes(f.message)),
+    );
+    if (!linkFault) {
+      const replayed = new Set<string>();
+      for (const h of d.history) {
+        if (h.kind === 'link' && h.task !== null) {
+          if (h.to_value === 'linked') {
+            replayed.add(h.task);
+          } else {
+            replayed.delete(h.task);
+          }
+        }
+      }
+      if (replayed.size !== d.tasks.length || d.tasks.some((id) => !replayed.has(id))) {
+        fail('tasks disagree with link history');
+      }
+    }
     if (!isCanonicalInstant(d.created_at) || !isCanonicalInstant(d.updated_at)) {
       fail('invalid instant');
     }

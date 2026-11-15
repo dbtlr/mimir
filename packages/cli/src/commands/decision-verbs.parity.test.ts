@@ -6,10 +6,10 @@ writeCases(
   [
     ...(['records', 'table', 'ids', 'json', 'jsonl'] as const).map((format) =>
       argvLine(
-        `decide "Where?" --option Here --option There --recommend 1 --class architecture -p MMR --task MMR-3 -f ${format}`,
+        `decide Where? --option Here --option There --recommend 1 --class architecture -p MMR --task MMR-3 -f ${format}`,
       ),
     ),
-    argvLine('decide "Where?" --option Here --recommend 1 --class product -p MMR'),
+    argvLine('decide Where? --option Here --recommend 1 --class product -p MMR'),
     argvLine('update MMR-q1 --task MMR-4'),
     argvLine('update MMR-q1 --untask MMR-3'),
     argvLine('update MMR-q1 --title Wrong'),

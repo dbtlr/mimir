@@ -302,7 +302,11 @@ describe.each(backends)('decision rules ($name)', (backend) => {
           };
           return apply(snapshot, w);
         });
-      expect(f.e.overturn({ id: d.id, option: 2 })).rejects.toThrow('injected annotation failure');
+      const failure = await f.e.overturn({ id: d.id, option: 2 }).then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+      expect(String(failure)).toContain('injected annotation failure');
       expect(await f.e.getDecision({ id: d.id })).toEqual(d);
       expect((await f.store.export()).annotations).toEqual([]);
     } finally {

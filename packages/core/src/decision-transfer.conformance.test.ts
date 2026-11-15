@@ -171,6 +171,11 @@ describe.each(backends)('decision transfer ($name)', (backend) => {
           'invalid link history',
         ],
         [
+          'tasks disagree with link history',
+          { ...provisional, tasks: [] },
+          'tasks disagree with link history',
+        ],
+        [
           'link history naming another project task',
           {
             ...provisional,
@@ -288,6 +293,35 @@ describe.each(backends)('decision transfer ($name)', (backend) => {
       }
     } finally {
       await fresh.close();
+    }
+  });
+
+  test('a resume matches a decision whose links the document lists out of order', async () => {
+    const own = await backend.make();
+    const target = await backend.make();
+    try {
+      await createProject(own.store, { key: 'ORD', name: 'Order' });
+      const root = await createInitiative(own.store, { projectId: 'ORD', title: 'Plan' });
+      const first = await createTask(own.store, { parentId: root.id, title: 'First' });
+      const second = await createTask(own.store, { parentId: root.id, title: 'Second' });
+      await new LocalEngine(own.store).decide({
+        class: 'other',
+        options: ['A', 'B'],
+        project: 'ORD',
+        question: 'Which?',
+        recommended: 1,
+        tasks: [first.id, second.id],
+      });
+      const reversed = structuredClone(await own.store.export());
+      for (const decision of reversed.decisions) {
+        decision.tasks.reverse();
+      }
+      await target.store.import(reversed, { dryRun: false, mode: 'fresh' });
+      await target.store.import(reversed, { dryRun: false, mode: 'resume' });
+      expect((await target.store.export()).decisions[0]?.tasks).toEqual([first.id, second.id]);
+    } finally {
+      await own.close();
+      await target.close();
     }
   });
 

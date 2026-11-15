@@ -312,6 +312,9 @@ function tagsFor(tags: TagIndex, entityType: 'node' | 'project', id: string): st
   return tags.get(tagIndexKey(entityType, id)) ?? [];
 }
 
+/** The sequence number a rendered task id carries (`MMR-12` -> 12). */
+const taskSeq = (id: string): number => Number(id.slice(id.lastIndexOf('-') + 1));
+
 /**
  * `storedRemote` reads a project remote as the target would hold it: the
  * incoming document's is normalized as the import writes it (MMR-609), and the
@@ -328,7 +331,14 @@ function bundlesOf(
   const history = groupBy(document.transitions, (row) => row.node_id ?? row.project_id ?? '');
   const bundles: Bundles = {
     artifacts: new Map(),
-    decisions: new Map(document.decisions.map((row) => [row.id, row])),
+    // A document may list a decision's links in any order; the store reads them in
+    // task-sequence order, so compare them that way.
+    decisions: new Map(
+      document.decisions.map((row) => [
+        row.id,
+        { ...row, tasks: row.tasks.toSorted((a, b) => taskSeq(a) - taskSeq(b)) },
+      ]),
+    ),
     deliveries: new Map(document.deliveries.map((row) => [row.id, row])),
     nodes: new Map(),
     projects: new Map(),
