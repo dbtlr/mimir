@@ -6,7 +6,13 @@ import { appendRank } from '../rank';
 import type { NodePatch, Store, StoreWriter } from '../store';
 import { now } from '../time';
 import { logTransition, reloadNode, requireTask, stamp } from './common';
-import { applyHandlePatch, clearHandles, handlesOf, validateAssignment } from './handles';
+import {
+  applyHandlePatch,
+  clearHandles,
+  clearToTodo,
+  handlesOf,
+  validateAssignment,
+} from './handles';
 import type { HandleFields, MainHandleFields } from './handles';
 
 /**
@@ -138,17 +144,7 @@ export async function unqueueTask(store: Store, id: string, reason?: string): Pr
     if (reason === undefined || reason.trim() === '') {
       throw validation('unqueue requires a nonblank reason');
     }
-    const patch: NodePatch = { lifecycle: 'todo' };
-    const handles = clearHandles(patch, task);
-    await w.updateNode(id, patch);
-    await logTransition(w, {
-      from_value: 'queued',
-      handles,
-      kind: 'lifecycle',
-      node_id: id,
-      reason,
-      to_value: 'todo',
-    });
+    await clearToTodo(w, task, reason);
     await stamp(w, id);
     return reloadNode(w, id);
   });

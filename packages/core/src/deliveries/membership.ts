@@ -2,7 +2,9 @@ import type { DeliveryLifecycle, Lifecycle } from '@mimir/contract';
 
 import { notFound, validation } from '../errors';
 import type { Node } from '../model';
-import type { StoreWriter } from '../store';
+import { clearToTodo } from '../mutations/handles';
+import { appendRank } from '../rank';
+import type { NodePatch, StoreWriter } from '../store';
 import { now } from '../time';
 import { isTerminalDelivery } from './store';
 
@@ -107,7 +109,7 @@ async function recordMembership(
   w: StoreWriter,
   task: string,
   reference: string | null,
-  event: { delivery: string; to: 'joined' | 'left' | 'abandoned' },
+  event: { delivery: string; to: 'joined' | 'left' | 'released' | 'abandoned' },
 ): Promise<void> {
   await w.updateNode(task, { delivery: reference, updated_at: now() });
   await w.appendDeliveryMember(event.delivery, task, event.to);
@@ -167,6 +169,29 @@ export async function leaveOnAbandon(w: StoreWriter, task: Node): Promise<void> 
     throw validation('a staged member cannot be abandoned', `return ${task.id} first`);
   }
   await recordMembership(w, task.id, null, { delivery: current, to: 'abandoned' });
+}
+
+/**
+ * `abandon` on a delivery releases one live member (ADR 0042). A member past
+ * `todo` returns to it, clearing and recording its handles with the delivery's
+ * reason, and gets an appended rank only when it is unheld and has none; a
+ * `todo` member changes only its membership. Either way the task keeps its
+ * hold, hold reason, and block owner, and the delivery logs `released`.
+ */
+export async function releaseMember(
+  w: StoreWriter,
+  task: Node,
+  delivery: string,
+  reason: string | null,
+): Promise<void> {
+  if (task.lifecycle !== 'todo') {
+    const extra: NodePatch = {};
+    if (task.hold === 'none' && task.rank === null) {
+      extra.rank = await appendRank(w, task.project_id);
+    }
+    await clearToTodo(w, task, reason, extra);
+  }
+  await recordMembership(w, task.id, null, { delivery, to: 'released' });
 }
 
 /** A member has one reservation; queue and move require an explicit leave. */

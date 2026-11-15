@@ -1,17 +1,23 @@
 import { DELIVERY_OP_FACTS } from '@mimir/contract';
-import type { DeliveryVerb, DeliveryHistory, DeliveryView, EngineInput } from '@mimir/contract';
+import type {
+  DeliveryHistory,
+  DeliveryLifecycle,
+  DeliveryVerb,
+  DeliveryView,
+  EngineInput,
+  Lifecycle,
+} from '@mimir/contract';
 
 import { assertBoardActive } from '../archive-lock';
 import { blankProse, notFound, projectNotFound, validation } from '../errors';
 import { parseIdentity, renderDeliveryRef } from '../ids';
 import type { Node, Project } from '../model';
-import { logTransition } from '../mutations/common';
-import { normalizeHandle, clearHandles } from '../mutations/handles';
+import { normalizeHandle } from '../mutations/handles';
 import { completeTaskInTransaction } from '../mutations/lifecycle';
 import { identityNoun } from '../project-only';
-import { appendRank } from '../rank';
-import type { NodePatch, Store } from '../store';
+import type { Store } from '../store';
 import { now } from '../time';
+import { releaseMember } from './membership';
 import type { DeliveryStatePatch, DeliveryCreate, DeliveryPatch, StoredDelivery } from './store';
 
 /**
@@ -200,6 +206,48 @@ export async function updateDelivery(
   return viewOf(stored);
 }
 
+/** The indefinite article a lifecycle word takes: `an agreed`, `a running`. */
+const article = (word: string): string => (/^[aeiou]/.test(word) ? `an ${word}` : `a ${word}`);
+
+/**
+ * The fix for a lifecycle verb that meets a live delivery in the wrong
+ * lifecycle, read from where the delivery is now: what moves it on toward the
+ * verb, or, when it is already past the verb, what it takes next.
+ */
+function lifecycleFix(verb: DeliveryVerb, id: string, lifecycle: DeliveryLifecycle): string {
+  if (lifecycle === 'agreed') {
+    return verb === 'submit' ? `start ${id} first` : `start ${id} first, then submit it`;
+  }
+  if (lifecycle === 'running') {
+    return verb === 'start'
+      ? `it is already running; submit ${id} when its milestone is ready`
+      : `submit ${id} first`;
+  }
+  return `it is already at its milestone; land ${id}, or return ${id} to keep working`;
+}
+
+/** The steps that bring a live, unstaged member to `staged`, read from its lifecycle. */
+function stagingFix(task: Pick<Node, 'id' | 'lifecycle'>): string {
+  const steps: Partial<Record<Lifecycle, string>> = {
+    in_progress: `submit ${task.id}, then stage it`,
+    under_review: `stage ${task.id}`,
+  };
+  const fix = steps[task.lifecycle ?? 'todo'] ?? `start ${task.id}, submit it, then stage it`;
+  return `${fix}, or update ${task.id} --delivery none`;
+}
+
+/**
+ * A delivery verb's reason, normalized: blank text is no reason, so an
+ * optional reason stores `null` and a required one refuses (ADR 0042 Verbs).
+ */
+function reasonOf(verb: DeliveryVerb, id: string, given: string | undefined): string | null {
+  const reason = given === undefined || given.trim() === '' ? null : given;
+  if (reason === null && DELIVERY_OP_FACTS[verb].reason === 'required') {
+    throw validation(`${verb} requires a nonblank reason`, `${verb} ${id} "reason"`);
+  }
+  return reason;
+}
+
 /** Apply a delivery claim and its member effects in the write snapshot that guards them. */
 export async function transitionDelivery(
   store: Store,
@@ -209,13 +257,8 @@ export async function transitionDelivery(
   const { key, seq } = requireDeliveryRef(input.id);
   return viewOf(
     await store.deliveries.transact(key, seq, async (delivery, w) => {
-      const { id, reason } = input;
-      if (
-        DELIVERY_OP_FACTS[verb].reason === 'required' &&
-        (reason === undefined || reason.trim() === '')
-      ) {
-        throw validation(`${verb} requires a nonblank reason`, `${verb} ${id} "reason"`);
-      }
+      const { id } = input;
+      const reason = reasonOf(verb, id, input.reason);
       const patch: DeliveryStatePatch = {};
       const history: DeliveryHistory[] = [];
       const log = (kind: 'hold' | 'lifecycle', from: string, to: string) => {
@@ -223,7 +266,7 @@ export async function transitionDelivery(
           at: now(),
           from_value: from,
           kind,
-          reason: reason ?? null,
+          reason,
           task: null,
           to_value: to,
         });
@@ -244,7 +287,7 @@ export async function transitionDelivery(
       if (verb === 'block' || verb === 'park') {
         held();
         patch.hold = verb === 'block' ? 'stopped' : 'paused';
-        patch.hold_reason = reason ?? null;
+        patch.hold_reason = reason;
         log('hold', 'none', patch.hold);
         return { history, patch };
       }
@@ -266,17 +309,10 @@ export async function transitionDelivery(
       }
       const source = DELIVERY_OP_FACTS[verb].from[0];
       if (verb !== 'abandon' && delivery.lifecycle !== source) {
-        let fix = `create delivery for a new agreed attempt`;
-        if (verb !== 'start') {
-          fix = `submit ${id} first`;
-          if (delivery.lifecycle === 'agreed') {
-            fix = `start ${id} first, then submit it`;
-          }
-          if (verb === 'submit' && delivery.lifecycle === 'milestone') {
-            fix = `return ${id} first`;
-          }
-        }
-        throw validation(`${verb} requires a ${source} delivery (is ${delivery.lifecycle})`, fix);
+        throw validation(
+          `${verb} requires ${article(source)} delivery (is ${delivery.lifecycle})`,
+          lifecycleFix(verb, id, delivery.lifecycle),
+        );
       }
       const members: Node[] = [];
       for (const taskId of delivery.members) {
@@ -308,10 +344,7 @@ export async function transitionDelivery(
             );
           }
           if (task.lifecycle !== 'staged') {
-            throw validation(
-              `${task.id} is not staged`,
-              `stage ${task.id} first, or update ${task.id} --delivery none`,
-            );
+            throw validation(`${task.id} is not staged`, stagingFix(task));
           }
         }
         if (members.length === 0) {
@@ -326,24 +359,7 @@ export async function transitionDelivery(
       }
       if (verb === 'abandon') {
         for (const task of members) {
-          if (task.lifecycle !== 'todo') {
-            const taskPatch: NodePatch = { lifecycle: 'todo' };
-            const handles = clearHandles(taskPatch, task);
-            if (task.hold === 'none' && task.rank === null) {
-              taskPatch.rank = await appendRank(w, key);
-            }
-            await w.updateNode(task.id, taskPatch);
-            await logTransition(w, {
-              from_value: task.lifecycle,
-              handles,
-              kind: 'lifecycle',
-              node_id: task.id,
-              reason: reason ?? null,
-              to_value: 'todo',
-            });
-          }
-          await w.updateNode(task.id, { delivery: null, updated_at: now() });
-          await w.appendDeliveryMember(id, task.id, 'released');
+          await releaseMember(w, task, id, reason);
         }
         if (delivery.hold !== 'none') {
           clearHold();

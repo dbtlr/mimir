@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, test } from 'bun:test';
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import { LocalEngine } from './engine';
 import { bootPglite } from './store-postgres/testing';
-import { backends, refusalOf, withoutStamp } from './testing/conformance';
+import { backends, errorOf, refusalOf, withoutStamp } from './testing/conformance';
 
 beforeAll(bootPglite);
 describe.each(backends)('delivery verbs ($name)', (backend) => {
@@ -140,6 +140,160 @@ describe.each(backends)('delivery verbs ($name)', (backend) => {
           );
         }
       }
+    } finally {
+      await f.close();
+    }
+  });
+  test('abandon release keeps hold reasons and ranks, records every handle, and logs the hold release', async () => {
+    const f = await fixture();
+    try {
+      const [todo, ranked, held, staged] = f.tasks;
+      if (!todo || !ranked || !held || !staged) {
+        throw new Error('fixture');
+      }
+      for (const task of f.tasks) {
+        await f.engine.update({ harness: 'codex', id: task.id, session: 'run' });
+      }
+      await f.engine.start({ id: ranked.id });
+      for (const task of [held, staged]) {
+        await f.engine.start({ id: task.id });
+        await f.engine.submit({ id: task.id });
+      }
+      await f.engine.stage({ id: staged.id });
+      await f.engine.block({ id: held.id, on: 'others', reason: 'upstream down' });
+      // Block clears handles; restating them gives every released row a handle to record.
+      await f.engine.update({ harness: 'codex', id: held.id, session: 'run' });
+      await f.store.transact(async (w) => {
+        await w.updateNode(todo.id, { updated_at: '2000-01-01T00:00:00.000Z' });
+      });
+      await f.engine.deliveryPark({ id: f.id, reason: 'wait' });
+      const before = await f.store.export();
+      const rankOf = (doc: typeof before, id: string) => doc.nodes.find((n) => n.id === id)?.rank;
+      expect(rankOf(before, ranked.id)).not.toBeNull();
+      expect(rankOf(before, held.id)).toBeNull();
+      const d = await f.engine.deliveryAbandon({ id: f.id, reason: 'reset' });
+      const after = await f.store.export();
+      // A worked member keeps the rank it already has, a held rankless one stays rankless.
+      expect(rankOf(after, ranked.id)).toBe(rankOf(before, ranked.id));
+      expect(rankOf(after, held.id)).toBeNull();
+      expect(rankOf(after, staged.id)).not.toBeNull();
+      const heldAfter = after.nodes.find((n) => n.id === held.id);
+      expect(heldAfter).toMatchObject({
+        block_owner: 'others',
+        hold: 'blocked',
+        hold_reason: 'upstream down',
+      });
+      const releases = after.transitions.filter(
+        (r) => r.kind === 'lifecycle' && r.to_value === 'todo',
+      );
+      expect(releases).toHaveLength(3);
+      expect(new Set(releases.map((r) => r.node_id))).toEqual(
+        new Set([ranked.id, held.id, staged.id]),
+      );
+      for (const row of releases) {
+        expect(row.handles).toEqual({ harness: 'codex', session: 'run' });
+        expect(row.reason).toBe('reset');
+      }
+      expect(after.nodes.find((n) => n.id === todo.id)?.updated_at).not.toBe(
+        '2000-01-01T00:00:00.000Z',
+      );
+      const tail = d.history.slice(-2);
+      expect(tail.map((r) => [r.kind, r.from_value, r.to_value])).toEqual([
+        ['hold', 'paused', 'none'],
+        ['lifecycle', 'agreed', 'abandoned'],
+      ]);
+      expect(d.hold_reason).toBeNull();
+    } finally {
+      await f.close();
+    }
+  });
+  test('a blank optional reason stores as none, and a blank required reason still refuses', async () => {
+    const f = await fixture();
+    try {
+      await f.engine.deliveryStart({ id: f.id });
+      for (const reason of ['', '  ']) {
+        await f.engine.deliverySubmit({ id: f.id });
+        const d = await f.engine.deliveryReturn({ id: f.id, reason });
+        expect(d.history.at(-1)).toMatchObject({ kind: 'lifecycle', reason: null });
+      }
+      expect(await refusalOf(f.engine.deliveryBlock({ id: f.id, reason: '\n' }))).toContain(
+        'reason',
+      );
+    } finally {
+      await f.close();
+    }
+  });
+  test('every delivery verb refuses an archived project as a conflict and writes nothing', async () => {
+    const f = await fixture();
+    try {
+      const id = f.id;
+      const refusesArchived = async (actions: (() => Promise<unknown>)[]) => {
+        await f.engine.archive({ id: 'DEL' });
+        const before = await f.store.export();
+        for (const action of actions) {
+          expect((await errorOf(action())).code).toBe('conflict');
+        }
+        expect(withoutStamp(await f.store.export())).toEqual(withoutStamp(before));
+        await f.engine.unarchive({ id: 'DEL' });
+      };
+      await refusesArchived([
+        () => f.engine.deliveryStart({ id }),
+        () => f.engine.deliveryBlock({ id, reason: 'wait' }),
+        () => f.engine.deliveryPark({ id, reason: 'wait' }),
+        () => f.engine.deliveryAbandon({ id, reason: 'stop' }),
+      ]);
+      await f.engine.deliveryBlock({ id, reason: 'wait' });
+      await refusesArchived([() => f.engine.deliveryUnblock({ id })]);
+      await f.engine.deliveryUnblock({ id });
+      await f.engine.deliveryPark({ id, reason: 'wait' });
+      await refusesArchived([() => f.engine.deliveryUnpark({ id })]);
+      await f.engine.deliveryUnpark({ id });
+      await f.engine.deliveryStart({ id });
+      await refusesArchived([() => f.engine.deliverySubmit({ id })]);
+      await f.engine.deliverySubmit({ id });
+      for (const task of f.tasks) {
+        await f.engine.start({ id: task.id });
+        await f.engine.submit({ id: task.id });
+        await f.engine.stage({ id: task.id });
+      }
+      await refusesArchived([
+        () => f.engine.deliveryReturn({ id, reason: 'again' }),
+        () => f.engine.deliveryLand({ id }),
+      ]);
+    } finally {
+      await f.close();
+    }
+  });
+  test('a lifecycle refusal names the fix the lifecycle allows', async () => {
+    const f = await fixture();
+    try {
+      const id = f.id;
+      await f.engine.deliveryStart({ id });
+      const running = await refusalOf(f.engine.deliveryStart({ id }));
+      expect(running).toContain('start requires an agreed delivery (is running)');
+      expect(running).toContain(`submit ${id}`);
+      expect(running).not.toContain('create delivery');
+      await f.engine.deliverySubmit({ id });
+      const milestone = await refusalOf(f.engine.deliveryStart({ id }));
+      expect(milestone).toContain(`land ${id}`);
+      expect(milestone).toContain(`return ${id}`);
+      const [todo, working, review] = f.tasks;
+      if (!todo || !working || !review) {
+        throw new Error('fixture');
+      }
+      await f.engine.start({ id: working.id });
+      await f.engine.start({ id: review.id });
+      await f.engine.submit({ id: review.id });
+      const hints = async () => refusalOf(f.engine.deliveryLand({ id }));
+      expect(await hints()).toContain(
+        `${todo.id} is not staged — start ${todo.id}, submit it, then stage it`,
+      );
+      await f.engine.update({ delivery: null, id: todo.id });
+      expect(await hints()).toContain(
+        `${working.id} is not staged — submit ${working.id}, then stage it`,
+      );
+      await f.engine.update({ delivery: null, id: working.id });
+      expect(await hints()).toContain(`${review.id} is not staged — stage ${review.id}`);
     } finally {
       await f.close();
     }
