@@ -184,6 +184,13 @@ const reads: { [K in ReadMethod]: ReadCase<K> } = {
     },
     input: () => ({ facets: ['tags', 'verdicts'], project: 'ENG', status: ['live'] }),
   },
+  listDecisions: {
+    check: (rows) => {
+      expect(rows.map((row) => row.id)).toEqual(['OTH-q1']);
+      expect(rows[0]?.created_at).toBeInstanceOf(Date);
+    },
+    input: () => ({ project: 'OTH' }),
+  },
   next: {
     check: (set) => {
       expect(set.items.map((item) => item.id)).toEqual([ids.ready]);

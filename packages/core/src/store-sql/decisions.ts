@@ -177,6 +177,15 @@ export async function insertExportedDecisions(
 
 export function createSqlDecisionStore(db: Kysely<DB>, dialect: StoreDialect): DecisionStore {
   return {
+    countProvisional: async (project) => {
+      const row = await db
+        .selectFrom('decision')
+        .select((eb) => eb.fn.countAll<string | number>().as('count'))
+        .where('project_key', '=', project)
+        .where('lifecycle', '=', 'provisional')
+        .executeTakeFirstOrThrow();
+      return Number(row.count);
+    },
     create: (prepare) =>
       dialect.write(db, async (tx) => {
         const value = await prepare(createSqlWriter(tx, dialect));
@@ -207,6 +216,32 @@ export function createSqlDecisionStore(db: Kysely<DB>, dialect: StoreDialect): D
         .where('task', '=', id)
         .orderBy('decision.seq')
         .execute(),
+    list: (input) =>
+      dialect.snapshot(db, async (tx) => {
+        let query = tx.selectFrom('decision').selectAll().where('project_key', '=', input.project);
+        if (input.status !== 'all') {
+          query = query.where('lifecycle', '=', input.status ?? 'provisional');
+        }
+        if (input.classes?.length) {
+          query = query.where('class', 'in', input.classes);
+        }
+        if (input.delivery !== undefined) {
+          query = query.where('delivery', '=', input.delivery);
+        }
+        if (input.linked) {
+          query = query.where((eb) =>
+            eb.exists(
+              eb
+                .selectFrom('decision_task')
+                .innerJoin('node', 'node.id', 'decision_task.task')
+                .select('decision_task.decision_id')
+                .whereRef('decision_task.decision_id', '=', 'decision.id')
+                .where('node.lifecycle', '!=', 'abandoned'),
+            ),
+          );
+        }
+        return hydrateDecisions(tx, dialect, await query.orderBy('seq').execute(), false);
+      }),
     load: (id) => dialect.snapshot(db, (tx) => load(tx, dialect, id)),
     transact: (id, apply) =>
       dialect.write(db, async (tx) => {
@@ -241,6 +276,16 @@ export async function exportDecisions(
     .orderBy('project_key')
     .orderBy('seq')
     .execute();
+  return hydrateDecisions(ex, dialect, rows, true);
+}
+
+/** Hydrate only the selected rows, with bounded batches for owned links and history. */
+async function hydrateDecisions(
+  ex: Executor,
+  dialect: StoreDialect,
+  rows: DecisionTable[],
+  exporting: boolean,
+): Promise<DecisionView[]> {
   const links = new Map<string, string[]>();
   const histories = new Map<string, DecisionHistory[]>();
   for (const chunk of inLists(
@@ -275,7 +320,9 @@ export async function exportDecisions(
     toStored({
       ...row,
       history: histories.get(row.id) ?? [],
-      options: exportedOptionsOf(row.options, dialect),
+      options: exporting
+        ? exportedOptionsOf(row.options, dialect)
+        : loadedOptionsOf(row.id, row.options, dialect),
       tasks: links.get(row.id) ?? [],
     }),
   );

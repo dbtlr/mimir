@@ -236,6 +236,7 @@ function viewSchemas<T extends z.ZodType>(instant: T) {
         id: z.string(),
         status: z.enum(STATUS_WORD_VALUES),
       }),
+      provisionalDecisions: z.number(),
       scratchpads: z.object({ count: z.number(), scratchpads: z.array(scratchpadRow) }),
       sessions: z.object({
         entries: z.array(

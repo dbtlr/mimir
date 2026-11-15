@@ -2,7 +2,7 @@ import type { DecisionHistory, DecisionView, EngineInput } from '@mimir/contract
 
 import { assertBoardActive } from '../archive-lock';
 import { isTerminalDelivery } from '../deliveries/store';
-import { notFound, validation } from '../errors';
+import { notFound, projectNotFound, validation } from '../errors';
 import { parseDeliveryRef, renderDeliveryRef, parseIdentity, renderDecisionRef } from '../ids';
 import { stamp } from '../mutations/common';
 import type { Store, StoreWriter } from '../store';
@@ -204,5 +204,25 @@ export function answerDecision(
     d.history.push(log('lifecycle', 'provisional', d.lifecycle, null, note));
     d.updated_at = now();
     return d;
+  });
+}
+
+/** Read one active project's decisions, oldest first, with intersecting filters. */
+export async function listDecisions(
+  store: Store,
+  input: EngineInput<'listDecisions'>,
+): Promise<DecisionView[]> {
+  if (
+    !(await store.loadProjects()).some((p) => p.key === input.project && p.archived_at === null)
+  ) {
+    throw projectNotFound(input.project);
+  }
+  const delivery = input.delivery === undefined ? undefined : parseDeliveryRef(input.delivery);
+  if (input.delivery !== undefined && !delivery) {
+    throw validation(`${input.delivery} is not a delivery id`, 'delivery ids look like KEY-dN');
+  }
+  return store.decisions.list({
+    ...input,
+    delivery: delivery ? renderDeliveryRef(delivery) : undefined,
   });
 }

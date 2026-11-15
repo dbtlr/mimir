@@ -92,6 +92,17 @@ export function decisionSchemas<P extends z.ZodType<string>>(project: P) {
       kind: 'query',
       output: decisionEngineSchema,
     },
+    listDecisions: {
+      input: z.strictObject({
+        classes: z.array(z.enum(DECISION_CLASS_VALUES)).optional(),
+        delivery: z.string().optional(),
+        linked: z.boolean().optional(),
+        project,
+        status: z.enum([...DECISION_LIFECYCLE_VALUES, 'all']).optional(),
+      }),
+      kind: 'query',
+      output: z.array(decisionEngineSchema),
+    },
     overturn: {
       input: z.strictObject({
         id: z.string(),

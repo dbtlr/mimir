@@ -543,6 +543,7 @@ export function overviewToWire(report: OverviewReport): Record<string, unknown> 
       id: report.project.id,
       status: report.project.status,
     },
+    provisional_decisions: report.provisionalDecisions,
     // `shown`, not `count`: unlike every other section here, this one is composed
     // from bounded reads and has no knowable true total (MMR-322) — the key name
     // is the contract that says so.
