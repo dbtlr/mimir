@@ -1453,7 +1453,7 @@ describe('cancel', () => {
     expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
     late.cancelled.resolve();
     expect(await start.finished).toMatchObject({ state: 'cancelled', usageSettled: false });
-    await Bun.sleep(3 * SHORT_GRACE.cancelGraceMs);
+    await Bun.sleep(2 * SHORT_GRACE.cancelGraceMs);
     expect(late.abortedLate()).toBe(false);
   });
 
@@ -1468,7 +1468,7 @@ describe('cancel', () => {
       expect(await created.cancelRun(start.runId)).toEqual({ answer: 'cancelling' });
       late.cancelled.resolve();
       await start.finished;
-      await Bun.sleep(3 * SHORT_GRACE.cancelGraceMs);
+      await Bun.sleep(2 * SHORT_GRACE.cancelGraceMs);
       expect(graceTimers(timers.mock.calls)).toBe(1);
       expect(late.abortedLate()).toBe(false);
     } finally {

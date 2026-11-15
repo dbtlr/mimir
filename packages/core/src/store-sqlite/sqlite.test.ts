@@ -568,12 +568,16 @@ test("a writer waits out another process's lock without stalling the event loop"
     const write = store.transact((writer) =>
       writer.insertProject({ description: null, key: 'MMR', name: 'Mimir', tags: [] }),
     );
-    const held = 600;
+    // The gaps include scheduling delay: idle they run 16-19 ms, and across 120
+    // runs on four CPUs with six busy loops they peaked at 56 ms. The 120 ms
+    // limit leaves twice that, and still fails a stall that blocks most of the
+    // 180 ms hold, as a synchronous wait does (it blocks the whole busy timeout).
+    const held = 180;
     await Bun.sleep(held);
     other.run('commit');
     await write;
     clearInterval(timer);
-    expect(longest).toBeLessThan(held / 2);
+    expect(longest).toBeLessThan(120);
     expect((await store.loadProjects()).map((project) => project.key)).toEqual(['MMR']);
   } finally {
     other.close();
