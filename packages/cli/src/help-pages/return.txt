@@ -1,11 +1,11 @@
-mimir return · Send back for changes (under_review/staged → in_progress). Also takes a delivery (KEY-dN); delivery reasons are required for block, park, and abandon; task handle flags and block --on are refused.
+mimir return · Send back for changes (under_review/staged → in_progress). Also takes a delivery (KEY-dN): milestone → running, with an optional reason.
 
 USAGE
   mimir return <id> [reason...] [options]
 
 ARGUMENTS
-  id      The task: KEY-seq.
-  reason  The reason is optional; it is recorded in the transition log.
+  id      The task (KEY-seq) or the delivery (KEY-dN).
+  reason  For a task the reason is optional and recorded in the transition log; for a delivery it is optional and recorded in the delivery history.
 
 OPTIONS
       --ascii            Print without color, in ASCII glyphs.

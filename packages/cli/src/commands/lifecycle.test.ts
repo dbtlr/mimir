@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
-import { OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
+import { DELIVERY_OP_FACTS, isDeliveryVerb, OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
 import type { OpFact } from '@mimir/contract';
 
 import { createApp } from '../app';
@@ -51,45 +51,75 @@ test.each([...UNIFORM_VERBS])('%s declares the inputs its fact names', (verb) =>
   expect((command.description ?? '').toLowerCase()).toStartWith(fact.summary.toLowerCase());
 });
 
+test.each([...UNIFORM_VERBS])(
+  '%s describes its id and reason for every subject it takes',
+  (verb) => {
+    const command = commandOf(verb);
+    const [id, reason] = command.arguments;
+    const delivery = isDeliveryVerb(verb) ? DELIVERY_OP_FACTS[verb] : undefined;
+    expect(id?.description?.includes('(KEY-dN)')).toBe(delivery !== undefined);
+    if (reason === undefined || delivery === undefined) {
+      expect(reason?.description ?? '').not.toContain('delivery');
+      return;
+    }
+    expect(reason.description).toContain(
+      `for a delivery it is ${delivery.reason} and recorded in the delivery history`,
+    );
+    expect(reason.description).toContain(
+      `the reason is ${OP_FACTS[verb].reason} and recorded in the transition log`,
+    );
+  },
+);
+
 test.each([...UNIFORM_VERBS])('%s opts in to MCP as a write', (verb) => {
   const mcp = commandOf(verb).extensions['@loomcli/plugins/mcp/command'];
   expect(mcp).toMatchObject({ annotations: { readOnly: false } });
 });
 
-const DELIVERY_CLAUSE =
-  ' A delivery (KEY-dN) uses its own lifecycle and echoes the whole delivery. Block, park and abandon require a reason. Delivery start refuses handle flags and never fills shell identity; block refuses on. Delivery verbs preserve delivery handles.';
+/** The clause a delivery verb adds for its `KEY-dN`: its own transition and input. */
+const deliveryClause = (move: string, extra = ''): string =>
+  ` A delivery id (KEY-dN) is accepted too: it moves the delivery ${move}, keeps the delivery's handles, and echoes the whole delivery.${extra}`;
+const DELIVERY_REASON = ', requiring a reason recorded in the delivery history';
 
 const SEED_CLAUSE =
   ' A seed id (KEY-sN) is accepted too: it moves the seed between untriaged and parked and echoes the seed.';
 
 /** The agent-facing description each verb's MCP tool carries. */
 const AGENT_DESCRIPTIONS: Record<string, string> = {
-  abandon: `Abandon a task (kept, not deleted). Optionally records a reason on the transition. Echoes the updated node.${
-    DELIVERY_CLAUSE
-  }`,
+  abandon: `Abandon a task (kept, not deleted). Optionally records a reason on the transition. Echoes the updated node.${deliveryClause(
+    `agreed/running/milestone → abandoned${DELIVERY_REASON}`,
+  )}`,
   archive:
     'Archive a project — freeze + hide it and its subtree (reversible). Optionally records a reason on the transition. Echoes the project.',
-  block: `Mark as externally blocked. Optionally records a reason on the transition. Optional on (you|others): who can clear the block (default: others when the task has an upstream, else you). Echoes the updated node.${
-    DELIVERY_CLAUSE
-  }`,
+  block: `Mark as externally blocked. Optionally records a reason on the transition. Optional on (you|others): who can clear the block (default: others when the task has an upstream, else you). Echoes the updated node.${deliveryClause(
+    `hold none → stopped${DELIVERY_REASON}`,
+    ' It refuses on.',
+  )}`,
   done: 'Complete a task (approves a review or lands a staged task). Echoes the updated node.',
-  park: `Put a task on hold. Optionally records a reason on the transition. Echoes the updated node.${SEED_CLAUSE}${DELIVERY_CLAUSE}`,
+  park: `Put a task on hold. Optionally records a reason on the transition. Echoes the updated node.${SEED_CLAUSE}${deliveryClause(
+    `hold none → paused${DELIVERY_REASON}`,
+  )}`,
   queue:
     'Reserve a task for an autonomous run (todo → queued). Requires session. Echoes the updated node.',
   reopen:
     'Reopen a terminal task (done/abandoned → in_progress). Optionally records a reason on the transition. Echoes the updated node.',
-  return: `Send back for changes (under_review/staged → in_progress). Optionally records a reason on the transition. Echoes the updated node.${
-    DELIVERY_CLAUSE
-  }`,
+  return: `Send back for changes (under_review/staged → in_progress). Optionally records a reason on the transition. Echoes the updated node.${deliveryClause(
+    'milestone → running, optionally recording a reason in the delivery history',
+  )}`,
   stage:
     'Mark reviewed work accepted on its branch, not yet on main (under_review → staged). Echoes the updated node.',
-  start: `Begin a task (todo/queued → in_progress). Echoes the updated node. Preserves the main conversation. Explicit worker-session assigns a distinct whole-task owner; worker-harness is optional and is never inferred from the shell.${
-    DELIVERY_CLAUSE
-  }`,
-  submit: `Submit for review (in_progress → under_review). Echoes the updated node.${DELIVERY_CLAUSE}`,
+  start: `Begin a task (todo/queued → in_progress). Echoes the updated node. Preserves the main conversation. Explicit worker-session assigns a distinct whole-task owner; worker-harness is optional and is never inferred from the shell.${deliveryClause(
+    'agreed → running',
+    ' It refuses every handle field and never fills identity from the shell.',
+  )}`,
+  submit: `Submit for review (in_progress → under_review). Echoes the updated node.${deliveryClause(
+    'running → milestone',
+  )}`,
   unarchive: 'Restore an archived project. Echoes the project.',
-  unblock: `Clear the blocked hold. Echoes the updated node.${DELIVERY_CLAUSE}`,
-  unpark: `Clear the parked hold. Echoes the updated node.${SEED_CLAUSE}${DELIVERY_CLAUSE}`,
+  unblock: `Clear the blocked hold. Echoes the updated node.${deliveryClause('hold stopped → none')}`,
+  unpark: `Clear the parked hold. Echoes the updated node.${SEED_CLAUSE}${deliveryClause(
+    'hold paused → none',
+  )}`,
   unqueue:
     'Cancel a reservation and return the task to todo (queued → todo). Requires a reason recorded on the transition. Echoes the updated node.',
 };

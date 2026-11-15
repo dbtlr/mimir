@@ -1,11 +1,11 @@
-mimir block · Mark as externally blocked. Also takes a delivery (KEY-dN); delivery reasons are required for block, park, and abandon; task handle flags and block --on are refused.
+mimir block · Mark as externally blocked. Also takes a delivery (KEY-dN): hold none → stopped, with a required reason; --on is refused.
 
 USAGE
   mimir block <id> [reason...] [options]
 
 ARGUMENTS
-  id      The task: KEY-seq.
-  reason  The reason is optional; it is recorded in the transition log.
+  id      The task (KEY-seq) or the delivery (KEY-dN).
+  reason  For a task the reason is optional and recorded in the transition log; for a delivery it is required and recorded in the delivery history.
 
 OPTIONS
       --on <you|others>  Who can clear the block (default: others when the task has an upstream, else you).

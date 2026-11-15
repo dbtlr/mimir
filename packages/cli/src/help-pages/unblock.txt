@@ -1,10 +1,10 @@
-mimir unblock · Clear the blocked hold. Also takes a delivery (KEY-dN); delivery reasons are required for block, park, and abandon; task handle flags and block --on are refused.
+mimir unblock · Clear the blocked hold. Also takes a delivery (KEY-dN): hold stopped → none.
 
 USAGE
   mimir unblock <id> [options]
 
 ARGUMENTS
-  id  The task: KEY-seq.
+  id  The task (KEY-seq) or the delivery (KEY-dN).
 
 OPTIONS
       --ascii            Print without color, in ASCII glyphs.

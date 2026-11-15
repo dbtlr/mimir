@@ -443,7 +443,7 @@ exit 1
 | {
 |   "code": "validation",
 |   "hints": [
-|     "stage MMR-3 first, or update MMR-3 --delivery none"
+|     "start MMR-3, submit it, then stage it, or update MMR-3 --delivery none"
 |   ],
 |   "message": "MMR-3 is not staged"
 | }

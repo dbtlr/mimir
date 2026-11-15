@@ -1,10 +1,10 @@
-mimir unpark · Clear the parked hold. Also takes a seed (KEY-sN). Also takes a delivery (KEY-dN); delivery reasons are required for block, park, and abandon; task handle flags and block --on are refused.
+mimir unpark · Clear the parked hold. Also takes a seed (KEY-sN). Also takes a delivery (KEY-dN): hold paused → none.
 
 USAGE
   mimir unpark <id> [options]
 
 ARGUMENTS
-  id  The task (KEY-seq) or the seed (KEY-sN).
+  id  The task (KEY-seq), the seed (KEY-sN), or the delivery (KEY-dN).
 
 OPTIONS
       --ascii            Print without color, in ASCII glyphs.

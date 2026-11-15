@@ -1,11 +1,11 @@
-mimir abandon · Abandon a task (kept, not deleted). Also takes a delivery (KEY-dN); delivery reasons are required for block, park, and abandon; task handle flags and block --on are refused.
+mimir abandon · Abandon a task (kept, not deleted). Also takes a delivery (KEY-dN): agreed/running/milestone → abandoned, with a required reason.
 
 USAGE
   mimir abandon <id> [reason...] [options]
 
 ARGUMENTS
-  id      The task: KEY-seq.
-  reason  The reason is optional; it is recorded in the transition log.
+  id      The task (KEY-seq) or the delivery (KEY-dN).
+  reason  For a task the reason is optional and recorded in the transition log; for a delivery it is required and recorded in the delivery history.
 
 OPTIONS
       --ascii            Print without color, in ASCII glyphs.
