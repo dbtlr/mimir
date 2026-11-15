@@ -15,7 +15,7 @@ import type { DB } from '../../store-sql/schema';
 import { createBunSqliteDialect } from '../../store-sqlite/driver';
 import { sqliteDialect } from '../../store-sqlite/index';
 import { createSqliteTestStore } from '../../store-sqlite/testing';
-import { seedWorkingSet } from '../../testing/conformance';
+import { refusalOf, seedWorkingSet } from '../../testing/conformance';
 import type { DoctorBackend, DoctorFinding } from '../contract';
 import { createSqlDoctorBackend, TIMESTAMP_BATCH } from './backend';
 
@@ -269,6 +269,78 @@ describe.each(arms)('$name', (arm) => {
       expect(findings.map((item) => [item.evidence.kind, item.where])).toEqual([
         ['delivery', 'project · last_delivery_seq'],
       ]);
+    } finally {
+      await f.close();
+    }
+  });
+
+  test(`${arm.name}: corrupt decision options preserve backup and unrelated doctor findings`, async () => {
+    const f = await arm.make();
+    const target = await arm.make();
+    try {
+      await seedWorkingSet(f.store);
+      const d = await new LocalEngine(f.store).decide({
+        class: 'other',
+        options: ['A', 'B'],
+        project: 'MMR',
+        question: 'Which?',
+        recommended: 1,
+      });
+      await sql
+        .raw(
+          arm.name === 'sqlite'
+            ? "UPDATE decision SET options = 'not json'"
+            : 'UPDATE decision SET options = \'"not json"\'::jsonb',
+        )
+        .execute(f.db);
+      await f.db.updateTable('node').set({ updated_at: 'bad' }).where('id', '=', 'MMR-4').execute();
+      const findings = (await f.doctor.diagnose(undefined)).findings;
+      expect(findings.some((r) => r.code === 'invalid-decision' && r.stem === d.id)).toBe(true);
+      expect(findings.some((r) => r.code === 'malformed-timestamp')).toBe(true);
+      const document = await f.store.export();
+      expect(JSON.stringify(document.decisions[0]?.options)).toBe('"not json"');
+      const refusal = await refusalOf(
+        target.store.import(document, { dryRun: false, mode: 'fresh' }),
+      );
+      expect(refusal).toContain('decisions.0.options');
+      expect(refusal).toContain('repair the document');
+      expect(refusal).not.toContain('unexpected error');
+    } finally {
+      await f.close();
+      await target.close();
+    }
+  });
+
+  test(`${arm.name}: doctor identifies missing decision projects and orphan history`, async () => {
+    const f = await arm.make();
+    try {
+      await seedWorkingSet(f.store);
+      await new LocalEngine(f.store).decide({
+        class: 'other',
+        options: ['A', 'B'],
+        project: 'MMR',
+        question: 'Which?',
+        recommended: 1,
+      });
+      await arm.unconstrained(f.db, [
+        "UPDATE decision SET project_key = 'GONE' WHERE id = 'MMR-q1'",
+        "INSERT INTO decision_history (decision_id, kind, from_value, to_value, reason, task, at) VALUES ('MMR-q99', 'link', NULL, 'linked', NULL, 'MMR-4', '2026-01-01T00:00:00.000Z')",
+      ]);
+      const findings = (await f.doctor.diagnose(undefined)).findings;
+      expect(
+        findings.some((r) => r.stem === 'MMR-q1' && r.message === 'missing decision project'),
+      ).toBe(true);
+      expect(findings.some((r) => r.stem === 'MMR-q1' && r.message.includes('counter'))).toBe(
+        false,
+      );
+      expect(
+        findings.some(
+          (r) =>
+            r.stem === 'MMR-q99' &&
+            r.locator.startsWith('decision_history/') &&
+            r.message === 'history names a missing decision',
+        ),
+      ).toBe(true);
     } finally {
       await f.close();
     }

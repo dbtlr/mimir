@@ -26,10 +26,10 @@ import { deliveryReferenceFault } from '../../deliveries/membership';
 import { parseIdentity } from '../../ids';
 import type { Node } from '../../model';
 import { inLists } from '../../store-sql/batch';
+import { exportDecisions } from '../../store-sql/decisions';
 import type { StoreDialect } from '../../store-sql/dialect';
 import { readSchemaVersion, SCHEMA_VERSION } from '../../store-sql/migrator';
 import type { DB } from '../../store-sql/schema';
-import { exportSqlStore } from '../../store-sql/transfer';
 import { isCanonicalInstant, now } from '../../time';
 import type { DoctorBackend, DoctorDiagnosis, DoctorFinding, DoctorScopeMatch } from '../contract';
 import { isUnscoped } from '../contract';
@@ -533,6 +533,90 @@ async function checkOrphanDecisionLinks(db: Kysely<DB>): Promise<DoctorFinding[]
   );
 }
 
+/** Read only decisions and the identity fields needed to validate their references. */
+async function checkDecisions(db: Kysely<DB>, dialect: StoreDialect): Promise<DoctorFinding[]> {
+  const decisions = await exportDecisions(db, dialect);
+  const projects: { key: string; counters: { decision: number } }[] = [];
+  const nodes: { id: string; type: Node['type']; project_id: string }[] = [];
+  const deliveries: { id: string; project_key: string }[] = [];
+  const keys = [...new Set(decisions.map((d) => d.project_key))];
+  const tasks = [
+    ...new Set(
+      decisions.flatMap((d) => [
+        ...d.tasks,
+        ...d.history.flatMap((h) => (h.task === null ? [] : [h.task])),
+      ]),
+    ),
+  ];
+  const refs = [
+    ...new Set(
+      decisions.flatMap((d) =>
+        [
+          d.delivery,
+          ...d.history.flatMap((h) => (h.kind === 'delivery' ? [h.from_value, h.to_value] : [])),
+        ].filter((id) => id !== null),
+      ),
+    ),
+  ];
+  for (const chunk of inLists(keys, dialect.maxParameters)) {
+    const rows = await db
+      .selectFrom('project')
+      .select(['key', 'last_decision_seq'])
+      .where('key', 'in', chunk)
+      .execute();
+    projects.push(
+      ...rows.map((p) => ({ counters: { decision: p.last_decision_seq }, key: p.key })),
+    );
+  }
+  for (const chunk of inLists(tasks, dialect.maxParameters)) {
+    const rows = await db
+      .selectFrom('node')
+      .select(['id', 'type', 'project_key'])
+      .where('id', 'in', chunk)
+      .execute();
+    nodes.push(...rows.map((n) => ({ id: n.id, project_id: n.project_key, type: n.type })));
+  }
+  for (const chunk of inLists(refs, dialect.maxParameters)) {
+    deliveries.push(
+      ...(await db
+        .selectFrom('delivery')
+        .select(['id', 'project_key'])
+        .where('id', 'in', chunk)
+        .execute()),
+    );
+  }
+  const findings = decisionFaults({ decisions, deliveries, nodes, projects }).map(
+    ({ id, message }) =>
+      finding({
+        check: 'invalid-decision',
+        evidence: {},
+        locator: `decision/${id}`,
+        message,
+        stem: id,
+        where: 'decision',
+      }),
+  );
+  const orphans = await db
+    .selectFrom('decision_history')
+    .leftJoin('decision', 'decision.id', 'decision_history.decision_id')
+    .select(['decision_history.id', 'decision_history.decision_id'])
+    .where('decision.id', 'is', null)
+    .execute();
+  findings.push(
+    ...orphans.map((h) =>
+      finding({
+        check: 'invalid-decision',
+        evidence: {},
+        locator: `decision_history/${String(h.id)}`,
+        message: 'history names a missing decision',
+        stem: h.decision_id,
+        where: 'decision_history',
+      }),
+    ),
+  );
+  return findings;
+}
+
 /** Findings for `scope`, or all of them when the run is unscoped. */
 async function diagnose(
   db: Kysely<DB>,
@@ -550,18 +634,7 @@ async function diagnose(
     await Promise.all([
       checkDeliveryReferences(db),
       checkOrphanDecisionLinks(db),
-      exportSqlStore(db, dialect).then((document) =>
-        decisionFaults(document).map((message) =>
-          finding({
-            check: 'invalid-decision',
-            evidence: {},
-            locator: `decision/${message.split(' ')[0] ?? ''}`,
-            message,
-            stem: message.split(' ')[0] ?? '',
-            where: 'decision',
-          }),
-        ),
-      ),
+      checkDecisions(db, dialect),
       checkDanglingParent(db),
       checkDanglingEdge(db),
       checkCounterBehind(db),

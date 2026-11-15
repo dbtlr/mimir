@@ -184,7 +184,7 @@ export function parseTransferDocument(input: unknown): StoreExport {
 function assertReferences(document: StoreExport): void {
   const projects = new Set(document.projects.map((project) => project.key));
   const nodes = new Map(document.nodes.map((node) => [node.id, node]));
-  const faults: string[] = decisionFaults(document);
+  const faults: string[] = decisionFaults(document).map(({ id, message }) => `${id} ${message}`);
   const projectRef = (key: string, field: string): void => {
     if (!projects.has(key)) {
       faults.push(`${field} references missing project ${key}`);

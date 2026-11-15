@@ -5,15 +5,20 @@ import { renderDecisionRef } from '../ids';
 import { isCanonicalInstant } from '../time';
 
 /** Cross-record and history invariants shared by import and doctor. */
-export function decisionFaults(document: StoreExport): string[] {
-  const faults: string[] = [];
+export function decisionFaults(document: {
+  decisions: StoreExport['decisions'];
+  projects: readonly { key: string; counters: { decision: number } }[];
+  nodes: readonly Pick<StoreExport['nodes'][number], 'id' | 'type' | 'project_id'>[];
+  deliveries: readonly Pick<StoreExport['deliveries'][number], 'id' | 'project_key'>[];
+}): { id: string; message: string }[] {
+  const faults: { id: string; message: string }[] = [];
   const projects = new Map(document.projects.map((p) => [p.key, p]));
   const nodes = new Map(document.nodes.map((n) => [n.id, n]));
   const deliveries = new Map(document.deliveries.map((d) => [d.id, d]));
   const ids = new Set<string>();
   for (const d of document.decisions) {
     const fail = (message: string) => {
-      faults.push(`${d.id} ${message}`);
+      faults.push({ id: d.id, message });
     };
     if (!decisionViewSchema.safeParse(d).success) {
       fail('invalid decision shape or closed value');
@@ -26,10 +31,9 @@ export function decisionFaults(document: StoreExport): string[] {
     if (d.id !== renderDecisionRef({ key: d.project_key, seq: d.seq })) {
       fail('identity disagrees with project or seq');
     }
-    if (
-      !projects.has(d.project_key) ||
-      d.seq > (projects.get(d.project_key)?.counters.decision ?? 0)
-    ) {
+    if (!projects.has(d.project_key)) {
+      fail('missing decision project');
+    } else if (d.seq > (projects.get(d.project_key)?.counters.decision ?? 0)) {
       fail('sequence exceeds project counter');
     }
     if (!d.question.trim() || d.options.length < 2 || d.options.some((s) => !s.trim())) {

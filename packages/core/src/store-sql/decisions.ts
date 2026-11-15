@@ -1,12 +1,56 @@
-import type { DecisionView } from '@mimir/contract';
+import type { DecisionHistory, DecisionView } from '@mimir/contract';
 import type { Kysely } from 'kysely';
 
 import { assertBoardActive } from '../archive-lock';
 import type { DecisionStore } from '../decisions/store';
 import { notFound, validation } from '../errors';
+import { inLists } from './batch';
 import type { StoreDialect } from './dialect';
-import type { DB, Executor } from './schema';
+import type { DB, Executor, DecisionTable } from './schema';
 import { createSqlWriter } from './writer';
+
+// Backup export preserves undecodable stored text; import validates the resulting shape.
+function optionsOf(row: DecisionTable['options'], dialect: StoreDialect): string[] {
+  try {
+    return dialect.codecs.json.decode(row);
+  } catch {
+    // The typed export deliberately carries damaged values, just like other stored columns.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- damaged backups retain raw values for repair
+    return row as unknown as string[];
+  }
+}
+
+/** Normalize echoes and loaded rows to table column order. */
+function toStored(d: DecisionView): DecisionView {
+  /* eslint-disable sort-keys -- SQL column order is the public echo order. */
+  return {
+    id: d.id,
+    project_key: d.project_key,
+    seq: d.seq,
+    question: d.question,
+    options: d.options,
+    recommended: d.recommended,
+    taken: d.taken,
+    class: d.class,
+    why: d.why,
+    delivery: d.delivery,
+    lifecycle: d.lifecycle,
+    overturn_option: d.overturn_option,
+    outcome_note: d.outcome_note,
+    created_at: d.created_at,
+    updated_at: d.updated_at,
+    tasks: d.tasks,
+    history: d.history.map((h): DecisionHistory => ({
+      kind: h.kind,
+      from_value: h.from_value,
+      to_value: h.to_value,
+      reason: h.reason,
+      task: h.task,
+      at: h.at,
+    })),
+  };
+  /* eslint-enable sort-keys */
+}
 
 async function load(
   ex: Executor,
@@ -30,12 +74,12 @@ async function load(
     .where('decision_id', '=', id)
     .orderBy('id')
     .execute();
-  return {
+  return toStored({
     ...row,
     history: history.map(({ id: _id, decision_id: _decision, ...r }) => r),
-    options: dialect.codecs.json.decode(row.options),
+    options: optionsOf(row.options, dialect),
     tasks: tasks.map((r) => r.task),
-  };
+  });
 }
 
 /** Persist the row, owned links, and append-only history inside the caller's transaction. */
@@ -89,7 +133,7 @@ export function createSqlDecisionStore(db: Kysely<DB>, dialect: StoreDialect): D
         if (seq > 2147483647) {
           throw validation('decision ids exhausted');
         }
-        const result = { ...value, id: `${value.project_key}-q${String(seq)}`, seq };
+        const result = toStored({ ...value, id: `${value.project_key}-q${String(seq)}`, seq });
         await tx
           .updateTable('project')
           .set({ last_decision_seq: seq })
@@ -123,7 +167,7 @@ export function createSqlDecisionStore(db: Kysely<DB>, dialect: StoreDialect): D
             'record a new decision with decide',
           );
         }
-        const result = await apply(structuredClone(prior), createSqlWriter(tx, dialect));
+        const result = toStored(await apply(structuredClone(prior), createSqlWriter(tx, dialect)));
         await writeDecision(tx, dialect, result, prior);
         return result;
       }),
@@ -134,18 +178,48 @@ export async function exportDecisions(
   ex: Executor,
   dialect: StoreDialect,
 ): Promise<DecisionView[]> {
-  const ids = await ex
+  const rows = await ex
     .selectFrom('decision')
-    .select('id')
+    .selectAll()
     .orderBy('project_key')
     .orderBy('seq')
     .execute();
-  const result: DecisionView[] = [];
-  for (const { id } of ids) {
-    const value = await load(ex, dialect, id);
-    if (value) {
-      result.push(value);
+  const links = new Map<string, string[]>();
+  const histories = new Map<string, DecisionHistory[]>();
+  for (const chunk of inLists(
+    rows.map((r) => r.id),
+    dialect.maxParameters,
+  )) {
+    const tasks = await ex
+      .selectFrom('decision_task')
+      .leftJoin('node', 'node.id', 'decision_task.task')
+      .select(['decision_id', 'task'])
+      .where('decision_id', 'in', chunk)
+      .orderBy('node.seq')
+      .execute();
+    for (const t of tasks) {
+      const owned = links.get(t.decision_id) ?? [];
+      owned.push(t.task);
+      links.set(t.decision_id, owned);
+    }
+    const history = await ex
+      .selectFrom('decision_history')
+      .selectAll()
+      .where('decision_id', 'in', chunk)
+      .orderBy('id')
+      .execute();
+    for (const { id: _id, decision_id, ...h } of history) {
+      const owned = histories.get(decision_id) ?? [];
+      owned.push(h);
+      histories.set(decision_id, owned);
     }
   }
-  return result;
+  return rows.map((row) =>
+    toStored({
+      ...row,
+      history: histories.get(row.id) ?? [],
+      options: optionsOf(row.options, dialect),
+      tasks: links.get(row.id) ?? [],
+    }),
+  );
 }
