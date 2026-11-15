@@ -1,8 +1,10 @@
 import type { DecisionHistory, DecisionView, EngineInput } from '@mimir/contract';
 
 import { assertBoardActive } from '../archive-lock';
+import { isTerminalDelivery } from '../deliveries/store';
 import { notFound, validation } from '../errors';
-import { parseIdentity, renderDecisionRef } from '../ids';
+import { parseDeliveryRef, renderDeliveryRef, parseIdentity, renderDecisionRef } from '../ids';
+import { stamp } from '../mutations/common';
 import type { Store, StoreWriter } from '../store';
 import { now } from '../time';
 
@@ -16,17 +18,18 @@ function ref(id: string): string {
   return renderDecisionRef(parsed);
 }
 async function deliveryOf(w: StoreWriter, id: string, key?: string) {
-  const delivery = await w.loadDelivery(id);
+  const parsed = parseDeliveryRef(id);
+  const delivery = parsed ? await w.loadDelivery(renderDeliveryRef(parsed)) : undefined;
   if (!delivery || (key !== undefined && key !== delivery.key)) {
     throw validation(
       `${id} must name a delivery in the same project`,
       'pass a same-project --delivery',
     );
   }
-  if (delivery.lifecycle === 'landed' || delivery.lifecycle === 'abandoned') {
+  if (isTerminalDelivery(delivery.lifecycle)) {
     throw validation(`${id} is terminal`, 'pass a nonterminal --delivery');
   }
-  return delivery;
+  return { ...delivery, id: parsed ? renderDeliveryRef(parsed) : id };
 }
 async function tasksOf(w: StoreWriter, ids: string[], key: string): Promise<string[]> {
   if (new Set(ids).size !== ids.length) {
@@ -78,13 +81,13 @@ export function decide(store: Store, input: EngineInput<'decide'>): Promise<Deci
     const tasks = await tasksOf(w, input.tasks ?? [], key);
     const history = tasks.map((task) => log('link', null, 'linked', task));
     if (input.delivery) {
-      history.push(log('delivery', null, input.delivery));
+      history.push(log('delivery', null, delivery?.id ?? input.delivery));
     }
     const at = now();
     return {
       class: input.class,
       created_at: at,
-      delivery: input.delivery ?? null,
+      delivery: delivery?.id ?? null,
       history,
       lifecycle: 'provisional',
       options: input.options,
@@ -137,12 +140,13 @@ export function updateDecision(
         throw validation(`${id} is not linked`, 'omit --untask or use --task');
       }
     }
-    if (input.delivery !== undefined) {
-      if (input.delivery === d.delivery) {
+    const delivery =
+      input.delivery == null
+        ? input.delivery
+        : (await deliveryOf(w, input.delivery, d.project_key)).id;
+    if (delivery !== undefined) {
+      if (delivery === d.delivery) {
         throw validation('delivery is already set to that value', 'pass a different --delivery');
-      }
-      if (input.delivery !== null) {
-        await deliveryOf(w, input.delivery, d.project_key);
       }
     }
     for (const id of remove) {
@@ -157,8 +161,8 @@ export function updateDecision(
       d.project_key,
     );
     if (input.delivery !== undefined) {
-      d.history.push(log('delivery', d.delivery, input.delivery));
-      d.delivery = input.delivery;
+      d.history.push(log('delivery', d.delivery, delivery ?? null));
+      d.delivery = delivery ?? null;
     }
     d.updated_at = now();
     return d;
@@ -191,7 +195,7 @@ export function answerDecision(
           created_at: now(),
           node_id: task,
         });
-        await w.updateNode(task, { updated_at: now() });
+        await stamp(w, task);
       }
     }
     d.lifecycle = verb === 'confirm' ? 'confirmed' : 'overturned';

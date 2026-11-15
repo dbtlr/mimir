@@ -25,6 +25,8 @@ describe.each(backends)('decision verbs ($name)', (backend) => {
       });
       expect(d.id).toBe('DEC-q1');
       expect(d.taken).toBe(1);
+      expect(Object.keys(d)[0]).toBe('id');
+      expect(Object.keys(d)).toEqual(Object.keys(await engine.getDecision({ id: d.id })));
       expect(d.history.map((r) => r.to_value)).toEqual(['linked']);
       expect((await engine.getNode({ id: task.id })).decisions).toEqual([
         { id: d.id, lifecycle: 'provisional' },
@@ -81,17 +83,42 @@ describe.each(backends)('decision rules ($name)', (backend) => {
         { ...f.input, delivery: f.delivery.id, project: 'OTH' },
         { ...f.input, delivery: 'DEC-d999' },
       ];
-      for (const input of calls) {
-        expect(await refusalOf(f.e.decide(input))).toBeTruthy();
+      const faults = [
+        ['a decision requires a nonblank question', 'pass a question'],
+        ['a decision requires at least two options', 'add another --option'],
+        ['an option is blank', 'pass nonblank --option text'],
+        ['option number is out of range', 'name a listed option'],
+        ['option number is out of range', 'name a listed option'],
+        ['a decision requires a project', 'pass --project KEY or --delivery KEY-dN'],
+        ['a task is named twice', 'name each --task or --untask once'],
+        [`${f.phase.id} must name a task in DEC`, 'pass a task in the decision project'],
+        ['DEC-999 must name a task in DEC', 'pass a task in the decision project'],
+        [
+          `${f.delivery.id} must name a delivery in the same project`,
+          'pass a same-project --delivery',
+        ],
+        ['DEC-d999 must name a delivery in the same project', 'pass a same-project --delivery'],
+      ];
+      for (const [i, input] of calls.entries()) {
+        const refusal = await refusalOf(f.e.decide(input));
+        expect(refusal).toEqual(faults[i]?.join(' — ') ?? 'missing expected refusal');
+        expect(refusal).not.toContain('unexpected error');
       }
       expect((await f.store.export()).decisions).toEqual([]);
       const d = await f.e.decide({
         ...f.input,
-        delivery: f.delivery.id,
+        delivery: 'DEC-d01',
         project: undefined,
         tasks: [f.b.id, f.a.id],
         why: ' ',
       });
+      for (const row of (await f.e.list({ project: 'DEC' })).items) {
+        expect(row).not.toHaveProperty('decisions');
+      }
+      for (const row of (await f.e.next({ project: 'DEC' })).items) {
+        expect(row).not.toHaveProperty('decisions');
+      }
+      expect(await f.e.status({ id: f.a.id })).not.toHaveProperty('decisions');
       expect(d.id).toBe('DEC-q1');
       expect(d.why).toBeNull();
       expect(d.tasks).toEqual([f.a.id, f.b.id]);
@@ -115,7 +142,17 @@ describe.each(backends)('decision rules ($name)', (backend) => {
     const f = await fixture();
     try {
       const d = await f.e.decide({ ...f.input, tasks: [f.a.id] });
-      for (const fields of [
+      const faults = [
+        ['empty decision update', 'pass --task, --untask, or --delivery'],
+        [`${f.a.id} is already linked`, 'omit --task or use --untask'],
+        [`${f.b.id} is not linked`, 'omit --untask or use --task'],
+        ['a task is named twice', 'name each --task or --untask once'],
+        ['a task is named twice', 'name each --task or --untask once'],
+        ['task named under both --task and --untask', 'name each task once'],
+        ['DEC-d999 must name a delivery in the same project', 'pass a same-project --delivery'],
+        ['delivery is already set to that value', 'pass a different --delivery'],
+      ];
+      for (const [i, fields] of [
         {},
         { tasks: [f.a.id] },
         { untasks: [f.b.id] },
@@ -124,25 +161,30 @@ describe.each(backends)('decision rules ($name)', (backend) => {
         { tasks: [f.b.id], untasks: [f.b.id] },
         { delivery: 'DEC-d999', tasks: [f.b.id] },
         { delivery: null },
-      ]) {
-        expect(await refusalOf(f.e.decisionUpdate({ id: d.id, ...fields }))).toBeTruthy();
+      ].entries()) {
+        const refusal = await refusalOf(f.e.decisionUpdate({ id: d.id, ...fields }));
+        expect(refusal).toEqual(faults[i]?.join(' — ') ?? 'missing expected refusal');
+        expect(refusal).not.toContain('unexpected error');
         expect(await f.e.getDecision({ id: d.id })).toEqual(d);
       }
       const updated = await f.e.decisionUpdate({
-        delivery: f.delivery.id,
+        delivery: 'DEC-d01',
         id: d.id,
         tasks: [f.b.id],
         untasks: [f.a.id],
       });
       expect(updated.tasks).toEqual([f.b.id]);
+      const loaded = await f.e.getDecision({ id: d.id });
+      expect(Object.keys(updated)).toEqual(Object.keys(loaded));
+      expect(updated.history.map(Object.keys)).toEqual(loaded.history.map(Object.keys));
       expect(updated.history.slice(1).map((h) => h.to_value)).toEqual([
         'unlinked',
         'linked',
         f.delivery.id,
       ]);
-      expect(
-        await refusalOf(f.e.decisionUpdate({ delivery: f.delivery.id, id: d.id })),
-      ).toBeTruthy();
+      const refusal = await refusalOf(f.e.decisionUpdate({ delivery: 'DEC-d01', id: d.id }));
+      expect(refusal).toBe('delivery is already set to that value — pass a different --delivery');
+      expect(refusal).not.toContain('unexpected error');
       expect((await f.e.decisionUpdate({ delivery: null, id: d.id })).delivery).toBeNull();
     } finally {
       await f.close();
@@ -180,10 +222,33 @@ describe.each(backends)('decision rules ($name)', (backend) => {
       await f.e.done({ id: f.a.id });
       for (const answer of [{ option: 2 }, { note: 'Neither' }, { note: 'Move', option: 2 }]) {
         const d = await f.e.decide({ ...f.input, tasks: [f.b.id, f.a.id] });
-        for (const invalid of [{}, { note: ' ' }, { option: 0 }, { option: 3 }, { option: 1 }]) {
-          expect(await refusalOf(f.e.overturn({ id: d.id, ...invalid }))).toBeTruthy();
+        const faults = [
+          'overturn requires an answer — pass --option N or a note',
+          'overturn requires an answer — pass --option N or a note',
+          'option is out of range — name a listed option',
+          'option is out of range — name a listed option',
+          'that is the answer taken — use confirm for the answer taken',
+        ];
+        for (const [i, invalid] of [
+          {},
+          { note: ' ' },
+          { option: 0 },
+          { option: 3 },
+          { option: 1 },
+        ].entries()) {
+          const refusal = await refusalOf(f.e.overturn({ id: d.id, ...invalid }));
+          expect(refusal).toEqual(faults[i] ?? 'missing expected refusal');
+          expect(refusal).not.toContain('unexpected error');
         }
+        const before = (await f.store.export()).nodes.filter((n) =>
+          [f.a.id, f.b.id].includes(n.id),
+        );
         await f.e.overturn({ id: d.id, ...answer });
+        for (const prior of before) {
+          expect(
+            (await f.store.export()).nodes.find((n) => n.id === prior.id)?.updated_at,
+          ).not.toBe(prior.updated_at);
+        }
         expect((await f.e.getNode({ id: f.a.id })).lifecycle).toBe('done');
         expect((await f.e.getNode({ id: f.b.id })).lifecycle).toBe('todo');
         expect(
