@@ -23,7 +23,7 @@ export type PostgresTestStore = {
 };
 
 /**
- * Data directories the fixtures boot from, each built once per test process.
+ * Data directories the fixtures boot from, each built once per test file.
  *
  * A fresh `new PGlite()` runs initdb, several times slower than booting from a
  * dumped data directory. Every fixture still gets its own database; only the
