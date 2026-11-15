@@ -12,7 +12,9 @@ export function renderDecision(decision: DecisionView, p: Presentation): string 
   const { history, options, ...fields } = decision;
   const lines = Object.entries(fields)
     .filter(([, v]) => v !== null)
-    .map(([key, value]) => hangingIndent(`${key}: `, String(value)));
+    .map(([key, value]) =>
+      hangingIndent(`${key}: `, Array.isArray(value) ? value.join(', ') : String(value)),
+    );
   lines.push(
     'Options',
     ...options.map((text, index) => hangingIndent(`  ${String(index + 1)}. `, text)),

@@ -38,8 +38,8 @@ export function decideCommand(ports: Ports) {
   })
     .argument('question', { description: 'The question answered.', required: true })
     .option('option', { ...text('An option; repeat at least twice.'), multiple: true })
-    .option('recommend', { ...text('The recommended option number.'), required: true })
-    .option('take', text('The option taken; defaults to recommend.'))
+    .option('recommend', { ...text('The recommended option number.', 'n'), required: true })
+    .option('take', text('The option taken; defaults to recommend.', 'n'))
     .option('class', { ...text('product, architecture, or other.'), required: true })
     .option('why', text('The rationale.'))
     .option('delivery', text('The nonterminal delivery (KEY-dN).'))
@@ -85,7 +85,7 @@ export function decideCommand(ports: Ports) {
 }
 export function decisionAnswerCommand(ports: Ports, verb: 'confirm' | 'overturn') {
   return new Command(verb, {
-    description: `${verb} a provisional decision.`,
+    description: `${verb === 'confirm' ? 'Confirm' : 'Overturn'} a provisional decision.`,
     extensions: [
       helpCommand({
         examples: [{ command: `${verb} MMR-q1 "Answer"`, note: 'settle the answer' }],
@@ -95,7 +95,7 @@ export function decisionAnswerCommand(ports: Ports, verb: 'confirm' | 'overturn'
   })
     .argument('id', { description: 'The decision (KEY-qN).', required: true })
     .argument('note', { description: 'The outcome note.' })
-    .option('option', text('Another listed option (overturn only).'))
+    .option('option', { ...text('Another listed option.', 'n'), hidden: verb === 'confirm' })
     .option('ascii', asciiOption)
     .result<DecisionValue>({ views: decisionEchoViews })
     .views({ records: decisionEchoViews.records }, { default: 'records' })

@@ -19,8 +19,8 @@ COMMANDS
   seeds              Read one project's grooming queue: live seeds oldest-first (FIFO triage).
   deliveries         Read one project's delivery records.
   decide             Record a provisional answer without stopping work.
-  confirm            confirm a provisional decision.
-  overturn           overturn a provisional decision.
+  confirm            Confirm a provisional decision.
+  overturn           Overturn a provisional decision.
   seed               File a seed: an idea, bug, or feature request on a project, to be triaged later. The title is one quoted argument.
   promote            Promote a seed into work: spawn a task from it, or record existing work with --link.
   reject             Reject a seed: it will not be done. The reason is recorded.

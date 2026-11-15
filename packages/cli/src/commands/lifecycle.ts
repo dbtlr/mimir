@@ -351,6 +351,13 @@ async function runVerb(ports: Ports, call: Invocation): Promise<LifecycleEcho> {
     }
     return { delivery: encodeDelivery(result), presentation: call.presentation };
   }
+  if (ports.grammar.idKind(call.id) === 'decision') {
+    throw new MimirError(
+      'validation',
+      `${call.id} is a decision`,
+      'use get, update, confirm, or overturn; decide records a new decision',
+    );
+  }
   if (ports.grammar.idKind(call.id) === 'delivery') {
     refuseDeliverySubject(call.verb, call.id);
   }

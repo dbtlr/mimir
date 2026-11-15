@@ -193,7 +193,7 @@
 | artifacts(after: array, at-or-after: array, at-or-before: array, before: array, limit: string, offset: string, on: array, query: string, scope: string, tag: string, tz: string)
 | attach(content: string, id: string, link: array, project: string, summary: string, tag: array, title: string)
 | block(id: string, on: string, reason: array)
-| confirm(id: string, note: string, option: string)
+| confirm(id: string, note: string)
 | create_delivery(agreement: string, branch: string, harness: string, host: string, phase: string, ref: string, session: string, task: array, time-cap: string, title: string)
 | create_initiative(desc: string, not-open-ended: boolean, open-ended: boolean, parent: string, summary: string, tag: array, title: string)
 | create_phase(desc: string, not-open-ended: boolean, open-ended: boolean, parent: string, summary: string, tag: array, target: string, title: string)

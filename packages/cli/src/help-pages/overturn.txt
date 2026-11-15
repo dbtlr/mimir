@@ -1,4 +1,4 @@
-mimir overturn · overturn a provisional decision.
+mimir overturn · Overturn a provisional decision.
 
 USAGE
   mimir overturn <id> [note] [options]
@@ -8,7 +8,7 @@ ARGUMENTS
   note  The outcome note.
 
 OPTIONS
-      --option <text>    Another listed option (overturn only).
+      --option <n>       Another listed option.
       --ascii            Print without color, in ASCII glyphs.
   -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
 

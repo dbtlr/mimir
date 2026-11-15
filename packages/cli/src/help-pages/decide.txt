@@ -1,22 +1,22 @@
 mimir decide · Record a provisional answer without stopping work.
 
 USAGE
-  mimir decide <question> --recommend <text> --class <text> [options]
+  mimir decide <question> --recommend <n> --class <text> [options]
 
 ARGUMENTS
   question  The question answered.
 
 OPTIONS
-      --option <text>     An option; repeat at least twice.  (repeatable)
-      --recommend <text>  The recommended option number.  (required)
-      --take <text>       The option taken; defaults to recommend.
-      --class <text>      product, architecture, or other.  (required)
-      --why <text>        The rationale.
-      --delivery <text>   The nonterminal delivery (KEY-dN).
-      --task <text>       A task built on this answer; repeat.  (repeatable)
-  -p, --project <text>    The project; defaults to the clone binding.
-      --ascii             Print without color, in ASCII glyphs.
-  -f, --format <format>   Select the output format, records by default. One of: ids, json, jsonl, records, table.
+      --option <text>    An option; repeat at least twice.  (repeatable)
+      --recommend <n>    The recommended option number.  (required)
+      --take <n>         The option taken; defaults to recommend.
+      --class <text>     product, architecture, or other.  (required)
+      --why <text>       The rationale.
+      --delivery <text>  The nonterminal delivery (KEY-dN).
+      --task <text>      A task built on this answer; repeat.  (repeatable)
+  -p, --project <text>   The project; defaults to the clone binding.
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
 
 GLOBAL OPTIONS
   -h, --help      Show this help.

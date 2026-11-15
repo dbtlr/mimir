@@ -13,6 +13,14 @@ writeCases(
     argvLine('update MMR-q1 --task MMR-4'),
     argvLine('update MMR-q1 --untask MMR-3'),
     argvLine('update MMR-q1 --title Wrong'),
+    ...['--agreement Terms', '--clear-agreement', '--time-cap 20'].flatMap((flag) => [
+      argvLine(`update MMR-q1 ${flag}`),
+      argvLine(`update MMR-q1 ${flag} --task MMR-4`),
+    ]),
+    ...['promote', 'resolve', 'reject', 'archive', 'unarchive'].map((verb) =>
+      argvLine(`${verb} MMR-q1`),
+    ),
+    ...['promote', 'resolve', 'reject'].map((verb) => argvLine(`${verb} MMR-d1`)),
     argvLine('update MMR-q1'),
     argvLine('get MMR-q1 -f json'),
     argvLine('get MMR-3 -f json'),

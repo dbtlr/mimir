@@ -471,15 +471,26 @@ export function updateCommand(ports: Ports) {
       const presentation = presentationOf(host, options.ascii);
       const kind = ports.grammar.idKind(args.id);
       if (kind === 'decision') {
-        const allowed = new Set(['task', 'untask', 'delivery', 'ascii']);
-        for (const [flag, value] of Object.entries(options).filter(
-          ([candidate]) =>
-            FIELD_FLAGS.some(([field]) => field === candidate) ||
-            PROJECT_ONLY_FLAGS.some(([field]) => field === candidate) ||
-            candidate === 'kind',
-        )) {
+        const allowed = new Set([
+          'task',
+          'untask',
+          'delivery',
+          'ascii',
+          'format',
+          'input',
+          'color',
+          'quiet',
+          'verbose',
+          'help',
+          'version',
+        ]);
+        for (const [flag, value] of Object.entries(options)) {
           if (given(value) && !(Array.isArray(value) && value.length === 0) && !allowed.has(flag)) {
-            throw new MimirUsageError(`--${flag} doesn't apply to a decision`);
+            throw new MimirError(
+              'validation',
+              `--${flag} doesn't apply to a decision`,
+              'pass --task, --untask, or --delivery',
+            );
           }
         }
         const result = await (

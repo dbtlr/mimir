@@ -27,7 +27,7 @@ These hold for every table; the per-entity sections below don't repeat them.
 
   `KEY` is two to four uppercase letters (`[A-Z]{2,4}`), immutable, and consumer-supplied. `seq`/`N` are per-project sequence integers, 1-based, with one sequence each for nodes, artifacts, seeds, deliveries, and decisions. A sequence component is never reused. Scratchpads are the deliberate exception to the sequenced identity grammar: their temporary identity is a cryptographically generated UUID v4.
 
-- **Sequences are counters on `project`.** `last_seq`, `last_artifact_seq`, `last_seed_seq`, and `last_delivery_seq` hold the highest sequence handed out per kind. Allocation increments the counter inside the writing transaction, so two writers never mint one identity twice. An import writes each counter to the highest imported sequence of its kind.
+- **Sequences are counters on `project`.** `last_seq`, `last_artifact_seq`, `last_seed_seq`, `last_delivery_seq`, and `last_decision_seq` hold the highest sequence handed out per kind. Allocation increments the counter inside the writing transaction, so two writers never mint one identity twice. An import writes each counter to the highest imported sequence of its kind.
 
 - **Abandon, don't delete.** To retire a task, use its lifecycle (`mimir abandon`). The row and its `KEY-seq` stay, so every reference stays stable ([ADR 0006](decisions/0006-human-readable-node-ids.md)).
 
@@ -84,6 +84,7 @@ The scope root. Categorically not a node: it doesn't complete (no status), isn't
 | `last_seed_seq`     | integer | required | seed sequence counter, default 0                                                          |
 | `last_decision_seq` | integer | required | decision sequence counter, default 0 |
 | `last_delivery_seq` | integer | required | delivery sequence counter, default 0                                                      |
+| `last_decision_seq` | integer | required | decision sequence counter, default 0 |
 | `next_present`      | boolean | required | whether the `## Next` narrative is set, default false                                     |
 | `next_text`         | text    | optional | the narrative prose                                                                       |
 | `pinned`            | boolean | required | the operator's "keep at hand" mark, default false; the console lists pinned projects first |

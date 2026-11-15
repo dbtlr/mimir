@@ -6,7 +6,7 @@
 import { Command } from '@loomcli/core';
 import { helpCommand, helpInput } from '@loomcli/plugins/help/extension';
 import { mcpCommand } from '@loomcli/plugins/mcp/extension';
-import { intentEncoders, SEED_KIND_VALUES } from '@mimir/contract';
+import { MimirError, intentEncoders, SEED_KIND_VALUES } from '@mimir/contract';
 import type { SeedKind } from '@mimir/contract';
 
 import { MimirUsageError } from '../failures';
@@ -25,6 +25,16 @@ const boundOption = {
 
 /** The seed id `verb` takes, refused as usage when the token is not shaped like one. */
 function requireSeedId(ports: Ports, verb: string, token: string): string {
+  const kind = ports.grammar.idKind(token);
+  if (kind === 'decision' || kind === 'delivery') {
+    throw new MimirError(
+      'validation',
+      `${verb} does not apply to a ${kind}: ${token}`,
+      kind === 'decision'
+        ? 'use get, update, confirm, or overturn; decide records a new decision'
+        : 'a delivery takes get, update, start, submit, stage, return, block, unblock, land, and abandon',
+    );
+  }
   if (token.trim() === '' || ports.grammar.idKind(token) !== 'seed') {
     throw new MimirUsageError(`${verb} takes a seed id (KEY-sN), got ${token}`);
   }

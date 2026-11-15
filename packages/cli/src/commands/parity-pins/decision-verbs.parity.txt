@@ -1,17 +1,17 @@
 ### decide argv: "Where?" --option Here --option There --recommend 1 --class architecture -p MMR --task MMR-3 -f records
 exit 0
 --- stdout
-| class: architecture
-| created_at: 2026-10-01T12:00:00.000Z
-| lifecycle: provisional
+| id: MMR-q2
 | project_key: MMR
+| seq: 2
 | question: "Where?"
 | recommended: 1
 | taken: 1
-| tasks: MMR-3
+| class: architecture
+| lifecycle: provisional
+| created_at: 2026-10-01T12:00:00.000Z
 | updated_at: 2026-10-01T12:00:00.000Z
-| id: MMR-q2
-| seq: 2
+| tasks: MMR-3
 | Options
 |   1. Here
 |   2. There
@@ -23,17 +23,17 @@ exit 0
 ### decide argv: "Where?" --option Here --option There --recommend 1 --class architecture -p MMR --task MMR-3 -f table
 exit 0
 --- stdout
-| class: architecture
-| created_at: 2026-10-01T12:00:00.000Z
-| lifecycle: provisional
+| id: MMR-q2
 | project_key: MMR
+| seq: 2
 | question: "Where?"
 | recommended: 1
 | taken: 1
-| tasks: MMR-3
+| class: architecture
+| lifecycle: provisional
+| created_at: 2026-10-01T12:00:00.000Z
 | updated_at: 2026-10-01T12:00:00.000Z
-| id: MMR-q2
-| seq: 2
+| tasks: MMR-3
 | Options
 |   1. Here
 |   2. There
@@ -53,37 +53,37 @@ exit 0
 exit 0
 --- stdout
 | {
-|   "class": "architecture",
-|   "created_at": "2026-10-01T12:00:00.000Z",
-|   "delivery": null,
-|   "history": [
-|     {
-|       "at": "2026-10-01T12:00:00.000Z",
-|       "from_value": null,
-|       "kind": "link",
-|       "reason": null,
-|       "task": "MMR-3",
-|       "to_value": "linked"
-|     }
-|   ],
-|   "lifecycle": "provisional",
+|   "id": "MMR-q2",
+|   "project_key": "MMR",
+|   "seq": 2,
+|   "question": "\"Where?\"",
 |   "options": [
 |     "Here",
 |     "There"
 |   ],
-|   "outcome_note": null,
-|   "overturn_option": null,
-|   "project_key": "MMR",
-|   "question": "\"Where?\"",
 |   "recommended": 1,
 |   "taken": 1,
+|   "class": "architecture",
+|   "why": null,
+|   "delivery": null,
+|   "lifecycle": "provisional",
+|   "overturn_option": null,
+|   "outcome_note": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
 |   "tasks": [
 |     "MMR-3"
 |   ],
-|   "updated_at": "2026-10-01T12:00:00.000Z",
-|   "why": null,
-|   "id": "MMR-q2",
-|   "seq": 2
+|   "history": [
+|     {
+|       "kind": "link",
+|       "from_value": null,
+|       "to_value": "linked",
+|       "reason": null,
+|       "task": "MMR-3",
+|       "at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ]
 | }
 --- state
 + nodes[MMR-3].decisions[MMR-q2]: {"id":"MMR-q2","lifecycle":"provisional"}
@@ -92,37 +92,37 @@ exit 0
 exit 0
 --- stdout
 | {
-|   "class": "architecture",
-|   "created_at": "2026-10-01T12:00:00.000Z",
-|   "delivery": null,
-|   "history": [
-|     {
-|       "at": "2026-10-01T12:00:00.000Z",
-|       "from_value": null,
-|       "kind": "link",
-|       "reason": null,
-|       "task": "MMR-3",
-|       "to_value": "linked"
-|     }
-|   ],
-|   "lifecycle": "provisional",
+|   "id": "MMR-q2",
+|   "project_key": "MMR",
+|   "seq": 2,
+|   "question": "\"Where?\"",
 |   "options": [
 |     "Here",
 |     "There"
 |   ],
-|   "outcome_note": null,
-|   "overturn_option": null,
-|   "project_key": "MMR",
-|   "question": "\"Where?\"",
 |   "recommended": 1,
 |   "taken": 1,
+|   "class": "architecture",
+|   "why": null,
+|   "delivery": null,
+|   "lifecycle": "provisional",
+|   "overturn_option": null,
+|   "outcome_note": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
 |   "tasks": [
 |     "MMR-3"
 |   ],
-|   "updated_at": "2026-10-01T12:00:00.000Z",
-|   "why": null,
-|   "id": "MMR-q2",
-|   "seq": 2
+|   "history": [
+|     {
+|       "kind": "link",
+|       "from_value": null,
+|       "to_value": "linked",
+|       "reason": null,
+|       "task": "MMR-3",
+|       "at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ]
 | }
 --- state
 + nodes[MMR-3].decisions[MMR-q2]: {"id":"MMR-q2","lifecycle":"provisional"}
@@ -154,7 +154,7 @@ exit 0
 | lifecycle: provisional
 | created_at: 2026-10-01T12:00:00.000Z
 | updated_at: 2026-10-01T12:00:00.000Z
-| tasks: MMR-3,MMR-4
+| tasks: MMR-3, MMR-4
 | Options
 |   1. Here
 |   2. There
@@ -188,13 +188,211 @@ exit 0
 - nodes[MMR-3].decisions[MMR-q1]: {"id":"MMR-q1","lifecycle":"provisional"}
 
 ### update argv: MMR-q1 --title Wrong
-exit 2
+exit 1
 --- stdout
 --- failure
 | {
-|   "code": "usage",
-|   "hints": [],
+|   "code": "validation",
+|   "hints": [
+|     "pass --task, --untask, or --delivery"
+|   ],
 |   "message": "--title doesn't apply to a decision"
+| }
+--- state
+unchanged
+
+### update argv: MMR-q1 --agreement Terms
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "pass --task, --untask, or --delivery"
+|   ],
+|   "message": "--agreement doesn't apply to a decision"
+| }
+--- state
+unchanged
+
+### update argv: MMR-q1 --agreement Terms --task MMR-4
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "pass --task, --untask, or --delivery"
+|   ],
+|   "message": "--agreement doesn't apply to a decision"
+| }
+--- state
+unchanged
+
+### update argv: MMR-q1 --clear-agreement
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "pass --task, --untask, or --delivery"
+|   ],
+|   "message": "--clear-agreement doesn't apply to a decision"
+| }
+--- state
+unchanged
+
+### update argv: MMR-q1 --clear-agreement --task MMR-4
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "pass --task, --untask, or --delivery"
+|   ],
+|   "message": "--clear-agreement doesn't apply to a decision"
+| }
+--- state
+unchanged
+
+### update argv: MMR-q1 --time-cap 20
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "pass --task, --untask, or --delivery"
+|   ],
+|   "message": "--time-cap doesn't apply to a decision"
+| }
+--- state
+unchanged
+
+### update argv: MMR-q1 --time-cap 20 --task MMR-4
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "pass --task, --untask, or --delivery"
+|   ],
+|   "message": "--time-cap doesn't apply to a decision"
+| }
+--- state
+unchanged
+
+### promote argv: MMR-q1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "use get, update, confirm, or overturn; decide records a new decision"
+|   ],
+|   "message": "promote does not apply to a decision: MMR-q1"
+| }
+--- state
+unchanged
+
+### resolve argv: MMR-q1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "use get, update, confirm, or overturn; decide records a new decision"
+|   ],
+|   "message": "resolve does not apply to a decision: MMR-q1"
+| }
+--- state
+unchanged
+
+### reject argv: MMR-q1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "use get, update, confirm, or overturn; decide records a new decision"
+|   ],
+|   "message": "reject does not apply to a decision: MMR-q1"
+| }
+--- state
+unchanged
+
+### archive argv: MMR-q1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "use get, update, confirm, or overturn; decide records a new decision"
+|   ],
+|   "message": "MMR-q1 is a decision"
+| }
+--- state
+unchanged
+
+### unarchive argv: MMR-q1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "use get, update, confirm, or overturn; decide records a new decision"
+|   ],
+|   "message": "MMR-q1 is a decision"
+| }
+--- state
+unchanged
+
+### promote argv: MMR-d1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "a delivery takes get, update, start, submit, stage, return, block, unblock, land, and abandon"
+|   ],
+|   "message": "promote does not apply to a delivery: MMR-d1"
+| }
+--- state
+unchanged
+
+### resolve argv: MMR-d1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "a delivery takes get, update, start, submit, stage, return, block, unblock, land, and abandon"
+|   ],
+|   "message": "resolve does not apply to a delivery: MMR-d1"
+| }
+--- state
+unchanged
+
+### reject argv: MMR-d1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "a delivery takes get, update, start, submit, stage, return, block, unblock, land, and abandon"
+|   ],
+|   "message": "reject does not apply to a delivery: MMR-d1"
 | }
 --- state
 unchanged
@@ -235,6 +433,9 @@ exit 0
 |   "outcome_note": null,
 |   "created_at": "2026-10-01T12:00:00.000Z",
 |   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "tasks": [
+|     "MMR-3"
+|   ],
 |   "history": [
 |     {
 |       "kind": "link",
@@ -244,9 +445,6 @@ exit 0
 |       "task": "MMR-3",
 |       "at": "2026-10-01T12:00:00.000Z"
 |     }
-|   ],
-|   "tasks": [
-|     "MMR-3"
 |   ]
 | }
 --- state
@@ -353,6 +551,9 @@ exit 0
 |   "outcome_note": null,
 |   "created_at": "2026-10-01T12:00:00.000Z",
 |   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "tasks": [
+|     "MMR-3"
+|   ],
 |   "history": [
 |     {
 |       "kind": "link",
@@ -363,16 +564,13 @@ exit 0
 |       "at": "2026-10-01T12:00:00.000Z"
 |     },
 |     {
-|       "at": "2026-10-01T12:00:00.000Z",
-|       "from_value": "provisional",
 |       "kind": "lifecycle",
+|       "from_value": "provisional",
+|       "to_value": "confirmed",
 |       "reason": null,
 |       "task": null,
-|       "to_value": "confirmed"
+|       "at": "2026-10-01T12:00:00.000Z"
 |     }
-|   ],
-|   "tasks": [
-|     "MMR-3"
 |   ]
 | }
 --- state
@@ -400,6 +598,9 @@ exit 0
 |   "outcome_note": null,
 |   "created_at": "2026-10-01T12:00:00.000Z",
 |   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "tasks": [
+|     "MMR-3"
+|   ],
 |   "history": [
 |     {
 |       "kind": "link",
@@ -410,16 +611,13 @@ exit 0
 |       "at": "2026-10-01T12:00:00.000Z"
 |     },
 |     {
-|       "at": "2026-10-01T12:00:00.000Z",
-|       "from_value": "provisional",
 |       "kind": "lifecycle",
+|       "from_value": "provisional",
+|       "to_value": "overturned",
 |       "reason": null,
 |       "task": null,
-|       "to_value": "overturned"
+|       "at": "2026-10-01T12:00:00.000Z"
 |     }
-|   ],
-|   "tasks": [
-|     "MMR-3"
 |   ]
 | }
 --- state
@@ -448,6 +646,9 @@ exit 0
 |   "outcome_note": "\"Accepted\"",
 |   "created_at": "2026-10-01T12:00:00.000Z",
 |   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "tasks": [
+|     "MMR-3"
+|   ],
 |   "history": [
 |     {
 |       "kind": "link",
@@ -458,16 +659,13 @@ exit 0
 |       "at": "2026-10-01T12:00:00.000Z"
 |     },
 |     {
-|       "at": "2026-10-01T12:00:00.000Z",
-|       "from_value": "provisional",
 |       "kind": "lifecycle",
+|       "from_value": "provisional",
+|       "to_value": "confirmed",
 |       "reason": "\"Accepted\"",
 |       "task": null,
-|       "to_value": "confirmed"
+|       "at": "2026-10-01T12:00:00.000Z"
 |     }
-|   ],
-|   "tasks": [
-|     "MMR-3"
 |   ]
 | }
 --- state
@@ -495,6 +693,9 @@ exit 0
 |   "outcome_note": "\"Move\"",
 |   "created_at": "2026-10-01T12:00:00.000Z",
 |   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "tasks": [
+|     "MMR-3"
+|   ],
 |   "history": [
 |     {
 |       "kind": "link",
@@ -505,16 +706,13 @@ exit 0
 |       "at": "2026-10-01T12:00:00.000Z"
 |     },
 |     {
-|       "at": "2026-10-01T12:00:00.000Z",
-|       "from_value": "provisional",
 |       "kind": "lifecycle",
+|       "from_value": "provisional",
+|       "to_value": "overturned",
 |       "reason": "\"Move\"",
 |       "task": null,
-|       "to_value": "overturned"
+|       "at": "2026-10-01T12:00:00.000Z"
 |     }
-|   ],
-|   "tasks": [
-|     "MMR-3"
 |   ]
 | }
 --- state
