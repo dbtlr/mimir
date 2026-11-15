@@ -77,8 +77,12 @@ test.each([
   ['scratch', '-s'],
 ])('%s names its accepted project flag when unbound', async (verb, flag) => {
   const args = [verb];
-  if (verb === 'scratch') args.push('list');
-  if (verb === 'search') args.push('needle');
+  if (verb === 'scratch') {
+    args.push('list');
+  }
+  if (verb === 'search') {
+    args.push('needle');
+  }
   const run = await runArgv(board.app(), [...args, '-f', 'json']);
   expect(run.stderr).toContain(`pass ${flag} KEY, or bind this clone with 'mimir bind KEY'`);
 });
