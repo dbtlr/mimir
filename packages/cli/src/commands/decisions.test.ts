@@ -7,6 +7,8 @@ import { runArgv } from '../testing/run';
 let board: ParityBoard;
 beforeAll(async () => {
   board = await parityBoard();
+  await board.engine.create({ type: 'project', key: 'OLD', name: 'Archived' });
+  await board.engine.archive({ id: 'OLD' });
   await board.engine.deliveryCreate({ phase: 'MMR-2', title: 'Attempt' });
   const base = { options: ['Here', 'There'], project: 'MMR', question: 'Where?', recommended: 1 };
   await board.engine.decide({ ...base, class: 'product', delivery: 'MMR-d1', tasks: ['MMR-3'] });
@@ -34,11 +36,29 @@ test.each([
 });
 
 test.each([
-  ['--status', 'bad'],
-  ['--class', 'bad'],
-  ['--delivery', 'MMR-q1'],
-])('decisions refuses invalid %s %s', async (flag, value) => {
-  const run = await runArgv(board.app('MMR'), ['decisions', flag, value]);
+  { flags: ['--status', 'bad'], message: '--status must be provisional, confirmed, overturned, or all', hint: undefined },
+  { flags: ['--class', 'bad'], message: '--class must be product, architecture, or other', hint: undefined },
+  ...['MMR-q1', 'MMR-d9', 'OTH-d1'].map((delivery) => ({
+    flags: ['--delivery', delivery], message: `${delivery} must name a delivery in the same project`,
+    hint: 'pass a same-project --delivery',
+  })),
+  ...['OLD', 'GONE'].map((project) => ({ flags: ['-p', project], message: `${project} doesn't exist`,
+    hint: `create it: mimir create project "Name" --key ${project} -y`,
+  })),
+])('decisions refuses $flags with the full resolution', async ({ flags, message, hint }) => {
+  const run = await runArgv(board.app('MMR'), ['decisions', ...flags, '-f', 'json']);
   expect(run.exitCode).not.toBe(0);
-  expect(run.stderr).toContain(flag === '--delivery' ? 'delivery id' : flag);
+  expect(JSON.parse(run.stderr).error).toMatchObject({
+    message, hints: hint === undefined ? ['Run "mimir decisions --help" to see the usage.'] : [hint],
+  });
+});
+
+test.each([
+  ['decisions', '-p'], ['deliveries', '-p'], ['artifacts', '-s'],
+  ['search', '-s'], ['list', '-s'], ['next', '-s'], ['overview', '-s'], ['seeds', '-s'],
+  ['scratch', '-s'],
+])('%s names its accepted project flag when unbound', async (verb, flag) => {
+  const args = verb === 'scratch' ? [verb, 'list'] : verb === 'search' ? [verb, 'needle'] : [verb];
+  const run = await runArgv(board.app(), [...args, '-f', 'json']);
+  expect(run.stderr).toContain(`pass ${flag} KEY, or bind this clone with 'mimir bind KEY'`);
 });

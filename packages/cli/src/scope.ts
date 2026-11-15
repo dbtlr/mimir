@@ -55,15 +55,16 @@ export async function boardProject(
   verb: string,
   notify: (line: string) => void,
   fallback?: string,
+  flag = '-s',
 ): Promise<string> {
   if (explicit === 'all') {
     throw new MimirUsageError(
-      `'-s all' is retired: ${verb} reads one project`,
-      "name it with -s KEY; 'mimir projects' lists the keys",
+      `'${flag} all' is retired: ${verb} reads one project`,
+      `name it with ${flag} KEY; 'mimir projects' lists the keys`,
     );
   }
   return targetProject(explicit ?? (await ports.scope(notify)), fallback, {
-    hint: "pass -s KEY, or bind this clone with 'mimir bind KEY'",
+    hint: `pass ${flag} KEY, or bind this clone with 'mimir bind KEY'`,
     message: `${verb} needs a project`,
   });
 }

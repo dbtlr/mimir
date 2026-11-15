@@ -184,7 +184,7 @@ export function decisionsCommand(ports: Ports) {
       });
       const project = await boardProject(ports, options.project, 'decisions', (line) => {
         void out.print(line);
-      });
+      }, undefined, '-p');
       const decisions = (
         await (
           await ports.engine()

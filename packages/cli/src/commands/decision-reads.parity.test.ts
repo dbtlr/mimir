@@ -17,6 +17,10 @@ const filters: NonNullable<ParityCase['options']>[] = [
   { delivery: 'MMR-d1' },
   { class: ['wrong'] },
   { status: 'wrong' },
+  { delivery: 'MMR-d9' },
+  { delivery: 'OTH-d1' },
+  { project: 'OLD' },
+  { project: 'GONE' },
 ];
 for (const options of filters) {
   cases.push({
@@ -26,7 +30,11 @@ for (const options of filters) {
     path: ['decisions'],
   });
 }
+cases.push({ name: 'decisions unbound', path: ['decisions'] });
+cases.push({ name: 'deliveries unbound', path: ['deliveries'] });
 parityCases(import.meta.url, cases, async (board) => {
+  await board.engine.create({ type: 'project', key: 'OLD', name: 'Archived' });
+  await board.engine.archive({ id: 'OLD' });
   await board.engine.deliveryCreate({ phase: 'MMR-2', title: 'Attempt' });
   const base = { options: ['Here', 'There'], project: 'MMR', question: 'Where?', recommended: 1 };
   await board.engine.decide({ ...base, class: 'product', delivery: 'MMR-d1', tasks: ['MMR-3'] });

@@ -414,3 +414,75 @@ exit 2
 |   "message": "--status must be provisional, confirmed, overturned, or all"
 | }
 
+### decisions {"delivery":"MMR-d9"}
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "pass a same-project --delivery"
+|   ],
+|   "message": "MMR-d9 must name a delivery in the same project"
+| }
+
+### decisions {"delivery":"OTH-d1"}
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "pass a same-project --delivery"
+|   ],
+|   "message": "OTH-d1 must name a delivery in the same project"
+| }
+
+### decisions {"project":"OLD"}
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key OLD -y"
+|   ],
+|   "message": "OLD doesn't exist"
+| }
+
+### decisions {"project":"GONE"}
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key GONE -y"
+|   ],
+|   "message": "GONE doesn't exist"
+| }
+
+### decisions unbound
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "pass -p KEY, or bind this clone with 'mimir bind KEY'"
+|   ],
+|   "message": "decisions needs a project"
+| }
+
+### deliveries unbound
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "pass -p KEY, or bind this clone with 'mimir bind KEY'"
+|   ],
+|   "message": "deliveries needs a project"
+| }
+

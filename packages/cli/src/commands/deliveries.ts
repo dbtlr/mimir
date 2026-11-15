@@ -134,7 +134,7 @@ export function deliveriesCommand(ports: Ports) {
     .action(async ({ host, options, out }) => {
       const project = await boardProject(ports, options.project, 'deliveries', (line) => {
         void out.print(line);
-      });
+      }, undefined, '-p');
       const deliveries = (await (await ports.engine()).deliveries({ project })).map(encodeDelivery);
       await out.results({ deliveries, presentation: presentationOf(host, options.ascii) });
     });
