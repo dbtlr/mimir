@@ -273,10 +273,15 @@ export function dateFilterWindow(
   return instantWindows(instant)[op];
 }
 
+/** The last instant with a four-digit UTC year: 9999-12-31T23:59:59.999Z. */
+const MAX_FOUR_DIGIT_INSTANT = Date.UTC(9999, 11, 31, 23, 59, 59, 999);
+
 /**
  * A caller-supplied instant: a zoned ISO 8601 timestamp (`Z` or an offset),
  * read as that instant. Refused when it names no instant, as a bare date or a
- * time with no zone does (ADR 0042, MMR-692: the since read's cursor).
+ * time with no zone does, and when its UTC year is not four digits, because
+ * the cursor must spell the same in the `as_of` it gets back (ADR 0042,
+ * MMR-692: the since read's cursor).
  */
 export function parseInstant(value: string): Date {
   const instant = parseZonedInstant(value);
@@ -284,6 +289,12 @@ export function parseInstant(value: string): Date {
     throw validation(
       `invalid instant: ${value}`,
       'takes a timestamp with an explicit zone: 2026-11-16T09:00:00Z or 2026-11-16T09:00:00-04:00',
+    );
+  }
+  if (instant > MAX_FOUR_DIGIT_INSTANT) {
+    throw validation(
+      `invalid instant: ${value}`,
+      'the instant must fall in a four-digit year (0000 to 9999) in UTC',
     );
   }
   return new Date(instant);

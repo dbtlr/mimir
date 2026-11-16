@@ -66,12 +66,13 @@ const cases: SetupCase[] = [
   ...shown(['get', 'MMR-d1', '--since', '2026-10-01T11:00:00Z']),
   argv(['get', 'MMR-d1', '--since', '2026-10-01T11:00:00Z', '-f', 'ids']),
   { ...argv(['get', 'MMR-d1', '--since', '2026-10-01T11:00:00Z', '--ascii']), setup: busy },
-  // Refusals: not a delivery, not an instant, not found.
+  // Refusals: not a delivery, not an instant (a year past 9999 once the offset is applied is one), not found.
   argv(['get', 'MMR-3', '--since', '2026-10-01T11:00:00Z']),
   argv(['get', 'MMR', '--since', '2026-10-01T11:00:00Z']),
   argv(['get', 'MMR-d1', '--since', 'yesterday']),
   argv(['get', 'MMR-d1', '--since', '2026-10-01']),
   argv(['get', 'MMR-d1', '--since', '2026-10-01T11:00:00']),
+  argv(['get', 'MMR-d1', '--since', '9999-12-31T23:00:00-04:00']),
   argv(['get', 'MMR-d99', '--since', '2026-10-01T11:00:00Z']),
   argv(['list', '--since', '2026-10-01T11:00:00Z']),
 ];

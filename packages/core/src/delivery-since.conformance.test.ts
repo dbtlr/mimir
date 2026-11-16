@@ -382,6 +382,21 @@ describe.each(backends)('the since read ($name)', (backend) => {
     }
   });
 
+  test('a cursor beyond year 9999 is validation, and the last four-digit instant is read', async () => {
+    const f = await fixture();
+    try {
+      const beyond = new Date('+010000-01-01T03:00:00.000Z');
+      expect((await errorOf(f.engine.deliverySince({ id: f.delivery, since: beyond }))).code).toBe(
+        'validation',
+      );
+      const last = new Date('9999-12-31T23:59:59.999Z');
+      expect(await feed(f, last)).toEqual([]);
+    } finally {
+      setSystemTime();
+      await f.close();
+    }
+  });
+
   test('a delivery id of another kind is validation, a missing delivery is not_found, an archived board hides it', async () => {
     const f = await fixture();
     try {

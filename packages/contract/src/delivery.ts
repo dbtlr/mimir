@@ -203,6 +203,15 @@ export const deliverySinceViewSchema = z.strictObject({
   events: z.array(deliveryEventSchema),
   since: z.string(),
 });
+/**
+ * The since cursor: an instant whose UTC year has four digits, years 0000 to
+ * 9999 (ADR 0042, MMR-692). An instant beyond them has no four-digit spelling
+ * the caller could pass back.
+ */
+export const sinceCursorSchema = z
+  .date()
+  .min(new Date('0000-01-01T00:00:00.000Z'))
+  .max(new Date('9999-12-31T23:59:59.999Z'));
 export const deliverySinceEngineSchema = z.strictObject({
   as_of: z.date(),
   delivery: deliveryDetailEngineSchema,
@@ -297,7 +306,7 @@ export function deliverySchemas<P extends z.ZodType<string>>(project: P) {
       output: deliveryEngineSchema,
     },
     deliverySince: {
-      input: z.strictObject({ id: z.string(), since: z.date() }),
+      input: z.strictObject({ id: z.string(), since: sinceCursorSchema }),
       kind: 'query',
       output: deliverySinceEngineSchema,
     },
