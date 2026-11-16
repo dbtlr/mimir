@@ -165,7 +165,12 @@ export function DecisionRow({
   currentDelivery?: string;
 }) {
   return (
-    <div className={`${ATTENTION_RULE} flex flex-col gap-1.5 py-1.5 wrap-anywhere`}>
+    // A row id and a tab stop let the needs-you focus handoff land here (MMR-474).
+    <div
+      data-row-id={decision.id}
+      tabIndex={-1}
+      className={`${ATTENTION_RULE} flex flex-col gap-1.5 py-1.5 wrap-anywhere`}
+    >
       <span className="text-tag text-attention-foreground">
         {decision.id} · {decision.class}
       </span>

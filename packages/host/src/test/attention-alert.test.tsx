@@ -298,6 +298,58 @@ describe('the Needs you popover', () => {
     await expect(screen.findByRole('button', { name: '2 need you' })).resolves.toBeDefined();
   });
 
+  it('hands focus to a decision record’s first link when the task row above it leaves', async () => {
+    const record = {
+      decision: {
+        class: 'product' as const,
+        created_at: new Date('2026-11-16T12:00:00Z'),
+        delivery: null,
+        id: 'MMR-q1',
+        lifecycle: 'provisional' as const,
+        options: ['Keep', 'Remove'],
+        outcome_note: null,
+        overturn_option: null,
+        project_key: 'MMR',
+        question: 'Keep the rail?',
+        recommended: 1,
+        seq: 1,
+        taken: 1,
+        tasks: ['MMR-5'],
+        updated_at: new Date('2026-11-16T12:00:00Z'),
+        why: null,
+      },
+      kind: 'decision' as const,
+      workBuiltOnIt: true,
+    };
+    const withRecord = (lm: NeedsYouTask[]): ReviewReport =>
+      engineReview({
+        needsYou: [
+          ...(lm.length > 0 ? [{ project: LM, rows: lm }] : []),
+          { project: MMR, rows: [record] },
+        ],
+        projects: [stripRow(LM, { needsYou: lm.length }), stripRow(MMR, { needsYou: 1 })],
+        queue: [
+          ...lm.map((row) => ({ id: row.task.id, kind: row.kind })),
+          { id: 'MMR-q1', kind: 'decision' as const },
+        ],
+      });
+    let report = withRecord([loomQuestion]);
+    serve(() => report);
+    vi.mocked(groom).mockImplementation(async () => {
+      report = withRecord([]);
+      return [engineTask({ id: 'LM-196', status: 'ready' })];
+    });
+    await renderServed('/p/MMR/tasks');
+    const panel = await openAlert('2 need you');
+    within(panel).getByRole('button', { name: 'Answer…' }).focus();
+    await answerFrom(within(panel));
+
+    await waitFor(() => {
+      expect(within(panel).queryByRole('link', { name: 'Ship the plugin' })).toBeNull();
+    });
+    expect(within(rowOf(panel, 'MMR-q1')).getByRole('link', { name: 'MMR-5' })).toHaveFocus();
+  });
+
   it('stays to say so, with focus on its heading, when the last decision leaves', async () => {
     let report = twoProjects({ lm: [loomQuestion] });
     serve(() => report);
