@@ -175,7 +175,7 @@ const tagged = <T extends { task: { id: string } }>(rows: readonly T[]): ReviewW
  * - `triage`: per project with anything to triage, the untriaged seeds (oldest
  *   first), the tasks going cold, and the findings; most first, then key.
  * - `projects`: every active project in the rail's order (pinned first, then
- *   newest activity), with its decision, triage, in-flight, live, and going-cold
+ *   newest activity), with its needs-you, triage, in-flight, live, and going-cold
  *   counts. `live` is the `--status live` group: every status but done and
  *   abandoned, so parked work counts.
  * - `now`, `shipped`, `runnable`, `goingCold` (MMR-504): the work page's rows

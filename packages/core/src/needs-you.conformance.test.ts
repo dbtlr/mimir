@@ -263,4 +263,39 @@ describe.each(backends)('needs-you order ($name)', (backend) => {
       }
     },
   );
+
+  // SQLite only, as above: the decision read takes the same snapshot rule as the delivery read.
+  test.skipIf(backend.name !== 'sqlite')(
+    'review counts agree when a decision’s project is archived between the snapshot and the reads',
+    async () => {
+      const f = await backend.make();
+      try {
+        const e = new LocalEngine(f.store);
+        await createProject(f.store, { key: 'ARQ', name: 'Arq' });
+        await e.decide({
+          class: 'other',
+          options: ['Yes', 'No'],
+          project: 'ARQ',
+          question: 'Keep it?',
+          recommended: 1,
+        });
+        await e.archive({ id: 'ARQ' });
+        // The working set sees ARQ archived; the later provisional read sees it active again.
+        const provisional = f.store.decisions.listProvisional;
+        f.store.decisions.listProvisional = async () => {
+          await e.unarchive({ id: 'ARQ' });
+          return provisional();
+        };
+        const report = await e.console.review({ timeZone: 'UTC' });
+        const rows = report.needsYou.flatMap((g) => g.rows).length;
+        expect([
+          report.queue.length,
+          rows,
+          report.projects.reduce((n, x) => n + x.needsYou, 0),
+        ]).toEqual([0, 0, 0]);
+      } finally {
+        await f.close();
+      }
+    },
+  );
 });

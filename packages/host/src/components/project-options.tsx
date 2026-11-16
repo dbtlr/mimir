@@ -63,7 +63,7 @@ export function projectListMessage(input: {
 export const PROJECT_ROW =
   'flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-meta text-ink-dim max-md:py-2.5';
 
-/** A project row's content: its status (or snowflake), key, title, and decision count. */
+/** A project row's content: its status (or snowflake), key, title, and needs-you count. */
 export function ProjectRowContent({
   project,
   needsYou,

@@ -95,7 +95,7 @@ export async function projectOverviewOf(
 /**
  * The cross-project review page. The findings scan starts before the store
  * loads so the two overlap. A failed scan counts no findings rather than failing
- * the page: the decisions carry the page, and the doctor report carries the failure.
+ * the page: the needs-you set carries the page, and the doctor report carries the failure.
  */
 export async function reviewPageOf(
   store: Store,

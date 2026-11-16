@@ -31,7 +31,7 @@ import { reviewRoute } from '../router';
  * (`console.review`) feeds all of it, and the top-bar alert reads the same entry,
  * so their counts never disagree.
  *
- * Rows act in place (MMR-479): a decision carries the work page's answer, a
+ * Rows act in place (MMR-479): a task that needs answers carries the work page's answer, a
  * runnable task its Start, and a listed seed its triage verbs. When an
  * acted-on row leaves, keyboard focus moves on to the next row in its
  * section, or to the section's heading when none follows.

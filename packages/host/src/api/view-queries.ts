@@ -24,7 +24,7 @@ export type ReviewReport = ConsoleOutput<'review'>;
 /** A work page's report, as the Engine returns it. */
 export type WorkReport = ConsoleOutput<'projectWork'>;
 
-/** One task that needs the operator, on a work page or in a review decision group. */
+/** One row of the needs-you set (a stopped delivery, a decision, or a task), on a work page or in a review group. */
 export type NeedsYouMember = WorkReport['needsYou'][number];
 export type NeedsYouTask = Extract<NeedsYouMember, { kind: 'task' }>;
 export function needsYouId(row: NeedsYouMember): string {
