@@ -10,6 +10,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# The gate only reads the repository.
+permissions:
+  contents: read
+
 jobs:
   gate:
     name: gate
