@@ -17,10 +17,13 @@ export function RailSection({
   label,
   count,
   headingRef,
+  className,
   children,
 }: {
   label: string;
   count?: number;
+  /** Extra classes, e.g. a breakpoint where the section is no longer last on screen. */
+  className?: string;
   /** Makes the heading focusable, as a landing place for useRowFocusHandoff. */
   headingRef?: Ref<HTMLHeadingElement>;
   children: ReactNode;
@@ -29,7 +32,10 @@ export function RailSection({
   return (
     <section
       aria-labelledby={headingId}
-      className="flex flex-col gap-2 border-b border-line pb-4 last:border-b-0 last:pb-0"
+      className={cn(
+        'flex flex-col gap-2 border-b border-line pb-4 last:border-b-0 last:pb-0',
+        className,
+      )}
     >
       <h2
         id={headingId}

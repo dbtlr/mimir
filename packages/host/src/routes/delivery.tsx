@@ -112,7 +112,8 @@ function DeliveryRecord({ id }: { id: string }) {
           </p>
         ))}
       </RailSection>
-      <RailSection label="Recent run journal">
+      {/* Facts top the rail from lg up, so the journal is last on screen there. */}
+      <RailSection label="Recent run journal" className="lg:border-b-0 lg:pb-0">
         {journal.map((entry) => (
           <p key={entry.number} className="text-xs wrap-anywhere text-ink-dim">
             <time className="mr-2 text-ink-faint">{absoluteTime(entry.at)}</time>
@@ -130,7 +131,7 @@ function DeliveryRecord({ id }: { id: string }) {
         ))}
         {!journal.length && !d.journal.artifacts.length && <Empty lead="No journal entries yet." />}
       </RailSection>
-      <div className="lg:-order-1">
+      <div className="lg:-order-1 lg:border-b lg:border-line lg:pb-4">
         <DeliveryFacts delivery={d} />
       </div>
     </>

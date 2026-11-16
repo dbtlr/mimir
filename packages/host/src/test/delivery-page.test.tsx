@@ -164,9 +164,14 @@ test('renders the stopped dossier sections and puts facts and the final three se
 test('draws the stop and each open decision in attention, and nothing else', async () => {
   await open();
   const stopped = await screen.findByRole('region', { name: 'Stopped' });
-  expect(stopped).toHaveClass('border-attention/30', 'bg-attention/10');
+  expect(stopped).toHaveClass(
+    'border-attention/30',
+    'bg-attention/10',
+    'text-attention-foreground',
+  );
   const row = screen.getByText('Keep the rail?').closest('div');
   expect(row).toHaveClass('border-l-2', 'border-attention');
+  expect(row?.querySelector('span')).toHaveClass('text-attention-foreground');
   // The lifecycle and hold words are ink chips, so §3's status vocabulary stays closed.
   for (const word of ['running', 'stopped']) {
     const chip = screen.getAllByText(word).find((el) => el.className.includes('border-line'));
@@ -204,8 +209,16 @@ test('closes the phone page with the facts, topping the rail on desktop, and rea
   await open();
   const rail = await screen.findByRole('complementary', { name: 'Delivery details' });
   const facts = within(rail).getByRole('heading', { name: 'Facts' }).closest('section');
+  // Facts move to the top only from lg up; a base order would lift them on a phone too.
   expect(facts?.parentElement).toHaveClass('lg:-order-1');
+  expect(facts?.parentElement?.className).not.toMatch(/(^|\s)-?order-/);
   expect(rail.lastElementChild).toBe(facts?.parentElement);
+  // On desktop the facts carry the divider under them, and the journal, last on screen, carries none.
+  expect(facts?.parentElement).toHaveClass('lg:border-b');
+  const journal = within(rail)
+    .getByRole('heading', { name: 'Recent run journal' })
+    .closest('section');
+  expect(journal).toHaveClass('lg:border-b-0');
   expect(within(rail).getAllByRole('heading', { name: 'Facts' })).toHaveLength(1);
   // No T3 origin and no session handles, so the thread slot reads None.
   const thread = within(facts as HTMLElement).getByText('Thread').nextElementSibling;
@@ -219,11 +232,23 @@ test('wraps long unbroken text so the page never outgrows a phone', async () => 
   data.delivery.hold_reason = `Reason ${long}`;
   data.delivery.declined[0] = { ...data.delivery.declined[0]!, reason: `Declined ${long}` };
   data.decisions[0]!.options = [`Option ${long}`, 'Remove'];
+  data.delivery.limitations[0] = { ...data.delivery.limitations[0]!, text: `Limit ${long}` };
+  data.journal[0] = { ...data.journal[0]!, content: `Journal ${long}` };
+  data.followUps[0]!.items[0] = { ...data.followUps[0]!.items[0]!, content: `Item ${long}` };
   vi.mocked(deliveryPage).mockResolvedValue(data);
   await open();
-  for (const text of [`Title ${long}`, `Reason ${long}`, `Declined ${long}`, `Option ${long}`]) {
+  for (const text of [
+    `Title ${long}`,
+    `Reason ${long}`,
+    `Declined ${long}`,
+    `Option ${long}`,
+    `Limit ${long}`,
+    `Journal ${long}`,
+  ]) {
     expect((await screen.findByText(text)).closest('.wrap-anywhere')).not.toBeNull();
   }
+  const item = await screen.findByText(new RegExp(`Item ${long}`), { selector: 'li' });
+  expect(item.closest('.wrap-anywhere')).not.toBeNull();
 });
 
 test('redirects leading zeros to the canonical delivery address', async () => {
