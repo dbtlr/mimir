@@ -606,3 +606,75 @@ and MMR-695 adds the answer and verb controls.
   the needs-you set beside the task rows the review page groups, and renames
   the review report's `decisions` field to `needsYou`, so "decision" names
   only a decision record and a decision reads the same on every surface.
+
+## Refinement (2026-11-16, MMR-694): the needs-you set gains decisions and stopped deliveries
+
+The needs-you set (the MMR-476 refinement's first tier) held tasks only. Two
+more records now wait on the operator alone: a provisional decision
+([ADR 0043](0043-the-decision-record.md)) and a stopped delivery
+([ADR 0042](0042-the-delivery-record.md)). Both join the set, so the alert,
+the review page, the focus queue, and a work page's _Needs you_ show them and
+count them. The MMR-476 refinement's "One set, one count" still holds.
+
+### Membership
+
+- **A stopped delivery:** any delivery whose hold is `stopped`, in an active
+  project. A `paused` delivery is the operator's own pause, so it stays out.
+  A terminal delivery holds nothing, so it is never in the set.
+- **A provisional decision:** any decision whose lifecycle is `provisional`,
+  in an active project, whether or not it links a delivery or any task. A
+  confirmed or overturned decision is settled, so it stays out.
+- **A task** keeps the MMR-467 refinement's rule: blocked with owner `you`, or
+  `todo` with no hold and grooming _needs answers_.
+- On a work page, the set is narrowed to the page's scope. A stopped delivery
+  is in scope when its phase is the page's node or under it. A decision is in
+  scope when it links a task in scope, or links a delivery whose phase is in
+  scope. A project's page holds every record of the project.
+
+### Order
+
+Five kinds, in this order: a stopped delivery; a decision that links at least
+one task; a task blocked on you; a task that needs answers; a decision that
+links no task. A stopped delivery halts an agent now, and a linked decision
+puts work already built at risk, so both lead. Within a kind, the newest
+first: a delivery by its last `updated_at`, a decision by its `created_at`,
+and a task by the existing recency order. The order holds:
+
+- inside each project group on the review page and in the alert's popover;
+- in a project's urgency, which is its leading kind (the MMR-476
+  refinement's "leading decision kind" now ranks these five);
+- across projects in the focus queue, which drops the grouping;
+- on a work page's _Needs you_.
+
+### Rows
+
+- **A stopped delivery** reads as a needs-you row: the delivery's id, title,
+  and lifecycle word, the label _Stopped_, and its stop reason. It links to
+  the delivery's page.
+- **A decision** reads as the decision row of the MMR-680 refinement: the
+  question, its class, the options with the taken one marked, and its linked
+  tasks. It links to its delivery's page when it links a delivery. It is
+  read-only until MMR-695 adds its answer controls.
+- **A task** reads as before.
+- All three take the attention rule, as every row in the set does.
+
+### Names
+
+The review report called its groups of tasks that need the operator
+`decisions`, which ADR 0043 now names a record. The review side renames:
+`ReviewReport.decisions` becomes `needsYou`, `ReviewDecisionGroup` becomes
+`ReviewNeedsYouGroup`, `ReviewProject.decisions` (a count) becomes
+`needsYou`, and the console's `DecisionGroups` becomes `NeedsYouGroups`. A
+group, and the work report's `needsYou`, holds three lists, `deliveries`,
+`decisions`, and `tasks`, each in the order above. The rename changes the
+console views' contract inside the version window
+([ADR 0038](0038-device-pairing-and-the-version-window.md)). "Decision" then
+names only a decision record, which settles ADR 0043's open question of how
+the two read side by side.
+
+### The focus queue
+
+The queue walks the set's records one at a time in the order above. A
+delivery or a decision shows as its row with a link to the delivery's page.
+An unlinked decision shows as its row alone. The queue's ids include `KEY-dN`
+and `KEY-qN` ids beside task ids.
