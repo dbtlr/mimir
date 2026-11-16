@@ -106,12 +106,7 @@ export function FocusQueue({ offline }: { offline: boolean }) {
           onSkip={() => setCursor(index + 1)}
         />
       ) : (
-        <section className="rounded-lg border border-line bg-well-850 p-5">
-          <NeedsYouRow row={current} />
-          <ActionButton size="sm" variant="outline" onClick={() => setCursor(index + 1)}>
-            Skip
-          </ActionButton>
-        </section>
+        <RecordCard key={needsYouId(current)} row={current} onSkip={() => setCursor(index + 1)} />
       )}
       {next !== undefined && (
         <section aria-label="Up next" className="flex flex-col gap-1">
@@ -127,6 +122,37 @@ export function FocusQueue({ offline }: { offline: boolean }) {
         </section>
       )}
     </main>
+  );
+}
+
+/**
+ * A stopped delivery or a decision: its row and Skip, until MMR-695 adds their
+ * controls. Like a task's card it mounts per member, so when it takes the
+ * place of one that left, focus lands on Skip rather than the page body.
+ */
+function RecordCard({ row, onSkip }: { row: NeedsYouMember; onSkip: () => void }) {
+  const skipRef = useRef<HTMLButtonElement>(null);
+  useLayoutEffect(() => {
+    const active = document.activeElement;
+    if (active === null || active === document.body) {
+      skipRef.current?.focus({ preventScroll: true });
+    }
+  }, []);
+  return (
+    <section className="flex flex-col gap-3 rounded-lg border border-line bg-well-850 p-5">
+      <NeedsYouRow row={row} />
+      <div className="flex flex-wrap gap-2">
+        <ActionButton
+          ref={skipRef}
+          size="sm"
+          variant="outline"
+          className="max-md:min-h-11"
+          onClick={onSkip}
+        >
+          Skip
+        </ActionButton>
+      </div>
+    </section>
   );
 }
 

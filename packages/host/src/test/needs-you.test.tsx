@@ -10,7 +10,7 @@ import { serveNodes } from './node-fns';
 import { renderShell, renderRoute } from './router';
 import { serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
-import { engineReview, engineWork, stripRow } from './views-fixtures';
+import { engineReview, engineWork, needsYouRow, stripRow } from './views-fixtures';
 import { serveViews } from './views-fns';
 
 vi.mock('../api/fns/browse');
@@ -136,4 +136,31 @@ test('a work page preserves the ordered mixed list', async () => {
     main.textContent.indexOf('Keep the rail?'),
   );
   expect(within(main).getByText('Stopped')).toBeInTheDocument();
+});
+
+test('focus lands on a decision card’s Skip after Skip on a task card', async () => {
+  const [, decision] = rows();
+  const task = needsYouRow(
+    { id: 'MMR-480', status: 'ready', title: 'Pick the skip behavior' },
+    'needs_answers',
+    { question: 'Skip, or drop it?' },
+  );
+  const members = [task, decision!];
+  serveViews({
+    review: engineReview({
+      needsYou: [{ project: { key: 'MMR', name: 'Mimir' }, rows: members }],
+      projects: [stripRow({ key: 'MMR', name: 'Mimir' }, { needsYou: 2 })],
+      queue: [
+        { id: 'MMR-480', kind: 'task' },
+        { id: 'MMR-q1', kind: 'decision' },
+      ],
+    }),
+  });
+  await open('/?mode=focus');
+  const card = await screen.findByRole('region', { name: 'Pick the skip behavior' });
+  const skip = within(card).getByRole('button', { name: 'Skip' });
+  skip.focus();
+  fireEvent.click(skip);
+  await screen.findByRole('heading', { name: 'Keep the rail?' });
+  expect(screen.getByRole('button', { name: 'Skip' })).toHaveFocus();
 });
