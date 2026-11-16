@@ -122,6 +122,44 @@ describe('member spans', () => {
     expect(spans.get('MMR-3')).toEqual([{ end: at(5), start: at(1) }]);
   });
 
+  test('an abandon at the same millisecond as the member row ends the span there', () => {
+    const spans = memberSpans(
+      [member(1, 1, 'MMR-3', 'joined'), member(2, 5, 'MMR-3', 'abandoned')],
+      { 'MMR-3': [at(5)] },
+    );
+    expect(spans.get('MMR-3')).toEqual([{ end: at(5), start: at(1) }]);
+    // A later abandon row must not be picked over the one at the member row.
+    const later = memberSpans(
+      [member(1, 1, 'MMR-3', 'joined'), member(2, 5, 'MMR-3', 'abandoned')],
+      { 'MMR-3': [at(7), at(5)] },
+    );
+    expect(later.get('MMR-3')).toEqual([{ end: at(5), start: at(1) }]);
+  });
+
+  test('the abandon instants are read in time order whatever order the caller lists them', () => {
+    const spans = memberSpans(
+      [member(1, 1, 'MMR-3', 'joined'), member(2, 5, 'MMR-3', 'abandoned')],
+      { 'MMR-3': [at(9), at(6), at(5, 1)] },
+    );
+    expect(spans.get('MMR-3')).toEqual([{ end: at(5, 1), start: at(1) }]);
+  });
+
+  test('rows given out of id order read as if given in id order', () => {
+    const rows = [
+      member(1, 1, 'MMR-3', 'joined'),
+      member(2, 3, 'MMR-3', 'left'),
+      member(3, 5, 'MMR-3', 'joined'),
+      member(4, 7, 'MMR-3', 'released'),
+      lifecycle(5, 9, 'landed'),
+    ];
+    const shuffled = [rows[3], rows[0], rows[4], rows[2], rows[1]].filter((r) => r !== undefined);
+    expect(memberSpans(shuffled, {})).toEqual(memberSpans(rows, {}));
+    expect(memberSpans(shuffled, {}).get('MMR-3')).toEqual([
+      { end: at(3), start: at(1) },
+      { end: at(7), start: at(5) },
+    ]);
+  });
+
   test('landing ends every span still open, and leaves a closed one alone', () => {
     const spans = memberSpans(
       [
@@ -241,6 +279,40 @@ describe('the feed', () => {
       { ...lifecycle(2, 5, 'milestone'), at: at(5, 1) },
     ];
     expect(feedOf(sources, at(5)).map((e) => e.id)).toEqual(['MMR-d1/history/2']);
+  });
+
+  test('a cursor past year 9999 compares as an instant, not as text', () => {
+    const sources = empty();
+    sources.history = [lifecycle(1, 5, 'running')];
+    expect(feedOf(sources, '+010000-01-01T03:00:00.000Z')).toEqual([]);
+    expect(feedOf(sources, '0099-01-01T00:00:00.000Z')).toHaveLength(1);
+  });
+
+  test('an event stamped past year 9999 is after any four-digit cursor', () => {
+    const sources = empty();
+    sources.history = [{ ...lifecycle(1, 5, 'running'), at: '+010000-01-01T00:00:00.000Z' }];
+    expect(feedOf(sources, '9999-12-31T23:59:59.999Z')).toHaveLength(1);
+  });
+
+  test('a checklist item settled after its task left is not an event', () => {
+    const sources = empty();
+    sources.history = [member(1, 1, 'MMR-3', 'joined'), member(2, 4, 'MMR-3', 'left')];
+    sources.items = [
+      {
+        content: 'x',
+        created_at: at(2),
+        number: 1,
+        reason: null,
+        settled_at: at(8),
+        state: 'checked',
+        task: 'MMR-3',
+      },
+    ];
+    expect(feedOf(sources, at(0)).map((e) => e.id)).toEqual([
+      'MMR-d1/history/1',
+      'MMR-3/item/1/added',
+      'MMR-d1/history/2',
+    ]);
   });
 
   test('an event stamped in the future is included', () => {
@@ -557,6 +629,17 @@ describe('the tie order', () => {
         .filter((e) => e.kind === 'item')
         .map((e) => e.record),
     ).toEqual(['MMR-10', 'MMR-9']);
+  });
+
+  test('records and ids that case-insensitive locale order would swap order by code unit', () => {
+    const lower = tied({ id: 'k', record: 'a' });
+    const upper = tied({ id: 'k', record: 'B' });
+    expect(compareEvents(upper, lower)).toBeLessThan(0);
+    expect(compareEvents(lower, upper)).toBeGreaterThan(0);
+    const idLower = tied({ id: 'a' });
+    const idUpper = tied({ id: 'B' });
+    expect(compareEvents(idUpper, idLower)).toBeLessThan(0);
+    expect(compareEvents(idLower, idUpper)).toBeGreaterThan(0);
   });
 
   test('limitations and declined findings share one rank and order by number', () => {

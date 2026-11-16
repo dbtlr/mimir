@@ -148,6 +148,7 @@ export function readSinceSources(
       .selectFrom('delivery_history')
       .select(['id', 'at', 'kind', 'from_value', 'to_value', 'reason', 'task'])
       .where('delivery_id', '=', delivery)
+      .orderBy('id')
       .execute()) {
       history.push({ ...row, id: toRowId(row.id) });
     }

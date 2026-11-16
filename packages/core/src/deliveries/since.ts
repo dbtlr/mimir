@@ -97,9 +97,11 @@ export function memberSpans(
   history: readonly SinceHistoryRow[],
   abandonedAt: Readonly<Record<string, readonly string[]>>,
 ): Map<string, Span[]> {
-  const landed = history.find((row) => row.kind === 'lifecycle' && row.to_value === 'landed');
+  // Row ids are the history's order; the caller's order is not relied on.
+  const ordered = history.toSorted((a, b) => a.id - b.id);
+  const landed = ordered.find((row) => row.kind === 'lifecycle' && row.to_value === 'landed');
   const spans = new Map<string, Span[]>();
-  for (const row of history) {
+  for (const row of ordered) {
     if (row.kind !== 'member' || row.task === null) {
       continue;
     }
@@ -349,13 +351,15 @@ function allEvents(sources: SinceSources): RankedEvent[] {
 }
 
 /**
- * The feed: every event of `sources` strictly after `since` (an instant, in the
- * canonical form), oldest first in the total order. An event stamped later than
+ * The feed: every event of `sources` strictly after `since` (an instant),
+ * oldest first in the total order. Instants compare as instants, not as text,
+ * so the cursor's spelling never decides the cut. An event stamped later than
  * any clock is included like any other.
  */
 export function feedOf(sources: SinceSources, since: string): DeliveryEvent[] {
+  const cursor = Date.parse(since);
   return allEvents(sources)
-    .filter((event) => event.at > since)
+    .filter((event) => Date.parse(event.at) > cursor)
     .toSorted(compareEvents)
     .map(({ rank: _rank, row: _row, ...event }) => event);
 }
