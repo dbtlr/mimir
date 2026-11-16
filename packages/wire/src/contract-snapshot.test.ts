@@ -12,10 +12,28 @@ test('Engine schemas match the reviewed JSON Schema snapshot; regenerate with bu
   expect(engineSchemaSnapshot()).toEqual(snapshot);
 });
 
-test('a breaking Date constraint cannot disappear from compatibility review', () => {
+test('an inclusive Date bound is written into the snapshot, so a change to it is reviewed', () => {
   const original = engineSchemas.overview.input;
   const changed = original.extend({
     asOf: z.date().min(new Date('2100-01-01T00:00:00Z')).optional(),
+  });
+  Reflect.set(engineSchemas.overview, 'input', changed);
+  try {
+    expect(JSON.stringify(engineSchemaSnapshot().input)).toContain(
+      '"x-mimir-minimum":"2100-01-01T00:00:00.000Z"',
+    );
+  } finally {
+    Reflect.set(engineSchemas.overview, 'input', original);
+  }
+});
+
+test('a Date constraint with no snapshot representation cannot disappear from compatibility review', () => {
+  const original = engineSchemas.overview.input;
+  const changed = original.extend({
+    asOf: z
+      .date()
+      .check(z.gt(new Date('2100-01-01T00:00:00Z')))
+      .optional(),
   });
   const input = { asOf: new Date('2026-01-01T00:00:00Z'), project: 'MMR' };
   expect(original.safeParse(input).success).toBe(true);
