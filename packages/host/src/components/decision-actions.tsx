@@ -25,6 +25,7 @@ export function DecisionActions({
   const opener = useRef<HTMLButtonElement>(null);
   const pending = confirm.isPending || overturn.isPending;
   const disabled = offline || pending;
+  // Successful answers are terminal; keep the handoff armed until the refreshed row leaves.
   useDisarmWhenSettled(
     handoff,
     decision.id,

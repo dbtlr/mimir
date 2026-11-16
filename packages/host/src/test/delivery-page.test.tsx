@@ -501,6 +501,8 @@ test.each(['Pause', 'Abandon'])(
       }),
     );
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Refused delivery'));
+    await waitFor(() => expect(commit).toBeEnabled());
+    expect(screen.getByRole('dialog', { name: `${verb} MMR-d3` })).toBeInTheDocument();
     expect(within(dialog).getByRole('textbox')).toHaveValue('  Wait for access  ');
   },
 );

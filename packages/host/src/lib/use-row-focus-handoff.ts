@@ -97,7 +97,7 @@ function focusIsLost(): boolean {
   return active === null || active === document.body;
 }
 
-/** A row's first enabled action, else its first link, else the row itself when it takes focus. */
+/** A decision row itself; otherwise its first enabled action, first link, or focusable row. */
 function rowTarget(row: Element): HTMLElement | null {
   if (row instanceof HTMLElement && row.dataset.rowKind === 'decision') {
     return row;

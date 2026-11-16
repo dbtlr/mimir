@@ -18,6 +18,8 @@ import { ActionButton } from './ui/action-button';
  *    server-mandated triage record (400 otherwise).
  * `verb` drives the default title (the action's plain label) for the node lens; `title`
  * overrides it for callers with their own heading, like the seed dialogs.
+ * `keepOpenOnRefusal` opts into awaiting onConfirm and retaining text on rejection.
+ * `confirmVariant` opts into a different commit outline; existing callers keep their style.
  * `finalFocus` names the element that takes focus when the dialog closes, for
  * an opener that is not a dialog trigger, which Base UI cannot find by itself.
  */
