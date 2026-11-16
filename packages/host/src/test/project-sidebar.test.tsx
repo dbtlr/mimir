@@ -95,11 +95,12 @@ function serve(
   });
 }
 
-function renderAt(initial: string) {
+async function renderAt(initial: string) {
   const testRouter = createRouter({
     history: createMemoryHistory({ initialEntries: [initial] }),
     routeTree,
   });
+  await testRouter.load();
   render(
     <QueryClientProvider
       client={
@@ -178,21 +179,21 @@ describe('sidebar sections mark the page (MMR-485, MMR-496)', () => {
     ['/p/MMR/s41', 'Seeds'],
     ['/p/MMR/2', 'Work'],
   ])('%s marks only %s', async (path, label) => {
-    renderAt(path);
+    await renderAt(path);
     await waitFor(async () => {
       await expect(activeSections()).resolves.toStrictEqual([label]);
     });
   });
 
   it('marks Tasks on a task’s page once the tree names it a task', async () => {
-    renderAt('/p/MMR/3');
+    await renderAt('/p/MMR/3');
     await waitFor(async () => {
       await expect(activeSections()).resolves.toStrictEqual(['Tasks']);
     });
   });
 
   it('points the sections at the project', async () => {
-    renderAt('/p/MMR');
+    await renderAt('/p/MMR');
     const nav = await sidebar();
     expect(
       SECTIONS.map((name) => within(nav).getByRole('link', { name }).getAttribute('href')),
@@ -200,7 +201,7 @@ describe('sidebar sections mark the page (MMR-485, MMR-496)', () => {
   });
 
   it('washes the active section in the accent selection treatment, never solid', async () => {
-    renderAt('/p/MMR/seeds');
+    await renderAt('/p/MMR/seeds');
     const link = within(await sidebar()).getByRole('link', { name: 'Seeds' });
     expect(link.className).toContain('aria-[current]:bg-accent/10');
     expect(link.className).toContain('aria-[current]:inset-ring-accent/28');
@@ -210,7 +211,7 @@ describe('sidebar sections mark the page (MMR-485, MMR-496)', () => {
 describe('sidebar names the current project', () => {
   it('shows the URL’s project in the header', async () => {
     serve([MMR, NRN]);
-    renderAt('/p/NRN/seeds');
+    await renderAt('/p/NRN/seeds');
     const nav = await sidebar();
     await expect(
       within(nav).findByRole('button', { name: /NRN.*Norn/ }),
@@ -223,7 +224,7 @@ describe('sidebar names the current project', () => {
 
   it('renders no sidebar when there are no projects', async () => {
     serve([]);
-    renderAt('/');
+    await renderAt('/');
     await screen.findByRole('link', { name: 'Mimir' });
     await waitFor(() => {
       expect(projects).toHaveBeenCalledWith({
@@ -241,7 +242,7 @@ describe('sidebar on All projects (MMR-505)', () => {
     async (path) => {
       serve([MMR, NRN]);
       rememberProject('NRN');
-      renderAt(path);
+      await renderAt(path);
       const nav = await sidebar();
       expect(allHeader(nav)).toBeInTheDocument();
       expect(within(nav).queryByRole('button', { name: /NRN/ })).toBeNull();
@@ -260,14 +261,14 @@ describe('sidebar on All projects (MMR-505)', () => {
   );
 
   it('links Work to / and marks it the page there', async () => {
-    renderAt('/');
+    await renderAt('/');
     const work = within(await sidebar()).getByRole('link', { name: 'Work' });
     expect(work).toHaveAttribute('href', '/');
     expect(work).toHaveAttribute('aria-current', 'page');
   });
 
   it('marks nothing as the page on /doctor', async () => {
-    renderAt('/doctor');
+    await renderAt('/doctor');
     const work = within(await sidebar()).getByRole('link', { name: 'Work' });
     expect(work).toHaveAttribute('href', '/');
     expect(work).not.toHaveAttribute('aria-current');
@@ -276,7 +277,7 @@ describe('sidebar on All projects (MMR-505)', () => {
   it.each(['/devices', '/pair'])(
     'links Devices to /devices and marks it current on %s (MMR-585)',
     async (path) => {
-      renderAt(path);
+      await renderAt(path);
       const nav = await sidebar();
       const devices = within(nav).getByRole('link', { name: 'Devices' });
       expect(devices).toHaveAttribute('href', '/devices');
@@ -287,7 +288,7 @@ describe('sidebar on All projects (MMR-505)', () => {
 
   it('returns to the project context on a project page', async () => {
     serve([MMR, NRN]);
-    const testRouter = renderAt('/');
+    const testRouter = await renderAt('/');
     const nav = await sidebar();
     expect(allHeader(nav)).toBeInTheDocument();
     await act(async () => {
@@ -303,7 +304,7 @@ describe('sidebar on All projects (MMR-505)', () => {
 describe('sidebar Projects section on All projects (MMR-562, MMR-567)', () => {
   it('lists the pinned projects as links to their work pages, with their decisions', async () => {
     serveWorld([decisions('LOM', 2)]);
-    renderAt('/');
+    await renderAt('/');
     const area = await section();
     await waitFor(() => {
       expect(listedKeys(area)).toStrictEqual(['FLT', 'LOM']);
@@ -317,7 +318,7 @@ describe('sidebar Projects section on All projects (MMR-562, MMR-567)', () => {
   it('lists the five most recently active projects when nothing is pinned', async () => {
     const days = ['01', '06', '02', '05', '03', '04'];
     serveShell({ projects: days.map((day, i) => dated(`P${String(i)}`, day)) });
-    renderAt('/');
+    await renderAt('/');
     const listed = await section();
     await waitFor(() => {
       expect(listedKeys(listed)).toStrictEqual(['P1', 'P3', 'P5', 'P4', 'P2']);
@@ -326,7 +327,7 @@ describe('sidebar Projects section on All projects (MMR-562, MMR-567)', () => {
 
   it('opens a pinned project with a click', async () => {
     serveWorld();
-    const testRouter = renderAt('/');
+    const testRouter = await renderAt('/');
     await userEvent.click(await within(await section()).findByRole('link', { name: /^LOM/ }));
     await waitFor(() => {
       expect(testRouter.state.location.pathname).toBe('/p/LOM');
@@ -335,7 +336,7 @@ describe('sidebar Projects section on All projects (MMR-562, MMR-567)', () => {
 
   it('has no search of its own; the switcher above finds every project', async () => {
     serveWorld();
-    renderAt('/');
+    await renderAt('/');
     const area = await section();
     await within(area).findByRole('link', { name: /^FLT/ });
     expect(within(area).queryByRole('combobox')).toBeNull();
@@ -346,7 +347,7 @@ describe('sidebar Projects section on All projects (MMR-562, MMR-567)', () => {
     serveWorld();
     rememberProject('FLT');
     vi.mocked(projects).mockRejectedValue(new Error('unreachable'));
-    renderAt('/');
+    await renderAt('/');
     await expect(
       within(await section()).findByText('Couldn’t load the projects.'),
     ).resolves.toBeInTheDocument();
@@ -354,7 +355,7 @@ describe('sidebar Projects section on All projects (MMR-562, MMR-567)', () => {
 
   it('is not on a project page', async () => {
     serveWorld();
-    renderAt('/p/FLT');
+    await renderAt('/p/FLT');
     await within(await sidebar()).findByRole('link', { name: 'Seeds' });
     expect(within(await sidebar()).queryByRole('region', { name: 'Projects' })).toBeNull();
   });
@@ -362,7 +363,7 @@ describe('sidebar Projects section on All projects (MMR-562, MMR-567)', () => {
   it('closes the phone drawer behind a pick', async () => {
     stubViewport('phone');
     serveWorld();
-    const testRouter = renderAt('/');
+    const testRouter = await renderAt('/');
     await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
     const drawer = await screen.findByRole('dialog', { name: 'All projects' });
     await userEvent.click(await within(drawer).findByRole('link', { name: /^FLT/ }));
@@ -377,7 +378,7 @@ describe('sidebar Projects section on All projects (MMR-562, MMR-567)', () => {
 
 describe('sidebar landmarks name their context (MMR-505)', () => {
   it('stay Project on a project page', async () => {
-    renderAt('/p/MMR');
+    await renderAt('/p/MMR');
     await sidebar();
     expect(screen.getByRole('complementary', { name: 'Project' })).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'All projects' })).toBeNull();
@@ -385,7 +386,7 @@ describe('sidebar landmarks name their context (MMR-505)', () => {
 
   it('name the drawer All projects on / and Project on a project page', async () => {
     stubViewport('phone');
-    const testRouter = renderAt('/');
+    const testRouter = await renderAt('/');
     await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
     const drawer = await screen.findByRole('dialog', { name: 'All projects' });
     expect(within(drawer).getByRole('navigation', { name: 'All projects' })).toBeInTheDocument();
@@ -403,7 +404,7 @@ describe('sidebar landmarks name their context (MMR-505)', () => {
 
 describe('sidebar outline', () => {
   it('lists initiatives and phases, each linked to its page, and not tasks', async () => {
-    renderAt('/p/MMR');
+    await renderAt('/p/MMR');
     const nav = await outline();
     const link = await within(nav).findByRole('link', { name: /initiative MMR-1/ });
     expect(link).toHaveAttribute('href', '/p/MMR/1');
@@ -416,7 +417,7 @@ describe('sidebar outline', () => {
   });
 
   it('tallies each row: done over total, ∞ when open-ended, parked when parked', async () => {
-    renderAt('/p/MMR');
+    await renderAt('/p/MMR');
     const nav = await outline();
     const rowOf = async (name: RegExp) => within(nav).findByRole('link', { name });
     await expect(rowOf(/initiative MMR-1/)).resolves.toHaveTextContent('0/2');
@@ -425,7 +426,7 @@ describe('sidebar outline', () => {
   });
 
   it('opens the fold on a click to show the finished initiatives', async () => {
-    renderAt('/p/MMR');
+    await renderAt('/p/MMR');
     const nav = await outline();
     await within(nav).findByRole('link', { name: /initiative MMR-1/ });
     expect(within(nav).getByText('initiative MMR-5')).not.toBeVisible();
@@ -434,14 +435,14 @@ describe('sidebar outline', () => {
   });
 
   it('marks nothing as the page on the project’s own page', async () => {
-    renderAt('/p/MMR');
+    await renderAt('/p/MMR');
     const nav = await outline();
     await within(nav).findByRole('link', { name: /phase MMR-2/ });
     expect(within(nav).queryAllByRole('link', { current: 'page' })).toHaveLength(0);
   });
 
   it('marks a phase’s page and the initiative above it', async () => {
-    renderAt('/p/MMR/2');
+    await renderAt('/p/MMR/2');
     const nav = await outline();
     const phase = await within(nav).findByRole('link', { name: /phase MMR-2/ });
     await waitFor(() => {
@@ -457,7 +458,7 @@ describe('sidebar outline', () => {
   });
 
   it('places a task under its nearest container, with the containers above it on its path', async () => {
-    renderAt('/p/MMR/3');
+    await renderAt('/p/MMR/3');
     const nav = await outline();
     const taskRow = await within(nav).findByRole('link', { name: /task MMR-3/ });
     expect(taskRow).toHaveAttribute('aria-current', 'page');
@@ -479,7 +480,7 @@ describe('sidebar outline', () => {
   });
 
   it('opens the finished-initiatives fold when the open record is inside one', async () => {
-    renderAt('/p/MMR/6');
+    await renderAt('/p/MMR/6');
     const nav = await outline();
     const phase = await within(nav).findByRole('link', { name: /phase MMR-6/ });
     expect(phase).toBeVisible();
@@ -487,7 +488,7 @@ describe('sidebar outline', () => {
   });
 
   it('reopens a fold shut by hand when the next open record is inside it too', async () => {
-    const testRouter = renderAt('/p/MMR/6');
+    const testRouter = await renderAt('/p/MMR/6');
     const nav = await outline();
     await within(nav).findByRole('link', { name: /phase MMR-6/ });
     await userEvent.click(within(nav).getByText('1 finished initiative'));
@@ -501,7 +502,7 @@ describe('sidebar outline', () => {
   });
 
   it('keeps the fold shut otherwise', async () => {
-    renderAt('/p/MMR/2');
+    await renderAt('/p/MMR/2');
     const nav = await outline();
     await within(nav).findByRole('link', { name: /phase MMR-2/ });
     expect(nav.querySelector('details')).not.toHaveAttribute('open');
@@ -510,7 +511,7 @@ describe('sidebar outline', () => {
 
   it('says so when the tree cannot be read', async () => {
     vi.mocked(tree).mockRejectedValue(new Error('down'));
-    renderAt('/p/MMR');
+    await renderAt('/p/MMR');
     await expect(screen.findByText('Couldn’t load the structure.')).resolves.toBeInTheDocument();
   });
 });
@@ -540,7 +541,7 @@ describe('sidebar on an archived project (MMR-506)', () => {
 
   it('keeps the header and offers only Work, with no outline, browsers, or error line', async () => {
     serveArchived();
-    renderAt('/p/OLD');
+    await renderAt('/p/OLD');
 
     const nav = await sidebar();
     expect(within(nav).getByRole('button', { name: /OLD/ })).toBeInTheDocument();
@@ -565,7 +566,7 @@ const pageMarks = async () =>
 
 describe('sidebar announces where the page is', () => {
   it('marks the phase row as the page and its section as a softer current, not both as the page', async () => {
-    renderAt('/p/MMR/2');
+    await renderAt('/p/MMR/2');
     const nav = await sidebar();
     await waitFor(async () => {
       await expect(pageMarks()).resolves.toStrictEqual([expect.stringContaining('phase MMR-2')]);
@@ -574,7 +575,7 @@ describe('sidebar announces where the page is', () => {
   });
 
   it('marks a task’s row as the page and Tasks as the current section', async () => {
-    renderAt('/p/MMR/3');
+    await renderAt('/p/MMR/3');
     const nav = await sidebar();
     await waitFor(async () => {
       await expect(pageMarks()).resolves.toStrictEqual([expect.stringContaining('task MMR-3')]);
@@ -586,7 +587,7 @@ describe('sidebar announces where the page is', () => {
   });
 
   it('marks a browser’s section as the page itself, since no row stands for it', async () => {
-    renderAt('/p/MMR/seeds');
+    await renderAt('/p/MMR/seeds');
     const nav = await sidebar();
     await waitFor(() => {
       expect(within(nav).getByRole('link', { name: 'Seeds' })).toHaveAttribute(
@@ -597,7 +598,7 @@ describe('sidebar announces where the page is', () => {
   });
 
   it('says in words that a ringed ancestor contains the page', async () => {
-    renderAt('/p/MMR/3');
+    await renderAt('/p/MMR/3');
     const nav = await outline();
     const initiative = await within(nav).findByRole('link', { name: /initiative MMR-1/ });
     await waitFor(() => {
@@ -610,20 +611,20 @@ describe('sidebar announces where the page is', () => {
 
   it('puts a task’s page under Tasks from its own record, without the tree', async () => {
     vi.mocked(tree).mockRejectedValue(new Error('down'));
-    renderAt('/p/MMR/3');
+    await renderAt('/p/MMR/3');
     await waitFor(async () => {
       await expect(activeSections()).resolves.toStrictEqual(['Tasks']);
     });
   });
 
   it('names the sidebar landmark', async () => {
-    renderAt('/p/MMR');
+    await renderAt('/p/MMR');
     await sidebar();
     expect(screen.getByRole('complementary', { name: 'Project' })).toBeInTheDocument();
   });
 
   it('offers a skip link before everything else that moves focus to the page', async () => {
-    renderAt('/p/MMR/2');
+    await renderAt('/p/MMR/2');
     await screen.findByRole('heading', { level: 1 });
     const skip = screen.getByRole('link', { name: 'Skip to content' });
     expect(document.body.querySelector('a')).toBe(skip);
@@ -637,7 +638,7 @@ describe('sidebar announces where the page is', () => {
 describe('sidebar breakpoint', () => {
   it('is a drawer on a tablet, where the page rail needs the width', async () => {
     stubViewport('tablet');
-    renderAt('/p/MMR/2');
+    await renderAt('/p/MMR/2');
     const open = await screen.findByRole('button', { name: 'Open project menu' });
     expect(screen.queryByRole('complementary', { name: 'Project' })).toBeNull();
     await userEvent.click(open);
@@ -645,7 +646,7 @@ describe('sidebar breakpoint', () => {
   });
 
   it('moves the desktop toasts clear of the sidebar', async () => {
-    renderAt('/p/MMR');
+    await renderAt('/p/MMR');
     await sidebar();
     toast('Saved');
     const toaster = await waitFor(() => {
@@ -658,7 +659,7 @@ describe('sidebar breakpoint', () => {
 
   it('leaves the toasts at the edge when there is no sidebar', async () => {
     serve([]);
-    renderAt('/');
+    await renderAt('/');
     await screen.findByRole('link', { name: 'Mimir' });
     toast('Saved');
     const toaster = await waitFor(() => {
@@ -673,7 +674,7 @@ describe('sidebar breakpoint', () => {
 describe('top bar', () => {
   it('keeps the brand, the jump palette, Needs you, and the theme toggle', async () => {
     vi.mocked(review).mockResolvedValue(engineReview({ queue: ['MMR-52'] }));
-    renderAt('/p/MMR/tasks');
+    await renderAt('/p/MMR/tasks');
     await sidebar();
     const bar = topBar();
     expect(within(bar).getByRole('link', { name: 'Mimir' })).toHaveAttribute('href', '/');
@@ -683,7 +684,7 @@ describe('top bar', () => {
   });
 
   it('carries no section links, project picker, or overflow menu', async () => {
-    renderAt('/p/MMR/tasks');
+    await renderAt('/p/MMR/tasks');
     await sidebar();
     const bar = topBar();
     for (const name of SECTIONS) {
@@ -701,7 +702,7 @@ describe('sidebar drawer on a phone', () => {
   });
 
   it('shows no inline sidebar, only a top-bar button that opens it', async () => {
-    renderAt('/p/MMR/tasks');
+    await renderAt('/p/MMR/tasks');
     const open = await screen.findByRole('button', { name: 'Open project menu' });
     expect(within(topBar()).getByRole('button', { name: 'Open project menu' })).toBe(open);
     expect(screen.queryByRole('navigation', { name: 'Project' })).toBeNull();
@@ -717,7 +718,7 @@ describe('sidebar drawer on a phone', () => {
   });
 
   it('closes on Escape and hands focus back to the button', async () => {
-    renderAt('/p/MMR');
+    await renderAt('/p/MMR');
     const open = await screen.findByRole('button', { name: 'Open project menu' });
     await userEvent.click(open);
     await screen.findByRole('dialog', { name: 'Project' });
@@ -731,7 +732,7 @@ describe('sidebar drawer on a phone', () => {
   });
 
   it('moves focus into the drawer when it opens', async () => {
-    renderAt('/p/MMR');
+    await renderAt('/p/MMR');
     await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
     const drawer = await screen.findByRole('dialog', { name: 'Project' });
     await waitFor(() => {
@@ -740,7 +741,7 @@ describe('sidebar drawer on a phone', () => {
   });
 
   it('closes when a section is chosen', async () => {
-    const testRouter = renderAt('/p/MMR');
+    const testRouter = await renderAt('/p/MMR');
     await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
     const drawer = await screen.findByRole('dialog', { name: 'Project' });
 
@@ -753,7 +754,7 @@ describe('sidebar drawer on a phone', () => {
   });
 
   it('closes when the page changes some other way, such as Back or the jump palette', async () => {
-    const testRouter = renderAt('/p/MMR');
+    const testRouter = await renderAt('/p/MMR');
     await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
     await screen.findByRole('dialog', { name: 'Project' });
 
@@ -767,7 +768,7 @@ describe('sidebar drawer on a phone', () => {
   });
 
   it('closes on the scrim', async () => {
-    renderAt('/p/MMR');
+    await renderAt('/p/MMR');
     await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
     await screen.findByRole('dialog', { name: 'Project' });
 
@@ -780,7 +781,7 @@ describe('sidebar drawer on a phone', () => {
 
   it('opens on / with the All projects context: Work and Projects', async () => {
     serve([MMR, NRN], {}, [decisions('MMR', 1)]);
-    renderAt('/');
+    await renderAt('/');
     await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
     const drawer = await screen.findByRole('dialog', { name: 'All projects' });
     const nav = within(drawer).getByRole('navigation', { name: 'All projects' });
@@ -794,7 +795,7 @@ describe('sidebar drawer on a phone', () => {
 
   it('has no drawer button with no projects', async () => {
     serve([]);
-    renderAt('/');
+    await renderAt('/');
     await screen.findByRole('link', { name: 'Mimir' });
     await waitFor(() => {
       expect(projects).toHaveBeenCalledWith({
@@ -807,7 +808,7 @@ describe('sidebar drawer on a phone', () => {
 
 describe('sidebar on a desktop', () => {
   it('has no drawer button', async () => {
-    renderAt('/p/MMR');
+    await renderAt('/p/MMR');
     await sidebar();
     expect(screen.queryByRole('button', { name: 'Open project menu' })).toBeNull();
   });

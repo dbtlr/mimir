@@ -51,15 +51,15 @@ const quietClient = () =>
 const routes = [projectRoute, tasksRoute];
 
 /** The full console tree: the case that uses it guards against the shell's own polling re-mounting the page. */
-function renderInShell(initial: string, client: QueryClient) {
+async function renderInShell(initial: string, client: QueryClient) {
+  const testRouter = createRouter({
+    history: createMemoryHistory({ initialEntries: [initial] }),
+    routeTree,
+  });
+  await testRouter.load();
   render(
     <QueryClientProvider client={client}>
-      <RouterProvider
-        router={createRouter({
-          history: createMemoryHistory({ initialEntries: [initial] }),
-          routeTree,
-        })}
-      />
+      <RouterProvider router={testRouter} />
     </QueryClientProvider>,
   );
 }
@@ -160,7 +160,7 @@ describe('an archived project’s address (MMR-506)', () => {
 
   it('stays still across poll intervals: no further project reads, and the notice never unmounts', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    renderInShell('/p/OLD', createQueryClient());
+    await renderInShell('/p/OLD', createQueryClient());
     const button = await screen.findByRole('button', { name: 'Unarchive Old project' });
     const removed: Node[] = [];
     const watch = new MutationObserver((records) => {

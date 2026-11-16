@@ -75,11 +75,12 @@ function mockApi() {
   });
 }
 
-function renderApp(initial = '/') {
+async function renderApp(initial = '/') {
   const testRouter = createRouter({
     history: createMemoryHistory({ initialEntries: [initial] }),
     routeTree,
   });
+  await testRouter.load();
   render(
     <QueryClientProvider
       client={
@@ -125,7 +126,7 @@ afterEach(() => {
 describe('jump palette (MMR-455)', () => {
   it('finds a record by its exact ID, lists its links, and opens it with Enter', async () => {
     const user = userEvent.setup();
-    const testRouter = renderApp('/p/MMR/tasks');
+    const testRouter = await renderApp('/p/MMR/tasks');
 
     await jump(user, 'MMR-417');
 
@@ -147,7 +148,7 @@ describe('jump palette (MMR-455)', () => {
 
   it('groups title hits and moves through them with the arrow keys', async () => {
     const user = userEvent.setup();
-    const testRouter = renderApp();
+    const testRouter = await renderApp();
 
     await jump(user, 'sqlite');
 
@@ -173,7 +174,7 @@ describe('jump palette (MMR-455)', () => {
 
   it('shows a description hit under its own group, with the matched words', async () => {
     const user = userEvent.setup();
-    renderApp();
+    await renderApp();
 
     await jump(user, 'dialect');
 
@@ -186,7 +187,7 @@ describe('jump palette (MMR-455)', () => {
 
   it('ranks the current project first by sending it with the query', async () => {
     const user = userEvent.setup();
-    renderApp('/p/MMR');
+    await renderApp('/p/MMR');
 
     await jump(user, 'sqlite');
 
@@ -196,7 +197,7 @@ describe('jump palette (MMR-455)', () => {
 
   it('says so when nothing matches', async () => {
     const user = userEvent.setup();
-    renderApp();
+    await renderApp();
 
     await jump(user, 'zzz');
 
@@ -205,7 +206,7 @@ describe('jump palette (MMR-455)', () => {
 
   it('opens from the top-bar button and closes on Escape', async () => {
     const user = userEvent.setup();
-    renderApp();
+    await renderApp();
 
     await openFromButton(user);
 
@@ -220,7 +221,7 @@ describe('jump palette (MMR-455)', () => {
 
   it('opens the result for what is typed now, not for the query before it', async () => {
     const user = userEvent.setup();
-    const testRouter = renderApp();
+    const testRouter = await renderApp();
 
     const input = await jump(user, 'sqlite');
     await screen.findByRole('group', { name: /Titles · 2/ });
@@ -235,7 +236,7 @@ describe('jump palette (MMR-455)', () => {
 
   it('ignores a click on a row left over from the previous query', async () => {
     const user = userEvent.setup();
-    const testRouter = renderApp();
+    const testRouter = await renderApp();
 
     const input = await jump(user, 'sqlite');
     await screen.findByRole('option', { name: /MMR-s41/ });
@@ -249,7 +250,7 @@ describe('jump palette (MMR-455)', () => {
 
   it('searches every project from a page whose project does not exist', async () => {
     const user = userEvent.setup();
-    renderApp('/p/ZZ/417');
+    await renderApp('/p/ZZ/417');
 
     await screen.findByText(/No record ZZ-417/);
     await jump(user, 'sqlite');
@@ -263,7 +264,7 @@ describe('jump palette (MMR-455)', () => {
 
   it('leaves ⌘K alone off a Mac, where the chord is Ctrl-K', async () => {
     const user = userEvent.setup();
-    renderApp();
+    await renderApp();
 
     await screen.findByRole('button', { name: 'Jump to…' });
     await user.keyboard('{Meta>}k{/Meta}');
@@ -272,7 +273,7 @@ describe('jump palette (MMR-455)', () => {
 
   it('lists recently opened records and the actions when the query is empty', async () => {
     const user = userEvent.setup();
-    const testRouter = renderApp('/p/MMR');
+    const testRouter = await renderApp('/p/MMR');
 
     await jump(user, 'sqlite');
     await screen.findByRole('group', { name: /Titles/ });
@@ -291,7 +292,7 @@ describe('jump palette (MMR-455)', () => {
 
   it('counts a record page opened by its URL as recent', async () => {
     const user = userEvent.setup();
-    renderApp('/p/MMR/417');
+    await renderApp('/p/MMR/417');
 
     await screen.findByRole('heading', { name: 'Add the SQLite dialect' });
     await user.click(screen.getByRole('button', { name: 'Jump to…' }));
@@ -301,7 +302,7 @@ describe('jump palette (MMR-455)', () => {
 
   it('names no project on New task where none is in scope', async () => {
     const user = userEvent.setup();
-    renderApp('/');
+    await renderApp('/');
 
     await user.click(await screen.findByRole('button', { name: 'Jump to…' }));
     const actions = await screen.findByRole('group', { name: /Actions/ });
@@ -310,7 +311,7 @@ describe('jump palette (MMR-455)', () => {
 
   it('runs an action from the keyboard: File a seed opens the capture dialog', async () => {
     const user = userEvent.setup();
-    renderApp('/p/MMR/tasks');
+    await renderApp('/p/MMR/tasks');
 
     await openFromButton(user);
     const actions = screen.getByRole('group', { name: /Actions/ });
@@ -329,7 +330,7 @@ describe('jump palette (MMR-455)', () => {
 
   it('opens the authoring sheet from New task', async () => {
     const user = userEvent.setup();
-    renderApp('/p/MMR');
+    await renderApp('/p/MMR');
 
     await user.click(await screen.findByRole('button', { name: 'Jump to…' }));
     await user.click(await screen.findByRole('option', { name: /New task in MMR/ }));

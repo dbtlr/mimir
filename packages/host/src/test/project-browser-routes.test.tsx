@@ -58,15 +58,15 @@ const quietClient = () =>
 const renderAt = (initial: string) =>
   renderRoute(consoleRoutes, initial, quietClient(), SeedCaptureProvider);
 
-function renderInShell(initial: string) {
+async function renderInShell(initial: string) {
+  const testRouter = createRouter({
+    history: createMemoryHistory({ initialEntries: [initial] }),
+    routeTree,
+  });
+  await testRouter.load();
   render(
     <QueryClientProvider client={quietClient()}>
-      <RouterProvider
-        router={createRouter({
-          history: createMemoryHistory({ initialEntries: [initial] }),
-          routeTree,
-        })}
-      />
+      <RouterProvider router={testRouter} />
     </QueryClientProvider>,
   );
 }
@@ -139,7 +139,7 @@ describe('a browser under an unknown project (MMR-495)', () => {
 // Shell tests: the shell's project-list effect does the remembering, so these mount the full tree.
 describe('remembering the current project (MMR-495)', () => {
   it('remembers the project of a page once the list confirms it exists', async () => {
-    renderInShell('/p/NRN/tasks');
+    await renderInShell('/p/NRN/tasks');
     await waitFor(() => {
       expect(readRememberedProject()).toBe('NRN');
     });
@@ -147,7 +147,7 @@ describe('remembering the current project (MMR-495)', () => {
 
   it('does not remember a key that names no project', async () => {
     rememberProject('MMR');
-    renderInShell('/p/ZZZ/tasks');
+    await renderInShell('/p/ZZZ/tasks');
     await screen.findByRole('heading', { level: 1, name: 'Project unavailable' });
     await waitFor(() => {
       expect(projects).toHaveBeenCalledWith(

@@ -108,7 +108,10 @@ describe('splitLinks on long input', () => {
     const text = `https://a${')'.repeat(100_000)}`;
     const start = performance.now();
     const urls = urlsIn(text);
-    expect(performance.now() - start).toBeLessThan(250);
+    // A linear trim takes tens of milliseconds; a quadratic one (about 10^10
+    // steps here) takes seconds. The budget sits between, with room for a
+    // loaded runner.
+    expect(performance.now() - start).toBeLessThan(1000);
     expect(urls).toEqual(['https://a']);
   });
 });

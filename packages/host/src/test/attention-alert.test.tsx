@@ -55,16 +55,17 @@ function serve(current: () => ReviewReport) {
   });
 }
 
-function renderAt(path: string, report: ReviewReport) {
+async function renderAt(path: string, report: ReviewReport) {
   serve(() => report);
   return renderServed(path);
 }
 
-function renderServed(path: string) {
+async function renderServed(path: string) {
   const testRouter = createRouter({
     history: createMemoryHistory({ initialEntries: [path] }),
     routeTree,
   });
+  await testRouter.load();
   const client = new QueryClient();
   render(
     <QueryClientProvider client={client}>
@@ -145,21 +146,21 @@ async function openAlert(name: string) {
 
 describe('the attention alert trigger', () => {
   it('is a button named for the count of decisions, not a link', async () => {
-    renderAt('/p/MMR/tasks', twoProjects());
+    await renderAt('/p/MMR/tasks', twoProjects());
     const alert = await screen.findByRole('button', { name: '3 decisions need you' });
     expect(alert.textContent).toContain('3');
     expect(screen.queryByRole('link', { name: /need you/ })).toBeNull();
   });
 
   it('reads in the singular for one decision', async () => {
-    renderAt('/p/MMR/tasks', twoProjects({ lm: [loomQuestion] }));
+    await renderAt('/p/MMR/tasks', twoProjects({ lm: [loomQuestion] }));
     await expect(
       screen.findByRole('button', { name: '1 decision needs you' }),
     ).resolves.toBeDefined();
   });
 
   it('is absent when nothing needs a decision, however much waits in triage', async () => {
-    renderAt(
+    await renderAt(
       '/',
       engineReview({
         projects: [stripRow(MMR, { triage: 15 })],
@@ -176,7 +177,7 @@ describe('the attention alert trigger', () => {
 
 describe('the Needs you popover', () => {
   it('opens on the trigger with the review’s groups in order, moves focus in, and closes on Escape back to the trigger', async () => {
-    renderAt('/p/MMR/tasks', twoProjects());
+    await renderAt('/p/MMR/tasks', twoProjects());
     expect(screen.queryByRole('dialog')).toBeNull();
 
     const panel = await openAlert('3 decisions need you');
@@ -197,7 +198,7 @@ describe('the Needs you popover', () => {
   });
 
   it('marks the decision whose record is the current page', async () => {
-    renderAt('/p/MMR/480', twoProjects());
+    await renderAt('/p/MMR/480', twoProjects());
     const panel = await openAlert('3 decisions need you');
 
     expect(within(panel).getAllByText('This page')).toHaveLength(1);
@@ -205,14 +206,14 @@ describe('the Needs you popover', () => {
   });
 
   it('marks nothing on a page that is not a decision’s record', async () => {
-    renderAt('/p/MMR/s480', twoProjects());
+    await renderAt('/p/MMR/s480', twoProjects());
     const panel = await openAlert('3 decisions need you');
 
     expect(within(panel).queryByText('This page')).toBeNull();
   });
 
   it('links to the review page and the focus queue', async () => {
-    renderAt('/p/MMR/tasks', twoProjects());
+    await renderAt('/p/MMR/tasks', twoProjects());
     const panel = await openAlert('3 decisions need you');
 
     expect(within(panel).getByRole('link', { name: 'Open review page' }).getAttribute('href')).toBe(
@@ -224,7 +225,7 @@ describe('the Needs you popover', () => {
   });
 
   it('closes on navigation', async () => {
-    const { testRouter } = renderAt('/p/MMR/tasks', twoProjects());
+    const { testRouter } = await renderAt('/p/MMR/tasks', twoProjects());
     const panel = await openAlert('3 decisions need you');
 
     await userEvent.click(within(panel).getByRole('link', { name: 'Work through these · 3' }));
@@ -236,7 +237,7 @@ describe('the Needs you popover', () => {
   });
 
   it('closes on a link to the page already showing', async () => {
-    renderAt('/p/MMR/480', twoProjects());
+    await renderAt('/p/MMR/480', twoProjects());
     const panel = await openAlert('3 decisions need you');
 
     await userEvent.click(within(panel).getByRole('link', { name: question.task.title }));
@@ -247,7 +248,7 @@ describe('the Needs you popover', () => {
   });
 
   it('returns focus to Answer… when its dialog is cancelled or escaped', async () => {
-    renderAt('/p/MMR/tasks', twoProjects({ lm: [loomQuestion] }));
+    await renderAt('/p/MMR/tasks', twoProjects({ lm: [loomQuestion] }));
     const panel = await openAlert('1 decision needs you');
     const answerButton = within(panel).getByRole('button', { name: 'Answer…' });
 
@@ -272,7 +273,7 @@ describe('the Needs you popover', () => {
 
   it('closes when the viewport crosses the breakpoint, and opens afresh as the sheet', async () => {
     const setViewport = stubViewport('desktop');
-    renderAt('/p/MMR/tasks', twoProjects({ lm: [loomQuestion] }));
+    await renderAt('/p/MMR/tasks', twoProjects({ lm: [loomQuestion] }));
     await openAlert('1 decision needs you');
 
     setViewport('phone');
@@ -291,7 +292,7 @@ describe('the Needs you popover', () => {
       report = twoProjects({ mmr: [block, question] });
       return [engineTask({ id: 'LM-196', status: 'ready' })];
     });
-    renderServed('/p/MMR/tasks');
+    await renderServed('/p/MMR/tasks');
     const panel = await openAlert('3 decisions need you');
 
     await answerFrom(within(rowOf(panel, 'LM-196')));
@@ -318,7 +319,7 @@ describe('the Needs you popover', () => {
       report = twoProjects({});
       return [engineTask({ id: 'LM-196', status: 'ready' })];
     });
-    renderServed('/p/MMR/tasks');
+    await renderServed('/p/MMR/tasks');
     const panel = await openAlert('1 decision needs you');
     within(panel).getByRole('button', { name: 'Answer…' }).focus();
     await answerFrom(within(panel));
@@ -340,7 +341,7 @@ describe('the Needs you popover', () => {
 describe('the Needs you sheet on a phone', () => {
   it('opens the same list as a bottom sheet, and Escape returns focus to the trigger', async () => {
     stubViewport('phone');
-    renderAt('/p/MMR/tasks', twoProjects());
+    await renderAt('/p/MMR/tasks', twoProjects());
     const trigger = await screen.findByRole('button', { name: '3 decisions need you' });
     const panel = await openAlert('3 decisions need you');
 
