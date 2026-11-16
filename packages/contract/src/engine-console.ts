@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { checklistItemEngineSchema } from './checklist';
-import { decisionViewSchema, decisionHistorySchema, decisionEngineSchema } from './decision';
+import { decisionViewSchema, decisionEngineSchema } from './decision';
 import { deliveryDetailEngineSchema, deliveryEngineSchema } from './delivery';
 import { engineViews, nodeRefSchema, nodeSchema, seedSchema } from './engine-views';
 
@@ -33,9 +33,8 @@ function consoleViewSchemas<T extends z.ZodType>(instant: T) {
   const needsYouRow = z.discriminatedUnion('kind', [
     taskNeedsYouRow,
     z.object({
-      decision: decisionViewSchema.extend({
+      decision: decisionViewSchema.omit({ history: true }).extend({
         created_at: instant,
-        history: z.array(decisionHistorySchema.extend({ at: instant })),
         updated_at: instant,
       }),
       kind: z.literal('decision'),

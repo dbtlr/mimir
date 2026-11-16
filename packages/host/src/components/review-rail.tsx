@@ -60,7 +60,7 @@ const STRIP_COLUMNS =
 
 /**
  * One row per active project in the report's order (pinned first, then the
- * most recent activity): its needsYou in the attention hue, its open tasks
+ * most recent activity): its needs-you count in the attention hue, its open tasks
  * ("live"), and the tasks going cold in ink-dim, since going cold has no hue
  * of its own (ADR 0019, MMR-619). A row opens the project's work page.
  */

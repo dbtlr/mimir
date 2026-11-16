@@ -161,7 +161,7 @@ export function DecisionRow({
   decision,
   currentDelivery,
 }: {
-  decision: EngineDecision;
+  decision: Omit<EngineDecision, 'history'>;
   currentDelivery?: string;
 }) {
   return (

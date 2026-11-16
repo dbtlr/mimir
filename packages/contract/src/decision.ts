@@ -54,6 +54,8 @@ export function encodeDecision(view: EngineDecision): DecisionView {
   };
 }
 export type DecisionView = z.infer<typeof decisionViewSchema>;
+/** A decision as the needs-you set lists it: task links, no history. */
+export type NeedsYouDecision = Omit<DecisionView, 'history'>;
 export type DecisionHistory = z.infer<typeof decisionHistorySchema>;
 export function decisionSchemas<P extends z.ZodType<string>>(project: P) {
   return {

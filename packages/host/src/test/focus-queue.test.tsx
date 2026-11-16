@@ -33,7 +33,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function decision(
+function taskRow(
   id: string,
   reason: NeedsYouTask['reason'],
   extra: { title?: string; holdReason?: string; question?: string } = {},
@@ -48,20 +48,20 @@ function decision(
 const LM = { key: 'LM', name: 'Loom CLI' };
 const MMR = { key: 'MMR', name: 'Mimir' };
 
-const loomQuestion = decision('LM-196', 'needs_answers', {
+const loomQuestion = taskRow('LM-196', 'needs_answers', {
   question: 'Which name?',
   title: 'Name the plugin',
 });
-const block = decision('MMR-52', 'blocked', {
+const block = taskRow('MMR-52', 'blocked', {
   holdReason: 'Needs an API token',
   title: 'Screenshot a signed-in page',
 });
-const question = decision('MMR-480', 'needs_answers', {
+const question = taskRow('MMR-480', 'needs_answers', {
   question: 'Skip, or drop it?',
   title: 'Pick the skip behavior',
 });
 
-/** A review read listing `rows` as needsYou in the queue order given, grouped LM then MMR. */
+/** A review read listing `rows` as the needs-you set in the queue order given, grouped LM then MMR. */
 function needsYou(...rows: NeedsYouTask[]): ReviewReport {
   const groups = [LM, MMR]
     .map((p) => ({ project: p, rows: rows.filter((r) => r.task.id.startsWith(`${p.key}-`)) }))
@@ -138,7 +138,7 @@ function reviewClient(cached?: ReviewReport) {
   return client;
 }
 
-/** The focus card, named by the title of the one decision the queue shows. */
+/** The focus card, named by the title of the one member the queue shows. */
 const cardFor = (row: NeedsYouTask) => screen.findByRole('region', { name: row.task.title });
 
 describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () => {
@@ -195,7 +195,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
   });
 
   it('links a URL in the hold reason, opening in a new tab, with the text around it', async () => {
-    const linked = decision('MMR-53', 'blocked', {
+    const linked = taskRow('MMR-53', 'blocked', {
       holdReason: 'Waiting on https://example.com/review today',
       title: 'Wait for the review',
     });
@@ -263,7 +263,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
   });
 
   it('keeps the list it opened with: a later decision waits, a settled one is passed over', async () => {
-    const later = decision('MMR-490', 'needs_answers', {
+    const later = taskRow('MMR-490', 'needs_answers', {
       question: 'Which?',
       title: 'Arrived later',
     });

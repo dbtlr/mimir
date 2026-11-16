@@ -254,7 +254,7 @@ function NeedsYouSection({ rows, offline }: { rows: readonly NeedsYouMember[]; o
       headingRef={headingRef}
     >
       {rows.length === 0 ? (
-        <Empty lead="Nothing needs you.">No blocks or questions are waiting.</Empty>
+        <Empty lead="Nothing needs you.">Nothing here needs you.</Empty>
       ) : (
         rows.map((row) => (
           <NeedsYouRow

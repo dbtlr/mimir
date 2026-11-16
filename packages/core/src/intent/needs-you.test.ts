@@ -37,7 +37,6 @@ const decision = (seq: number, created_at: string, updated_at: string): WorkNeed
     class: 'other',
     created_at,
     delivery: null,
-    history: [],
     id: `SET-q${seq}`,
     lifecycle: 'provisional',
     options: ['A', 'B'],

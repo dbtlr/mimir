@@ -168,8 +168,9 @@ const tagged = <T extends { task: { id: string } }>(rows: readonly T[]): ReviewW
 /**
  * The review page across every active (non-archived) project.
  *
- * - `needsYou`: per project with any, the work page's `needsYou` rows (the
- *   membership rule is `needsYouReasonOf`), projects in urgency order.
+ * - `needsYou`: per project with any, the work page's `needsYou` rows (task rows
+ *   follow `needsYouReasonOf`; delivery and decision rows come from
+ *   `recordNeedsYou`), projects in urgency order.
  * - `queue`: each member’s kind and id, in the shared order across projects.
  * - `triage`: per project with anything to triage, the untriaged seeds (oldest
  *   first), the tasks going cold, and the findings; most first, then key.

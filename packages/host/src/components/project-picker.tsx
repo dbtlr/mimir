@@ -35,14 +35,14 @@ const NewProjectSheet = lazySheet(
 
 /**
  * The project switcher: the sidebar's header (MMR-496, MMR-497). Its button
- * names the current project and, when other projects have needsYou waiting,
+ * names the current project and, when other projects have something waiting on the operator,
  * says how many. It opens a searchable popover: pinned projects first, then
- * the rest by recent activity, each with its decision count; archived projects
+ * the rest by recent activity, each with its needs-you count; archived projects
  * fold away at the bottom. A trailing "+ New project" row opens the
  * create-project sheet (MMR-230).
  *
  * Outside a project (`/`, `/doctor`) the button reads "All projects" with the
- * needsYou across every project, and the list opens on an "All projects"
+ * needs-you count across every project, and the list opens on an "All projects"
  * option that leads back to `/` (MMR-505).
  *
  * The same popover opens inside the phone drawer; `onNavigate` lets the drawer
@@ -218,7 +218,7 @@ function SwitcherPanel({
 }: {
   context: SidebarContext;
   needsYou: ReadonlyMap<string, number>;
-  /** The needsYou waiting across every project. */
+  /** The needs-you count across every project. */
   everywhere: number;
   searchRef: RefObject<HTMLInputElement | null>;
   offline: boolean;

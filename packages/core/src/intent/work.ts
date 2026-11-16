@@ -139,9 +139,9 @@ export const byNeedsYouOrder = (
 /**
  * Why a task waits on the operator, or `undefined` when it does not: blocked
  * with an owner of `you`, or a `todo` with no hold whose grooming state is
- * needs-answers. A task under review is work in flight, not a decision (ADR
- * 0019, MMR-615 refinement). The one membership rule the work page's
- * `needsYou` and the review page's decisions share. `word` is the task's
+ * needs-answers. A task under review is work in flight, not waiting on you (ADR
+ * 0019, MMR-615 refinement). The one membership rule for the task rows of the
+ * needs-you set that the work page and the review page share. `word` is the task's
  * {@link nodeStatusWord}.
  */
 export function needsYouReasonOf(
@@ -226,8 +226,10 @@ export function abandonedOf(
  * - `now`: queued, in-progress, under-review, and staged tasks, with when they were
  *   reserved or started, the latest note, and any linked Scratchpads
  *   (harness/branch/host/session/externalRef ride the task).
- * - `needsYou`: blocked with an owner of `you`, then needs-answers todos (the
- *   latest note is the question); newest first within each.
+ * - `needsYou`: the shared needs-you set, in its one order (`byNeedsYouRowOrder`):
+ *   stopped deliveries, decisions with work built on them, tasks blocked on
+ *   `you`, needs-answers todos (the latest note is the question), then the
+ *   remaining provisional decisions; newest first within each kind.
  * - `frontier`: todo tasks at most one step from startable. Groomed and ready are
  *   `runnable` (`next` order); groomed and awaiting are `nextToUnlock`; ungroomed
  *   ones are `toGroom`, followed by the initiatives and phases in scope that read

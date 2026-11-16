@@ -39,7 +39,6 @@ function rows(): NeedsYouMember[] {
         class: 'product',
         created_at: stamp,
         delivery: 'MMR-d1',
-        history: [],
         id: 'MMR-q1',
         lifecycle: 'provisional',
         options: ['Keep', 'Remove'],

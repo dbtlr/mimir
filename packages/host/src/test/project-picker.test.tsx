@@ -511,7 +511,7 @@ describe('switcher header', () => {
     expect(screen.getByRole('button', { name: /NRN.*3 need you in other projects/ })).toBeVisible();
   });
 
-  it('says nothing about elsewhere when only this project has needsYou', async () => {
+  it('says nothing about elsewhere when only this project needs you', async () => {
     serve({ review: [needsYou('NRN', 4), needsYou('MMR', 0)] });
     await renderAt('/p/NRN');
     await header();

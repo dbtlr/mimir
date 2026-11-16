@@ -1,5 +1,5 @@
 import type { ChecklistItem } from './checklist';
-import type { DecisionView } from './decision';
+import type { NeedsYouDecision } from './decision';
 import type { DeliveryLifecycle } from './delivery';
 import type {
   AgendaItemState,
@@ -763,7 +763,7 @@ export type WorkNeedsYouTask = {
 /** One ordered member of the needs-you set. */
 export type WorkNeedsYouRow =
   | WorkNeedsYouTask
-  | { kind: 'decision'; decision: DecisionView; workBuiltOnIt: boolean }
+  | { kind: 'decision'; decision: NeedsYouDecision; workBuiltOnIt: boolean }
   | {
       kind: 'delivery';
       delivery: {

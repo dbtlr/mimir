@@ -14,7 +14,7 @@ import { StatusDot } from './status-dot';
  * its pin.
  */
 
-/** The violet count of needsYou waiting; nothing at zero. */
+/** The violet needs-you count; nothing at zero. */
 export function NeedsYouCount({ count }: { count: number }) {
   if (count <= 0) {
     return null;

@@ -19,26 +19,26 @@ import { NeedsYouRow, needsYouActions } from './work-rows';
 
 /*
  * `/?mode=focus` — the review page's focus queue (ADR 0013, MMR-476
- * refinement): one decision at a time, in ADR 0019's queue order. The list is
- * fixed when the queue opens, from a fresh read rather than a cached one, so a
- * decision that arrives later waits for the next pass. The queue only moves
- * forward: a decision settled anywhere — here, by its action, or elsewhere —
- * drops out of the live review read and the queue moves past it, and Skip
- * moves past one without acting, leaving it on the page. A decision behind
- * the queue stays behind it, even when it returns. When nothing is left the
+ * refinement): one needs-you member at a time, in ADR 0019's queue order. The
+ * list is fixed when the queue opens, from a fresh read rather than a cached
+ * one, so a member that arrives later waits for the next pass. The queue only
+ * moves forward: a member settled anywhere — here, by its action, or
+ * elsewhere — drops out of the live review read and the queue moves past it,
+ * and Skip moves past one without acting, leaving it on the page. A member
+ * behind the queue stays behind it, even when it returns. When nothing is left the
  * queue returns to `/`.
  */
 
-/** Why a decision needs the operator, in the card's words. */
+/** Why a task needs the operator, in the card's words. */
 const REASON: Record<NeedsYouTask['reason'], string> = {
   blocked: 'Blocked · yours',
   needs_answers: 'Needs answers',
 };
 
-/** The card's actions settle the decision itself, so there is no row to hand focus on from. */
+/** The card's actions settle the member itself, so there is no row to hand focus on from. */
 const NO_HANDOFF: RowFocusHandoff = { arm: () => {}, disarm: () => {} };
 
-/** Every decision on the live review read, by task id. */
+/** Every member of the live review read's needs-you set, by its id. */
 function liveDecisions(report: ReviewReport): Map<string, NeedsYouMember> {
   return new Map(
     report.needsYou.flatMap((group) => group.rows.map((row) => [needsYouId(row), row])),
@@ -131,10 +131,10 @@ export function FocusQueue({ offline }: { offline: boolean }) {
 }
 
 /**
- * One decision with what the operator needs to settle it: its path and
+ * One needs-you member with what the operator needs to settle it: its path and
  * description from the task's own record, then the question or what the
  * block waits on, then the row's actions, Skip, and a link
- * to the task page. The card mounts per decision, so when it takes the place
+ * to the task page. The card mounts per member, so when it takes the place
  * of one that left, focus lands on its first action.
  */
 function FocusCard({

@@ -51,7 +51,7 @@ function closeOnLink(close: () => void) {
 }
 
 /**
- * The needsYou behind the badge, as one panel for the popover and the sheet:
+ * The needs-you set behind the badge, as one panel for the popover and the sheet:
  * a heading, the review page's grouped rows with their in-place verbs, and
  * the footer links. Acting on a row keeps the panel open; the row leaves when
  * the write lands, and focus moves on as it does on the review page (the
@@ -141,13 +141,13 @@ function PillFace({ count, words }: { count: number; words: string }) {
 
 /**
  * The top-bar alert (ADR 0019, MMR-476 and MMR-492 refinements): the count of
- * needsYou waiting on the operator across projects, as a violet pill. It
- * opens the needsYou in a popover on a desktop and a bottom sheet on a phone,
+ * members of the needs-you set waiting on the operator across projects, as a
+ * violet pill. It opens the set in a popover on a desktop and a bottom sheet on a phone,
  * so a glance at the set never leaves the page. It reads the review page's own
  * query, so its count is the page's count. Triage (seeds, going cold,
  * findings) stops no agent and never lights it. Absent at zero, and until the
  * review read lands, except that an open panel stays until it is closed, so
- * the last decision to leave does not pull it away mid-use.
+ * the last member to leave does not pull it away mid-use.
  */
 export function AttentionAlert() {
   const review = useQuery(reviewQuery());

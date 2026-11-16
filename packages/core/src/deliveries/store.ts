@@ -114,9 +114,9 @@ export type DeliveryStore = {
   create: (input: DeliveryCreate) => Promise<StoredDelivery>;
   /** One delivery with its history, or `undefined` when absent. */
   load: (key: string, seq: number) => Promise<StoredDelivery | undefined>;
-  /** A project's deliveries with their history, seq ascending. */
-  /** Stopped deliveries in active projects; row-only, with empty history and members. */
+  /** Stopped deliveries across active projects, as rows only: empty history and members. */
   listStopped: () => Promise<StoredDelivery[]>;
+  /** A project's deliveries with their history, seq ascending. */
   listForProject: (key: string) => Promise<StoredDelivery[]>;
   /**
    * In one write: apply `patch`, append `history` in order, and stamp

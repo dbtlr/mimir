@@ -22,7 +22,7 @@ vi.mock('../api/fns/views');
 
 /**
  * The top-bar alert (ADR 0019, MMR-476 and MMR-492 refinements): the count of
- * needsYou waiting on the operator across projects. It opens a popover of
+ * needs-you members waiting on the operator across projects. It opens a popover of
  * them on a desktop and a bottom sheet on a phone.
  */
 
@@ -85,7 +85,7 @@ const loomQuestion = decision('LM-196', 'needs_answers', {
 const block = decision('MMR-52', 'blocked', { holdReason: 'Needs an API token' });
 const question = decision('MMR-480', 'needs_answers', { question: 'Skip, or drop it?' });
 
-/** A report with needsYou in two project groups: LM's question, then MMR's block and question. */
+/** A report with needs-you rows in two project groups: LM's question, then MMR's block and question. */
 function twoProjects(
   rows: { lm?: NeedsYouTask[]; mmr?: NeedsYouTask[] } = {
     lm: [loomQuestion],

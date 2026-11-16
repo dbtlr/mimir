@@ -25,7 +25,7 @@ import { reviewRoute } from '../router';
 
 /*
  * `/` — the review page (ADR 0013 and ADR 0019, MMR-503 refinement): the work
- * page's cross-project counterpart. The main column is Needs you (the needsYou,
+ * page's cross-project counterpart. The main column is Needs you (the needs-you set,
  * grouped by project), Now, and Shipped, in the work page's row style; the rail
  * holds the project health strip and what can wait for a spare minute. One read
  * (`console.review`) feeds all of it, and the top-bar alert reads the same entry,
@@ -57,7 +57,7 @@ function ReviewHead({ count }: { count: number }) {
           )}
         </h1>
         <p className="text-meta text-ink-dim">
-          Decisions block agents, so they lead. The rail holds what can wait.
+          What needs you blocks agents, so it leads. The rail holds what can wait.
         </p>
       </div>
       {count > 0 && (

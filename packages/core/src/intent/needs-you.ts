@@ -4,7 +4,7 @@ import type { DerivationSet } from '../derive';
 import type { Store } from '../store';
 
 /** A decision puts work at risk if any linked task has not been abandoned. */
-export const workBuiltOnIt = (set: DerivationSet, decision: DecisionView): boolean =>
+export const workBuiltOnIt = (set: DerivationSet, decision: Pick<DecisionView, 'tasks'>): boolean =>
   decision.tasks.some((id) => {
     const task = set.nodeById.get(id);
     return task !== undefined && task.lifecycle !== 'abandoned';
@@ -108,7 +108,13 @@ export const byNeedsYouRowOrder = (a: WorkNeedsYouRow, b: WorkNeedsYouRow): numb
   sequence(a) - sequence(b) ||
   compare(needsYouProject(a), needsYouProject(b));
 
-/** Two cross-project reads per report; scope filtering uses the same work snapshot. */
+/**
+ * The stopped-delivery and provisional-decision rows: two cross-project store
+ * reads per call, taken after the work snapshot. Only projects active in that
+ * snapshot's `set` contribute, so these rows agree with the snapshot's task rows
+ * even when a project is archived between the reads; `scope` narrows to one
+ * project and, unless `all`, to the given phases and tasks.
+ */
 export async function recordNeedsYou(
   store: Store,
   set: DerivationSet,
@@ -123,9 +129,12 @@ export async function recordNeedsYou(
     store.deliveries.listStopped(),
     store.decisions.listProvisional(),
   ]);
+  const active = (key: string) => set.projectByKey.get(key)?.archived_at === null;
   const inPhase = (phase: string) => scope === undefined || scope.all || scope.phases.has(phase);
   const rows: WorkNeedsYouRow[] = deliveries
-    .filter((d) => (scope === undefined || d.key === scope.project) && inPhase(d.phase))
+    .filter(
+      (d) => active(d.key) && (scope === undefined || d.key === scope.project) && inPhase(d.phase),
+    )
     .map((d) => ({
       delivery: {
         hold_reason: d.hold_reason,
@@ -140,6 +149,9 @@ export async function recordNeedsYou(
       kind: 'delivery',
     }));
   for (const decision of decisions) {
+    if (!active(decision.project_key)) {
+      continue;
+    }
     if (
       scope !== undefined &&
       (decision.project_key !== scope.project ||

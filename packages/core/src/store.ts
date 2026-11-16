@@ -49,7 +49,7 @@ import type { TransitionsFeed } from './transitions/store';
 export type NodeTag = { tag: string; created_at: string };
 
 export type WorkingSet = {
-  /** Delivery lifecycle state from the same snapshot. */
+  /** Delivery lifecycle and phase from the same snapshot. */
   deliveries: ReadonlyMap<string, Pick<StoredDelivery, 'lifecycle' | 'phase'>>;
   /** Every project, key-ordered, archived included. */
   projects: readonly Project[];
