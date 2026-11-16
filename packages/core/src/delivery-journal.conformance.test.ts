@@ -99,6 +99,64 @@ describe.each(backends)('delivery run journal ($name)', (backend) => {
     }
   });
 
+  test('a delivery id with leading zeros names the same delivery (finding 1)', async () => {
+    const f = await fixture();
+    try {
+      const first = await pad(f, [f.delivery]);
+      const refusal = await errorOf(pad(f, ['JRN-d01']));
+      expect(refusal.code).toBe('conflict');
+      expect(refusal.message).toContain(first.id);
+      await f.engine.scratchDiscard({ expectedUpdatedAt: first.updatedAt, id: first.id });
+      const padded = await pad(f, ['JRN-d01']);
+      expect(padded.delivery).toBe(f.delivery);
+      const frozen = await f.engine.scratchFreeze({
+        expectedUpdatedAt: padded.updatedAt,
+        id: padded.id,
+        summary: 'run journal',
+      });
+      expect(frozen.delivery).toBe(f.delivery);
+      expect(frozen.links).toEqual([f.tasks[0] as string, f.tasks[1] as string].toSorted());
+      const read = await f.engine.getDelivery({ id: f.delivery });
+      expect(read.journal.artifacts).toEqual([frozen.id]);
+    } finally {
+      await f.close();
+    }
+  });
+
+  test('repeating one delivery id, in any spelling, is one delivery (finding 1)', async () => {
+    const f = await fixture();
+    try {
+      const same = await pad(f, [f.delivery, f.delivery]);
+      expect(same.delivery).toBe(f.delivery);
+      await f.engine.scratchDiscard({ expectedUpdatedAt: same.updatedAt, id: same.id });
+      expect((await pad(f, [f.delivery, 'JRN-d01'])).delivery).toBe(f.delivery);
+    } finally {
+      await f.close();
+    }
+  });
+
+  test('journal artifacts list oldest first (finding 7)', async () => {
+    const f = await fixture();
+    try {
+      const one = await pad(f, [f.delivery]);
+      const first = await f.engine.scratchFreeze({
+        expectedUpdatedAt: one.updatedAt,
+        id: one.id,
+        summary: 'first',
+      });
+      const two = await pad(f, [f.delivery]);
+      const second = await f.engine.scratchFreeze({
+        expectedUpdatedAt: two.updatedAt,
+        id: two.id,
+        summary: 'second',
+      });
+      const read = await f.engine.getDelivery({ id: f.delivery });
+      expect(read.journal.artifacts).toEqual([first.id, second.id]);
+    } finally {
+      await f.close();
+    }
+  });
+
   test('update keeps, replaces, or clears the delivery with the anchors', async () => {
     const f = await fixture();
     try {

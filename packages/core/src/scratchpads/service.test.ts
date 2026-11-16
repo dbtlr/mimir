@@ -192,6 +192,32 @@ describe('ScratchpadService', () => {
     );
     expect(h.pads.size).toBe(0);
   });
+  test('create loads no working set when it links no node (finding 3)', async () => {
+    const h = await harness();
+    const loads: string[] = [];
+    const counting = {
+      deliveries: {} as never,
+      loadProjects: async () => [
+        {
+          archived_at: null,
+          created_at: T0,
+          description: null,
+          key: 'MMR',
+          name: 'Mimir',
+          pinned: false,
+          remote: null,
+          updated_at: T0,
+        },
+      ],
+      loadWorkingSet: async () => {
+        loads.push('load');
+        throw new Error('no node token, so no working set');
+      },
+    };
+    const service = createScratchpadService(h.serviceStore, h.artifacts, counting);
+    await service.create({ project: 'MMR', title: 'Loose' });
+    expect(loads).toEqual([]);
+  });
   test('owns create, checkpoint, Agenda transitions, metadata, reads, and CAS', async () => {
     const h = await harness();
     const created = await h.service.create({

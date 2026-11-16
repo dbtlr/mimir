@@ -5,7 +5,7 @@ import type { Scratchpad, ScratchpadAgendaItem } from '@mimir/contract';
 import type { ArtifactRecord, ArtifactStore } from '../artifacts/store';
 import { deriveSet } from '../derive';
 import { MimirError, conflict, notFound, validation } from '../errors';
-import { parseIdentity } from '../ids';
+import { parseDeliveryRef, parseIdentity, renderDeliveryRef } from '../ids';
 import { normalizeSummary, resolveAttachTargetsInSet } from '../mutations/data';
 import type { Store } from '../store';
 import { now } from '../time';
@@ -64,7 +64,15 @@ export function createScratchpadService(
     tokens: readonly string[],
     project: string,
   ): Promise<{ anchors: string[]; delivery: string | null }> => {
-    const deliveries = [...new Set(tokens.filter(isDelivery))];
+    // Canonical spelling first, so JRN-d01 and JRN-d1 are one delivery.
+    const deliveries = [
+      ...new Set(
+        tokens.filter(isDelivery).map((token) => {
+          const ref = parseDeliveryRef(token);
+          return ref === null ? token : renderDeliveryRef(ref);
+        }),
+      ),
+    ];
     if (deliveries.length > 1) {
       throw validation(
         `a scratchpad is the journal of one delivery, not ${deliveries.join(' and ')}`,
@@ -72,11 +80,11 @@ export function createScratchpadService(
       );
     }
     const nodeTokens = tokens.filter((token) => !isDelivery(token));
-    const anchors = resolveAttachTargetsInSet(
-      deriveSet(await projects.loadWorkingSet()),
-      nodeTokens,
-      project,
-    ).linkNodeIds;
+    const anchors =
+      nodeTokens.length === 0
+        ? []
+        : resolveAttachTargetsInSet(deriveSet(await projects.loadWorkingSet()), nodeTokens, project)
+            .linkNodeIds;
     const id = deliveries[0];
     const identity = id === undefined ? null : parseIdentity(id);
     if (id === undefined || identity?.kind !== 'delivery') {
