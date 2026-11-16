@@ -142,7 +142,13 @@ describe.each(backends)('checklist transfer ($name)', (backend) => {
       ],
       [
         'settled_at with an offset',
-        [{ ...checked, created_at: '2026-11-16T09:00:00.000Z', settled_at: '2026-11-16T10:00:00.000+05:00' }],
+        [
+          {
+            ...checked,
+            created_at: '2026-11-16T09:00:00.000Z',
+            settled_at: '2026-11-16T10:00:00.000+05:00',
+          },
+        ],
         'settled_at is not',
       ],
     ];
