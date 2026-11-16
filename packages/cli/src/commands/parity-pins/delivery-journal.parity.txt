@@ -155,8 +155,6 @@ unchanged
 ### scratch argv: list --scope MMR -f records
 exit 0
 --- stdout
-| <uuid>  MMR  Index rewrite  now
-| <uuid>  MMR  Blank  now
 | <uuid>  MMR  Run journal  now
 --- state
 unchanged
@@ -164,7 +162,7 @@ unchanged
 ### scratch argv: list --scope MMR -f json
 exit 0
 --- stdout
-| {"scratchpads":[{"delivery":null,"id":"<uuid>","linked_work":["MMR-3"],"open_agenda":2,"project":"MMR","state":"active","title":"Index rewrite","updated_at":"2026-10-01T12:00:00.005Z"},{"delivery":null,"id":"<uuid>","linked_work":[],"open_agenda":0,"project":"MMR","state":"active","title":"Blank","updated_at":"2026-10-01T12:00:00.000Z"},{"delivery":"MMR-d1","id":"<uuid>","linked_work":[],"open_agenda":0,"project":"MMR","state":"active","title":"Run journal","updated_at":"2026-10-01T12:00:00.000Z"}],"total":3}
+| {"scratchpads":[{"delivery":"MMR-d1","id":"<uuid>","linked_work":[],"open_agenda":0,"project":"MMR","state":"active","title":"Run journal","updated_at":"2026-10-01T12:00:00.000Z"}],"total":1}
 --- state
 unchanged
 
@@ -229,9 +227,7 @@ exit 0
 |
 | provisional decisions (0) — run 'mimir decisions -p MMR'
 |
-| active scratchpads (3)
-|   <uuid> · MMR · Index rewrite · 2 open Agenda · now · linked MMR-3
-|   <uuid> · MMR · Blank · 0 open Agenda · now
+| active scratchpads (1)
 |   <uuid> · MMR · Run journal · 0 open Agenda · now
 |
 | next (2)
@@ -259,30 +255,8 @@ exit 0
 --- stdout
 | {
 |   "active_scratchpads": {
-|     "count": 3,
+|     "count": 1,
 |     "scratchpads": [
-|       {
-|         "delivery": null,
-|         "id": "<uuid>",
-|         "linked_work": [
-|           "MMR-3"
-|         ],
-|         "open_agenda": 2,
-|         "project": "MMR",
-|         "state": "active",
-|         "title": "Index rewrite",
-|         "updated_at": "2026-10-01T12:00:00.005Z"
-|       },
-|       {
-|         "delivery": null,
-|         "id": "<uuid>",
-|         "linked_work": [],
-|         "open_agenda": 0,
-|         "project": "MMR",
-|         "state": "active",
-|         "title": "Blank",
-|         "updated_at": "2026-10-01T12:00:00.000Z"
-|       },
 |       {
 |         "delivery": "MMR-d1",
 |         "id": "<uuid>",

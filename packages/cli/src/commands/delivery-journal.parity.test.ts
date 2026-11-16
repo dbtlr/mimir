@@ -39,6 +39,25 @@ const frozenAndLive: Setup = async (board) => {
   return { ...(await liveJournal(board)), frozen: frozen.id };
 };
 
+/** `frozenAndLive`, then every other live pad discarded: the journal is the only row a list shows. */
+// Under the frozen clock every pad ties on updatedAt and lists break ties by random UUID.
+const onlyJournalLive: Setup = async (board) => {
+  const tokens = await frozenAndLive(board);
+  for (const row of await board.engine.scratchList({ project: 'MMR' })) {
+    if (row.id === tokens?.jpad) {
+      continue;
+    }
+    const pad = await board.engine.scratchGet({ id: row.id });
+    await board.engine.scratchDiscard({
+      expectedUpdatedAt: pad.updatedAt,
+      force: true,
+      id: pad.id,
+      reason: 'keep the journal the only live pad',
+    });
+  }
+  return tokens;
+};
+
 const cases: SetupCase[] = [
   // A pad created with a delivery link names the delivery, on every view that carries it.
   ...shown(['scratch', 'create', 'Journal', '--link', 'MMR-d1', '--scope', 'MMR']),
@@ -51,9 +70,9 @@ const cases: SetupCase[] = [
   ...shown(['get', '{frozen}'], frozenAndLive),
   ...shown(['get', 'MMR-d1'], frozenAndLive),
   // The list and overview rows carry the delivery as well.
-  ...shown(['scratch', 'list', '--scope', 'MMR'], frozenAndLive),
+  ...shown(['scratch', 'list', '--scope', 'MMR'], onlyJournalLive),
   ...shown(['artifacts', '--scope', 'MMR'], frozenAndLive),
-  ...shown(['overview', '--scope', 'MMR'], frozenAndLive),
+  ...shown(['overview', '--scope', 'MMR'], onlyJournalLive),
 ];
 
 writeCases(import.meta.url, cases, async (board) => {
