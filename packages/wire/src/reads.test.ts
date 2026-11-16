@@ -160,7 +160,8 @@ const reads: { [K in ReadMethod]: ReadCase<K> } = {
       expect(read.as_of).toBeInstanceOf(Date);
       expect(read.delivery.id).toBe('OTH-d1');
     },
-    input: () => ({ id: 'OTH-d1', since: new Date('2000-01-01T00:00:00.000Z') }),
+    // A cursor ahead of the clock pins as_of to it, so the two reads agree.
+    input: () => ({ id: 'OTH-d1', since: new Date('2099-01-01T00:00:00.000Z') }),
   },
   getArtifact: {
     check: (artifact) => {
