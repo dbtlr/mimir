@@ -26,6 +26,9 @@ export function renderArtifactRecords(artifact: ArtifactDetail, p: Presentation)
     pairs.push(['summary', artifact.summary]);
   }
   pairs.push(['project', artifact.project]);
+  if (artifact.delivery !== null) {
+    pairs.push(['delivery', artifact.delivery]);
+  }
   if (artifact.links.length > 0) {
     pairs.push(['links', artifact.links.join(', ')]);
   }

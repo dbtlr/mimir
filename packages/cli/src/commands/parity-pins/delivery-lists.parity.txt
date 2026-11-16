@@ -1,0 +1,700 @@
+### limitation argv: MMR-d1 A cancelled run is charged in full -f records
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Attempt
+| lifecycle: agreed
+| hold: none
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| members: 
+| Limitations
+| 1. 2026-10-01 12:00 UTC - A cancelled run is charged in full
+--- state
+unchanged
+
+### limitation argv: MMR-d1 A cancelled run is charged in full -f table
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Attempt
+| lifecycle: agreed
+| hold: none
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| members: 
+| Limitations
+| 1. 2026-10-01 12:00 UTC - A cancelled run is charged in full
+--- state
+unchanged
+
+### limitation argv: MMR-d1 A cancelled run is charged in full -f ids
+exit 0
+--- stdout
+| MMR-d1
+--- state
+unchanged
+
+### limitation argv: MMR-d1 A cancelled run is charged in full -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-d1",
+|   "project_key": "MMR",
+|   "seq": 1,
+|   "phase": "MMR-2",
+|   "title": "Attempt",
+|   "lifecycle": "agreed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "agreement": null,
+|   "external_ref": null,
+|   "branch": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "time_cap_minutes": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "members": [],
+|   "elapsed_minutes": null,
+|   "history": [],
+|   "declined": [],
+|   "journal": {
+|     "artifacts": [],
+|     "scratchpad": null
+|   },
+|   "limitations": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "number": 1,
+|       "text": "A cancelled run is charged in full"
+|     }
+|   ]
+| }
+--- state
+unchanged
+
+### limitation argv: MMR-d1 A cancelled run is charged in full -f jsonl
+exit 0
+--- stdout
+| {
+|   "id": "MMR-d1",
+|   "project_key": "MMR",
+|   "seq": 1,
+|   "phase": "MMR-2",
+|   "title": "Attempt",
+|   "lifecycle": "agreed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "agreement": null,
+|   "external_ref": null,
+|   "branch": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "time_cap_minutes": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "members": [],
+|   "elapsed_minutes": null,
+|   "history": [],
+|   "declined": [],
+|   "journal": {
+|     "artifacts": [],
+|     "scratchpad": null
+|   },
+|   "limitations": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "number": 1,
+|       "text": "A cancelled run is charged in full"
+|     }
+|   ]
+| }
+--- state
+unchanged
+
+### decline argv: MMR-d1 "Retry the clone" Filed as MMR-s55 -f records
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Attempt
+| lifecycle: agreed
+| hold: none
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| members: 
+| Declined
+| 1. 2026-10-01 12:00 UTC - Retry the clone
+|    Filed as MMR-s55
+--- state
+unchanged
+
+### decline argv: MMR-d1 "Retry the clone" Filed as MMR-s55 -f table
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Attempt
+| lifecycle: agreed
+| hold: none
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| members: 
+| Declined
+| 1. 2026-10-01 12:00 UTC - Retry the clone
+|    Filed as MMR-s55
+--- state
+unchanged
+
+### decline argv: MMR-d1 "Retry the clone" Filed as MMR-s55 -f ids
+exit 0
+--- stdout
+| MMR-d1
+--- state
+unchanged
+
+### decline argv: MMR-d1 "Retry the clone" Filed as MMR-s55 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-d1",
+|   "project_key": "MMR",
+|   "seq": 1,
+|   "phase": "MMR-2",
+|   "title": "Attempt",
+|   "lifecycle": "agreed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "agreement": null,
+|   "external_ref": null,
+|   "branch": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "time_cap_minutes": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "members": [],
+|   "elapsed_minutes": null,
+|   "history": [],
+|   "declined": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "finding": "Retry the clone",
+|       "number": 1,
+|       "reason": "Filed as MMR-s55"
+|     }
+|   ],
+|   "journal": {
+|     "artifacts": [],
+|     "scratchpad": null
+|   },
+|   "limitations": []
+| }
+--- state
+unchanged
+
+### decline argv: MMR-d1 "Retry the clone" Filed as MMR-s55 -f jsonl
+exit 0
+--- stdout
+| {
+|   "id": "MMR-d1",
+|   "project_key": "MMR",
+|   "seq": 1,
+|   "phase": "MMR-2",
+|   "title": "Attempt",
+|   "lifecycle": "agreed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "agreement": null,
+|   "external_ref": null,
+|   "branch": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "time_cap_minutes": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "members": [],
+|   "elapsed_minutes": null,
+|   "history": [],
+|   "declined": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "finding": "Retry the clone",
+|       "number": 1,
+|       "reason": "Filed as MMR-s55"
+|     }
+|   ],
+|   "journal": {
+|     "artifacts": [],
+|     "scratchpad": null
+|   },
+|   "limitations": []
+| }
+--- state
+unchanged
+
+### limitation argv: MMR-d1 "a note" --ascii
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Attempt
+| lifecycle: agreed
+| hold: none
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| members: 
+| Limitations
+| 1. 2026-10-01 12:00 UTC - a note
+--- state
+unchanged
+
+### limitation argv: MMR-d1 -- "-led by a dash"
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Attempt
+| lifecycle: agreed
+| hold: none
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| members: 
+| Limitations
+| 1. 2026-10-01 12:00 UTC - -led by a dash
+--- state
+unchanged
+
+### decline argv: MMR-d1 "Retry the clone" --reason "Filed as MMR-s55"
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Attempt
+| lifecycle: agreed
+| hold: none
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| members: 
+| Declined
+| 1. 2026-10-01 12:00 UTC - Retry the clone
+|    Filed as MMR-s55
+--- state
+unchanged
+
+### decline argv: MMR-d1 "Retry the clone" -- "-no longer needed"
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Attempt
+| lifecycle: agreed
+| hold: none
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| members: 
+| Declined
+| 1. 2026-10-01 12:00 UTC - Retry the clone
+|    -no longer needed
+--- state
+unchanged
+
+### limitation argv: MMR-d1 "Second limit" -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-d1",
+|   "project_key": "MMR",
+|   "seq": 1,
+|   "phase": "MMR-2",
+|   "title": "Attempt",
+|   "lifecycle": "agreed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "agreement": null,
+|   "external_ref": null,
+|   "branch": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "time_cap_minutes": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "members": [],
+|   "elapsed_minutes": null,
+|   "history": [],
+|   "declined": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "finding": "A finding",
+|       "number": 2,
+|       "reason": "Why"
+|     }
+|   ],
+|   "journal": {
+|     "artifacts": [],
+|     "scratchpad": null
+|   },
+|   "limitations": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "number": 1,
+|       "text": "First limit"
+|     },
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "number": 3,
+|       "text": "Second limit"
+|     }
+|   ]
+| }
+--- state
+unchanged
+
+### decline argv: MMR-d1 "Found after the merge" "Filed later" -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-d1",
+|   "project_key": "MMR",
+|   "seq": 1,
+|   "phase": "MMR-2",
+|   "title": "Attempt",
+|   "lifecycle": "abandoned",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "agreement": null,
+|   "external_ref": null,
+|   "branch": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "time_cap_minutes": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "members": [],
+|   "elapsed_minutes": null,
+|   "history": [
+|     {
+|       "kind": "lifecycle",
+|       "from_value": "agreed",
+|       "to_value": "abandoned",
+|       "reason": "reset",
+|       "task": null,
+|       "at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "declined": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "finding": "Found after the merge",
+|       "number": 1,
+|       "reason": "Filed later"
+|     }
+|   ],
+|   "journal": {
+|     "artifacts": [],
+|     "scratchpad": null
+|   },
+|   "limitations": []
+| }
+--- state
+unchanged
+
+### limitation argv: MMR-d1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "limitation MMR-d1 \"text\""
+|   ],
+|   "message": "a limitation cannot be blank"
+| }
+--- state
+unchanged
+
+### limitation argv: MMR-d1 " "
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "limitation MMR-d1 \"text\""
+|   ],
+|   "message": "a limitation cannot be blank"
+| }
+--- state
+unchanged
+
+### decline argv: MMR-d1 "Retry the clone"
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "decline MMR-d1 \"finding\" \"reason\""
+|   ],
+|   "message": "decline requires a nonblank reason"
+| }
+--- state
+unchanged
+
+### decline argv: MMR-d1 "Retry the clone" " "
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "decline MMR-d1 \"finding\" \"reason\""
+|   ],
+|   "message": "decline requires a nonblank reason"
+| }
+--- state
+unchanged
+
+### decline argv: MMR-d1 "Retry the clone" --reason " "
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "decline MMR-d1 \"finding\" \"reason\""
+|   ],
+|   "message": "decline requires a nonblank reason"
+| }
+--- state
+unchanged
+
+### decline argv: MMR-d1 " " reason
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "decline MMR-d1 \"finding\" \"reason\""
+|   ],
+|   "message": "a declined finding cannot be blank"
+| }
+--- state
+unchanged
+
+### decline argv: MMR-d1
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Argument \"finding\" requires a value. Supply a value for \"finding\"."
+| }
+--- state
+unchanged
+
+### limitation argv: MMR-d99 "a note"
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "MMR-d99 doesn't exist"
+| }
+--- state
+unchanged
+
+### limitation argv: nope "a note"
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "delivery ids look like KEY-dN"
+|   ],
+|   "message": "nope is not a delivery id"
+| }
+--- state
+unchanged
+
+### decline argv: MMR-2 "a finding" "a reason"
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "delivery ids look like KEY-dN"
+|   ],
+|   "message": "MMR-2 is a task or container, not a delivery"
+| }
+--- state
+unchanged
+
+### decline argv: MMR-1 "a finding" "a reason"
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "delivery ids look like KEY-dN"
+|   ],
+|   "message": "MMR-1 is a task or container, not a delivery"
+| }
+--- state
+unchanged
+
+### decline argv: MMR "a finding" "a reason"
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "delivery ids look like KEY-dN"
+|   ],
+|   "message": "MMR is a project, not a delivery"
+| }
+--- state
+unchanged
+
+### decline argv: MMR-a1 "a finding" "a reason"
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "delivery ids look like KEY-dN"
+|   ],
+|   "message": "MMR-a1 is an artifact, not a delivery"
+| }
+--- state
+unchanged
+
+### decline argv: MMR-s1 "a finding" "a reason"
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "delivery ids look like KEY-dN"
+|   ],
+|   "message": "MMR-s1 is a seed, not a delivery"
+| }
+--- state
+unchanged
+
+### decline argv: MMR-q1 "a finding" "a reason"
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "use get, update, confirm, or overturn; decide records a new decision"
+|   ],
+|   "message": "MMR-q1 is a decision"
+| }
+--- state
+unchanged
+
+### get argv: MMR-d1
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Attempt
+| lifecycle: agreed
+| hold: none
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| members: 
+| Limitations
+| 1. 2026-10-01 12:00 UTC - First limit
+| Declined
+| 2. 2026-10-01 12:00 UTC - A finding
+|    Why
+--- state
+unchanged
+
+### get argv: MMR-d1 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-d1",
+|   "project_key": "MMR",
+|   "seq": 1,
+|   "phase": "MMR-2",
+|   "title": "Attempt",
+|   "lifecycle": "agreed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "agreement": null,
+|   "external_ref": null,
+|   "branch": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "time_cap_minutes": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "members": [],
+|   "elapsed_minutes": null,
+|   "history": [],
+|   "declined": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "finding": "A finding",
+|       "number": 2,
+|       "reason": "Why"
+|     }
+|   ],
+|   "journal": {
+|     "artifacts": [],
+|     "scratchpad": null
+|   },
+|   "limitations": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "number": 1,
+|       "text": "First limit"
+|     }
+|   ]
+| }
+--- state
+unchanged
+

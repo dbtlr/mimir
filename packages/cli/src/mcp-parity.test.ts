@@ -190,6 +190,25 @@ const CASES: readonly McpCase[] = [
     { number: '2', reason: 'Not needed', task: 'MMR-3' },
     { task: 'MMR-3' },
   ),
+  // The delivery list tools take the text as words and answer the delivery as `get` reads it.
+  pinned(
+    'limitation takes the text as words',
+    'limitation',
+    { id: 'MMR-d1', text: ['A', 'cancelled', 'run', 'is', 'charged', 'in', 'full'] },
+    { id: 'MMR-d1' },
+  ),
+  pinned(
+    'decline takes the finding and the reason words',
+    'decline',
+    { finding: 'Retry the clone', id: 'MMR-d1', words: ['Filed', 'as', 'MMR-s55'] },
+    { id: 'MMR-d1' },
+  ),
+  pinned(
+    'decline takes the reason as an option',
+    'decline',
+    { finding: 'Another finding', id: 'MMR-d1', reason: 'Not worth it' },
+    { id: 'MMR-d1' },
+  ),
   // `scratch agenda` and `scratch checkpoint` have no `-f json` CLI pin.
   pinned(
     'scratch_agenda add takes the item as words',
@@ -243,7 +262,10 @@ let tokens: Record<string, string>;
 let loomServer: McpSession;
 
 beforeAll(async () => {
-  template = await boardTemplate();
+  template = await boardTemplate(async (board) => {
+    // A delivery with no members, for the delivery list tools.
+    await board.engine.deliveryCreate({ phase: 'MMR-2', tasks: [], title: 'Attempt' });
+  });
   open = await openCopy(template);
   tokens = { ...open.tokens };
   loomServer = loomMcpSession(open.board.app('MMR'));

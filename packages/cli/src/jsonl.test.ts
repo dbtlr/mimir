@@ -222,6 +222,7 @@ const ELSEWHERE: Readonly<Record<string, string>> = {
   'create project': 'create.parity.test.ts pins `create project Gamma --key GAM -y -f jsonl`',
   'create task': 'create.parity.test.ts pins `create task "Ship docs" --parent MMR-2 -f jsonl`',
   decide: 'decision-verbs.parity.test.ts covers all formats',
+  decline: 'delivery-lists.parity.test.ts covers all formats',
   depend: 'depend.parity.test.ts pins `depend MMR-5 --on MMR-3 -f jsonl`',
   groom: 'groom.parity.test.ts pins `groom MMR-4 groomed -f jsonl`',
   'installation-protocol':
@@ -229,6 +230,7 @@ const ELSEWHERE: Readonly<Record<string, string>> = {
   'item add': 'item.parity.test.ts covers all formats',
   'item check': 'item.parity.test.ts covers all formats',
   'item drop': 'item.parity.test.ts covers all formats',
+  limitation: 'delivery-lists.parity.test.ts covers all formats',
   move: 'place.parity.test.ts pins `move MMR-5 --to MMR-1 -f jsonl`',
   next: 'next.parity.test.ts pins `next -s MMR -f jsonl`',
   overturn: 'decision-verbs.parity.test.ts covers jsonl',

@@ -1,0 +1,24 @@
+mimir decline · Record a review finding a delivery chose not to act on, with its reason.
+
+USAGE
+  mimir decline <id> <finding> [words...] [options]
+
+ARGUMENTS
+  id       The delivery (KEY-dN).
+  finding  The finding, quoted as one argument.
+  words    Why it was declined, in place of --reason.
+
+OPTIONS
+      --reason <text>    Why it was declined, in place of the words after the finding.
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help      Show this help.
+      --no-input  Ask no questions, and take every answer from options.  (default: true)
+
+EXAMPLES
+  $ mimir decline MMR-d3 "Retry the clone on a fetch failure" "Filed as MMR-s55"
+    the finding, then why it was declined
+  $ mimir decline MMR-d3 "Retry the clone on a fetch failure" --reason "Filed as MMR-s55"
+    the reason as an option

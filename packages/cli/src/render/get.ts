@@ -2,16 +2,11 @@
  * The record `get` reads, and the text of its views, which the writes that
  * echo an artifact, a seed, or a delivery print as well.
  */
-import type {
-  ArtifactDetail,
-  DecisionView,
-  DeliveryView,
-  NodeView,
-  SeedView,
-} from '@mimir/contract';
+import type { ArtifactDetail, DecisionView, NodeView, SeedView } from '@mimir/contract';
 
 import { renderDecision } from './decisions';
 import { renderDelivery } from './deliveries';
+import type { DeliveryShown } from './deliveries';
 import { renderRecords, renderTable } from './node';
 import type { Presentation } from './presentation';
 import { renderArtifactRecords, renderArtifactTable, renderSeedRecords } from './records';
@@ -22,7 +17,7 @@ export type GetValue = { presentation: Presentation; wire: Record<string, unknow
   | { kind: 'artifact'; artifact: ArtifactDetail }
   | { kind: 'seed'; seed: SeedView }
   | { kind: 'decision'; decision: DecisionView }
-  | { kind: 'delivery'; delivery: DeliveryView }
+  | { kind: 'delivery'; delivery: DeliveryShown }
 );
 
 /** The styled `records` text of a record `get` read. */

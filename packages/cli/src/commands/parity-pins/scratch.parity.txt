@@ -19,18 +19,18 @@ exit 0
 ### scratch list -s MMR -f json
 exit 0
 --- stdout
-| {"scratchpads":[{"id":"<uuid>","linked_work":["MMR-3"],"open_agenda":1,"project":"MMR","state":"active","title":"Shape the watcher","updated_at":"2026-10-01T12:00:00.002Z"},{"id":"<uuid>","linked_work":[],"open_agenda":0,"project":"MMR","state":"active","title":"A second pad","updated_at":"2026-10-01T12:00:00.000Z"}],"total":2}
+| {"scratchpads":[{"delivery":null,"id":"<uuid>","linked_work":["MMR-3"],"open_agenda":1,"project":"MMR","state":"active","title":"Shape the watcher","updated_at":"2026-10-01T12:00:00.002Z"},{"delivery":null,"id":"<uuid>","linked_work":[],"open_agenda":0,"project":"MMR","state":"active","title":"A second pad","updated_at":"2026-10-01T12:00:00.000Z"}],"total":2}
 
 ### scratch list -s MMR -f jsonl
 exit 0
 --- stdout
-| {"id":"<uuid>","linked_work":["MMR-3"],"open_agenda":1,"project":"MMR","state":"active","title":"Shape the watcher","updated_at":"2026-10-01T12:00:00.002Z"}
-| {"id":"<uuid>","linked_work":[],"open_agenda":0,"project":"MMR","state":"active","title":"A second pad","updated_at":"2026-10-01T12:00:00.000Z"}
+| {"delivery":null,"id":"<uuid>","linked_work":["MMR-3"],"open_agenda":1,"project":"MMR","state":"active","title":"Shape the watcher","updated_at":"2026-10-01T12:00:00.002Z"}
+| {"delivery":null,"id":"<uuid>","linked_work":[],"open_agenda":0,"project":"MMR","state":"active","title":"A second pad","updated_at":"2026-10-01T12:00:00.000Z"}
 
 ### scratch list -s XX -f json
 exit 0
 --- stdout
-| {"scratchpads":[{"id":"<uuid>","linked_work":[],"open_agenda":0,"project":"XX","state":"active","title":"Elsewhere","updated_at":"2026-10-01T12:00:00.000Z"}],"total":1}
+| {"scratchpads":[{"delivery":null,"id":"<uuid>","linked_work":[],"open_agenda":0,"project":"XX","state":"active","title":"Elsewhere","updated_at":"2026-10-01T12:00:00.000Z"}],"total":1}
 
 ### scratch list (bound to MMR)
 exit 0
@@ -48,6 +48,7 @@ exit 0
 --- stdout
 | agenda  [{"content":"verify recovery","number":1,"reason":null,"state":"open"}]
 | created at  2026-10-01 12:00 UTC
+| delivery  
 | freezing at  
 | id  <uuid>
 | journal  [{"at":"2026-10-01 12:00 UTC","content":"settled the API","number":1}]
@@ -61,6 +62,7 @@ exit 0
 --- stdout
 | agenda  [{"content":"verify recovery","number":1,"reason":null,"state":"open"}]
 | created at  2026-10-01 12:00 UTC
+| delivery  
 | freezing at  
 | id  <uuid>
 | journal  [{"at":"2026-10-01 12:00 UTC","content":"settled the API","number":1}]
@@ -77,18 +79,19 @@ exit 0
 ### scratch get <pad> -f json
 exit 0
 --- stdout
-| {"agenda":[{"content":"verify recovery","number":1,"reason":null,"state":"open"}],"created_at":"2026-10-01T12:00:00.000Z","freezing_at":null,"id":"<uuid>","journal":[{"at":"2026-10-01T12:00:00.000Z","content":"settled the API","number":1}],"linked_work":["MMR-3"],"project":"MMR","title":"Shape the watcher","updated_at":"2026-10-01T12:00:00.002Z"}
+| {"agenda":[{"content":"verify recovery","number":1,"reason":null,"state":"open"}],"created_at":"2026-10-01T12:00:00.000Z","delivery":null,"freezing_at":null,"id":"<uuid>","journal":[{"at":"2026-10-01T12:00:00.000Z","content":"settled the API","number":1}],"linked_work":["MMR-3"],"project":"MMR","title":"Shape the watcher","updated_at":"2026-10-01T12:00:00.002Z"}
 
 ### scratch get <pad> -f jsonl
 exit 0
 --- stdout
-| {"agenda":[{"content":"verify recovery","number":1,"reason":null,"state":"open"}],"created_at":"2026-10-01T12:00:00.000Z","freezing_at":null,"id":"<uuid>","journal":[{"at":"2026-10-01T12:00:00.000Z","content":"settled the API","number":1}],"linked_work":["MMR-3"],"project":"MMR","title":"Shape the watcher","updated_at":"2026-10-01T12:00:00.002Z"}
+| {"agenda":[{"content":"verify recovery","number":1,"reason":null,"state":"open"}],"created_at":"2026-10-01T12:00:00.000Z","delivery":null,"freezing_at":null,"id":"<uuid>","journal":[{"at":"2026-10-01T12:00:00.000Z","content":"settled the API","number":1}],"linked_work":["MMR-3"],"project":"MMR","title":"Shape the watcher","updated_at":"2026-10-01T12:00:00.002Z"}
 
 ### scratch get <pad> --ascii
 exit 0
 --- stdout
 | agenda  [{"content":"verify recovery","number":1,"reason":null,"state":"open"}]
 | created at  2026-10-01 12:00 UTC
+| delivery  
 | freezing at  
 | id  <uuid>
 | journal  [{"at":"2026-10-01 12:00 UTC","content":"settled the API","number":1}]
@@ -142,7 +145,7 @@ exit 0
 ### scratch argv: get <pad> -f json
 exit 0
 --- stdout
-| {"agenda":[{"content":"verify recovery","number":1,"reason":null,"state":"open"}],"created_at":"2026-10-01T12:00:00.000Z","freezing_at":null,"id":"<uuid>","journal":[{"at":"2026-10-01T12:00:00.000Z","content":"settled the API","number":1}],"linked_work":["MMR-3"],"project":"MMR","title":"Shape the watcher","updated_at":"2026-10-01T12:00:00.002Z"}
+| {"agenda":[{"content":"verify recovery","number":1,"reason":null,"state":"open"}],"created_at":"2026-10-01T12:00:00.000Z","delivery":null,"freezing_at":null,"id":"<uuid>","journal":[{"at":"2026-10-01T12:00:00.000Z","content":"settled the API","number":1}],"linked_work":["MMR-3"],"project":"MMR","title":"Shape the watcher","updated_at":"2026-10-01T12:00:00.002Z"}
 
 ### scratch argv: get nope -f json
 exit 1
@@ -207,6 +210,7 @@ exit 0
 --- stdout
 | agenda  [{"content":"verify recovery","number":1,"reason":null,"state":"open"}]
 | created at  2026-10-01 12:00 UTC
+| delivery  
 | freezing at  
 | id  <uuid>
 | journal  [{"at":"2026-10-01 12:00 UTC","content":"settled the API","number":1}]

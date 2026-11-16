@@ -106,7 +106,8 @@ const expectedOption = {
 } as const;
 
 const linkOption = {
-  description: 'Linked work (a task or artifact id). Repeat for more.',
+  description:
+    'Linked work: a task, phase, initiative, or delivery id. One delivery id makes the pad its run journal. Repeat for more.',
   extensions: [helpInput({ placeholder: 'ID' })],
   multiple: true,
   type: 'string',
@@ -351,6 +352,7 @@ function scratchWriteCommands(ports: Ports) {
         presentation: presentationOf(host, options.ascii),
         wire: {
           created_at: artifact.createdAt,
+          delivery: artifact.delivery,
           id: artifact.id,
           linked_work: artifact.links,
           project: artifact.project,

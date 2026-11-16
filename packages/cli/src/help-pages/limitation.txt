@@ -1,0 +1,20 @@
+mimir limitation · Record a known limitation of a delivery: an edge case it ships knowingly.
+
+USAGE
+  mimir limitation <id> [text...] [options]
+
+ARGUMENTS
+  id    The delivery (KEY-dN).
+  text  The limitation, the rest of the line.
+
+OPTIONS
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help      Show this help.
+      --no-input  Ask no questions, and take every answer from options.  (default: true)
+
+EXAMPLES
+  $ mimir limitation MMR-d3 "A cancelled run is charged its full reservation"
+    an edge case shipped on purpose
