@@ -486,3 +486,126 @@ The T3 launch's first check reads a live task naming a non-terminal delivery
 as `not_ready`, before contacting T3. Membership reserves the task for the
 delivery, so launch cannot queue it. A terminal delivery reference is not
 membership (ADR 0042).
+
+## Refinement (2026-11-16, MMR-679): the wake
+
+A delivery's orchestrator often runs in a T3 thread
+([ADR 0042](0042-the-delivery-record.md): `harness=t3`, `session` is the
+thread, `host` is its environment). Without a signal, the agent learns that
+the operator acted only at its next heartbeat's since read. The **wake** is
+that signal. When the operator acts on a delivery or one of its decisions in
+the console, the host sends a short message to the delivery's thread, after
+the write commits.
+
+### What wakes
+
+The console gains one server function per operator action. Each calls its
+Engine method, then the wake.
+
+| Console function  | Engine method     | Phrase in the message                       |
+| ----------------- | ----------------- | ------------------------------------------- |
+| `deliveryUnblock` | `deliveryUnblock` | `cleared the stop on delivery <d>`          |
+| `deliveryPark`    | `deliveryPark`    | `paused delivery <d>`                       |
+| `deliveryUnpark`  | `deliveryUnpark`  | `resumed delivery <d>`                      |
+| `deliveryReturn`  | `deliveryReturn`  | `sent back the milestone of delivery <d>`   |
+| `deliveryAbandon` | `deliveryAbandon` | `abandoned delivery <d>`                    |
+| `deliveryUpdate`  | `deliveryUpdate`  | `edited delivery <d>`                       |
+| `overturn`        | `overturn`        | `overturned decision <q> on delivery <d>`   |
+| `confirm`         | `confirm`         | none: a confirm never wakes                 |
+
+- **Only these console functions wake.** The Engine, the contract, the wire,
+  the CLI, and MCP gain nothing. A write through `/trpc` never wakes, whoever
+  sends it: the host cannot tell an operator's CLI from the agent's, and the
+  agent would otherwise wake itself. The console is the operator's surface
+  ([ADR 0035](0035-tanstack-start-container-host.md)), so a
+  console write is the operator's. A change the operator makes from the CLI
+  reaches the agent through its since read.
+- **A confirm never wakes,** because it changes nothing the agent built on.
+- **An overturn wakes only when the decision names a delivery.** The delivery
+  is read after the write, so a decision whose delivery has ended still wakes
+  that delivery's thread.
+- The agent's own verbs (`deliveryCreate`, `deliveryStart`, `deliveryBlock`,
+  `deliverySubmit`, `deliveryLand`, the lists, `decide`, `decisionUpdate`)
+  get no console function here.
+
+### Who receives it
+
+The delivery as the write left it, so an `update` that changes the handles
+wakes the new thread. The host sends only when the T3 feature is usable and
+the delivery has `harness=t3` with a nonblank `session` and `host`. The send
+goes to `threadId=<session>` on `environmentId=<host>`.
+
+### The message
+
+```text
+Mimir: the operator overturned decision MMR-q4 on delivery MMR-d3. Read what changed: mimir get MMR-d3 --since 2026-11-16T09:10:02.310Z
+```
+
+- It is `Mimir: the operator <phrase>. Read what changed: mimir get <d> --since <since>`.
+  The phrase is fixed per action and carries only ids. Nothing the operator
+  typed reaches the thread (no reason, note, option, or field value); the
+  agent reads those from Mimir, as data.
+- `<since>` is the host's clock read just before the Engine write, minus one
+  millisecond, in ISO 8601 with milliseconds. The write stamps its rows with
+  the same process's clock at or after that read, and the since read selects
+  events strictly after `since` (ADR 0042, MMR-692 refinement), so the
+  command shows this action. An `update` writes no log row; the read's
+  `delivery` snapshot carries the edit.
+- One action sends one message. Nothing is batched, queued, or retried by the
+  host.
+
+### The send
+
+The adapter adds `t3_thread_send` to its fixed tool list. It calls it with
+`threadId`, `environmentId`, `message`, `mode: 'auto'`, and
+`clientRequestId: mimir:wake:<attempt>`. `auto` starts an idle thread and
+steers a running turn, so a long build turn sees the action at once. The
+`attempt` is a random id the browser makes for one action, with the launch
+attempt's grammar (16 to 64 of `[A-Za-z0-9_-]`); a Retry reuses it, so T3 can
+treat it as the same send. A duplicate is harmless in any case: the message
+only points at the since read.
+
+The send uses the adapter's default 10-second timeout, and the server
+function waits for it, so its answer carries the outcome.
+
+### The answer
+
+A waking function answers `{ record, wake }`: `record` is the Engine method's
+output, and `wake` is a tagged state.
+
+| `wake.state`   | When                                                                                | Console                                                |
+| -------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `sent`         | T3 accepted the send                                                                | nothing more                                           |
+| `skipped`      | `reason`: `unconfigured` (feature off or misconfigured), `no_thread`, `no_delivery` | nothing more                                           |
+| `disconnected` | No usable token: `reason` is `none`, `expired`, or `rejected`                       | warning toast with Reconnect T3                        |
+| `unreachable`  | T3 did not answer, timed out, sent an unreadable reply, or the wake faulted         | warning toast with Retry                               |
+| `refused`      | T3 answered the send with a tool error, or has no send tool                         | warning toast with Open in T3                          |
+
+- **The wake never fails the write.** A refused Engine write throws as
+  today and sends nothing. Once the write returns, every failure of the wake,
+  a fault included, becomes one of these states; the function never throws
+  after the write. A fault logs `t3_wake_fault` and reads `unreachable`.
+- **The toast** says the write was saved and the thread was not told, for
+  example `Saved. The T3 thread was not told: T3 did not answer.` T3's text
+  never reaches the console or a log, as for the launch.
+- **Retry** calls `wakeT3({ delivery, action, decision, attempt, since })`
+  with the first answer's values. It re-reads the delivery, rebuilds the
+  message from the action's fixed phrase, and sends with the same
+  `clientRequestId`. The action is one of the table's waking actions, the ids
+  must parse as a delivery and a decision id, and `since` must be an instant
+  in the since read's range; anything else reads `invalid`. The browser never
+  names a T3 operation.
+- **Each wake that contacts T3 logs** `t3_wake` with its `outcome` and the
+  delivery id, never the message. A skip logs nothing.
+
+### Considered and rejected
+
+- **Waking on every write, or on a CLI flag.** The host cannot tell who sent
+  a `/trpc` write, and a flag would add an integration to the contract.
+- **Batching actions over a short window.** It needs a timer and a pending
+  queue in the host, and a restart during the window loses the wake.
+- **Queue mode.** A message queued behind a long build turn arrives hours
+  late, which defeats the wake.
+- **Recording a failed wake on the delivery.** The adapter writes only the
+  generic fields its verbs carry; a failed send is an integration state, so
+  it stays in the console and the log.
