@@ -556,9 +556,10 @@ fails ends the wake:
    because an operator who set the feature up expects the wake.
 5. The sealed token opens and is current; otherwise `disconnected`.
 
-A skip never reads the host secret, and a delivery that does not run in T3
-never raises a toast, so the operator is asked to fix T3 only for a wake
-that was due.
+A skip never reads the host secret, and a delivery read as not running in
+T3 never raises a toast, so the operator is asked to fix T3 only for a wake
+that was due. A delivery read that fails reads `failed`, whatever the
+delivery's handles.
 
 ### The message
 
