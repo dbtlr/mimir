@@ -376,8 +376,11 @@ mimir decline MMR-d3 "Retry the clone on a transient fetch failure" --reason "Fi
   frozen journals whose `delivery` names it, oldest first, so a landed delivery
   still leads to its journal.
 
-The records view prints each list as one line per entry, and omits a list
-that is empty. `deliveries` rows do not carry the lists.
+The records view prints each list as one line per entry, and a `journal`
+line with the live pad's UUID and the frozen journals' ids. It omits a list
+that is empty, and the `journal` line when it has neither. `deliveries` rows
+do not carry the lists. A later since read can report each entry from its
+`created_at`, as ADR 0044 does for checklist items.
 
 ### Transfer
 
