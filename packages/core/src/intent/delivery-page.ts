@@ -27,6 +27,24 @@ async function rowOf(store: Store, set: DerivationSet, id: string) {
   );
 }
 
+/** The journal's newest entries the dossier shows, newest first. */
+export const RECENT_JOURNAL_ENTRIES = 5;
+
+/** The newest journal entries, newest first (the pad stores them oldest first). */
+export function recentJournal<T>(journal: readonly T[]): T[] {
+  return journal.slice(-RECENT_JOURNAL_ENTRIES).toReversed();
+}
+
+/** A phase's live deliveries: every lifecycle but `landed` and `abandoned`. */
+export function liveDeliveriesOf<T extends { phase: string; lifecycle: string }>(
+  deliveries: readonly T[],
+  phase: string,
+): T[] {
+  return deliveries.filter(
+    (d) => d.phase === phase && d.lifecycle !== 'landed' && d.lifecycle !== 'abandoned',
+  );
+}
+
 /** The read-only delivery dossier: one snapshot for member and follow-up status words. */
 export async function deliveryPageOf(store: Store, id: string) {
   const set = deriveSet(await store.loadWorkingSet());
@@ -65,7 +83,7 @@ export async function deliveryPageOf(store: Store, id: string) {
     decisions: open.map(decodeDecision),
     delivery,
     followUps,
-    journal: pad ? intentViews.scratchpad.parse(pad).journal.slice(-5).toReversed() : [],
+    journal: pad ? recentJournal(intentViews.scratchpad.parse(pad).journal) : [],
     members,
     now: nowRows.filter(
       (row) => row.task.status === 'in_progress' || row.task.status === 'under_review',
@@ -81,13 +99,11 @@ export async function phaseDeliveriesOf(store: Store, id: string) {
   if (phase.type !== 'phase') {
     throw validation(`${id} is not a phase`);
   }
-  const deliveries = await listDeliveries(store, id.slice(0, id.indexOf('-')));
+  const deliveries = await listDeliveries(store, findNodeInSet(set, id)?.project_id ?? '');
   return Promise.all(
-    deliveries
-      .filter((d) => d.phase === id && d.lifecycle !== 'landed' && d.lifecycle !== 'abandoned')
-      .map(async (delivery) => ({
-        delivery: decodeDelivery(delivery),
-        members: await Promise.all(delivery.members.map((member) => rowOf(store, set, member))),
-      })),
+    liveDeliveriesOf(deliveries, id).map(async (delivery) => ({
+      delivery: decodeDelivery(delivery),
+      members: await Promise.all(delivery.members.map((member) => rowOf(store, set, member))),
+    })),
   );
 }

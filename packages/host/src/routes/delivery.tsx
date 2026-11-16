@@ -3,14 +3,18 @@ import { Link } from '@tanstack/react-router';
 
 import { isNotFound } from '../api/errors';
 import { deliveryPageQuery } from '../api/view-queries';
-import { BrowserRow } from '../components/browser-list';
-import { DeliveryTime, DeliveryWords, memberDistribution } from '../components/delivery-summary';
+import { BrowserGroup, BrowserRow } from '../components/browser-list';
+import {
+  DeliveryFacts,
+  DeliveryTime,
+  DeliveryWords,
+  memberDistribution,
+} from '../components/delivery-summary';
 import { DistributionBar } from '../components/distribution-bar';
-import { ExternalRef } from '../components/node-record';
 import { OfflineBanner } from '../components/offline-banner';
-import { OpenInT3 } from '../components/open-in-t3';
 import { RailSection, RecordLayout, RecordPending } from '../components/record-layout';
 import { StatusDot } from '../components/status-dot';
+import { DecisionRow } from '../components/work-rows';
 import { Empty, NowRow } from '../components/work-sections';
 import { connectivity } from '../lib/connectivity';
 import { deliveryIdOf, artifactLink, seedLink, nodeLink } from '../lib/record-url';
@@ -53,7 +57,9 @@ function DeliveryRecord({ id }: { id: string }) {
           {d.project_key}
         </Link>
         <span>›</span>
-        <Link {...nodeLink(phase.id)}>{phase.title}</Link>
+        <Link {...nodeLink(phase.id)} className="wrap-anywhere">
+          {phase.title}
+        </Link>
         <span>›</span>
         <span>{d.id}</span>
       </nav>
@@ -61,37 +67,14 @@ function DeliveryRecord({ id }: { id: string }) {
         <span className="font-mono text-mono-id text-ink-faint">{d.id} · delivery</span>
         <DeliveryWords delivery={d} />
       </div>
-      <h1 className="text-dossier font-bold text-ink-bright md:text-header">{d.title}</h1>
+      <h1 className="text-dossier font-bold wrap-anywhere text-ink-bright md:text-header">
+        {d.title}
+      </h1>
       <DeliveryTime delivery={d} />
     </header>
   );
   const rail = (
     <>
-      <div className="hidden lg:block">
-        <RailSection label="Facts">
-          <dl className="flex flex-col gap-2 text-xs text-ink-dim">
-            <dt>Branch</dt>
-            <dd className="font-mono break-all">{d.branch ?? 'None'}</dd>
-            <dt>Pull request</dt>
-            <dd>{d.external_ref ? <ExternalRef value={d.external_ref} /> : 'None'}</dd>
-            <dt>Thread</dt>
-            <dd>
-              <OpenInT3 harness={d.harness} host={d.host} session={d.session} />
-            </dd>
-            <dt>Start</dt>
-            <dd>
-              {absoluteTime(
-                d.history.find((h) => h.kind === 'lifecycle' && h.to_value === 'running')?.at ??
-                  d.created_at,
-              )}
-            </dd>
-            <dt>Time</dt>
-            <dd>
-              <DeliveryTime delivery={d} />
-            </dd>
-          </dl>
-        </RailSection>
-      </div>
       <RailSection label="Follow-ups">
         {followUps.length === 0 && <Empty lead="No follow-ups." />}
         {followUps.map((row) => (
@@ -104,7 +87,7 @@ function DeliveryRecord({ id }: { id: string }) {
             />
             <ul className="space-y-1 pl-4 text-xs text-ink-dim">
               {row.items.map((item) => (
-                <li key={item.number}>
+                <li key={item.number} className="wrap-anywhere">
                   {{ checked: '✓', dropped: '−', open: '○' }[item.state]} {item.content} ·{' '}
                   {item.state}
                 </li>
@@ -116,7 +99,7 @@ function DeliveryRecord({ id }: { id: string }) {
       <RailSection label="Known limitations">
         {d.limitations.length === 0 && <Empty lead="No known limitations." />}
         {d.limitations.map((l) => (
-          <p key={l.number} className="text-xs text-ink-dim">
+          <p key={l.number} className="text-xs wrap-anywhere text-ink-dim">
             {l.text}
           </p>
         ))}
@@ -124,14 +107,14 @@ function DeliveryRecord({ id }: { id: string }) {
       <RailSection label="Declined findings">
         {d.declined.length === 0 && <Empty lead="No declined findings." />}
         {d.declined.map((l) => (
-          <p key={l.number} className="text-xs text-ink-dim">
+          <p key={l.number} className="text-xs wrap-anywhere text-ink-dim">
             <strong>{l.finding}</strong> · <span>{l.reason}</span>
           </p>
         ))}
       </RailSection>
       <RailSection label="Recent run journal">
         {journal.map((entry) => (
-          <p key={entry.number} className="text-xs text-ink-dim">
+          <p key={entry.number} className="text-xs wrap-anywhere text-ink-dim">
             <time className="mr-2 text-ink-faint">{absoluteTime(entry.at)}</time>
             <span>{entry.content}</span>
           </p>
@@ -147,6 +130,9 @@ function DeliveryRecord({ id }: { id: string }) {
         ))}
         {!journal.length && !d.journal.artifacts.length && <Empty lead="No journal entries yet." />}
       </RailSection>
+      <div className="lg:-order-1">
+        <DeliveryFacts delivery={d} />
+      </div>
     </>
   );
   return (
@@ -163,47 +149,27 @@ function DeliveryRecord({ id }: { id: string }) {
             }
           >
             <h2 className="microlabel">{d.hold === 'stopped' ? 'Stopped' : 'Paused'}</h2>
-            <p className="text-meta">{d.hold_reason}</p>
+            <p className="text-meta wrap-anywhere">{d.hold_reason}</p>
           </section>
         )}
-        <RailSection label="Open decisions">
+        <BrowserGroup
+          label="Needs you"
+          count={decisions.length > 0 ? decisions.length : undefined}
+          hint="Only your action moves these."
+          labelClassName="text-attention-foreground"
+        >
           {!decisions.length && <Empty lead="No open decisions." />}
           {decisions.map((decision) => (
-            <div
-              key={decision.id}
-              className="flex flex-col gap-2 rounded-lg border border-attention/30 bg-attention/10 p-3 text-meta text-attention-foreground"
-            >
-              <span className="text-tag">
-                {decision.id} · {decision.class}
-              </span>
-              <h3 className="font-semibold">{decision.question}</h3>
-              <ol className="list-inside list-decimal">
-                {decision.options.map((option) => (
-                  <li key={option}>{option}</li>
-                ))}
-              </ol>
-              <p>Answer taken: {decision.options[decision.taken - 1] ?? 'None'}</p>
-              <div className="flex flex-wrap gap-2">
-                {decision.tasks.map((task) => (
-                  <Link
-                    key={task}
-                    {...nodeLink(task)}
-                    className={`underline ${PHONE_TOUCH_TARGET}`}
-                  >
-                    {task}
-                  </Link>
-                ))}
-              </div>
-            </div>
+            <DecisionRow key={decision.id} decision={decision} />
           ))}
-        </RailSection>
-        <RailSection label="Now">
+        </BrowserGroup>
+        <BrowserGroup label="Now" count={now.length > 0 ? now.length : undefined}>
           {!now.length && <Empty lead="No members in flight." />}
           {now.map((row) => (
             <NowRow key={row.task.id} row={row} />
           ))}
-        </RailSection>
-        <RailSection label="Progress">
+        </BrowserGroup>
+        <BrowserGroup label="Progress">
           <DistributionBar distribution={distribution} />
           <p className="text-tag text-ink-dim">
             {STATUS_ORDER.filter((s) => distribution[s])
@@ -222,7 +188,7 @@ function DeliveryRecord({ id }: { id: string }) {
                 meta={STATUS_META[task.status].label}
               />
             ))}
-        </RailSection>
+        </BrowserGroup>
       </RecordLayout>
     </>
   );

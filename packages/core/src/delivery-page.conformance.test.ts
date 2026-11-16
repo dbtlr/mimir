@@ -6,66 +6,88 @@ import { bootPglite } from './store-postgres/testing';
 import { backends } from './testing/conformance';
 
 beforeAll(bootPglite);
+
+/** A project with one phase, a live delivery over one member, and a task to follow up on. */
+async function seeded(store: Parameters<typeof createProject>[0]) {
+  const engine = new LocalEngine(store);
+  await createProject(store, { key: 'DEL', name: 'Delivery' });
+  const initiative = await createInitiative(store, { projectId: 'DEL', title: 'Plan' });
+  const phase = await createPhase(store, { parentId: initiative.id, title: 'Phase' });
+  const task = await createTask(store, { parentId: phase.id, title: 'Member' });
+  const follow = await createTask(store, { parentId: phase.id, title: 'Cleanup' });
+  const delivery = await engine.deliveryCreate({
+    phase: phase.id,
+    tasks: [task.id],
+    title: 'Run',
+  });
+  const decide = (question: string, id?: string) =>
+    engine.decide({
+      class: 'other',
+      delivery: id,
+      options: ['Yes', 'No'],
+      project: 'DEL',
+      question,
+      recommended: 1,
+    });
+  return { decide, delivery, engine, follow, phase, task };
+}
+
 describe.each(backends)('delivery console page ($name)', (backend) => {
-  test('assembles member status, only this delivery’s provisional decisions, follow-up items and recent journal', async () => {
+  test('reads each member’s derived status and its phase', async () => {
     const f = await backend.make();
     try {
-      const engine = new LocalEngine(f.store);
-      await createProject(f.store, { key: 'DEL', name: 'Delivery' });
-      const initiative = await createInitiative(f.store, { projectId: 'DEL', title: 'Plan' });
-      const phase = await createPhase(f.store, { parentId: initiative.id, title: 'Phase' });
-      const task = await createTask(f.store, { parentId: phase.id, title: 'Member' });
-      const follow = await createTask(f.store, { parentId: phase.id, title: 'Cleanup' });
-      const delivery = await engine.deliveryCreate({
-        phase: phase.id,
-        tasks: [task.id],
-        title: 'Run',
-      });
-      await engine.deliveryUpdate({ follow_ups: [follow.id], id: delivery.id });
-      await engine.itemAdd({ content: 'Remove fixture', task: follow.id });
-      const decide = (question: string, id?: string) =>
-        engine.decide({
-          class: 'other',
-          delivery: id,
-          options: ['Yes', 'No'],
-          project: 'DEL',
-          question,
-          recommended: 1,
-        });
+      const { delivery, engine, phase, task } = await seeded(f.store);
+      const page = await engine.console.deliveryPage({ id: delivery.id });
+      expect(page.members.map((row) => [row.id, row.status])).toEqual([[task.id, 'ready']]);
+      expect(page.phase.id).toBe(phase.id);
+    } finally {
+      await f.close();
+    }
+  });
+
+  test('lists only this delivery’s provisional decisions', async () => {
+    const f = await backend.make();
+    try {
+      const { decide, delivery, engine, phase } = await seeded(f.store);
       const open = await decide('Proceed?', delivery.id);
       const confirmed = await decide('Settled?', delivery.id);
       await engine.confirm({ id: confirmed.id });
       const other = await engine.deliveryCreate({ phase: phase.id, title: 'Other run' });
       await decide('Elsewhere?', other.id);
-      let pad = await engine.scratchCreate({
+      const page = await engine.console.deliveryPage({ id: delivery.id });
+      expect(page.decisions.map((row) => row.id)).toEqual([open.id]);
+    } finally {
+      await f.close();
+    }
+  });
+
+  test('carries the checklist items of each linked follow-up task', async () => {
+    const f = await backend.make();
+    try {
+      const { delivery, engine, follow } = await seeded(f.store);
+      await engine.deliveryUpdate({ follow_ups: [follow.id], id: delivery.id });
+      await engine.itemAdd({ content: 'Remove fixture', task: follow.id });
+      const page = await engine.console.deliveryPage({ id: delivery.id });
+      expect(page.followUps[0]?.items.map((item) => item.content)).toEqual(['Remove fixture']);
+    } finally {
+      await f.close();
+    }
+  });
+
+  test('reads the working set once and links the run journal’s pad', async () => {
+    const f = await backend.make();
+    try {
+      const { delivery, engine } = await seeded(f.store);
+      const pad = await engine.scratchCreate({
         anchors: [delivery.id],
         project: 'DEL',
         title: 'Run journal',
       });
-      for (let i = 1; i <= 6; i += 1) {
-        pad = await engine.scratchCheckpoint({
-          content: `Entry ${String(i)}`,
-          expectedUpdatedAt: pad.updatedAt,
-          id: pad.id,
-        });
-      }
-      const abandoned = await engine.deliveryCreate({ phase: phase.id, title: 'Abandoned' });
-      await engine.deliveryAbandon({ id: abandoned.id, reason: 'Superseded' });
-      const landingTask = await createTask(f.store, { parentId: phase.id, title: 'Land me' });
-      const landed = await engine.deliveryCreate({
-        agreement: 'Ship',
-        phase: phase.id,
-        tasks: [landingTask.id],
-        title: 'Landed',
+      await engine.scratchCheckpoint({
+        content: 'Entry 1',
+        expectedUpdatedAt: pad.updatedAt,
+        id: pad.id,
       });
-      await engine.deliveryStart({ id: landed.id });
-      await engine.start({ harness: 'test', id: landingTask.id, session: 'test' });
-      await engine.submit({ id: landingTask.id });
-      await engine.stage({ id: landingTask.id });
-      await engine.deliverySubmit({ id: landed.id });
-      await engine.deliveryLand({ id: landed.id });
-      const live = await engine.console.phaseDeliveries({ id: phase.id });
-      expect(live.map((row) => row.delivery.id)).toEqual([delivery.id, other.id]);
       let loads = 0;
       const load = f.store.loadWorkingSet.bind(f.store);
       f.store.loadWorkingSet = () => {
@@ -73,19 +95,22 @@ describe.each(backends)('delivery console page ($name)', (backend) => {
         return load();
       };
       const page = await engine.console.deliveryPage({ id: delivery.id });
-      expect(page.members.map((row) => [row.id, row.status])).toEqual([[task.id, 'ready']]);
-      expect(page.decisions.map((row) => row.id)).toEqual([open.id]);
-      expect(page.followUps[0]?.items.map((item) => item.content)).toEqual(['Remove fixture']);
-      expect(page.phase.title).toBe('Phase');
       expect(loads).toBe(1);
-      expect(page.journal.map((entry) => entry.content)).toEqual([
-        'Entry 6',
-        'Entry 5',
-        'Entry 4',
-        'Entry 3',
-        'Entry 2',
-      ]);
       expect(page.delivery.journal.scratchpad).toBe(pad.id);
+      expect(page.journal.map((entry) => entry.content)).toEqual(['Entry 1']);
+    } finally {
+      await f.close();
+    }
+  });
+
+  test('lists a phase’s deliveries from the store without the abandoned', async () => {
+    const f = await backend.make();
+    try {
+      const { delivery, engine, phase } = await seeded(f.store);
+      const abandoned = await engine.deliveryCreate({ phase: phase.id, title: 'Abandoned' });
+      await engine.deliveryAbandon({ id: abandoned.id, reason: 'Superseded' });
+      const live = await engine.console.phaseDeliveries({ id: phase.id });
+      expect(live.map((row) => row.delivery.id)).toEqual([delivery.id]);
     } finally {
       await f.close();
     }

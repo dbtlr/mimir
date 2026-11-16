@@ -127,9 +127,8 @@ function lettered(key: string, letter: 's' | 'a' | 'd', seq: string): string | u
 }
 
 /**
- * A seed's page: the seed id split at its hyphen (`MMR-s41` → `/p/MMR/s41`).
- * The route matches `S41` and `s041` too, so any spelling but the seed's own
- * moves to it, keeping the search.
+ * A delivery's page: the delivery id split at its hyphen (`MMR-d3` →
+ * `/p/MMR/d3`). Any other spelling (`D003`) moves to it, keeping the search.
  */
 export const deliveryRoute = createRoute({
   beforeLoad: ({ params, location }) => {
@@ -147,6 +146,11 @@ export const deliveryRoute = createRoute({
   path: '/p/$key/d{$seq}',
 });
 
+/**
+ * A seed's page: the seed id split at its hyphen (`MMR-s41` → `/p/MMR/s41`).
+ * The route matches `S41` and `s041` too, so any spelling but the seed's own
+ * moves to it, keeping the search.
+ */
 export const seedRoute = createRoute({
   beforeLoad: ({ params, location }) => {
     const id = lettered(params.key, 's', params.seq);

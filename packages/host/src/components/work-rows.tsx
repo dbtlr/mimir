@@ -1,4 +1,5 @@
-import type { EngineNode, Grooming } from '@mimir/contract';
+import type { EngineDecision, EngineNode, Grooming } from '@mimir/contract';
+import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -109,6 +110,43 @@ export function NeedsYouRow({
           </>
         }
       />
+    </div>
+  );
+}
+
+/**
+ * A decision record that needs the operator (ADR 0043): its question and
+ * class, the numbered options with the taken one marked, and the tasks it
+ * touches. The delivery page shows it now; the needs-you groups reuse it.
+ */
+export function DecisionRow({ decision }: { decision: EngineDecision }) {
+  return (
+    <div className={`${ATTENTION_RULE} flex flex-col gap-1.5 py-1.5 wrap-anywhere`}>
+      <span className="text-tag text-attention-foreground">
+        {decision.id} · {decision.class}
+      </span>
+      <h3 className="text-meta font-semibold text-ink-bright">{decision.question}</h3>
+      <ol className="list-inside list-decimal text-meta text-ink">
+        {decision.options.map((option, index) => (
+          <li key={option} className={index + 1 === decision.taken ? 'font-semibold' : undefined}>
+            <span>{option}</span>
+            {index + 1 === decision.taken && (
+              <span className="microlabel ml-2 text-attention-foreground">taken</span>
+            )}
+          </li>
+        ))}
+      </ol>
+      <div className="flex flex-wrap gap-2 text-tag">
+        {decision.tasks.map((task) => (
+          <Link
+            key={task}
+            {...nodeLink(task)}
+            className={`text-accent-foreground underline ${PHONE_TOUCH_TARGET}`}
+          >
+            {task}
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
