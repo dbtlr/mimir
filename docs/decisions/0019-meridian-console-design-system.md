@@ -728,50 +728,81 @@ _Skip_ only. A task's card is unchanged.
 
 The MMR-680 and MMR-694 refinements show decisions and stopped deliveries
 read-only. This refinement adds their controls. Every write goes through the
-console's waking functions ([ADR 0040](0040-outbound-integrations-and-host-secrets.md),
-the wake), so a write that wakes the delivery's thread shows that wake's state
-as it does today. `confirm` never wakes.
+console's waking functions, so a write that wakes the delivery's thread shows
+its wake state as the state table of [ADR 0040](0040-outbound-integrations-and-host-secrets.md)'s
+wake gives it. `confirm` never wakes.
 
 ### Answering a decision
 
 A provisional decision's row carries a chip row wherever the row shows: on
 the delivery page, in a review group, in the alert's popover, on a work
-page's _Needs you_, and on its focus-queue card.
+page's _Needs you_, and on its focus-queue card. The chips wrap onto more
+lines when a decision has many options.
 
 - **Confirm N** confirms the answer taken, where N is the taken option's
   number. One tap commits it, with no note.
 - **Take M**, one chip for each other option, overturns to option M. One tap
-  commits it, with no note.
-- **Note…** opens the reason dialog. The note is required. The dialog offers
-  two commits: _Confirm with note_, which confirms the answer taken with the
-  note as its outcome note, and _Answer with note_, which overturns with the
-  note alone and records an answer outside the list
-  ([ADR 0043](0043-the-decision-record.md)).
+  commits it, with no note. A decision always has at least two options
+  ([ADR 0043](0043-the-decision-record.md)), so a row always offers at least
+  one Take chip.
+- **Note…** opens the answer dialog, titled "Answer KEY-qN", with its
+  question shown. The note is required. The dialog has two outline commits
+  beside _Cancel_: _Confirm with note_ confirms the answer taken with the note
+  as its outcome note, and _Answer with note_ overturns with the note alone,
+  which records an answer outside the list. A refused commit keeps the
+  dialog open with the note in it.
+- ADR 0043 also allows an overturn to an option with a note. The console
+  leaves that out: _Take M_ records the option alone.
+- Each chip's accessible name says what it commits, with the decision id and
+  the option text, for example "Take option 2 for MMR-q7: Yes, under their
+  own heading". The visible label stays short.
 - The chips are attention outlines, as a task row's _Answer…_ is, because the
   row is in the needs-you set. Each takes the 44px phone touch target. A
-  write in flight disables the row's chips, and offline disables them, as it
-  does every write (ADR 0013 §5).
-- A confirmed or overturned decision leaves the needs-you set. Focus then
-  moves on as it does when a task row leaves (MMR-474). A refusal shows as a
-  toast, and the row stays.
+  write in flight disables all of the row's chips. Offline disables them, as
+  it does every write (ADR 0013 §5).
 - Confirm and overturn are terminal and have no undo. One tap is the
   operator's ruling: the chips name exactly what they commit.
+- **Focus never lands on a committing chip by itself.** A confirmed or
+  overturned decision leaves the needs-you set, and focus moves on as it
+  does when a task row leaves (MMR-474), with one change. When the next row
+  is a decision, focus lands on that row's first link, or on the row itself
+  when it has none. It never lands on _Confirm N_ or a _Take M_ chip. A key
+  held down or pressed twice therefore cannot answer a second decision
+  unread. On a focus-queue card the first focus lands on _Skip_.
+- A refusal shows as a toast, and the row stays.
+
+On a focus-queue card, a decision's chips come before _Skip_. A stopped
+delivery's card keeps _Skip_ and its link to the delivery's page. This
+replaces the MMR-694 refinement's "Skip only" for a decision's card.
 
 ### Driving a delivery
 
-The delivery page offers the verbs that are legal for the delivery's
-lifecycle and hold ([ADR 0042](0042-the-delivery-record.md)), as a chip row
-under the header:
+The delivery page offers four verbs, and only these four. `return` and
+`update` stay off the page. Each verb shows only when ADR 0042 allows it for
+the delivery's lifecycle and hold. They sit in a chip row under the header:
 
-- **Clear stop** (`unblock`) shows only on a `stopped` delivery, and also
-  sits in the stop's verdict block (§4). One tap commits it.
+- **Clear stop** (`unblock`) shows only on a `stopped` delivery. The stop's
+  verdict block (§4) carries the same control, from the same write, so one
+  tap in either place commits it.
 - **Pause…** (`park`) shows on a non-terminal delivery with no hold. It opens
-  the reason dialog, and the reason is required.
+  the reason dialog, titled "Pause KEY-dN", whose commit reads "Pause
+  delivery". The reason is required.
 - **Resume** (`unpark`) shows only on a `paused` delivery. One tap commits it.
+  The paused notice carries no control of its own.
 - **Abandon…** (`abandon`) shows on every non-terminal delivery. It opens the
-  reason dialog, and the reason is required. It wears the destructive red
-  hairline (the MMR-635 refinement), because it releases every live member.
-- A terminal delivery shows no verbs. A verb chip is an outline. Only _Clear
-  stop_ takes the attention outline, because only the stop needs the
-  operator. A stopped delivery's row elsewhere links to this page and carries
-  no verbs.
+  reason dialog, titled "Abandon KEY-dN", whose commit is a destructive
+  outline (the MMR-635 refinement) that reads "Abandon delivery", beside
+  _Cancel_. The reason is required. The chip wears the destructive red
+  hairline too, because the verb releases every live member.
+
+The rules for these chips:
+
+- A terminal delivery shows no verbs.
+- A verb chip is an outline. Only _Clear stop_ takes the attention outline,
+  because only the stop needs the operator.
+- A delivery write in flight disables every verb on the page, and offline
+  disables them all.
+- After a verb commits, focus moves to the page's heading. It never moves to
+  another verb, and never to _Abandon…_.
+- The page's _Needs you_ group hands focus on as a work page's does.
+- A stopped delivery's row elsewhere links to this page and carries no verbs.
