@@ -61,3 +61,41 @@ test('an artifact reads its body when content is one of several comma-separated 
   expect(run.exitCode).toBe(0);
   expect(run.stdout).toContain('The body.');
 });
+
+/** Run `get` against an app whose store opens only if the command asks for it. */
+async function getWithoutStore(argv: string[]) {
+  let opened = false;
+  const app = createApp({
+    git: boundClone(undefined),
+    store: () => {
+      opened = true;
+      return Promise.resolve(board.store);
+    },
+  });
+  const run = await runArgv(app, argv);
+  return { opened, run };
+}
+
+test('--since on an id that is not a delivery is a usage error naming the list reads, before the store opens', async () => {
+  for (const id of ['MMR-3', 'MMR', 'MMR-a1', 'MMR-s1', 'MMR-q1']) {
+    const { opened, run } = await getWithoutStore(['get', id, '--since', '2026-10-01T00:00:00Z']);
+    expect(run.exitCode).toBe(2);
+    expect(run.stderr).toContain(
+      "--since reads a delivery's change feed, so it takes only a delivery id (KEY-dN)",
+    );
+    expect(run.stderr).toContain(
+      'to window a list by date, use --at-or-after with list, next, artifacts, or seeds',
+    );
+    expect(opened).toBe(false);
+  }
+});
+
+test('an unparseable --since is a usage error before the store opens', async () => {
+  for (const value of ['yesterday', '2026-10-01', '2026-10-01T00:00:00']) {
+    const { opened, run } = await getWithoutStore(['get', 'MMR-d1', '--since', value]);
+    expect(run.exitCode).toBe(2);
+    expect(run.stderr).toContain(`invalid --since: ${value}`);
+    expect(run.stderr).toContain('explicit zone');
+    expect(opened).toBe(false);
+  }
+});

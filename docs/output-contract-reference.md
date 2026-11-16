@@ -664,3 +664,44 @@ declined finding. A section with no entries is omitted. The `deliveries` rows do
 A pad's views (`scratch get`, `scratch list`, the overview row) and an artifact's
 views (`get KEY-aN`, `artifacts`) carry `delivery`: the `KEY-dN` the pad or
 frozen journal names, or `null`. The `scratch freeze` receipt carries it too.
+
+## The since read on a delivery
+
+`get KEY-dN --since <instant>` ([ADR 0042](decisions/0042-the-delivery-record.md),
+MMR-692 refinement) answers the delivery's change feed. `--since` takes a zoned
+ISO 8601 timestamp (`Z` or an offset) and is accepted only on a delivery id. The
+Engine method is `deliverySince({ id, since })` and returns `Date` instants; the
+`get` MCP tool takes `since` and returns the `json` view:
+
+```json
+{ "delivery": { "id": "MMR-d3", "...": "the delivery as plain get reads it" },
+  "since": "2026-11-16T09:00:00.000Z",
+  "as_of": "2026-11-16T09:14:55.000Z",
+  "events": [
+    { "id": "MMR-q4/history/7", "at": "2026-11-16T09:10:02.311Z", "record": "MMR-q4",
+      "kind": "lifecycle", "task": null, "number": null,
+      "from": "provisional", "to": "overturned", "reason": "Phase is the review unit",
+      "text": null } ] }
+```
+
+- `events` holds every event strictly after `since`, oldest first, in the
+  total order the ADR defines. Every event carries all ten fields; a field a
+  kind does not use is `null`. `kind` is one of `lifecycle`, `hold`, `member`,
+  `limitation`, `declined`, `dependency`, `assignment`, `note`, `item`,
+  `decided`, `link`, `delivery`, or `journal`.
+- `as_of` is the reading process's clock minus 5 seconds, never earlier than
+  `since`. Pass it as the next `--since` and drop events whose `id` you have
+  seen: the overlap is the settle window. Event ids are opaque; compare them,
+  do not parse them.
+- A `get` of any other id with `--since` is a `usage` error naming `list`,
+  `next`, `artifacts`, and `seeds`, whose `--at-or-after` windows a list. A
+  value that is not a zoned ISO 8601 instant whose UTC year is 0100 to 9999
+  (the range of Mimir's canonical instants) is a `usage` error before the store opens.
+  A missing or archived delivery is `not_found`.
+- `records` prints the delivery as `get` does, a `since: <since> as_of: <as_of>`
+  line (both in ISO form, ready to pass back), then one line per event:
+  `<time> <record> <kind>[ #<number>][: <from> → <to>][ <task>][ <text>][ — <reason>]`,
+  with the time in the caller's zone. A missing `<from>` or `<to>` prints as `—`.
+  In plain output (`--ascii`, `NO_COLOR` set, or output that is not a terminal,
+  such as a pipe), the arrow prints as `->` and both dashes as `-`. `ids`
+  prints the delivery id.

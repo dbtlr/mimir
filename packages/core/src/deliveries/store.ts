@@ -7,6 +7,7 @@ import type {
 
 import { validation } from '../errors';
 import type { StoreWriter } from '../store';
+import type { SinceSources } from './since';
 
 /**
  * The delivery storage seam (MMR-676, ADR 0042): one attempt to deliver a
@@ -84,6 +85,11 @@ export type DeliveryStore = {
   appendFinding: (key: string, seq: number, entry: NewDeliveryFinding) => Promise<void>;
   /** A delivery's entries in number order. */
   findings: (key: string, seq: number) => Promise<DeliveryFindingRecord[]>;
+  /**
+   * Every source of a delivery's since read (ADR 0042, MMR-692), read in one
+   * snapshot and unfiltered: the pure functions of `./since` pick the events.
+   */
+  sinceSources: (key: string, seq: number) => Promise<SinceSources>;
   /** Run rules and member writes against one consistent write transaction. */
   transact: (
     key: string,

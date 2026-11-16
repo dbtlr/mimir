@@ -345,6 +345,97 @@
 |   ]
 | }
 
+### get takes since on a delivery
+| {
+|   "delivery": {
+|     "id": "MMR-d1",
+|     "project_key": "MMR",
+|     "seq": 1,
+|     "phase": "MMR-2",
+|     "title": "Attempt",
+|     "lifecycle": "agreed",
+|     "hold": "none",
+|     "hold_reason": null,
+|     "agreement": null,
+|     "external_ref": null,
+|     "branch": null,
+|     "host": null,
+|     "harness": null,
+|     "session": null,
+|     "time_cap_minutes": null,
+|     "created_at": "2026-10-01T12:00:00.000Z",
+|     "updated_at": "2026-10-01T12:00:00.000Z",
+|     "members": [],
+|     "elapsed_minutes": null,
+|     "history": [],
+|     "declined": [
+|       {
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "finding": "Retry the clone",
+|         "number": 2,
+|         "reason": "Filed as MMR-s55"
+|       },
+|       {
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "finding": "Another finding",
+|         "number": 3,
+|         "reason": "Not worth it"
+|       }
+|     ],
+|     "journal": {
+|       "artifacts": [],
+|       "scratchpad": null
+|     },
+|     "limitations": [
+|       {
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "number": 1,
+|         "text": "A cancelled run is charged in full"
+|       }
+|     ]
+|   },
+|   "since": "2026-10-01T11:00:00.000Z",
+|   "as_of": "2026-10-01T11:59:55.000Z",
+|   "events": [
+|     {
+|       "id": "MMR-d1/finding/1",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-d1",
+|       "kind": "limitation",
+|       "task": null,
+|       "number": 1,
+|       "from": null,
+|       "to": null,
+|       "reason": null,
+|       "text": "A cancelled run is charged in full"
+|     },
+|     {
+|       "id": "MMR-d1/finding/2",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-d1",
+|       "kind": "declined",
+|       "task": null,
+|       "number": 2,
+|       "from": null,
+|       "to": null,
+|       "reason": "Filed as MMR-s55",
+|       "text": "Retry the clone"
+|     },
+|     {
+|       "id": "MMR-d1/finding/3",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-d1",
+|       "kind": "declined",
+|       "task": null,
+|       "number": 3,
+|       "from": null,
+|       "to": null,
+|       "reason": "Not worth it",
+|       "text": "Another finding"
+|     }
+|   ]
+| }
+
 ### scratch_agenda add takes the item as words
 | {
 |   "id": "<uuid>",
@@ -423,7 +514,7 @@
 | deliveries(project: string)
 | depend(id: string, on: string)
 | done(id: string)
-| get(col: array, id: string)
+| get(col: array, id: string, since: string)
 | groom(ids: string, note: array, state: string)
 | item_add(content: array, task: string)
 | item_check(number: string, task: string)

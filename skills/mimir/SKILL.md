@@ -118,6 +118,9 @@ derived `ready`, `awaiting`, and `stale` states.
   to act on. Both append to the delivery's numbered lists, in any lifecycle
   (`references/deliveries.md`). A delivery's run journal is a Scratchpad
   created with `--link KEY-dN` (`references/scratchpad.md`).
+- `get KEY-dN --since <instant>` reads what changed on a delivery after the
+  instant. A heartbeat passes the answer's `as_of` back as the next `--since`
+  and drops event ids it has seen (`references/deliveries.md`).
 
 ## Task owners
 

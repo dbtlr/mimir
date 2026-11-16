@@ -32,6 +32,7 @@ export const MIGRATIONS = [
   { name: '0017_decision', version: 17 },
   { name: '0018_checklist_item', version: 18 },
   { name: '0019_delivery_finding', version: 19 },
+  { name: '0020_delivery_since_indexes', version: 20 },
 ] as const;
 
 export type Migration = (typeof MIGRATIONS)[number];

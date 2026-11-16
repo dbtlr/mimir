@@ -2,6 +2,7 @@ import {
   consoleIntentViews,
   consoleSchemas,
   decodeDelivery,
+  decodeDeliverySince,
   decodeDecision,
   engineSchemas,
   intentViews,
@@ -17,6 +18,7 @@ import {
   createDelivery,
   declineFinding,
   getDelivery,
+  sinceDelivery,
   listDeliveries,
   updateDelivery,
   transitionDelivery,
@@ -239,6 +241,13 @@ export class LocalEngine extends UniformEngineBase implements Engine {
     refuseDecisionInput(input);
     const { id } = parseEngineInput(engineSchemas.getDelivery.input, input);
     return decodeDelivery(await getDelivery(this.store, id));
+  }
+
+  async deliverySince(input: EngineInput<'deliverySince'>) {
+    refuseDecisionInput(input);
+    return decodeDeliverySince(
+      await sinceDelivery(this.store, parseEngineInput(engineSchemas.deliverySince.input, input)),
+    );
   }
 
   async deliveries(input: EngineInput<'deliveries'>) {

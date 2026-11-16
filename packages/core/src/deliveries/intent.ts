@@ -2,6 +2,7 @@ import { DELIVERY_OP_FACTS } from '@mimir/contract';
 import type {
   DeliveryHistory,
   DeliveryDetailView,
+  DeliverySinceView,
   DeliveryLifecycle,
   DeliveryVerb,
   DeliveryView,
@@ -20,6 +21,7 @@ import { rankAppender } from '../rank';
 import type { Store } from '../store';
 import { now } from '../time';
 import { releaseMember } from './membership';
+import { asOf, feedOf } from './since';
 import type {
   DeliveryStatePatch,
   DeliveryCreate,
@@ -219,6 +221,34 @@ export async function getDelivery(store: Store, id: string): Promise<DeliveryDet
     throw notFound(`${id} doesn't exist`);
   }
   return detailOf(store, stored);
+}
+
+/**
+ * `get KEY-dN --since <instant>` — the delivery as `get` reads it, and every
+ * event after `since` (ADR 0042, MMR-692). The events are read in one snapshot
+ * and the delivery after them, so the snapshot is never older than the feed.
+ * `as_of` is the reading process's clock, taken through `readAt`, less the
+ * settle window. A missing or archived delivery is `not_found`, as `get` reads it.
+ */
+export async function sinceDelivery(
+  store: Store,
+  input: EngineInput<'deliverySince'>,
+  readAt: () => string = now,
+): Promise<DeliverySinceView> {
+  const ref = requireDeliveryRef(input.id);
+  const since = input.since.toISOString();
+  const clock = readAt();
+  const sources = activeProject(await store.loadProjects(), ref.key)
+    ? await store.deliveries.sinceSources(ref.key, ref.seq)
+    : undefined;
+  // Read the delivery whatever the feed found: a missing one is refused here, as `get` refuses it.
+  const delivery = await getDelivery(store, input.id);
+  return {
+    as_of: asOf(new Date(clock), input.since).toISOString(),
+    delivery,
+    events: sources === undefined ? [] : feedOf(sources, since),
+    since,
+  };
 }
 
 /** Append one entry to a delivery's lists and read the delivery back as `get` does. */

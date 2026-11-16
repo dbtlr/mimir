@@ -885,6 +885,34 @@
             "required": ["kind", "schema"],
             "additionalProperties": false
           },
+          "deliverySince": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "since": {
+                    "format": "date-time",
+                    "type": "string",
+                    "x-mimir-type": "Date",
+                    "x-mimir-minimum": "0100-01-01T00:00:00.000Z",
+                    "x-mimir-maximum": "9999-12-31T23:59:59.999Z"
+                  }
+                },
+                "required": ["id", "since"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
           "deliveryStart": {
             "type": "object",
             "properties": {
@@ -2855,6 +2883,7 @@
           "deliveryLimitation",
           "deliveryPark",
           "deliveryReturn",
+          "deliverySince",
           "deliveryStart",
           "deliverySubmit",
           "deliveryUnblock",
@@ -3971,6 +4000,114 @@
               },
               "schema": {
                 "$ref": "#/$defs/__schema84"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "deliverySince": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "as_of": {
+                    "format": "date-time",
+                    "type": "string",
+                    "x-mimir-type": "Date"
+                  },
+                  "delivery": {
+                    "$ref": "#/$defs/__schema105"
+                  },
+                  "events": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "at": {
+                          "format": "date-time",
+                          "type": "string",
+                          "x-mimir-type": "Date"
+                        },
+                        "from": {
+                          "type": ["string", "null"]
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "lifecycle",
+                            "hold",
+                            "member",
+                            "limitation",
+                            "declined",
+                            "dependency",
+                            "assignment",
+                            "note",
+                            "item",
+                            "decided",
+                            "link",
+                            "delivery",
+                            "journal"
+                          ]
+                        },
+                        "number": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "reason": {
+                          "type": ["string", "null"]
+                        },
+                        "record": {
+                          "type": "string"
+                        },
+                        "task": {
+                          "type": ["string", "null"]
+                        },
+                        "text": {
+                          "type": ["string", "null"]
+                        },
+                        "to": {
+                          "type": ["string", "null"]
+                        }
+                      },
+                      "required": [
+                        "at",
+                        "from",
+                        "id",
+                        "kind",
+                        "number",
+                        "reason",
+                        "record",
+                        "task",
+                        "text",
+                        "to"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "since": {
+                    "format": "date-time",
+                    "type": "string",
+                    "x-mimir-type": "Date"
+                  }
+                },
+                "required": ["as_of", "delivery", "events", "since"],
+                "additionalProperties": false
               }
             },
             "required": ["kind", "schema"],
@@ -5153,6 +5290,7 @@
           "deliveryLimitation",
           "deliveryPark",
           "deliveryReturn",
+          "deliverySince",
           "deliveryStart",
           "deliverySubmit",
           "deliveryUnblock",

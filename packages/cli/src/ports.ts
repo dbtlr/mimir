@@ -45,6 +45,8 @@ export type Grammar = {
     field: string,
     zone: string,
   ) => { field: string; op: DateOp; value: string }[];
+  /** A zoned ISO timestamp as the instant it names; throws when it names none. */
+  instant: (value: string) => Date;
   /** The most hits one search may ask for. */
   maxSearchLimit: number;
 };

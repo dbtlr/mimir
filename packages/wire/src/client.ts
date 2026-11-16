@@ -164,6 +164,10 @@ export class RemoteEngine extends UniformEngineBase implements Engine {
     return domainResult(this.client.deliveryUpdate.mutate(input));
   }
 
+  deliverySince(input: EngineInput<'deliverySince'>) {
+    return domainResult(this.client.deliverySince.query(input));
+  }
+
   getDelivery(input: EngineInput<'getDelivery'>) {
     return domainResult(this.client.getDelivery.query(input));
   }

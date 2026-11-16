@@ -90,6 +90,15 @@ member. Not the pad's numbered Journal section, which is one part of it
 ([ADR 0027](decisions/0027-scratchpads-are-temporary-episode-state.md), MMR-691
 refinement).
 
+**Since read**: `get KEY-dN --since <ts>`: a delivery's snapshot plus every
+event after the caller's cursor, with a lagged `as_of` for the next read and
+an `id` on each event so repeats can be dropped
+([ADR 0042](decisions/0042-the-delivery-record.md), MMR-692 refinement).
+
+**Settle window**: The 5 seconds the since read's `as_of` lags the reading
+process's clock, so a write that commits just after a read is read next time.
+It is a best-effort bound, not a guarantee.
+
 **Agent run**: One execution of an agent by the host on behalf of a task, such
 as a grooming run, recorded as a host-owned row with its state, usage, and
 outcome ([ADR 0041](decisions/0041-agent-runtime-on-the-host.md)). An agent

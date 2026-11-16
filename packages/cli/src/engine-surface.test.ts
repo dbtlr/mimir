@@ -52,7 +52,7 @@ const SEED_VARIANT: Readonly<Record<string, readonly string[]>> = {
 const SURFACES: readonly Surface[] = [
   // Reads.
   same('artifacts'),
-  same('get', 'getNode', 'getArtifact', 'getSeed', 'getDelivery', 'getDecision'),
+  same('get', 'getNode', 'getArtifact', 'getSeed', 'getDelivery', 'deliverySince', 'getDecision'),
   same('decide'),
   same('confirm'),
   same('overturn'),

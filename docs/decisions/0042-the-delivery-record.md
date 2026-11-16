@@ -391,3 +391,149 @@ do not carry the lists. A later since read can report each entry from its
   number below 1 or used twice on one delivery; blank text; a kind outside the
   set; a `declined` entry without a reason or a `limitation` with one; or a
   `created_at` that is not a canonical UTC instant.
+
+## Refinement (2026-11-16, MMR-692): the since read
+
+`mimir get KEY-dN --since <ts>` reports what changed on a delivery after the
+caller's timestamp: on the delivery, on its tasks while they were members, on
+its decisions, and on its run journal. It is built from the logs and rows that
+already exist. It stores nothing: the cursor stays with the caller
+([ADR 0002](0002-general-purpose-primitives-not-baked-in-semantics.md)). An
+orchestrator's heartbeat reads it, and the agent rereads it before close-out.
+
+### The read
+
+```sh
+mimir get MMR-d3 --since 2026-11-16T09:00:00.000Z
+```
+
+```json
+{ "delivery": { "id": "MMR-d3", "...": "the delivery as plain get reads it" },
+  "since": "2026-11-16T09:00:00.000Z",
+  "as_of": "2026-11-16T09:14:55.000Z",
+  "events": [
+    { "id": "MMR-q4/history/7", "at": "2026-11-16T09:10:02.311Z",
+      "record": "MMR-q4", "kind": "lifecycle", "task": null, "number": null,
+      "from": "provisional", "to": "overturned", "reason": "Phase is the review unit",
+      "text": null } ] }
+```
+
+- `delivery` is the delivery exactly as `get KEY-dN` reads it now. An edit of
+  the delivery's own fields writes no log row (its title, agreement, branch,
+  handles, pull request link, or time cap), so it shows only here, as the
+  current value. Field edits on member tasks (title, description, priority,
+  tags) are not reported by this read at all.
+- `events` holds every event whose `at` is strictly after `since`, oldest
+  first. Events with the same `at` sort by this tuple: the source's rank, then
+  `record` compared as a string, then the row id or number (an integer, or
+  none for a kind that has neither, which sorts first), then `id`. The ranks are,
+  from first: the delivery's history; its findings (limitations and declined
+  findings share one rank and one numbering); a member task's transition log;
+  its annotations; its checklist items; a decision recorded; a decision's
+  history; a run journal frozen. A source with one log table keeps its
+  insertion order this way. An event stamped later than the read's clock is included
+  too; `as_of` does not move past it.
+- `as_of` is the cursor for the next read: the reading process's clock when
+  the read ran, minus a **settle window** of 5 seconds, and never earlier than
+  `since`.
+
+### Why the cursor lags
+
+A write stamps its rows with its process's clock when it runs, and they become
+visible when it commits, usually a few milliseconds later. A read that falls
+between the two would hand back a cursor after a write it could not see, and
+the next read would skip that write for good. The settle window overlaps each
+read with the last 5 seconds of the one before, so such a write is read next
+time. The cost is that events of those seconds come back again. Every event
+carries an `id`, so a caller drops the ones it has seen. Selection stays
+strictly after `since`, and the cursor stays with the caller.
+
+The window is a best-effort bound, not a guarantee. A write whose commit lands
+more than 5 seconds after its stamp, or a writer whose clock runs more than 5
+seconds behind the reader's, can still be skipped. Mimir's writes are single
+short transactions, so both are far outside normal operation, and the
+`delivery` snapshot always carries current state. A guarantee would need a
+commit-ordered watermark in the store, which no log has today.
+
+### The events
+
+Each event has the same fields: `id`, `at`, `record` (the record it happened
+on), `kind`, and `task`, `number`, `from`, `to`, `reason`, `text`, each null
+when the kind has none.
+
+| Source | `record` | `kind` | Carries | `id` |
+| --- | --- | --- | --- | --- |
+| The delivery's history | `KEY-dN` | `lifecycle`, `hold`, `member` | `from`, `to`, `reason`; `task` on `member` | `KEY-dN/history/<row>` |
+| A known limitation | `KEY-dN` | `limitation` | `number`, `text` | `KEY-dN/finding/<number>` |
+| A declined finding | `KEY-dN` | `declined` | `number`, `text` (the finding), `reason` | `KEY-dN/finding/<number>` |
+| A member task's transition log | the task | the log row's kind (`lifecycle`, `hold`, `dependency`, `assignment`; a member cannot be moved, and archive rows are project rows) | `from`, `to`, `reason` | `<task>/transition/<row>` |
+| A member task's annotation | the task | `note` | `text` | `<task>/note/<row>` |
+| A member task's checklist item added | the task | `item` | `number`, `to` = `open`, `text` | `<task>/item/<number>/added` |
+| A member task's checklist item settled | the task | `item` | `number`, `from` = `open`, `to` = `checked` or `dropped`, `text`, `reason` | `<task>/item/<number>/settled` |
+| A decision recorded | `KEY-qN` | `decided` | `text` (the question) | `KEY-qN/decided` |
+| A decision's history | `KEY-qN` | `lifecycle`, `link`, `delivery` | `from`, `to`, `reason`; `task` on `link` | `KEY-qN/history/<row>` |
+| A run journal frozen | `KEY-aN` | `journal` | `text` (the artifact's title) | `KEY-aN/journal` |
+
+- **Tasks while they were members.** A task's own events (its transitions,
+  notes, and checklist items) are included only while it was a member of this
+  delivery. A span runs from a `joined` row to the next `left`, `released`, or
+  `abandoned` row for that task, or, when the delivery landed, to its `landed`
+  lifecycle row, which ends every span still open and includes the members'
+  `done` rows that `land` writes. A span that a task's `abandon` ended, whose
+  `member` row reads `abandoned`, runs on to that task's next `lifecycle` row
+  to `abandoned`, so the abandon and its reason are in the feed. A span still
+  open has no upper bound: every event of that task the read can see is in
+  it, including one stamped later than the reader's clock. A task that left and joined again has two spans. The `member` rows
+  themselves always appear, because they are the delivery's own history.
+- **Spans compare timestamps, both ends included.** Rows in different tables
+  share no order finer than their `at`, so an event in the same millisecond as
+  a span's start or end can fall on either side of it.
+- **Decisions** are those whose `delivery` names this delivery when the read
+  runs, with all their events. A decision's `delivery` history row whose
+  `from` or `to` names this delivery always appears, so a decision moved to
+  another delivery is seen leaving; its later events are not. Decisions take
+  no spans, unlike tasks: moving a decision's link corrects which delivery it
+  belongs to, so all of its events go with it to the delivery it names now. A
+  task that leaves and joins another delivery is a new attempt at the work, so
+  its events stay with the attempt they happened in.
+- **The run journal** is each artifact whose `delivery` names this delivery
+  ([ADR 0027](0027-scratchpads-are-temporary-episode-state.md), MMR-691
+  refinement), at its `created_at`. A live pad's checkpoints are not events:
+  the pad is working state, and its frozen artifact is the record.
+- A row's `<row>` is its log table's row id. An event's `id` is stable within
+  one store; an import reassigns row ids, so a cursor and the ids seen do not
+  carry across an export and import. Event ids are opaque to callers, who
+  compare them and do not parse them.
+
+### Inputs and errors
+
+- `--since` takes an instant: an ISO 8601 date-time in a year from 0100 to
+  9999, with `Z` or an offset, read as that instant. The range is the one
+  Mimir's canonical instants already keep. Instants compare as instants, not as
+  text. A value that is not one is a usage error, before the
+  store opens.
+- `--since` is accepted only on a `KEY-dN` id. On any other id it is a usage
+  error that says `--since` reads a delivery's change feed, and names the list
+  reads (`list`, `next`, `artifacts`, `seeds`) whose `--at-or-after` windows a
+  list by date. The retired-flag guard keeps its hint for every other command,
+  and gains `get` as the one owner of `--since`.
+- The Engine method is `deliverySince({ id, since })`. MCP's `get` tool gains
+  a `since` input with the same rule. A missing delivery is `not_found`, and
+  an archived project's delivery is `not_found`, as `get` reads it.
+- The records view prints the delivery as `get` does, then a `since` line with
+  `since` and `as_of`, then one line per event: its time, `record`, `kind`, and
+  the fields it carries.
+
+### Considered and rejected
+
+- **An exact cursor at the read's clock.** It misses a write that commits just
+  after the read, which is the event a heartbeat exists to catch.
+- **The newest returned event's time as the cursor.** It narrows the gap but
+  still misses an older write that commits late.
+- **Current members only, or every task ever a member.** The first loses a
+  landed or abandoned delivery's last changes; the second reports a released
+  task's later work in another delivery as this attempt's.
+- **Logging unlogged edits first.** Logging delivery-field and task-field edits
+  would widen ADR 0003's scope across existing verbs. The snapshot carries the
+  delivery's current field values; a task's are read with `get` on the task.
+  A later need can add the log.

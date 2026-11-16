@@ -62,10 +62,15 @@ const checksByOwner = new Map<string, readonly string[]>([
   ['string', ['min_length', 'max_length', 'length_equals', 'string_format']],
   ['number', ['greater_than', 'less_than', 'multiple_of', 'number_format']],
   ['array', ['min_length', 'max_length', 'length_equals']],
+  ['date', ['greater_than', 'less_than']],
 ]);
 // JSON Schema drops a bound whose value it cannot write, while parsing still enforces it.
 const representableValues = new Map<string, (value: unknown) => boolean>([
-  ['value', Number.isFinite],
+  [
+    'value',
+    (value: unknown) =>
+      value instanceof Date ? !Number.isNaN(value.getTime()) : Number.isFinite(value),
+  ],
   ['minimum', Number.isSafeInteger],
   ['maximum', Number.isSafeInteger],
   ['length', Number.isSafeInteger],
@@ -214,10 +219,32 @@ function schemaDocument(direction: 'input' | 'output') {
       reused: 'ref',
       unrepresentable: ({ zodSchema, message }) => {
         if (zodSchema._zod.def.type === 'date') {
-          if (zodSchema._zod.def.checks?.length || zodSchema._zod.def.coerce) {
+          if (zodSchema._zod.def.coerce) {
             throw new Error('Date constraints require an explicit snapshot representation');
           }
-          return { format: 'date-time', type: 'string', 'x-mimir-type': 'Date' };
+          // An inclusive Date bound is written as the ISO instant it names.
+          const bounds: Record<string, string> = {};
+          for (const check of zodSchema._zod.def.checks ?? []) {
+            const {
+              check: kind,
+              inclusive,
+              value,
+            } = check._zod.def as {
+              check: string;
+              inclusive?: boolean;
+              value?: unknown;
+            };
+            if (
+              !(kind === 'greater_than' || kind === 'less_than') ||
+              inclusive !== true ||
+              !(value instanceof Date)
+            ) {
+              throw new Error('Date constraints require an explicit snapshot representation');
+            }
+            bounds[kind === 'greater_than' ? 'x-mimir-minimum' : 'x-mimir-maximum'] =
+              value.toISOString();
+          }
+          return { format: 'date-time', type: 'string', 'x-mimir-type': 'Date', ...bounds };
         }
         throw new Error(message);
       },

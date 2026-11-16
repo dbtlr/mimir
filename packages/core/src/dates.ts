@@ -273,6 +273,40 @@ export function dateFilterWindow(
   return instantWindows(instant)[op];
 }
 
+/** The last instant with a four-digit UTC year: 9999-12-31T23:59:59.999Z. */
+const MAX_FOUR_DIGIT_INSTANT = Date.UTC(9999, 11, 31, 23, 59, 59, 999);
+
+/** The first and last instants of Mimir's canonical years, 0100 to 9999 (see MIN_YEAR). */
+const MIN_CANONICAL_INSTANT = Date.UTC(MIN_YEAR, 0, 1);
+const INSTANT_RANGE_HINT = 'the instant must fall in a year from 0100 to 9999 in UTC';
+/** A zoned-looking timestamp; used only to tell a year below 0100 from a missing zone. */
+const ZONED_SHAPE = /^(\d{4})-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/;
+
+/**
+ * A caller-supplied instant: a zoned ISO 8601 timestamp (`Z` or an offset),
+ * read as that instant. Refused when it names no instant, as a bare date or a
+ * time with no zone does, and when its UTC year is outside 0100 to 9999, the
+ * range of Mimir's canonical instants, so the cursor spells the same in the
+ * `as_of` it gets back (ADR 0042, MMR-692: the since read's cursor).
+ */
+export function parseInstant(value: string): Date {
+  const instant = parseZonedInstant(value);
+  if (instant === null) {
+    const year = ZONED_SHAPE.exec(value)?.[1];
+    if (year !== undefined && Number(year) < MIN_YEAR) {
+      throw validation(`invalid instant: ${value}`, INSTANT_RANGE_HINT);
+    }
+    throw validation(
+      `invalid instant: ${value}`,
+      'takes a timestamp with an explicit zone: 2026-11-16T09:00:00Z or 2026-11-16T09:00:00-04:00',
+    );
+  }
+  if (instant > MAX_FOUR_DIGIT_INSTANT || instant < MIN_CANONICAL_INSTANT) {
+    throw validation(`invalid instant: ${value}`, INSTANT_RANGE_HINT);
+  }
+  return new Date(instant);
+}
+
 /** The five windows a caller-local calendar day describes — the day's own opening
  * and closing instants, never a synthesized final millisecond. */
 function calendarWindows(date: CalendarDate, zone: string): Record<DateOp, InstantWindow> {

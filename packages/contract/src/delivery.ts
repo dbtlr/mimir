@@ -166,6 +166,91 @@ export function encodeDelivery(
   }
   return encoded;
 }
+/** What a since-read event is: the log or row kind it reports (ADR 0042, MMR-692). */
+export const DELIVERY_EVENT_KIND_VALUES = [
+  'lifecycle',
+  'hold',
+  'member',
+  'limitation',
+  'declined',
+  'dependency',
+  'assignment',
+  'note',
+  'item',
+  'decided',
+  'link',
+  'delivery',
+  'journal',
+] as const;
+export type DeliveryEventKind = (typeof DELIVERY_EVENT_KIND_VALUES)[number];
+/** One thing that changed on a delivery after the caller's cursor. Every field is always present, null when its kind has none. */
+export const deliveryEventSchema = z.strictObject({
+  at: z.string(),
+  from: z.string().nullable(),
+  id: z.string(),
+  kind: z.enum(DELIVERY_EVENT_KIND_VALUES),
+  number: z.number().int().nullable(),
+  reason: z.string().nullable(),
+  record: z.string(),
+  task: z.string().nullable(),
+  text: z.string().nullable(),
+  to: z.string().nullable(),
+});
+/** The since read as a transport carries it: the delivery as `get` reads it, the cursors, and the events. */
+export const deliverySinceViewSchema = z.strictObject({
+  as_of: z.string(),
+  delivery: deliveryDetailViewSchema,
+  events: z.array(deliveryEventSchema),
+  since: z.string(),
+});
+/**
+ * The since cursor: an instant whose UTC year is 0100 to 9999, the range of
+ * Mimir's canonical instants (MIN_YEAR in core's time module; ADR 0042,
+ * MMR-692). An instant outside it has no four-digit spelling the caller could
+ * pass back.
+ */
+export const sinceCursorSchema = z
+  .date()
+  .min(new Date('0100-01-01T00:00:00.000Z'))
+  .max(new Date('9999-12-31T23:59:59.999Z'));
+export const deliverySinceEngineSchema = z.strictObject({
+  as_of: z.date(),
+  delivery: deliveryDetailEngineSchema,
+  events: z.array(deliveryEventSchema.extend({ at: z.date() })),
+  since: z.date(),
+});
+export type DeliveryEvent = z.output<typeof deliveryEventSchema>;
+export type DeliverySinceView = z.output<typeof deliverySinceViewSchema>;
+export type EngineDeliverySince = z.output<typeof deliverySinceEngineSchema>;
+export function decodeDeliverySince(view: DeliverySinceView): EngineDeliverySince {
+  return {
+    as_of: new Date(view.as_of),
+    delivery: decodeDelivery(view.delivery),
+    events: view.events.map((event) => ({ ...event, at: new Date(event.at) })),
+    since: new Date(view.since),
+  };
+}
+/* eslint-disable sort-keys -- the wire order is the contract's reading order: the delivery, the cursors, then each event by id, time, record, kind, and its fields. */
+export function encodeDeliverySince(view: EngineDeliverySince): DeliverySinceView {
+  return {
+    delivery: encodeDelivery(view.delivery),
+    since: view.since.toISOString(),
+    as_of: view.as_of.toISOString(),
+    events: view.events.map((event) => ({
+      id: event.id,
+      at: event.at.toISOString(),
+      record: event.record,
+      kind: event.kind,
+      task: event.task,
+      number: event.number,
+      from: event.from,
+      to: event.to,
+      reason: event.reason,
+      text: event.text,
+    })),
+  };
+}
+/* eslint-enable sort-keys */
 export type DeliveryRecord = z.output<typeof deliveryRecordSchema>;
 export type DeliveryHistory = z.output<typeof deliveryHistorySchema>;
 export type DeliveryView = z.output<typeof deliveryViewSchema>;
@@ -220,6 +305,11 @@ export function deliverySchemas<P extends z.ZodType<string>>(project: P) {
       input: z.strictObject({ id: z.string(), reason: z.string().optional() }),
       kind: 'mutation',
       output: deliveryEngineSchema,
+    },
+    deliverySince: {
+      input: z.strictObject({ id: z.string(), since: sinceCursorSchema }),
+      kind: 'query',
+      output: deliverySinceEngineSchema,
     },
     deliveryStart: {
       input: z.strictObject({ id: z.string() }),

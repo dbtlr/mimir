@@ -5,8 +5,8 @@
 import type { ArtifactDetail, DecisionView, NodeView, SeedView } from '@mimir/contract';
 
 import { renderDecision } from './decisions';
-import { renderDelivery } from './deliveries';
-import type { DeliveryShown } from './deliveries';
+import { renderDelivery, renderDeliverySince } from './deliveries';
+import type { DeliveryFeed, DeliveryShown } from './deliveries';
 import { renderRecords, renderTable } from './node';
 import type { Presentation } from './presentation';
 import { renderArtifactRecords, renderArtifactTable, renderSeedRecords } from './records';
@@ -17,8 +17,15 @@ export type GetValue = { presentation: Presentation; wire: Record<string, unknow
   | { kind: 'artifact'; artifact: ArtifactDetail }
   | { kind: 'seed'; seed: SeedView }
   | { kind: 'decision'; decision: DecisionView }
-  | { kind: 'delivery'; delivery: DeliveryShown }
+  | { kind: 'delivery'; delivery: DeliveryShown; feed?: DeliveryFeed }
 );
+
+/** A delivery read as `get` prints it, then its change feed when `--since` asked for one. */
+function deliveryText(value: Extract<GetValue, { kind: 'delivery' }>): string {
+  return value.feed === undefined
+    ? renderDelivery(value.delivery, value.presentation)
+    : renderDeliverySince(value.delivery, value.feed, value.presentation);
+}
 
 /** The styled `records` text of a record `get` read. */
 export function recordsOf(value: Readonly<GetValue>): string {
@@ -26,7 +33,7 @@ export function recordsOf(value: Readonly<GetValue>): string {
     return renderDecision(value.decision, value.presentation);
   }
   if (value.kind === 'delivery') {
-    return renderDelivery(value.delivery, value.presentation);
+    return deliveryText(value);
   }
   if (value.kind === 'node') {
     return renderRecords(
@@ -48,7 +55,7 @@ export function tableOf(value: Readonly<GetValue>): string {
     return renderDecision(value.decision, value.presentation);
   }
   if (value.kind === 'delivery') {
-    return renderDelivery(value.delivery, value.presentation);
+    return deliveryText(value);
   }
   if (value.kind === 'node') {
     const one = { items: [value.node], returned: 1, startsAt: 0, total: 1 };

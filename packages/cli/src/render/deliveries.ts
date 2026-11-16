@@ -1,4 +1,4 @@
-import type { DeliveryDetailView, DeliveryView } from '@mimir/contract';
+import type { DeliveryDetailView, DeliverySinceView, DeliveryView } from '@mimir/contract';
 import { formatInstant } from '@mimir/helpers';
 
 import { hangingIndent } from './node';
@@ -56,6 +56,42 @@ export function renderDelivery(delivery: DeliveryShown, p: Presentation): string
         ]
       : []),
     ...(history.length ? [`History\n${history.map(line).join('\n')}`] : []),
+  ].join('\n');
+}
+
+/** The change feed of a since read: its cursors and its events. */
+export type DeliveryFeed = Pick<DeliverySinceView, 'as_of' | 'events' | 'since'>;
+
+/**
+ * One event of a since read: its time, the record it happened on, its kind, and
+ * the fields it carries. A continuation line hangs under the first.
+ */
+function eventLine(event: DeliveryFeed['events'][number], p: Presentation): string {
+  const dash = p.plain ? '-' : '—';
+  const move =
+    event.from === null && event.to === null
+      ? null
+      : `${event.from ?? dash} ${arrow(p.plain)} ${event.to ?? dash}`;
+  const detail = [move, event.task, event.text].filter((part) => part !== null).join(' ');
+  const number = event.number === null ? '' : ` #${String(event.number)}`;
+  const head = `${formatInstant(event.at, p.zone)} ${event.record} ${event.kind}${number}`;
+  const line = `${head}${detail === '' ? '' : `: ${detail}`}${event.reason === null ? '' : ` ${dash} ${event.reason}`}`;
+  return line.replaceAll('\n', '\n  ');
+}
+
+/**
+ * A since read in records: the delivery as `get` prints it, a `since` line that
+ * gives both cursors as the instants to pass back, then one line per event.
+ */
+export function renderDeliverySince(
+  delivery: DeliveryShown,
+  feed: DeliveryFeed,
+  p: Presentation,
+): string {
+  return [
+    renderDelivery(delivery, p),
+    `since: ${feed.since} as_of: ${feed.as_of}`,
+    ...feed.events.map((event) => eventLine(event, p)),
   ].join('\n');
 }
 

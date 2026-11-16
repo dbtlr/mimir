@@ -114,3 +114,26 @@ dependent that is also a member of the same non-terminal delivery. This reads
 lifecycle, so even a held prerequisite counts. Other dependents still await
 it. `blocking` follows the same rule. Dependencies remain advisory and never
 gate `start`; container dependency rules stay unchanged.
+
+## Reading what changed: the since read
+
+`mimir get MMR-d3 --since 2026-11-16T09:00:00Z` returns the delivery as `get` reads it plus
+every event after the instant: the delivery's own history and lists, its
+members' transitions, notes, and checklist items while they were members, its
+decisions, and its frozen run journal. Use `-f json`; each event has an `id`.
+
+A heartbeat keeps one cursor:
+
+```sh
+mimir get MMR-d3 --since 2026-11-16T09:00:00Z -f json   # events after it, plus as_of
+# next read: pass the answer's as_of as --since; skip events whose id you saw
+```
+
+- `as_of` lags the clock by 5 seconds on purpose, so a write that commits just
+  after your read is read next time. The same events come back once more:
+  drop the ones whose `id` you already handled. Never parse an `id`.
+- The snapshot in `delivery` is always current. Edits of the delivery's own
+  fields (title, agreement, branch, handles) and of a task's fields write no
+  event; read them from the snapshot or `get <task>`.
+- `--since` works only on a `KEY-dN` id. Use `--at-or-after` to window a list.
+- Rerun it before close-out to see what changed since you last looked.

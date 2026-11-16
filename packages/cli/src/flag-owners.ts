@@ -11,7 +11,7 @@
  */
 
 /** The commands that run a date-filtered query, the owners of the date grammar. */
-const DATE_QUERY_VERBS: readonly string[] = ['list', 'next', 'artifacts', 'seeds'];
+export const DATE_QUERY_VERBS: readonly string[] = ['list', 'next', 'artifacts', 'seeds'];
 
 export type FlagOwner = {
   /** The long spelling, without its dashes. */
@@ -48,10 +48,11 @@ export const FLAG_OWNERS: readonly FlagOwner[] = [
     hint: `'--on' names the owner at block (you|others), the prerequisites at depend/undepend, and a date filter at ${DATE_QUERY_VERBS.join(', ')}`,
     owner: ['block', 'depend', 'undepend', ...DATE_QUERY_VERBS],
   },
+  // Retired as a list window; `get KEY-dN --since` is the delivery change feed (ADR 0024, MMR-692).
   {
     flag: 'since',
     hint: `'--since' is retired; every resource windows created_at with '--at-or-after created_at:YYYY-MM-DD'`,
-    owner: [],
+    owner: ['get'],
   },
   {
     flag: 'not-before',

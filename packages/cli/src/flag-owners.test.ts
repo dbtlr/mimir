@@ -292,3 +292,10 @@ test.each<[string, string]>([
 test('a flag the table does not hold gets no redirect', () => {
   expect(flagRedirect('--bogus', 'list')).toBeUndefined();
 });
+
+test('get owns --since: it gets no redirect, and every other command still does', () => {
+  expect(flagRedirect('--since', 'get')).toBeUndefined();
+  for (const command of ['list', 'next', 'artifacts', 'seeds', 'tree', undefined]) {
+    expect(flagRedirect('--since', command)).toContain('--at-or-after');
+  }
+});

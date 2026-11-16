@@ -1,0 +1,1114 @@
+### get argv: MMR-d1 --since 2026-10-01T11:00:00Z -f records
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Attempt
+| lifecycle: agreed
+| hold: none
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| members: MMR-6
+| journal: frozen MMR-a2
+| Limitations
+| 1. 2026-10-01 12:00 UTC - A cancelled run is charged in full
+| Declined
+| 2. 2026-10-01 12:00 UTC - Retry the clone (Filed later)
+| History
+| 2026-10-01 12:00 UTC member: - -> joined MMR-6
+| 2026-10-01 12:00 UTC member: - -> joined MMR-8
+| 2026-10-01 12:00 UTC member: - -> left MMR-8
+| since: 2026-10-01T11:00:00.000Z as_of: 2026-10-01T11:59:55.000Z
+| 2026-10-01 12:00 UTC MMR-d1 member: - -> joined MMR-6
+| 2026-10-01 12:00 UTC MMR-d1 member: - -> joined MMR-8
+| 2026-10-01 12:00 UTC MMR-d1 member: - -> left MMR-8
+| 2026-10-01 12:00 UTC MMR-d1 limitation #1: A cancelled run is charged in full
+| 2026-10-01 12:00 UTC MMR-d1 declined #2: Retry the clone - Filed later
+| 2026-10-01 12:00 UTC MMR-6 hold: none -> blocked - needs a reviewer
+| 2026-10-01 12:00 UTC MMR-6 note: Cache is warm
+| 2026-10-01 12:00 UTC MMR-6 item #1: - -> open Check the cache
+| 2026-10-01 12:00 UTC MMR-6 item #1: open -> checked Check the cache
+| 2026-10-01 12:00 UTC MMR-6 item #2: - -> open Drop the old path
+| 2026-10-01 12:00 UTC MMR-6 item #2: open -> dropped Drop the old path - Moot
+| 2026-10-01 12:00 UTC MMR-q1 decided: Where does it run?
+| 2026-10-01 12:00 UTC MMR-q1 delivery: - -> MMR-d1
+| 2026-10-01 12:00 UTC MMR-a2 journal: Journal
+--- state
+unchanged
+
+### get argv: MMR-d1 --since 2026-10-01T11:00:00Z -f json
+exit 0
+--- stdout
+| {
+|   "delivery": {
+|     "id": "MMR-d1",
+|     "project_key": "MMR",
+|     "seq": 1,
+|     "phase": "MMR-2",
+|     "title": "Attempt",
+|     "lifecycle": "agreed",
+|     "hold": "none",
+|     "hold_reason": null,
+|     "agreement": null,
+|     "external_ref": null,
+|     "branch": null,
+|     "host": null,
+|     "harness": null,
+|     "session": null,
+|     "time_cap_minutes": null,
+|     "created_at": "2026-10-01T12:00:00.000Z",
+|     "updated_at": "2026-10-01T12:00:00.000Z",
+|     "members": [
+|       "MMR-6"
+|     ],
+|     "elapsed_minutes": null,
+|     "history": [
+|       {
+|         "kind": "member",
+|         "from_value": null,
+|         "to_value": "joined",
+|         "reason": null,
+|         "task": "MMR-6",
+|         "at": "2026-10-01T12:00:00.000Z"
+|       },
+|       {
+|         "kind": "member",
+|         "from_value": null,
+|         "to_value": "joined",
+|         "reason": null,
+|         "task": "MMR-8",
+|         "at": "2026-10-01T12:00:00.000Z"
+|       },
+|       {
+|         "kind": "member",
+|         "from_value": null,
+|         "to_value": "left",
+|         "reason": null,
+|         "task": "MMR-8",
+|         "at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ],
+|     "declined": [
+|       {
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "finding": "Retry the clone",
+|         "number": 2,
+|         "reason": "Filed later"
+|       }
+|     ],
+|     "journal": {
+|       "artifacts": [
+|         "MMR-a2"
+|       ],
+|       "scratchpad": null
+|     },
+|     "limitations": [
+|       {
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "number": 1,
+|         "text": "A cancelled run is charged in full"
+|       }
+|     ]
+|   },
+|   "since": "2026-10-01T11:00:00.000Z",
+|   "as_of": "2026-10-01T11:59:55.000Z",
+|   "events": [
+|     {
+|       "id": "MMR-d1/history/1",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-d1",
+|       "kind": "member",
+|       "task": "MMR-6",
+|       "number": null,
+|       "from": null,
+|       "to": "joined",
+|       "reason": null,
+|       "text": null
+|     },
+|     {
+|       "id": "MMR-d1/history/2",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-d1",
+|       "kind": "member",
+|       "task": "MMR-8",
+|       "number": null,
+|       "from": null,
+|       "to": "joined",
+|       "reason": null,
+|       "text": null
+|     },
+|     {
+|       "id": "MMR-d1/history/3",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-d1",
+|       "kind": "member",
+|       "task": "MMR-8",
+|       "number": null,
+|       "from": null,
+|       "to": "left",
+|       "reason": null,
+|       "text": null
+|     },
+|     {
+|       "id": "MMR-d1/finding/1",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-d1",
+|       "kind": "limitation",
+|       "task": null,
+|       "number": 1,
+|       "from": null,
+|       "to": null,
+|       "reason": null,
+|       "text": "A cancelled run is charged in full"
+|     },
+|     {
+|       "id": "MMR-d1/finding/2",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-d1",
+|       "kind": "declined",
+|       "task": null,
+|       "number": 2,
+|       "from": null,
+|       "to": null,
+|       "reason": "Filed later",
+|       "text": "Retry the clone"
+|     },
+|     {
+|       "id": "MMR-6/transition/3",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-6",
+|       "kind": "hold",
+|       "task": null,
+|       "number": null,
+|       "from": "none",
+|       "to": "blocked",
+|       "reason": "needs a reviewer",
+|       "text": null
+|     },
+|     {
+|       "id": "MMR-6/note/3",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-6",
+|       "kind": "note",
+|       "task": null,
+|       "number": null,
+|       "from": null,
+|       "to": null,
+|       "reason": null,
+|       "text": "Cache is warm"
+|     },
+|     {
+|       "id": "MMR-6/item/1/added",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-6",
+|       "kind": "item",
+|       "task": null,
+|       "number": 1,
+|       "from": null,
+|       "to": "open",
+|       "reason": null,
+|       "text": "Check the cache"
+|     },
+|     {
+|       "id": "MMR-6/item/1/settled",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-6",
+|       "kind": "item",
+|       "task": null,
+|       "number": 1,
+|       "from": "open",
+|       "to": "checked",
+|       "reason": null,
+|       "text": "Check the cache"
+|     },
+|     {
+|       "id": "MMR-6/item/2/added",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-6",
+|       "kind": "item",
+|       "task": null,
+|       "number": 2,
+|       "from": null,
+|       "to": "open",
+|       "reason": null,
+|       "text": "Drop the old path"
+|     },
+|     {
+|       "id": "MMR-6/item/2/settled",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-6",
+|       "kind": "item",
+|       "task": null,
+|       "number": 2,
+|       "from": "open",
+|       "to": "dropped",
+|       "reason": "Moot",
+|       "text": "Drop the old path"
+|     },
+|     {
+|       "id": "MMR-q1/decided",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-q1",
+|       "kind": "decided",
+|       "task": null,
+|       "number": null,
+|       "from": null,
+|       "to": null,
+|       "reason": null,
+|       "text": "Where does it run?"
+|     },
+|     {
+|       "id": "MMR-q1/history/1",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-q1",
+|       "kind": "delivery",
+|       "task": null,
+|       "number": null,
+|       "from": null,
+|       "to": "MMR-d1",
+|       "reason": null,
+|       "text": null
+|     },
+|     {
+|       "id": "MMR-a2/journal",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-a2",
+|       "kind": "journal",
+|       "task": null,
+|       "number": null,
+|       "from": null,
+|       "to": null,
+|       "reason": null,
+|       "text": "Journal"
+|     }
+|   ]
+| }
+--- state
+unchanged
+
+### get argv: MMR-d1 --since 2026-10-01T11:59:55.000Z -f records
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Attempt
+| lifecycle: agreed
+| hold: none
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| members: MMR-6
+| journal: frozen MMR-a2
+| Limitations
+| 1. 2026-10-01 12:00 UTC - A cancelled run is charged in full
+| Declined
+| 2. 2026-10-01 12:00 UTC - Retry the clone (Filed later)
+| History
+| 2026-10-01 12:00 UTC member: - -> joined MMR-6
+| 2026-10-01 12:00 UTC member: - -> joined MMR-8
+| 2026-10-01 12:00 UTC member: - -> left MMR-8
+| since: 2026-10-01T11:59:55.000Z as_of: 2026-10-01T11:59:55.000Z
+| 2026-10-01 12:00 UTC MMR-d1 member: - -> joined MMR-6
+| 2026-10-01 12:00 UTC MMR-d1 member: - -> joined MMR-8
+| 2026-10-01 12:00 UTC MMR-d1 member: - -> left MMR-8
+| 2026-10-01 12:00 UTC MMR-d1 limitation #1: A cancelled run is charged in full
+| 2026-10-01 12:00 UTC MMR-d1 declined #2: Retry the clone - Filed later
+| 2026-10-01 12:00 UTC MMR-6 hold: none -> blocked - needs a reviewer
+| 2026-10-01 12:00 UTC MMR-6 note: Cache is warm
+| 2026-10-01 12:00 UTC MMR-6 item #1: - -> open Check the cache
+| 2026-10-01 12:00 UTC MMR-6 item #1: open -> checked Check the cache
+| 2026-10-01 12:00 UTC MMR-6 item #2: - -> open Drop the old path
+| 2026-10-01 12:00 UTC MMR-6 item #2: open -> dropped Drop the old path - Moot
+| 2026-10-01 12:00 UTC MMR-q1 decided: Where does it run?
+| 2026-10-01 12:00 UTC MMR-q1 delivery: - -> MMR-d1
+| 2026-10-01 12:00 UTC MMR-a2 journal: Journal
+--- state
+unchanged
+
+### get argv: MMR-d1 --since 2026-10-01T11:59:55.000Z -f json
+exit 0
+--- stdout
+| {
+|   "delivery": {
+|     "id": "MMR-d1",
+|     "project_key": "MMR",
+|     "seq": 1,
+|     "phase": "MMR-2",
+|     "title": "Attempt",
+|     "lifecycle": "agreed",
+|     "hold": "none",
+|     "hold_reason": null,
+|     "agreement": null,
+|     "external_ref": null,
+|     "branch": null,
+|     "host": null,
+|     "harness": null,
+|     "session": null,
+|     "time_cap_minutes": null,
+|     "created_at": "2026-10-01T12:00:00.000Z",
+|     "updated_at": "2026-10-01T12:00:00.000Z",
+|     "members": [
+|       "MMR-6"
+|     ],
+|     "elapsed_minutes": null,
+|     "history": [
+|       {
+|         "kind": "member",
+|         "from_value": null,
+|         "to_value": "joined",
+|         "reason": null,
+|         "task": "MMR-6",
+|         "at": "2026-10-01T12:00:00.000Z"
+|       },
+|       {
+|         "kind": "member",
+|         "from_value": null,
+|         "to_value": "joined",
+|         "reason": null,
+|         "task": "MMR-8",
+|         "at": "2026-10-01T12:00:00.000Z"
+|       },
+|       {
+|         "kind": "member",
+|         "from_value": null,
+|         "to_value": "left",
+|         "reason": null,
+|         "task": "MMR-8",
+|         "at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ],
+|     "declined": [
+|       {
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "finding": "Retry the clone",
+|         "number": 2,
+|         "reason": "Filed later"
+|       }
+|     ],
+|     "journal": {
+|       "artifacts": [
+|         "MMR-a2"
+|       ],
+|       "scratchpad": null
+|     },
+|     "limitations": [
+|       {
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "number": 1,
+|         "text": "A cancelled run is charged in full"
+|       }
+|     ]
+|   },
+|   "since": "2026-10-01T11:59:55.000Z",
+|   "as_of": "2026-10-01T11:59:55.000Z",
+|   "events": [
+|     {
+|       "id": "MMR-d1/history/1",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-d1",
+|       "kind": "member",
+|       "task": "MMR-6",
+|       "number": null,
+|       "from": null,
+|       "to": "joined",
+|       "reason": null,
+|       "text": null
+|     },
+|     {
+|       "id": "MMR-d1/history/2",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-d1",
+|       "kind": "member",
+|       "task": "MMR-8",
+|       "number": null,
+|       "from": null,
+|       "to": "joined",
+|       "reason": null,
+|       "text": null
+|     },
+|     {
+|       "id": "MMR-d1/history/3",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-d1",
+|       "kind": "member",
+|       "task": "MMR-8",
+|       "number": null,
+|       "from": null,
+|       "to": "left",
+|       "reason": null,
+|       "text": null
+|     },
+|     {
+|       "id": "MMR-d1/finding/1",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-d1",
+|       "kind": "limitation",
+|       "task": null,
+|       "number": 1,
+|       "from": null,
+|       "to": null,
+|       "reason": null,
+|       "text": "A cancelled run is charged in full"
+|     },
+|     {
+|       "id": "MMR-d1/finding/2",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-d1",
+|       "kind": "declined",
+|       "task": null,
+|       "number": 2,
+|       "from": null,
+|       "to": null,
+|       "reason": "Filed later",
+|       "text": "Retry the clone"
+|     },
+|     {
+|       "id": "MMR-6/transition/3",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-6",
+|       "kind": "hold",
+|       "task": null,
+|       "number": null,
+|       "from": "none",
+|       "to": "blocked",
+|       "reason": "needs a reviewer",
+|       "text": null
+|     },
+|     {
+|       "id": "MMR-6/note/3",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-6",
+|       "kind": "note",
+|       "task": null,
+|       "number": null,
+|       "from": null,
+|       "to": null,
+|       "reason": null,
+|       "text": "Cache is warm"
+|     },
+|     {
+|       "id": "MMR-6/item/1/added",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-6",
+|       "kind": "item",
+|       "task": null,
+|       "number": 1,
+|       "from": null,
+|       "to": "open",
+|       "reason": null,
+|       "text": "Check the cache"
+|     },
+|     {
+|       "id": "MMR-6/item/1/settled",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-6",
+|       "kind": "item",
+|       "task": null,
+|       "number": 1,
+|       "from": "open",
+|       "to": "checked",
+|       "reason": null,
+|       "text": "Check the cache"
+|     },
+|     {
+|       "id": "MMR-6/item/2/added",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-6",
+|       "kind": "item",
+|       "task": null,
+|       "number": 2,
+|       "from": null,
+|       "to": "open",
+|       "reason": null,
+|       "text": "Drop the old path"
+|     },
+|     {
+|       "id": "MMR-6/item/2/settled",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-6",
+|       "kind": "item",
+|       "task": null,
+|       "number": 2,
+|       "from": "open",
+|       "to": "dropped",
+|       "reason": "Moot",
+|       "text": "Drop the old path"
+|     },
+|     {
+|       "id": "MMR-q1/decided",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-q1",
+|       "kind": "decided",
+|       "task": null,
+|       "number": null,
+|       "from": null,
+|       "to": null,
+|       "reason": null,
+|       "text": "Where does it run?"
+|     },
+|     {
+|       "id": "MMR-q1/history/1",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-q1",
+|       "kind": "delivery",
+|       "task": null,
+|       "number": null,
+|       "from": null,
+|       "to": "MMR-d1",
+|       "reason": null,
+|       "text": null
+|     },
+|     {
+|       "id": "MMR-a2/journal",
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "record": "MMR-a2",
+|       "kind": "journal",
+|       "task": null,
+|       "number": null,
+|       "from": null,
+|       "to": null,
+|       "reason": null,
+|       "text": "Journal"
+|     }
+|   ]
+| }
+--- state
+unchanged
+
+### get argv: MMR-d1 --since 2026-10-01T12:00:00Z -f records
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Attempt
+| lifecycle: agreed
+| hold: none
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| members: MMR-6
+| journal: frozen MMR-a2
+| Limitations
+| 1. 2026-10-01 12:00 UTC - A cancelled run is charged in full
+| Declined
+| 2. 2026-10-01 12:00 UTC - Retry the clone (Filed later)
+| History
+| 2026-10-01 12:00 UTC member: - -> joined MMR-6
+| 2026-10-01 12:00 UTC member: - -> joined MMR-8
+| 2026-10-01 12:00 UTC member: - -> left MMR-8
+| since: 2026-10-01T12:00:00.000Z as_of: 2026-10-01T12:00:00.000Z
+--- state
+unchanged
+
+### get argv: MMR-d1 --since 2026-10-01T12:00:00Z -f json
+exit 0
+--- stdout
+| {
+|   "delivery": {
+|     "id": "MMR-d1",
+|     "project_key": "MMR",
+|     "seq": 1,
+|     "phase": "MMR-2",
+|     "title": "Attempt",
+|     "lifecycle": "agreed",
+|     "hold": "none",
+|     "hold_reason": null,
+|     "agreement": null,
+|     "external_ref": null,
+|     "branch": null,
+|     "host": null,
+|     "harness": null,
+|     "session": null,
+|     "time_cap_minutes": null,
+|     "created_at": "2026-10-01T12:00:00.000Z",
+|     "updated_at": "2026-10-01T12:00:00.000Z",
+|     "members": [
+|       "MMR-6"
+|     ],
+|     "elapsed_minutes": null,
+|     "history": [
+|       {
+|         "kind": "member",
+|         "from_value": null,
+|         "to_value": "joined",
+|         "reason": null,
+|         "task": "MMR-6",
+|         "at": "2026-10-01T12:00:00.000Z"
+|       },
+|       {
+|         "kind": "member",
+|         "from_value": null,
+|         "to_value": "joined",
+|         "reason": null,
+|         "task": "MMR-8",
+|         "at": "2026-10-01T12:00:00.000Z"
+|       },
+|       {
+|         "kind": "member",
+|         "from_value": null,
+|         "to_value": "left",
+|         "reason": null,
+|         "task": "MMR-8",
+|         "at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ],
+|     "declined": [
+|       {
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "finding": "Retry the clone",
+|         "number": 2,
+|         "reason": "Filed later"
+|       }
+|     ],
+|     "journal": {
+|       "artifacts": [
+|         "MMR-a2"
+|       ],
+|       "scratchpad": null
+|     },
+|     "limitations": [
+|       {
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "number": 1,
+|         "text": "A cancelled run is charged in full"
+|       }
+|     ]
+|   },
+|   "since": "2026-10-01T12:00:00.000Z",
+|   "as_of": "2026-10-01T12:00:00.000Z",
+|   "events": []
+| }
+--- state
+unchanged
+
+### get argv: MMR-d1 --since 2026-10-01T14:00:00+02:00 -f records
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Attempt
+| lifecycle: agreed
+| hold: none
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| members: MMR-6
+| journal: frozen MMR-a2
+| Limitations
+| 1. 2026-10-01 12:00 UTC - A cancelled run is charged in full
+| Declined
+| 2. 2026-10-01 12:00 UTC - Retry the clone (Filed later)
+| History
+| 2026-10-01 12:00 UTC member: - -> joined MMR-6
+| 2026-10-01 12:00 UTC member: - -> joined MMR-8
+| 2026-10-01 12:00 UTC member: - -> left MMR-8
+| since: 2026-10-01T12:00:00.000Z as_of: 2026-10-01T12:00:00.000Z
+--- state
+unchanged
+
+### get argv: MMR-d1 --since 2026-10-01T14:00:00+02:00 -f json
+exit 0
+--- stdout
+| {
+|   "delivery": {
+|     "id": "MMR-d1",
+|     "project_key": "MMR",
+|     "seq": 1,
+|     "phase": "MMR-2",
+|     "title": "Attempt",
+|     "lifecycle": "agreed",
+|     "hold": "none",
+|     "hold_reason": null,
+|     "agreement": null,
+|     "external_ref": null,
+|     "branch": null,
+|     "host": null,
+|     "harness": null,
+|     "session": null,
+|     "time_cap_minutes": null,
+|     "created_at": "2026-10-01T12:00:00.000Z",
+|     "updated_at": "2026-10-01T12:00:00.000Z",
+|     "members": [
+|       "MMR-6"
+|     ],
+|     "elapsed_minutes": null,
+|     "history": [
+|       {
+|         "kind": "member",
+|         "from_value": null,
+|         "to_value": "joined",
+|         "reason": null,
+|         "task": "MMR-6",
+|         "at": "2026-10-01T12:00:00.000Z"
+|       },
+|       {
+|         "kind": "member",
+|         "from_value": null,
+|         "to_value": "joined",
+|         "reason": null,
+|         "task": "MMR-8",
+|         "at": "2026-10-01T12:00:00.000Z"
+|       },
+|       {
+|         "kind": "member",
+|         "from_value": null,
+|         "to_value": "left",
+|         "reason": null,
+|         "task": "MMR-8",
+|         "at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ],
+|     "declined": [
+|       {
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "finding": "Retry the clone",
+|         "number": 2,
+|         "reason": "Filed later"
+|       }
+|     ],
+|     "journal": {
+|       "artifacts": [
+|         "MMR-a2"
+|       ],
+|       "scratchpad": null
+|     },
+|     "limitations": [
+|       {
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "number": 1,
+|         "text": "A cancelled run is charged in full"
+|       }
+|     ]
+|   },
+|   "since": "2026-10-01T12:00:00.000Z",
+|   "as_of": "2026-10-01T12:00:00.000Z",
+|   "events": []
+| }
+--- state
+unchanged
+
+### get argv: MMR-d1 --since 2026-10-02T00:00:00Z -f records
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Attempt
+| lifecycle: agreed
+| hold: none
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| members: MMR-6
+| journal: frozen MMR-a2
+| Limitations
+| 1. 2026-10-01 12:00 UTC - A cancelled run is charged in full
+| Declined
+| 2. 2026-10-01 12:00 UTC - Retry the clone (Filed later)
+| History
+| 2026-10-01 12:00 UTC member: - -> joined MMR-6
+| 2026-10-01 12:00 UTC member: - -> joined MMR-8
+| 2026-10-01 12:00 UTC member: - -> left MMR-8
+| since: 2026-10-02T00:00:00.000Z as_of: 2026-10-02T00:00:00.000Z
+--- state
+unchanged
+
+### get argv: MMR-d1 --since 2026-10-02T00:00:00Z -f json
+exit 0
+--- stdout
+| {
+|   "delivery": {
+|     "id": "MMR-d1",
+|     "project_key": "MMR",
+|     "seq": 1,
+|     "phase": "MMR-2",
+|     "title": "Attempt",
+|     "lifecycle": "agreed",
+|     "hold": "none",
+|     "hold_reason": null,
+|     "agreement": null,
+|     "external_ref": null,
+|     "branch": null,
+|     "host": null,
+|     "harness": null,
+|     "session": null,
+|     "time_cap_minutes": null,
+|     "created_at": "2026-10-01T12:00:00.000Z",
+|     "updated_at": "2026-10-01T12:00:00.000Z",
+|     "members": [
+|       "MMR-6"
+|     ],
+|     "elapsed_minutes": null,
+|     "history": [
+|       {
+|         "kind": "member",
+|         "from_value": null,
+|         "to_value": "joined",
+|         "reason": null,
+|         "task": "MMR-6",
+|         "at": "2026-10-01T12:00:00.000Z"
+|       },
+|       {
+|         "kind": "member",
+|         "from_value": null,
+|         "to_value": "joined",
+|         "reason": null,
+|         "task": "MMR-8",
+|         "at": "2026-10-01T12:00:00.000Z"
+|       },
+|       {
+|         "kind": "member",
+|         "from_value": null,
+|         "to_value": "left",
+|         "reason": null,
+|         "task": "MMR-8",
+|         "at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ],
+|     "declined": [
+|       {
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "finding": "Retry the clone",
+|         "number": 2,
+|         "reason": "Filed later"
+|       }
+|     ],
+|     "journal": {
+|       "artifacts": [
+|         "MMR-a2"
+|       ],
+|       "scratchpad": null
+|     },
+|     "limitations": [
+|       {
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "number": 1,
+|         "text": "A cancelled run is charged in full"
+|       }
+|     ]
+|   },
+|   "since": "2026-10-02T00:00:00.000Z",
+|   "as_of": "2026-10-02T00:00:00.000Z",
+|   "events": []
+| }
+--- state
+unchanged
+
+### get argv: MMR-d1 --since 2026-10-01T11:00:00Z -f records #2
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Attempt
+| lifecycle: agreed
+| hold: none
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| members: 
+| since: 2026-10-01T11:00:00.000Z as_of: 2026-10-01T11:59:55.000Z
+--- state
+unchanged
+
+### get argv: MMR-d1 --since 2026-10-01T11:00:00Z -f json #2
+exit 0
+--- stdout
+| {
+|   "delivery": {
+|     "id": "MMR-d1",
+|     "project_key": "MMR",
+|     "seq": 1,
+|     "phase": "MMR-2",
+|     "title": "Attempt",
+|     "lifecycle": "agreed",
+|     "hold": "none",
+|     "hold_reason": null,
+|     "agreement": null,
+|     "external_ref": null,
+|     "branch": null,
+|     "host": null,
+|     "harness": null,
+|     "session": null,
+|     "time_cap_minutes": null,
+|     "created_at": "2026-10-01T12:00:00.000Z",
+|     "updated_at": "2026-10-01T12:00:00.000Z",
+|     "members": [],
+|     "elapsed_minutes": null,
+|     "history": [],
+|     "declined": [],
+|     "journal": {
+|       "artifacts": [],
+|       "scratchpad": null
+|     },
+|     "limitations": []
+|   },
+|   "since": "2026-10-01T11:00:00.000Z",
+|   "as_of": "2026-10-01T11:59:55.000Z",
+|   "events": []
+| }
+--- state
+unchanged
+
+### get argv: MMR-d1 --since 2026-10-01T11:00:00Z -f ids
+exit 0
+--- stdout
+| MMR-d1
+--- state
+unchanged
+
+### get argv: MMR-d1 --since 2026-10-01T11:00:00Z --ascii
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Attempt
+| lifecycle: agreed
+| hold: none
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| members: MMR-6
+| journal: frozen MMR-a2
+| Limitations
+| 1. 2026-10-01 12:00 UTC - A cancelled run is charged in full
+| Declined
+| 2. 2026-10-01 12:00 UTC - Retry the clone (Filed later)
+| History
+| 2026-10-01 12:00 UTC member: - -> joined MMR-6
+| 2026-10-01 12:00 UTC member: - -> joined MMR-8
+| 2026-10-01 12:00 UTC member: - -> left MMR-8
+| since: 2026-10-01T11:00:00.000Z as_of: 2026-10-01T11:59:55.000Z
+| 2026-10-01 12:00 UTC MMR-d1 member: - -> joined MMR-6
+| 2026-10-01 12:00 UTC MMR-d1 member: - -> joined MMR-8
+| 2026-10-01 12:00 UTC MMR-d1 member: - -> left MMR-8
+| 2026-10-01 12:00 UTC MMR-d1 limitation #1: A cancelled run is charged in full
+| 2026-10-01 12:00 UTC MMR-d1 declined #2: Retry the clone - Filed later
+| 2026-10-01 12:00 UTC MMR-6 hold: none -> blocked - needs a reviewer
+| 2026-10-01 12:00 UTC MMR-6 note: Cache is warm
+| 2026-10-01 12:00 UTC MMR-6 item #1: - -> open Check the cache
+| 2026-10-01 12:00 UTC MMR-6 item #1: open -> checked Check the cache
+| 2026-10-01 12:00 UTC MMR-6 item #2: - -> open Drop the old path
+| 2026-10-01 12:00 UTC MMR-6 item #2: open -> dropped Drop the old path - Moot
+| 2026-10-01 12:00 UTC MMR-q1 decided: Where does it run?
+| 2026-10-01 12:00 UTC MMR-q1 delivery: - -> MMR-d1
+| 2026-10-01 12:00 UTC MMR-a2 journal: Journal
+--- state
+unchanged
+
+### get argv: MMR-3 --since 2026-10-01T11:00:00Z
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "to window a list by date, use --at-or-after with list, next, artifacts, or seeds"
+|   ],
+|   "message": "--since reads a delivery's change feed, so it takes only a delivery id (KEY-dN)"
+| }
+--- state
+unchanged
+
+### get argv: MMR --since 2026-10-01T11:00:00Z
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "to window a list by date, use --at-or-after with list, next, artifacts, or seeds"
+|   ],
+|   "message": "--since reads a delivery's change feed, so it takes only a delivery id (KEY-dN)"
+| }
+--- state
+unchanged
+
+### get argv: MMR-d1 --since yesterday
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "takes a timestamp with an explicit zone: 2026-11-16T09:00:00Z or 2026-11-16T09:00:00-04:00"
+|   ],
+|   "message": "invalid --since: yesterday"
+| }
+--- state
+unchanged
+
+### get argv: MMR-d1 --since 2026-10-01
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "takes a timestamp with an explicit zone: 2026-11-16T09:00:00Z or 2026-11-16T09:00:00-04:00"
+|   ],
+|   "message": "invalid --since: 2026-10-01"
+| }
+--- state
+unchanged
+
+### get argv: MMR-d1 --since 2026-10-01T11:00:00
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "takes a timestamp with an explicit zone: 2026-11-16T09:00:00Z or 2026-11-16T09:00:00-04:00"
+|   ],
+|   "message": "invalid --since: 2026-10-01T11:00:00"
+| }
+--- state
+unchanged
+
+### get argv: MMR-d1 --since 9999-12-31T23:00:00-04:00
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "the instant must fall in a year from 0100 to 9999 in UTC"
+|   ],
+|   "message": "invalid --since: 9999-12-31T23:00:00-04:00"
+| }
+--- state
+unchanged
+
+### get argv: MMR-d99 --since 2026-10-01T11:00:00Z
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "MMR-d99 doesn't exist"
+| }
+--- state
+unchanged
+
+### list argv: --since 2026-10-01T11:00:00Z
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--since' is retired; every resource windows created_at with '--at-or-after created_at:YYYY-MM-DD'"
+|   ],
+|   "message": "Unknown option \"--since\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+

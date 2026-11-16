@@ -209,6 +209,13 @@ const CASES: readonly McpCase[] = [
     { finding: 'Another finding', id: 'MMR-d1', reason: 'Not worth it' },
     { id: 'MMR-d1' },
   ),
+  // The since read: `get` takes a `since` instant on a delivery, and answers its change feed.
+  pinned(
+    'get takes since on a delivery',
+    'get',
+    { id: 'MMR-d1', since: '2026-10-01T11:00:00Z' },
+    { as_of: '2026-10-01T11:59:55.000Z', since: '2026-10-01T11:00:00.000Z' },
+  ),
   // `scratch agenda` and `scratch checkpoint` have no `-f json` CLI pin.
   pinned(
     'scratch_agenda add takes the item as words',
@@ -318,6 +325,12 @@ test('a refusal is a failed call whose structured content is the failure form', 
     exitCode: 1,
     failure: { code: 'not-found', exitCode: 1 },
   });
+});
+
+test('get refuses since on an id that is not a delivery over MCP', async () => {
+  const answer = await loomServer.call('get', { id: 'MMR-3', since: '2026-10-01T11:00:00Z' });
+  expect(answer.isError).toBe(true);
+  expect(JSON.stringify(answer.structured)).toContain("--since reads a delivery's change feed");
 });
 
 test('decisions refuses linked false over MCP', async () => {
