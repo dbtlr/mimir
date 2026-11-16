@@ -1,7 +1,6 @@
 import type { EngineNode } from '@mimir/contract';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
@@ -10,11 +9,10 @@ import { review } from '../api/fns/views';
 import { browserTimeZone } from '../api/queries';
 import type { ReviewReport } from '../api/view-queries';
 import { ProjectPicker } from '../components/project-picker';
-import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
 import { serveBareRecords } from './node-fns';
-import { renderInRouter } from './router';
+import { renderInRouter, renderShell } from './router';
 import { failShellReads, serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
 import { engineReview, stripRow } from './views-fixtures';
@@ -83,19 +81,8 @@ const pinWrite = (key: string, pinned: boolean) => ({ data: { id: key, pinned } 
 const newClient = () =>
   new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } });
 
-async function renderAt(initial: string, client = newClient()) {
-  const testRouter = createRouter({
-    history: createMemoryHistory({ initialEntries: [initial] }),
-    routeTree,
-  });
-  await testRouter.load();
-  render(
-    <QueryClientProvider client={client}>
-      <RouterProvider router={testRouter} />
-    </QueryClientProvider>,
-  );
-  return testRouter;
-}
+const renderAt = async (initial: string, client = newClient()) =>
+  (await renderShell(initial, client)).router;
 
 /** The header button of the project the page shows. */
 const header = (key = 'NRN') => screen.findByRole('button', { name: new RegExp(`^${key}`) });

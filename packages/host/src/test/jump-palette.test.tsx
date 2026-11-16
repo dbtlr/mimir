@@ -1,16 +1,15 @@
 import type { EngineSearchHit } from '@mimir/contract';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { consoleSearch } from '../api/fns/shell';
-import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree, searchHit, searchSet } from './engine-fixtures';
 import { engineTask } from './node-fixtures';
 import { serveNodes } from './node-fns';
+import { renderShell } from './router';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
@@ -75,23 +74,13 @@ function mockApi() {
   });
 }
 
-async function renderApp(initial = '/') {
-  const testRouter = createRouter({
-    history: createMemoryHistory({ initialEntries: [initial] }),
-    routeTree,
-  });
-  await testRouter.load();
-  render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } })
-      }
-    >
-      <RouterProvider router={testRouter} />
-    </QueryClientProvider>,
-  );
-  return testRouter;
-}
+const renderApp = async (initial = '/') =>
+  (
+    await renderShell(
+      initial,
+      new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } }),
+    )
+  ).router;
 
 /** Open the palette with the keyboard and type a query into it. */
 async function jump(user: ReturnType<typeof userEvent.setup>, query: string) {

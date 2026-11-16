@@ -1,15 +1,14 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { render, screen, waitFor } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
 import { seedCreate } from '../api/fns/browse';
-import { routeTree } from '../router';
 import { engineSeed } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
 import { serveBareRecords } from './node-fns';
+import { renderShell } from './router';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
@@ -42,23 +41,13 @@ function mockApi() {
   serveBrowse();
 }
 
-async function renderApp(initial = '/p/MMR/seeds') {
-  const testRouter = createRouter({
-    history: createMemoryHistory({ initialEntries: [initial] }),
-    routeTree,
-  });
-  await testRouter.load();
-  render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } })
-      }
-    >
-      <RouterProvider router={testRouter} />
-    </QueryClientProvider>,
-  );
-  return testRouter;
-}
+const renderApp = async (initial = '/p/MMR/seeds') =>
+  (
+    await renderShell(
+      initial,
+      new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } }),
+    )
+  ).router;
 
 describe('seed capture popover (12c, MMR-247)', () => {
   it('files the right body (project/title/kind, no requester) and resets on success', async () => {

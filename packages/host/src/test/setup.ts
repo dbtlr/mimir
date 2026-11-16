@@ -8,6 +8,8 @@
 import * as jestDomMatchers from '@testing-library/jest-dom/matchers';
 import { cleanup } from '@testing-library/react';
 
+import { PINNED_TIME_ZONE } from './global-setup';
+
 // Register jest-dom's matchers by hand instead of importing
 // '@testing-library/jest-dom/vitest': that entry's type augmentation predates
 // Vitest 5's `Assertion<R, T>` and loses the matcher types. The corrected
@@ -92,6 +94,16 @@ vi.mock('../api/health', () => ({
     version: '0.0.0',
   }),
 }));
+
+// The zone is pinned in global-setup.ts, before any worker starts; a test file
+// cannot change it. Fail fast when a run skipped the global setup, rather than
+// letting every date assertion fail one by one.
+const zone = new Intl.DateTimeFormat().resolvedOptions().timeZone;
+if (zone !== PINNED_TIME_ZONE) {
+  throw new Error(
+    `host tests expect the ${PINNED_TIME_ZONE} time zone, not ${zone}: run them through the package's vite.config.ts, which pins it in src/test/global-setup.ts`,
+  );
+}
 
 // Node 26 defines its own global localStorage, so Vitest does not replace it
 // while copying jsdom's globals. Point the browser global at jsdom's in-memory

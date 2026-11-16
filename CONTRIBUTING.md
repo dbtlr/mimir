@@ -139,6 +139,16 @@ Tests must use unique temporary directories and ephemeral ports (`port: 0`); a
 child process must receive its fixture's paths instead of opening the checkout's
 shared `.dev` store.
 
+The host Vitest lane, `bun run test:ui`, runs in Vitest's `vmThreads` pool
+(`packages/host/vite.config.ts`). A worker loads jsdom and external modules
+once, and each file still gets a fresh jsdom window in its own VM context. The
+setup files run in order: `src/test/vm-globals.ts` fills the web-stream globals
+the VM context lacks, then `src/test/setup.ts`. The suite's time zone is pinned
+in `src/test/global-setup.ts`, in the main process before any worker starts, so
+a test cannot change it by assigning `process.env.TZ`. A test that renders the
+whole console uses `renderShell` (`src/test/router.tsx`), which loads the
+router before the first render.
+
 [`test-timings.json`](test-timings.json) records per-file durations in milliseconds.
 Bun uses it only to start slower files first, not to select tests or enforce the
 budget. Missing files or entries and entries for removed tests do not fail a run.

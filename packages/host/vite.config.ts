@@ -118,9 +118,10 @@ export default defineConfig({
   },
   // Lint/fmt are centralized in the root vite.config; this member carries only
   // build + test. The jsdom test env comes from @dbtlr/tooling's testReact().
-  // vmThreads builds jsdom once per worker and still isolates each file in its
-  // own VM context; its setup files and global setup cover what that context
-  // lacks (web-stream globals, a zone set after start).
+  // vmThreads reuses each worker, so jsdom and external modules load once per
+  // worker, while each file still gets a fresh jsdom window in its own VM
+  // context. vm-globals.ts fills the web-stream globals that context lacks, and
+  // global-setup.ts pins the time zone in the main process (CONTRIBUTING.md).
   test: {
     ...testReact({ setupFiles: ['./src/test/vm-globals.ts', './src/test/setup.ts'] }),
     exclude: [

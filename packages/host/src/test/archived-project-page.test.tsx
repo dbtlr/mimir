@@ -1,17 +1,16 @@
 import type { EngineNode } from '@mimir/contract';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getNode } from '../api/fns/nodes';
 import { projects, unarchive } from '../api/fns/shell';
 import { createQueryClient } from '../api/query-client';
-import { projectRoute, routeTree, tasksRoute } from '../router';
+import { projectRoute, tasksRoute } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
 import { serveNodes } from './node-fns';
-import { renderRoute } from './router';
+import { renderRoute, renderShell } from './router';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
@@ -51,18 +50,7 @@ const quietClient = () =>
 const routes = [projectRoute, tasksRoute];
 
 /** The full console tree: the case that uses it guards against the shell's own polling re-mounting the page. */
-async function renderInShell(initial: string, client: QueryClient) {
-  const testRouter = createRouter({
-    history: createMemoryHistory({ initialEntries: [initial] }),
-    routeTree,
-  });
-  await testRouter.load();
-  render(
-    <QueryClientProvider client={client}>
-      <RouterProvider router={testRouter} />
-    </QueryClientProvider>,
-  );
-}
+const renderInShell = async (initial: string, client: QueryClient) => renderShell(initial, client);
 
 beforeEach(() => {
   serveBrowse();

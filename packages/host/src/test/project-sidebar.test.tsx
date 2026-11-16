@@ -1,8 +1,7 @@
 import { MimirError } from '@mimir/contract';
 import type { EngineNode, EngineTree } from '@mimir/contract';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
@@ -14,11 +13,11 @@ import { review } from '../api/fns/views';
 import type { ReviewReport } from '../api/view-queries';
 import { subtreeOf } from '../lib/ancestry';
 import { rememberProject } from '../lib/current-project';
-import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
 import { serveDevices } from './devices-fns';
 import { engineNode, engineProject, engineTree } from './engine-fixtures';
 import { serveNodes } from './node-fns';
+import { renderShell } from './router';
 import { serveShell } from './shell-fns';
 import { serveT3 } from './t3-fns';
 import { stubViewport } from './viewport';
@@ -95,23 +94,13 @@ function serve(
   });
 }
 
-async function renderAt(initial: string) {
-  const testRouter = createRouter({
-    history: createMemoryHistory({ initialEntries: [initial] }),
-    routeTree,
-  });
-  await testRouter.load();
-  render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } })
-      }
-    >
-      <RouterProvider router={testRouter} />
-    </QueryClientProvider>,
-  );
-  return testRouter;
-}
+const renderAt = async (initial: string) =>
+  (
+    await renderShell(
+      initial,
+      new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } }),
+    )
+  ).router;
 
 const MMR = engineProject({ id: 'MMR', title: 'Mimir' });
 const NRN = engineProject({ id: 'NRN', title: 'Norn' });

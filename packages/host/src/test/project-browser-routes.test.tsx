@@ -1,20 +1,19 @@
 import { MimirError } from '@mimir/contract';
 import type { EngineNode } from '@mimir/contract';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { render, screen, waitFor } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
+import { screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { artifacts, list, seeds } from '../api/fns/browse';
 import { projects } from '../api/fns/shell';
 import { SeedCaptureProvider } from '../components/seed-capture';
 import { readRememberedProject, rememberProject } from '../lib/current-project';
-import { consoleRoutes, routeTree } from '../router';
+import { consoleRoutes } from '../router';
 import { taskSet } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
 import { serveNodes } from './node-fns';
-import { renderRoute } from './router';
+import { renderRoute, renderShell } from './router';
 import { failShellReads, serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
@@ -58,18 +57,7 @@ const quietClient = () =>
 const renderAt = (initial: string) =>
   renderRoute(consoleRoutes, initial, quietClient(), SeedCaptureProvider);
 
-async function renderInShell(initial: string) {
-  const testRouter = createRouter({
-    history: createMemoryHistory({ initialEntries: [initial] }),
-    routeTree,
-  });
-  await testRouter.load();
-  render(
-    <QueryClientProvider client={quietClient()}>
-      <RouterProvider router={testRouter} />
-    </QueryClientProvider>,
-  );
-}
+const renderInShell = async (initial: string) => renderShell(initial, quietClient());
 
 /** Wait for the router to settle on `pathname`, then return its location. */
 async function settledAt(

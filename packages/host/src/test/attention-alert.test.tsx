@@ -1,17 +1,15 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { groom } from '../api/fns/nodes';
 import { review } from '../api/fns/views';
 import type { NeedsYouTask, ReviewReport } from '../api/view-queries';
-import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
 import { engineTask } from './node-fixtures';
 import { serveNodes } from './node-fns';
+import { renderShell } from './router';
 import { serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
 import { engineReview, needsYouRow, stripRow, triageSeed } from './views-fixtures';
@@ -61,17 +59,7 @@ async function renderAt(path: string, report: ReviewReport) {
 }
 
 async function renderServed(path: string) {
-  const testRouter = createRouter({
-    history: createMemoryHistory({ initialEntries: [path] }),
-    routeTree,
-  });
-  await testRouter.load();
-  const client = new QueryClient();
-  render(
-    <QueryClientProvider client={client}>
-      <RouterProvider router={testRouter} />
-    </QueryClientProvider>,
-  );
+  const { client, router: testRouter } = await renderShell(path);
   return { client, testRouter };
 }
 
