@@ -500,3 +500,9 @@ entry without a reason or a `limitation` with one, and a `created_at` that is no
 a canonical UTC instant. They also refuse and report (`invalid-run-journal`) a
 pad or artifact whose `delivery` is missing or in another project, and two live
 pads on one delivery.
+
+Migration 0020 adds the indexes the since read of a delivery
+([ADR 0042](decisions/0042-the-delivery-record.md), MMR-692) searches by, so no
+read scans a table whole: `artifact(delivery)`, `decision(delivery)`,
+`decision_history(kind, from_value)`, and `decision_history(kind, to_value)`. It
+changes no column and no row, and the transfer document is unchanged.
