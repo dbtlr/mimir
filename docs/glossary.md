@@ -84,9 +84,9 @@ MMR-691 refinement).
 **Declined finding**: A review finding a delivery chose not to act on,
 recorded with its reason by `decline`.
 
-**Run journal**: The Scratchpad anchored to the
-delivery, frozen by its owner at close-out into an artifact linked to the
-delivery and every task that was ever a member
+**Run journal**: The Scratchpad anchored to a delivery, frozen at close-out
+into an artifact that names the delivery and links every task that was ever a
+member. Not the pad's numbered Journal section, which is one part of it
 ([ADR 0027](decisions/0027-scratchpads-are-temporary-episode-state.md), MMR-691
 refinement).
 

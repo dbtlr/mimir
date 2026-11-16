@@ -55,16 +55,20 @@ exploration forever.
 
 ## Refinement (2026-11-16, MMR-691): a delivery's journal
 
-A delivery ([ADR 0042](0042-the-delivery-record.md)) is an episode, so its run
-journal is a Scratchpad anchored to it.
+A delivery ([ADR 0042](0042-the-delivery-record.md)) is an episode, so its
+**run journal** is a Scratchpad anchored to it. The run journal is the whole
+pad; the pad's numbered Journal above is one of its sections.
 
-- **The anchor.** `scratch create --anchor KEY-dN` and `scratch update
-  --anchor KEY-dN` accept one delivery id beside node anchors. The pad stores it
-  in its own `delivery` field, so `anchors` keeps holding node ids only. A
-  second delivery id in one call is `validation`, and so is a delivery in
-  another project. `update --anchor` replaces the node anchors and the delivery
-  together, as it replaces the anchors today: an update that names no delivery
-  clears it.
+- **The anchor.** `scratch create --link KEY-dN` and `scratch update --link
+  KEY-dN` accept one delivery id beside node links. The pad stores it in its
+  own `delivery` field, so `anchors` keeps holding node ids only. A second
+  delivery id in one call is `validation`, and so is a delivery in another
+  project.
+- **Update.** An update that passes no `--link` and no `--clear-links` leaves
+  both the node anchors and the delivery as they are, so a title-only update
+  keeps the journal's delivery. An update that passes `--link` replaces both
+  together with what it names, so a `--link` set with no delivery id clears
+  the delivery. `--clear-links` clears both.
 - **One live journal per delivery.** A create or update that would give a
   delivery a second live pad refuses as `conflict`, naming the pad that holds
   it. After that pad is frozen or discarded, a new pad may anchor the delivery.
@@ -72,9 +76,13 @@ journal is a Scratchpad anchored to it.
 - **Freeze.** Freeze copies the pad's delivery onto the new artifact's
   `delivery` field, and links the artifact to the pad's node anchors plus every
   task that was ever a member of the delivery: each task named by a `member`
-  row in its history, whatever happened to it since. The links are deduplicated
-  and read in the project's task order.
-- **Who freezes.** The journal's owner freezes it at the delivery's close-out.
+  row in its history, whatever happened to it since. Membership is read in the
+  transaction that creates the artifact. A retried freeze recovers that
+  artifact, as the protocol above does, so its links are the membership at
+  first creation; a task that joins later is not added. The links are a set,
+  read in the artifact's canonical link order like every artifact's.
+- **Who freezes.** By convention the delivery's orchestrator freezes the
+  journal at close-out. Mimir does not enforce who, as no pad has an owner.
   `land` and `abandon` do not touch the pad, so each keeps its own
   transaction. A terminal delivery whose journal is still live shows it as
   `journal` on `get`, and the pad stays in the overview's active Scratchpads,

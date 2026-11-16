@@ -369,9 +369,12 @@ mimir decline MMR-d3 "Retry the clone on a transient fetch failure" --reason "Fi
 
 - `limitations`: `[{ number, text, created_at }]`, in number order.
 - `declined`: `[{ number, finding, reason, created_at }]`, in number order.
-- `journal`: the UUID of the live Scratchpad anchored to the delivery, or null
+- `journal`: the delivery's run journal
   ([ADR 0027](0027-scratchpads-are-temporary-episode-state.md), MMR-691
-  refinement).
+  refinement), as `{ scratchpad, artifacts }`. `scratchpad` is the UUID of the
+  live pad anchored to the delivery, or null. `artifacts` lists the ids of the
+  frozen journals whose `delivery` names it, oldest first, so a landed delivery
+  still leads to its journal.
 
 The records view prints each list as one line per entry, and omits a list
 that is empty. `deliveries` rows do not carry the lists.
