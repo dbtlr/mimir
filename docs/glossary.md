@@ -63,6 +63,11 @@ continue without the operator. Only the operator clears it.
 **Paused**: A delivery's hold, set by `park`, that says the operator paused the
 attempt on purpose.
 
+**Wake**: The host's message to a delivery's T3 thread when the operator acts on
+the delivery or one of its decisions in the console, so the agent reads what
+changed without waiting for its next heartbeat
+([ADR 0040](decisions/0040-outbound-integrations-and-host-secrets.md)).
+
 **Decision**: A question an agent answered provisionally without stopping
 its work. It records the question, the options, the recommendation, the
 answer taken, and a class, and it links the tasks built on that answer. It is

@@ -153,3 +153,58 @@ export type T3LaunchResult =
 
 /** The Open in T3 origin: `MIMIR_T3_URL` when the feature is configured, else null. */
 export type T3Origin = { origin: string | null };
+
+/**
+ * The operator actions that wake a delivery's T3 thread (ADR 0040, the wake),
+ * named by the Engine method each console function calls. `confirm` is not
+ * one: a confirm never wakes.
+ */
+export const T3_WAKE_ACTIONS = [
+  'deliveryAbandon',
+  'deliveryPark',
+  'deliveryReturn',
+  'deliveryUnblock',
+  'deliveryUnpark',
+  'deliveryUpdate',
+  'overturn',
+] as const;
+export type T3WakeAction = (typeof T3_WAKE_ACTIONS)[number];
+
+/**
+ * What `wakeT3` takes: the input that resends one wake. `decision` is a
+ * decision id for an overturn and null for every other action; `since` is
+ * the cursor the message used, ISO 8601 with milliseconds.
+ */
+export type T3WakeInput = {
+  delivery: string;
+  action: T3WakeAction;
+  decision: string | null;
+  attempt: string;
+  since: string;
+};
+
+/** The input an `invalid` wake names. */
+export type T3WakeField = 'action' | 'attempt' | 'decision' | 'delivery' | 'since';
+
+/** Why a wake was skipped: no feature, no delivery to read, or a delivery not running in T3. */
+export type T3WakeSkip = 'no_delivery' | 'no_thread' | 'unconfigured';
+
+/** The T3 thread a delivery's handles name, as Open in T3 builds its link. */
+export type T3WakeThread = { host: string; session: string };
+
+/**
+ * What a wake answers (ADR 0040, the wake). Only `unreachable` and `failed`
+ * carry the input that resends it; `refused` carries the thread to open.
+ */
+export type T3WakeState =
+  | { state: 'sent' }
+  | { state: 'skipped'; reason: T3WakeSkip }
+  | ({ state: 'misconfigured' } & T3Misconfiguration)
+  | { state: 'disconnected'; reason: T3Disconnection }
+  | { state: 'unreachable'; retry: T3WakeInput }
+  | { state: 'refused'; thread: T3WakeThread }
+  | { state: 'failed'; retry: T3WakeInput }
+  | { state: 'invalid'; field: T3WakeField };
+
+/** A waking console function's answer: the Engine method's output and the wake. */
+export type T3Woken<Record> = { record: Record; wake: T3WakeState };

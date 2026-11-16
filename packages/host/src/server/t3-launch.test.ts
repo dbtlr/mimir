@@ -168,7 +168,7 @@ function fakeEngine(tasks: FakeTask[], deliveries: Record<string, string> = {}) 
   };
   return {
     control,
-    engine: engine as unknown as Pick<Engine, 'getNode' | 'getDelivery' | 'queue'>,
+    engine: engine as unknown as Pick<Engine, 'getNode' | 'getDelivery' | 'getDecision' | 'queue'>,
     nodes,
     queued,
   };

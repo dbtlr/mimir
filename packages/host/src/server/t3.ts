@@ -33,7 +33,12 @@ import type {
   T3Status,
   T3System,
   T3Unavailable,
+  T3WakeAction,
+  T3WakeInput,
+  T3WakeState,
+  T3Woken,
 } from './t3-states';
+import { parseWakeInput, sinceBefore, wakeMessage } from './t3-wake';
 
 /*
  * The T3 Code adapter (ADR 0040): Connect, its callback, the Devices page's
@@ -60,8 +65,8 @@ const MAX_PROJECT_PAGES = 100;
 export type T3AdapterOptions = {
   settings: T3Settings;
   secrets: HostSecretStore;
-  /** The Engine reads the catalog and launch use, and the queue write a launch ends with. */
-  engine: Pick<Engine, 'getNode' | 'getDelivery' | 'queue'>;
+  /** The Engine reads the catalog, launch, and wake use, and the queue write a launch ends with. */
+  engine: Pick<Engine, 'getNode' | 'getDelivery' | 'getDecision' | 'queue'>;
   /** The host build, sent as the MCP client version. */
   version: string;
   fetch?: T3Fetch;
@@ -178,6 +183,14 @@ function failureState(error: unknown): T3Unavailable {
       : { state: 'unreachable' };
   }
   throw error;
+}
+
+/** A shared unavailable state as the wake answers it: only `unreachable` carries the retry. */
+function wakeStateOf(unavailable: T3Unavailable, retry: T3WakeInput): T3WakeState {
+  if (unavailable.state === 'unconfigured') {
+    return { reason: 'unconfigured', state: 'skipped' };
+  }
+  return unavailable.state === 'unreachable' ? { retry, state: 'unreachable' } : unavailable;
 }
 
 /** Every page of one system's projects that match `remote`. */
@@ -697,6 +710,95 @@ export function createT3Adapter(options: T3AdapterOptions) {
     return queueTask(input, thread);
   };
 
+  type Wake = {
+    action: T3WakeAction;
+    /** The delivery the write names; null for an overturn of a decision with none. */
+    delivery: string | null;
+    decision: string | null;
+    attempt: string;
+    since: string;
+  };
+
+  /** Log a wake's outcome: the delivery id and never the message. */
+  const logWake = (delivery: string, outcome: string) =>
+    logEvent(http, 't3_wake', { delivery, outcome });
+
+  /**
+   * Send the wake for a delivery read and ready: the thread the handles name,
+   * `t3_thread_send` with the fixed message, and the outcome as a state.
+   */
+  const sendWake = async (
+    setup: Ready,
+    connection: Connection,
+    retry: T3WakeInput,
+    thread: { host: string; session: string },
+  ): Promise<T3WakeState> => {
+    try {
+      const mcp = await session(setup, connection);
+      // A reply that cannot be read throws `unreachable` before this returns.
+      await mcp.call('t3_thread_send', {
+        clientRequestId: `mimir:wake:${retry.attempt}`,
+        environmentId: thread.host,
+        message: wakeMessage(retry),
+        mode: 'auto',
+        threadId: thread.session,
+      });
+      return { state: 'sent' };
+    } catch (error) {
+      if (error instanceof T3RequestError) {
+        if (error.kind === 'refused' || error.kind === 'unknown_tool') {
+          return { state: 'refused', thread };
+        }
+        return wakeStateOf(failureState(error), retry);
+      }
+      throw error;
+    }
+  };
+
+  /**
+   * The wake's five ordered checks and its send (ADR 0040, the wake). The
+   * first check that fails ends it; a skip never reads the host secret.
+   */
+  const runWake = async (wake: Wake & { delivery: string }): Promise<T3WakeState> => {
+    const retry: T3WakeInput = { ...wake };
+    const delivery = await engine.getDelivery({ id: wake.delivery });
+    const { harness, host, session: thread } = delivery;
+    if (harness !== 't3' || !host?.trim() || !thread?.trim()) {
+      return { reason: 'no_thread', state: 'skipped' };
+    }
+    const setup = ready();
+    if ('state' in setup) {
+      return wakeStateOf(setup, retry);
+    }
+    const connection = await readConnection(setup);
+    if ('state' in connection) {
+      return wakeStateOf(connection, retry);
+    }
+    return sendWake(setup, connection, retry, { host, session: thread });
+  };
+
+  /** Wake the delivery's thread after its write; every failure is a state, never a throw. */
+  const wake = async (request: Wake): Promise<T3WakeState> => {
+    if (!settings.enabled) {
+      return { reason: 'unconfigured', state: 'skipped' };
+    }
+    const { delivery } = request;
+    if (delivery === null) {
+      return { reason: 'no_delivery', state: 'skipped' };
+    }
+    try {
+      const state = await runWake({ ...request, delivery });
+      if (state.state !== 'skipped') {
+        logWake(delivery, state.state);
+      }
+      return state;
+    } catch {
+      // Whatever failed, the write stands; the error's text may hold T3's words.
+      logEvent(http, 't3_wake_fault', { delivery });
+      return { retry: { ...request, delivery }, state: 'failed' };
+    }
+  };
+
   return {
     /**
      * `GET /auth/t3/callback`: consume the pending authorization `state`
@@ -826,6 +928,57 @@ export function createT3Adapter(options: T3AdapterOptions) {
       } catch (error) {
         return failureState(error);
       }
+    },
+
+    /**
+     * Resend one wake from its `retry` input (ADR 0040, Retry): the checks run
+     * again on the delivery read now, and nothing is written. A field that
+     * fails its check reads `invalid`, and an overturn naming another
+     * delivery's decision reads `invalid` naming `decision`.
+     */
+    wakeT3: async (input: unknown): Promise<T3WakeState> => {
+      const parsed = parseWakeInput(input);
+      if ('field' in parsed) {
+        return { field: parsed.field, state: 'invalid' };
+      }
+      // Check 1 runs first on a Retry too, before the decision read.
+      if (!settings.enabled) {
+        return { reason: 'unconfigured', state: 'skipped' };
+      }
+      if (parsed.action === 'overturn' && parsed.decision !== null) {
+        let named: string | null;
+        try {
+          named = (await engine.getDecision({ id: parsed.decision })).delivery;
+        } catch (error) {
+          if (!isEngineRefusal(error)) {
+            logEvent(http, 't3_wake_fault', { delivery: parsed.delivery });
+            return { retry: parsed, state: 'failed' };
+          }
+          return { field: 'decision', state: 'invalid' };
+        }
+        if (named !== parsed.delivery) {
+          return { field: 'decision', state: 'invalid' };
+        }
+      }
+      return wake(parsed);
+    },
+
+    /**
+     * Run an operator's Engine write, then wake the delivery's thread. The
+     * write throws as it would alone; once it returns, nothing throws. `since`
+     * is this process's clock read just before the write, less a millisecond,
+     * so the since read the message names shows the write's events.
+     * `target` names the delivery and decision the write's record belongs to.
+     */
+    writeAndWake: async <R>(
+      action: T3WakeAction,
+      attempt: string,
+      write: () => Promise<R>,
+      target: (record: R) => { delivery: string | null; decision: string | null },
+    ): Promise<T3Woken<R>> => {
+      const since = sinceBefore(http.clock());
+      const record = await write();
+      return { record, wake: await wake({ action, attempt, since, ...target(record) }) };
     },
   };
 }

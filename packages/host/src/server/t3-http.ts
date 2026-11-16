@@ -20,8 +20,8 @@ export type T3Http = {
 /**
  * Why a T3 request failed: `rejected` is T3's `401`; `unknown_tool` is T3
  * saying it exposes no such tool; `refused` is a tool error (`isError`) from
- * `t3_thread_launch` (the adapter also reads its missing tool so), which T3
- * answers the same on every try; `unreachable` is
+ * `t3_thread_launch` or `t3_thread_send` (the adapter also reads their missing
+ * tools so), which T3 answers the same on every try; `unreachable` is
  * everything else (no answer, a timeout, a redirect, another status, another
  * JSON-RPC error, another tool's failed result, or a reply that fails its
  * checks).
@@ -98,7 +98,8 @@ export type T3Tool =
   | 't3_environment_links'
   | 't3_environment_read'
   | 't3_project_list'
-  | 't3_thread_launch';
+  | 't3_thread_launch'
+  | 't3_thread_send';
 
 /** A JSON value the adapter sends as a tool argument. */
 export type T3JsonValue =
@@ -184,7 +185,7 @@ function isUnknownTool(error: unknown, tool: T3Tool | undefined): boolean {
  * A tool result's payload: `structuredContent` when T3 sends an object there,
  * else the JSON in its first text content. A result marked `isError` is a
  * failed read, `unreachable`, like any other bad reply, except from
- * `t3_thread_launch`, where it is T3 refusing the launch: `refused`.
+ * `t3_thread_launch` and `t3_thread_send`, where it is T3 refusing: `refused`.
  */
 function toolPayload(result: unknown, endpoint: string, tool: T3Tool): unknown {
   const record = asRecord(result);
@@ -192,7 +193,10 @@ function toolPayload(result: unknown, endpoint: string, tool: T3Tool): unknown {
     throw new T3RequestError('unreachable', endpoint);
   }
   if (record.isError === true) {
-    throw new T3RequestError(tool === 't3_thread_launch' ? 'refused' : 'unreachable', endpoint);
+    throw new T3RequestError(
+      tool === 't3_thread_launch' || tool === 't3_thread_send' ? 'refused' : 'unreachable',
+      endpoint,
+    );
   }
   if (asRecord(record.structuredContent) !== undefined) {
     return record.structuredContent;
