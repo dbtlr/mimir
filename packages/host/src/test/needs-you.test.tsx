@@ -111,6 +111,7 @@ test('focus walks delivery and decision cards with Skip only and the right up-ne
   await open('/?mode=focus');
   await screen.findByText('Stopped run');
   expect(screen.getByText('Stopped')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Skip' })).toHaveFocus();
   expect(
     within(screen.getByRole('main'))
       .getAllByRole('button')

@@ -444,6 +444,7 @@ test('a refused one-tap decision returns focus to its chip', async () => {
   const chip = await screen.findByRole('button', { name: /Confirm option/ });
   chip.focus();
   fireEvent.click(chip);
+  chip.blur();
   await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Refused answer'));
   await waitFor(() => expect(chip).toHaveFocus());
 });
