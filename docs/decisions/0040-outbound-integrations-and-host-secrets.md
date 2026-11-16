@@ -499,8 +499,9 @@ the write commits.
 
 ### What wakes
 
-The console gains one server function per operator action. Each calls its
-Engine method, then the wake.
+The console gains one server function per operator action. Each waking
+function calls its Engine method, then the wake. `confirm` calls its Engine
+method only and answers the bare decision record.
 
 | Console function  | Engine method     | Phrase in the message                       |
 | ----------------- | ----------------- | ------------------------------------------- |
@@ -545,8 +546,10 @@ wakes the new thread. The send goes to `threadId=<session>` on
 `environmentId=<host>`. The checks run in this order, and the first that
 fails ends the wake:
 
-1. The T3 feature is usable (the adapter's settings check); otherwise
-   `skipped`, `unconfigured`.
+1. The T3 feature is usable (the adapter's settings check). An unset
+   `MIMIR_T3_URL` is `skipped`, `unconfigured`; a misconfigured feature
+   reads `misconfigured`, because an operator who set it up expects the
+   wake.
 2. For an overturn, the decision names a delivery; otherwise `skipped`,
    `no_delivery`. The delivery is read through the Engine.
 3. The delivery has `harness=t3` with a nonblank `session` and `host`;
@@ -598,18 +601,24 @@ output, and `wake` is a tagged state.
 | -------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | `sent`         | T3 accepted the send                                                                         | nothing more                                                  |
 | `skipped`      | `reason`: `unconfigured`, `no_delivery`, or `no_thread` (see *Who receives it*)              | nothing more                                                  |
+| `misconfigured`| The feature's settings fail their check (`setting` and `problem`, as for the catalog)        | warning toast linking to Devices                              |
 | `disconnected` | No usable token: `reason` is `none`, `expired`, or `rejected`                                | warning toast with Reconnect T3                               |
 | `unreachable`  | T3 did not answer, timed out, or sent an unreadable reply                                    | warning toast with Retry                                      |
-| `refused`      | T3 answered the send with a tool error (`isError`), or has no send tool                      | warning toast with Open in T3, naming the access-level cause  |
+| `refused`      | T3 answered the send with a tool error (`isError`), or has no send tool; carries `thread`    | warning toast with Open in T3, naming the access-level cause  |
 | `failed`       | The wake faulted after the write: the delivery read failed, or an unexpected error           | warning toast with Retry                                      |
 | `invalid`      | Only from `wakeT3`: `field` names the input that failed                                      | error toast                                                   |
 
-- **A state that offers Retry carries it.** `disconnected`, `unreachable`,
-  `refused`, and `failed` carry `retry`: the `wakeT3` input that resends this
-  wake, `{ delivery, action, decision, attempt, since }`, with `since` as the
+- **Only `unreachable` and `failed` offer Retry, and they carry it** as
+  `retry`: the `wakeT3` input that resends this wake,
+  `{ delivery, action, decision, attempt, since }`, with `since` as the
   message used it and `decision` null except for an overturn. The delivery id
-  is always known after the write (an overturn's record names it), so every
-  such state carries one.
+  is always known after the write (an overturn's record names it). The other
+  failures need the operator to act first: Reconnect T3 leaves the page, and
+  a refused send fails on every try until the connection or the thread
+  changes; the operator's next action wakes the thread again.
+- **`refused` carries `thread`**, `{ host, session }` from the delivery, so
+  the console can build Open in T3 for an overturn too, whose record is a
+  decision with no handles.
 - **The wake never fails the write.** A refused Engine write throws as
   today and sends nothing. Once the write returns, every failure of the wake,
   a fault included, becomes one of these states; the function never throws
@@ -624,17 +633,19 @@ output, and `wake` is a tagged state.
   T3 with full access beside Open in T3. T3's text never reaches the console
   or a log, as for the launch.
 - **Retry** calls `wakeT3` with a state's `retry`. It answers a `wake` state
-  alone, with no `record`, and writes nothing to the store. It runs the checks of *Who
-  receives it* again on the delivery read now, rebuilds the message from the
+  alone, with no `record`, and writes nothing to the store. It runs the checks
+  of *Who receives it* again on the delivery read now, rebuilds the message from the
   action's fixed phrase and the given `since`, and sends with the same
   `clientRequestId`. Its input reads `invalid`, naming the field, when
   `action` is not a waking action; `delivery` does not parse as `KEY-dN`;
   `decision` is not a `KEY-qN` for an overturn or is not null otherwise;
   `attempt` breaks its grammar; or `since` is outside the since read's range.
-  For an overturn, a decision that is not `overturned` or names another
-  delivery reads `invalid`, naming `decision`, so a Retry cannot announce an
-  overturn that did not happen. The browser never names a T3 operation.
-- **Each wake that contacts T3 logs** `t3_wake` with its `outcome` and the
+  For an overturn, a decision that names another delivery reads `invalid`,
+  naming `decision`, so a Retry cannot wake an unrelated thread. Retry does
+  not re-check that the action happened: the console is the operator's own
+  surface, and the message only points at the since read, which shows what
+  did. The browser never names a T3 operation.
+- **Each wake that is not a skip logs** `t3_wake` with its `outcome` and the
   delivery id, never the message. A skip logs nothing.
 
 ### Considered and rejected
