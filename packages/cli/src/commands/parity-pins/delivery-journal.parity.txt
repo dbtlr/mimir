@@ -1,0 +1,508 @@
+### scratch argv: create Journal --link MMR-d1 --scope MMR -f records
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  0
+| project  MMR
+| title  Journal
+| updated at  2026-10-01T12:00:00.000Z
+--- state
+~ deliveries[MMR-d1].journal.scratchpad: null -> "<uuid>"
++ scratchpads[<held>]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","delivery":"MMR-d1","freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"Journal","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### scratch argv: create Journal --link MMR-d1 --scope MMR -f json
+exit 0
+--- stdout
+| {"id":"<uuid>","open_agenda":0,"project":"MMR","title":"Journal","updated_at":"2026-10-01T12:00:00.000Z"}
+--- state
+~ deliveries[MMR-d1].journal.scratchpad: null -> "<uuid>"
++ scratchpads[<held>]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","delivery":"MMR-d1","freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"Journal","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### scratch argv: get {jpad} -f records
+exit 0
+--- stdout
+| agenda  []
+| created at  2026-10-01 12:00 UTC
+| delivery  MMR-d1
+| freezing at  
+| id  <uuid>
+| journal  []
+| linked work  []
+| project  MMR
+| title  Run journal
+| updated at  2026-10-01T12:00:00.000Z
+--- state
+unchanged
+
+### scratch argv: get {jpad} -f json
+exit 0
+--- stdout
+| {"agenda":[],"created_at":"2026-10-01T12:00:00.000Z","delivery":"MMR-d1","freezing_at":null,"id":"<uuid>","journal":[],"linked_work":[],"project":"MMR","title":"Run journal","updated_at":"2026-10-01T12:00:00.000Z"}
+--- state
+unchanged
+
+### scratch argv: freeze {jpad} --expected-updated-at {jtoken} --summary journal -f records
+exit 0
+--- stdout
+| created at  2026-10-01 12:00 UTC
+| delivery  MMR-d1
+| id  MMR-a2
+| linked work  []
+| project  MMR
+| summary  journal
+| tags  ["scratchpad"]
+| title  Run journal
+--- state
++ artifacts[MMR-a2]: {"content":"## Journal\n\n## Agenda\n","createdAt":"2026-10-01T12:00:00.000Z","delivery":"MMR-d1","id":"MMR-a2","links":[],"project":"MMR","summary":"journal","tags":["scratchpad"],"title":"Run journal"}
++ deliveries[MMR-d1].journal.artifacts[@0]: "MMR-a2"
+~ deliveries[MMR-d1].journal.scratchpad: "<uuid>" -> null
+~ scratchpads[jpad]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","delivery":"MMR-d1","freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"Run journal","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"<uuid> doesn't exist"}
+
+### scratch argv: freeze {jpad} --expected-updated-at {jtoken} --summary journal -f json
+exit 0
+--- stdout
+| {"created_at":"2026-10-01T12:00:00.000Z","delivery":"MMR-d1","id":"MMR-a2","linked_work":[],"project":"MMR","summary":"journal","tags":["scratchpad"],"title":"Run journal"}
+--- state
++ artifacts[MMR-a2]: {"content":"## Journal\n\n## Agenda\n","createdAt":"2026-10-01T12:00:00.000Z","delivery":"MMR-d1","id":"MMR-a2","links":[],"project":"MMR","summary":"journal","tags":["scratchpad"],"title":"Run journal"}
++ deliveries[MMR-d1].journal.artifacts[@0]: "MMR-a2"
+~ deliveries[MMR-d1].journal.scratchpad: "<uuid>" -> null
+~ scratchpads[jpad]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","delivery":"MMR-d1","freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"Run journal","updatedAt":"2026-10-01T12:00:00.000Z"} -> {"failed":"<uuid> doesn't exist"}
+
+### get argv: {frozen} -f records
+exit 0
+--- stdout
+| MMR-a2
+|   title     First run
+|   summary   first run journal
+|   project   MMR
+|   delivery  MMR-d1
+|   tags      scratchpad
+|   created   2026-10-01 12:00 UTC
+--- state
+unchanged
+
+### get argv: {frozen} -f json
+exit 0
+--- stdout
+| {
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "delivery": "MMR-d1",
+|   "id": "MMR-a2",
+|   "links": [],
+|   "project": "MMR",
+|   "tags": [
+|     "scratchpad"
+|   ],
+|   "title": "First run",
+|   "summary": "first run journal"
+| }
+--- state
+unchanged
+
+### get argv: MMR-d1 -f records
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Attempt
+| lifecycle: agreed
+| hold: none
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| members: 
+| journal: scratchpad <uuid>; frozen MMR-a2
+--- state
+unchanged
+
+### get argv: MMR-d1 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-d1",
+|   "project_key": "MMR",
+|   "seq": 1,
+|   "phase": "MMR-2",
+|   "title": "Attempt",
+|   "lifecycle": "agreed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "agreement": null,
+|   "external_ref": null,
+|   "branch": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "time_cap_minutes": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "members": [],
+|   "elapsed_minutes": null,
+|   "history": [],
+|   "declined": [],
+|   "journal": {
+|     "artifacts": [
+|       "MMR-a2"
+|     ],
+|     "scratchpad": "<uuid>"
+|   },
+|   "limitations": []
+| }
+--- state
+unchanged
+
+### scratch argv: list --scope MMR -f records
+exit 0
+--- stdout
+| <uuid>  MMR  Index rewrite  now
+| <uuid>  MMR  Blank  now
+| <uuid>  MMR  Run journal  now
+--- state
+unchanged
+
+### scratch argv: list --scope MMR -f json
+exit 0
+--- stdout
+| {"scratchpads":[{"delivery":null,"id":"<uuid>","linked_work":["MMR-3"],"open_agenda":2,"project":"MMR","state":"active","title":"Index rewrite","updated_at":"2026-10-01T12:00:00.005Z"},{"delivery":null,"id":"<uuid>","linked_work":[],"open_agenda":0,"project":"MMR","state":"active","title":"Blank","updated_at":"2026-10-01T12:00:00.000Z"},{"delivery":"MMR-d1","id":"<uuid>","linked_work":[],"open_agenda":0,"project":"MMR","state":"active","title":"Run journal","updated_at":"2026-10-01T12:00:00.000Z"}],"total":3}
+--- state
+unchanged
+
+### artifacts argv: --scope MMR -f records
+exit 0
+--- stdout
+| 2 artifacts
+|
+| MMR-a2   First run     scratchpad   now
+|       first run journal
+| MMR-a1   Store notes   design       now
+|       design notes
+--- state
+unchanged
+
+### artifacts argv: --scope MMR -f json
+exit 0
+--- stdout
+| {
+|   "artifacts": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "delivery": "MMR-d1",
+|       "id": "MMR-a2",
+|       "links": [],
+|       "project": "MMR",
+|       "tags": [
+|         "scratchpad"
+|       ],
+|       "title": "First run",
+|       "summary": "first run journal"
+|     },
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "delivery": null,
+|       "id": "MMR-a1",
+|       "links": [
+|         "MMR-3"
+|       ],
+|       "project": "MMR",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes",
+|       "summary": "design notes"
+|     }
+|   ],
+|   "returned": 2,
+|   "starts_at": 0,
+|   "total": 2
+| }
+--- state
+unchanged
+
+### overview argv: --scope MMR -f records
+exit 0
+--- stdout
+| MMR · > in_progress · in_progress:1
+|
+| in flight (1)
+|   MMR-5   > in_progress   p0   MMR-2   Ship it · codex · main-session · worker claude · task-worker-session
+|
+| provisional decisions (0) — run 'mimir decisions -p MMR'
+|
+| active scratchpads (3)
+|   <uuid> · MMR · Index rewrite · 2 open Agenda · now · linked MMR-3
+|   <uuid> · MMR · Blank · 0 open Agenda · now
+|   <uuid> · MMR · Run journal · 0 open Agenda · now
+|
+| next (2)
+|   MMR-3   * ready   p1   groomed       MMR-2   Wire the store
+|   MMR-8   * ready   p2   not_groomed   MMR-2   Tidy docs
+|
+| awaiting (1)
+|   MMR-4   ~ awaiting        not_groomed   MMR-2   Render views · awaiting MMR-3
+|
+| recent sessions (1 shown)
+|   main-session · 2026-10-01 12:00 -> 12:00 UTC · 1 transition · MMR-5
+|
+| hygiene
+|   2 untriaged seeds — run 'mimir triage MMR'
+|     MMR-s1   A hook · Ask the other board for a hook.
+|     MMR-s2   Cache the plan
+|   1 blocked — run 'mimir list -s MMR --status blocked'
+|     MMR-6   x blocked        not_groomed   MMR-2   Wait on review · needs a reviewer
+|   1 parked seed — list them: mimir seeds -p MMR --status parked
+--- state
+unchanged
+
+### overview argv: --scope MMR -f json
+exit 0
+--- stdout
+| {
+|   "active_scratchpads": {
+|     "count": 3,
+|     "scratchpads": [
+|       {
+|         "delivery": null,
+|         "id": "<uuid>",
+|         "linked_work": [
+|           "MMR-3"
+|         ],
+|         "open_agenda": 2,
+|         "project": "MMR",
+|         "state": "active",
+|         "title": "Index rewrite",
+|         "updated_at": "2026-10-01T12:00:00.005Z"
+|       },
+|       {
+|         "delivery": null,
+|         "id": "<uuid>",
+|         "linked_work": [],
+|         "open_agenda": 0,
+|         "project": "MMR",
+|         "state": "active",
+|         "title": "Blank",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       },
+|       {
+|         "delivery": "MMR-d1",
+|         "id": "<uuid>",
+|         "linked_work": [],
+|         "open_agenda": 0,
+|         "project": "MMR",
+|         "state": "active",
+|         "title": "Run journal",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ]
+|   },
+|   "awaiting": {
+|     "count": 1,
+|     "tasks": [
+|       {
+|         "id": "MMR-4",
+|         "parent": "MMR-2",
+|         "status": "awaiting",
+|         "title": "Render views",
+|         "type": "task",
+|         "summary": null,
+|         "priority": null,
+|         "size": null,
+|         "lifecycle": "todo",
+|         "grooming": "not_groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "delivery": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": null,
+|         "session": null,
+|         "worker_harness": null,
+|         "worker_session": null,
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z",
+|         "awaiting_on": [
+|           "MMR-3"
+|         ]
+|       }
+|     ]
+|   },
+|   "direction": {
+|     "containers": [],
+|     "count": 0,
+|     "project": null
+|   },
+|   "hygiene": {
+|     "blocked": 1,
+|     "listings": {
+|       "blocked": [
+|         {
+|           "id": "MMR-6",
+|           "parent": "MMR-2",
+|           "status": "blocked",
+|           "title": "Wait on review",
+|           "type": "task",
+|           "summary": null,
+|           "priority": null,
+|           "size": null,
+|           "lifecycle": "todo",
+|           "grooming": "not_groomed",
+|           "hold": "blocked",
+|           "hold_reason": "needs a reviewer",
+|           "block_owner": "you",
+|           "external_ref": null,
+|           "delivery": null,
+|           "upstream": null,
+|           "host": null,
+|           "harness": null,
+|           "session": null,
+|           "worker_harness": null,
+|           "worker_session": null,
+|           "branch": null,
+|           "completed_at": null,
+|           "created_at": "2026-10-01T12:00:00.000Z",
+|           "updated_at": "2026-10-01T12:00:00.000Z",
+|           "stale": false
+|         }
+|       ],
+|       "stale": [],
+|       "untriaged": [
+|         {
+|           "id": "MMR-s1",
+|           "lede": "Ask the other board for a hook.",
+|           "title": "A hook"
+|         },
+|         {
+|           "id": "MMR-s2",
+|           "lede": null,
+|           "title": "Cache the plan"
+|         }
+|       ]
+|     },
+|     "parked_seeds": 1,
+|     "stale": 0,
+|     "untriaged": 2
+|   },
+|   "in_flight": {
+|     "count": 1,
+|     "tasks": [
+|       {
+|         "id": "MMR-5",
+|         "parent": "MMR-2",
+|         "status": "in_progress",
+|         "title": "Ship it",
+|         "type": "task",
+|         "summary": null,
+|         "priority": "p0",
+|         "size": null,
+|         "lifecycle": "in_progress",
+|         "grooming": "not_groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "delivery": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": "codex",
+|         "session": "main-session",
+|         "worker_harness": "claude",
+|         "worker_session": "task-worker-session",
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ]
+|   },
+|   "next": {
+|     "count": 2,
+|     "tasks": [
+|       {
+|         "id": "MMR-3",
+|         "parent": "MMR-2",
+|         "status": "ready",
+|         "title": "Wire the store",
+|         "type": "task",
+|         "summary": "one store per run",
+|         "priority": "p1",
+|         "size": "small",
+|         "lifecycle": "todo",
+|         "grooming": "groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "delivery": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": null,
+|         "session": null,
+|         "worker_harness": null,
+|         "worker_session": null,
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       },
+|       {
+|         "id": "MMR-8",
+|         "parent": "MMR-2",
+|         "status": "ready",
+|         "title": "Tidy docs",
+|         "type": "task",
+|         "summary": null,
+|         "priority": "p2",
+|         "size": null,
+|         "lifecycle": "todo",
+|         "grooming": "not_groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "delivery": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": null,
+|         "session": null,
+|         "worker_harness": null,
+|         "worker_session": null,
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ]
+|   },
+|   "project": {
+|     "distribution": {
+|       "in_progress": 1
+|     },
+|     "id": "MMR",
+|     "status": "in_progress"
+|   },
+|   "provisional_decisions": 0,
+|   "sessions": {
+|     "entries": [
+|       {
+|         "from": "2026-10-01T12:00:00.000Z",
+|         "id": "main-session",
+|         "tasks": [
+|           {
+|             "id": "MMR-5",
+|             "title": "Ship it"
+|           }
+|         ],
+|         "to": "2026-10-01T12:00:00.000Z",
+|         "transitions": 1
+|       }
+|     ],
+|     "shown": 1
+|   }
+| }
+--- state
+unchanged
+
