@@ -679,8 +679,8 @@ async function deliveryProjects(db: Kysely<DB>): Promise<Map<string, string>> {
   return new Map(rows.map((row) => [row.id, row.project_key]));
 }
 
-/** The delivery entry rules the verbs keep (ADR 0042, MMR-691), over every stored entry. */
-async function checkDeliveryFindings(db: Kysely<DB>): Promise<DoctorFinding[]> {
+/** The delivery follow-up link rules the verbs keep (ADR 0042, MMR-693), over every stored link. */
+async function checkDeliveryFollowUps(db: Kysely<DB>): Promise<DoctorFinding[]> {
   const links = await db
     .selectFrom('delivery_follow_up')
     .select(['delivery_id as delivery', 'task', 'seed', 'linked_at', 'unlinked_at'])
@@ -691,41 +691,43 @@ async function checkDeliveryFindings(db: Kysely<DB>): Promise<DoctorFinding[]> {
     .select(['id', 'type', 'project_key as project_id'])
     .execute();
   const seeds = await db.selectFrom('seed').select('id').execute();
-  const linkFaults = followUpFaults(
+  return followUpFaults(
     links,
     await deliveryProjects(db),
     new Map(nodes.map((node) => [node.id, node])),
     new Set(seeds.map((seed) => seed.id)),
-  ).map(({ id, message }) =>
-    finding({
+  ).map(({ id, message }) => {
+    const delivery = id.slice(0, id.indexOf(' '));
+    return finding({
       check: 'invalid-delivery-follow-up',
       evidence: {},
-      locator: id,
+      locator: `delivery_follow_up/${id.replace(' follow-up ', '/')}`,
       message: `${id} ${message}`,
-      stem: id.split(' ')[0] ?? id,
+      stem: delivery,
       where: 'delivery_follow_up',
-    }),
-  );
+    });
+  });
+}
+
+/** The delivery entry rules the verbs keep (ADR 0042, MMR-691), over every stored entry. */
+async function checkDeliveryFindings(db: Kysely<DB>): Promise<DoctorFinding[]> {
   const rows = await db
     .selectFrom('delivery_finding')
     .select(['delivery_id as delivery', 'number', 'kind', 'text', 'reason', 'created_at'])
     .orderBy('delivery_id')
     .orderBy('number')
     .execute();
-  return [
-    ...linkFaults,
-    ...deliveryFindingFaults(rows, await deliveryProjects(db)).map(({ id, message }) => {
-      const delivery = id.slice(0, id.indexOf(' '));
-      return finding({
-        check: 'invalid-delivery-finding',
-        evidence: {},
-        locator: `delivery_finding/${id.replace(' entry ', '/')}`,
-        message: `${id} ${message}`,
-        stem: delivery,
-        where: 'delivery_finding',
-      });
-    }),
-  ];
+  return deliveryFindingFaults(rows, await deliveryProjects(db)).map(({ id, message }) => {
+    const delivery = id.slice(0, id.indexOf(' '));
+    return finding({
+      check: 'invalid-delivery-finding',
+      evidence: {},
+      locator: `delivery_finding/${id.replace(' entry ', '/')}`,
+      message: `${id} ${message}`,
+      stem: delivery,
+      where: 'delivery_finding',
+    });
+  });
 }
 
 /** The delivery a run journal's pad or frozen artifact names (ADR 0027, MMR-691). */
@@ -774,6 +776,7 @@ async function diagnose(
       checkOrphanDecisionLinks(db),
       checkDecisions(db, dialect),
       checkChecklistItems(db),
+      checkDeliveryFollowUps(db),
       checkDeliveryFindings(db),
       checkRunJournals(db),
       checkDanglingParent(db),

@@ -50,3 +50,16 @@ test('transfer and doctor refuse two standing rows but accept retained unlinks',
     ),
   ).toEqual([]);
 });
+test('faults number each delivery own links from one, in row order', () => {
+  const bad = { ...linked, task: 'VAL-99' };
+  const faults = followUpFaults(
+    [linked, bad, { ...bad, delivery: 'VAL-d2' }],
+    new Map([
+      ['VAL-d1', 'VAL'],
+      ['VAL-d2', 'VAL'],
+    ]),
+    nodes,
+    seeds,
+  );
+  expect(faults.map((fault) => fault.id)).toEqual(['VAL-d1 follow-up 2', 'VAL-d2 follow-up 1']);
+});

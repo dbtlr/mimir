@@ -7,6 +7,11 @@ import { bootPglite } from './store-postgres/testing';
 import { backends, errorOf, withoutStamp } from './testing/conformance';
 
 beforeAll(bootPglite);
+
+/** An id with a zero-padded sequence (`KEY-3` as `KEY-03`, `KEY-s1` as `KEY-s01`). */
+const padded = (id: string): string =>
+  id.replace(/-(s?)(\d+)$/, (_, seed: string, seq: string) => `-${seed}0${seq}`);
+
 describe.each(backends)('delivery follow-ups ($name)', (backend) => {
   async function fixture() {
     const f = await backend.make();
@@ -52,6 +57,24 @@ describe.each(backends)('delivery follow-ups ($name)', (backend) => {
       expect(
         feed.events.filter((event) => event.kind === 'follow_up').map((event) => event.text),
       ).toEqual([f.task]);
+    } finally {
+      await f.close();
+    }
+  });
+
+  test('reading a delivery derives the working set once however many tasks it links', async () => {
+    const f = await fixture();
+    try {
+      const second = await createTask(f.store, { parentId: f.phase, title: 'Second' });
+      await f.engine.deliveryUpdate({ follow_ups: [f.task, second.id], id: f.id });
+      const load = f.store.loadWorkingSet.bind(f.store);
+      let loads = 0;
+      f.store.loadWorkingSet = async () => {
+        loads += 1;
+        return load();
+      };
+      expect((await f.engine.getDelivery({ id: f.id })).follow_ups).toHaveLength(2);
+      expect(loads).toBe(1);
     } finally {
       await f.close();
     }
@@ -129,6 +152,8 @@ describe.each(backends)('delivery follow-ups ($name)', (backend) => {
         { code: 'validation', follow_ups: [f.foreign, f.phase], id: f.id, message: 'phase' },
         { code: 'validation', follow_ups: [f.foreign], id: f.id, message: 'another project' },
       ];
+      const kind = await errorOf(f.engine.deliveryUpdate({ follow_ups: ['FUP-a1'], id: f.id }));
+      expect(kind.message).toContain('is an artifact');
       for (const { code, message, ...input } of cases) {
         const refusal = await errorOf(f.engine.deliveryUpdate(input));
         expect(code).toBe(refusal.code);
@@ -231,6 +256,58 @@ describe.each(backends)('delivery follow-ups ($name)', (backend) => {
           to: 'unlinked',
         },
       ]);
+    } finally {
+      setSystemTime();
+      await f.close();
+    }
+  });
+
+  test('padded ids store and read back canonical, and padded duplicates and unlinks resolve', async () => {
+    const f = await fixture();
+    try {
+      const linked = await f.engine.deliveryUpdate({
+        follow_ups: [padded(f.task), padded(f.seed)],
+        id: f.id,
+      });
+      expect(linked.follow_ups.map((link) => link.id)).toEqual([f.task, f.seed]);
+      expect(
+        (await f.store.export()).delivery_follow_ups.map((row) => row.task ?? row.seed),
+      ).toEqual([f.task, f.seed]);
+      const twice = await errorOf(
+        f.engine.deliveryUpdate({ follow_ups: [f.foreign, padded(f.foreign)], id: f.id }),
+      );
+      expect(twice.code).toBe('validation');
+      expect(twice.message).toContain('more than once');
+      const unlinked = await f.engine.deliveryUpdate({
+        id: f.id,
+        unfollow_ups: [padded(f.task)],
+      });
+      expect(unlinked.follow_ups.map((link) => link.id)).toEqual([f.seed]);
+    } finally {
+      await f.close();
+    }
+  });
+
+  test('a clamped unlink is recorded at linked_at in the feed and the row, alone or relinked', async () => {
+    const f = await fixture();
+    try {
+      setSystemTime(new Date('2030-01-01T00:00:00.000Z'));
+      await f.engine.deliveryUpdate({ follow_ups: [f.seed], id: f.id });
+      setSystemTime(new Date('2029-12-31T00:00:00.000Z'));
+      await f.engine.deliveryUpdate({ id: f.id, unfollow_ups: [f.seed] });
+      const stored = async () => (await f.store.export()).delivery_follow_ups;
+      expect((await stored()).map((row) => [row.linked_at, row.unlinked_at])).toEqual([
+        ['2030-01-01T00:00:00.000Z', '2030-01-01T00:00:00.000Z'],
+      ]);
+      await f.engine.deliveryUpdate({ follow_ups: [f.seed], id: f.id });
+      const rows = await stored();
+      expect(rows[0]?.unlinked_at).toBe(rows[0]?.linked_at);
+      const feed = await f.engine.deliverySince({
+        id: f.id,
+        since: new Date('2029-12-30T00:00:00.000Z'),
+      });
+      const unlinked = feed.events.find((event) => event.id.endsWith('/1/unlinked'));
+      expect(unlinked?.at).toEqual(new Date('2030-01-01T00:00:00.000Z'));
     } finally {
       setSystemTime();
       await f.close();

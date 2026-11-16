@@ -11,9 +11,9 @@ import type {
 } from '@mimir/contract';
 
 import { assertBoardActive } from '../archive-lock';
+import { deriveSet, findNodeInSet, nodeStatusWord } from '../derive';
 import { blankProse, notFound, projectNotFound, validation } from '../errors';
 import { parseIdentity, renderArtifactRef, renderDeliveryRef } from '../ids';
-import { getNode } from '../intent/queries';
 import type { Node, Project } from '../model';
 import { normalizeHandle } from '../mutations/handles';
 import { completeTaskInTransaction } from '../mutations/lifecycle';
@@ -185,16 +185,24 @@ async function detailOf(store: Store, stored: StoredDelivery): Promise<DeliveryD
   const pad = await store.scratchpads.forDelivery(id);
   const frozen = await store.artifacts.listForDelivery(id);
   const follow_ups = [];
-  for (const link of await store.deliveries.followUps(stored.key, stored.seq)) {
+  const links = await store.deliveries.followUps(stored.key, stored.seq);
+  // One derivation serves every linked task's status word; none when only seeds are linked.
+  const set = links.some((link) => parseIdentity(link.id)?.kind !== 'seed')
+    ? deriveSet(await store.loadWorkingSet())
+    : undefined;
+  for (const link of links) {
     const ref = parseIdentity(link.id);
     if (ref?.kind === 'seed') {
       const seed = await store.seeds.load(ref.key, ref.seq);
       if (seed) {
         follow_ups.push({ ...link, status: seed.lifecycle, title: seed.title });
       }
-    } else {
-      const task = await getNode(store, link.id);
-      follow_ups.push({ ...link, status: task.status, title: task.title });
+    } else if (set !== undefined) {
+      // A task the derivation cannot see (archived between reads) is left out, as archived boards are.
+      const task = findNodeInSet(set, link.id);
+      if (task && !set.archivedProjects.has(task.project_id)) {
+        follow_ups.push({ ...link, status: nodeStatusWord(set, task), title: task.title });
+      }
     }
   }
   return {

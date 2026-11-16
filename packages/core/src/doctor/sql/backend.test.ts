@@ -140,7 +140,9 @@ describe.each(arms)('$name', (arm) => {
       expect(
         (await f.doctor.diagnose(undefined)).findings.some(
           (entry) =>
-            entry.check === 'invalid-delivery-follow-up' && entry.message.includes('canonical'),
+            entry.check === 'invalid-delivery-follow-up' &&
+            entry.message.includes('canonical') &&
+            entry.locator === 'delivery_follow_up/FUP-d1/1',
         ),
       ).toBe(true);
       await arm.unconstrained(f.db, ["UPDATE delivery_follow_up SET task = 'FUP-999'"]);

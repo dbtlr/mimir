@@ -1,5 +1,6 @@
 import { notFound, validation } from '../errors';
 import { parseIdentity } from '../ids';
+import { identityNoun } from '../project-only';
 import type { Executor } from './schema';
 import { toRowId } from './schema';
 
@@ -57,7 +58,7 @@ export async function writeFollowUps(
       throw notFound(`${id} doesn't exist`);
     }
     if (ref.kind !== 'node' && ref.kind !== 'seed') {
-      throw validation(`${id} is a ${ref.kind}, not a task or seed`);
+      throw validation(`${id} is ${identityNoun(ref.kind)}, not a task or seed`);
     }
     return { id: canonical(id), key: ref.key, kind: ref.kind, seq: ref.seq };
   });

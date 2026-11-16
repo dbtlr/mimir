@@ -770,14 +770,14 @@ async function applyImport(
     }
   }
   await insertExportedSeeds(tx, dialect, seeds);
-  for (const { delivery, ...link } of document.delivery_follow_ups) {
-    if (importedDeliveries.has(delivery)) {
-      await tx
-        .insertInto('delivery_follow_up')
-        .values({ ...link, delivery_id: delivery })
-        .execute();
-    }
-  }
+  // Batched in exported order, so the new row ids follow it.
+  await insertBatched(
+    document.delivery_follow_ups.flatMap(({ delivery, ...link }) =>
+      importedDeliveries.has(delivery) ? [{ ...link, delivery_id: delivery }] : [],
+    ),
+    dialect.maxParameters,
+    (chunk) => tx.insertInto('delivery_follow_up').values(chunk).execute(),
+  );
 
   await insertScratchpads(tx, dialect, pads);
 

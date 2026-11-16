@@ -71,7 +71,7 @@ export type SinceSources = {
   delivery: string;
   history: SinceHistoryRow[];
   findings: DeliveryFindingRecord[];
-  followUps?: { id: number; record: string; linked_at: string; unlinked_at: string | null }[];
+  followUps: { id: number; record: string; linked_at: string; unlinked_at: string | null }[];
   /** Log rows of every task that was ever a member, of the kinds the feed reports. */
   transitions: SinceTransitionRow[];
   notes: SinceNoteRow[];
@@ -238,7 +238,7 @@ function allEvents(sources: SinceSources): RankedEvent[] {
       }),
     );
   }
-  for (const row of sources.followUps ?? []) {
+  for (const row of sources.followUps) {
     const base = {
       kind: 'follow_up',
       rank: RANK.followUps,

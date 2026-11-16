@@ -11,8 +11,12 @@ export function followUpFaults(
 ): { id: string; message: string }[] {
   const faults: { id: string; message: string }[] = [];
   const standing = new Set<string>();
-  for (const [index, row] of rows.entries()) {
-    const id = `${row.delivery} follow-up ${String(index + 1)}`;
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    // The Nth link of its own delivery, in row order.
+    const number = (counts.get(row.delivery) ?? 0) + 1;
+    counts.set(row.delivery, number);
+    const id = `${row.delivery} follow-up ${String(number)}`;
     const fail = (message: string) => faults.push({ id, message });
     const project = deliveries.get(row.delivery);
     if (project === undefined) {
