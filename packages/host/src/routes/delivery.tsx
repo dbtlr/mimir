@@ -161,7 +161,7 @@ function DeliveryRecord({ id }: { id: string }) {
         >
           {!decisions.length && <Empty lead="No open decisions." />}
           {decisions.map((decision) => (
-            <DecisionRow key={decision.id} decision={decision} />
+            <DecisionRow currentDelivery={d.id} key={decision.id} decision={decision} />
           ))}
         </BrowserGroup>
         <BrowserGroup label="Now" count={now.length > 0 ? now.length : undefined}>

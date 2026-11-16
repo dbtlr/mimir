@@ -74,9 +74,8 @@ answer taken, and a class, and it links the tasks built on that answer. It is
 `provisional` until the operator confirms or overturns it, and an overturn
 annotates every linked task
 ([ADR 0043](decisions/0043-the-decision-record.md)). A question that stops the
-work stays `needs_answers` or `block --on you`. The console's review page also
-calls its groups of tasks that need the operator "decisions"; those are tasks,
-not decision records.
+work stays `needs_answers` or `block --on you`. The console’s review page groups stopped deliveries, provisional decisions,
+and tasks waiting on the operator under "Needs you".
 
 **Checklist item**: A small, numbered item on a task that is added, then
 checked or dropped with a reason. Checked and dropped are final, and items

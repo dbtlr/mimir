@@ -48,14 +48,16 @@ describe.each(backends)('delivery console page ($name)', (backend) => {
   test('lists only this delivery’s provisional decisions', async () => {
     const f = await backend.make();
     try {
-      const { decide, delivery, engine, phase } = await seeded(f.store);
+      const { decide, delivery, engine, phase, task } = await seeded(f.store);
       const open = await decide('Proceed?', delivery.id);
+      await engine.decisionUpdate({ id: open.id, tasks: [task.id] });
+      const noWork = await decide('No work yet?', delivery.id);
       const confirmed = await decide('Settled?', delivery.id);
       await engine.confirm({ id: confirmed.id });
       const other = await engine.deliveryCreate({ phase: phase.id, title: 'Other run' });
       await decide('Elsewhere?', other.id);
       const page = await engine.console.deliveryPage({ id: delivery.id });
-      expect(page.decisions.map((row) => row.id)).toEqual([open.id]);
+      expect(page.decisions.map((row) => row.id)).toEqual([open.id, noWork.id]);
     } finally {
       await f.close();
     }

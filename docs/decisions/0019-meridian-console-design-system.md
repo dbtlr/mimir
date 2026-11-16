@@ -606,3 +606,120 @@ and MMR-695 adds the answer and verb controls.
   the needs-you set beside the task rows the review page groups, and renames
   the review report's `decisions` field to `needsYou`, so "decision" names
   only a decision record and a decision reads the same on every surface.
+
+## Refinement (2026-11-16, MMR-694): the needs-you set gains decisions and stopped deliveries
+
+The needs-you set (the MMR-476 refinement's first tier) held tasks only. Two
+more records now wait on the operator alone: a provisional decision
+([ADR 0043](0043-the-decision-record.md)) and a stopped delivery
+([ADR 0042](0042-the-delivery-record.md)). Both join the set, so the alert,
+the review page, the focus queue, and a work page's _Needs you_ show them and
+count them. The MMR-476 refinement's "One set, one count" still holds.
+
+### Membership
+
+- **A stopped delivery:** any delivery whose hold is `stopped`, in an active
+  project. A `paused` delivery is the operator's own pause, so it stays out.
+  A terminal delivery holds nothing, so it is never in the set.
+- **A provisional decision:** any decision whose lifecycle is `provisional`,
+  in an active project, whether or not it links a delivery or any task. A
+  confirmed or overturned decision is settled, so it stays out.
+- **A task** keeps the MMR-615 refinement's rule: blocked with owner `you`, or
+  `todo` with no hold and grooming _needs answers_.
+- On a work page, the set is narrowed to the page's scope. A stopped delivery
+  is in scope when its phase is the page's node or under it. A decision is in
+  scope when it links a task in scope, or links a delivery whose phase is in
+  scope. A project's page holds every record of the project.
+
+### Order
+
+Five kinds, in this order:
+
+1. A stopped delivery.
+2. A decision with work built on it: it links at least one task that is not
+   `abandoned`, which is ADR 0043's test for work at risk.
+3. A task blocked on you.
+4. A task that needs answers.
+5. A decision with no work built on it.
+
+A stopped delivery halts an agent now, and a decision with work built on it
+puts that work at risk, so both lead. Core decides each decision's kind and
+carries it on the row, so no reader re-derives it. Within a kind, the newest
+leads by the kind's own clock: a delivery by its `updated_at` (the delivery
+last touched, which a limitation or follow-up written while it is stopped
+also moves), a decision by its `created_at`, and a task by the existing
+recency order. Equal instants go to the lowest sequence, then to the project
+key. The order holds:
+
+- inside each project group on the review page and in the alert's popover;
+- across projects in the focus queue, which drops the grouping;
+- on a work page's _Needs you_.
+
+The delivery page's _Needs you_ (the MMR-680 refinement) holds only that
+delivery's provisional decisions, so it orders them by the same two decision
+kinds and clocks.
+
+A project's urgency is its leading kind, and the MMR-476 refinement's
+"leading decision kind" now ranks these five. Ties go to the project whose
+leading record is newest by its kind's clock, then to the project key.
+
+### Rows
+
+- **A stopped delivery** reads as a needs-you row: the delivery's id, title,
+  and lifecycle word, the label _Stopped_, and its stop reason. It links to
+  the delivery's page.
+- **A decision** reads as the decision row of the MMR-680 refinement: the
+  question, its class, the options with the taken one marked, and its linked
+  tasks. A decision that names a delivery also links to that delivery's page,
+  except on that page itself. It is read-only until MMR-695 adds its answer
+  controls.
+- **A task** reads as before.
+- All three take the attention rule, as every row in the set does. The row
+  for the record on the current page is marked _This page_: a task on its own
+  page, a delivery on its own page.
+
+### Shape and names
+
+- **One ordered list.** A review group, and the work report's `needsYou`, is
+  one list of rows in the order above, each row tagged with its `kind`:
+  `delivery` (the delivery and its stop reason), `decision` (the decision and
+  whether work is built on it), or `task` (the existing task row). The focus
+  queue is the same order as a list of `{ kind, id }`. A count is the list's
+  length, so the alert, the review page's title, and the project list never
+  disagree.
+- **The rename.** The review report called its groups of tasks that need the
+  operator `decisions`, which ADR 0043 now names a record.
+  - `ReviewReport.decisions` becomes `needsYou`.
+  - `ReviewDecisionGroup` becomes `ReviewNeedsYouGroup`, holding `rows`.
+  - `ReviewProject.decisions` (a count) becomes `needsYou`.
+  - The console's `DecisionGroups` becomes `NeedsYouGroups`, and
+    `DecisionCount` becomes `NeedsYouCount`.
+
+  "Decision" then names only a decision record. That settles ADR 0043's
+  open question of how the two read side by side.
+- **Copy.** The console's text follows the rename. The alert's label reads
+  "N need you", the project list's count reads "N need you", and the empty
+  popover reads "Nothing needs you". A count of one reads "1 needs you". The MMR-476, MMR-492, and MMR-615
+  refinements' word "decisions" for the set now reads "the needs-you set":
+  the popover lists the set, and the set's tasks are the ones MMR-615 names.
+- **The version window.** The rename, `WorkReport.needsYou` changing from a
+  list of tasks to a list of tagged rows, and `ReviewReport.queue` changing
+  from a list of ids to a list of `{ kind, id }`, are not additive changes
+  ([ADR 0038](0038-device-pairing-and-the-version-window.md)). Only the
+  host's own console reads the console views; no CLI or MCP command calls
+  them. They change in the same unreleased minor as the delivery record, so
+  the contract snapshot regenerates and `MIN_CLIENT` stays at that minor's
+  floor.
+
+### The focus queue
+
+The queue walks the set's records one at a time in the order above. Each
+kind's card shows its row:
+
+- **A stopped delivery** is labelled _Stopped_, with a link to its page.
+- **A decision** is labelled with its class, with a link to its delivery's
+  page when it names one.
+
+Its _Up next_ line reads the delivery's title or the decision's question.
+Until MMR-695 adds their controls, a delivery's or a decision's card offers
+_Skip_ only. A task's card is unchanged.

@@ -1,4 +1,4 @@
-import type { DecisionView, EngineInput } from '@mimir/contract';
+import type { DecisionView, EngineInput, NeedsYouDecision } from '@mimir/contract';
 
 import type { StoreWriter } from '../store';
 
@@ -10,6 +10,8 @@ export type DecisionStore = {
     id: string,
     apply: (decision: DecisionView, writer: StoreWriter) => Promise<DecisionView>,
   ) => Promise<DecisionView>;
+  /** Provisional decisions in active projects, with task links and no history. */
+  listProvisional: () => Promise<NeedsYouDecision[]>;
   list: (input: EngineInput<'decisions'>) => Promise<DecisionView[]>;
   countProvisional: (project: string) => Promise<number>;
   load: (id: string) => Promise<DecisionView | undefined>;

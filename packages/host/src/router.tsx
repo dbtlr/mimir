@@ -43,7 +43,7 @@ export type ReviewSearch = {
   mode?: 'focus';
 };
 
-/** `/` — the review page; `?mode=focus` walks its decisions one at a time (MMR-480). */
+/** `/` — the review page; `?mode=focus` walks its needs-you set one record at a time (MMR-480). */
 export const reviewRoute = createRoute({
   component: lazyRouteComponent(
     warmable(async () => import('./routes/review')),

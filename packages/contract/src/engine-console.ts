@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { checklistItemEngineSchema } from './checklist';
-import { decisionEngineSchema } from './decision';
+import { decisionViewSchema, decisionEngineSchema } from './decision';
 import { deliveryDetailEngineSchema, deliveryEngineSchema } from './delivery';
 import { engineViews, nodeRefSchema, nodeSchema, seedSchema } from './engine-views';
 
@@ -23,12 +23,37 @@ function consoleViewSchemas<T extends z.ZodType>(instant: T) {
     submittedAt: instant.nullable(),
     task: node,
   });
-  const needsYouRow = z.object({
+  const taskNeedsYouRow = z.object({
+    kind: z.literal('task'),
     question: z.string().nullable(),
     reason,
     stale,
     task: node,
   });
+  const needsYouRow = z.discriminatedUnion('kind', [
+    taskNeedsYouRow,
+    z.object({
+      decision: decisionViewSchema.omit({ history: true }).extend({
+        created_at: instant,
+        updated_at: instant,
+      }),
+      kind: z.literal('decision'),
+      workBuiltOnIt: z.boolean(),
+    }),
+    z.object({
+      delivery: z.object({
+        hold_reason: z.string().nullable(),
+        id: z.string(),
+        lifecycle: deliveryEngineSchema.shape.lifecycle,
+        phase: z.string(),
+        project: z.string(),
+        seq: z.number(),
+        title: z.string(),
+        updated_at: instant,
+      }),
+      kind: z.literal('delivery'),
+    }),
+  ]);
   const frontierRow = z.object({
     awaitingOn: z.array(z.string()),
     breakDown: z.boolean(),
@@ -43,20 +68,20 @@ function consoleViewSchemas<T extends z.ZodType>(instant: T) {
   });
   return {
     review: z.object({
-      decisions: z.array(z.object({ project, rows: z.array(needsYouRow) })),
       goingCold: z.array(z.object({ project: z.string(), task: node })),
       lastFinished: shippedRow.nullable(),
+      needsYou: z.array(z.object({ project, rows: z.array(needsYouRow) })),
       now: z.array(tagged(nowRow.shape)),
       projects: z.array(
         project.extend({
-          decisions: z.number(),
           goingCold: z.number(),
           inFlight: z.number(),
           live: z.number(),
+          needsYou: z.number(),
           triage: z.number(),
         }),
       ),
-      queue: z.array(z.string()),
+      queue: z.array(z.object({ id: z.string(), kind: z.enum(['delivery', 'decision', 'task']) })),
       runnable: z.array(tagged(frontierRow.shape)),
       shipped: z.array(tagged(shippedRow.shape)),
       triage: z.array(

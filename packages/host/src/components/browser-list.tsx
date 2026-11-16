@@ -219,6 +219,7 @@ export function BrowserGroup({
 type RecordTarget =
   | ReturnType<typeof nodeLink>
   | ReturnType<typeof seedLink>
+  | { to: '/p/$key/d{$seq}'; params: { key: string; seq: string } }
   | ReturnType<typeof artifactLink>;
 
 /**

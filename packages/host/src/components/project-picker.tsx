@@ -19,7 +19,7 @@ import {
 } from '../lib/project-switcher';
 import { lazySheet } from './lazy-sheet';
 import {
-  DecisionCount,
+  NeedsYouCount,
   ProjectOption,
   Snowflake,
   projectListMessage,
@@ -35,14 +35,14 @@ const NewProjectSheet = lazySheet(
 
 /**
  * The project switcher: the sidebar's header (MMR-496, MMR-497). Its button
- * names the current project and, when other projects have decisions waiting,
+ * names the current project and, when other projects have something waiting on the operator,
  * says how many. It opens a searchable popover: pinned projects first, then
- * the rest by recent activity, each with its decision count; archived projects
+ * the rest by recent activity, each with its needs-you count; archived projects
  * fold away at the bottom. A trailing "+ New project" row opens the
  * create-project sheet (MMR-230).
  *
  * Outside a project (`/`, `/doctor`) the button reads "All projects" with the
- * decisions across every project, and the list opens on an "All projects"
+ * needs-you count across every project, and the list opens on an "All projects"
  * option that leads back to `/` (MMR-505).
  *
  * The same popover opens inside the phone drawer; `onNavigate` lets the drawer
@@ -74,9 +74,9 @@ export function ProjectPicker({
   });
   const frozen = active === undefined ? archived.data?.find((p) => p.id === projectKey) : undefined;
   const current = active ?? frozen;
-  const decisionsByKey = new Map(review.data?.projects.map((p) => [p.key, p.decisions]));
-  const everywhere = [...decisionsByKey.values()].reduce((sum, count) => sum + count, 0);
-  const elsewhere = everywhere - (decisionsByKey.get(projectKey ?? '') ?? 0);
+  const needsYouByKey = new Map(review.data?.projects.map((p) => [p.key, p.needsYou]));
+  const everywhere = [...needsYouByKey.values()].reduce((sum, count) => sum + count, 0);
+  const elsewhere = everywhere - (needsYouByKey.get(projectKey ?? '') ?? 0);
 
   const pick = (key: string) => {
     setOpen(false);
@@ -105,7 +105,7 @@ export function ProjectPicker({
               <span className="min-w-0 flex-1 truncate text-body font-semibold text-ink-bright">
                 All projects
               </span>
-              <DecisionCount count={everywhere} />
+              <NeedsYouCount count={everywhere} />
             </>
           ) : (
             <>
@@ -131,7 +131,7 @@ export function ProjectPicker({
                 <span className="flex shrink-0 items-center gap-1 text-micro font-semibold text-attention-foreground before:size-1.5 before:rounded-full before:bg-attention">
                   <span aria-hidden="true">{elsewhere} elsewhere</span>
                   <span className="sr-only">
-                    {elsewhere} {elsewhere === 1 ? 'decision' : 'decisions'} in other projects
+                    {elsewhere} {elsewhere === 1 ? 'needs you' : 'need you'} in other projects
                   </span>
                 </span>
               )}
@@ -162,7 +162,7 @@ export function ProjectPicker({
           {open && (
             <SwitcherPanel
               context={context}
-              decisions={decisionsByKey}
+              needsYou={needsYouByKey}
               everywhere={everywhere}
               searchRef={searchRef}
               offline={conn.offline}
@@ -209,7 +209,7 @@ const SEARCH_LABEL = 'Find a project';
  */
 function SwitcherPanel({
   context,
-  decisions,
+  needsYou,
   everywhere,
   searchRef,
   offline,
@@ -217,8 +217,8 @@ function SwitcherPanel({
   onNew,
 }: {
   context: SidebarContext;
-  decisions: ReadonlyMap<string, number>;
-  /** The decisions waiting across every project. */
+  needsYou: ReadonlyMap<string, number>;
+  /** The needs-you count across every project. */
   everywhere: number;
   searchRef: RefObject<HTMLInputElement | null>;
   offline: boolean;
@@ -275,7 +275,7 @@ function SwitcherPanel({
       id={optionId(p.id)}
       active={p.id === activeOption}
       current={p.id === projectKey}
-      decisions={decisions.get(p.id) ?? 0}
+      needsYou={needsYou.get(p.id) ?? 0}
       pinnable={!offline}
       onActivate={() => {
         setActiveKey(p.id);
@@ -329,7 +329,7 @@ function SwitcherPanel({
               id={optionId(ALL_PROJECTS_KEY)}
               active={activeOption === ALL_PROJECTS_KEY}
               current={context.kind === 'all'}
-              decisions={everywhere}
+              needsYou={everywhere}
               onActivate={() => {
                 setActiveKey(ALL_PROJECTS_KEY);
               }}
@@ -389,14 +389,14 @@ function AllProjectsOption({
   id,
   active,
   current,
-  decisions,
+  needsYou,
   onActivate,
   onPick,
 }: {
   id: string;
   active: boolean;
   current: boolean;
-  decisions: number;
+  needsYou: number;
   onActivate: () => void;
   onPick: () => void;
 }) {
@@ -425,7 +425,7 @@ function AllProjectsOption({
       <span className="min-w-0 flex-1 truncate text-xs text-ink-faint">
         Work across every project
       </span>
-      <DecisionCount count={decisions} />
+      <NeedsYouCount count={needsYou} />
     </div>
   );
 }

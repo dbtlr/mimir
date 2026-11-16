@@ -19,7 +19,7 @@ import type { ReviewOptions } from './review';
 import { cmpStr } from './work';
 
 /**
- * `reviewOf` (MMR-477) — the console's cross-project review page: decisions
+ * `reviewOf` (MMR-477) — the console's cross-project review page: needsYou
  * grouped by project, the focus-queue order, per-project triage, and the
  * project list. Ordering rules are ADR 0019's MMR-476 refinement.
  */
@@ -85,19 +85,28 @@ async function question(key: string, title = 'question'): Promise<string> {
 
 const at = (id: string, updated_at: string) => rawPatchNode(store, id, { updated_at });
 
-const review = (
+const review = async (
   opts: ReviewOptions = {},
   findings: ReadonlyMap<string, number> | Promise<ReadonlyMap<string, number>> = new Map(),
-) => reviewOf(store, findings, opts);
+) => {
+  const report = await reviewOf(store, findings, opts);
+  return {
+    ...report,
+    needsYou: report.needsYou.map((g) => ({
+      project: g.project,
+      rows: g.rows.filter((r) => r.kind === 'task'),
+    })),
+  };
+};
 
 const rowIds = (group: { rows: readonly { task: { id: string } }[] }): string[] =>
   group.rows.map((r) => r.task.id);
 
-test('decisions are you-blocked and needs-answers tasks, each with its reason', async () => {
+test('needsYou are you-blocked and needs-answers tasks, each with its reason', async () => {
   await project('MMR');
   const block = await blockedOnYou('MMR');
   const ask = await question('MMR');
-  const [group] = (await review()).decisions;
+  const [group] = (await review()).needsYou;
   expect(group?.project).toEqual({ key: 'MMR', name: 'MMR' });
   expect(group?.rows.map((r) => [r.task.id, r.reason])).toEqual([
     [block, 'blocked'],
@@ -131,7 +140,7 @@ test('an archived project contributes nothing and is not listed', async () => {
   await fileSeed(store, { kind: 'idea', project: 'OLD', title: 'old seed' });
   await archiveProject(store, 'OLD');
   const report = await review({}, new Map([['OLD', 4]]));
-  expect(report.decisions).toEqual([]);
+  expect(report.needsYou).toEqual([]);
   expect(report.triage).toEqual([]);
   expect(report.projects.map((p) => p.key)).toEqual(['MMR']);
 });
@@ -142,14 +151,18 @@ test('rows within a project follow the work page', async () => {
   const newerBlock = await blockedOnYou('MMR', 'newer');
   await question('MMR');
   await at(olderBlock, '2026-01-01T00:00:00.000Z');
-  const [group] = (await review()).decisions;
+  const [group] = (await review()).needsYou;
   const page = await workPageOf(store, 'MMR', { timeZone: 'UTC' });
-  expect(rowIds(group ?? { rows: [] })).toEqual(page.needsYou.map((r) => r.task.id));
+  expect(rowIds(group ?? { rows: [] })).toEqual(
+    page.needsYou.filter((r) => r.kind === 'task').map((r) => r.task.id),
+  );
   expect(rowIds(group ?? { rows: [] }).slice(0, 2)).toEqual([newerBlock, olderBlock]);
-  expect(group?.rows.map((r) => r.stale)).toEqual(page.needsYou.map((r) => r.stale));
+  expect(group?.rows.map((r) => r.stale)).toEqual(
+    page.needsYou.filter((r) => r.kind === 'task').map((r) => r.stale),
+  );
 });
 
-test('projects with decisions order by their leading reason, then recency, then key', async () => {
+test('projects with needsYou order by their leading reason, then recency, then key', async () => {
   for (const key of ['AAA', 'BBB', 'CCC', 'DDD', 'EEE']) {
     await project(key);
   }
@@ -160,11 +173,11 @@ test('projects with decisions order by their leading reason, then recency, then 
   await at(bbb, '2026-01-01T00:00:00.000Z');
   await at(ccc, '2026-02-01T00:00:00.000Z');
   await at(eee, '2026-03-01T00:00:00.000Z');
-  // AAA has no decisions, and DDD only a review, which is work in flight.
+  // AAA has no needsYou, and DDD only a review, which is work in flight.
   await underReview('DDD');
   const report = await review();
-  expect(report.decisions.map((g) => g.project.key)).toEqual(['CCC', 'BBB', 'EEE']);
-  expect(report.decisions[0]?.rows[0]?.task.id).toBe(ccc);
+  expect(report.needsYou.map((g) => g.project.key)).toEqual(['CCC', 'BBB', 'EEE']);
+  expect(report.needsYou[0]?.rows[0]?.task.id).toBe(ccc);
 });
 
 test('a tie on leading reason and recency falls to the key', async () => {
@@ -174,7 +187,7 @@ test('a tie on leading reason and recency falls to the key', async () => {
   const a = await blockedOnYou('AAA');
   await at(b, '2026-01-01T00:00:00.000Z');
   await at(a, '2026-01-01T00:00:00.000Z');
-  expect((await review()).decisions.map((g) => g.project.key)).toEqual(['AAA', 'BBB']);
+  expect((await review()).needsYou.map((g) => g.project.key)).toEqual(['AAA', 'BBB']);
 });
 
 test("a project's recency is its newest decision of its leading reason, not its newest decision", async () => {
@@ -187,7 +200,7 @@ test("a project's recency is its newest decision of its leading reason, not its 
   await at(aBlock, '2026-01-01T00:00:00.000Z');
   await at(bBlock, '2026-02-01T00:00:00.000Z');
   await at(aAsk, '2026-03-01T00:00:00.000Z');
-  expect((await review()).decisions.map((g) => g.project.key)).toEqual(['BBB', 'AAA']);
+  expect((await review()).needsYou.map((g) => g.project.key)).toEqual(['BBB', 'AAA']);
 });
 
 test('the queue walks every block, then every question, newest first, and skips reviews', async () => {
@@ -204,7 +217,7 @@ test('the queue walks every block, then every question, newest first, and skips 
   await at(aBlock, '2026-01-03T00:00:00.000Z');
   await at(aAsk, '2026-01-04T00:00:00.000Z');
   await at(bAsk, '2026-01-05T00:00:00.000Z');
-  expect((await review()).queue).toEqual([aBlock, bBlock, bAsk, aAsk]);
+  expect((await review()).queue.map((r) => r.id)).toEqual([aBlock, bBlock, bAsk, aAsk]);
 });
 
 test('triage lists untriaged seeds oldest first, never a parked seed', async () => {
@@ -285,7 +298,7 @@ test('triage orders by count descending, then key, omits projects with nothing, 
   expect(
     report.projects
       .toSorted((a, b) => cmpStr(a.key, b.key))
-      .map((p) => [p.key, p.decisions, p.triage]),
+      .map((p) => [p.key, p.needsYou, p.triage]),
   ).toEqual([
     ['AAA', 0, 1],
     ['BBB', 0, 1],
@@ -352,15 +365,15 @@ test("an archived project's finish is not the last finish", async () => {
   expect((await review()).lastFinished?.task.id).toBe(kept);
 });
 
-test('an all-clear store has no decisions, queue, or triage but still lists its projects', async () => {
+test('an all-clear store has no needsYou, queue, or triage but still lists its projects', async () => {
   await project('BBB', 'Bravo');
   await project('AAA', 'Alpha');
   await task('AAA', 'plain');
   const report = await review();
-  const { decisions, goingCold, now, queue, runnable, shipped, triage } = report;
-  expect({ decisions, goingCold, now, queue, runnable, shipped, triage }).toEqual({
-    decisions: [],
+  const { needsYou, goingCold, now, queue, runnable, shipped, triage } = report;
+  expect({ goingCold, needsYou, now, queue, runnable, shipped, triage }).toEqual({
     goingCold: [],
+    needsYou: [],
     now: [],
     queue: [],
     runnable: [],
@@ -369,8 +382,8 @@ test('an all-clear store has no decisions, queue, or triage but still lists its 
   });
   // AAA's task is the newest activity, so it leads the rail.
   expect(report.projects).toEqual([
-    { decisions: 0, goingCold: 0, inFlight: 0, key: 'AAA', live: 1, name: 'Alpha', triage: 0 },
-    { decisions: 0, goingCold: 0, inFlight: 0, key: 'BBB', live: 0, name: 'Bravo', triage: 0 },
+    { goingCold: 0, inFlight: 0, key: 'AAA', live: 1, name: 'Alpha', needsYou: 0, triage: 0 },
+    { goingCold: 0, inFlight: 0, key: 'BBB', live: 0, name: 'Bravo', needsYou: 0, triage: 0 },
   ]);
 });
 
@@ -385,6 +398,11 @@ test('review and the work page agree on who needs the operator', async () => {
   await parkTask(store, parkedQuestion);
   const page = await workPageOf(store, 'MMR', { timeZone: 'UTC' });
   const report = await review();
-  expect(report.queue.toSorted()).toEqual(page.needsYou.map((r) => r.task.id).toSorted());
-  expect(report.projects[0]?.decisions).toBe(page.needsYou.length);
+  expect(report.queue.map((r) => r.id).toSorted()).toEqual(
+    page.needsYou
+      .filter((r) => r.kind === 'task')
+      .map((r) => r.task.id)
+      .toSorted(),
+  );
+  expect(report.projects[0]?.needsYou).toBe(page.needsYou.length);
 });

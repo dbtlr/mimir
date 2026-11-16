@@ -242,6 +242,30 @@ export function createSqlDecisionStore(db: Kysely<DB>, dialect: StoreDialect): D
         }
         return hydrateDecisions(tx, dialect, await query.orderBy('seq').execute(), false);
       }),
+    listProvisional: () =>
+      dialect.snapshot(db, async (tx) => {
+        const rows = await tx
+          .selectFrom('decision')
+          .innerJoin('project', 'project.key', 'decision.project_key')
+          .selectAll('decision')
+          .where('decision.lifecycle', '=', 'provisional')
+          .where('project.archived_at', 'is', null)
+          .execute();
+        const links = await taskLinksOf(
+          tx,
+          dialect,
+          rows.map((r) => r.id),
+        );
+        return rows.map((row) => {
+          const { history: _history, ...listed } = toStored({
+            ...row,
+            history: [],
+            options: loadedOptionsOf(row.id, row.options, dialect),
+            tasks: links.get(row.id) ?? [],
+          });
+          return listed;
+        });
+      }),
     load: (id) => dialect.snapshot(db, (tx) => load(tx, dialect, id)),
     transact: (id, apply) =>
       dialect.write(db, async (tx) => {
@@ -279,19 +303,14 @@ export async function exportDecisions(
   return hydrateDecisions(ex, dialect, rows, true);
 }
 
-/** Hydrate only the selected rows, with bounded batches for owned links and history. */
-async function hydrateDecisions(
+/** Each decision's linked task ids in task order, read in bounded batches. */
+async function taskLinksOf(
   ex: Executor,
   dialect: StoreDialect,
-  rows: DecisionTable[],
-  exporting: boolean,
-): Promise<DecisionView[]> {
+  ids: string[],
+): Promise<Map<string, string[]>> {
   const links = new Map<string, string[]>();
-  const histories = new Map<string, DecisionHistory[]>();
-  for (const chunk of inLists(
-    rows.map((r) => r.id),
-    dialect.maxParameters,
-  )) {
+  for (const chunk of inLists(ids, dialect.maxParameters)) {
     const tasks = await ex
       .selectFrom('decision_task')
       .leftJoin('node', 'node.id', 'decision_task.task')
@@ -304,6 +323,27 @@ async function hydrateDecisions(
       owned.push(t.task);
       links.set(t.decision_id, owned);
     }
+  }
+  return links;
+}
+
+/** Hydrate only the selected rows, with bounded batches for owned links and history. */
+async function hydrateDecisions(
+  ex: Executor,
+  dialect: StoreDialect,
+  rows: DecisionTable[],
+  exporting: boolean,
+): Promise<DecisionView[]> {
+  const links = await taskLinksOf(
+    ex,
+    dialect,
+    rows.map((r) => r.id),
+  );
+  const histories = new Map<string, DecisionHistory[]>();
+  for (const chunk of inLists(
+    rows.map((r) => r.id),
+    dialect.maxParameters,
+  )) {
     const history = await ex
       .selectFrom('decision_history')
       .selectAll()

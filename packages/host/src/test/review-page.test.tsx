@@ -89,8 +89,8 @@ const MMR = { key: 'MMR', name: 'Mimir' };
 const NORN = { key: 'NORN', name: 'Norn' };
 
 const TWO_PROJECTS = [
-  stripRow(LM, { decisions: 1, inFlight: 1 }),
-  stripRow(MMR, { decisions: 2, inFlight: 2, triage: 3 }),
+  stripRow(LM, { inFlight: 1, needsYou: 1 }),
+  stripRow(MMR, { inFlight: 2, needsYou: 2, triage: 3 }),
 ];
 
 /** A task running now, tagged with its project the way the review read tags it. */
@@ -117,10 +117,10 @@ const getRail = () => screen.getByRole('complementary', { name: RAIL });
 const minute = () => within(getRail()).getByRole('region', { name: /^When you have a minute/ });
 
 describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
-  it('heads the page with the decision count and groups decisions by project', async () => {
+  it('heads the page with the decision count and groups needsYou by project', async () => {
     serve(
       engineReview({
-        decisions: [
+        needsYou: [
           {
             project: LM,
             rows: [
@@ -139,7 +139,11 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
           },
         ],
         projects: TWO_PROJECTS,
-        queue: ['LM-196', 'MMR-52', 'MMR-480'],
+        queue: [
+          { id: 'LM-196', kind: 'task' },
+          { id: 'MMR-52', kind: 'task' },
+          { id: 'MMR-480', kind: 'task' },
+        ],
       }),
     );
     await renderRoute(consoleRoutes, '/');
@@ -166,10 +170,10 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
   it('orders the main column Needs you, Now, then Shipped', async () => {
     serve(
       engineReview({
-        decisions: [{ project: LM, rows: [decision('LM-196', 'needs_answers')] }],
+        needsYou: [{ project: LM, rows: [decision('LM-196', 'needs_answers')] }],
         now: [nowRow('MMR-502')],
         projects: TWO_PROJECTS,
-        queue: ['LM-196'],
+        queue: [{ id: 'LM-196', kind: 'task' }],
         shipped: [shippedRow('MMR-497', new Date(NOW))],
       }),
     );
@@ -292,11 +296,11 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
 });
 
 describe('the review rail: the project health strip', () => {
-  it('lists every project in report order with its decisions, live, and cold counts', async () => {
+  it('lists every project in report order with its needsYou, live, and cold counts', async () => {
     serve(
       engineReview({
         projects: [
-          stripRow(MMR, { decisions: 2, goingCold: 1, live: 7 }),
+          stripRow(MMR, { goingCold: 1, live: 7, needsYou: 2 }),
           stripRow(LM, { live: 3 }),
           stripRow(NORN),
         ],
@@ -312,7 +316,7 @@ describe('the review rail: the project health strip', () => {
     const [mimir, loom, norn] = links;
     expect(mimir!.textContent).toContain('MMR');
     expect(mimir!.textContent).toContain('Mimir');
-    expect(mimir!.textContent).toContain('2 decisions');
+    expect(mimir!.textContent).toContain('2 need you');
     expect(mimir!.textContent).toContain('7 live');
     expect(mimir!.textContent).toContain('1 cold');
     // A zero is absent, not nought: the cell is a dash, and a reader hears nothing.
@@ -619,15 +623,17 @@ const block = decision('MMR-52', 'blocked', { holdReason: 'Needs an API token' }
 const question = decision('MMR-480', 'needs_answers', { question: 'Skip, or drop it?' });
 
 /** Decisions in two project groups: LM's question, then MMR's block and question. */
-function decisionsFor(rows: { lm?: NeedsYouTask[]; mmr?: NeedsYouTask[] }) {
-  const decisions = [
+function needsYouFor(rows: { lm?: NeedsYouTask[]; mmr?: NeedsYouTask[] }) {
+  const needsYou = [
     { project: LM, rows: rows.lm ?? [] },
     { project: MMR, rows: rows.mmr ?? [] },
   ].filter((group) => group.rows.length > 0);
   return engineReview({
-    decisions,
+    needsYou,
     projects: TWO_PROJECTS,
-    queue: decisions.flatMap((group) => group.rows.map((row) => row.task.id)),
+    queue: needsYou.flatMap((group) =>
+      group.rows.map((row) => ({ id: row.task.id, kind: row.kind })),
+    ),
   });
 }
 
@@ -642,9 +648,9 @@ const answerWith = async (id: string) => {
   fireEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
 };
 
-describe('review page decisions act in place (MMR-479)', () => {
+describe('review page needsYou act in place (MMR-479)', () => {
   it('returns focus to Answer… when its dialog is escaped or cancelled', async () => {
-    await openForWrite(decisionsFor({ lm: [loomQuestion] }), decisionsFor({}));
+    await openForWrite(needsYouFor({ lm: [loomQuestion] }), needsYouFor({}));
     const answerButton = within(await actionsOf('LM-196')).getByRole('button', {
       name: 'Answer…',
     });
@@ -667,7 +673,7 @@ describe('review page decisions act in place (MMR-479)', () => {
   });
 
   it('answers a question and sets the grooming state', async () => {
-    await openForWrite(decisionsFor({ mmr: [question] }), decisionsFor({}));
+    await openForWrite(needsYouFor({ mmr: [question] }), needsYouFor({}));
 
     fireEvent.click(within(await actionsOf('MMR-480')).getByRole('button', { name: 'Answer…' }));
     const dialog = await screen.findByRole('dialog', { name: 'Answer' });
@@ -686,7 +692,7 @@ describe('review page decisions act in place (MMR-479)', () => {
   });
 
   it('offers no action on a block on you, which is cleared outside Mimir', async () => {
-    serve(decisionsFor({ mmr: [block] }));
+    serve(needsYouFor({ mmr: [block] }));
     await renderRoute(consoleRoutes, '/');
 
     await screen.findByText('Needs an API token');
@@ -695,8 +701,8 @@ describe('review page decisions act in place (MMR-479)', () => {
 
   it('lands on the next project’s first action when a group’s last row leaves', async () => {
     await openForWrite(
-      decisionsFor({ lm: [loomQuestion], mmr: [question] }),
-      decisionsFor({ mmr: [question] }),
+      needsYouFor({ lm: [loomQuestion], mmr: [question] }),
+      needsYouFor({ mmr: [question] }),
     );
 
     await answerWith('LM-196');
@@ -712,8 +718,8 @@ describe('review page decisions act in place (MMR-479)', () => {
   // The only proof that the page hands block rows, which have no action, to the focus handoff.
   it('lands on a block’s link when the next decision has no action', async () => {
     await openForWrite(
-      decisionsFor({ lm: [loomQuestion], mmr: [block] }),
-      decisionsFor({ mmr: [block] }),
+      needsYouFor({ lm: [loomQuestion], mmr: [block] }),
+      needsYouFor({ mmr: [block] }),
     );
 
     await answerWith('LM-196');

@@ -22,7 +22,7 @@ vi.mock('../api/fns/views');
 
 /**
  * The top-bar alert (ADR 0019, MMR-476 and MMR-492 refinements): the count of
- * decisions waiting on the operator across projects. It opens a popover of
+ * needs-you members waiting on the operator across projects. It opens a popover of
  * them on a desktop and a bottom sheet on a phone.
  */
 
@@ -85,24 +85,26 @@ const loomQuestion = decision('LM-196', 'needs_answers', {
 const block = decision('MMR-52', 'blocked', { holdReason: 'Needs an API token' });
 const question = decision('MMR-480', 'needs_answers', { question: 'Skip, or drop it?' });
 
-/** A report with decisions in two project groups: LM's question, then MMR's block and question. */
+/** A report with needs-you rows in two project groups: LM's question, then MMR's block and question. */
 function twoProjects(
   rows: { lm?: NeedsYouTask[]; mmr?: NeedsYouTask[] } = {
     lm: [loomQuestion],
     mmr: [block, question],
   },
 ): ReviewReport {
-  const decisions = [
+  const needsYou = [
     { project: LM, rows: rows.lm ?? [] },
     { project: MMR, rows: rows.mmr ?? [] },
   ].filter((group) => group.rows.length > 0);
   return engineReview({
-    decisions,
+    needsYou,
     projects: [
-      stripRow(LM, { decisions: rows.lm?.length ?? 0 }),
-      stripRow(MMR, { decisions: rows.mmr?.length ?? 0 }),
+      stripRow(LM, { needsYou: rows.lm?.length ?? 0 }),
+      stripRow(MMR, { needsYou: rows.mmr?.length ?? 0 }),
     ],
-    queue: decisions.flatMap((group) => group.rows.map((row) => row.task.id)),
+    queue: needsYou.flatMap((group) =>
+      group.rows.map((row) => ({ id: row.task.id, kind: row.kind })),
+    ),
   });
 }
 
@@ -133,18 +135,16 @@ async function openAlert(name: string) {
 }
 
 describe('the attention alert trigger', () => {
-  it('is a button named for the count of decisions, not a link', async () => {
+  it('is a button named for the count of needsYou, not a link', async () => {
     await renderAt('/p/MMR/tasks', twoProjects());
-    const alert = await screen.findByRole('button', { name: '3 decisions need you' });
+    const alert = await screen.findByRole('button', { name: '3 need you' });
     expect(alert.textContent).toContain('3');
     expect(screen.queryByRole('link', { name: /need you/ })).toBeNull();
   });
 
   it('reads in the singular for one decision', async () => {
     await renderAt('/p/MMR/tasks', twoProjects({ lm: [loomQuestion] }));
-    await expect(
-      screen.findByRole('button', { name: '1 decision needs you' }),
-    ).resolves.toBeDefined();
+    await expect(screen.findByRole('button', { name: '1 needs you' })).resolves.toBeDefined();
   });
 
   it('is absent when nothing needs a decision, however much waits in triage', async () => {
@@ -168,10 +168,10 @@ describe('the Needs you popover', () => {
     await renderAt('/p/MMR/tasks', twoProjects());
     expect(screen.queryByRole('dialog')).toBeNull();
 
-    const panel = await openAlert('3 decisions need you');
-    const trigger = screen.getByRole('button', { name: '3 decisions need you' });
+    const panel = await openAlert('3 need you');
+    const trigger = screen.getByRole('button', { name: '3 need you' });
     expect(panel.contains(document.activeElement)).toBe(true);
-    // The alert hands DecisionGroups the review read's groups as they are, in the review order.
+    // The alert hands NeedsYouGroups the review read's groups as they are, in the review order.
     const groups = within(panel).getAllByRole('region');
     expect(groups.map((g) => g.getAttribute('aria-label'))).toEqual(['Loom CLI', 'Mimir']);
     // A desktop popover has no close control and is not a page footer.
@@ -187,7 +187,7 @@ describe('the Needs you popover', () => {
 
   it('marks the decision whose record is the current page', async () => {
     await renderAt('/p/MMR/480', twoProjects());
-    const panel = await openAlert('3 decisions need you');
+    const panel = await openAlert('3 need you');
 
     expect(within(panel).getAllByText('This page')).toHaveLength(1);
     expect(within(rowOf(panel, 'MMR-480')).getByText('This page')).toBeDefined();
@@ -195,14 +195,14 @@ describe('the Needs you popover', () => {
 
   it('marks nothing on a page that is not a decision’s record', async () => {
     await renderAt('/p/MMR/s480', twoProjects());
-    const panel = await openAlert('3 decisions need you');
+    const panel = await openAlert('3 need you');
 
     expect(within(panel).queryByText('This page')).toBeNull();
   });
 
   it('links to the review page and the focus queue', async () => {
     await renderAt('/p/MMR/tasks', twoProjects());
-    const panel = await openAlert('3 decisions need you');
+    const panel = await openAlert('3 need you');
 
     expect(within(panel).getByRole('link', { name: 'Open review page' }).getAttribute('href')).toBe(
       '/',
@@ -214,7 +214,7 @@ describe('the Needs you popover', () => {
 
   it('closes on navigation', async () => {
     const { testRouter } = await renderAt('/p/MMR/tasks', twoProjects());
-    const panel = await openAlert('3 decisions need you');
+    const panel = await openAlert('3 need you');
 
     await userEvent.click(within(panel).getByRole('link', { name: 'Work through these · 3' }));
 
@@ -226,7 +226,7 @@ describe('the Needs you popover', () => {
 
   it('closes on a link to the page already showing', async () => {
     await renderAt('/p/MMR/480', twoProjects());
-    const panel = await openAlert('3 decisions need you');
+    const panel = await openAlert('3 need you');
 
     await userEvent.click(within(panel).getByRole('link', { name: question.task.title }));
 
@@ -237,7 +237,7 @@ describe('the Needs you popover', () => {
 
   it('returns focus to Answer… when its dialog is cancelled or escaped', async () => {
     await renderAt('/p/MMR/tasks', twoProjects({ lm: [loomQuestion] }));
-    const panel = await openAlert('1 decision needs you');
+    const panel = await openAlert('1 needs you');
     const answerButton = within(panel).getByRole('button', { name: 'Answer…' });
 
     await userEvent.click(answerButton);
@@ -262,14 +262,14 @@ describe('the Needs you popover', () => {
   it('closes when the viewport crosses the breakpoint, and opens afresh as the sheet', async () => {
     const setViewport = stubViewport('desktop');
     await renderAt('/p/MMR/tasks', twoProjects({ lm: [loomQuestion] }));
-    await openAlert('1 decision needs you');
+    await openAlert('1 needs you');
 
     setViewport('phone');
 
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Needs you' })).toBeNull();
     });
-    const sheet = await openAlert('1 decision needs you');
+    const sheet = await openAlert('1 needs you');
     expect(within(sheet).getByRole('button', { name: 'Close' })).toBeDefined();
   });
 
@@ -281,7 +281,7 @@ describe('the Needs you popover', () => {
       return [engineTask({ id: 'LM-196', status: 'ready' })];
     });
     await renderServed('/p/MMR/tasks');
-    const panel = await openAlert('3 decisions need you');
+    const panel = await openAlert('3 need you');
 
     await answerFrom(within(rowOf(panel, 'LM-196')));
 
@@ -295,9 +295,59 @@ describe('the Needs you popover', () => {
     });
     expect(screen.getByRole('dialog', { name: 'Needs you' })).toBe(panel);
     expect(within(panel).getByRole('link', { name: 'Open review page' })).toBeDefined();
-    await expect(
-      screen.findByRole('button', { name: '2 decisions need you' }),
-    ).resolves.toBeDefined();
+    await expect(screen.findByRole('button', { name: '2 need you' })).resolves.toBeDefined();
+  });
+
+  it('hands focus to a decision record’s first link when the task row above it leaves', async () => {
+    const record = {
+      decision: {
+        class: 'product' as const,
+        created_at: new Date('2026-11-16T12:00:00Z'),
+        delivery: null,
+        id: 'MMR-q1',
+        lifecycle: 'provisional' as const,
+        options: ['Keep', 'Remove'],
+        outcome_note: null,
+        overturn_option: null,
+        project_key: 'MMR',
+        question: 'Keep the rail?',
+        recommended: 1,
+        seq: 1,
+        taken: 1,
+        tasks: ['MMR-5'],
+        updated_at: new Date('2026-11-16T12:00:00Z'),
+        why: null,
+      },
+      kind: 'decision' as const,
+      workBuiltOnIt: true,
+    };
+    const withRecord = (lm: NeedsYouTask[]): ReviewReport =>
+      engineReview({
+        needsYou: [
+          ...(lm.length > 0 ? [{ project: LM, rows: lm }] : []),
+          { project: MMR, rows: [record] },
+        ],
+        projects: [stripRow(LM, { needsYou: lm.length }), stripRow(MMR, { needsYou: 1 })],
+        queue: [
+          ...lm.map((row) => ({ id: row.task.id, kind: row.kind })),
+          { id: 'MMR-q1', kind: 'decision' as const },
+        ],
+      });
+    let report = withRecord([loomQuestion]);
+    serve(() => report);
+    vi.mocked(groom).mockImplementation(async () => {
+      report = withRecord([]);
+      return [engineTask({ id: 'LM-196', status: 'ready' })];
+    });
+    await renderServed('/p/MMR/tasks');
+    const panel = await openAlert('2 need you');
+    within(panel).getByRole('button', { name: 'Answer…' }).focus();
+    await answerFrom(within(panel));
+
+    await waitFor(() => {
+      expect(within(panel).queryByRole('link', { name: 'Ship the plugin' })).toBeNull();
+    });
+    expect(within(rowOf(panel, 'MMR-q1')).getByRole('link', { name: 'MMR-5' })).toHaveFocus();
   });
 
   it('stays to say so, with focus on its heading, when the last decision leaves', async () => {
@@ -308,7 +358,7 @@ describe('the Needs you popover', () => {
       return [engineTask({ id: 'LM-196', status: 'ready' })];
     });
     await renderServed('/p/MMR/tasks');
-    const panel = await openAlert('1 decision needs you');
+    const panel = await openAlert('1 needs you');
     within(panel).getByRole('button', { name: 'Answer…' }).focus();
     await answerFrom(within(panel));
 
@@ -330,8 +380,8 @@ describe('the Needs you sheet on a phone', () => {
   it('opens the same list as a bottom sheet, and Escape returns focus to the trigger', async () => {
     stubViewport('phone');
     await renderAt('/p/MMR/tasks', twoProjects());
-    const trigger = await screen.findByRole('button', { name: '3 decisions need you' });
-    const panel = await openAlert('3 decisions need you');
+    const trigger = await screen.findByRole('button', { name: '3 need you' });
+    const panel = await openAlert('3 need you');
 
     // The sheet's own close control is what tells it from the popover.
     expect(within(panel).getByRole('button', { name: 'Close' })).toBeDefined();

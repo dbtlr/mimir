@@ -4,8 +4,8 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 
 import { nodeQuery } from '../api/node-queries';
 import { treeQuery } from '../api/shell-queries';
-import { reviewQuery } from '../api/view-queries';
-import type { NeedsYouTask, ReviewReport } from '../api/view-queries';
+import { reviewQuery, needsYouId, needsYouTitle, needsYouLabel } from '../api/view-queries';
+import type { NeedsYouMember, NeedsYouTask, ReviewReport } from '../api/view-queries';
 import { cn } from '../lib/cn';
 import { projectKeyOf } from '../lib/project-key';
 import { nodeLink } from '../lib/record-url';
@@ -15,38 +15,40 @@ import { LinkifiedText } from './linkified-text';
 import { MarkdownBody } from './markdown-body';
 import { RecordPending } from './record-layout';
 import { ActionButton, actionButtonVariants } from './ui/action-button';
-import { needsYouActions } from './work-rows';
+import { NeedsYouRow, needsYouActions } from './work-rows';
 
 /*
  * `/?mode=focus` — the review page's focus queue (ADR 0013, MMR-476
- * refinement): one decision at a time, in ADR 0019's queue order. The list is
- * fixed when the queue opens, from a fresh read rather than a cached one, so a
- * decision that arrives later waits for the next pass. The queue only moves
- * forward: a decision settled anywhere — here, by its action, or elsewhere —
- * drops out of the live review read and the queue moves past it, and Skip
- * moves past one without acting, leaving it on the page. A decision behind
- * the queue stays behind it, even when it returns. When nothing is left the
+ * refinement): one needs-you member at a time, in ADR 0019's queue order. The
+ * list is fixed when the queue opens, from a fresh read rather than a cached
+ * one, so a member that arrives later waits for the next pass. The queue only
+ * moves forward: a member settled anywhere — here, by its action, or
+ * elsewhere — drops out of the live review read and the queue moves past it,
+ * and Skip moves past one without acting, leaving it on the page. A member
+ * behind the queue stays behind it, even when it returns. When nothing is left the
  * queue returns to `/`.
  */
 
-/** Why a decision needs the operator, in the card's words. */
+/** Why a task needs the operator, in the card's words. */
 const REASON: Record<NeedsYouTask['reason'], string> = {
   blocked: 'Blocked · yours',
   needs_answers: 'Needs answers',
 };
 
-/** The card's actions settle the decision itself, so there is no row to hand focus on from. */
+/** The card's actions settle the member itself, so there is no row to hand focus on from. */
 const NO_HANDOFF: RowFocusHandoff = { arm: () => {}, disarm: () => {} };
 
-/** Every decision on the live review read, by task id. */
-function liveDecisions(report: ReviewReport): Map<string, NeedsYouTask> {
-  return new Map(report.decisions.flatMap((group) => group.rows.map((row) => [row.task.id, row])));
+/** Every member of the live review read's needs-you set, by its id. */
+function liveDecisions(report: ReviewReport): Map<string, NeedsYouMember> {
+  return new Map(
+    report.needsYou.flatMap((group) => group.rows.map((row) => [needsYouId(row), row])),
+  );
 }
 
 export function FocusQueue({ offline }: { offline: boolean }) {
   // Its own observer, so opening the queue refetches a read gone stale.
   const review = useQuery(reviewQuery());
-  const [fixed, setFixed] = useState<readonly string[] | null>(null);
+  const [fixed, setFixed] = useState<ReviewReport['queue'] | null>(null);
   // The queue's place in the fixed list; nothing before it comes back.
   const [cursor, setCursor] = useState(0);
   const navigate = useNavigate();
@@ -56,8 +58,8 @@ export function FocusQueue({ offline }: { offline: boolean }) {
   if (fixed === null && report !== undefined && settled) {
     setFixed(report.queue);
   }
-  const live = report === undefined ? new Map<string, NeedsYouTask>() : liveDecisions(report);
-  const index = fixed?.findIndex((id, i) => i >= cursor && live.has(id)) ?? -1;
+  const live = report === undefined ? new Map<string, NeedsYouMember>() : liveDecisions(report);
+  const index = fixed?.findIndex((id, i) => i >= cursor && live.has(id.id)) ?? -1;
   if (index > cursor) {
     setCursor(index);
   }
@@ -72,9 +74,9 @@ export function FocusQueue({ offline }: { offline: boolean }) {
     return exhausted ? null : <RecordPending unreachable={false} />;
   }
 
-  const current = live.get(fixed[index]!)!;
-  const nextId = fixed.slice(index + 1).find((id) => live.has(id));
-  const next = nextId === undefined ? undefined : live.get(nextId);
+  const current = live.get(fixed[index]!.id)!;
+  const nextId = fixed.slice(index + 1).find((id) => live.has(id.id));
+  const next = nextId === undefined ? undefined : live.get(nextId.id);
   const position = index + 1;
   return (
     <main className="mx-auto flex w-full max-w-[720px] flex-1 flex-col gap-4 p-5 max-md:px-3.5">
@@ -96,22 +98,26 @@ export function FocusQueue({ offline }: { offline: boolean }) {
           />
         </span>
       </div>
-      <FocusCard
-        key={current.task.id}
-        row={current}
-        offline={offline}
-        onSkip={() => setCursor(index + 1)}
-      />
+      {current.kind === 'task' ? (
+        <FocusCard
+          key={needsYouId(current)}
+          row={current}
+          offline={offline}
+          onSkip={() => setCursor(index + 1)}
+        />
+      ) : (
+        <RecordCard key={needsYouId(current)} row={current} onSkip={() => setCursor(index + 1)} />
+      )}
       {next !== undefined && (
         <section aria-label="Up next" className="flex flex-col gap-1">
           <h2 className="microlabel text-ink-faint">Up next</h2>
           <p className="flex flex-wrap items-baseline gap-x-2 text-meta text-ink-dim">
             <span className="font-mono text-mono-id text-accent-foreground">
-              {projectKeyOf(next.task.id)}
+              {projectKeyOf(needsYouId(next))}
             </span>
-            <span className="microlabel text-attention-foreground">{REASON[next.reason]}</span>
-            <span className="font-mono text-mono-id">{next.task.id}</span>
-            <span className="min-w-0 truncate">{next.task.title}</span>
+            <span className="microlabel text-attention-foreground">{needsYouLabel(next)}</span>
+            <span className="font-mono text-mono-id">{needsYouId(next)}</span>
+            <span className="min-w-0 truncate">{needsYouTitle(next)}</span>
           </p>
         </section>
       )}
@@ -120,10 +126,41 @@ export function FocusQueue({ offline }: { offline: boolean }) {
 }
 
 /**
- * One decision with what the operator needs to settle it: its path and
+ * A stopped delivery or a decision: its row and Skip, until MMR-695 adds their
+ * controls. Like a task's card it mounts per member, so when it takes the
+ * place of one that left, focus lands on Skip rather than the page body.
+ */
+function RecordCard({ row, onSkip }: { row: NeedsYouMember; onSkip: () => void }) {
+  const skipRef = useRef<HTMLButtonElement>(null);
+  useLayoutEffect(() => {
+    const active = document.activeElement;
+    if (active === null || active === document.body) {
+      skipRef.current?.focus({ preventScroll: true });
+    }
+  }, []);
+  return (
+    <section className="flex flex-col gap-3 rounded-lg border border-line bg-well-850 p-5">
+      <NeedsYouRow row={row} />
+      <div className="flex flex-wrap gap-2">
+        <ActionButton
+          ref={skipRef}
+          size="sm"
+          variant="outline"
+          className="max-md:min-h-11"
+          onClick={onSkip}
+        >
+          Skip
+        </ActionButton>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * One needs-you member with what the operator needs to settle it: its path and
  * description from the task's own record, then the question or what the
  * block waits on, then the row's actions, Skip, and a link
- * to the task page. The card mounts per decision, so when it takes the place
+ * to the task page. The card mounts per member, so when it takes the place
  * of one that left, focus lands on its first action.
  */
 function FocusCard({

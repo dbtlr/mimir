@@ -13,6 +13,7 @@ import type { DerivationSet } from '../derive';
 import { notFound, validation } from '../errors';
 import type { Store } from '../store';
 import { now } from '../time';
+import { byNeedsYouRowOrder, workBuiltOnIt } from './needs-you';
 import { buildNodeView } from './view';
 import { classifyWork, workRowSource, nowRowsOf } from './work';
 
@@ -94,7 +95,15 @@ export async function deliveryPageOf(store: Store, id: string) {
     await nowRowsOf(workRowSource(store, set, buckets), delivery.project_key),
   );
   return {
-    decisions: open.map(decodeDecision),
+    decisions: open
+      .map((decision) => ({
+        decision,
+        kind: 'decision' as const,
+        workBuiltOnIt: workBuiltOnIt(set, decision),
+      }))
+      // The one decision order, shared with the needs-you set.
+      .toSorted(byNeedsYouRowOrder)
+      .map((row) => decodeDecision(row.decision)),
     delivery,
     followUps,
     journal: pad ? recentJournal(intentViews.scratchpad.parse(pad).journal) : [],

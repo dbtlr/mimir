@@ -58,8 +58,10 @@ async function task(parent: string, title: string): Promise<string> {
 }
 
 /** The work page in UTC unless a test says otherwise (the zone is a required option). */
-const page = (id: string, opts: Partial<WorkOptions> = {}) =>
-  workPageOf(store, id, { timeZone: 'UTC', ...opts });
+const page = async (id: string, opts: Partial<WorkOptions> = {}) => {
+  const report = await workPageOf(store, id, { timeZone: 'UTC', ...opts });
+  return { ...report, needsYou: report.needsYou.filter((r) => r.kind === 'task') };
+};
 
 /** The task rows of a to_groom list (an empty phase also reads as a break-down row). */
 const taskRows = <T extends { task: { type: string } }>(rows: readonly T[]): T[] =>

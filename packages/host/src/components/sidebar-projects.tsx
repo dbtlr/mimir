@@ -20,11 +20,11 @@ import { PROJECT_ROW, ProjectRowContent } from './project-options';
 /** A row: a link to the project's work page. */
 function ProjectLink({
   project,
-  decisions,
+  needsYou,
   onNavigate,
 }: {
   project: EngineNode;
-  decisions: number;
+  needsYou: number;
   onNavigate?: () => void;
 }) {
   return (
@@ -39,7 +39,7 @@ function ProjectLink({
           'transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent',
         )}
       >
-        <ProjectRowContent project={project} decisions={decisions} />
+        <ProjectRowContent project={project} needsYou={needsYou} />
       </Link>
     </li>
   );
@@ -51,7 +51,7 @@ export function SidebarProjects({ onNavigate }: { onNavigate?: () => void }) {
   const projects = useQuery(projectsQuery);
   const review = useQuery(reviewQuery());
   const pendingPins = usePendingPins();
-  const decisions = new Map(review.data?.projects.map((p) => [p.key, p.decisions]));
+  const needsYou = new Map(review.data?.projects.map((p) => [p.key, p.needsYou]));
   // A pin in flight shows as already made; the server's list catches up on settle.
   const groups = groupProjects(overlayPins(projects.data ?? [], pendingPins));
   const rows = sidebarShortlist(groups);
@@ -74,7 +74,7 @@ export function SidebarProjects({ onNavigate }: { onNavigate?: () => void }) {
             <ProjectLink
               key={p.id}
               project={p}
-              decisions={decisions.get(p.id) ?? 0}
+              needsYou={needsYou.get(p.id) ?? 0}
               onNavigate={onNavigate}
             />
           ))}

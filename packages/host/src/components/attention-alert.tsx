@@ -3,15 +3,15 @@ import { Link, useMatch, useRouterState } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
 
-import { reviewQuery } from '../api/view-queries';
+import { needsYouId, reviewQuery } from '../api/view-queries';
 import type { ReviewReport } from '../api/view-queries';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { nodeIdOf } from '../lib/record-url';
 import { useMediaQuery } from '../lib/use-media-query';
 import { useRowFocusHandoff } from '../lib/use-row-focus-handoff';
-import { nodeRoute } from '../router';
-import { DecisionGroups, PROJECT_LINK } from './decision-groups';
+import { deliveryRoute, nodeRoute } from '../router';
+import { NeedsYouGroups, PROJECT_LINK } from './decision-groups';
 import { actionButtonVariants } from './ui/action-button';
 import { PopoverContent, PopoverRoot, PopoverTrigger } from './ui/popover';
 import { Sheet, SheetClose, SheetContent } from './ui/sheet';
@@ -24,7 +24,11 @@ const PILL =
 
 /** The id of the work node whose page is showing, or undefined on any other page. */
 function useCurrentNodeId(): string | undefined {
+  const delivery = useMatch({ from: deliveryRoute.id, shouldThrow: false });
   const match = useMatch({ from: nodeRoute.id, shouldThrow: false });
+  if (delivery) {
+    return `${delivery.params.key}-d${delivery.params.seq}`;
+  }
   return match === undefined ? undefined : nodeIdOf(match.params.key, match.params.seq);
 }
 
@@ -47,7 +51,7 @@ function closeOnLink(close: () => void) {
 }
 
 /**
- * The decisions behind the badge, as one panel for the popover and the sheet:
+ * The needs-you set behind the badge, as one panel for the popover and the sheet:
  * a heading, the review page's grouped rows with their in-place verbs, and
  * the footer links. Acting on a row keeps the panel open; the row leaves when
  * the write lands, and focus moves on as it does on the review page (the
@@ -68,7 +72,7 @@ function NeedsYouPanel({
 }) {
   const count = report.queue.length;
   const { handoff, headingRef } = useRowFocusHandoff(
-    report.decisions.flatMap((group) => group.rows.map((row) => row.task.id)),
+    report.needsYou.flatMap((group) => group.rows.map((row) => needsYouId(row))),
   );
   return (
     // The panel is a click boundary, not a control: following any link in it
@@ -88,11 +92,11 @@ function NeedsYouPanel({
           {close}
         </div>
         <div className="min-h-0 overflow-y-auto px-4 py-3">
-          {report.decisions.length === 0 ? (
+          {report.needsYou.length === 0 ? (
             <p className="text-xs text-ink-dim">Nothing needs you.</p>
           ) : (
-            <DecisionGroups
-              groups={report.decisions}
+            <NeedsYouGroups
+              groups={report.needsYou}
               offline={offline}
               handoff={handoff}
               currentId={currentId}
@@ -137,13 +141,13 @@ function PillFace({ count, words }: { count: number; words: string }) {
 
 /**
  * The top-bar alert (ADR 0019, MMR-476 and MMR-492 refinements): the count of
- * decisions waiting on the operator across projects, as a violet pill. It
- * opens the decisions in a popover on a desktop and a bottom sheet on a phone,
+ * members of the needs-you set waiting on the operator across projects, as a
+ * violet pill. It opens the set in a popover on a desktop and a bottom sheet on a phone,
  * so a glance at the set never leaves the page. It reads the review page's own
  * query, so its count is the page's count. Triage (seeds, going cold,
  * findings) stops no agent and never lights it. Absent at zero, and until the
  * review read lands, except that an open panel stays until it is closed, so
- * the last decision to leave does not pull it away mid-use.
+ * the last member to leave does not pull it away mid-use.
  */
 export function AttentionAlert() {
   const review = useQuery(reviewQuery());
@@ -167,7 +171,7 @@ export function AttentionAlert() {
   if (report === undefined || (count === 0 && !open)) {
     return null;
   }
-  const label = `${String(count)} ${count === 1 ? 'decision needs' : 'decisions need'} you`;
+  const label = `${String(count)} ${count === 1 ? 'needs' : 'need'} you`;
   const words = count === 1 ? 'needs you' : 'need you';
   const panel = (close?: ReactNode) => (
     <NeedsYouPanel

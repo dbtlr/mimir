@@ -1,4 +1,6 @@
 import type { ChecklistItem } from './checklist';
+import type { NeedsYouDecision } from './decision';
+import type { DeliveryLifecycle } from './delivery';
 import type {
   AgendaItemState,
   BlockOwner,
@@ -749,6 +751,7 @@ export type WorkNeedsYouReason = 'blocked' | 'needs_answers';
 
 /** A task waiting on the operator, and why. */
 export type WorkNeedsYouTask = {
+  kind: 'task';
   task: NodeView;
   reason: WorkNeedsYouReason;
   /** The latest note's text for a needs-answers task (the open question); null otherwise. */
@@ -756,6 +759,24 @@ export type WorkNeedsYouTask = {
   /** This task is past the stale threshold (going cold lists it as well). */
   stale: boolean;
 };
+
+/** One ordered member of the needs-you set. */
+export type WorkNeedsYouRow =
+  | WorkNeedsYouTask
+  | { kind: 'decision'; decision: NeedsYouDecision; workBuiltOnIt: boolean }
+  | {
+      kind: 'delivery';
+      delivery: {
+        id: string;
+        title: string;
+        lifecycle: DeliveryLifecycle;
+        hold_reason: string | null;
+        phase: string;
+        project: string;
+        updated_at: string;
+        seq: number;
+      };
+    };
 
 /**
  * A frontier row: a task that is ready or awaiting only prerequisites one step
@@ -824,7 +845,7 @@ export type WorkShippedTask = {
 export type WorkReport = {
   scope: WorkScope;
   now: WorkNowTask[];
-  needsYou: WorkNeedsYouTask[];
+  needsYou: WorkNeedsYouRow[];
   frontier: WorkFrontier;
   /** Done or abandoned in the last 7 days, newest first. */
   shipped: WorkShippedTask[];
@@ -839,10 +860,10 @@ export type WorkReport = {
 /** A project as the review page names it. */
 export type ReviewProjectRef = { key: string; name: string };
 
-/** One project's decisions on the review page, in the work page's `needsYou` order. */
-export type ReviewDecisionGroup = {
+/** One project’s needs-you rows in the shared five-kind order. */
+export type ReviewNeedsYouGroup = {
   project: ReviewProjectRef;
-  rows: WorkNeedsYouTask[];
+  rows: WorkNeedsYouRow[];
 };
 
 /** One project's triage on the review page: what needs the operator eventually, stopping no agent. */
@@ -858,8 +879,8 @@ export type ReviewTriageGroup = {
 
 /** One row of the review page's project list. */
 export type ReviewProject = ReviewProjectRef & {
-  /** Tasks that need the operator's decision. */
-  decisions: number;
+  /** Records that need the operator. */
+  needsYou: number;
   /** Untriaged seeds, plus tasks going cold, plus `doctor` findings. */
   triage: number;
   /** Tasks whose status word is `queued`, `in_progress`, `under_review`, or `staged`: the `now` rows. */
@@ -881,18 +902,18 @@ export type ReviewColdTask = { project: string; task: NodeView };
 
 /**
  * The console's cross-project review page (ADR 0019 and ADR 0013, MMR-476
- * refinements). `decisions` and `triage` are in urgency order; `projects` is
+ * refinements). `needsYou` and `triage` are in urgency order; `projects` is
  * the rail's order (pinned first, then newest activity); `queue` drops the
- * grouping and walks every decision in focus-queue order. `now`, `shipped`,
+ * grouping and walks every member in focus-queue order. `now`, `shipped`,
  * `runnable`, and `goingCold` are the work page's rows across every active
  * project, built by the same rules and in the same order, each tagged with its
  * project key (MMR-504).
  */
 export type ReviewReport = {
-  /** Only projects with at least one decision. */
-  decisions: ReviewDecisionGroup[];
-  /** Every decision's task id: blocks on you, then questions; newest first within each. */
-  queue: string[];
+  /** Only projects with at least one needs-you row. */
+  needsYou: ReviewNeedsYouGroup[];
+  /** Every member’s kind and id in the shared five-kind order. */
+  queue: { kind: WorkNeedsYouRow['kind']; id: string }[];
   /** Only projects with something to triage, most first. */
   triage: ReviewTriageGroup[];
   /** Every active project: pinned first, then newest activity first, then key. */

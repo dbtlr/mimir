@@ -94,9 +94,11 @@ function focusIsLost(): boolean {
   return active === null || active === document.body;
 }
 
+/** A row's first enabled action, else its first link, else the row itself when it takes focus. */
 function rowTarget(row: Element): HTMLElement | null {
   return (
     row.querySelector<HTMLElement>('[data-row-actions] button:not(:disabled)') ??
-    row.querySelector<HTMLElement>('a')
+    row.querySelector<HTMLElement>('a') ??
+    (row instanceof HTMLElement && row.hasAttribute('tabindex') ? row : null)
   );
 }
