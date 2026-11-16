@@ -309,3 +309,79 @@ phases of the same design. Each records its own ADR or refinement.
   - ADR 0001, with MMR-684: the same-delivery dependency rule and the
     board-wide `next` leaving out members.
   - ADR 0003, with MMR-684: the two added `became_ready_at` terms.
+
+## Refinement (2026-11-16, MMR-691): known limitations and declined findings
+
+A delivery keeps two append-only lists of what it ships knowingly. A **known
+limitation** is an edge case the delivery ships knowingly. A **declined
+finding** is a review finding the delivery chose not to act on, with its
+reason. Both are general text: Mimir attaches no behavior to either list
+([ADR 0002](0002-general-purpose-primitives-not-baked-in-semantics.md)).
+
+### The lists
+
+| Field        | Shape                                                                           |
+| ------------ | ------------------------------------------------------------------------------- |
+| `number`     | A positive integer, numbered from 1 within its delivery across both lists, never reused |
+| `kind`       | `limitation` or `declined`                                                      |
+| `text`       | The limitation, or the finding. Required and not blank                          |
+| `reason`     | Required and not blank for `declined`; null for `limitation`                    |
+| `created_at` | The instant the entry was recorded                                              |
+
+- Entries are never edited or deleted. A wrong entry is corrected by a new one
+  that says so. The row is its own log, so no `delivery_history` row is written.
+- Both lists live in one `delivery_finding` table, keyed by
+  `(delivery_id, number)`.
+
+### Verbs
+
+Two flat work-plane verbs, placed by the MMR-678 amendment's test in
+[ADR 0024](0024-cli-command-taxonomy.md): an entry is never addressed after it
+is written, and the verbs are specific words.
+
+```sh
+mimir limitation MMR-d3 "A cancelled run is charged its full reservation"
+mimir decline MMR-d3 "Retry the clone on a transient fetch failure" "Filed as MMR-s55"
+mimir decline MMR-d3 "Retry the clone on a transient fetch failure" --reason "Filed as MMR-s55"
+```
+
+- `decline` takes the finding, then the reason as trailing words or
+  `--reason`, as `item drop` does.
+- Each verb is its own Engine method (`deliveryLimitation`, `deliveryDecline`)
+  and MCP tool (`limitation`, `decline`), and returns the delivery as `get`
+  reads it.
+- **Any lifecycle.** Both verbs accept a delivery in any lifecycle, `landed` and
+  `abandoned` included. This is the one exception to "a terminal delivery
+  refuses every write" above: a finding declined in a review after the merge
+  still belongs to the attempt it was found in. Holds do not refuse them
+  either.
+- **One transaction.** Each verb stamps the delivery's `updated_at`, allocates
+  the number, and writes in one store transaction, which serializes concurrent
+  writers.
+- **Errors.** Blank text and a blank or missing decline reason are
+  `validation`. An id that is not a delivery is `validation`, naming its kind;
+  a missing delivery is `not_found`. Both refuse while the project is archived,
+  as every delivery write does.
+
+### Reads
+
+`get KEY-dN` gains three fields, in every view:
+
+- `limitations`: `[{ number, text, created_at }]`, in number order.
+- `declined`: `[{ number, finding, reason, created_at }]`, in number order.
+- `journal`: the UUID of the live Scratchpad anchored to the delivery, or null
+  ([ADR 0027](0027-scratchpads-are-temporary-episode-state.md), MMR-691
+  refinement).
+
+The records view prints each list as one line per entry, and omits a list
+that is empty. `deliveries` rows do not carry the lists.
+
+### Transfer
+
+- The store export carries `delivery_findings`, in project-key, then
+  delivery-sequence, then number order, written after deliveries. Its schema
+  version increments, and an older export carries no entries.
+- **Import refuses, and doctor reports,** an entry whose delivery is missing; a
+  number below 1 or used twice on one delivery; blank text; a kind outside the
+  set; a `declined` entry without a reason or a `limitation` with one; or a
+  `created_at` that is not a canonical UTC instant.

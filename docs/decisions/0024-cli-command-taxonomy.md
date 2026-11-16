@@ -282,3 +282,11 @@ A new record type fails the first part and takes flat verbs. An append-only
 list whose only operation is a specific add verb fails both: a delivery's known
 limitations and declined findings take the flat verbs `limitation` and
 `decline` when their ADR lands.
+
+## Amendment (2026-11-16, MMR-691): `limitation` and `decline` are flat verbs
+
+`limitation KEY-dN <text>` and `decline KEY-dN <finding> <reason>` append to a
+delivery's known limitations and declined findings
+([ADR 0042](0042-the-delivery-record.md), MMR-691 refinement). They are flat
+work-plane verbs under the MMR-678 placement test: an entry is never addressed
+after it is written, and both words are specific to the claim.
