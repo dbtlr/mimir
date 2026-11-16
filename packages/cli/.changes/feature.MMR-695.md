@@ -1,1 +1,1 @@
-Answer provisional decisions from the console with Confirm, Take, or a required note. Delivery pages now offer Clear stop, Pause, Resume, and Abandon when legal, with refusal-safe dialogs and keyboard focus handoff.
+- Answer provisional decisions from the console with Confirm, Take, or a required note. Delivery pages now offer Clear stop, Pause, Resume, and Abandon when legal, with refusal-safe dialogs and keyboard focus handoff.
