@@ -625,8 +625,8 @@ test('the delivery Needs you section hands focus to the next decision row', asyn
   data.decisions.push({
     ...data.decisions[0]!,
     id: 'MMR-q2',
-    seq: 2,
     question: 'Second question?',
+    seq: 2,
   });
   vi.mocked(deliveryPage).mockImplementation(async () => structuredClone(data));
   vi.mocked(confirm).mockImplementation(async () => {
