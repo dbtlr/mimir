@@ -106,6 +106,30 @@ describe.each(backends)('delivery lists and run journals transfer ($name)', (bac
     }
   });
 
+  test('a resume refuses a second live pad on a delivery the store already holds (finding 2)', async () => {
+    const target = await backend.make();
+    try {
+      await target.store.import(document, { dryRun: false, mode: 'fresh' });
+      const pad = document.scratchpads[0];
+      if (pad === undefined) {
+        throw new Error('missing fixture');
+      }
+      const rival = { ...pad, id: '223e4567-e89b-42d3-a456-426614174000' };
+      const before = withoutStamp(await target.store.export());
+      const refusal = await refusalOf(
+        target.store.import(
+          { ...structuredClone(document), scratchpads: [rival] },
+          { dryRun: false, mode: 'resume' },
+        ),
+      );
+      expect(refusal).toContain('live scratchpad');
+      expect(refusal).toContain(padId);
+      expect(withoutStamp(await target.store.export())).toEqual(before);
+    } finally {
+      await target.close();
+    }
+  });
+
   test('each invalid entry or journal reference is refused alone and writes nothing', async () => {
     const limitation = document.delivery_findings.find((row) => row.kind === 'limitation');
     const declined = document.delivery_findings.find((row) => row.kind === 'declined');

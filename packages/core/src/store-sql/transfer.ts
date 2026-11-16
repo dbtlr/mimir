@@ -495,6 +495,40 @@ export async function importSqlStore(
   }
 }
 
+/**
+ * Refuse an inserted live pad on a delivery whose live pad is already stored
+ * (ADR 0027, MMR-691): the document check sees only the document, so a resume
+ * could otherwise add a second journal beside the stored one.
+ */
+async function assertNoRivalPads(
+  tx: Transaction<DB>,
+  pads: readonly { delivery: string | null; id: string }[],
+): Promise<void> {
+  const deliveries = pads.flatMap((pad) => (pad.delivery === null ? [] : [pad.delivery]));
+  if (deliveries.length === 0) {
+    return;
+  }
+  const stored = await tx
+    .selectFrom('scratchpad')
+    .select(['delivery', 'id'])
+    .where('delivery', 'in', deliveries)
+    .execute();
+  const faults = pads.flatMap((pad) =>
+    stored
+      .filter((row) => row.delivery === pad.delivery && row.id !== pad.id)
+      .map(
+        (row) =>
+          `delivery ${row.delivery} has 2 live scratchpads: ${[row.id, pad.id].toSorted().join(', ')}`,
+      ),
+  );
+  if (faults.length > 0) {
+    throw validation(
+      `the transfer document would give a delivery a second live scratchpad: ${faults.join('; ')}`,
+      'a delivery has one live run journal — freeze or discard the stored pad, or drop the document pad, before importing',
+    );
+  }
+}
+
 /** The whole import inside one open transaction — the preview runs it too. */
 async function applyImport(
   tx: Transaction<DB>,
@@ -655,6 +689,7 @@ async function applyImport(
   );
   const seeds = document.seeds.filter((seed) => settle('seeds', renderSeedRef(seed)));
   const pads = document.scratchpads.filter((pad) => settle('scratchpads', pad.id));
+  await assertNoRivalPads(tx, pads);
 
   // Written in foreign-key order: a project owns its nodes, artifacts, seeds,
   // and pads, and a node owns its edges, annotations, and transitions.
