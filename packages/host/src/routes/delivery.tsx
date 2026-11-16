@@ -72,14 +72,15 @@ function DeliveryRecord({ id }: { id: string }) {
       control.current = null;
     }
   });
-  // A refused verb takes focus back once the write settled and its chip is enabled again.
+  // A refused verb takes focus back once its chip is enabled again: the write settled, and the
+  // console is online. A refusal that lands offline waits for the connection, not just the settle.
   useEffect(() => {
-    if (refusals !== refocused.current && !pending) {
+    if (refusals !== refocused.current && !disabled) {
       refocused.current = refusals;
       control.current?.focus();
       control.current = null;
     }
-  }, [refusals, pending]);
+  }, [refusals, disabled]);
   // Runs a one-tap verb unless another write is already in flight.
   const verb = (
     event: { currentTarget: HTMLButtonElement },

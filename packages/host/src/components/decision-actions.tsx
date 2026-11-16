@@ -38,13 +38,14 @@ export function DecisionActions({
       ? null
       : Math.max(confirm.submittedAt, overturn.submittedAt),
   );
-  // A refused chip takes focus back once the write settled and the chip is enabled again.
+  // A refused chip takes focus back once it is enabled again: the write settled, and the console
+  // is online. A refusal that lands offline waits for the connection, not just the settle.
   useEffect(() => {
-    if (refusal !== refocused.current && !pending) {
+    if (refusal !== refocused.current && !disabled) {
       refocused.current = refusal;
       refusal?.chip.focus();
     }
-  }, [refusal, pending]);
+  }, [refusal, disabled]);
   function answer(
     input: { option?: number; note?: string },
     confirming: boolean,

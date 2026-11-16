@@ -777,3 +777,42 @@ test('a refused chip refocuses only once it is enabled again', async () => {
   expect(focusSpy).toHaveBeenCalledTimes(1);
   expect(chip).toBeEnabled();
 });
+
+test.each(['decision chip', 'delivery verb'])(
+  'a %s refused while offline takes focus back once the console is online again',
+  async (kind) => {
+    let refuse!: () => void;
+    const pending = () =>
+      new Promise<never>((_resolve, reject) => {
+        refuse = () => reject(new Error('Refused write'));
+      });
+    const online = fixture();
+    if (kind === 'decision chip') {
+      vi.mocked(confirm).mockImplementation(pending);
+    } else {
+      online.delivery.hold = 'paused';
+      vi.mocked(deliveryUnpark).mockImplementation(pending);
+    }
+    vi.mocked(deliveryPage).mockResolvedValue(online);
+    const { qc: queryClient } = await open();
+    const chip = await screen.findByRole('button', {
+      name: kind === 'decision chip' ? /Confirm option/ : 'Resume',
+    });
+    chip.focus();
+    fireEvent.click(chip);
+    chip.blur();
+    await waitFor(() =>
+      expect(kind === 'decision chip' ? confirm : deliveryUnpark).toHaveBeenCalledTimes(1),
+    );
+    await goOffline(queryClient);
+    refuse();
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Refused write'));
+    expect(chip).toBeDisabled();
+    expect(chip).not.toHaveFocus();
+    // Back online: the chip is enabled again and takes the focus it lost.
+    vi.mocked(deliveryPage).mockResolvedValue(online);
+    await queryClient.invalidateQueries({ queryKey: ['nodes'] });
+    await waitFor(() => expect(chip).toBeEnabled());
+    await waitFor(() => expect(chip).toHaveFocus());
+  },
+);
