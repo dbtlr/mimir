@@ -80,7 +80,7 @@ function ReviewHead({ count }: { count: number }) {
 function AllClear({ inFlight, last }: { inFlight: number; last: ReviewReport['lastFinished'] }) {
   return (
     <p className="px-1 py-2 text-xs text-ink-faint">
-      <strong className="font-semibold text-ink-dim">No blocks or questions are waiting.</strong>{' '}
+      <strong className="font-semibold text-ink-dim">Nothing is waiting on you.</strong>{' '}
       {inFlight > 0
         ? `Agents are working on ${counted(inFlight, 'task')}.`
         : 'No task is queued, in progress, or in review.'}
