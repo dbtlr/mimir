@@ -1,0 +1,236 @@
+### update argv: MMR-d1 --follow-up MMR-3 --follow-up MMR-s1 -f records
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Attempt
+| lifecycle: agreed
+| hold: none
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| members: 
+| follow-up: MMR-3 ready Wire the store
+| follow-up: MMR-s1 new A hook
+--- state
++ deliveries[MMR-d1].follow_ups[MMR-3]: {"id":"MMR-3","linked_at":"2026-10-01T12:00:00.000Z","status":"ready","title":"Wire the store"}
++ deliveries[MMR-d1].follow_ups[MMR-s1]: {"id":"MMR-s1","linked_at":"2026-10-01T12:00:00.000Z","status":"new","title":"A hook"}
+
+### update argv: MMR-d1 --follow-up MMR-3 --follow-up MMR-s1 -f table
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Attempt
+| lifecycle: agreed
+| hold: none
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| members: 
+| follow-up: MMR-3 ready Wire the store
+| follow-up: MMR-s1 new A hook
+--- state
++ deliveries[MMR-d1].follow_ups[MMR-3]: {"id":"MMR-3","linked_at":"2026-10-01T12:00:00.000Z","status":"ready","title":"Wire the store"}
++ deliveries[MMR-d1].follow_ups[MMR-s1]: {"id":"MMR-s1","linked_at":"2026-10-01T12:00:00.000Z","status":"new","title":"A hook"}
+
+### update argv: MMR-d1 --follow-up MMR-3 --follow-up MMR-s1 -f ids
+exit 0
+--- stdout
+| MMR-d1
+--- state
++ deliveries[MMR-d1].follow_ups[MMR-3]: {"id":"MMR-3","linked_at":"2026-10-01T12:00:00.000Z","status":"ready","title":"Wire the store"}
++ deliveries[MMR-d1].follow_ups[MMR-s1]: {"id":"MMR-s1","linked_at":"2026-10-01T12:00:00.000Z","status":"new","title":"A hook"}
+
+### update argv: MMR-d1 --follow-up MMR-3 --follow-up MMR-s1 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-d1",
+|   "project_key": "MMR",
+|   "seq": 1,
+|   "phase": "MMR-2",
+|   "title": "Attempt",
+|   "lifecycle": "agreed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "agreement": null,
+|   "external_ref": null,
+|   "branch": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "time_cap_minutes": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "members": [],
+|   "elapsed_minutes": null,
+|   "history": [],
+|   "declined": [],
+|   "follow_ups": [
+|     {
+|       "id": "MMR-3",
+|       "linked_at": "2026-10-01T12:00:00.000Z",
+|       "status": "ready",
+|       "title": "Wire the store"
+|     },
+|     {
+|       "id": "MMR-s1",
+|       "linked_at": "2026-10-01T12:00:00.000Z",
+|       "status": "new",
+|       "title": "A hook"
+|     }
+|   ],
+|   "journal": {
+|     "artifacts": [],
+|     "scratchpad": null
+|   },
+|   "limitations": []
+| }
+--- state
++ deliveries[MMR-d1].follow_ups[MMR-3]: {"id":"MMR-3","linked_at":"2026-10-01T12:00:00.000Z","status":"ready","title":"Wire the store"}
++ deliveries[MMR-d1].follow_ups[MMR-s1]: {"id":"MMR-s1","linked_at":"2026-10-01T12:00:00.000Z","status":"new","title":"A hook"}
+
+### update argv: MMR-d1 --follow-up MMR-3 --follow-up MMR-s1 -f jsonl
+exit 0
+--- stdout
+| {
+|   "id": "MMR-d1",
+|   "project_key": "MMR",
+|   "seq": 1,
+|   "phase": "MMR-2",
+|   "title": "Attempt",
+|   "lifecycle": "agreed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "agreement": null,
+|   "external_ref": null,
+|   "branch": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "time_cap_minutes": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "members": [],
+|   "elapsed_minutes": null,
+|   "history": [],
+|   "declined": [],
+|   "follow_ups": [
+|     {
+|       "id": "MMR-3",
+|       "linked_at": "2026-10-01T12:00:00.000Z",
+|       "status": "ready",
+|       "title": "Wire the store"
+|     },
+|     {
+|       "id": "MMR-s1",
+|       "linked_at": "2026-10-01T12:00:00.000Z",
+|       "status": "new",
+|       "title": "A hook"
+|     }
+|   ],
+|   "journal": {
+|     "artifacts": [],
+|     "scratchpad": null
+|   },
+|   "limitations": []
+| }
+--- state
++ deliveries[MMR-d1].follow_ups[MMR-3]: {"id":"MMR-3","linked_at":"2026-10-01T12:00:00.000Z","status":"ready","title":"Wire the store"}
++ deliveries[MMR-d1].follow_ups[MMR-s1]: {"id":"MMR-s1","linked_at":"2026-10-01T12:00:00.000Z","status":"new","title":"A hook"}
+
+### update argv: MMR-d1 --unfollow-up MMR-3 --unfollow-up MMR-s1 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-d1",
+|   "project_key": "MMR",
+|   "seq": 1,
+|   "phase": "MMR-2",
+|   "title": "Attempt",
+|   "lifecycle": "agreed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "agreement": null,
+|   "external_ref": null,
+|   "branch": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "time_cap_minutes": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "members": [],
+|   "elapsed_minutes": null,
+|   "history": [],
+|   "declined": [],
+|   "follow_ups": [],
+|   "journal": {
+|     "artifacts": [],
+|     "scratchpad": null
+|   },
+|   "limitations": []
+| }
+--- state
+- deliveries[MMR-d1].follow_ups[MMR-3]: {"id":"MMR-3","linked_at":"2026-10-01T12:00:00.000Z","status":"ready","title":"Wire the store"}
+- deliveries[MMR-d1].follow_ups[MMR-s1]: {"id":"MMR-s1","linked_at":"2026-10-01T12:00:00.000Z","status":"new","title":"A hook"}
+
+### get argv: MMR-d1
+exit 0
+--- stdout
+| id: MMR-d1
+| project_key: MMR
+| seq: 1
+| phase: MMR-2
+| title: Attempt
+| lifecycle: agreed
+| hold: none
+| created_at: 2026-10-01 12:00 UTC
+| updated_at: 2026-10-01 12:00 UTC
+| members: 
+| follow-up: MMR-3 ready Wire the store
+| follow-up: MMR-s1 new A hook
+--- state
+unchanged
+
+### update argv: MMR-d1 --follow-up MMR-2
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "MMR-2 is a phase, not a task"
+| }
+--- state
+unchanged
+
+### update argv: MMR-3 --follow-up MMR-s1
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "--follow-up and --unfollow-up apply only to a delivery"
+| }
+--- state
+unchanged
+
+### update argv: MMR-q1 --follow-up MMR-3
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "pass --task, --untask, or --delivery"
+|   ],
+|   "message": "--follow-up doesn't apply to a decision"
+| }
+--- state
+unchanged
+

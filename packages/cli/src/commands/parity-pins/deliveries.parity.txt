@@ -214,6 +214,7 @@ exit 0
 |     }
 |   ],
 |   "declined": [],
+|   "follow_ups": [],
 |   "journal": {
 |     "artifacts": [],
 |     "scratchpad": null
@@ -289,6 +290,7 @@ exit 0
 |     }
 |   ],
 |   "declined": [],
+|   "follow_ups": [],
 |   "journal": {
 |     "artifacts": [],
 |     "scratchpad": null

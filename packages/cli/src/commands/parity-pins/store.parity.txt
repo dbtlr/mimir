@@ -47,6 +47,7 @@ exit 0
 |   "decisions": [],
 |   "deliveries": [],
 |   "delivery_findings": [],
+|   "delivery_follow_ups": [],
 |   "edges": [
 |     {
 |       "depends_on_node_id": "MMR-3",
@@ -444,7 +445,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 13,
+|   "schema_version": 14,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -572,6 +573,7 @@ exit 0
 |   "decisions": [],
 |   "deliveries": [],
 |   "delivery_findings": [],
+|   "delivery_follow_ups": [],
 |   "edges": [
 |     {
 |       "depends_on_node_id": "MMR-3",
@@ -969,7 +971,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 13,
+|   "schema_version": 14,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -1097,6 +1099,7 @@ exit 0
 |   "decisions": [],
 |   "deliveries": [],
 |   "delivery_findings": [],
+|   "delivery_follow_ups": [],
 |   "edges": [
 |     {
 |       "depends_on_node_id": "MMR-3",
@@ -1494,7 +1497,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 13,
+|   "schema_version": 14,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -1622,6 +1625,7 @@ exit 0
 |   "decisions": [],
 |   "deliveries": [],
 |   "delivery_findings": [],
+|   "delivery_follow_ups": [],
 |   "edges": [
 |     {
 |       "depends_on_node_id": "MMR-3",
@@ -2019,7 +2023,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 13,
+|   "schema_version": 14,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -2147,6 +2151,7 @@ exit 0
 |   "decisions": [],
 |   "deliveries": [],
 |   "delivery_findings": [],
+|   "delivery_follow_ups": [],
 |   "edges": [
 |     {
 |       "depends_on_node_id": "MMR-3",
@@ -2544,7 +2549,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 13,
+|   "schema_version": 14,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -2626,7 +2631,7 @@ exit 0
 ### store export <file>
 exit 0
 --- stdout
-| {"artifacts":1,"nodes":11,"projects":2,"scratchpads":0,"seeds":1,"exported_at":"2026-01-01T00:00:00.000Z","path":"<dir>/a.json","schema_version":13}
+| {"artifacts":1,"nodes":11,"projects":2,"scratchpads":0,"seeds":1,"exported_at":"2026-01-01T00:00:00.000Z","path":"<dir>/a.json","schema_version":14}
 --- file
 | {
 |   "annotations": [
@@ -2674,6 +2679,7 @@ exit 0
 |   "decisions": [],
 |   "deliveries": [],
 |   "delivery_findings": [],
+|   "delivery_follow_ups": [],
 |   "edges": [
 |     {
 |       "depends_on_node_id": "MMR-3",
@@ -3071,7 +3077,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 13,
+|   "schema_version": 14,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -3201,6 +3207,7 @@ exit 0
 |   "decisions": [],
 |   "deliveries": [],
 |   "delivery_findings": [],
+|   "delivery_follow_ups": [],
 |   "edges": [
 |     {
 |       "depends_on_node_id": "MMR-3",
@@ -3598,7 +3605,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 13,
+|   "schema_version": 14,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -3728,6 +3735,7 @@ exit 0
 |   "decisions": [],
 |   "deliveries": [],
 |   "delivery_findings": [],
+|   "delivery_follow_ups": [],
 |   "edges": [
 |     {
 |       "depends_on_node_id": "MMR-3",
@@ -4125,7 +4133,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 13,
+|   "schema_version": 14,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -4255,6 +4263,7 @@ exit 0
 |   "decisions": [],
 |   "deliveries": [],
 |   "delivery_findings": [],
+|   "delivery_follow_ups": [],
 |   "edges": [
 |     {
 |       "depends_on_node_id": "MMR-3",
@@ -4652,7 +4661,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 13,
+|   "schema_version": 14,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -4734,7 +4743,7 @@ exit 0
 ### store export <file> -f json
 exit 0
 --- stdout
-| {"artifacts":1,"nodes":11,"projects":2,"scratchpads":0,"seeds":1,"exported_at":"2026-01-01T00:00:00.000Z","path":"<dir>/e.json","schema_version":13}
+| {"artifacts":1,"nodes":11,"projects":2,"scratchpads":0,"seeds":1,"exported_at":"2026-01-01T00:00:00.000Z","path":"<dir>/e.json","schema_version":14}
 --- file
 | {
 |   "annotations": [
@@ -4782,6 +4791,7 @@ exit 0
 |   "decisions": [],
 |   "deliveries": [],
 |   "delivery_findings": [],
+|   "delivery_follow_ups": [],
 |   "edges": [
 |     {
 |       "depends_on_node_id": "MMR-3",
@@ -5179,7 +5189,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 13,
+|   "schema_version": 14,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -5261,7 +5271,7 @@ exit 0
 ### store export <file> -f jsonl
 exit 0
 --- stdout
-| {"artifacts":1,"nodes":11,"projects":2,"scratchpads":0,"seeds":1,"exported_at":"2026-01-01T00:00:00.000Z","path":"<dir>/f.json","schema_version":13}
+| {"artifacts":1,"nodes":11,"projects":2,"scratchpads":0,"seeds":1,"exported_at":"2026-01-01T00:00:00.000Z","path":"<dir>/f.json","schema_version":14}
 --- file
 | {
 |   "annotations": [
@@ -5309,6 +5319,7 @@ exit 0
 |   "decisions": [],
 |   "deliveries": [],
 |   "delivery_findings": [],
+|   "delivery_follow_ups": [],
 |   "edges": [
 |     {
 |       "depends_on_node_id": "MMR-3",
@@ -5706,7 +5717,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 13,
+|   "schema_version": 14,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -6003,7 +6014,7 @@ exit 1
 | {
 |   "code": "validation",
 |   "hints": [
-|     "this binary reads schema versions 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13"
+|     "this binary reads schema versions 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14"
 |   ],
 |   "message": "unsupported transfer document schema version 99"
 | }
@@ -6015,7 +6026,7 @@ exit 1
 | {
 |   "code": "validation",
 |   "hints": [
-|     "this binary reads schema versions 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13"
+|     "this binary reads schema versions 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14"
 |   ],
 |   "message": "unsupported transfer document schema version 99"
 | }
@@ -6099,6 +6110,7 @@ exit 0
 |   "decisions": [],
 |   "deliveries": [],
 |   "delivery_findings": [],
+|   "delivery_follow_ups": [],
 |   "edges": [
 |     {
 |       "depends_on_node_id": "MMR-3",
@@ -6496,7 +6508,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 13,
+|   "schema_version": 14,
 |   "scratchpads": [],
 |   "seeds": [
 |     {
@@ -6641,6 +6653,7 @@ exit 0
 |   "decisions": [],
 |   "deliveries": [],
 |   "delivery_findings": [],
+|   "delivery_follow_ups": [],
 |   "edges": [
 |     {
 |       "depends_on_node_id": "MMR-3",
@@ -7038,7 +7051,7 @@ exit 0
 |       "updated_at": "2026-10-01T12:00:00.000Z"
 |     }
 |   ],
-|   "schema_version": 13,
+|   "schema_version": 14,
 |   "scratchpads": [],
 |   "seeds": [
 |     {

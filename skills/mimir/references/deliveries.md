@@ -137,3 +137,17 @@ mimir get MMR-d3 --since 2026-11-16T09:00:00Z -f json   # events after it, plus 
   event; read them from the snapshot or `get <task>`.
 - `--since` works only on a `KEY-dN` id. Use `--at-or-after` to window a list.
 - Rerun it before close-out to see what changed since you last looked.
+
+## Follow-ups
+
+`update KEY-dN --follow-up KEY-N --follow-up OTHER-sN` links filed work;
+`--unfollow-up ID` removes a standing link. Both flags repeat. Tasks must be
+on the delivery's board; seeds may be on another board. Links affect no
+record's behavior. They are writable under holds and after landing or
+abandoning. A terminal delivery refuses an update naming any other field.
+
+`get` and the update echo show `follow_ups` in link order, with each record's
+id, title, status, and link instant. Archived projects' records are hidden.
+The since feed reports link/unlink as `follow_up`, with the linked id in
+`text`, between findings and member transitions at equal timestamps. It does
+not include follow-ups' own activity.

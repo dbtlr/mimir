@@ -705,3 +705,18 @@ Engine method is `deliverySince({ id, since })` and returns `Date` instants; the
   In plain output (`--ascii`, `NO_COLOR` set, or output that is not a terminal,
   such as a pipe), the arrow prints as `->` and both dashes as `-`. `ids`
   prints the delivery id.
+
+### Delivery follow-ups
+
+`get KEY-dN` and the `deliveryUpdate` echo carry `follow_ups`, in insertion
+order, as `{id, title, status, linked_at}`. Only standing links to records in
+active projects appear. A task's status is its derived status word; a seed's
+is its lifecycle. Engine `linked_at` values are Dates; JSON uses UTC strings.
+Records output prints `follow-up: <id> <status> <title>` per visible link.
+
+The since feed adds `follow_up` between findings and member transitions.
+Its `record` is the delivery, `text` the linked id, and `task` and `number`
+are null. Link events have `from: null`, `to: linked`; unlink events have
+`from: linked`, `to: unlinked`. IDs are
+`KEY-dN/follow-up/<row>/linked` or `KEY-dN/follow-up/<row>/unlinked`.
+Rows whose linked project is archived yield no events.

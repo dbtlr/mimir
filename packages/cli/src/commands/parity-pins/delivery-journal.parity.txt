@@ -141,6 +141,7 @@ exit 0
 |   "elapsed_minutes": null,
 |   "history": [],
 |   "declined": [],
+|   "follow_ups": [],
 |   "journal": {
 |     "artifacts": [
 |       "MMR-a2"

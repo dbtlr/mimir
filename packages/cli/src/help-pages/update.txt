@@ -7,6 +7,8 @@ ARGUMENTS
   id  KEY-seq, KEY, KEY-aN, KEY-sN, KEY-dN, or KEY-qN.
 
 OPTIONS
+      --follow-up <text>        Link a task or seed to a delivery; repeat.  (repeatable)
+      --unfollow-up <text>      Unlink a task or seed from a delivery; repeat.  (repeatable)
       --task <text>             Link a task to a decision; repeat.  (repeatable)
       --untask <text>           Unlink a task from a decision; repeat.  (repeatable)
       --agreement <text>        Replace the delivery agreement.
