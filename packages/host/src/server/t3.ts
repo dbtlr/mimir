@@ -941,6 +941,10 @@ export function createT3Adapter(options: T3AdapterOptions) {
       if ('field' in parsed) {
         return { field: parsed.field, state: 'invalid' };
       }
+      // Check 1 runs first on a Retry too, before the decision read.
+      if (!settings.enabled) {
+        return { reason: 'unconfigured', state: 'skipped' };
+      }
       if (parsed.action === 'overturn' && parsed.decision !== null) {
         let named: string | null;
         try {

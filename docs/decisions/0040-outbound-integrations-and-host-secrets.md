@@ -606,7 +606,7 @@ output, and `wake` is a tagged state.
 | `misconfigured` | The feature's settings fail their check (`setting` and `problem`, as for the catalog)        | warning toast linking to Devices                              |
 | `disconnected` | No usable token: `reason` is `none`, `expired`, or `rejected`                                | warning toast with Reconnect T3                               |
 | `unreachable`  | T3 did not answer, timed out, or sent an unreadable reply                                    | warning toast with Retry                                      |
-| `refused`      | T3 answered the send with a tool error (`isError`), or has no send tool; carries `thread`    | warning toast with Open in T3, naming the access-level cause  |
+| `refused`      | T3 answered the send with a tool error (`isError`), or has no send tool; carries `thread`    | warning toast with Open in T3 and Reconnect T3, naming the access-level cause |
 | `failed`       | The wake faulted after the write: the delivery read failed, or an unexpected error           | warning toast with Retry                                      |
 | `invalid`      | Only from `wakeT3`: `field` names the input that failed                                      | error toast                                                   |
 
@@ -632,8 +632,8 @@ output, and `wake` is a tagged state.
   Retry's own error, worded for the field it names. For example `Saved. The T3 thread was not told: T3 did not
   answer.` A send T3 refuses on every try is most often a thread running with
   more access than Mimir's connection (T3 refuses a send to a thread with
-  broader modes than the sender's), so the `refused` toast names reconnecting
-  T3 with full access beside Open in T3. T3's text never reaches the console
+  broader modes than the sender's), so the `refused` toast names that cause
+  and offers Reconnect T3, to reconnect with full access, beside Open in T3. T3's text never reaches the console
   or a log, as for the launch.
 - **Retry** calls `wakeT3` with a state's `retry`. It answers a `wake` state
   alone, with no `record`, and writes nothing to the store. It runs the checks

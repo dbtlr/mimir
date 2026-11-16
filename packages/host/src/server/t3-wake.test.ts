@@ -411,6 +411,15 @@ describe('wakeT3', () => {
     expect(h.stub.wakes).toHaveLength(1);
   });
 
+  test('a retry of an overturn with the feature unset skips before reading the decision', async () => {
+    const h = harness({ decisions: {}, settings: { enabled: false } });
+    expect(await h.adapter.wakeT3(retryFor('overturn'))).toEqual({
+      reason: 'unconfigured',
+      state: 'skipped',
+    });
+    expect(h.logs).toEqual([]);
+  });
+
   test.each<[T3WakeField, Record<string, unknown>]>([
     ['action', { action: 'deliveryLand' }],
     ['delivery', { delivery: 'MMR-3' }],
