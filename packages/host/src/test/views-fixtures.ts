@@ -35,9 +35,9 @@ export function engineWork(overrides: Partial<WorkReport> = {}): WorkReport {
 /** The review page with nothing in it; override the parts a case fills. */
 export function engineReview(overrides: Partial<ReviewReport> = {}): ReviewReport {
   return {
-    decisions: [],
     goingCold: [],
     lastFinished: null,
+    needsYou: [],
     now: [],
     projects: [],
     queue: [],
@@ -68,7 +68,7 @@ export function needsYouRow(
   reason: NeedsYouTask['reason'],
   row: Partial<Omit<NeedsYouTask, 'task' | 'reason'>> = {},
 ): NeedsYouTask {
-  return { question: null, reason, stale: false, task: workTask(overrides), ...row };
+  return { kind: 'task', question: null, reason, stale: false, task: workTask(overrides), ...row };
 }
 
 /** A task in progress. */
@@ -120,7 +120,7 @@ export function stripRow(
   ref: { key: string; name: string },
   counts: Partial<ReviewReport['projects'][number]> = {},
 ): ReviewReport['projects'][number] {
-  return { ...ref, decisions: 0, goingCold: 0, inFlight: 0, live: 0, triage: 0, ...counts };
+  return { ...ref, goingCold: 0, inFlight: 0, live: 0, needsYou: 0, triage: 0, ...counts };
 }
 
 /** An untriaged seed as the review page lists it. */

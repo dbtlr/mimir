@@ -37,8 +37,8 @@ const MMR = engineProject({ id: 'MMR', lastActivityAt: atDay('09'), title: 'Mimi
 const LUM = engineProject({ id: 'LUM', lastActivityAt: atDay('02'), title: 'Lumen' });
 const OLD = engineProject({ archivedAt: atDay('01'), id: 'OLD', title: 'Retired' });
 
-function decisions(key: string, count: number): ReviewReport['projects'][number] {
-  return stripRow({ key, name: key }, { decisions: count });
+function needsYou(key: string, count: number): ReviewReport['projects'][number] {
+  return stripRow({ key, name: key }, { needsYou: count });
 }
 
 type World = {
@@ -206,15 +206,15 @@ describe('switcher order and groups', () => {
   });
 
   it('marks the current project and shows a decision count only where there is one', async () => {
-    serve({ review: [decisions('NRN', 0), decisions('MMR', 3)] });
+    serve({ review: [needsYou('NRN', 0), needsYou('MMR', 3)] });
     await renderAt('/p/NRN');
     await openSwitcher();
     await waitFor(() => {
-      expect(within(optionOf('MMR')).getByLabelText('3 decisions')).toBeInTheDocument();
+      expect(within(optionOf('MMR')).getByLabelText('3 need you')).toBeInTheDocument();
     });
     expect(optionOf('NRN')).toHaveAttribute('aria-current', 'true');
     expect(optionOf('MMR')).not.toHaveAttribute('aria-current');
-    expect(within(optionOf('MMR')).getByLabelText('3 decisions')).toHaveTextContent('3');
+    expect(within(optionOf('MMR')).getByLabelText('3 need you')).toHaveTextContent('3');
     expect(within(optionOf('NRN')).queryByLabelText(/decision/)).toBeNull();
     expect(within(optionOf('LUM')).queryByLabelText(/decision/)).toBeNull();
   });
@@ -417,12 +417,12 @@ describe('switcher All projects option (MMR-505)', () => {
     expect(updateProject).not.toHaveBeenCalled();
   });
 
-  it('shows the decisions across every project', async () => {
-    serve({ review: [decisions('NRN', 1), decisions('MMR', 3)] });
+  it('shows the needsYou across every project', async () => {
+    serve({ review: [needsYou('NRN', 1), needsYou('MMR', 3)] });
     await renderAt('/p/NRN');
     await openSwitcher();
     await waitFor(() => {
-      expect(allOption()).toHaveAccessibleName(/4 decisions/);
+      expect(allOption()).toHaveAccessibleName(/4 need you/);
     });
   });
 
@@ -504,17 +504,15 @@ describe('switcher All projects option (MMR-505)', () => {
 });
 
 describe('switcher header', () => {
-  it('counts the decisions waiting in other projects', async () => {
-    serve({ review: [decisions('NRN', 4), decisions('MMR', 2), decisions('LUM', 1)] });
+  it('counts the needsYou waiting in other projects', async () => {
+    serve({ review: [needsYou('NRN', 4), needsYou('MMR', 2), needsYou('LUM', 1)] });
     await renderAt('/p/NRN');
     await expect(screen.findByText('3 elsewhere')).resolves.toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /NRN.*3 decisions in other projects/ }),
-    ).toBeVisible();
+    expect(screen.getByRole('button', { name: /NRN.*3 need you in other projects/ })).toBeVisible();
   });
 
-  it('says nothing about elsewhere when only this project has decisions', async () => {
-    serve({ review: [decisions('NRN', 4), decisions('MMR', 0)] });
+  it('says nothing about elsewhere when only this project has needsYou', async () => {
+    serve({ review: [needsYou('NRN', 4), needsYou('MMR', 0)] });
     await renderAt('/p/NRN');
     await header();
     await waitFor(() => {
@@ -567,10 +565,10 @@ describe('switcher while offline', () => {
 });
 
 describe('switcher header on All projects (MMR-505)', () => {
-  it('names All projects with the decisions across every project, and no elsewhere', async () => {
-    serve({ review: [decisions('NRN', 1), decisions('MMR', 3)] });
+  it('names All projects with the needsYou across every project, and no elsewhere', async () => {
+    serve({ review: [needsYou('NRN', 1), needsYou('MMR', 3)] });
     await renderAt('/');
-    const button = await screen.findByRole('button', { name: /^All projects.*4 decisions/ });
+    const button = await screen.findByRole('button', { name: /^All projects.*4 need you/ });
     expect(button).toHaveTextContent('4');
     expect(button).not.toHaveTextContent('elsewhere');
   });

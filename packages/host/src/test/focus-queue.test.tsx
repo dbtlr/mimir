@@ -61,15 +61,15 @@ const question = decision('MMR-480', 'needs_answers', {
   title: 'Pick the skip behavior',
 });
 
-/** A review read listing `rows` as decisions in the queue order given, grouped LM then MMR. */
-function decisions(...rows: NeedsYouTask[]): ReviewReport {
+/** A review read listing `rows` as needsYou in the queue order given, grouped LM then MMR. */
+function needsYou(...rows: NeedsYouTask[]): ReviewReport {
   const groups = [LM, MMR]
     .map((p) => ({ project: p, rows: rows.filter((r) => r.task.id.startsWith(`${p.key}-`)) }))
     .filter((group) => group.rows.length > 0);
   return engineReview({
-    decisions: groups,
-    projects: [stripRow(LM, { decisions: groups[0]?.rows.length ?? 0 }), stripRow(MMR)],
-    queue: rows.map((r) => r.task.id),
+    needsYou: groups,
+    projects: [stripRow(LM, { needsYou: groups[0]?.rows.length ?? 0 }), stripRow(MMR)],
+    queue: rows.map((r) => ({ id: r.task.id, kind: r.kind })),
   });
 }
 
@@ -100,6 +100,7 @@ function serve(
   vi.mocked(tree).mockImplementation(async ({ data }) => {
     const key = data.id;
     const leaves = current.queue
+      .map((r) => r.id)
       .filter((id) => id.startsWith(`${key}-`))
       .map((id) => engineTree({ id, parent: `${key}-2`, status: 'ready', type: 'task' }));
     const phase = engineTree(
@@ -142,9 +143,9 @@ const cardFor = (row: NeedsYouTask) => screen.findByRole('region', { name: row.t
 
 describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () => {
   it('shows the first decision with its path, description, and question, and names the next', async () => {
-    serve(decisions(question, block), {
+    serve(needsYou(question, block), {
       details: {
-        'MMR-480': { node: { description: 'Step through **decisions** one at a time.' } },
+        'MMR-480': { node: { description: 'Step through **needsYou** one at a time.' } },
       },
     });
     await renderRoute(consoleRoutes, '/?mode=focus', reviewClient());
@@ -156,7 +157,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     expect(shown).toHaveTextContent('Needs answers');
     expect(shown).toHaveTextContent('Skip, or drop it?');
     await waitFor(() => {
-      expect(within(shown).getByText('decisions').tagName).toBe('STRONG');
+      expect(within(shown).getByText('needsYou').tagName).toBe('STRONG');
     });
     const path = within(shown).getByRole('navigation', { name: 'Path' });
     await waitFor(() => {
@@ -172,7 +173,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
   });
 
   it('answers a question in place, and moves to the next decision', async () => {
-    serve(decisions(loomQuestion, block), { after: decisions(block) });
+    serve(needsYou(loomQuestion, block), { after: needsYou(block) });
     await renderRoute(consoleRoutes, '/?mode=focus', reviewClient());
 
     const shown = await cardFor(loomQuestion);
@@ -198,7 +199,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
       holdReason: 'Waiting on https://example.com/review today',
       title: 'Wait for the review',
     });
-    serve(decisions(linked));
+    serve(needsYou(linked));
     await renderRoute(consoleRoutes, '/?mode=focus', reviewClient());
 
     const shown = await cardFor(linked);
@@ -210,7 +211,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
   });
 
   it('lands focus on the next decision’s first action after acting', async () => {
-    serve(decisions(loomQuestion, question), { after: decisions(question) });
+    serve(needsYou(loomQuestion, question), { after: needsYou(question) });
     await renderRoute(consoleRoutes, '/?mode=focus', reviewClient());
 
     const answer = within(await cardFor(loomQuestion)).getByRole('button', { name: 'Answer…' });
@@ -230,7 +231,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
   });
 
   it('shows a block on you with what it waits on, a link to its task, and no action', async () => {
-    serve(decisions(block));
+    serve(needsYou(block));
     await renderRoute(consoleRoutes, '/?mode=focus', reviewClient());
 
     const shown = await cardFor(block);
@@ -248,7 +249,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
   });
 
   it('skips without writing, and returns to / with the skipped decision still listed', async () => {
-    serve(decisions(question, block));
+    serve(needsYou(question, block));
     const { router: testRouter } = await renderRoute(consoleRoutes, '/?mode=focus', reviewClient());
 
     fireEvent.click(within(await cardFor(question)).getByRole('button', { name: 'Skip' }));
@@ -266,13 +267,13 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
       question: 'Which?',
       title: 'Arrived later',
     });
-    const serving = serve(decisions(loomQuestion, block));
+    const serving = serve(needsYou(loomQuestion, block));
     const client = reviewClient();
     await renderRoute(consoleRoutes, '/?mode=focus', client);
     await cardFor(loomQuestion);
 
     // The first question is settled elsewhere and a new one arrives.
-    serving.poll(decisions(block, later));
+    serving.poll(needsYou(block, later));
     await client.invalidateQueries({ queryKey: ['review'] });
 
     const shown = await cardFor(block);
@@ -283,7 +284,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
   });
 
   it('returns to / when nothing needs you', async () => {
-    serve(decisions());
+    serve(needsYou());
     const { router: testRouter } = await renderRoute(consoleRoutes, '/?mode=focus', reviewClient());
 
     await screen.findByRole('heading', { level: 1, name: 'Nothing needs you' });
@@ -291,7 +292,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
   });
 
   it('lands focus on the next decision’s first action after Skip', async () => {
-    serve(decisions(question, loomQuestion));
+    serve(needsYou(question, loomQuestion));
     await renderRoute(consoleRoutes, '/?mode=focus', reviewClient());
 
     const skip = within(await cardFor(question)).getByRole('button', { name: 'Skip' });
@@ -303,16 +304,16 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
   });
 
   it('keeps a passed decision behind it when the decision returns', async () => {
-    const serving = serve(decisions(loomQuestion, block, question));
+    const serving = serve(needsYou(loomQuestion, block, question));
     const client = reviewClient();
     await renderRoute(consoleRoutes, '/?mode=focus', client);
     await cardFor(loomQuestion);
 
     // The first question is answered elsewhere, then asked again.
-    serving.poll(decisions(block, question));
+    serving.poll(needsYou(block, question));
     await client.invalidateQueries({ queryKey: ['review'] });
     await cardFor(block);
-    serving.poll(decisions(loomQuestion, block, question));
+    serving.poll(needsYou(loomQuestion, block, question));
     await client.invalidateQueries({ queryKey: ['review'] });
 
     await expect(cardFor(block)).resolves.toBeDefined();
@@ -321,11 +322,11 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
   });
 
   it('fixes its list from a fresh read, not a cached one', async () => {
-    serve(decisions(question));
+    serve(needsYou(question));
     const { router: testRouter } = await renderRoute(
       consoleRoutes,
       '/?mode=focus',
-      reviewClient(decisions(loomQuestion)),
+      reviewClient(needsYou(loomQuestion)),
     );
 
     await expect(cardFor(question)).resolves.toBeDefined();

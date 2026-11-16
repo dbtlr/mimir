@@ -4,10 +4,10 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useTransition } from '../api/node-mutations';
-import type { NeedsYouTask } from '../api/view-queries';
+import type { NeedsYouMember, NeedsYouTask } from '../api/view-queries';
 import { visibleGrooming } from '../lib/grooming';
 import type { Groomable } from '../lib/grooming';
-import { nodeLink } from '../lib/record-url';
+import { deliveryLink, nodeLink } from '../lib/record-url';
 import { PHONE_TOUCH_TARGET } from '../lib/touch-target';
 import { useDisarmWhenSettled } from '../lib/use-row-focus-handoff';
 import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
@@ -63,7 +63,7 @@ function NeedsYouReason({ row }: { row: NeedsYouTask }) {
  * the latest question on a task that needs answers. `actions` are the
  * buttons that settle it in place, when the surface offers them.
  */
-export function NeedsYouRow({
+function TaskNeedsYouRow({
   row,
   actions,
   current = false,
@@ -114,12 +114,56 @@ export function NeedsYouRow({
   );
 }
 
+/** The set's three variants share the attention rule. */
+export function NeedsYouRow({
+  row,
+  actions,
+  current = false,
+  currentId,
+}: {
+  row: NeedsYouMember;
+  actions?: ReactNode;
+  current?: boolean;
+  currentId?: string;
+}) {
+  if (row.kind === 'task') {
+    return <TaskNeedsYouRow row={row} actions={actions} current={current} />;
+  }
+  if (row.kind === 'decision') {
+    return <DecisionRow decision={row.decision} currentDelivery={currentId} />;
+  }
+  const d = row.delivery;
+  return (
+    <div className={ATTENTION_RULE}>
+      <BrowserRow
+        to={deliveryLink(d.id)}
+        id={d.id}
+        title={d.title}
+        beforeTitle={
+          <>
+            <span className="microlabel text-attention-foreground">Stopped</span>
+            <span className="text-tag text-ink-dim">{d.lifecycle}</span>
+            {current && <span className="microlabel text-ink-faint">This page</span>}
+          </>
+        }
+        meta={<p className="text-meta text-ink-dim">{d.hold_reason}</p>}
+      />
+    </div>
+  );
+}
+
 /**
  * A decision record that needs the operator (ADR 0043): its question and
  * class, the numbered options with the taken one marked, and the tasks it
  * touches. The delivery page shows it now; the needs-you groups reuse it.
  */
-export function DecisionRow({ decision }: { decision: EngineDecision }) {
+export function DecisionRow({
+  decision,
+  currentDelivery,
+}: {
+  decision: EngineDecision;
+  currentDelivery?: string;
+}) {
   return (
     <div className={`${ATTENTION_RULE} flex flex-col gap-1.5 py-1.5 wrap-anywhere`}>
       <span className="text-tag text-attention-foreground">
@@ -137,6 +181,14 @@ export function DecisionRow({ decision }: { decision: EngineDecision }) {
         ))}
       </ol>
       <div className="flex flex-wrap gap-2 text-tag">
+        {decision.delivery !== null && decision.delivery !== currentDelivery && (
+          <Link
+            {...deliveryLink(decision.delivery)}
+            className={`text-accent-foreground underline ${PHONE_TOUCH_TARGET}`}
+          >
+            {decision.delivery}
+          </Link>
+        )}
         {decision.tasks.map((task) => (
           <Link
             key={task}
@@ -222,11 +274,11 @@ function AnswerAction({
 
 /** What a needs-you row offers: an answer on a question, or nothing for a block. */
 export function needsYouActions(
-  row: NeedsYouTask,
+  row: NeedsYouMember,
   offline: boolean,
   handoff: RowFocusHandoff,
 ): ReactNode {
-  if (row.reason === 'needs_answers') {
+  if (row.kind === 'task' && row.reason === 'needs_answers') {
     return (
       <AnswerAction id={row.task.id} question={row.question} offline={offline} handoff={handoff} />
     );

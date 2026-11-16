@@ -3,9 +3,10 @@ import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { needsYouId } from '../api/view-queries';
 import type {
   FrontierTask,
-  NeedsYouTask,
+  NeedsYouMember,
   NowTask,
   ShippedTask,
   WaitingTask,
@@ -242,8 +243,8 @@ function NowSection({ rows, agentRun }: { rows: readonly NowTask[]; agentRun: Ag
   );
 }
 
-function NeedsYouSection({ rows, offline }: { rows: readonly NeedsYouTask[]; offline: boolean }) {
-  const { handoff, headingRef } = useRowFocusHandoff(rows.map((row) => row.task.id));
+function NeedsYouSection({ rows, offline }: { rows: readonly NeedsYouMember[]; offline: boolean }) {
+  const { handoff, headingRef } = useRowFocusHandoff(rows.map((row) => needsYouId(row)));
   return (
     <BrowserGroup
       label="Needs you"
@@ -257,7 +258,7 @@ function NeedsYouSection({ rows, offline }: { rows: readonly NeedsYouTask[]; off
       ) : (
         rows.map((row) => (
           <NeedsYouRow
-            key={row.task.id}
+            key={needsYouId(row)}
             row={row}
             actions={needsYouActions(row, offline, handoff)}
           />

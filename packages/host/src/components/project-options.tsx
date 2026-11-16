@@ -14,14 +14,14 @@ import { StatusDot } from './status-dot';
  * its pin.
  */
 
-/** The violet count of decisions waiting; nothing at zero. */
-export function DecisionCount({ count }: { count: number }) {
+/** The violet count of needsYou waiting; nothing at zero. */
+export function NeedsYouCount({ count }: { count: number }) {
   if (count <= 0) {
     return null;
   }
   return (
     <span
-      aria-label={`${String(count)} ${count === 1 ? 'decision' : 'decisions'}`}
+      aria-label={`${String(count)} ${count === 1 ? 'needs you' : 'need you'}`}
       className="shrink-0 rounded-full bg-attention/12 px-[7px] text-tag font-semibold text-attention-foreground inset-ring inset-ring-attention/24"
     >
       {count}
@@ -66,10 +66,10 @@ export const PROJECT_ROW =
 /** A project row's content: its status (or snowflake), key, title, and decision count. */
 export function ProjectRowContent({
   project,
-  decisions,
+  needsYou,
 }: {
   project: EngineNode;
-  decisions: number;
+  needsYou: number;
 }) {
   const frozen = project.archivedAt != null;
   return (
@@ -85,7 +85,7 @@ export function ProjectRowContent({
       </span>{' '}
       {/* The spaces part the row's accessible name; flex layout drops them visually. */}
       <span className="min-w-0 flex-1 truncate">{project.title}</span>{' '}
-      <DecisionCount count={decisions} />
+      <NeedsYouCount count={needsYou} />
     </>
   );
 }
@@ -101,7 +101,7 @@ export function ProjectOption({
   id,
   active,
   current,
-  decisions,
+  needsYou,
   pinnable,
   onActivate,
   onPick,
@@ -111,7 +111,7 @@ export function ProjectOption({
   id: string;
   active: boolean;
   current: boolean;
-  decisions: number;
+  needsYou: number;
   pinnable: boolean;
   onActivate: () => void;
   onPick: () => void;
@@ -144,7 +144,7 @@ export function ProjectOption({
         frozen && 'text-ink-ghost',
       )}
     >
-      <ProjectRowContent project={project} decisions={decisions} />
+      <ProjectRowContent project={project} needsYou={needsYou} />
       {pinned && <span className="sr-only">, pinned</span>}
       {!frozen && (
         // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions

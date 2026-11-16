@@ -82,6 +82,16 @@ beforeAll(async () => {
   };
   local = new LocalEngine(store, { findings: findingsProviderOf(doctor) });
   await local.deliveryCreate({ phase: phase.id, tasks: [ready.id], title: 'Delivery view' });
+  await local.deliveryBlock({ id: 'ENG-d1', reason: 'Need access' });
+  await local.decide({
+    class: 'product',
+    delivery: 'ENG-d1',
+    options: ['Yes', 'No'],
+    project: 'ENG',
+    question: 'Proceed?',
+    recommended: 1,
+    tasks: [blocked.id],
+  });
   const handle = createEngineHandler(local, {
     verifyToken: fixture.tokens.verify,
     version: WINDOW_VERSION,
@@ -131,8 +141,15 @@ test.each(cases)('console.$name answers the same locally and remotely', async (c
 
 test('the fixture reaches every section the pages show', async () => {
   const review = await remote.console.review({ timeZone: 'UTC' });
-  expect(review.decisions.map((group) => group.project.key)).toEqual(['ENG']);
-  expect(review.queue).toEqual([ids.blocked]);
+  expect(review.needsYou.map((group) => group.project.key)).toEqual(['ENG']);
+  expect(review.queue).toEqual([
+    { id: 'ENG-d1', kind: 'delivery' },
+    { id: 'ENG-q1', kind: 'decision' },
+    { id: ids.blocked, kind: 'task' },
+  ]);
+  const rows = review.needsYou[0]!.rows;
+  expect(rows[0]?.kind === 'delivery' && rows[0].delivery.updated_at).toBeInstanceOf(Date);
+  expect(rows[1]?.kind === 'decision' && rows[1].decision.created_at).toBeInstanceOf(Date);
   expect(review.now.map((row) => row.task.id)).toContain(ids.submitted);
   expect(review.now[0]?.startedAt).toBeInstanceOf(Date);
   expect(review.shipped[0]?.finishedAt).toBeInstanceOf(Date);

@@ -105,8 +105,8 @@ const renderAt = async (initial: string) =>
 const MMR = engineProject({ id: 'MMR', title: 'Mimir' });
 const NRN = engineProject({ id: 'NRN', title: 'Norn' });
 
-function decisions(key: string, count: number): ReviewReport['projects'][number] {
-  return stripRow({ key, name: key }, { decisions: count });
+function needsYou(key: string, count: number): ReviewReport['projects'][number] {
+  return stripRow({ key, name: key }, { needsYou: count });
 }
 
 const topBar = () => screen.getAllByRole('banner')[0] as HTMLElement;
@@ -291,8 +291,8 @@ describe('sidebar on All projects (MMR-505)', () => {
 });
 
 describe('sidebar Projects section on All projects (MMR-562, MMR-567)', () => {
-  it('lists the pinned projects as links to their work pages, with their decisions', async () => {
-    serveWorld([decisions('LOM', 2)]);
+  it('lists the pinned projects as links to their work pages, with their needsYou', async () => {
+    serveWorld([needsYou('LOM', 2)]);
     await renderAt('/');
     const area = await section();
     await waitFor(() => {
@@ -300,7 +300,7 @@ describe('sidebar Projects section on All projects (MMR-562, MMR-567)', () => {
     });
     expect(within(area).getByRole('link', { name: /^FLT/ })).toHaveAttribute('href', '/p/FLT');
     await expect(
-      within(area).findByRole('link', { name: /^LOM.*2 decisions/ }),
+      within(area).findByRole('link', { name: /^LOM.*2 need you/ }),
     ).resolves.toBeInTheDocument();
   });
 
@@ -662,7 +662,7 @@ describe('sidebar breakpoint', () => {
 
 describe('top bar', () => {
   it('keeps the brand, the jump palette, Needs you, and the theme toggle', async () => {
-    vi.mocked(review).mockResolvedValue(engineReview({ queue: ['MMR-52'] }));
+    vi.mocked(review).mockResolvedValue(engineReview({ queue: [{ id: 'MMR-52', kind: 'task' }] }));
     await renderAt('/p/MMR/tasks');
     await sidebar();
     const bar = topBar();
@@ -769,13 +769,13 @@ describe('sidebar drawer on a phone', () => {
   });
 
   it('opens on / with the All projects context: Work and Projects', async () => {
-    serve([MMR, NRN], {}, [decisions('MMR', 1)]);
+    serve([MMR, NRN], {}, [needsYou('MMR', 1)]);
     await renderAt('/');
     await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
     const drawer = await screen.findByRole('dialog', { name: 'All projects' });
     const nav = within(drawer).getByRole('navigation', { name: 'All projects' });
     await expect(
-      within(nav).findByRole('button', { name: /^All projects.*1 decision/ }),
+      within(nav).findByRole('button', { name: /^All projects.*1 needs you/ }),
     ).resolves.toBeInTheDocument();
     expect(within(nav).getByRole('region', { name: 'Projects' })).toBeInTheDocument();
     expect(within(nav).queryByRole('link', { name: 'Tasks' })).toBeNull();

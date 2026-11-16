@@ -4,8 +4,8 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 
 import { nodeQuery } from '../api/node-queries';
 import { treeQuery } from '../api/shell-queries';
-import { reviewQuery } from '../api/view-queries';
-import type { NeedsYouTask, ReviewReport } from '../api/view-queries';
+import { reviewQuery, needsYouId, needsYouTitle, needsYouLabel } from '../api/view-queries';
+import type { NeedsYouMember, NeedsYouTask, ReviewReport } from '../api/view-queries';
 import { cn } from '../lib/cn';
 import { projectKeyOf } from '../lib/project-key';
 import { nodeLink } from '../lib/record-url';
@@ -15,7 +15,7 @@ import { LinkifiedText } from './linkified-text';
 import { MarkdownBody } from './markdown-body';
 import { RecordPending } from './record-layout';
 import { ActionButton, actionButtonVariants } from './ui/action-button';
-import { needsYouActions } from './work-rows';
+import { NeedsYouRow, needsYouActions } from './work-rows';
 
 /*
  * `/?mode=focus` — the review page's focus queue (ADR 0013, MMR-476
@@ -39,14 +39,16 @@ const REASON: Record<NeedsYouTask['reason'], string> = {
 const NO_HANDOFF: RowFocusHandoff = { arm: () => {}, disarm: () => {} };
 
 /** Every decision on the live review read, by task id. */
-function liveDecisions(report: ReviewReport): Map<string, NeedsYouTask> {
-  return new Map(report.decisions.flatMap((group) => group.rows.map((row) => [row.task.id, row])));
+function liveDecisions(report: ReviewReport): Map<string, NeedsYouMember> {
+  return new Map(
+    report.needsYou.flatMap((group) => group.rows.map((row) => [needsYouId(row), row])),
+  );
 }
 
 export function FocusQueue({ offline }: { offline: boolean }) {
   // Its own observer, so opening the queue refetches a read gone stale.
   const review = useQuery(reviewQuery());
-  const [fixed, setFixed] = useState<readonly string[] | null>(null);
+  const [fixed, setFixed] = useState<ReviewReport['queue'] | null>(null);
   // The queue's place in the fixed list; nothing before it comes back.
   const [cursor, setCursor] = useState(0);
   const navigate = useNavigate();
@@ -56,8 +58,8 @@ export function FocusQueue({ offline }: { offline: boolean }) {
   if (fixed === null && report !== undefined && settled) {
     setFixed(report.queue);
   }
-  const live = report === undefined ? new Map<string, NeedsYouTask>() : liveDecisions(report);
-  const index = fixed?.findIndex((id, i) => i >= cursor && live.has(id)) ?? -1;
+  const live = report === undefined ? new Map<string, NeedsYouMember>() : liveDecisions(report);
+  const index = fixed?.findIndex((id, i) => i >= cursor && live.has(id.id)) ?? -1;
   if (index > cursor) {
     setCursor(index);
   }
@@ -72,9 +74,9 @@ export function FocusQueue({ offline }: { offline: boolean }) {
     return exhausted ? null : <RecordPending unreachable={false} />;
   }
 
-  const current = live.get(fixed[index]!)!;
-  const nextId = fixed.slice(index + 1).find((id) => live.has(id));
-  const next = nextId === undefined ? undefined : live.get(nextId);
+  const current = live.get(fixed[index]!.id)!;
+  const nextId = fixed.slice(index + 1).find((id) => live.has(id.id));
+  const next = nextId === undefined ? undefined : live.get(nextId.id);
   const position = index + 1;
   return (
     <main className="mx-auto flex w-full max-w-[720px] flex-1 flex-col gap-4 p-5 max-md:px-3.5">
@@ -96,22 +98,31 @@ export function FocusQueue({ offline }: { offline: boolean }) {
           />
         </span>
       </div>
-      <FocusCard
-        key={current.task.id}
-        row={current}
-        offline={offline}
-        onSkip={() => setCursor(index + 1)}
-      />
+      {current.kind === 'task' ? (
+        <FocusCard
+          key={needsYouId(current)}
+          row={current}
+          offline={offline}
+          onSkip={() => setCursor(index + 1)}
+        />
+      ) : (
+        <section className="rounded-lg border border-line bg-well-850 p-5">
+          <NeedsYouRow row={current} />
+          <ActionButton size="sm" variant="outline" onClick={() => setCursor(index + 1)}>
+            Skip
+          </ActionButton>
+        </section>
+      )}
       {next !== undefined && (
         <section aria-label="Up next" className="flex flex-col gap-1">
           <h2 className="microlabel text-ink-faint">Up next</h2>
           <p className="flex flex-wrap items-baseline gap-x-2 text-meta text-ink-dim">
             <span className="font-mono text-mono-id text-accent-foreground">
-              {projectKeyOf(next.task.id)}
+              {projectKeyOf(needsYouId(next))}
             </span>
-            <span className="microlabel text-attention-foreground">{REASON[next.reason]}</span>
-            <span className="font-mono text-mono-id">{next.task.id}</span>
-            <span className="min-w-0 truncate">{next.task.title}</span>
+            <span className="microlabel text-attention-foreground">{needsYouLabel(next)}</span>
+            <span className="font-mono text-mono-id">{needsYouId(next)}</span>
+            <span className="min-w-0 truncate">{needsYouTitle(next)}</span>
           </p>
         </section>
       )}

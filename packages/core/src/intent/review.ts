@@ -1,12 +1,12 @@
 import type {
   NodeView,
-  ReviewDecisionGroup,
+  ReviewNeedsYouGroup,
   ReviewProject,
   ReviewReport,
   ReviewTriageGroup,
   ReviewWorkRow,
   SeedView,
-  WorkNeedsYouReason,
+  WorkNeedsYouRow,
   WorkNowTask,
   WorkShippedTask,
 } from '@mimir/contract';
@@ -18,10 +18,16 @@ import { listSeedsResolved } from '../seeds/intent';
 import type { Store } from '../store';
 import { now } from '../time';
 import {
-  NEEDS_YOU_REASON_ORDER,
+  recordNeedsYou,
+  byNeedsYouRowOrder,
+  needsYouRank,
+  needsYouClock,
+  needsYouId,
+  needsYouProject,
+} from './needs-you';
+import {
   SHIPPED_WINDOW_DAYS,
   abandonedOf,
-  byNeedsYouOrder,
   classifyWork,
   cmpStr,
   goingColdRowsOf,
@@ -52,8 +58,8 @@ export type ReviewOptions = {
 /** Everything the page derives about one active project before it is ordered. */
 type ProjectFacts = {
   project: Project;
-  /** Decision nodes in the work page's order (blocks on you, then questions; newest first). */
-  decisions: { node: Node; reason: WorkNeedsYouReason }[];
+  /** The project’s needs-you set in the shared five-kind order. */
+  needsYou: WorkNeedsYouRow[];
   seeds: SeedView[];
   goingCold: number;
   findings: number;
@@ -68,17 +74,17 @@ const cmpKey = (a: ProjectFacts, b: ProjectFacts): number => cmpStr(a.project.ke
 /** A now row's latest move: a review's submit, otherwise its reservation or start. */
 const lastMoveOf = (row: WorkNowTask): string => row.submittedAt ?? row.startedAt;
 
-/** The reason that decides a project's urgency, and when its newest decision of that reason moved. */
+/** The leading kind and its record’s own clock decide project urgency. */
 const leadOf = (f: ProjectFacts): { rank: number; updatedAt: string } | undefined => {
-  const [lead] = f.decisions;
+  const [lead] = f.needsYou;
   return lead === undefined
     ? undefined
-    : { rank: NEEDS_YOU_REASON_ORDER.indexOf(lead.reason), updatedAt: lead.node.updated_at };
+    : { rank: needsYouRank(lead), updatedAt: needsYouClock(lead) };
 };
 
 /**
- * Project order: projects with decisions first, by leading reason, then the
- * newer leading decision, then key; the rest by triage count (most first),
+ * Project order: projects with needs-you rows first, by leading kind, then the
+ * newer leading record, then key; the rest by triage count (most first),
  * then key.
  */
 function byProjectOrder(a: ProjectFacts, b: ProjectFacts): number {
@@ -162,10 +168,9 @@ const tagged = <T extends { task: { id: string } }>(rows: readonly T[]): ReviewW
 /**
  * The review page across every active (non-archived) project.
  *
- * - `decisions`: per project with any, the work page's `needsYou` rows (the
+ * - `needsYou`: per project with any, the work page's `needsYou` rows (the
  *   membership rule is `needsYouReasonOf`), projects in urgency order.
- * - `queue`: every decision's task id, blocks on you then questions,
- *   newest first within each reason, ignoring project.
+ * - `queue`: each member’s kind and id, in the shared order across projects.
  * - `triage`: per project with anything to triage, the untriaged seeds (oldest
  *   first), the tasks going cold, and the findings; most first, then key.
  * - `projects`: every active project in the rail's order (pinned first, then
@@ -216,66 +221,58 @@ export async function reviewOf(
   const buckets = classifyWork(set, tasks, { asOf, shippedWindow });
   const source = workRowSource(store, set, buckets);
 
-  const decisionsByProject = Map.groupBy(
-    buckets.needsYou.toSorted(byNeedsYouOrder),
-    (d) => d.node.project_id,
+  const questions = await store.bodySections.readSectionsMany(
+    buckets.needsYou.filter((d) => d.reason === 'needs_answers').map((d) => d.node.id),
+    { annotations: true },
   );
+  const taskRows: WorkNeedsYouRow[] = await Promise.all(
+    buckets.needsYou.map(async ({ node, reason }) => ({
+      kind: 'task',
+      question:
+        reason === 'needs_answers'
+          ? (latestOf(questions.get(node.id)?.annotations)?.content ?? null)
+          : null,
+      reason,
+      stale: buckets.staleIds.has(node.id),
+      task: await source.viewOf(node),
+    })),
+  );
+  const allNeedsYou = [...taskRows, ...(await recordNeedsYou(store, set))].toSorted(
+    byNeedsYouRowOrder,
+  );
+  const needsYouByProject = Map.groupBy(allNeedsYou, needsYouProject);
   const inFlightByProject = Map.groupBy(buckets.now, (n) => n.project_id);
   const coldByProject = Map.groupBy(buckets.stale, (n) => n.project_id);
 
   const facts: ProjectFacts[] = projects
     .map((project) => ({
-      decisions: decisionsByProject.get(project.key) ?? [],
       findings: findingCounts.get(project.key) ?? 0,
       goingCold: coldByProject.get(project.key)?.length ?? 0,
       inFlight: inFlightByProject.get(project.key)?.length ?? 0,
       live: (tasksByProject.get(project.key) ?? []).filter(
         (n) => !isTerminalWord(nodeStatusWord(set, n)),
       ).length,
+      needsYou: needsYouByProject.get(project.key) ?? [],
       project,
       seeds: seedsByProject.get(project.key) ?? [],
     }))
     .toSorted(byProjectOrder);
 
-  const questionIds = facts.flatMap((f) =>
-    f.decisions.filter((d) => d.reason === 'needs_answers').map((d) => d.node.id),
-  );
-  const [questions, nowRows, shippedRows, runnableRows, coldViews, lastFinished] =
-    await Promise.all([
-      store.bodySections.readSectionsMany(questionIds, { annotations: true }),
-      nowRowsOf(source),
-      shippedRowsOf(source, shippedWindow),
-      runnableRowsOf(source),
-      goingColdRowsOf(source),
-      lastFinishOf(
-        store,
-        source.viewOf,
-        tasks.filter((n) => n.lifecycle === 'done' || n.lifecycle === 'abandoned'),
-      ),
-    ]);
-  const decisions: ReviewDecisionGroup[] = await Promise.all(
-    facts
-      .filter((f) => f.decisions.length > 0)
-      .map(async (f) => ({
-        project: { key: f.project.key, name: f.project.name },
-        rows: await Promise.all(
-          f.decisions.map(async ({ node, reason }) => ({
-            question:
-              reason === 'needs_answers'
-                ? (latestOf(questions.get(node.id)?.annotations)?.content ?? null)
-                : null,
-            reason,
-            stale: buckets.staleIds.has(node.id),
-            task: await source.viewOf(node),
-          })),
-        ),
-      })),
-  );
-
-  const queue = facts
-    .flatMap((f) => f.decisions)
-    .toSorted(byNeedsYouOrder)
-    .map((d) => d.node.id);
+  const [nowRows, shippedRows, runnableRows, coldViews, lastFinished] = await Promise.all([
+    nowRowsOf(source),
+    shippedRowsOf(source, shippedWindow),
+    runnableRowsOf(source),
+    goingColdRowsOf(source),
+    lastFinishOf(
+      store,
+      source.viewOf,
+      tasks.filter((n) => n.lifecycle === 'done' || n.lifecycle === 'abandoned'),
+    ),
+  ]);
+  const needsYou: ReviewNeedsYouGroup[] = facts
+    .filter((f) => f.needsYou.length > 0)
+    .map((f) => ({ project: { key: f.project.key, name: f.project.name }, rows: f.needsYou }));
+  const queue = allNeedsYou.map((row) => ({ id: needsYouId(row), kind: row.kind }));
 
   const triage: ReviewTriageGroup[] = facts
     .filter((f) => triageCount(f) > 0)
@@ -291,21 +288,21 @@ export async function reviewOf(
   const reviewProjects: ReviewProject[] = facts
     .toSorted((a, b) => railOrder(a.project, b.project))
     .map((f) => ({
-      decisions: f.decisions.length,
       goingCold: f.goingCold,
       inFlight: f.inFlight,
       key: f.project.key,
       live: f.live,
       name: f.project.name,
+      needsYou: f.needsYou.length,
       triage: triageCount(f),
     }));
 
   const railIndex = new Map(reviewProjects.map((p, i) => [p.key, i]));
 
   return {
-    decisions,
     goingCold: coldViews.map((task) => ({ project: projectKeyOf(task.id), task })),
     lastFinished,
+    needsYou,
     now: tagged(nowRows).toSorted((a, b) => cmpStr(lastMoveOf(b), lastMoveOf(a))),
     projects: reviewProjects,
     queue,

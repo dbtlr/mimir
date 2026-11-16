@@ -16,7 +16,7 @@ import { browserTimeZone } from './queries';
  * the persister's buster (lib/persist.ts), so a bump drops every snapshot
  * written in the old shape instead of restoring it into the new code.
  */
-export const VIEW_CACHE_VERSION = 4;
+export const VIEW_CACHE_VERSION = 5;
 
 /** The review page's report, as the Engine returns it. */
 export type ReviewReport = ConsoleOutput<'review'>;
@@ -25,7 +25,59 @@ export type ReviewReport = ConsoleOutput<'review'>;
 export type WorkReport = ConsoleOutput<'projectWork'>;
 
 /** One task that needs the operator, on a work page or in a review decision group. */
-export type NeedsYouTask = WorkReport['needsYou'][number];
+export type NeedsYouMember = WorkReport['needsYou'][number];
+export type NeedsYouTask = Extract<NeedsYouMember, { kind: 'task' }>;
+export function needsYouId(row: NeedsYouMember): string {
+  switch (row.kind) {
+    case 'task': {
+      return row.task.id;
+    }
+    case 'decision': {
+      return row.decision.id;
+    }
+    case 'delivery': {
+      return row.delivery.id;
+    }
+    default: {
+      const unexpected: never = row;
+      return unexpected;
+    }
+  }
+}
+export function needsYouTitle(row: NeedsYouMember): string {
+  switch (row.kind) {
+    case 'task': {
+      return row.task.title;
+    }
+    case 'decision': {
+      return row.decision.question;
+    }
+    case 'delivery': {
+      return row.delivery.title;
+    }
+    default: {
+      const unexpected: never = row;
+      return unexpected;
+    }
+  }
+}
+export function needsYouLabel(row: NeedsYouMember): string {
+  switch (row.kind) {
+    case 'task': {
+      return row.reason === 'blocked' ? 'Blocked · yours' : 'Needs answers';
+    }
+    case 'decision': {
+      return row.decision.class;
+    }
+    case 'delivery': {
+      return 'Stopped';
+    }
+    default: {
+      const unexpected: never = row;
+      return unexpected;
+    }
+  }
+}
 
 /** One task in flight: queued, in progress, or under review. */
 export type NowTask = WorkReport['now'][number];

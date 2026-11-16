@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router';
 
+import { needsYouId } from '../api/view-queries';
 import type { ReviewReport } from '../api/view-queries';
 import { cn } from '../lib/cn';
 import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
@@ -26,18 +27,18 @@ function ProjectHeading({ project }: { project: { key: string; name: string } })
 }
 
 /**
- * The decisions grouped by project, in the review read's order, each row with
+ * The needsYou grouped by project, in the review read's order, each row with
  * its in-place verbs (Answer… on a question). Shared by the review
  * page and the top-bar Needs you popover, so a decision reads and acts the
  * same in both. `currentId` marks the decision whose record is on the page.
  */
-export function DecisionGroups({
+export function NeedsYouGroups({
   groups,
   offline,
   handoff,
   currentId,
 }: {
-  groups: ReviewReport['decisions'];
+  groups: ReviewReport['needsYou'];
   offline: boolean;
   handoff: RowFocusHandoff;
   currentId?: string;
@@ -49,9 +50,10 @@ export function DecisionGroups({
           <ProjectHeading project={group.project} />
           {group.rows.map((row) => (
             <NeedsYouRow
-              key={row.task.id}
+              key={needsYouId(row)}
               row={row}
-              current={row.task.id === currentId}
+              current={needsYouId(row) === currentId}
+              currentId={currentId}
               actions={needsYouActions(row, offline, handoff)}
             />
           ))}

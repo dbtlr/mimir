@@ -31,6 +31,7 @@ import { isStale } from '../predicates';
 import { boardOrder } from '../resource';
 import type { Store } from '../store';
 import { now } from '../time';
+import { recordNeedsYou, byNeedsYouRowOrder } from './needs-you';
 import { byRankOrder } from './queries';
 import { buildAwaitingOn, buildNodeView } from './view';
 
@@ -279,6 +280,7 @@ export async function workPageOf(store: Store, id: string, opts: WorkOptions): P
 
   const needsYouRows: WorkNeedsYouTask[] = await Promise.all(
     buckets.needsYou.toSorted(byNeedsYouOrder).map(async ({ node, reason }) => ({
+      kind: 'task',
       question:
         reason === 'needs_answers'
           ? (latestOf(questionSections.get(node.id)?.annotations)?.content ?? null)
@@ -312,7 +314,15 @@ export async function workPageOf(store: Store, id: string, opts: WorkOptions): P
   return {
     frontier: { nextToUnlock, runnable, toGroom, waitingOnOthers: waiting },
     goingCold,
-    needsYou: needsYouRows,
+    needsYou: [
+      ...needsYouRows,
+      ...(await recordNeedsYou(store, set, {
+        all: scope.kind === 'project',
+        phases: new Set([scope.id, ...containers.map((n) => n.id)]),
+        project: projectKey,
+        tasks: new Set(tasks.map((n) => n.id)),
+      })),
+    ].toSorted(byNeedsYouRowOrder),
     now: nowRows,
     scope,
     shipped,

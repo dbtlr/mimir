@@ -241,6 +241,17 @@ export function createSqlDeliveryStore(db: Kysely<DB>, dialect: StoreDialect): D
       });
     },
 
+    async listStopped() {
+      const rows = await db
+        .selectFrom('delivery')
+        .innerJoin('project', 'project.key', 'delivery.project_key')
+        .selectAll('delivery')
+        .where('delivery.hold', '=', 'stopped')
+        .where('delivery.lifecycle', 'not in', ['landed', 'abandoned'])
+        .where('project.archived_at', 'is', null)
+        .execute();
+      return rows.map((row) => toStored(row, []));
+    },
     load(key, seq) {
       return dialect.snapshot(db, async (tx) => {
         const row = await tx

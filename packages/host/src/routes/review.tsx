@@ -4,10 +4,10 @@ import { useState } from 'react';
 
 import { browserTimeZone } from '../api/queries';
 import { archivedProjectsQuery } from '../api/shell-queries';
-import { reviewQuery } from '../api/view-queries';
+import { needsYouId, reviewQuery } from '../api/view-queries';
 import type { ReviewReport } from '../api/view-queries';
 import { BrowserGroup } from '../components/browser-list';
-import { DecisionGroups } from '../components/decision-groups';
+import { NeedsYouGroups } from '../components/decision-groups';
 import { FocusQueue } from '../components/focus-queue';
 import { NewProjectSheet } from '../components/new-project-sheet';
 import { OfflineBanner } from '../components/offline-banner';
@@ -25,7 +25,7 @@ import { reviewRoute } from '../router';
 
 /*
  * `/` — the review page (ADR 0013 and ADR 0019, MMR-503 refinement): the work
- * page's cross-project counterpart. The main column is Needs you (the decisions,
+ * page's cross-project counterpart. The main column is Needs you (the needsYou,
  * grouped by project), Now, and Shipped, in the work page's row style; the rail
  * holds the project health strip and what can wait for a spare minute. One read
  * (`console.review`) feeds all of it, and the top-bar alert reads the same entry,
@@ -105,7 +105,7 @@ function NeedsYouSection({ report, offline }: { report: ReviewReport; offline: b
   const count = report.queue.length;
   const inFlight = report.projects.reduce((n, p) => n + p.inFlight, 0);
   const { handoff, headingRef } = useRowFocusHandoff(
-    report.decisions.flatMap((group) => group.rows.map((row) => row.task.id)),
+    report.needsYou.flatMap((group) => group.rows.map((row) => needsYouId(row))),
   );
   return (
     <BrowserGroup
@@ -115,10 +115,10 @@ function NeedsYouSection({ report, offline }: { report: ReviewReport; offline: b
       labelClassName="text-attention-foreground"
       headingRef={headingRef}
     >
-      {report.decisions.length === 0 ? (
+      {report.needsYou.length === 0 ? (
         <AllClear inFlight={inFlight} last={report.lastFinished} />
       ) : (
-        <DecisionGroups groups={report.decisions} offline={offline} handoff={handoff} />
+        <NeedsYouGroups groups={report.needsYou} offline={offline} handoff={handoff} />
       )}
     </BrowserGroup>
   );

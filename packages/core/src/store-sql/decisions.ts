@@ -242,6 +242,35 @@ export function createSqlDecisionStore(db: Kysely<DB>, dialect: StoreDialect): D
         }
         return hydrateDecisions(tx, dialect, await query.orderBy('seq').execute(), false);
       }),
+    listProvisional: () =>
+      dialect.snapshot(db, async (tx) => {
+        const rows = await tx
+          .selectFrom('decision')
+          .innerJoin('project', 'project.key', 'decision.project_key')
+          .selectAll('decision')
+          .where('decision.lifecycle', '=', 'provisional')
+          .where('project.archived_at', 'is', null)
+          .execute();
+        const tasks = await tx
+          .selectFrom('decision_task')
+          .innerJoin('decision', 'decision.id', 'decision_task.decision_id')
+          .innerJoin('project', 'project.key', 'decision.project_key')
+          .leftJoin('node', 'node.id', 'decision_task.task')
+          .select(['decision_id', 'task'])
+          .where('decision.lifecycle', '=', 'provisional')
+          .where('project.archived_at', 'is', null)
+          .orderBy('node.seq')
+          .execute();
+        const links = Map.groupBy(tasks, (t) => t.decision_id);
+        return rows.map((row) =>
+          toStored({
+            ...row,
+            history: [],
+            options: loadedOptionsOf(row.id, row.options, dialect),
+            tasks: (links.get(row.id) ?? []).map((t) => t.task),
+          }),
+        );
+      }),
     load: (id) => dialect.snapshot(db, (tx) => load(tx, dialect, id)),
     transact: (id, apply) =>
       dialect.write(db, async (tx) => {

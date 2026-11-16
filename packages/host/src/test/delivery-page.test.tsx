@@ -1,18 +1,22 @@
 import type { ConsoleOutput } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
-import { screen, within, waitFor } from '@testing-library/react';
+import { screen, within, waitFor, fireEvent } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
 import { deliveryPage, phaseDeliveries } from '../api/fns/views';
 import { consoleRoutes } from '../router';
+import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
 import { engineContainer, engineTask } from './node-fixtures';
 import { serveNodes } from './node-fns';
-import { renderRoute } from './router';
+import { renderShell, renderRoute } from './router';
 import { serveShell } from './shell-fns';
+import { stubViewport } from './viewport';
+import { engineReview, stripRow } from './views-fixtures';
 import { serveViews } from './views-fns';
 
+vi.mock('../api/fns/browse');
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/views');
@@ -279,4 +283,50 @@ test('links the phase’s live delivery card to its dossier with time and member
     'wrap-anywhere',
   );
   expect(within(cards).getByRole('img', { name: /1/ })).toBeInTheDocument();
+});
+
+test('the alert marks this delivery and its decision omits a delivery self-link', async () => {
+  serveBrowse();
+  stubViewport('desktop');
+  const page = fixture();
+  const d = page.delivery;
+  serveViews({
+    review: engineReview({
+      needsYou: [
+        {
+          project: { key: 'MMR', name: 'Mimir' },
+          rows: [
+            {
+              delivery: {
+                hold_reason: d.hold_reason,
+                id: d.id,
+                lifecycle: d.lifecycle,
+                phase: d.phase,
+                project: d.project_key,
+                seq: d.seq,
+                title: d.title,
+                updated_at: d.updated_at,
+              },
+              kind: 'delivery',
+            },
+            { decision: page.decisions[0]!, kind: 'decision', workBuiltOnIt: true },
+          ],
+        },
+      ],
+      projects: [stripRow({ key: 'MMR', name: 'Mimir' }, { needsYou: 2 })],
+      queue: [
+        { id: d.id, kind: 'delivery' },
+        { id: 'MMR-q1', kind: 'decision' },
+      ],
+    }),
+  });
+  await renderShell('/p/MMR/d3');
+  await screen.findByRole('heading', { name: 'Deliver the console' });
+  const ownNeedsYou = screen.getByRole('region', { name: /^Needs you/ });
+  expect(within(ownNeedsYou).queryByRole('link', { name: 'MMR-d3' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '2 need you' }));
+  const panel = await screen.findByRole('dialog', { name: 'Needs you' });
+  expect(within(panel).getByText('This page')).toBeInTheDocument();
+  expect(within(panel).queryByRole('link', { name: 'MMR-d3' })).not.toBeInTheDocument();
+  vi.unstubAllGlobals();
 });
