@@ -180,17 +180,17 @@ because each file gets a fresh module registry. Vitest times a file by its tests
 and hooks, without its imports, setup files, or jsdom window, so a host file's
 time reads lower than its share of the run. A test over the limit may be exempted
 only against the task that will make it fast; remove the exemption in that
-task. An exemption names its file as the
-report does: from the repository root for the bun lane, and from
-`packages/host` for the Vitest lane. An exemption that names a test the run did
-not include, as after a rename, fails the gate. To check a local run, write a
-report and pass it:
+task. An exemption goes in its lane's list, `bun` or `ui`, and names its file as
+the report does: from the repository root for the bun lane, and from
+`packages/host` for the Vitest lane. Each check reads only its own lane's list.
+An exemption that names a test the run did not include, as after a rename,
+fails the gate. To check a local run, write a report and pass it with its lane:
 
 ```sh
 bun run test --reporter=junit --reporter-outfile=.scratch/bun-junit.xml
-bun run test:budget .scratch/bun-junit.xml
+bun run test:budget bun .scratch/bun-junit.xml
 bun run test:ui --reporter=default --reporter=junit --outputFile.junit="$PWD/.scratch/ui-junit.xml"
-bun run test:budget .scratch/ui-junit.xml
+bun run test:budget ui .scratch/ui-junit.xml
 ```
 
 The integration lanes outside `bun run verify` (`test:host`, `test:sandbox`,

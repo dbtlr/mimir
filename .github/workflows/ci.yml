@@ -36,7 +36,7 @@ jobs:
       # The default lane's time budget (CONTRIBUTING.md, "Tests that run slow
       # or time out"), calibrated on this runner: a test over the limit fails.
       - name: Check the test budget
-        run: bun run test:budget "$RUNNER_TEMP/bun-junit.xml"
+        run: bun run test:budget bun "$RUNNER_TEMP/bun-junit.xml"
 
       - name: Test disposable Postgres
         run: bun run test:postgres
@@ -58,4 +58,4 @@ jobs:
 
       # The host Vitest lane's time budget, the same as the default bun lane's.
       - name: Check the UI test budget
-        run: bun run test:budget "$RUNNER_TEMP/ui-junit.xml"
+        run: bun run test:budget ui "$RUNNER_TEMP/ui-junit.xml"

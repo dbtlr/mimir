@@ -9,7 +9,7 @@
  * file over the file threshold, is reported without failing. CONTRIBUTING.md
  * ("Tests that run slow or time out") states the rule. Usage:
  *
- *   bun packages/cli/scripts/test-budget.ts <junit.xml>
+ *   bun packages/cli/scripts/test-budget.ts <bun|ui> <junit.xml>
  */
 import { readFileSync } from 'node:fs';
 
@@ -33,7 +33,18 @@ export const BUDGET: Budget = { fileWarnMs: 15_000, testLimitMs: 3000, testWarnM
  */
 export type Exemption = { file: string; name: string; task: string };
 
-export const EXEMPTIONS: readonly Exemption[] = [];
+/** The default lanes the gate checks: `bun run test` and the host Vitest lane, `bun run test:ui`. */
+export type Lane = 'bun' | 'ui';
+
+export const LANES: readonly Lane[] = ['bun', 'ui'];
+
+/**
+ * Each lane's exemptions. A check reads only its own lane's, because an
+ * exemption whose test is missing from the report fails the check.
+ */
+export const EXEMPTIONS: Readonly<Record<Lane, readonly Exemption[]>> = { bun: [], ui: [] };
+
+const isLane = (value: string | undefined): value is Lane => LANES.some((lane) => lane === value);
 
 export type TestTiming = { file: string; name: string; ms: number };
 export type FileTiming = { file: string; ms: number };
@@ -215,19 +226,25 @@ export type Terminal = {
   error: (line: string) => void;
 };
 
-/** Check the report named by `args[0]`, print the verdict, and return the exit code: 0 within budget, 1 over, 2 for usage. */
+/**
+ * Check the report named by `args[1]` against the budget and the exemptions of
+ * the lane named by `args[0]`, print the verdict, and return the exit code: 0
+ * within budget, 1 over, 2 for usage.
+ */
 export function run(
   args: readonly string[],
   terminal: Terminal,
   budget: Budget = BUDGET,
-  exemptions: readonly Exemption[] = EXEMPTIONS,
+  exemptions: Readonly<Record<Lane, readonly Exemption[]>> = EXEMPTIONS,
 ): number {
-  const [path] = args;
-  if (!path) {
-    terminal.error('usage: bun packages/cli/scripts/test-budget.ts <junit.xml>');
+  const [lane, path] = args;
+  if (!isLane(lane) || !path) {
+    terminal.error(
+      `usage: bun packages/cli/scripts/test-budget.ts <${LANES.join('|')}> <junit.xml>`,
+    );
     return 2;
   }
-  const verdict = judge(readJunit(terminal.readFile(path)), budget, exemptions);
+  const verdict = judge(readJunit(terminal.readFile(path)), budget, exemptions[lane]);
   terminal.log(describeVerdict(verdict, budget));
   return passes(verdict) ? 0 : 1;
 }
