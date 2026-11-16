@@ -818,6 +818,7 @@ A refused write shows its error as a toast, and nothing it touched moves:
 
 - **A dialog stays open.** The answer, Pause, and Abandon dialogs each stay
   open with their text in them, so a required note or reason is never lost.
-  This applies to every console reason dialog.
+  Other console reason dialogs keep their current behavior; changing them
+  is separate work.
 - **A one-tap chip keeps focus.** A refused one-tap chip returns focus to
   itself once the write ends, because its row stays.
