@@ -589,39 +589,44 @@ mimir update MMR-d3 --unfollow-up MMR-55
 - **The echo.** `deliveryUpdate` returns the delivery as `get` reads it,
   `follow_ups` and the MMR-691 lists included, as `limitation` and `decline`
   do. Its output was the plain delivery before, so the contract snapshot and
-  the version window change with it
+  the version window change with it, as they do for the since read's new
+  event kind below
   ([ADR 0038](0038-device-pairing-and-the-version-window.md)).
 - **Any lifecycle.** Links are writable in every lifecycle, `landed` and
   `abandoned` included, and holds do not refuse them. Follow-ups are often
   filed at close-out, after the milestone merged. This is the second exception
-  to "a terminal delivery refuses every write", beside the two lists of the
-  MMR-691 refinement. Every other field of a terminal delivery still refuses
-  an update: an update that names only `follow_ups` and `unfollow_ups` is
-  accepted on a terminal delivery, and one that names any other field refuses
-  as before.
+  to "a terminal delivery refuses every write", beside the limitation and
+  declined-finding verbs of the MMR-691 refinement. Every other field of a
+  terminal delivery still refuses an update: an update that names only
+  `follow_ups` and `unfollow_ups` is accepted on a terminal delivery, and one
+  that names any other field refuses as before.
 - **One transaction.** The update stamps the delivery's `updated_at`, then
   writes its unlinks, then its links, each in the order given, in one store
   transaction.
-- **Errors.** Each refusal refuses the whole update. The checks run in this
-  order, and the first that fails names the refusal:
-  1. The delivery: missing or in an archived project is `not_found`; terminal,
-     with any field named other than the two lists, is `validation`, as
-     before.
-  2. The lists: the same id twice in one list, or in both lists, is
+- **Errors.** Each refusal refuses the whole update. The update's existing
+  usage and field-value checks (a blank title or agreement, for example) run
+  first, as before. The follow-up checks then run in this order, and the
+  first that fails names the refusal:
+  1. The delivery: missing is `not_found`. In an archived project it refuses
+     as every delivery write does (`conflict`, naming `unarchive`). On a
+     terminal delivery, an update that names any field other than
+     `follow_ups` and `unfollow_ups`, or that names no follow-up at all,
+     refuses as before.
+  2. The id lists: the same id twice in one list, or in both lists, is
      `validation`.
-  3. Each id's grammar: a string that is not a Mimir id is `not_found`, as
-     `get` reads it. An id of another kind (a project, a phase, an
-     initiative, a delivery, a decision, or an artifact) is `validation`, and
-     names its kind. A node id is resolved first, so a phase or an initiative
-     is named as such.
-  4. Each record's existence: a task or seed that does not exist, or one in
+  3. Each id's grammar, read from the id alone: a string that is not a Mimir
+     id is `not_found`, as `get` reads it. A project, delivery, decision, or
+     artifact id is `validation`, and names its kind.
+  4. Each record's existence: a node or seed that does not exist, or one in
      an archived project, is `not_found`
      ([ADR 0015](0015-project-archive-frozen-and-hidden.md)). This comes
-     before the project check, so a refusal never confirms that a hidden
-     record exists.
-  5. The project: a task in another project than the delivery's is
+     before every check that reads the record, so a refusal never confirms
+     that a hidden record exists.
+  5. The node's type: a phase or an initiative is `validation`, and names its
+     kind.
+  6. The project: a task in another project than the delivery's is
      `validation`.
-  6. The link state: a record already linked by a standing link (to
+  7. The link state: a record already linked by a standing link (to
      `--follow-up`), or not linked by one (to `--unfollow-up`), is
      `validation`.
 
@@ -641,8 +646,8 @@ mimir update MMR-d3 --unfollow-up MMR-55
 - The records view prints one `follow-up` line per standing link: its id,
   status, and title. It omits the lines when there are none. `deliveries` rows
   do not carry follow-ups.
-- **The since read** gains one source, ranked after the findings, and one
-  event kind, `follow_up`, with `record` set to `KEY-dN`, `text` set to the
+- **The since read** gains one source, ranked between the findings and a
+  member task's transition log, and one event kind, `follow_up`, with `record` set to `KEY-dN`, `text` set to the
   linked record's id, and `task` and `number` null:
 
   | Event | `from` | `to` | `id` |
