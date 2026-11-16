@@ -42,6 +42,7 @@ async function harness() {
   let failDeleteOnce = false;
   let tick = 0;
   const projects = {
+    deliveries: fixture.store.deliveries,
     loadProjects: () =>
       Promise.resolve([
         {
@@ -72,6 +73,9 @@ async function harness() {
       }
       pads.delete(id);
     },
+    forDelivery(delivery) {
+      return Promise.resolve([...pads.values()].find((pad) => pad.delivery === delivery));
+    },
     async list(project) {
       return [...pads.values()].filter((pad) => project === undefined || pad.project === project);
     },
@@ -97,6 +101,7 @@ async function harness() {
       const record = {
         content: input.content,
         created_at: T0,
+        delivery: input.delivery ?? null,
         key: input.key,
         links: input.links,
         seq: creates.length,
@@ -115,6 +120,9 @@ async function harness() {
     },
     async list() {
       return { items: [], total: 0 };
+    },
+    async listForDelivery() {
+      return [];
     },
     async listForNode() {
       return [];
@@ -160,6 +168,7 @@ describe('ScratchpadService', () => {
       /project NOPE doesn't exist/,
     );
     const archivedProjects = {
+      deliveries: {} as never,
       loadProjects: async () => [
         {
           archived_at: T0,

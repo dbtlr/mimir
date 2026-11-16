@@ -29,7 +29,12 @@ import { inLists, insertBatched, pairKey } from './batch';
 import { createSqlBodySectionStore } from './body-sections';
 import { exportChecklist, insertExportedChecklist } from './checklist';
 import { exportDecisions, insertExportedDecisions } from './decisions';
-import { exportDeliveries, insertExportedDeliveries } from './deliveries';
+import {
+  exportDeliveries,
+  exportDeliveryFindings,
+  insertExportedDeliveries,
+  insertExportedDeliveryFindings,
+} from './deliveries';
 import type { StoreDialect } from './dialect';
 import { storedProse } from './prose';
 import type {
@@ -177,6 +182,7 @@ export async function exportSqlStore(ex: Executor, dialect: StoreDialect): Promi
     checklist_items: await exportChecklist(ex),
     decisions: await exportDecisions(ex, dialect),
     deliveries: await exportDeliveries(ex, dialect),
+    delivery_findings: await exportDeliveryFindings(ex),
     edges: [...workingSet.edges],
     exported_at: now(),
     nodes,
@@ -330,6 +336,7 @@ function bundlesOf(
   const tags = indexTags(document);
   const annotations = groupBy(document.annotations, (row) => row.node_id);
   const items = groupBy(document.checklist_items, (row) => row.task);
+  const findings = groupBy(document.delivery_findings, (row) => row.delivery);
   const prereqs = groupBy(document.edges, (edge) => edge.node_id);
   const history = groupBy(document.transitions, (row) => row.node_id ?? row.project_id ?? '');
   const bundles: Bundles = {
@@ -342,7 +349,18 @@ function bundlesOf(
         { ...row, tasks: row.tasks.toSorted((a, b) => taskSeq(a) - taskSeq(b)) },
       ]),
     ),
-    deliveries: new Map(document.deliveries.map((row) => [row.id, row])),
+    // A document may list a delivery's entries in any order; the store reads them by number.
+    deliveries: new Map(
+      document.deliveries.map((row) => [
+        row.id,
+        {
+          ...row,
+          findings: (findings.get(row.id) ?? [])
+            .map(({ delivery: _delivery, ...entry }) => entry)
+            .toSorted((a, b) => a.number - b.number),
+        },
+      ]),
+    ),
     nodes: new Map(),
     projects: new Map(),
     scratchpads: new Map(),
@@ -675,9 +693,13 @@ async function applyImport(
     tx.insertInto('transition_log').values(chunk).execute(),
   );
   await insertExportedArtifacts(tx, dialect, artifacts);
-  await insertExportedDeliveries(
+  const newDeliveries = document.deliveries.filter((delivery) => settle('deliveries', delivery.id));
+  await insertExportedDeliveries(tx, newDeliveries);
+  const importedDeliveries = new Set(newDeliveries.map((delivery) => delivery.id));
+  await insertExportedDeliveryFindings(
     tx,
-    document.deliveries.filter((delivery) => settle('deliveries', delivery.id)),
+    dialect,
+    document.delivery_findings.filter((entry) => importedDeliveries.has(entry.delivery)),
   );
   await insertExportedDecisions(
     tx,
@@ -781,6 +803,7 @@ const EMPTY_COLLECTIONS = {
   checklist_items: [],
   decisions: [],
   deliveries: [],
+  delivery_findings: [],
   edges: [],
   nodes: [],
   projects: [],

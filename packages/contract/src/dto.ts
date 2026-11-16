@@ -127,6 +127,8 @@ export type ArtifactSummary = {
   /** The optional lede (MMR-319) — omitted when the artifact carries none. */
   summary?: string;
   project: string;
+  /** The delivery a frozen run journal names (ADR 0027, MMR-691); null when none. */
+  delivery: string | null;
   tags: string[];
   createdAt: string;
 };
@@ -154,6 +156,8 @@ export type ArtifactDetail = {
   /** The optional lede (MMR-319) — omitted when the artifact carries none. */
   summary?: string;
   project: string;
+  /** The delivery a frozen run journal names (ADR 0027, MMR-691); null when none. */
+  delivery: string | null;
   links: string[];
   tags: string[];
   createdAt: string;
@@ -223,6 +227,8 @@ export type Scratchpad = ScratchpadBody & {
   project: string;
   title: string;
   anchors: string[];
+  /** The delivery this pad is the run journal of (ADR 0027, MMR-691), or null. */
+  delivery: string | null;
   createdAt: string;
   updatedAt: string;
   freezingAt: string | null;
@@ -509,6 +515,8 @@ export type OverviewScratchpad = {
   title: string;
   /** Public linked-work vocabulary; backed by the Scratchpad's anchors. */
   linkedWork: string[];
+  /** The delivery this pad journals (ADR 0027, MMR-691), or null. */
+  delivery: string | null;
   updatedAt: string;
   openAgenda: number;
   /** A staged freeze remains discoverable and is attention-ordered first. */

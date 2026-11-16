@@ -31,6 +31,7 @@ const stemOf = (key: string, seq: number): string => renderArtifactRef({ key, se
 function toRecord(row: ArtifactRow, tags: string[], links: string[]): ArtifactRecord {
   return {
     created_at: row.created_at,
+    delivery: row.delivery,
     key: row.project_key,
     links,
     seq: row.seq,
@@ -151,6 +152,7 @@ export async function insertExportedArtifacts(
   const rows = artifacts.map((artifact) => ({
     content: artifact.content,
     created_at: artifact.created_at,
+    delivery: artifact.delivery,
     id: stemOf(artifact.key, artifact.seq),
     project_key: artifact.key,
     seq: artifact.seq,
@@ -225,6 +227,19 @@ async function writeRelations(
 const rowOf = async (ex: Executor, key: string, seq: number): Promise<ArtifactRow | undefined> =>
   ex.selectFrom('artifact').selectAll().where('id', '=', stemOf(key, seq)).executeTakeFirst();
 
+/** Every task a `member` row in the delivery's history names, each once. */
+async function everMembers(ex: Executor, delivery: string): Promise<string[]> {
+  const rows = await ex
+    .selectFrom('delivery_history')
+    .select('task')
+    .distinct()
+    .where('delivery_id', '=', delivery)
+    .where('kind', '=', 'member')
+    .where('task', 'is not', null)
+    .execute();
+  return rows.flatMap((row) => (row.task === null ? [] : [row.task]));
+}
+
 export function createSqlArtifactStore(db: Kysely<DB>, dialect: StoreDialect): ArtifactStore {
   return {
     async applyTag(key, seq, tag) {
@@ -269,11 +284,17 @@ export function createSqlArtifactStore(db: Kysely<DB>, dialect: StoreDialect): A
         const timestamp = now();
         const content = stripTrailingNewline(input.content);
         const summary = input.summary ?? null;
+        const delivery = input.delivery ?? null;
+        // A journal links every task that was ever a member of its delivery,
+        // read here so the membership is the one this transaction sees.
+        const links =
+          delivery === null ? input.links : [...input.links, ...(await everMembers(tx, delivery))];
         await tx
           .insertInto('artifact')
           .values({
             content,
             created_at: timestamp,
+            delivery,
             id,
             project_key: input.key,
             seq,
@@ -283,7 +304,7 @@ export function createSqlArtifactStore(db: Kysely<DB>, dialect: StoreDialect): A
             updated_at: timestamp,
           })
           .execute();
-        await writeRelations(tx, dialect, [{ id, links: input.links, tags: input.tags }]);
+        await writeRelations(tx, dialect, [{ id, links, tags: input.tags }]);
         // Echoed IN FULL from what was just written (MMR-283): every field is
         // either the create input or derived here, so a caller building a
         // create response never needs a follow-up `load`. Tags and links carry
@@ -291,8 +312,9 @@ export function createSqlArtifactStore(db: Kysely<DB>, dialect: StoreDialect): A
         return {
           content,
           created_at: timestamp,
+          delivery,
           key: input.key,
-          links: canonicalSetOrder([...new Set(input.links)]),
+          links: canonicalSetOrder([...new Set(links)]),
           seq,
           summary,
           tags: canonicalSetOrder([...new Set(input.tags)]),
@@ -358,6 +380,17 @@ export function createSqlArtifactStore(db: Kysely<DB>, dialect: StoreDialect): A
       const offset = query.offset ?? 0;
       const page = rows.slice(offset, offset + (query.limit ?? 100));
       return { items: await decorate(db, dialect, page), total };
+    },
+
+    async listForDelivery(delivery) {
+      const rows = await db
+        .selectFrom('artifact')
+        .selectAll()
+        .where('delivery', '=', delivery)
+        .orderBy('created_at')
+        .orderBy('seq')
+        .execute();
+      return decorate(db, dialect, rows);
     },
 
     async listForNode(nodeStem) {

@@ -376,7 +376,7 @@ test('delivery creation and update preserve their terms and Date instants over t
   expect(updated.agreement).toBeNull();
   expect(updated.time_cap_minutes).toBeNull();
   expect(updated.branch).toBe('work');
-  expect(updated).toEqual(await local.getDelivery({ id: created.id }));
+  expect(await local.getDelivery({ id: created.id })).toMatchObject(updated);
   // Another record's id is a behavioral kind refusal on both sides (ADR 0042).
   const localError = await errorOf(local.getDelivery({ id: phase.id }));
   const remoteError = await errorOf(remote.getDelivery({ id: phase.id }));

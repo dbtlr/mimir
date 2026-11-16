@@ -167,6 +167,8 @@ export type ArtifactTable = {
   /** Stored WITHOUT a trailing newline — the seam's read-back form. */
   content: string;
   source_scratch: string | null;
+  /** The delivery a frozen run journal names (ADR 0027, MMR-691); set at freeze, never after. */
+  delivery: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -231,6 +233,8 @@ export type ScratchpadTable = {
   project_key: string;
   title: string;
   anchors: Generated<Stored<string[]>>;
+  /** The delivery this pad is the run journal of (ADR 0027, MMR-691), or null. */
+  delivery: string | null;
   journal: Stored<ScratchpadJournalEntry[]>;
   agenda: Stored<ScratchpadAgendaItem[]>;
   freezing_at: string | null;
@@ -321,6 +325,16 @@ export type DecisionTable = Omit<DecisionView, 'tasks' | 'history' | 'options'> 
   options: Stored<string[]>;
 };
 
+/** One known limitation or declined finding of a delivery (ADR 0042, MMR-691). */
+export type DeliveryFindingTable = {
+  delivery_id: string;
+  number: number;
+  kind: 'limitation' | 'declined';
+  text: string;
+  reason: string | null;
+  created_at: string;
+};
+
 export type ChecklistItemTable = {
   node_id: string;
   number: number;
@@ -337,6 +351,7 @@ export type DB = {
   decision_task: { decision_id: string; task: string };
   decision_history: DecisionHistory & { id: RowId; decision_id: string };
   delivery: DeliveryTable;
+  delivery_finding: DeliveryFindingTable;
   delivery_history: DeliveryHistoryTable;
   runs: RunTable;
   pairing_requests: PairingRequestTable;

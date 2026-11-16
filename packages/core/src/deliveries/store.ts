@@ -1,4 +1,9 @@
-import type { DeliveryHistory, DeliveryHold, DeliveryLifecycle } from '@mimir/contract';
+import type {
+  DeliveryFindingRecord,
+  DeliveryHistory,
+  DeliveryHold,
+  DeliveryLifecycle,
+} from '@mimir/contract';
 
 import { validation } from '../errors';
 import type { StoreWriter } from '../store';
@@ -57,10 +62,28 @@ export type DeliveryCreate = {
 /** The fields a write replaces; an absent key is left alone, `null` clears. */
 export type DeliveryPatch = Partial<Omit<DeliveryCreate, 'key' | 'phase' | 'tasks'>>;
 
+/** One entry the findings verbs append; the verb has validated every field. */
+export type NewDeliveryFinding = {
+  kind: 'limitation' | 'declined';
+  text: string;
+  /** Required for `declined`, null for `limitation`. */
+  reason: string | null;
+};
+
 export type DeliveryStatePatch = Partial<
   Pick<StoredDelivery, 'lifecycle' | 'hold' | 'hold_reason'>
 >;
 export type DeliveryStore = {
+  /**
+   * Append a known limitation or declined finding (ADR 0042, MMR-691). In one
+   * write it stamps the delivery's `updated_at`, allocates the next number
+   * across both kinds, and inserts. It accepts a delivery in any lifecycle,
+   * the one exception to {@link assertLiveDelivery}, and refuses an archived
+   * project and an absent delivery.
+   */
+  appendFinding: (key: string, seq: number, entry: NewDeliveryFinding) => Promise<void>;
+  /** A delivery's entries in number order. */
+  findings: (key: string, seq: number) => Promise<DeliveryFindingRecord[]>;
   /** Run rules and member writes against one consistent write transaction. */
   transact: (
     key: string,

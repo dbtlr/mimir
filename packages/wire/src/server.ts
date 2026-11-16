@@ -274,10 +274,18 @@ export function createEngineRouter(engine: Engine) {
       .input((value: unknown) => parseEngineInput(engineSchemas.deliveryCreate.input, value))
       .output(engineSchemas.deliveryCreate.output)
       .mutation(({ input }) => engine.deliveryCreate(input)),
+    deliveryDecline: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.deliveryDecline.input, value))
+      .output(engineSchemas.deliveryDecline.output)
+      .mutation(({ input }) => engine.deliveryDecline(input)),
     deliveryLand: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.deliveryLand.input, value))
       .output(engineSchemas.deliveryLand.output)
       .mutation(({ input }) => engine.deliveryLand(input)),
+    deliveryLimitation: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.deliveryLimitation.input, value))
+      .output(engineSchemas.deliveryLimitation.output)
+      .mutation(({ input }) => engine.deliveryLimitation(input)),
     deliveryPark: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.deliveryPark.input, value))
       .output(engineSchemas.deliveryPark.output)

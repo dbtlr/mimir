@@ -351,6 +351,7 @@ export async function buildProjectView(
 export function buildArtifactDetail(record: ArtifactRecord & { content?: string }): ArtifactDetail {
   const detail: ArtifactDetail = {
     createdAt: record.created_at,
+    delivery: record.delivery,
     id: renderArtifactRef({ key: record.key, seq: record.seq }),
     links: record.links,
     project: record.key,

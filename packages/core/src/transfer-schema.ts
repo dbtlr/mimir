@@ -1,5 +1,6 @@
 import {
   checklistRecordSchema,
+  deliveryFindingRecordSchema,
   decisionViewSchema,
   AGENDA_ITEM_STATE_VALUES,
   BLOCK_OWNER_VALUES,
@@ -70,6 +71,8 @@ export const transferSchema = z.object({
     z.object({
       content: text,
       created_at: text,
+      // Absent in a document written before run journals (MMR-691).
+      delivery: nullableText.default(null),
       key,
       links: z.array(text),
       seq: integer.nonnegative(),
@@ -92,6 +95,7 @@ export const transferSchema = z.object({
   deliveries: z
     .array(deliveryRecordSchema.extend({ history: z.array(deliveryHistorySchema) }))
     .default([]),
+  delivery_findings: z.array(deliveryFindingRecordSchema).default([]),
   edges: z.array(z.object({ depends_on_node_id: text, node_id: text })),
   exported_at: text,
   nodes: z.array(
@@ -200,6 +204,7 @@ export const transferSchema = z.object({
       z.literal(9),
       z.literal(10),
       z.literal(11),
+      z.literal(12),
       z.literal(STORE_EXPORT_SCHEMA_VERSION),
     ])
     .transform((): typeof STORE_EXPORT_SCHEMA_VERSION => STORE_EXPORT_SCHEMA_VERSION),
@@ -215,6 +220,8 @@ export const transferSchema = z.object({
       ),
       anchors: z.array(text),
       createdAt: text,
+      // Absent in a document written before run journals (MMR-691).
+      delivery: nullableText.default(null),
       freezingAt: nullableText,
       id: text.refine(isScratchpadId, 'expected a canonical scratchpad UUID'),
       journal: z.array(z.object({ at: text, content: text, number: integer })),

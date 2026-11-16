@@ -453,6 +453,69 @@ describe.each(arms)('$name', (arm) => {
     }
   });
 
+  test(`${arm.name}: doctor reports delivery entries and run journals that break a rule`, async () => {
+    const f = await arm.make();
+    try {
+      await seedWorkingSet(f.store);
+      const engine = new LocalEngine(f.store);
+      await createProject(f.store, { key: 'OTH', name: 'Other' });
+      const otherRoot = await createInitiative(f.store, { projectId: 'OTH', title: 'Other' });
+      const otherPhase = await createPhase(f.store, { parentId: otherRoot.id, title: 'Phase' });
+      await engine.deliveryCreate({ phase: 'MMR-2', tasks: [], title: 'Attempt' });
+      await engine.deliveryCreate({ phase: otherPhase.id, tasks: [], title: 'Foreign' });
+      await engine.deliveryLimitation({ id: 'MMR-d1', text: 'one' });
+      await engine.deliveryDecline({ finding: 'two', id: 'MMR-d1', reason: 'why' });
+      await engine.deliveryLimitation({ id: 'MMR-d1', text: 'three' });
+      const frozen = await engine.scratchCreate({
+        anchors: ['MMR-d1'],
+        project: 'MMR',
+        title: 'Frozen journal',
+      });
+      const artifact = await engine.scratchFreeze({
+        expectedUpdatedAt: frozen.updatedAt,
+        id: frozen.id,
+        summary: 'journal',
+      });
+      const live = await engine.scratchCreate({
+        anchors: ['MMR-d1'],
+        project: 'MMR',
+        title: 'Live journal',
+      });
+      const loose = await engine.scratchCreate({ project: 'MMR', title: 'Loose' });
+      const codes = new Set(['invalid-delivery-finding', 'invalid-run-journal']);
+      const found = async () =>
+        (await f.doctor.diagnose(undefined)).findings.filter((item) => codes.has(item.code));
+      expect(await found()).toEqual([]);
+      await arm.unconstrained(f.db, [
+        "UPDATE delivery_finding SET number = 0 WHERE delivery_id = 'MMR-d1' AND number = 3",
+        "UPDATE delivery_finding SET text = ' ' WHERE delivery_id = 'MMR-d1' AND number = 1",
+        "UPDATE delivery_finding SET reason = NULL WHERE delivery_id = 'MMR-d1' AND number = 2",
+        "INSERT INTO delivery_finding (delivery_id, number, kind, text, reason, created_at) VALUES ('MMR-d404', 1, 'limitation', 'x', NULL, '2026-01-01T00:00:00.000Z')",
+        "INSERT INTO delivery_finding (delivery_id, number, kind, text, reason, created_at) VALUES ('MMR-d1', 7, 'limitation', 'x', 'why', '2026-01-01T00:00:00.000Z')",
+        "INSERT INTO delivery_finding (delivery_id, number, kind, text, reason, created_at) VALUES ('MMR-d1', 8, 'limitation', 'x', NULL, 'banana')",
+        "INSERT INTO delivery_finding (delivery_id, number, kind, text, reason, created_at) VALUES ('MMR-d1', 9, 'limitation', 'x', NULL, '2026-11-16T10:00:00.000+05:00')",
+        `UPDATE scratchpad SET delivery = 'MMR-d1' WHERE id = '${loose.id}'`,
+        `UPDATE artifact SET delivery = 'OTH-d1' WHERE id = '${artifact.id}'`,
+      ]);
+      const messages = (await found()).map((item) => item.message).toSorted();
+      expect(messages).toEqual(
+        [
+          'MMR-d1 entry 0 number must be a positive integer',
+          'MMR-d1 entry 1 text is blank',
+          'MMR-d1 entry 2 is declined without a reason',
+          'MMR-d404 entry 1 names a missing delivery',
+          'MMR-d1 entry 7 is a limitation but carries a reason',
+          'MMR-d1 entry 8 created_at is not a canonical UTC instant',
+          'MMR-d1 entry 9 created_at is not a canonical UTC instant',
+          `delivery MMR-d1 has 2 live scratchpads: ${[live.id, loose.id].toSorted().join(', ')}`,
+          `artifact ${artifact.id} delivery OTH-d1 is in project OTH, not MMR`,
+        ].toSorted(),
+      );
+    } finally {
+      await f.close();
+    }
+  });
+
   test(`${arm.name}: delivery references the verbs produce diagnose clean, and every other state reports invalid-delivery`, async () => {
     const f = await arm.make();
     try {

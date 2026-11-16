@@ -53,6 +53,7 @@ export function engineArtifact(
 ): ArtifactSummary {
   return {
     createdAt: FIXTURE_AT,
+    delivery: null,
     links: [],
     project: overrides.id.split('-')[0] ?? 'MMR',
     tags: [],
@@ -68,6 +69,7 @@ export function engineArtifactRecord(
   return {
     content: '# Body',
     createdAt: FIXTURE_AT,
+    delivery: null,
     links: [],
     project: overrides.id.split('-')[0] ?? 'MMR',
     tags: [],

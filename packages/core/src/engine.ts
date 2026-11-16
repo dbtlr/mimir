@@ -13,7 +13,9 @@ import { addItem, checkItem, dropItem } from './checklist/intent';
 import { decide, decisions, getDecision, updateDecision, answerDecision } from './decisions/intent';
 import { refuseDecisionInput } from './decisions/refusal';
 import {
+  addLimitation,
   createDelivery,
+  declineFinding,
   getDelivery,
   listDeliveries,
   updateDelivery,
@@ -205,6 +207,18 @@ export class LocalEngine extends UniformEngineBase implements Engine {
     refuseDecisionInput(input);
     const args = parseEngineInput(engineSchemas.deliveryAbandon.input, input);
     return decodeDelivery(await transitionDelivery(this.store, 'abandon', args));
+  }
+
+  async deliveryLimitation(input: EngineInput<'deliveryLimitation'>) {
+    refuseDecisionInput(input);
+    const args = parseEngineInput(engineSchemas.deliveryLimitation.input, input);
+    return decodeDelivery(await addLimitation(this.store, args));
+  }
+
+  async deliveryDecline(input: EngineInput<'deliveryDecline'>) {
+    refuseDecisionInput(input);
+    const args = parseEngineInput(engineSchemas.deliveryDecline.input, input);
+    return decodeDelivery(await declineFinding(this.store, args));
   }
 
   async deliveryCreate(input: EngineInput<'deliveryCreate'>) {

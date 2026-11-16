@@ -79,6 +79,7 @@ lane('upgradeSchema builds the schema from empty, and the gate then passes', asy
           '0016_delivery_membership',
           '0017_decision',
           '0018_checklist_item',
+          '0019_delivery_finding',
         ],
         from: 0,
         to: SCHEMA_VERSION,
@@ -534,7 +535,7 @@ lane('delivery records round-trip through the socket-backed store', async () => 
         id: delivery.id,
         time_cap_minutes: 30,
       });
-      expect(await engine.getDelivery({ id: delivery.id })).toEqual(updated);
+      expect(await engine.getDelivery({ id: delivery.id })).toMatchObject(updated);
       expect(await engine.deliveries({ project: 'DEL' })).toEqual([updated]);
       const exported = await store.export();
       expect(exported.projects[0]?.counters.delivery).toBe(1);
@@ -748,6 +749,70 @@ lane('two concurrent settles of one item leave one settled and one refused', asy
       expect(refused?.status === 'rejected' && refused.reason).toMatchObject({ code: 'conflict' });
       const [item] = (await engine.getNode({ id: task.id })).items ?? [];
       expect(item?.state === 'checked' || item?.state === 'dropped').toBe(true);
+    } finally {
+      await handle.close();
+    }
+  });
+});
+
+lane('concurrent limitation and decline appends on one delivery get distinct numbers', async () => {
+  await onFreshSchema(async (url) => {
+    const handle = openPostgres(url);
+    try {
+      await upgradeSchema(handle.db);
+      const store = createPostgresStore(handle.db);
+      const engine = new LocalEngine(store);
+      await createProject(store, { key: 'LST', name: 'Lists' });
+      const initiative = await createInitiative(store, { projectId: 'LST', title: 'i' });
+      const phase = await createPhase(store, { parentId: initiative.id, title: 'p' });
+      const delivery = await engine.deliveryCreate({ phase: phase.id, tasks: [], title: 'd' });
+      await Promise.all(
+        Array.from({ length: 8 }, (_, i) =>
+          i % 2 === 0
+            ? engine.deliveryLimitation({ id: delivery.id, text: `limit ${String(i)}` })
+            : engine.deliveryDecline({
+                finding: `finding ${String(i)}`,
+                id: delivery.id,
+                reason: 'why',
+              }),
+        ),
+      );
+      const read = await engine.getDelivery({ id: delivery.id });
+      const numbers = [
+        ...read.limitations.map((e) => e.number),
+        ...read.declined.map((e) => e.number),
+      ];
+      expect(numbers.toSorted((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    } finally {
+      await handle.close();
+    }
+  });
+});
+
+lane('two concurrent pads on one delivery leave one created and one conflict', async () => {
+  await onFreshSchema(async (url) => {
+    const handle = openPostgres(url);
+    try {
+      await upgradeSchema(handle.db);
+      const store = createPostgresStore(handle.db);
+      const engine = new LocalEngine(store);
+      await createProject(store, { key: 'LST', name: 'Lists' });
+      const initiative = await createInitiative(store, { projectId: 'LST', title: 'i' });
+      const phase = await createPhase(store, { parentId: initiative.id, title: 'p' });
+      const delivery = await engine.deliveryCreate({ phase: phase.id, tasks: [], title: 'd' });
+      const results = await Promise.allSettled(
+        [1, 2].map((n) =>
+          engine.scratchCreate({
+            anchors: [delivery.id],
+            project: 'LST',
+            title: `journal ${String(n)}`,
+          }),
+        ),
+      );
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      const refused = results.find((r) => r.status === 'rejected');
+      expect(refused?.status === 'rejected' && refused.reason).toMatchObject({ code: 'conflict' });
+      expect((await engine.getDelivery({ id: delivery.id })).journal.scratchpad).not.toBeNull();
     } finally {
       await handle.close();
     }

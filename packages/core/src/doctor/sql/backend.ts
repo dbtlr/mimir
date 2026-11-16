@@ -24,6 +24,7 @@ import { sql } from 'kysely';
 import { checklistFaults } from '../../checklist/validate';
 import { decisionFaults } from '../../decisions/validate';
 import { deliveryReferenceFault } from '../../deliveries/membership';
+import { deliveryFindingFaults, journalFaults } from '../../deliveries/validate';
 import { parseIdentity } from '../../ids';
 import type { Node } from '../../model';
 import { inLists } from '../../store-sql/batch';
@@ -50,6 +51,8 @@ type SqlCheck =
   | 'invalid-checklist-item'
   | 'invalid-delivery'
   | 'invalid-decision'
+  | 'invalid-delivery-finding'
+  | 'invalid-run-journal'
   | 'dangling-edge'
   | 'dangling-parent'
   | 'malformed-timestamp'
@@ -668,6 +671,60 @@ async function checkChecklistItems(db: Kysely<DB>): Promise<DoctorFinding[]> {
   });
 }
 
+/** Every delivery's owning project, by delivery id. */
+async function deliveryProjects(db: Kysely<DB>): Promise<Map<string, string>> {
+  const rows = await db.selectFrom('delivery').select(['id', 'project_key']).execute();
+  return new Map(rows.map((row) => [row.id, row.project_key]));
+}
+
+/** The delivery entry rules the verbs keep (ADR 0042, MMR-691), over every stored entry. */
+async function checkDeliveryFindings(db: Kysely<DB>): Promise<DoctorFinding[]> {
+  const rows = await db
+    .selectFrom('delivery_finding')
+    .select(['delivery_id as delivery', 'number', 'kind', 'text', 'reason', 'created_at'])
+    .orderBy('delivery_id')
+    .orderBy('number')
+    .execute();
+  return deliveryFindingFaults(rows, await deliveryProjects(db)).map(({ id, message }) => {
+    const delivery = id.slice(0, id.indexOf(' '));
+    return finding({
+      check: 'invalid-delivery-finding',
+      evidence: {},
+      locator: `delivery_finding/${id.replace(' entry ', '/')}`,
+      message: `${id} ${message}`,
+      stem: delivery,
+      where: 'delivery_finding',
+    });
+  });
+}
+
+/** The delivery a run journal's pad or frozen artifact names (ADR 0027, MMR-691). */
+async function checkRunJournals(db: Kysely<DB>): Promise<DoctorFinding[]> {
+  const pads = await db
+    .selectFrom('scratchpad')
+    .select(['id', 'project_key as project', 'delivery'])
+    .where('delivery', 'is not', null)
+    .orderBy('id')
+    .execute();
+  const artifacts = await db
+    .selectFrom('artifact')
+    .select(['id', 'project_key as project', 'delivery'])
+    .where('delivery', 'is not', null)
+    .orderBy('id')
+    .execute();
+  return journalFaults(pads, artifacts, await deliveryProjects(db)).map(({ id, message, scope }) =>
+    finding({
+      check: 'invalid-run-journal',
+      evidence: {},
+      locator: id.replace(' ', '/'),
+      message: `${id} ${message}`,
+      scopeKey: scope,
+      stem: id.slice(id.indexOf(' ') + 1),
+      where: id.slice(0, id.indexOf(' ')),
+    }),
+  );
+}
+
 /** Findings for `scope`, or all of them when the run is unscoped. */
 async function diagnose(
   db: Kysely<DB>,
@@ -687,6 +744,8 @@ async function diagnose(
       checkOrphanDecisionLinks(db),
       checkDecisions(db, dialect),
       checkChecklistItems(db),
+      checkDeliveryFindings(db),
+      checkRunJournals(db),
       checkDanglingParent(db),
       checkDanglingEdge(db),
       checkCounterBehind(db),
@@ -712,6 +771,8 @@ const CAUSES: Readonly<Record<string, string>> = {
   'invalid-checklist-item': 'invalid checklist item',
   'invalid-decision': 'invalid decision',
   'invalid-delivery': 'invalid delivery reference',
+  'invalid-delivery-finding': 'invalid delivery entry',
+  'invalid-run-journal': 'invalid run journal',
   'malformed-timestamp': 'malformed timestamp',
   'orphan-link': 'orphan link',
   'schema-version': 'schema version mismatch',

@@ -14,6 +14,7 @@ import {
 test('overview Scratchpad wire projection uses public linked-work and timestamp fields', () => {
   expect(
     overviewScratchpadToWire({
+      delivery: null,
       id: '00000000-0000-4000-8000-000000000001',
       linkedWork: ['MMR-331'],
       openAgenda: 2,
@@ -23,6 +24,7 @@ test('overview Scratchpad wire projection uses public linked-work and timestamp 
       updatedAt: '2026-08-03T00:00:00.000Z',
     }),
   ).toEqual({
+    delivery: null,
     id: '00000000-0000-4000-8000-000000000001',
     linked_work: ['MMR-331'],
     open_agenda: 2,

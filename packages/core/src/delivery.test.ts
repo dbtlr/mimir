@@ -42,7 +42,7 @@ test('a delivery records an attempt beside its phase, and updates replace its te
     });
     expect(updated.agreement).toBeNull();
     expect(updated.time_cap_minutes).toBeNull();
-    expect(await engine.getDelivery({ id: delivery.id })).toEqual(updated);
+    expect(await engine.getDelivery({ id: delivery.id })).toMatchObject(updated);
     expect(await engine.deliveries({ project: 'DEL' })).toEqual([updated]);
     expect(
       await refusalOf(engine.deliveryCreate({ phase: initiative.id, title: 'Invalid' })),
@@ -53,7 +53,9 @@ test('a delivery records an attempt beside its phase, and updates replace its te
     const target = await createTestStore();
     try {
       await target.store.import(exported, { dryRun: false, mode: 'fresh' });
-      expect(await new LocalEngine(target.store).getDelivery({ id: delivery.id })).toEqual(updated);
+      expect(await new LocalEngine(target.store).getDelivery({ id: delivery.id })).toMatchObject(
+        updated,
+      );
     } finally {
       await target.close();
     }
