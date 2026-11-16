@@ -63,7 +63,7 @@ These hold for every table; the per-entity sections below don't repeat them.
 - **transition / history** (`transition_log`) — the append-only log ([ADR 0003](decisions/0003-append-only-transition-log.md)), keyed to a node or (for `archive`) a project.
 - **artifact** (`artifact`, `artifact_link`) — frozen markdown blob, anchored to one project, linked to 0..N nodes ([ADR 0004](decisions/0004-artifact-model-project-anchored-flexibly-linked.md)).
 - **seed** (`seed`, `seed_history`) — the grooming-queue record ([ADR 0020](decisions/0020-seeds-grooming-queue-entity.md)): project-anchored, its own `KEY-sN` id, **not** a node.
-- **delivery** (`delivery`, `delivery_history`) — one attempt to deliver a phase through one branch ([ADR 0042](decisions/0042-the-delivery-record.md)): project-anchored like a seed, its own `KEY-dN` id, **not** a node, and it stores no status on any node.
+- **delivery** (`delivery`, `delivery_history`, `delivery_finding`) — one attempt to deliver a phase through one branch ([ADR 0042](decisions/0042-the-delivery-record.md)): project-anchored like a seed, its own `KEY-dN` id, **not** a node, and it stores no status on any node.
 - **scratchpad** (`scratchpad`) — temporary, project-anchored episode state ([ADR 0027](decisions/0027-scratchpads-are-temporary-episode-state.md)), with an append-only numbered Journal and lifecycle-owned numbered Agenda. It freezes into a complete Artifact or is discarded; it is not a node or mutable Artifact.
 - **tag** (`tag`) — an opaque string applied to a project, node, or artifact ([ADR 0005](decisions/0005-grouping-axis-is-tags.md)); seeds carry no tags. The store keeps **no per-tag note or timestamp**.
 - **schema_version** — which schema the database carries (see [Schema version and migrations](#schema-version-and-migrations)).
@@ -217,6 +217,7 @@ A frozen markdown document — not diffed or edited in place, only ever added to
 | `summary`        | text | optional | ≤256-char lede, newlines collapsed                                   |
 | `content`        | text | required | the frozen markdown, stored without a trailing newline               |
 | `source_scratch` | text | optional | canonical Scratchpad UUID; freeze provenance. No foreign key         |
+| `delivery`       | text | optional | the `KEY-dN` a frozen run journal names; set at freeze, never after. No foreign key |
 | `created_at`     | text | required | ISO-8601 UTC                                                         |
 | `updated_at`     | text | required | ISO-8601 UTC; metadata mutations only                                |
 
@@ -292,6 +293,7 @@ A Scratchpad is temporary, project-anchored state for one unsettled work episode
 | `project_key` | text      | required | foreign key to `project.key`, the one required home      |
 | `title`       | text      | required | display title                                            |
 | `anchors`     | text list | required | same-project linked-work ids; default empty. No foreign key |
+| `delivery`    | text      | optional | the `KEY-dN` this pad is the run journal of; at most one live pad per delivery. No foreign key |
 | `journal`     | JSON      | required | the Journal entries, an array                            |
 | `agenda`      | JSON      | required | the Agenda items, an array                               |
 | `freezing_at` | text      | optional | set while the idempotent freeze protocol runs            |
@@ -347,6 +349,7 @@ Each closed vocabulary has a `CHECK` on its column; values outside its set canno
 | `delivery.lifecycle`                    | `agreed`, `running`, `milestone`, `landed`, `abandoned`    |
 | `delivery.hold`                         | `none`, `stopped`, `paused`                                |
 | `delivery_history.kind`                 | `lifecycle`, `hold`, `member`                              |
+| `delivery_finding.kind`                 | `limitation`, `declined`                                   |
 | `tag.entity_type`                       | `project`, `node`, `artifact` (seeds carry no tags)        |
 | `project.key`                           | two to four uppercase letters                              |
 
@@ -379,7 +382,7 @@ The host's `/health` reports `schema` as the schema version it expects. A schema
 
 `mimir store export <file>` writes the whole store as one JSON document, and `mimir store import <file>` reads it. It is the **portable form** of the store: backend-neutral, so it moves facts between SQLite and PostgreSQL, and it is the backup for either ([ADR 0030](decisions/0030-postgres-store-backend-shared-store-bridge.md) Decision 4, [ADR 0032](decisions/0032-sqlite-local-tier-shared-sql-store.md) Decisions 5 and 6). A store from a Norn vault enters the same way: export it with mimir v0.20, then import the document (see [Moving from a Norn vault](guides/store-transfer.md#moving-from-a-norn-vault)).
 
-The document carries every **stored fact** and nothing derived. Its top level holds `schema_version` (the document's own version, separate from the database schema version: `12` since checklist items; import also reads `1` through `11`, defaulting each task to `not_groomed`, each blocked task's owner by its `upstream`, each project to unpinned, each project's remote to none, absent worker identity to none, and absent deliveries to none with a zero delivery counter, absent decisions to none with a zero decision counter, absent checklist items to none, and refuses any other), `exported_at` (the only field a re-export may differ in, except that a done or abandoned task carrying a hold imports unheld, at any document version), and these collections:
+The document carries every **stored fact** and nothing derived. Its top level holds `schema_version` (the document's own version, separate from the database schema version: `13` since delivery findings; import also reads `1` through `12`, defaulting each task to `not_groomed`, each blocked task's owner by its `upstream`, each project to unpinned, each project's remote to none, absent worker identity to none, and absent deliveries to none with a zero delivery counter, absent decisions to none with a zero decision counter, absent checklist items to none, absent delivery findings to none, and no `delivery` on any scratchpad or artifact, and refuses any other), `exported_at` (the only field a re-export may differ in, except that a done or abandoned task carrying a hold imports unheld, at any document version), and these collections:
 
 | Collection     | Holds                                                                                     |
 | -------------- | ----------------------------------------------------------------------------------------- |
@@ -392,7 +395,8 @@ The document carries every **stored fact** and nothing derived. Its top level ho
 | `artifacts`    | artifacts with frozen `content`, `source_scratch`, tags, and links                        |
 | `seeds`        | seeds with `description` and their own `history`                                          |
 | `deliveries`   | deliveries with their own ordered `history`; import writes them after the nodes they name |
-| `scratchpads`  | scratchpads, whole                                                                        |
+| `delivery_findings` | delivery limitations and declined findings, each with its `delivery`, in project-key, delivery-sequence, then number order; import writes them after the deliveries |
+| `scratchpads`  | scratchpads, whole, including the `delivery` of a run journal                             |
 | `bodySections` | the owned prose of projects and nodes: `description` and the `next` narrative with its presence |
 | `transitions`  | the `transition_log` rows, with their resume handles                                      |
 
@@ -402,7 +406,7 @@ Export is **fail-closed**: it refuses, and names the records, when the store hol
 
 ## Constraints and diagnostics
 
-The database enforces integrity itself: a foreign key for every single-valued reference, a primary key for every identity, and a `CHECK` over each closed vocabulary. `tag.entity_id`, `scratchpad.anchors`, `seed.spawned`, `seed.requester`, and `artifact.source_scratch` carry no foreign key. A record that fails a constraint cannot be written. `mimir doctor` therefore reports a short list on either backend: a schema version mismatch, a dangling parent or dependency reference, a sequence counter behind its rows, an orphan artifact link or scratchpad anchor, and a stored timestamp other than the canonical UTC instant. Doctor only reports; there is no repair pass. The findings a rollout cannot produce — a dangling reference, a counter behind its rows, an orphan link — point at a hand edit of the database. A malformed timestamp can also arrive through import, which copies every timestamp but a scratchpad's and a delivery's as it stands: a v0.20 export can carry a legacy empty `updated_at`, which sorts before every real instant.
+The database enforces integrity itself: a foreign key for every single-valued reference, a primary key for every identity, and a `CHECK` over each closed vocabulary. `tag.entity_id`, `scratchpad.anchors`, `seed.spawned`, `seed.requester`, and `artifact.source_scratch`, `artifact.delivery`, and `scratchpad.delivery` carry no foreign key. A record that fails a constraint cannot be written. `mimir doctor` therefore reports a short list on either backend: a schema version mismatch, a dangling parent or dependency reference, a sequence counter behind its rows, an orphan artifact link or scratchpad anchor, and a stored timestamp other than the canonical UTC instant. Doctor only reports; there is no repair pass. The findings a rollout cannot produce — a dangling reference, a counter behind its rows, an orphan link — point at a hand edit of the database. A malformed timestamp can also arrive through import, which copies every timestamp but a scratchpad's and a delivery's as it stands: a v0.20 export can carry a legacy empty `updated_at`, which sorts before every real instant.
 
 ## Status
 
@@ -465,3 +469,34 @@ content, a dropped item without a reason or another state with one, an open item
 with a `settled_at` or a settled item without one, and a `settled_at` before its
 `created_at`. Transfer schema 12 carries the items; older documents import with
 none.
+
+## Delivery findings and run journals
+
+A `delivery_finding` is one entry of a delivery's two append-only lists, a known
+limitation or a declined finding ([ADR 0042](decisions/0042-the-delivery-record.md),
+MMR-691 refinement). Migration 0019 creates it, keyed by `(delivery_id, number)`;
+`delivery_id` is a foreign key to `delivery.id`. `number` starts at 1 per
+delivery across both kinds and is never reused, so the next number is one more
+than the delivery's highest; no counter is stored.
+
+| Column        | Type    | Null     | Allowed / default                                        |
+| ------------- | ------- | -------- | -------------------------------------------------------- |
+| `delivery_id` | text    | primary  | the delivery                                             |
+| `number`      | integer | primary  | positive, per delivery                                   |
+| `kind`        | text    | required | `limitation` \| `declined`                                |
+| `text`        | text    | required | the limitation, or the finding; not blank                |
+| `reason`      | text    | optional | required for `declined`, null for `limitation`           |
+| `created_at`  | text    | required | the instant the verb recorded                            |
+
+The row is its own log, so no `delivery_history` row is written. `limitation` and
+`decline` stamp the delivery's `updated_at` first, in the same transaction, and
+accept a delivery in any lifecycle. Migration 0019 also adds the nullable
+`scratchpad.delivery` and `artifact.delivery` columns that anchor a delivery's
+run journal ([ADR 0027](decisions/0027-scratchpads-are-temporary-episode-state.md),
+MMR-691 refinement). Import refuses and `doctor` reports
+(`invalid-delivery-finding`) an entry whose delivery is missing, a number below 1
+or used twice on one delivery, blank text, a kind outside the set, a `declined`
+entry without a reason or a `limitation` with one, and a `created_at` that is not
+a canonical UTC instant. They also refuse and report (`invalid-run-journal`) a
+pad or artifact whose `delivery` is missing or in another project, and two live
+pads on one delivery.

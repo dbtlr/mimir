@@ -65,8 +65,15 @@ confirmation, no further token.)
 - `agenda` tracks what the episode still owes: `add` opens an item,
   `complete`/`supersede <number>` settle it (supersede requires a reason).
   Open Agenda is what `discard` refuses over — settle items when they settle.
+- `--link` also takes **one delivery id** (`--link MMR-d3`), which makes the
+  pad that delivery's run journal. The pad keeps it apart from the node
+  links, and a second delivery id, a delivery of another project, or a
+  delivery that already has a live pad is refused (the last as `conflict`,
+  naming the pad). Freeze names the delivery on the artifact and links every
+  task that was ever a member of it (`references/deliveries.md`).
 - `update` replaces title or linked work (`--link …` replaces the set;
-  `--clear-links` empties it; the two together is a usage error).
+  `--clear-links` empties it, the delivery included; a `--link` set without a
+  delivery id clears the delivery, and an update with neither keeps both; the two together is a usage error).
 
 ## The concurrency token — echo, never guess
 
