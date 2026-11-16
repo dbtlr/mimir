@@ -535,7 +535,13 @@ lane('delivery records round-trip through the socket-backed store', async () => 
         id: delivery.id,
         time_cap_minutes: 30,
       });
-      expect(await engine.getDelivery({ id: delivery.id })).toMatchObject(updated);
+      const detail = {
+        ...updated,
+        declined: [],
+        journal: { artifacts: [], scratchpad: null },
+        limitations: [],
+      };
+      expect(await engine.getDelivery({ id: delivery.id })).toEqual(detail);
       expect(await engine.deliveries({ project: 'DEL' })).toEqual([updated]);
       const exported = await store.export();
       expect(exported.projects[0]?.counters.delivery).toBe(1);
