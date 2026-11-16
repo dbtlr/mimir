@@ -95,8 +95,9 @@ event after the caller's cursor, with a lagged `as_of` for the next read and
 an `id` on each event so repeats can be dropped
 ([ADR 0042](decisions/0042-the-delivery-record.md), MMR-692 refinement).
 
-**Settle window**: The 5 seconds the since read's `as_of` lags the store's
-clock, so a write that commits just after a read is not skipped.
+**Settle window**: The 5 seconds the since read's `as_of` lags the reading
+process's clock, so a write that commits just after a read is read next time.
+It is a best-effort bound, not a guarantee.
 
 **Agent run**: One execution of an agent by the host on behalf of a task, such
 as a grooming run, recorded as a host-owned row with its state, usage, and

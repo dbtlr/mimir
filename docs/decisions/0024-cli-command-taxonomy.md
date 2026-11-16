@@ -295,6 +295,7 @@ after it is written, and both words are specific to the claim.
 
 `get` takes `--since <instant>` on a delivery id, and only there, for the since
 read of [ADR 0042](0042-the-delivery-record.md) (MMR-692 refinement). The
-retired `--since` stays retired everywhere else, and its refusal still names
-`--at-or-after`, because a since read is a change feed over one delivery, not a
-window over a list.
+retired `--since` stays retired everywhere else, and its refusal there still
+names `--at-or-after`, because a since read is a change feed over one delivery,
+not a window over a list. On a `get` of any other id, `--since` is a usage
+error that says so and names the list reads that take `--at-or-after`.

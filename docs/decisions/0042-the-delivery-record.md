@@ -418,25 +418,37 @@ mimir get MMR-d3 --since 2026-11-16T09:00:00.000Z
       "text": null } ] }
 ```
 
-- `delivery` is the delivery exactly as `get KEY-dN` reads it now. A change
-  that writes no log row (an edit of the agreement, the branch, the time cap, a
-  decision's options, a tag) shows only here, as its current value.
+- `delivery` is the delivery exactly as `get KEY-dN` reads it now. An edit of
+  the delivery's own fields writes no log row (its title, agreement, branch,
+  handles, pull request link, or time cap), so it shows only here, as the
+  current value. Field edits on member tasks (title, description, priority,
+  tags) are not reported by this read at all.
 - `events` holds every event whose `at` is strictly after `since`, oldest
-  first, ties in `id` order. An event in the future of the read's clock is
-  included too.
-- `as_of` is the cursor for the next read: the store's clock when the read
-  ran, minus a **settle window** of 5 seconds, and never earlier than `since`.
+  first. Events with the same `at` sort by source, in the order of the table
+  below, then by row id or number within a source, so each source keeps its
+  insertion order. An event stamped later than the read's clock is included
+  too; `as_of` does not move past it.
+- `as_of` is the cursor for the next read: the reading process's clock when
+  the read ran, minus a **settle window** of 5 seconds, and never earlier than
+  `since`.
 
 ### Why the cursor lags
 
-A write stamps its rows with the clock when it runs, and they become visible
-when it commits a few milliseconds later. A read that falls between the two
-would hand back a cursor after a write it could not see, and the next read
-would skip that write for good. The settle window gives every write time to
-commit before the cursor passes it. The cost is that events of the last few
-seconds come back on the next read too. Every event carries a stable `id`, so
-a caller drops the ones it has seen. Selection stays strictly after `since`,
-and the cursor stays with the caller.
+A write stamps its rows with its process's clock when it runs, and they become
+visible when it commits, usually a few milliseconds later. A read that falls
+between the two would hand back a cursor after a write it could not see, and
+the next read would skip that write for good. The settle window overlaps each
+read with the last 5 seconds of the one before, so such a write is read next
+time. The cost is that events of those seconds come back again. Every event
+carries an `id`, so a caller drops the ones it has seen. Selection stays
+strictly after `since`, and the cursor stays with the caller.
+
+The window is a best-effort bound, not a guarantee. A write whose commit lands
+more than 5 seconds after its stamp, or a writer whose clock runs more than 5
+seconds behind the reader's, can still be skipped. Mimir's writes are single
+short transactions, so both are far outside normal operation, and the
+`delivery` snapshot always carries current state. A guarantee would need a
+commit-ordered watermark in the store, which no log has today.
 
 ### The events
 
@@ -449,7 +461,7 @@ when the kind has none.
 | The delivery's history | `KEY-dN` | `lifecycle`, `hold`, `member` | `from`, `to`, `reason`; `task` on `member` | `KEY-dN/history/<row>` |
 | A known limitation | `KEY-dN` | `limitation` | `number`, `text` | `KEY-dN/finding/<number>` |
 | A declined finding | `KEY-dN` | `declined` | `number`, `text` (the finding), `reason` | `KEY-dN/finding/<number>` |
-| A member task's transition log | the task | the log row's kind (`lifecycle`, `hold`, `dependency`, `move`, `archive`, `assignment`) | `from`, `to`, `reason` | `<task>/transition/<row>` |
+| A member task's transition log | the task | the log row's kind (`lifecycle`, `hold`, `dependency`, `assignment`; a member cannot be moved, and archive rows are project rows) | `from`, `to`, `reason` | `<task>/transition/<row>` |
 | A member task's annotation | the task | `note` | `text` | `<task>/note/<row>` |
 | A member task's checklist item added | the task | `item` | `number`, `to` = `open`, `text` | `<task>/item/<number>/added` |
 | A member task's checklist item settled | the task | `item` | `number`, `from` = `open`, `to` = `checked` or `dropped`, `text`, `reason` | `<task>/item/<number>/settled` |
@@ -459,19 +471,30 @@ when the kind has none.
 
 - **Tasks while they were members.** A task's own events (its transitions,
   notes, and checklist items) are included only while it was a member of this
-  delivery: from each `joined` row to the matching `left`, `released`, or
-  `abandoned` row, both ends included, or to now for a current member. A task
-  that left and joined again has two such spans. The `member` rows themselves
-  always appear, because they are the delivery's own history.
+  delivery. A span runs from a `joined` row to the next `left`, `released`, or
+  `abandoned` row for that task, or, when the delivery landed, to its `landed`
+  lifecycle row, which ends every span still open and includes the members'
+  `done` rows that `land` writes. A span still open on a live delivery runs to
+  now. A task that left and joined again has two spans. The `member` rows
+  themselves always appear, because they are the delivery's own history.
+- **Spans compare timestamps, both ends included.** Rows in different tables
+  share no order finer than their `at`, so an event in the same millisecond as
+  a span's end can fall on either side of it, and a task's own row written by
+  the operation that ended its membership (the `abandoned` lifecycle row after
+  its `member` row) can fall just outside. The `member` row always records that
+  operation.
 - **Decisions** are those whose `delivery` names this delivery when the read
-  runs. A decision moved to another delivery leaves this read entirely.
+  runs, with all their events. A decision's `delivery` history row whose
+  `from` or `to` names this delivery always appears, so a decision moved to
+  another delivery is seen leaving; its later events are not.
 - **The run journal** is each artifact whose `delivery` names this delivery
   ([ADR 0027](0027-scratchpads-are-temporary-episode-state.md), MMR-691
   refinement), at its `created_at`. A live pad's checkpoints are not events:
   the pad is working state, and its frozen artifact is the record.
-- A row's `<row>` is its log table's row id, and an id never changes once
-  read. Event ids are opaque to callers, who compare them and do not parse
-  them.
+- A row's `<row>` is its log table's row id. An event's `id` is stable within
+  one store; an import reassigns row ids, so a cursor and the ids seen do not
+  carry across an export and import. Event ids are opaque to callers, who
+  compare them and do not parse them.
 
 ### Inputs and errors
 
@@ -479,8 +502,10 @@ when the kind has none.
   read as that instant. A value that is not one is a usage error, before the
   store opens.
 - `--since` is accepted only on a `KEY-dN` id. On any other id it is a usage
-  error that names `--at-or-after`, the window every other read uses. The
-  retired-flag guard keeps that hint for every other command.
+  error that says `--since` reads a delivery's change feed, and names the list
+  reads (`list`, `next`, `artifacts`, `seeds`) whose `--at-or-after` windows a
+  list by date. The retired-flag guard keeps its hint for every other command,
+  and gains `get` as the one owner of `--since`.
 - The Engine method is `deliverySince({ id, since })`. MCP's `get` tool gains
   a `since` input with the same rule. A missing delivery is `not_found`, and
   an archived project's delivery is `not_found`, as `get` reads it.
@@ -497,6 +522,6 @@ when the kind has none.
 - **Current members only, or every task ever a member.** The first loses a
   landed or abandoned delivery's last changes; the second reports a released
   task's later work in another delivery as this attempt's.
-- **Logging unlogged edits first.** Logging agreement and decision-field edits
+- **Logging unlogged edits first.** Logging delivery-field and task-field edits
   would widen ADR 0003's scope across existing verbs. The snapshot carries
   their current values, and a later need can add the log.
