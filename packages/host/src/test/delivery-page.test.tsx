@@ -356,6 +356,7 @@ test('decision chips name and commit the exact answer once', async () => {
   });
   expect(confirmChip).toHaveClass('max-md:min-h-11', 'inset-ring-attention/45');
   expect(confirmChip.closest('[data-row-actions]')).toBeNull();
+  expect(screen.getByRole('group', { name: 'Answers for MMR-q1' })).toHaveClass('flex-wrap');
   fireEvent.click(confirmChip);
   await waitFor(() => expect(confirm).toHaveBeenCalledExactlyOnceWith({ data: { id: 'MMR-q1' } }));
 });
@@ -612,6 +613,32 @@ test.each(['Clear stop', 'Resume'])('refused %s returns focus to its own chip', 
   const chip = (await screen.findAllByRole('button', { name: label }))[0]!;
   chip.focus();
   fireEvent.click(chip);
+  chip.blur();
   await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Cannot change delivery'));
   await waitFor(() => expect(chip).toHaveFocus());
+});
+
+test('the delivery Needs you section hands focus to the next decision row', async () => {
+  const data = fixture();
+  data.decisions.push({
+    ...data.decisions[0]!,
+    id: 'MMR-q2',
+    seq: 2,
+    question: 'Second question?',
+  });
+  vi.mocked(deliveryPage).mockImplementation(async () => structuredClone(data));
+  vi.mocked(confirm).mockImplementation(async () => {
+    const answered = data.decisions.shift()!;
+    return answered;
+  });
+  await open();
+  const chip = await screen.findByRole('button', { name: 'Confirm option 1 for MMR-q1: Keep' });
+  chip.focus();
+  fireEvent.click(chip);
+  await waitFor(() => expect(chip).not.toBeInTheDocument());
+  await waitFor(() =>
+    expect(
+      screen.getByRole('heading', { name: 'Second question?' }).closest('[data-row-id]'),
+    ).toHaveFocus(),
+  );
 });
