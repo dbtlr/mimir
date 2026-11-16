@@ -425,8 +425,8 @@ mimir get MMR-d3 --since 2026-11-16T09:00:00.000Z
   tags) are not reported by this read at all.
 - `events` holds every event whose `at` is strictly after `since`, oldest
   first. Events with the same `at` sort by source, in the order of the table
-  below, then by row id or number within a source, so each source keeps its
-  insertion order. An event stamped later than the read's clock is included
+  below, then by `record`, then by row id or number, then by `id`. A source
+  with one log table keeps its insertion order this way. An event stamped later than the read's clock is included
   too; `as_of` does not move past it.
 - `as_of` is the cursor for the next read: the reading process's clock when
   the read ran, minus a **settle window** of 5 seconds, and never earlier than
@@ -474,15 +474,14 @@ when the kind has none.
   delivery. A span runs from a `joined` row to the next `left`, `released`, or
   `abandoned` row for that task, or, when the delivery landed, to its `landed`
   lifecycle row, which ends every span still open and includes the members'
-  `done` rows that `land` writes. A span still open on a live delivery runs to
-  now. A task that left and joined again has two spans. The `member` rows
+  `done` rows that `land` writes. A span that a task's `abandon` ended, whose
+  `member` row reads `abandoned`, runs on to that task's next `lifecycle` row
+  to `abandoned`, so the abandon and its reason are in the feed. A span still
+  open on a live delivery runs to now. A task that left and joined again has two spans. The `member` rows
   themselves always appear, because they are the delivery's own history.
 - **Spans compare timestamps, both ends included.** Rows in different tables
   share no order finer than their `at`, so an event in the same millisecond as
-  a span's end can fall on either side of it, and a task's own row written by
-  the operation that ended its membership (the `abandoned` lifecycle row after
-  its `member` row) can fall just outside. The `member` row always records that
-  operation.
+  a span's start or end can fall on either side of it.
 - **Decisions** are those whose `delivery` names this delivery when the read
   runs, with all their events. A decision's `delivery` history row whose
   `from` or `to` names this delivery always appears, so a decision moved to
