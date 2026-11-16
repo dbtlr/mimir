@@ -49,6 +49,9 @@ export function liveDeliveriesOf<T extends { phase: string; lifecycle: string }>
 export async function deliveryPageOf(store: Store, id: string) {
   const set = deriveSet(await store.loadWorkingSet());
   const delivery = decodeDelivery(await getDelivery(store, id, set));
+  const followUpTasks = delivery.follow_ups
+    .map((row) => row.id)
+    .filter((followUp) => findNodeInSet(set, followUp)?.type === 'task');
   const [phase, members, open, followUps, pad] = await Promise.all([
     rowOf(store, set, delivery.phase),
     Promise.all(delivery.members.map((member) => rowOf(store, set, member))),
@@ -57,13 +60,11 @@ export async function deliveryPageOf(store: Store, id: string) {
       project: delivery.project_key,
       status: 'provisional',
     }),
-    Promise.all(
-      delivery.follow_ups.map(async (row) => ({
+    // One read for every follow-up task's items, however many the delivery links.
+    store.checklist.forTasks(followUpTasks).then((byTask) =>
+      delivery.follow_ups.map((row) => ({
         id: row.id,
-        items:
-          findNodeInSet(set, row.id)?.type === 'task'
-            ? decodeChecklist({ items: await store.checklist.forTask(row.id), task: row.id }).items
-            : [],
+        items: decodeChecklist({ items: byTask.get(row.id) ?? [], task: row.id }).items,
         status: row.status,
         title: row.title,
       })),

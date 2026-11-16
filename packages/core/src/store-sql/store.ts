@@ -46,7 +46,7 @@ export function createSqlStore(db: Kysely<DB>, dialect: StoreDialect): Store {
   return {
     artifacts: createSqlArtifactStore(db, dialect),
     bodySections: createSqlBodySectionStore(db, dialect),
-    checklist: createSqlChecklistStore(db),
+    checklist: createSqlChecklistStore(db, dialect),
     decisions: createSqlDecisionStore(db, dialect),
     deliveries: createSqlDeliveryStore(db, dialect),
     export: () => exportSqlStoreFrom(db, dialect),

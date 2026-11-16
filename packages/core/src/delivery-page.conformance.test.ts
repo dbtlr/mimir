@@ -61,14 +61,33 @@ describe.each(backends)('delivery console page ($name)', (backend) => {
     }
   });
 
-  test('carries the checklist items of each linked follow-up task', async () => {
+  test('carries the checklist items of each linked follow-up task in one read', async () => {
     const f = await backend.make();
     try {
-      const { delivery, engine, follow } = await seeded(f.store);
-      await engine.deliveryUpdate({ follow_ups: [follow.id], id: delivery.id });
+      const { delivery, engine, follow, phase } = await seeded(f.store);
+      const other = await createTask(f.store, { parentId: phase.id, title: 'Docs' });
+      await engine.deliveryUpdate({ follow_ups: [follow.id, other.id], id: delivery.id });
       await engine.itemAdd({ content: 'Remove fixture', task: follow.id });
+      await engine.itemAdd({ content: 'Fix link', task: other.id });
+      await engine.itemAdd({ content: 'Fix typo', task: other.id });
+      // A page that polls every few seconds reads every follow-up's items at once.
+      let reads = 0;
+      const { checklist } = f.store;
+      const { forTask, forTasks } = checklist;
+      checklist.forTask = (id) => {
+        reads += 1;
+        return forTask(id);
+      };
+      checklist.forTasks = (ids) => {
+        reads += 1;
+        return forTasks(ids);
+      };
       const page = await engine.console.deliveryPage({ id: delivery.id });
-      expect(page.followUps[0]?.items.map((item) => item.content)).toEqual(['Remove fixture']);
+      expect(reads).toBe(1);
+      expect(page.followUps.map((row) => row.items.map((item) => item.content))).toEqual([
+        ['Remove fixture'],
+        ['Fix link', 'Fix typo'],
+      ]);
     } finally {
       await f.close();
     }
