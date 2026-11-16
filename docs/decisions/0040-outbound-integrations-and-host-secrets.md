@@ -521,19 +521,40 @@ Engine method, then the wake.
   console write is the operator's. A change the operator makes from the CLI
   reaches the agent through its since read.
 - **A confirm never wakes,** because it changes nothing the agent built on.
-- **An overturn wakes only when the decision names a delivery.** The delivery
-  is read after the write, so a decision whose delivery has ended still wakes
-  that delivery's thread.
+- **An overturn wakes only when the decision names a delivery.** It wakes
+  whatever that delivery's lifecycle, because a terminal delivery keeps its
+  handles ([ADR 0042](0042-the-delivery-record.md), *Handles*) and an overturn
+  after `land` still names tasks to redo
+  ([ADR 0043](0043-the-decision-record.md)). The same holds for every action:
+  the wake reads the handles, never the lifecycle.
 - The agent's own verbs (`deliveryCreate`, `deliveryStart`, `deliveryBlock`,
   `deliverySubmit`, `deliveryLand`, the lists, `decide`, `decisionUpdate`)
   get no console function here.
+- **The console's existing task writes never wake,** member tasks included
+  (`returnTask`, `block`, `annotate`, and the rest in `api/fns/nodes.ts`).
+  They reach the agent through the since read, which reports a member's
+  transitions and notes.
+
+Each waking function takes its Engine method's input plus `attempt` (see
+*The send*).
 
 ### Who receives it
 
 The delivery as the write left it, so an `update` that changes the handles
-wakes the new thread. The host sends only when the T3 feature is usable and
-the delivery has `harness=t3` with a nonblank `session` and `host`. The send
-goes to `threadId=<session>` on `environmentId=<host>`.
+wakes the new thread. The send goes to `threadId=<session>` on
+`environmentId=<host>`. The checks run in this order, and the first that
+fails ends the wake:
+
+1. The T3 feature is usable (the adapter's settings check); otherwise
+   `skipped`, `unconfigured`.
+2. For an overturn, the decision names a delivery; otherwise `skipped`,
+   `no_delivery`. The delivery is read through the Engine.
+3. The delivery has `harness=t3` with a nonblank `session` and `host`;
+   otherwise `skipped`, `no_thread`.
+4. The sealed token opens and is current; otherwise `disconnected`.
+
+A skip never reads the host secret, so a delivery that does not run in T3
+never asks the operator to reconnect.
 
 ### The message
 
@@ -573,28 +594,46 @@ function waits for it, so its answer carries the outcome.
 A waking function answers `{ record, wake }`: `record` is the Engine method's
 output, and `wake` is a tagged state.
 
-| `wake.state`   | When                                                                                | Console                                                |
-| -------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `sent`         | T3 accepted the send                                                                | nothing more                                           |
-| `skipped`      | `reason`: `unconfigured` (feature off or misconfigured), `no_thread`, `no_delivery` | nothing more                                           |
-| `disconnected` | No usable token: `reason` is `none`, `expired`, or `rejected`                       | warning toast with Reconnect T3                        |
-| `unreachable`  | T3 did not answer, timed out, sent an unreadable reply, or the wake faulted         | warning toast with Retry                               |
-| `refused`      | T3 answered the send with a tool error, or has no send tool                         | warning toast with Open in T3                          |
+| `wake.state`   | When                                                                                         | Console                                                       |
+| -------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `sent`         | T3 accepted the send                                                                         | nothing more                                                  |
+| `skipped`      | `reason`: `unconfigured`, `no_delivery`, or `no_thread` (see *Who receives it*)              | nothing more                                                  |
+| `disconnected` | No usable token: `reason` is `none`, `expired`, or `rejected`                                | warning toast with Reconnect T3                               |
+| `unreachable`  | T3 did not answer, timed out, or sent an unreadable reply                                    | warning toast with Retry                                      |
+| `refused`      | T3 answered the send with a tool error (`isError`), or has no send tool                      | warning toast with Open in T3, naming the access-level cause  |
+| `failed`       | The wake faulted after the write: the delivery read failed, or an unexpected error           | warning toast with Retry                                      |
+| `invalid`      | Only from `wakeT3`: `field` names the input that failed                                      | error toast                                                   |
 
+- **A state that offers Retry carries it.** `disconnected`, `unreachable`,
+  `refused`, and `failed` carry `retry`: the `wakeT3` input that resends this
+  wake, `{ delivery, action, decision, attempt, since }`, with `since` as the
+  message used it and `decision` null except for an overturn. The delivery id
+  is always known after the write (an overturn's record names it), so every
+  such state carries one.
 - **The wake never fails the write.** A refused Engine write throws as
   today and sends nothing. Once the write returns, every failure of the wake,
   a fault included, becomes one of these states; the function never throws
-  after the write. A fault logs `t3_wake_fault` and reads `unreachable`.
-- **The toast** says the write was saved and the thread was not told, for
-  example `Saved. The T3 thread was not told: T3 did not answer.` T3's text
-  never reaches the console or a log, as for the launch.
-- **Retry** calls `wakeT3({ delivery, action, decision, attempt, since })`
-  with the first answer's values. It re-reads the delivery, rebuilds the
-  message from the action's fixed phrase, and sends with the same
-  `clientRequestId`. The action is one of the table's waking actions, the ids
-  must parse as a delivery and a decision id, and `since` must be an instant
-  in the since read's range; anything else reads `invalid`. The browser never
-  names a T3 operation.
+  after the write. A fault logs `t3_wake_fault` and reads `failed`.
+- **The toast** says the write was saved and the thread was not told, and
+  why: `T3 did not answer` for `unreachable`, `T3 refused the message` for
+  `refused`, `connect T3 again` for `disconnected`, and no cause for
+  `failed`. For example `Saved. The T3 thread was not told: T3 did not
+  answer.` A send T3 refuses on every try is most often a thread running with
+  more access than Mimir's connection (T3 refuses a send to a thread with
+  broader modes than the sender's), so the `refused` toast names reconnecting
+  T3 with full access beside Open in T3. T3's text never reaches the console
+  or a log, as for the launch.
+- **Retry** calls `wakeT3` with a state's `retry`. It answers a `wake` state
+  alone, with no `record`, and writes nothing to the store. It runs the checks of *Who
+  receives it* again on the delivery read now, rebuilds the message from the
+  action's fixed phrase and the given `since`, and sends with the same
+  `clientRequestId`. Its input reads `invalid`, naming the field, when
+  `action` is not a waking action; `delivery` does not parse as `KEY-dN`;
+  `decision` is not a `KEY-qN` for an overturn or is not null otherwise;
+  `attempt` breaks its grammar; or `since` is outside the since read's range.
+  For an overturn, a decision that is not `overturned` or names another
+  delivery reads `invalid`, naming `decision`, so a Retry cannot announce an
+  overturn that did not happen. The browser never names a T3 operation.
 - **Each wake that contacts T3 logs** `t3_wake` with its `outcome` and the
   delivery id, never the message. A skip logs nothing.
 
