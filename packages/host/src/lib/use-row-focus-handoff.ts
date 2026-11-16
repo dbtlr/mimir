@@ -15,6 +15,9 @@ export type RowFocusHandoff = { arm: (id: string) => void; disarm: (id: string) 
  * operator has moved elsewhere is left alone, and a disarmed row leaving later
  * (a poll) moves nothing.
  *
+ * A decision always takes focus on the row itself, never a link or chip. Its
+ * committing chip group must live outside data-row-actions.
+ *
  * Rows are found by `data-row-id` inside the heading's section (BrowserRow),
  * so `headingRef` must sit on a heading that can take focus (BrowserGroup).
  */
@@ -96,6 +99,9 @@ function focusIsLost(): boolean {
 
 /** A row's first enabled action, else its first link, else the row itself when it takes focus. */
 function rowTarget(row: Element): HTMLElement | null {
+  if (row instanceof HTMLElement && row.dataset.rowKind === 'decision') {
+    return row;
+  }
   return (
     row.querySelector<HTMLElement>('[data-row-actions] button:not(:disabled)') ??
     row.querySelector<HTMLElement>('a') ??

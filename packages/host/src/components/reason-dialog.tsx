@@ -4,6 +4,7 @@ import type { RefObject } from 'react';
 
 import { transitionLabel } from '../lib/transitions';
 import type { VerbSpec } from '../lib/transitions';
+import type { ActionButtonProps } from './ui/action-button';
 import { ActionButton } from './ui/action-button';
 
 /**
@@ -25,6 +26,9 @@ export function ReasonDialog({
   title,
   confirmLabel = 'Confirm',
   required = false,
+  keepOpenOnRefusal = false,
+  confirmVariant,
+  disabled = false,
   finalFocus,
   open,
   onClose,
@@ -34,10 +38,13 @@ export function ReasonDialog({
   title?: string;
   confirmLabel?: string;
   required?: boolean;
+  keepOpenOnRefusal?: boolean;
+  confirmVariant?: ActionButtonProps['variant'];
+  disabled?: boolean;
   finalFocus?: RefObject<HTMLElement | null>;
   open: boolean;
   onClose: () => void;
-  onConfirm: (reason: string) => void;
+  onConfirm: (reason: string) => void | Promise<void>;
 }) {
   const [reason, setReason] = useState('');
   const trimmed = reason.trim();
@@ -45,7 +52,7 @@ export function ReasonDialog({
     <Dialog.Root
       open={open}
       onOpenChange={(next) => {
-        if (!next) {
+        if (!next && !disabled) {
           setReason('');
           onClose();
         }
@@ -74,15 +81,29 @@ export function ReasonDialog({
             className="min-h-20 resize-y rounded border border-line bg-well-850 p-2 text-xs text-ink outline-none focus-visible:border-accent"
           />
           <div className="flex justify-end gap-2">
-            <Dialog.Close className="rounded px-3 py-1.5 text-xs text-ink-dim hover:text-ink">
+            <Dialog.Close
+              disabled={disabled}
+              className="rounded px-3 py-1.5 text-xs text-ink-dim hover:text-ink"
+            >
               Cancel
             </Dialog.Close>
             <ActionButton
               size="sm"
-              disabled={required && trimmed === ''}
-              onClick={() => {
-                onConfirm(trimmed);
-                setReason('');
+              variant={confirmVariant}
+              disabled={disabled || (required && trimmed === '')}
+              onClick={async () => {
+                if (keepOpenOnRefusal) {
+                  try {
+                    await onConfirm(trimmed);
+                    setReason('');
+                    onClose();
+                  } catch {
+                    // The mutation toasts the refusal; retain the reason for another attempt.
+                  }
+                } else {
+                  void onConfirm(trimmed);
+                  setReason('');
+                }
               }}
             >
               {confirmLabel}

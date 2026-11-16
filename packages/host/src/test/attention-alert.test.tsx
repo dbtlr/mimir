@@ -298,7 +298,7 @@ describe('the Needs you popover', () => {
     await expect(screen.findByRole('button', { name: '2 need you' })).resolves.toBeDefined();
   });
 
-  it('hands focus to a decision record’s first link when the task row above it leaves', async () => {
+  it('hands focus to a decision row itself when the task row above it leaves', async () => {
     const record = {
       decision: {
         class: 'product' as const,
@@ -347,7 +347,8 @@ describe('the Needs you popover', () => {
     await waitFor(() => {
       expect(within(panel).queryByRole('link', { name: 'Ship the plugin' })).toBeNull();
     });
-    expect(within(rowOf(panel, 'MMR-q1')).getByRole('link', { name: 'MMR-5' })).toHaveFocus();
+    expect(rowOf(panel, 'MMR-q1')).toHaveFocus();
+    expect(within(rowOf(panel, 'MMR-q1')).getByRole('link', { name: 'MMR-5' })).not.toHaveFocus();
   });
 
   it('stays to say so, with focus on its heading, when the last decision leaves', async () => {

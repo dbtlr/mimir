@@ -12,6 +12,7 @@ import { PHONE_TOUCH_TARGET } from '../lib/touch-target';
 import { useDisarmWhenSettled } from '../lib/use-row-focus-handoff';
 import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
 import { BrowserRow } from './browser-list';
+import { DecisionActions } from './decision-actions';
 import { GroomingBadge } from './grooming-chip';
 import { GroomingDialog } from './grooming-dialog';
 import { SizeBadge, StaleBadge } from './signal-badges';
@@ -130,7 +131,7 @@ export function NeedsYouRow({
     return <TaskNeedsYouRow row={row} actions={actions} current={current} />;
   }
   if (row.kind === 'decision') {
-    return <DecisionRow decision={row.decision} currentDelivery={currentId} />;
+    return <DecisionRow decision={row.decision} currentDelivery={currentId} actions={actions} />;
   }
   const d = row.delivery;
   return (
@@ -160,13 +161,16 @@ export function NeedsYouRow({
 export function DecisionRow({
   decision,
   currentDelivery,
+  actions,
 }: {
   decision: Omit<EngineDecision, 'history'>;
   currentDelivery?: string;
+  actions?: ReactNode;
 }) {
   return (
     // A row id and a tab stop let the needs-you focus handoff land here (MMR-474).
     <div
+      data-row-kind="decision"
       data-row-id={decision.id}
       tabIndex={-1}
       className={`${ATTENTION_RULE} flex flex-col gap-1.5 py-1.5 wrap-anywhere`}
@@ -185,6 +189,7 @@ export function DecisionRow({
           </li>
         ))}
       </ol>
+      {actions}
       <div className="flex flex-wrap gap-2 text-tag">
         {decision.delivery !== null && decision.delivery !== currentDelivery && (
           <Link
@@ -283,6 +288,9 @@ export function needsYouActions(
   offline: boolean,
   handoff: RowFocusHandoff,
 ): ReactNode {
+  if (row.kind === 'decision' && row.decision.lifecycle === 'provisional') {
+    return <DecisionActions decision={row.decision} offline={offline} handoff={handoff} />;
+  }
   if (row.kind === 'task' && row.reason === 'needs_answers') {
     return (
       <AnswerAction id={row.task.id} question={row.question} offline={offline} handoff={handoff} />

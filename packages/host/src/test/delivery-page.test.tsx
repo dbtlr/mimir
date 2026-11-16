@@ -1,9 +1,20 @@
+// Pending-write gates need manually controlled server promises.
+// oxlint-disable promise/avoid-new
 import type { ConsoleOutput } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
 import { screen, within, waitFor, fireEvent } from '@testing-library/react';
+import { toast } from 'sonner';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
+import {
+  confirm,
+  overturn,
+  deliveryUnblock,
+  deliveryUnpark,
+  deliveryPark,
+  deliveryAbandon,
+} from '../api/fns/deliveries';
 import { deliveryPage, phaseDeliveries } from '../api/fns/views';
 import { consoleRoutes } from '../router';
 import { serveBrowse } from './browse-fns';
@@ -16,6 +27,7 @@ import { stubViewport } from './viewport';
 import { engineReview, stripRow } from './views-fixtures';
 import { serveViews } from './views-fns';
 
+vi.mock('../api/fns/deliveries');
 vi.mock('../api/fns/browse');
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
@@ -119,18 +131,24 @@ function fixture(): ConsoleOutput<'deliveryPage'> {
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.setSystemTime(stamp);
+  vi.mocked(confirm).mockResolvedValue(fixture().decisions[0]!);
+  vi.mocked(overturn).mockResolvedValue({
+    record: fixture().decisions[0]!,
+    wake: { state: 'sent' },
+  });
+  for (const fn of [deliveryUnblock, deliveryUnpark, deliveryPark, deliveryAbandon]) {
+    vi.mocked(fn).mockResolvedValue({ record: fixture().delivery, wake: { state: 'sent' } });
+  }
   serveViews();
   serveShell({ projects: [engineProject({ id: 'MMR', title: 'Mimir' })] });
   vi.mocked(deliveryPage).mockResolvedValue(fixture());
   vi.mocked(phaseDeliveries).mockResolvedValue([]);
 });
 afterEach(() => vi.useRealTimers());
-const open = () =>
-  renderRoute(
-    consoleRoutes,
-    '/p/MMR/d3',
-    new QueryClient({ defaultOptions: { queries: { retry: false } } }),
-  );
+const open = async () => {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return { ...(await renderRoute(consoleRoutes, '/p/MMR/d3', qc)), qc };
+};
 
 test('renders the stopped dossier sections and puts facts and the final three sections in the rail', async () => {
   await open();
@@ -329,4 +347,270 @@ test('the alert marks this delivery and its decision omits a delivery self-link'
   expect(within(panel).getByText('This page')).toBeInTheDocument();
   expect(within(panel).queryByRole('link', { name: 'MMR-d3' })).not.toBeInTheDocument();
   vi.unstubAllGlobals();
+});
+
+test('decision chips name and commit the exact answer once', async () => {
+  await open();
+  const confirmChip = await screen.findByRole('button', {
+    name: 'Confirm option 1 for MMR-q1: Keep',
+  });
+  expect(confirmChip).toHaveClass('max-md:min-h-11', 'inset-ring-attention/45');
+  expect(confirmChip.closest('[data-row-actions]')).toBeNull();
+  fireEvent.click(confirmChip);
+  await waitFor(() => expect(confirm).toHaveBeenCalledExactlyOnceWith({ data: { id: 'MMR-q1' } }));
+});
+
+test.each(
+  (['agreed', 'running', 'milestone', 'landed', 'abandoned'] as const).flatMap((lifecycle) =>
+    (['none', 'stopped', 'paused'] as const).map((hold) => ({ hold, lifecycle })),
+  ),
+)('delivery $lifecycle / $hold offers only legal verbs', async ({ lifecycle, hold }) => {
+  const data = fixture();
+  data.delivery.lifecycle = lifecycle;
+  data.delivery.hold = hold;
+  vi.mocked(deliveryPage).mockResolvedValue(data);
+  await open();
+  await screen.findByRole('heading', { name: 'Deliver the console' });
+  const terminal = lifecycle === 'landed' || lifecycle === 'abandoned';
+  expect(screen.queryAllByRole('button', { name: 'Clear stop' })).toHaveLength(
+    !terminal && hold === 'stopped' ? 2 : 0,
+  );
+  expect(screen.queryAllByRole('button', { name: 'Abandon…' })).toHaveLength(terminal ? 0 : 1);
+  expect(screen.queryAllByRole('button', { name: 'Pause…' })).toHaveLength(
+    !terminal && hold === 'none' ? 1 : 0,
+  );
+  expect(screen.queryAllByRole('button', { name: 'Resume' })).toHaveLength(
+    !terminal && hold === 'paused' ? 1 : 0,
+  );
+  expect(screen.queryByRole('button', { name: /Return|Update/ })).not.toBeInTheDocument();
+});
+
+test('Take sends only its numbered option, and a pending answer disables all chips', async () => {
+  let finish!: () => void;
+  vi.mocked(overturn).mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finish = () => resolve({ record: fixture().decisions[0]!, wake: { state: 'sent' } });
+      }),
+  );
+  await open();
+  fireEvent.click(await screen.findByRole('button', { name: 'Take option 2 for MMR-q1: Remove' }));
+  await waitFor(() =>
+    expect(overturn).toHaveBeenCalledExactlyOnceWith({
+      data: { attempt: expect.any(String), id: 'MMR-q1', option: 2 },
+    }),
+  );
+  for (const chip of within(screen.getByRole('group', { name: 'Answers for MMR-q1' })).getAllByRole(
+    'button',
+  )) {
+    expect(chip).toBeDisabled();
+  }
+  finish();
+  await waitFor(() => expect(screen.getByRole('button', { name: /Take option/ })).toBeEnabled());
+});
+
+test.each(['Confirm with note', 'Answer with note'])(
+  '%s requires a note, keeps refused text, and sends only the note',
+  async (label) => {
+    const fn = label === 'Confirm with note' ? confirm : overturn;
+    vi.mocked(fn).mockRejectedValue(new Error('Refused answer'));
+    await open();
+    fireEvent.click(await screen.findByRole('button', { name: /Note for MMR-q1/ }));
+    const dialog = await screen.findByRole('dialog', { name: 'Answer MMR-q1' });
+    expect(within(dialog).getByText('Keep the rail?')).toBeInTheDocument();
+    const commit = within(dialog).getByRole('button', { name: label });
+    expect(commit).toHaveClass('inset-ring-line-bright');
+    expect(commit).toBeDisabled();
+    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: '  Use neither  ' } });
+    fireEvent.click(commit);
+    await waitFor(() => expect(fn).toHaveBeenCalledTimes(1));
+    const attempt = expect.any(String);
+    expect(fn).toHaveBeenCalledWith({
+      data: {
+        id: 'MMR-q1',
+        note: 'Use neither',
+        ...(label === 'Answer with note' ? { attempt } : {}),
+      },
+    });
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Refused answer'));
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByRole('textbox')).toHaveValue('  Use neither  ');
+  },
+);
+
+test('a refused one-tap decision returns focus to its chip', async () => {
+  vi.mocked(confirm).mockRejectedValue(new Error('Refused answer'));
+  await open();
+  const chip = await screen.findByRole('button', { name: /Confirm option/ });
+  chip.focus();
+  fireEvent.click(chip);
+  await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Refused answer'));
+  await waitFor(() => expect(chip).toHaveFocus());
+});
+
+test.each(['agreed', 'running', 'milestone'] as const)(
+  'unheld and paused %s deliveries offer Pause and Resume respectively',
+  async (lifecycle) => {
+    const data = fixture();
+    data.delivery.lifecycle = lifecycle;
+    data.delivery.hold = 'none';
+    vi.mocked(deliveryPage).mockResolvedValue(data);
+    const { qc: queryClient } = await open();
+    await expect(screen.findByRole('button', { name: 'Pause…' })).resolves.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Resume' })).not.toBeInTheDocument();
+    data.delivery = { ...data.delivery, hold: 'paused' };
+    await queryClient.invalidateQueries({ queryKey: ['nodes'] });
+    await expect(screen.findByRole('button', { name: 'Resume' })).resolves.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Pause…' })).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole('region', { name: 'Paused' })).queryByRole('button'),
+    ).not.toBeInTheDocument();
+  },
+);
+
+test.each(['Pause', 'Abandon'])(
+  '%s dialog requires a reason, names its commit, and retains refused text',
+  async (verb) => {
+    const data = fixture();
+    data.delivery.hold = 'none';
+    vi.mocked(deliveryPage).mockResolvedValue(data);
+    const fn = verb === 'Pause' ? deliveryPark : deliveryAbandon;
+    vi.mocked(fn).mockRejectedValue(new Error('Refused delivery'));
+    await open();
+    const chip = await screen.findByRole('button', { name: `${verb}…` });
+    expect(chip).toHaveClass(
+      verb === 'Abandon' ? 'inset-ring-status-blocked/35' : 'inset-ring-line-bright',
+    );
+    fireEvent.click(chip);
+    const dialog = await screen.findByRole('dialog', { name: `${verb} MMR-d3` });
+    const commit = within(dialog).getByRole('button', { name: `${verb} delivery` });
+    expect(commit).toHaveClass(
+      verb === 'Abandon' ? 'inset-ring-status-blocked/35' : 'inset-ring-line-bright',
+    );
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+    expect(commit).toBeDisabled();
+    fireEvent.change(within(dialog).getByRole('textbox'), {
+      target: { value: '  Wait for access  ' },
+    });
+    fireEvent.click(commit);
+    await waitFor(() =>
+      expect(fn).toHaveBeenCalledExactlyOnceWith({
+        data: { attempt: expect.any(String), id: 'MMR-d3', reason: 'Wait for access' },
+      }),
+    );
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Refused delivery'));
+    expect(within(dialog).getByRole('textbox')).toHaveValue('  Wait for access  ');
+  },
+);
+
+test('Clear stop shares a pending write across both places and disables every delivery verb', async () => {
+  let finish!: () => void;
+  vi.mocked(deliveryUnblock).mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finish = () => resolve({ record: fixture().delivery, wake: { state: 'sent' } });
+      }),
+  );
+  await open();
+  const chips = await screen.findAllByRole('button', { name: 'Clear stop' });
+  fireEvent.click(chips[1]!);
+  await waitFor(() =>
+    expect(deliveryUnblock).toHaveBeenCalledExactlyOnceWith({
+      data: { attempt: expect.any(String), id: 'MMR-d3' },
+    }),
+  );
+  for (const chip of [...chips, screen.getByRole('button', { name: 'Abandon…' })]) {
+    expect(chip).toBeDisabled();
+  }
+  fireEvent.click(chips[0]!);
+  expect(deliveryUnblock).toHaveBeenCalledTimes(1);
+  finish();
+  await waitFor(() => expect(chips[0]).toBeEnabled());
+});
+
+test.each([false, true])(
+  'after Resume focus goes to the h1 only when lost (moved=%s)',
+  async (moved) => {
+    const data = fixture();
+    data.delivery.hold = 'paused';
+    vi.mocked(deliveryPage).mockImplementation(async () => structuredClone(data));
+    let finish!: () => void;
+    vi.mocked(deliveryUnpark).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = () => {
+            data.delivery.hold = 'none';
+            resolve({ record: data.delivery, wake: { state: 'sent' } });
+          };
+        }),
+    );
+    await open();
+    const chip = await screen.findByRole('button', { name: 'Resume' });
+    chip.focus();
+    fireEvent.click(chip);
+    await waitFor(() => expect(deliveryUnpark).toHaveBeenCalledTimes(1));
+    const link = screen.getByRole('link', { name: 'Console phase' });
+    if (moved) {
+      link.focus();
+    }
+    finish();
+    await screen.findByRole('button', { name: 'Pause…' });
+    await waitFor(() =>
+      expect(
+        moved ? link : screen.getByRole('heading', { name: 'Deliver the console' }),
+      ).toHaveFocus(),
+    );
+  },
+);
+
+test('offline disables decision chips and all delivery verbs', async () => {
+  const { qc: queryClient } = await open();
+  await screen.findByRole('button', { name: /Confirm option/ });
+  vi.mocked(deliveryPage).mockRejectedValue(new Error('Offline'));
+  await queryClient.invalidateQueries({ queryKey: ['nodes'] });
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: /Confirm option/ })).toBeDisabled(),
+  );
+  for (const chip of [
+    ...screen.getAllByRole('button', { name: 'Clear stop' }),
+    screen.getByRole('button', { name: 'Abandon…' }),
+    ...within(screen.getByRole('group', { name: 'Answers for MMR-q1' })).getAllByRole('button'),
+  ]) {
+    expect(chip).toBeDisabled();
+  }
+});
+
+test('a successful Pause closes its dialog and focuses the title after its chip leaves', async () => {
+  const data = fixture();
+  data.delivery.hold = 'none';
+  vi.mocked(deliveryPage).mockImplementation(async () => structuredClone(data));
+  vi.mocked(deliveryPark).mockImplementation(async () => {
+    data.delivery.hold = 'paused';
+    return { record: data.delivery, wake: { state: 'sent' } };
+  });
+  await open();
+  const chip = await screen.findByRole('button', { name: 'Pause…' });
+  chip.focus();
+  fireEvent.click(chip);
+  const dialog = await screen.findByRole('dialog', { name: 'Pause MMR-d3' });
+  fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'Take a break' } });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Pause delivery' }));
+  await waitFor(() => expect(dialog).not.toBeInTheDocument());
+  await waitFor(() =>
+    expect(screen.getByRole('heading', { name: 'Deliver the console' })).toHaveFocus(),
+  );
+});
+
+test.each(['Clear stop', 'Resume'])('refused %s returns focus to its own chip', async (label) => {
+  const data = fixture();
+  data.delivery.hold = label === 'Resume' ? 'paused' : 'stopped';
+  vi.mocked(deliveryPage).mockResolvedValue(data);
+  const fn = label === 'Resume' ? deliveryUnpark : deliveryUnblock;
+  vi.mocked(fn).mockRejectedValue(new Error('Cannot change delivery'));
+  await open();
+  const chip = (await screen.findAllByRole('button', { name: label }))[0]!;
+  chip.focus();
+  fireEvent.click(chip);
+  await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Cannot change delivery'));
+  await waitFor(() => expect(chip).toHaveFocus());
 });

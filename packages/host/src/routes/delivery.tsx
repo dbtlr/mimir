@@ -1,9 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import { useLayoutEffect, useRef, useState } from 'react';
 
+import {
+  useDeliveryUnblock,
+  useDeliveryPark,
+  useDeliveryUnpark,
+  useDeliveryAbandon,
+} from '../api/delivery-mutations';
 import { isNotFound } from '../api/errors';
 import { deliveryPageQuery } from '../api/view-queries';
 import { BrowserGroup, BrowserRow } from '../components/browser-list';
+import { DecisionActions } from '../components/decision-actions';
 import {
   DeliveryFacts,
   DeliveryTime,
@@ -12,8 +20,10 @@ import {
 } from '../components/delivery-summary';
 import { DistributionBar } from '../components/distribution-bar';
 import { OfflineBanner } from '../components/offline-banner';
+import { ReasonDialog } from '../components/reason-dialog';
 import { RailSection, RecordLayout, RecordPending } from '../components/record-layout';
 import { StatusDot } from '../components/status-dot';
+import { ActionButton } from '../components/ui/action-button';
 import { DecisionRow } from '../components/work-rows';
 import { Empty, NowRow } from '../components/work-sections';
 import { connectivity } from '../lib/connectivity';
@@ -21,10 +31,11 @@ import { deliveryIdOf, artifactLink, seedLink, nodeLink } from '../lib/record-ur
 import { STATUS_META, STATUS_ORDER } from '../lib/status';
 import { absoluteTime } from '../lib/time';
 import { PHONE_TOUCH_TARGET } from '../lib/touch-target';
+import { useRowFocusHandoff } from '../lib/use-row-focus-handoff';
 import { deliveryRoute } from '../router';
 import { NotFoundPage } from './not-found';
 
-/** A delivery is a read-only dossier; decisions show the answer already taken. */
+/** The delivery dossier and the operator’s legal lifecycle controls. */
 export function DeliveryPage() {
   const { key, seq } = deliveryRoute.useParams();
   const id = deliveryIdOf(key, seq);
@@ -37,6 +48,30 @@ export function DeliveryPage() {
 function DeliveryRecord({ id }: { id: string }) {
   const query = useQuery(deliveryPageQuery(id));
   const conn = connectivity([query]);
+  const unblock = useDeliveryUnblock();
+  const park = useDeliveryPark();
+  const unpark = useDeliveryUnpark();
+  const abandon = useDeliveryAbandon();
+  const pending = unblock.isPending || park.isPending || unpark.isPending || abandon.isPending;
+  const disabled = conn.offline || pending;
+  const [dialog, setDialog] = useState<'pause' | 'abandon' | null>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const dialogCommitted = useRef(false);
+  const control = useRef<HTMLButtonElement | null>(null);
+  const { handoff, headingRef } = useRowFocusHandoff(query.data?.decisions.map((d) => d.id) ?? []);
+  useLayoutEffect(() => {
+    if (control.current && !control.current.isConnected && dialog === null) {
+      if (document.activeElement === document.body) {
+        heading.current?.focus();
+      }
+      control.current = null;
+    }
+  });
+  const refusal = () =>
+    requestAnimationFrame(() => {
+      control.current?.focus();
+      control.current = null;
+    });
   if (isNotFound(query.error)) {
     return <NotFoundPage projectKey={id.split('-')[0]}>No record {id}.</NotFoundPage>;
   }
@@ -49,6 +84,21 @@ function DeliveryRecord({ id }: { id: string }) {
     );
   }
   const { delivery: d, phase, members, decisions, followUps, journal, now } = query.data;
+  const terminal = d.lifecycle === 'landed' || d.lifecycle === 'abandoned';
+  const clearStop = () => (
+    <ActionButton
+      size="sm"
+      variant="attentionOutline"
+      className={PHONE_TOUCH_TARGET}
+      disabled={disabled}
+      onClick={(event) => {
+        control.current = event.currentTarget;
+        unblock.mutate({ id }, { onError: refusal });
+      }}
+    >
+      Clear stop
+    </ActionButton>
+  );
   const distribution = memberDistribution(members);
   const head = (
     <header className="flex flex-col gap-2">
@@ -67,10 +117,61 @@ function DeliveryRecord({ id }: { id: string }) {
         <span className="font-mono text-mono-id text-ink-faint">{d.id} · delivery</span>
         <DeliveryWords delivery={d} />
       </div>
-      <h1 className="text-dossier font-bold wrap-anywhere text-ink-bright md:text-header">
+      <h1
+        ref={heading}
+        tabIndex={-1}
+        className="text-dossier font-bold wrap-anywhere text-ink-bright md:text-header"
+      >
         {d.title}
       </h1>
       <DeliveryTime delivery={d} />
+      {!terminal && (
+        <div className="flex flex-wrap gap-2">
+          {d.hold === 'stopped' && clearStop()}
+          {d.hold === 'none' && (
+            <ActionButton
+              size="sm"
+              variant="outline"
+              className={PHONE_TOUCH_TARGET}
+              disabled={disabled}
+              onClick={(event) => {
+                control.current = event.currentTarget;
+                dialogCommitted.current = false;
+                setDialog('pause');
+              }}
+            >
+              Pause…
+            </ActionButton>
+          )}
+          {d.hold === 'paused' && (
+            <ActionButton
+              size="sm"
+              variant="outline"
+              className={PHONE_TOUCH_TARGET}
+              disabled={disabled}
+              onClick={(event) => {
+                control.current = event.currentTarget;
+                unpark.mutate({ id }, { onError: refusal });
+              }}
+            >
+              Resume
+            </ActionButton>
+          )}
+          <ActionButton
+            size="sm"
+            variant="destructiveOutline"
+            className={PHONE_TOUCH_TARGET}
+            disabled={disabled}
+            onClick={(event) => {
+              control.current = event.currentTarget;
+              dialogCommitted.current = false;
+              setDialog('abandon');
+            }}
+          >
+            Abandon…
+          </ActionButton>
+        </div>
+      )}
     </header>
   );
   const rail = (
@@ -139,6 +240,32 @@ function DeliveryRecord({ id }: { id: string }) {
   return (
     <>
       <OfflineBanner {...conn} />
+      {dialog !== null && (
+        <ReasonDialog
+          open
+          required
+          keepOpenOnRefusal
+          disabled={disabled}
+          title={`${dialog === 'pause' ? 'Pause' : 'Abandon'} ${id}`}
+          confirmLabel={dialog === 'pause' ? 'Pause delivery' : 'Abandon delivery'}
+          confirmVariant={dialog === 'pause' ? 'outline' : 'destructiveOutline'}
+          finalFocus={control}
+          onClose={() => {
+            setDialog(null);
+            if (!dialogCommitted.current) {
+              control.current = null;
+            }
+          }}
+          onConfirm={async (reason) => {
+            if (dialog === 'pause') {
+              await park.mutateAsync({ id, reason });
+            } else {
+              await abandon.mutateAsync({ id, reason });
+            }
+            dialogCommitted.current = true;
+          }}
+        />
+      )}
       <RecordLayout large head={head} rail={rail} railLabel="Delivery details">
         {d.hold !== 'none' && (
           <section
@@ -151,9 +278,11 @@ function DeliveryRecord({ id }: { id: string }) {
           >
             <h2 className="microlabel">{d.hold === 'stopped' ? 'Stopped' : 'Paused'}</h2>
             <p className="text-meta wrap-anywhere">{d.hold_reason}</p>
+            {!terminal && d.hold === 'stopped' && clearStop()}
           </section>
         )}
         <BrowserGroup
+          headingRef={headingRef}
           label="Needs you"
           count={decisions.length > 0 ? decisions.length : undefined}
           hint="Only your action moves these."
@@ -161,7 +290,16 @@ function DeliveryRecord({ id }: { id: string }) {
         >
           {!decisions.length && <Empty lead="No open decisions." />}
           {decisions.map((decision) => (
-            <DecisionRow currentDelivery={d.id} key={decision.id} decision={decision} />
+            <DecisionRow
+              currentDelivery={d.id}
+              key={decision.id}
+              decision={decision}
+              actions={
+                decision.lifecycle === 'provisional' ? (
+                  <DecisionActions decision={decision} offline={conn.offline} handoff={handoff} />
+                ) : undefined
+              }
+            />
           ))}
         </BrowserGroup>
         <BrowserGroup label="Now" count={now.length > 0 ? now.length : undefined}>
