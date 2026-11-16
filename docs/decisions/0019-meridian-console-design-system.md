@@ -624,7 +624,7 @@ count them. The MMR-476 refinement's "One set, one count" still holds.
 - **A provisional decision:** any decision whose lifecycle is `provisional`,
   in an active project, whether or not it links a delivery or any task. A
   confirmed or overturned decision is settled, so it stays out.
-- **A task** keeps the MMR-467 refinement's rule: blocked with owner `you`, or
+- **A task** keeps the MMR-615 refinement's rule: blocked with owner `you`, or
   `todo` with no hold and grooming _needs answers_.
 - On a work page, the set is narrowed to the page's scope. A stopped delivery
   is in scope when its phase is the page's node or under it. A decision is in
@@ -654,6 +654,10 @@ key. The order holds:
 - inside each project group on the review page and in the alert's popover;
 - across projects in the focus queue, which drops the grouping;
 - on a work page's _Needs you_.
+
+The delivery page's _Needs you_ (the MMR-680 refinement) holds only that
+delivery's provisional decisions, so it orders them by the same two decision
+kinds and clocks.
 
 A project's urgency is its leading kind, and the MMR-476 refinement's
 "leading decision kind" now ranks these five. Ties go to the project whose
@@ -695,11 +699,12 @@ leading record is newest by its kind's clock, then to the project key.
   open question of how the two read side by side.
 - **Copy.** The console's text follows the rename. The alert's label reads
   "N need you", the project list's count reads "N need you", and the empty
-  popover reads "Nothing needs you". The MMR-476, MMR-492, and MMR-615
+  popover reads "Nothing needs you". A count of one reads "1 needs you". The MMR-476, MMR-492, and MMR-615
   refinements' word "decisions" for the set now reads "the needs-you set":
   the popover lists the set, and the set's tasks are the ones MMR-615 names.
-- **The version window.** The rename, and `WorkReport.needsYou` changing from
-  a list of tasks to a list of tagged rows, are not additive changes
+- **The version window.** The rename, `WorkReport.needsYou` changing from a
+  list of tasks to a list of tagged rows, and `ReviewReport.queue` changing
+  from a list of ids to a list of `{ kind, id }`, are not additive changes
   ([ADR 0038](0038-device-pairing-and-the-version-window.md)). Only the
   host's own console reads the console views; no CLI or MCP command calls
   them. They change in the same unreleased minor as the delivery record, so
