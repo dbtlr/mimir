@@ -149,7 +149,7 @@ function strip(record: object, keys: readonly string[]): Record<string, unknown>
 // rows prove the default, and main-worker.test.ts proves a version-7 import
 // keeps a worker it carries.
 test('the fixture states a value other than the default for every grooming, owner, pin and remote key a legacy row drops', () => {
-  expect(document.schema_version).toBe(13);
+  expect(document.schema_version).toBe(14);
   expect(document.nodes.map((node) => [node.type, node.grooming, node.block_owner])).toEqual([
     ['initiative', null, null],
     ['phase', null, null],

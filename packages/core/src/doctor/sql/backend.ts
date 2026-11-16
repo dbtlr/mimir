@@ -23,6 +23,7 @@ import { sql } from 'kysely';
 
 import { checklistFaults } from '../../checklist/validate';
 import { decisionFaults } from '../../decisions/validate';
+import { followUpFaults } from '../../deliveries/follow-up-validate';
 import { deliveryReferenceFault } from '../../deliveries/membership';
 import { deliveryFindingFaults, journalFaults } from '../../deliveries/validate';
 import { parseIdentity } from '../../ids';
@@ -51,6 +52,7 @@ type SqlCheck =
   | 'invalid-checklist-item'
   | 'invalid-delivery'
   | 'invalid-decision'
+  | 'invalid-delivery-follow-up'
   | 'invalid-delivery-finding'
   | 'invalid-run-journal'
   | 'dangling-edge'
@@ -679,23 +681,51 @@ async function deliveryProjects(db: Kysely<DB>): Promise<Map<string, string>> {
 
 /** The delivery entry rules the verbs keep (ADR 0042, MMR-691), over every stored entry. */
 async function checkDeliveryFindings(db: Kysely<DB>): Promise<DoctorFinding[]> {
+  const links = await db
+    .selectFrom('delivery_follow_up')
+    .select(['delivery_id as delivery', 'task', 'seed', 'linked_at', 'unlinked_at'])
+    .orderBy('id')
+    .execute();
+  const nodes = await db
+    .selectFrom('node')
+    .select(['id', 'type', 'project_key as project_id'])
+    .execute();
+  const seeds = await db.selectFrom('seed').select('id').execute();
+  const linkFaults = followUpFaults(
+    links,
+    await deliveryProjects(db),
+    new Map(nodes.map((node) => [node.id, node])),
+    new Set(seeds.map((seed) => seed.id)),
+  ).map(({ id, message }) =>
+    finding({
+      check: 'invalid-delivery-follow-up',
+      evidence: {},
+      locator: id,
+      message: `${id} ${message}`,
+      stem: id.split(' ')[0] ?? id,
+      where: 'delivery_follow_up',
+    }),
+  );
   const rows = await db
     .selectFrom('delivery_finding')
     .select(['delivery_id as delivery', 'number', 'kind', 'text', 'reason', 'created_at'])
     .orderBy('delivery_id')
     .orderBy('number')
     .execute();
-  return deliveryFindingFaults(rows, await deliveryProjects(db)).map(({ id, message }) => {
-    const delivery = id.slice(0, id.indexOf(' '));
-    return finding({
-      check: 'invalid-delivery-finding',
-      evidence: {},
-      locator: `delivery_finding/${id.replace(' entry ', '/')}`,
-      message: `${id} ${message}`,
-      stem: delivery,
-      where: 'delivery_finding',
-    });
-  });
+  return [
+    ...linkFaults,
+    ...deliveryFindingFaults(rows, await deliveryProjects(db)).map(({ id, message }) => {
+      const delivery = id.slice(0, id.indexOf(' '));
+      return finding({
+        check: 'invalid-delivery-finding',
+        evidence: {},
+        locator: `delivery_finding/${id.replace(' entry ', '/')}`,
+        message: `${id} ${message}`,
+        stem: delivery,
+        where: 'delivery_finding',
+      });
+    }),
+  ];
 }
 
 /** The delivery a run journal's pad or frozen artifact names (ADR 0027, MMR-691). */
@@ -772,6 +802,7 @@ const CAUSES: Readonly<Record<string, string>> = {
   'invalid-decision': 'invalid decision',
   'invalid-delivery': 'invalid delivery reference',
   'invalid-delivery-finding': 'invalid delivery entry',
+  'invalid-delivery-follow-up': 'invalid delivery follow-up',
   'invalid-run-journal': 'invalid run journal',
   'malformed-timestamp': 'malformed timestamp',
   'orphan-link': 'orphan link',

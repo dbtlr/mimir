@@ -71,6 +71,7 @@ export type SinceSources = {
   delivery: string;
   history: SinceHistoryRow[];
   findings: DeliveryFindingRecord[];
+  followUps?: { id: number; record: string; linked_at: string; unlinked_at: string | null }[];
   /** Log rows of every task that was ever a member, of the kinds the feed reports. */
   transitions: SinceTransitionRow[];
   notes: SinceNoteRow[];
@@ -167,14 +168,15 @@ function compareText(a: string, b: string): number {
 
 /** The source ranks, first to last (ADR 0042, MMR-692). */
 const RANK = {
-  decided: 6,
-  decisionHistory: 7,
+  decided: 7,
+  decisionHistory: 8,
   findings: 2,
+  followUps: 3,
   history: 1,
-  items: 5,
-  journal: 8,
-  notes: 4,
-  transitions: 3,
+  items: 6,
+  journal: 9,
+  notes: 5,
+  transitions: 4,
 } as const;
 
 const NONE = {
@@ -235,6 +237,34 @@ function allEvents(sources: SinceSources): RankedEvent[] {
         text: entry.text,
       }),
     );
+  }
+  for (const row of sources.followUps ?? []) {
+    const base = {
+      kind: 'follow_up',
+      rank: RANK.followUps,
+      record: delivery,
+      row: row.id,
+      text: row.record,
+    } as const;
+    events.push(
+      ranked({
+        ...base,
+        at: row.linked_at,
+        id: `${delivery}/follow-up/${String(row.id)}/linked`,
+        to: 'linked',
+      }),
+    );
+    if (row.unlinked_at !== null) {
+      events.push(
+        ranked({
+          ...base,
+          at: row.unlinked_at,
+          from: 'linked',
+          id: `${delivery}/follow-up/${String(row.id)}/unlinked`,
+          to: 'unlinked',
+        }),
+      );
+    }
   }
   for (const row of sources.transitions) {
     if (member(row.node_id, row.at)) {

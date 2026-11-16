@@ -50,6 +50,7 @@ test('a v0.20 Norn export imports into the SQLite store and re-exports unchanged
       decisions: [],
       deliveries: [],
       delivery_findings: [],
+      delivery_follow_ups: [],
       nodes: document.nodes.map((node) => ({
         ...node,
         block_owner: impliedOwner(node),
@@ -64,7 +65,7 @@ test('a v0.20 Norn export imports into the SQLite store and re-exports unchanged
         pinned: false,
         remote: null,
       })),
-      schema_version: 13,
+      schema_version: 14,
       scratchpads: document.scratchpads.map((pad) => ({ ...pad, delivery: null })),
     };
     const reexported = await target.store.export();

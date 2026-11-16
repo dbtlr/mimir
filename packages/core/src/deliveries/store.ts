@@ -75,6 +75,8 @@ export type DeliveryStatePatch = Partial<
   Pick<StoredDelivery, 'lifecycle' | 'hold' | 'hold_reason'>
 >;
 export type DeliveryStore = {
+  /** Standing links in row order, excluding archived projects. */
+  followUps: (key: string, seq: number) => Promise<{ id: string; linked_at: string }[]>;
   /**
    * Append a known limitation or declined finding (ADR 0042, MMR-691). In one
    * write it stamps the delivery's `updated_at`, allocates the next number
@@ -109,13 +111,16 @@ export type DeliveryStore = {
   /**
    * In one write: apply `patch`, append `history` in order, and stamp
    * `updated_at` — or write nothing when both are empty. Refuses an absent
-   * delivery (`not_found`) and a terminal one ({@link assertLiveDelivery}).
+   * delivery (`not_found`). A terminal delivery accepts only nonempty link changes;
+   * every other update is refused by {@link assertLiveDelivery}. Link checks
+   * and writes share the transaction, with unlinks before links.
    */
   patch: (
     key: string,
     seq: number,
     patch: DeliveryPatch,
     history?: readonly DeliveryHistory[],
+    links?: { follow: readonly string[]; unfollow: readonly string[] },
   ) => Promise<void>;
 };
 

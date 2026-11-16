@@ -100,14 +100,30 @@ export type DeliveryLimitation = z.output<typeof deliveryLimitationSchema>;
 export type DeliveryDeclined = z.output<typeof deliveryDeclinedSchema>;
 export type DeliveryJournal = z.output<typeof deliveryJournalSchema>;
 
+export const deliveryFollowUpRecordSchema = z.strictObject({
+  delivery: z.string(),
+  linked_at: z.string(),
+  seed: z.string().nullable(),
+  task: z.string().nullable(),
+  unlinked_at: z.string().nullable(),
+});
+export type DeliveryFollowUpRecord = z.output<typeof deliveryFollowUpRecordSchema>;
+const followUpSchema = z.strictObject({
+  id: z.string(),
+  linked_at: z.string(),
+  status: z.string(),
+  title: z.string(),
+});
 /** A delivery as `get KEY-dN` reads it: the record, its lists, and where its journal is. */
 export const deliveryDetailViewSchema = deliveryViewSchema.extend({
   declined: z.array(deliveryDeclinedSchema),
+  follow_ups: z.array(followUpSchema),
   journal: deliveryJournalSchema,
   limitations: z.array(deliveryLimitationSchema),
 });
 export const deliveryDetailEngineSchema = deliveryEngineSchema.extend({
   declined: z.array(deliveryDeclinedSchema.extend({ created_at: z.date() })),
+  follow_ups: z.array(followUpSchema.extend({ linked_at: z.date() })),
   journal: deliveryJournalSchema,
   limitations: z.array(deliveryLimitationSchema.extend({ created_at: z.date() })),
 });
@@ -131,6 +147,10 @@ export function decodeDelivery(
       declined: view.declined.map((entry) => ({
         ...entry,
         created_at: new Date(entry.created_at),
+      })),
+      follow_ups: view.follow_ups.map((entry) => ({
+        ...entry,
+        linked_at: new Date(entry.linked_at),
       })),
       limitations: view.limitations.map((entry) => ({
         ...entry,
@@ -158,6 +178,10 @@ export function encodeDelivery(
         ...entry,
         created_at: entry.created_at.toISOString(),
       })),
+      follow_ups: view.follow_ups.map((entry) => ({
+        ...entry,
+        linked_at: entry.linked_at.toISOString(),
+      })),
       limitations: view.limitations.map((entry) => ({
         ...entry,
         created_at: entry.created_at.toISOString(),
@@ -173,6 +197,7 @@ export const DELIVERY_EVENT_KIND_VALUES = [
   'member',
   'limitation',
   'declined',
+  'follow_up',
   'dependency',
   'assignment',
   'note',
@@ -334,11 +359,13 @@ export function deliverySchemas<P extends z.ZodType<string>>(project: P) {
     deliveryUpdate: {
       input: z.strictObject({
         ...deliveryFields,
+        follow_ups: z.array(z.string()).optional(),
         id: z.string(),
         title: z.string().min(1).optional(),
+        unfollow_ups: z.array(z.string()).optional(),
       }),
       kind: 'mutation',
-      output: deliveryEngineSchema,
+      output: deliveryDetailEngineSchema,
     },
     getDelivery: {
       input: z.strictObject({ id: z.string() }),

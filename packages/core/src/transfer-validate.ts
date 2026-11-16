@@ -12,6 +12,7 @@ import { hasRedundantWorker } from './assignment';
 import { checklistFaults } from './checklist/validate';
 import { cycleEdges } from './cycles';
 import { decisionFaults } from './decisions/validate';
+import { followUpFaults } from './deliveries/follow-up-validate';
 import { deliveryReferenceFault } from './deliveries/membership';
 import { isTerminalDelivery } from './deliveries/store';
 import { deliveryFindingFaults, journalFaults } from './deliveries/validate';
@@ -189,6 +190,12 @@ function assertReferences(document: StoreExport): void {
   const deliveryProjects = new Map(document.deliveries.map((d) => [d.id, d.project_key]));
   const faults: string[] = [
     ...decisionFaults(document),
+    ...followUpFaults(
+      document.delivery_follow_ups,
+      deliveryProjects,
+      nodes,
+      new Set(document.seeds.map((seed) => `${seed.key}-s${String(seed.seq)}`)),
+    ),
     ...checklistFaults(document.checklist_items, nodes),
     ...deliveryFindingFaults(document.delivery_findings, deliveryProjects),
     ...journalFaults(

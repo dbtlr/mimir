@@ -183,6 +183,14 @@ export async function exportSqlStore(ex: Executor, dialect: StoreDialect): Promi
     decisions: await exportDecisions(ex, dialect),
     deliveries: await exportDeliveries(ex, dialect),
     delivery_findings: await exportDeliveryFindings(ex),
+    delivery_follow_ups: await ex
+      .selectFrom('delivery_follow_up')
+      .innerJoin('delivery', 'delivery.id', 'delivery_follow_up.delivery_id')
+      .select(['delivery_id as delivery', 'task', 'seed', 'linked_at', 'unlinked_at'])
+      .orderBy('delivery.project_key')
+      .orderBy('delivery.seq')
+      .orderBy('delivery_follow_up.id')
+      .execute(),
     edges: [...workingSet.edges],
     exported_at: now(),
     nodes,
@@ -358,6 +366,7 @@ function bundlesOf(
           findings: (findings.get(row.id) ?? [])
             .map(({ delivery: _delivery, ...entry }) => entry)
             .toSorted((a, b) => a.number - b.number),
+          follow_ups: document.delivery_follow_ups.filter((link) => link.delivery === row.id),
         },
       ]),
     ),
@@ -761,6 +770,15 @@ async function applyImport(
     }
   }
   await insertExportedSeeds(tx, dialect, seeds);
+  for (const { delivery, ...link } of document.delivery_follow_ups) {
+    if (importedDeliveries.has(delivery)) {
+      await tx
+        .insertInto('delivery_follow_up')
+        .values({ ...link, delivery_id: delivery })
+        .execute();
+    }
+  }
+
   await insertScratchpads(tx, dialect, pads);
 
   return { applied: !opts.dryRun, created, mode: opts.mode, skipped };
@@ -839,6 +857,7 @@ const EMPTY_COLLECTIONS = {
   decisions: [],
   deliveries: [],
   delivery_findings: [],
+  delivery_follow_ups: [],
   edges: [],
   nodes: [],
   projects: [],

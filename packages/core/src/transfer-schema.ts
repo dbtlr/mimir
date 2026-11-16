@@ -15,6 +15,7 @@ import {
   TRANSITION_KIND_VALUES,
   deliveryRecordSchema,
   deliveryHistorySchema,
+  deliveryFollowUpRecordSchema,
 } from '@mimir/contract';
 import type { Hold } from '@mimir/contract';
 import { z } from 'zod';
@@ -96,6 +97,7 @@ export const transferSchema = z.object({
     .array(deliveryRecordSchema.extend({ history: z.array(deliveryHistorySchema) }))
     .default([]),
   delivery_findings: z.array(deliveryFindingRecordSchema).default([]),
+  delivery_follow_ups: z.array(deliveryFollowUpRecordSchema).default([]),
   edges: z.array(z.object({ depends_on_node_id: text, node_id: text })),
   exported_at: text,
   nodes: z.array(
@@ -205,6 +207,7 @@ export const transferSchema = z.object({
       z.literal(10),
       z.literal(11),
       z.literal(12),
+      z.literal(13),
       z.literal(STORE_EXPORT_SCHEMA_VERSION),
     ])
     .transform((): typeof STORE_EXPORT_SCHEMA_VERSION => STORE_EXPORT_SCHEMA_VERSION),

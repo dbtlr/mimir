@@ -10,6 +10,7 @@ import type { StoreExport } from '../export';
 import { renderDeliveryRef } from '../ids';
 import { now } from '../time';
 import { inLists, insertBatched } from './batch';
+import { visibleFollowUps, writeFollowUps } from './delivery-follow-ups';
 import { appendDeliveryHistory } from './delivery-history';
 import { readSinceSources } from './delivery-since';
 import type { StoreDialect } from './dialect';
@@ -222,6 +223,10 @@ export function createSqlDeliveryStore(db: Kysely<DB>, dialect: StoreDialect): D
 
     findings: (key, seq) => loadFindings(db, stemOf(key, seq)),
 
+    followUps: async (key, seq) =>
+      (await visibleFollowUps(db, stemOf(key, seq)))
+        .filter((row) => row.unlinked_at === null)
+        .map((row) => ({ id: row.record, linked_at: row.linked_at })),
     // A read is the row, its history, and its members: one snapshot, so a join
     // committing mid-read never shows a member without its history row.
     listForProject(key) {
@@ -247,10 +252,18 @@ export function createSqlDeliveryStore(db: Kysely<DB>, dialect: StoreDialect): D
       });
     },
 
-    async patch(key, seq, patch, history = []) {
+    async patch(key, seq, patch, history = [], links = { follow: [], unfollow: [] }) {
       await dialect.write(db, async (tx) => {
         await lockActiveBoard(tx, key);
         const id = stemOf(key, seq);
+        const hasLinks = links.follow.length + links.unfollow.length > 0;
+        if (hasLinks || Object.keys(patch).length > 0 || history.length > 0) {
+          await tx
+            .updateTable('delivery')
+            .set({ ...patch, updated_at: now() })
+            .where('id', '=', id)
+            .execute();
+        }
         const row = await tx
           .selectFrom('delivery')
           .select('lifecycle')
@@ -259,15 +272,13 @@ export function createSqlDeliveryStore(db: Kysely<DB>, dialect: StoreDialect): D
         if (row === undefined) {
           throw notFound(`${id} doesn't exist`);
         }
-        assertLiveDelivery(id, row.lifecycle);
-        if (Object.keys(patch).length === 0 && history.length === 0) {
+        if (!hasLinks || Object.keys(patch).length > 0) {
+          assertLiveDelivery(id, row.lifecycle);
+        }
+        if (Object.keys(patch).length === 0 && history.length === 0 && !hasLinks) {
           return;
         }
-        await tx
-          .updateTable('delivery')
-          .set({ ...patch, updated_at: now() })
-          .where('id', '=', id)
-          .execute();
+        await writeFollowUps(tx, id, key, links, now());
         await appendDeliveryHistory(tx, id, history);
       });
     },

@@ -1028,12 +1028,24 @@
                   "time_cap_minutes": {
                     "$ref": "#/$defs/__schema19"
                   },
+                  "follow_ups": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
                   "id": {
                     "type": "string"
                   },
                   "title": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "unfollow_ups": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
                   }
                 },
                 "required": ["id"],
@@ -4047,6 +4059,7 @@
                             "member",
                             "limitation",
                             "declined",
+                            "follow_up",
                             "dependency",
                             "assignment",
                             "note",
@@ -4177,7 +4190,7 @@
                 "const": "mutation"
               },
               "schema": {
-                "$ref": "#/$defs/__schema84"
+                "$ref": "#/$defs/__schema105"
               }
             },
             "required": ["kind", "schema"],
@@ -7805,6 +7818,30 @@
               "additionalProperties": false
             }
           },
+          "follow_ups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "linked_at": {
+                  "format": "date-time",
+                  "type": "string",
+                  "x-mimir-type": "Date"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": ["id", "linked_at", "status", "title"],
+              "additionalProperties": false
+            }
+          },
           "journal": {
             "type": "object",
             "properties": {
@@ -7865,6 +7902,7 @@
           "history",
           "members",
           "declined",
+          "follow_ups",
           "journal",
           "limitations"
         ],

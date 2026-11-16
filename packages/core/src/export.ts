@@ -1,4 +1,5 @@
 import type {
+  DeliveryFollowUpRecord,
   ChecklistRecord,
   DecisionView,
   DeliveryFindingRecord,
@@ -47,9 +48,9 @@ import type { NewAnnotationRecord, NewTagRecord, NewTransitionRecord, Store } fr
  * The transfer document's own schema version, bumped on any shape change so an
  * older binary refuses a document it would read lossily. Version 2 adds the
  * node `grooming` key (ADR 0033); version 3 adds the node `block_owner` key
- * (ADR 0001, MMR-438); version 4 adds the project `pinned` key (MMR-493); version 5 adds the project `remote` key (MMR-543); version 6 admits queued task reservations (MMR-564); version 7 adds optional whole-task worker handles and assignment history (MMR-568); version 8 admits staged tasks (MMR-675); version 9 adds delivery records and their allocation counter (MMR-676); version 11 adds decision records (MMR-677); version 12 adds checklist items (MMR-678); version 13 adds delivery findings and the delivery of run journals (MMR-691).
+ * (ADR 0001, MMR-438); version 4 adds the project `pinned` key (MMR-493); version 5 adds the project `remote` key (MMR-543); version 6 admits queued task reservations (MMR-564); version 7 adds optional whole-task worker handles and assignment history (MMR-568); version 8 admits staged tasks (MMR-675); version 9 adds delivery records and their allocation counter (MMR-676); version 11 adds decision records (MMR-677); version 12 adds checklist items (MMR-678); version 13 adds delivery findings and the delivery of run journals (MMR-691); version 14 adds delivery follow-up links (MMR-693).
  */
-export const STORE_EXPORT_SCHEMA_VERSION = 13;
+export const STORE_EXPORT_SCHEMA_VERSION = 14;
 
 /**
  * Every version this binary imports. A version-1 document predates `grooming`
@@ -74,6 +75,7 @@ export const READABLE_STORE_EXPORT_SCHEMA_VERSIONS: readonly number[] = [
   10,
   11,
   12,
+  13,
   STORE_EXPORT_SCHEMA_VERSION,
 ];
 
@@ -161,6 +163,7 @@ export type StoreExport = {
   decisions: readonly DecisionView[];
   /** A delivery's limitations and declined findings (ADR 0042), in project-key, delivery-sequence, then number order. */
   delivery_findings: readonly DeliveryFindingRecord[];
+  delivery_follow_ups: readonly DeliveryFollowUpRecord[];
   schema_version: typeof STORE_EXPORT_SCHEMA_VERSION;
   /** When this document was produced — the only field a re-export may differ in. */
   exported_at: string;
