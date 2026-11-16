@@ -148,7 +148,7 @@ export function DecisionActions({
                 size="sm"
                 variant="outline"
                 disabled={disabled || !note.trim()}
-                onClick={() => answer({ note: note.trim() }, true)}
+                onClick={(event) => answer({ note: note.trim() }, true, event.currentTarget)}
               >
                 Confirm with note
               </ActionButton>
@@ -156,7 +156,7 @@ export function DecisionActions({
                 size="sm"
                 variant="outline"
                 disabled={disabled || !note.trim()}
-                onClick={() => answer({ note: note.trim() }, false)}
+                onClick={(event) => answer({ note: note.trim() }, false, event.currentTarget)}
               >
                 Answer with note
               </ActionButton>

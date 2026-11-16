@@ -1,5 +1,5 @@
 import { Dialog } from '@base-ui-components/react/dialog';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
 import { transitionLabel } from '../lib/transitions';
@@ -63,6 +63,17 @@ export function ReasonDialog({
   const trimmed = reason.trim();
   // Set before the awaited write, so a second click lands on a closed gate, not a stale button.
   const committing = useRef(false);
+  const commitRef = useRef<HTMLButtonElement>(null);
+  // A refused commit disables while its write runs, which drops focus to the page body; it takes
+  // focus back once it is enabled again, so a keyboard or screen-reader user stays in the dialog.
+  const [refused, setRefused] = useState(0);
+  const refocused = useRef(refused);
+  useEffect(() => {
+    if (refused !== refocused.current && !disabled) {
+      refocused.current = refused;
+      commitRef.current?.focus();
+    }
+  }, [refused, disabled]);
   return (
     <Dialog.Root
       open={open}
@@ -100,6 +111,7 @@ export function ReasonDialog({
               Cancel
             </Dialog.Close>
             <ActionButton
+              ref={commitRef}
               size="sm"
               variant={confirmVariant}
               disabled={disabled || (required && trimmed === '')}
@@ -115,6 +127,7 @@ export function ReasonDialog({
                     onClose();
                   } catch {
                     // The mutation toasts the refusal; retain the reason for another attempt.
+                    setRefused((n) => n + 1);
                   } finally {
                     committing.current = false;
                   }

@@ -436,6 +436,8 @@ test.each(['Confirm with note', 'Answer with note'])(
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Refused answer'));
     expect(dialog).toBeInTheDocument();
     expect(within(dialog).getByRole('textbox')).toHaveValue('  Use neither  ');
+    // Focus comes back to the commit inside the open dialog once it is enabled again.
+    await waitFor(() => expect(commit).toHaveFocus());
   },
 );
 
@@ -504,6 +506,7 @@ test.each(['Pause', 'Abandon'])(
     await waitFor(() => expect(commit).toBeEnabled());
     expect(screen.getByRole('dialog', { name: `${verb} MMR-d3` })).toBeInTheDocument();
     expect(within(dialog).getByRole('textbox')).toHaveValue('  Wait for access  ');
+    await waitFor(() => expect(commit).toHaveFocus());
   },
 );
 
@@ -675,6 +678,8 @@ test.each(['Cancel', 'Escape'])(
       fireEvent.keyDown(within(dialog).getByRole('textbox'), { key: 'Escape' });
     }
     await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    // The opener is disabled offline, so focus falls back to the page title.
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveFocus());
   },
 );
 

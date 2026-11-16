@@ -272,7 +272,12 @@ function DeliveryRecord({ id }: { id: string }) {
         title={`${dialog === 'pause' ? 'Pause' : 'Abandon'} ${id}`}
         confirmLabel={dialog === 'pause' ? 'Pause delivery' : 'Abandon delivery'}
         confirmVariant={dialog === 'pause' ? 'outline' : 'destructiveOutline'}
-        finalFocus={() => (control.current?.isConnected ? control.current : heading.current)}
+        // A disabled opener (offline, or a write in flight) cannot take focus back.
+        finalFocus={() =>
+          control.current?.isConnected && !control.current.disabled
+            ? control.current
+            : heading.current
+        }
         onClose={() => {
           setDialogOpen(false);
         }}
