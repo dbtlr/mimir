@@ -8,7 +8,7 @@ import { recordViews } from './views';
 
 /** A delivery as a verb echoes it (no lists) or `get` reads it (with them). */
 export type DeliveryShown = DeliveryView &
-  Partial<Pick<DeliveryDetailView, 'declined' | 'journal' | 'limitations'>>;
+  Partial<Pick<DeliveryDetailView, 'declined' | 'journal' | 'limitations' | 'follow_ups'>>;
 
 /** The `journal` line: the live pad's UUID, then the frozen journals' ids; null when it has neither. */
 function journalLine(journal: DeliveryDetailView['journal']): string | null {
@@ -26,7 +26,14 @@ function journalLine(journal: DeliveryDetailView['journal']): string | null {
  * the `journal` line when it has a pad or a frozen journal (ADR 0042, MMR-691).
  */
 export function renderDelivery(delivery: DeliveryShown, p: Presentation): string {
-  const { history, limitations = [], declined = [], journal, ...fields } = delivery;
+  const {
+    history,
+    limitations = [],
+    declined = [],
+    follow_ups = [],
+    journal,
+    ...fields
+  } = delivery;
   const dash = p.plain ? '-' : '—';
   const line = (entry: DeliveryView['history'][number]): string => {
     const task = entry.task === null ? '' : ` ${entry.task}`;
@@ -44,6 +51,9 @@ export function renderDelivery(delivery: DeliveryShown, p: Presentation): string
         hangingIndent(`${k}: `, k.endsWith('_at') ? formatInstant(String(v), p.zone) : String(v)),
       )
       .join('\n'),
+    ...follow_ups.map((link) =>
+      hangingIndent('follow-up: ', `${link.id} ${link.status} ${link.title}`),
+    ),
     ...(journalText === null ? [] : [journalText]),
     ...(limitations.length
       ? [`Limitations\n${limitations.map((e) => entry(e.number, e.created_at, e.text)).join('\n')}`]

@@ -76,6 +76,16 @@ export type DeliveryStatePatch = Partial<
 >;
 export type DeliveryStore = {
   /**
+   * Standing links in row order, excluding archived projects. A seed link
+   * carries the seed's title and lifecycle; a task link carries null.
+   */
+  followUps: (
+    key: string,
+    seq: number,
+  ) => Promise<
+    { id: string; linked_at: string; seed: { title: string; lifecycle: string } | null }[]
+  >;
+  /**
    * Append a known limitation or declined finding (ADR 0042, MMR-691). In one
    * write it stamps the delivery's `updated_at`, allocates the next number
    * across both kinds, and inserts. It accepts a delivery in any lifecycle,
@@ -109,13 +119,16 @@ export type DeliveryStore = {
   /**
    * In one write: apply `patch`, append `history` in order, and stamp
    * `updated_at` — or write nothing when both are empty. Refuses an absent
-   * delivery (`not_found`) and a terminal one ({@link assertLiveDelivery}).
+   * delivery (`not_found`). A terminal delivery accepts only nonempty link changes;
+   * every other update is refused by {@link assertLiveDelivery}. Link checks
+   * and writes share the transaction, with unlinks before links.
    */
   patch: (
     key: string,
     seq: number,
     patch: DeliveryPatch,
     history?: readonly DeliveryHistory[],
+    links?: { follow: readonly string[]; unfollow: readonly string[] },
   ) => Promise<void>;
 };
 

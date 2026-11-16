@@ -13,6 +13,7 @@ const empty = (): SinceSources => ({
   decisions: [],
   delivery: D,
   findings: [],
+  followUps: [],
   history: [],
   items: [],
   journals: [],

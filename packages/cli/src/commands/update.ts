@@ -419,6 +419,11 @@ export function updateCommand(ports: Ports) {
       description: 'KEY-seq, KEY, KEY-aN, KEY-sN, KEY-dN, or KEY-qN.',
       required: true,
     })
+    .option('follow-up', { ...text('Link a task or seed to a delivery; repeat.'), multiple: true })
+    .option('unfollow-up', {
+      ...text('Unlink a task or seed from a delivery; repeat.'),
+      multiple: true,
+    })
     .option('task', { ...text('Link a task to a decision; repeat.'), multiple: true })
     .option('untask', { ...text('Unlink a task from a decision; repeat.'), multiple: true })
     .option('agreement', text('Replace the delivery agreement.'))
@@ -544,12 +549,14 @@ export function updateCommand(ports: Ports) {
               agreement,
               branch: options.branch,
               external_ref: options.ref,
+              follow_ups: options['follow-up'],
               harness: options.harness,
               host: options.host,
               id: args.id,
               session: options.session,
               time_cap_minutes: timeCap,
               title: options.title,
+              unfollow_ups: options['unfollow-up'],
             }),
           ),
         );
@@ -562,6 +569,9 @@ export function updateCommand(ports: Ports) {
         given(options['time-cap'])
       ) {
         throw new MimirUsageError('agreement and time-cap apply only to a delivery');
+      }
+      if (options['follow-up'].length || options['unfollow-up'].length) {
+        throw new MimirUsageError('--follow-up and --unfollow-up apply only to a delivery');
       }
       if (kind === 'project') {
         const written = await updateProject(args.id, options);

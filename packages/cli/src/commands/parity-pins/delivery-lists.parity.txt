@@ -66,6 +66,7 @@ exit 0
 |   "elapsed_minutes": null,
 |   "history": [],
 |   "declined": [],
+|   "follow_ups": [],
 |   "journal": {
 |     "artifacts": [],
 |     "scratchpad": null
@@ -106,6 +107,7 @@ exit 0
 |   "elapsed_minutes": null,
 |   "history": [],
 |   "declined": [],
+|   "follow_ups": [],
 |   "journal": {
 |     "artifacts": [],
 |     "scratchpad": null
@@ -196,6 +198,7 @@ exit 0
 |       "reason": "Filed as MMR-s55"
 |     }
 |   ],
+|   "follow_ups": [],
 |   "journal": {
 |     "artifacts": [],
 |     "scratchpad": null
@@ -237,6 +240,7 @@ exit 0
 |       "reason": "Filed as MMR-s55"
 |     }
 |   ],
+|   "follow_ups": [],
 |   "journal": {
 |     "artifacts": [],
 |     "scratchpad": null
@@ -350,6 +354,7 @@ exit 0
 |       "reason": "Why"
 |     }
 |   ],
+|   "follow_ups": [],
 |   "journal": {
 |     "artifacts": [],
 |     "scratchpad": null
@@ -411,6 +416,7 @@ exit 0
 |       "reason": "Filed later"
 |     }
 |   ],
+|   "follow_ups": [],
 |   "journal": {
 |     "artifacts": [],
 |     "scratchpad": null
@@ -678,6 +684,7 @@ exit 0
 |       "reason": "Why"
 |     }
 |   ],
+|   "follow_ups": [],
 |   "journal": {
 |     "artifacts": [],
 |     "scratchpad": null

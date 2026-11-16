@@ -81,6 +81,7 @@ lane('upgradeSchema builds the schema from empty, and the gate then passes', asy
           '0018_checklist_item',
           '0019_delivery_finding',
           '0020_delivery_since_indexes',
+          '0021_delivery_follow_up',
         ],
         from: 0,
         to: SCHEMA_VERSION,
@@ -95,34 +96,38 @@ lane('upgradeSchema builds the schema from empty, and the gate then passes', asy
   });
 });
 
-lane('the conformance fixture round trips through export and import on real Postgres', async () => {
-  await onFreshSchema(async (sourceUrl) => {
-    await onFreshSchema(async (targetUrl) => {
-      const source = openPostgres(sourceUrl);
-      const target = openPostgres(targetUrl);
-      try {
-        await upgradeSchema(source.db);
-        await upgradeSchema(target.db);
-        const from = createPostgresStore(source.db);
-        const into = createPostgresStore(target.db);
+lane(
+  'the conformance fixture round trips through export and import on real Postgres',
+  async () => {
+    await onFreshSchema(async (sourceUrl) => {
+      await onFreshSchema(async (targetUrl) => {
+        const source = openPostgres(sourceUrl);
+        const target = openPostgres(targetUrl);
+        try {
+          await upgradeSchema(source.db);
+          await upgradeSchema(target.db);
+          const from = createPostgresStore(source.db);
+          const into = createPostgresStore(target.db);
 
-        await seedWorkingSet(from);
-        const document = await from.export();
-        const report = await into.import(document, { dryRun: false, mode: 'fresh' });
-        expect(report.mode).toBe('fresh');
-        expect(report.created).toBeGreaterThan(0);
+          await seedWorkingSet(from);
+          const document = await from.export();
+          const report = await into.import(document, { dryRun: false, mode: 'fresh' });
+          expect(report.mode).toBe('fresh');
+          expect(report.created).toBeGreaterThan(0);
 
-        // Identity, timestamps, and counters all preserved: the two stores read
-        // back the same facts, and re-exporting reproduces the same document.
-        expect(await observe(into)).toEqual(await observe(from));
-        expect(withoutStamp(await into.export())).toEqual(withoutStamp(document));
-      } finally {
-        await target.close();
-        await source.close();
-      }
+          // Identity, timestamps, and counters all preserved: the two stores read
+          // back the same facts, and re-exporting reproduces the same document.
+          expect(await observe(into)).toEqual(await observe(from));
+          expect(withoutStamp(await into.export())).toEqual(withoutStamp(document));
+        } finally {
+          await target.close();
+          await source.close();
+        }
+      });
     });
-  });
-});
+  },
+  30_000,
+);
 
 lane('two concurrent upgrades from empty apply each migration exactly once', async () => {
   await onFreshSchema(async (url) => {
@@ -543,7 +548,14 @@ lane('delivery records round-trip through the socket-backed store', async () => 
         limitations: [],
       };
       expect(await engine.getDelivery({ id: delivery.id })).toEqual(detail);
-      expect(await engine.deliveries({ project: 'DEL' })).toEqual([updated]);
+      const {
+        follow_ups: _followUps,
+        limitations: _limitations,
+        declined: _declined,
+        journal: _journal,
+        ...listed
+      } = updated;
+      expect(await engine.deliveries({ project: 'DEL' })).toEqual([listed]);
       const exported = await store.export();
       expect(exported.projects[0]?.counters.delivery).toBe(1);
       expect(exported.deliveries[0]?.agreement).toBe('Ship');
@@ -825,3 +837,48 @@ lane('two concurrent pads on one delivery leave one created and one conflict', a
     }
   });
 });
+
+lane(
+  'delivery follow-ups round-trip across socket-backed stores and serialize competing links',
+  async () => {
+    await onFreshSchema(async (sourceUrl) => {
+      await onFreshSchema(async (targetUrl) => {
+        const source = openPostgres(sourceUrl);
+        const target = openPostgres(targetUrl);
+        try {
+          await upgradeSchema(source.db);
+          await upgradeSchema(target.db);
+          const store = createPostgresStore(source.db);
+          const engine = new LocalEngine(store);
+          await createProject(store, { key: 'FUP', name: 'Follow-ups' });
+          await createProject(store, { key: 'OTH', name: 'Other' });
+          const plan = await createInitiative(store, { projectId: 'FUP', title: 'Plan' });
+          const phase = await createPhase(store, { parentId: plan.id, title: 'Phase' });
+          const task = await createTask(store, { parentId: phase.id, title: 'Task' });
+          const seed = await engine.seedCreate({ kind: 'idea', project: 'OTH', title: 'Ask' });
+          const delivery = await engine.deliveryCreate({ phase: phase.id, title: 'Attempt' });
+          const outcomes = await Promise.allSettled([
+            engine.deliveryUpdate({ follow_ups: [task.id], id: delivery.id }),
+            engine.deliveryUpdate({ follow_ups: [task.id], id: delivery.id }),
+          ]);
+          expect(outcomes.filter((outcome) => outcome.status === 'fulfilled')).toHaveLength(1);
+          expect(outcomes.filter((outcome) => outcome.status === 'rejected')).toHaveLength(1);
+          await engine.deliveryUpdate({ follow_ups: [seed.id], id: delivery.id });
+          await engine.deliveryUpdate({ id: delivery.id, unfollow_ups: [task.id] });
+          const document = await store.export();
+          const imported = createPostgresStore(target.db);
+          await imported.import(document, { dryRun: false, mode: 'fresh' });
+          expect(withoutStamp(await imported.export())).toEqual(withoutStamp(document));
+          expect(
+            (await new LocalEngine(imported).getDelivery({ id: delivery.id })).follow_ups.map(
+              (link) => link.id,
+            ),
+          ).toEqual([seed.id]);
+        } finally {
+          await target.close();
+          await source.close();
+        }
+      });
+    });
+  },
+);

@@ -23,6 +23,7 @@ import { sql } from 'kysely';
 
 import { checklistFaults } from '../../checklist/validate';
 import { decisionFaults } from '../../decisions/validate';
+import { followUpFaults } from '../../deliveries/follow-up-validate';
 import { deliveryReferenceFault } from '../../deliveries/membership';
 import { deliveryFindingFaults, journalFaults } from '../../deliveries/validate';
 import { parseIdentity } from '../../ids';
@@ -51,6 +52,7 @@ type SqlCheck =
   | 'invalid-checklist-item'
   | 'invalid-delivery'
   | 'invalid-decision'
+  | 'invalid-delivery-follow-up'
   | 'invalid-delivery-finding'
   | 'invalid-run-journal'
   | 'dangling-edge'
@@ -677,6 +679,36 @@ async function deliveryProjects(db: Kysely<DB>): Promise<Map<string, string>> {
   return new Map(rows.map((row) => [row.id, row.project_key]));
 }
 
+/** The delivery follow-up link rules the verbs keep (ADR 0042, MMR-693), over every stored link. */
+async function checkDeliveryFollowUps(db: Kysely<DB>): Promise<DoctorFinding[]> {
+  const links = await db
+    .selectFrom('delivery_follow_up')
+    .select(['delivery_id as delivery', 'task', 'seed', 'linked_at', 'unlinked_at'])
+    .orderBy('id')
+    .execute();
+  const nodes = await db
+    .selectFrom('node')
+    .select(['id', 'type', 'project_key as project_id'])
+    .execute();
+  const seeds = await db.selectFrom('seed').select('id').execute();
+  return followUpFaults(
+    links,
+    await deliveryProjects(db),
+    new Map(nodes.map((node) => [node.id, node])),
+    new Set(seeds.map((seed) => seed.id)),
+  ).map(({ id, message }) => {
+    const delivery = id.slice(0, id.indexOf(' '));
+    return finding({
+      check: 'invalid-delivery-follow-up',
+      evidence: {},
+      locator: `delivery_follow_up/${id.replace(' follow-up ', '/')}`,
+      message: `${id} ${message}`,
+      stem: delivery,
+      where: 'delivery_follow_up',
+    });
+  });
+}
+
 /** The delivery entry rules the verbs keep (ADR 0042, MMR-691), over every stored entry. */
 async function checkDeliveryFindings(db: Kysely<DB>): Promise<DoctorFinding[]> {
   const rows = await db
@@ -744,6 +776,7 @@ async function diagnose(
       checkOrphanDecisionLinks(db),
       checkDecisions(db, dialect),
       checkChecklistItems(db),
+      checkDeliveryFollowUps(db),
       checkDeliveryFindings(db),
       checkRunJournals(db),
       checkDanglingParent(db),
@@ -772,6 +805,7 @@ const CAUSES: Readonly<Record<string, string>> = {
   'invalid-decision': 'invalid decision',
   'invalid-delivery': 'invalid delivery reference',
   'invalid-delivery-finding': 'invalid delivery entry',
+  'invalid-delivery-follow-up': 'invalid delivery follow-up',
   'invalid-run-journal': 'invalid run journal',
   'malformed-timestamp': 'malformed timestamp',
   'orphan-link': 'orphan link',

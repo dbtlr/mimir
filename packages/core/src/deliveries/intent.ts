@@ -11,6 +11,7 @@ import type {
 } from '@mimir/contract';
 
 import { assertBoardActive } from '../archive-lock';
+import { deriveSet, findNodeInSet, nodeStatusWord } from '../derive';
 import { blankProse, notFound, projectNotFound, validation } from '../errors';
 import { parseIdentity, renderArtifactRef, renderDeliveryRef } from '../ids';
 import type { Node, Project } from '../model';
@@ -183,6 +184,24 @@ async function detailOf(store: Store, stored: StoredDelivery): Promise<DeliveryD
   const entries = await store.deliveries.findings(stored.key, stored.seq);
   const pad = await store.scratchpads.forDelivery(id);
   const frozen = await store.artifacts.listForDelivery(id);
+  const follow_ups = [];
+  const links = await store.deliveries.followUps(stored.key, stored.seq);
+  // One derivation serves every linked task's status word; none when only seeds are linked.
+  const set = links.some((link) => parseIdentity(link.id)?.kind !== 'seed')
+    ? deriveSet(await store.loadWorkingSet())
+    : undefined;
+  for (const link of links) {
+    const { seed, ...rest } = link;
+    if (seed !== null) {
+      follow_ups.push({ ...rest, status: seed.lifecycle, title: seed.title });
+    } else if (set !== undefined) {
+      // A task the derivation cannot see (archived between reads) is left out, as archived boards are.
+      const task = findNodeInSet(set, link.id);
+      if (task && !set.archivedProjects.has(task.project_id)) {
+        follow_ups.push({ ...rest, status: nodeStatusWord(set, task), title: task.title });
+      }
+    }
+  }
   return {
     ...viewOf(stored),
     declined: entries.flatMap((entry) =>
@@ -197,6 +216,7 @@ async function detailOf(store: Store, stored: StoredDelivery): Promise<DeliveryD
           ]
         : [],
     ),
+    follow_ups,
     journal: {
       artifacts: frozen.map((artifact) => renderArtifactRef(artifact)),
       scratchpad: pad?.id ?? null,
@@ -310,20 +330,15 @@ export async function listDeliveries(store: Store, project: string): Promise<Del
 export async function updateDelivery(
   store: Store,
   input: EngineInput<'deliveryUpdate'>,
-): Promise<DeliveryView> {
-  const { id, ...terms } = input;
+): Promise<DeliveryDetailView> {
+  const { id, follow_ups = [], unfollow_ups = [], ...terms } = input;
   const ref = requireDeliveryRef(id);
   const patch = patchOf(terms);
-  assertBoardActive(
-    (await store.loadProjects()).find((project) => project.key === ref.key),
-    ref.key,
-  );
-  await store.deliveries.patch(ref.key, ref.seq, patch);
-  const stored = await store.deliveries.load(ref.key, ref.seq);
-  if (stored === undefined) {
-    throw notFound(`${id} doesn't exist`);
-  }
-  return viewOf(stored);
+  await store.deliveries.patch(ref.key, ref.seq, patch, [], {
+    follow: follow_ups,
+    unfollow: unfollow_ups,
+  });
+  return getDelivery(store, id);
 }
 
 /** The indefinite article a lifecycle word takes: `an agreed`, `a running`. */

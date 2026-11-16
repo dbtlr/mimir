@@ -126,6 +126,38 @@ function byCode(findings: readonly DoctorFinding[], code: string): DoctorFinding
 }
 
 describe.each(arms)('$name', (arm) => {
+  test('doctor reports a delivery follow-up with noncanonical time and a missing target', async () => {
+    const f = await arm.make();
+    try {
+      const engine = new LocalEngine(f.store);
+      await createProject(f.store, { key: 'FUP', name: 'Follow-ups' });
+      const plan = await createInitiative(f.store, { projectId: 'FUP', title: 'Plan' });
+      const phase = await createPhase(f.store, { parentId: plan.id, title: 'Phase' });
+      const task = await createTask(f.store, { parentId: phase.id, title: 'Task' });
+      const delivery = await engine.deliveryCreate({ phase: phase.id, title: 'Attempt' });
+      await engine.deliveryUpdate({ follow_ups: [task.id], id: delivery.id });
+      await sql.raw("UPDATE delivery_follow_up SET linked_at = 'bad'").execute(f.db);
+      expect(
+        (await f.doctor.diagnose(undefined)).findings.some(
+          (entry) =>
+            entry.check === 'invalid-delivery-follow-up' &&
+            entry.message.includes('canonical') &&
+            entry.locator === 'delivery_follow_up/FUP-d1/1',
+        ),
+      ).toBe(true);
+      await arm.unconstrained(f.db, ["UPDATE delivery_follow_up SET task = 'FUP-999'"]);
+      expect(
+        (await f.doctor.diagnose(undefined)).findings.some(
+          (entry) =>
+            entry.check === 'invalid-delivery-follow-up' &&
+            entry.message.includes('task is missing'),
+        ),
+      ).toBe(true);
+    } finally {
+      await f.close();
+    }
+  });
+
   // Whether a stored stamp is canonical is judged in JS (`isCanonicalInstant`)
   // over every row read, so the cases about which stamps are malformed and whose
   // record they belong to run on SQLite alone. The batched read that feeds it

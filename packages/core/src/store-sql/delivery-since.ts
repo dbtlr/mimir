@@ -2,6 +2,7 @@ import type { Kysely } from 'kysely';
 
 import type { SinceSources } from '../deliveries/since';
 import { inLists } from './batch';
+import { visibleFollowUps } from './delivery-follow-ups';
 import type { StoreDialect } from './dialect';
 import type { DB, Executor } from './schema';
 import { toRowId } from './schema';
@@ -173,6 +174,7 @@ export function readSinceSources(
       ...(await decisionRows(tx, dialect, delivery)),
       delivery,
       findings,
+      followUps: await visibleFollowUps(tx, delivery),
       history,
       journals,
     };

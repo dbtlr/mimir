@@ -98,6 +98,7 @@ exit 0
 |         "reason": "Filed later"
 |       }
 |     ],
+|     "follow_ups": [],
 |     "journal": {
 |       "artifacts": [
 |         "MMR-a2"
@@ -388,6 +389,7 @@ exit 0
 |         "reason": "Filed later"
 |       }
 |     ],
+|     "follow_ups": [],
 |     "journal": {
 |       "artifacts": [
 |         "MMR-a2"
@@ -664,6 +666,7 @@ exit 0
 |         "reason": "Filed later"
 |       }
 |     ],
+|     "follow_ups": [],
 |     "journal": {
 |       "artifacts": [
 |         "MMR-a2"
@@ -771,6 +774,7 @@ exit 0
 |         "reason": "Filed later"
 |       }
 |     ],
+|     "follow_ups": [],
 |     "journal": {
 |       "artifacts": [
 |         "MMR-a2"
@@ -878,6 +882,7 @@ exit 0
 |         "reason": "Filed later"
 |       }
 |     ],
+|     "follow_ups": [],
 |     "journal": {
 |       "artifacts": [
 |         "MMR-a2"
@@ -942,6 +947,7 @@ exit 0
 |     "elapsed_minutes": null,
 |     "history": [],
 |     "declined": [],
+|     "follow_ups": [],
 |     "journal": {
 |       "artifacts": [],
 |       "scratchpad": null

@@ -183,6 +183,14 @@ export async function exportSqlStore(ex: Executor, dialect: StoreDialect): Promi
     decisions: await exportDecisions(ex, dialect),
     deliveries: await exportDeliveries(ex, dialect),
     delivery_findings: await exportDeliveryFindings(ex),
+    delivery_follow_ups: await ex
+      .selectFrom('delivery_follow_up')
+      .innerJoin('delivery', 'delivery.id', 'delivery_follow_up.delivery_id')
+      .select(['delivery_id as delivery', 'task', 'seed', 'linked_at', 'unlinked_at'])
+      .orderBy('delivery.project_key')
+      .orderBy('delivery.seq')
+      .orderBy('delivery_follow_up.id')
+      .execute(),
     edges: [...workingSet.edges],
     exported_at: now(),
     nodes,
@@ -337,6 +345,7 @@ function bundlesOf(
   const annotations = groupBy(document.annotations, (row) => row.node_id);
   const items = groupBy(document.checklist_items, (row) => row.task);
   const findings = groupBy(document.delivery_findings, (row) => row.delivery);
+  const followUps = groupBy(document.delivery_follow_ups, (row) => row.delivery);
   const prereqs = groupBy(document.edges, (edge) => edge.node_id);
   const history = groupBy(document.transitions, (row) => row.node_id ?? row.project_id ?? '');
   const bundles: Bundles = {
@@ -358,6 +367,7 @@ function bundlesOf(
           findings: (findings.get(row.id) ?? [])
             .map(({ delivery: _delivery, ...entry }) => entry)
             .toSorted((a, b) => a.number - b.number),
+          follow_ups: followUps.get(row.id) ?? [],
         },
       ]),
     ),
@@ -761,6 +771,15 @@ async function applyImport(
     }
   }
   await insertExportedSeeds(tx, dialect, seeds);
+  // Batched in exported order, so the new row ids follow it.
+  await insertBatched(
+    document.delivery_follow_ups.flatMap(({ delivery, ...link }) =>
+      importedDeliveries.has(delivery) ? [{ ...link, delivery_id: delivery }] : [],
+    ),
+    dialect.maxParameters,
+    (chunk) => tx.insertInto('delivery_follow_up').values(chunk).execute(),
+  );
+
   await insertScratchpads(tx, dialect, pads);
 
   return { applied: !opts.dryRun, created, mode: opts.mode, skipped };
@@ -839,6 +858,7 @@ const EMPTY_COLLECTIONS = {
   decisions: [],
   deliveries: [],
   delivery_findings: [],
+  delivery_follow_ups: [],
   edges: [],
   nodes: [],
   projects: [],
