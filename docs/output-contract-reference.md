@@ -702,5 +702,6 @@ Engine method is `deliverySince({ id, since })` and returns `Date` instants; the
   line (both in ISO form, ready to pass back), then one line per event:
   `<time> <record> <kind>[ #<number>][: <from> → <to>][ <task>][ <text>][ — <reason>]`,
   with the time in the caller's zone. A missing `<from>` or `<to>` prints as `—`.
-  With `--ascii`, the arrow prints as `->` and both dashes as `-`. `ids` prints
-  the delivery id.
+  In plain output (`--ascii`, `NO_COLOR` set, or output that is not a terminal,
+  such as a pipe), the arrow prints as `->` and both dashes as `-`. `ids`
+  prints the delivery id.
