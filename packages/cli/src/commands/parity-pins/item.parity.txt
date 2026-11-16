@@ -445,25 +445,25 @@ exit 2
 unchanged
 
 ### item argv: drop MMR-3 2
-exit 2
+exit 1
 --- stdout
 --- failure
 | {
-|   "code": "usage",
+|   "code": "validation",
 |   "hints": [],
-|   "message": "item drop requires a reason"
+|   "message": "drop reason cannot be blank"
 | }
 --- state
 unchanged
 
 ### item argv: drop MMR-3 2 " "
-exit 2
+exit 1
 --- stdout
 --- failure
 | {
-|   "code": "usage",
+|   "code": "validation",
 |   "hints": [],
-|   "message": "item drop requires a reason"
+|   "message": "drop reason cannot be blank"
 | }
 --- state
 unchanged

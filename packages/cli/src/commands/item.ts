@@ -114,9 +114,6 @@ function itemDropCommand(ports: Ports) {
     .action(async ({ args, host, options, out, passthrough }) => {
       const number = itemNumber(args.number, 'drop');
       const reason = options.reason ?? reasonWords(args.words, passthrough);
-      if (reason.trim() === '') {
-        throw new MimirUsageError('item drop requires a reason');
-      }
       const task = nodeToken(ports.grammar, args.task, 'task');
       const checklist = await (await ports.engine()).itemDrop({ number, reason, task });
       await out.results(echo(checklist, number, presentationOf(host, options.ascii)));

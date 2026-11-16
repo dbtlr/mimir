@@ -391,11 +391,11 @@ export type NodeView = {
   /** Who can clear the block (ADR 0001, MMR-438) — set only while `hold` is `blocked`. */
   blockOwner?: BlockOwner | null;
   externalRef?: string | null;
-  /** The requester-side seed pointer (`KEY-sN`, MMR-244/245) — reference-only. */
   /** A task's checklist in number order (ADR 0044); a task `get` carries it. */
   items?: ChecklistItem[];
   decisions?: { id: string; lifecycle: 'provisional' | 'confirmed' | 'overturned' }[];
   delivery?: string | null;
+  /** The requester-side seed pointer (`KEY-sN`, MMR-244/245) — reference-only. */
   upstream?: string | null;
   /**
    * The in-flight resume handles (ADR 0026 Decision 3, MMR-320) — where the work
