@@ -1,6 +1,8 @@
 /**
- * Check a `bun test` junit report against the default lane's time budget.
- * CI's gate writes the report while it runs `bun run test`, then runs this.
+ * Check a junit report from a default test lane against its time budget.
+ * CI's gate writes one report from `bun run test` and one from the host
+ * Vitest lane, `bun run test:ui`, and runs this on each. Both lanes share the
+ * budget: Bun and Vitest both time a test out at 5 s.
  * A test over the limit fails the check unless it is exempted below against
  * the task that will make it fast, and so does an exemption whose test did
  * not run. A test over the warning threshold, or a
@@ -14,14 +16,20 @@ import { readFileSync } from 'node:fs';
 export type Budget = { testLimitMs: number; testWarnMs: number; fileWarnMs: number };
 
 /**
- * The budget for the Linux gate. The limit leaves headroom under Bun's 5 s
- * default timeout. The one-off PGlite snapshot boot, about 1.8 s on the gate,
- * runs in a `beforeAll` of each file that opens a Postgres store (`bootPglite`),
- * so it counts in that file's time and in no test's.
+ * The budget for the Linux gate. The limit leaves headroom under Bun's and
+ * Vitest's 5 s default timeout. In the Bun lane, the one-off PGlite snapshot
+ * boot, about 1.8 s on the gate, runs in a `beforeAll` of each file that opens
+ * a Postgres store (`bootPglite`), so it counts in that file's time and in no
+ * test's. Vitest times a file by its tests and hooks, without its imports or
+ * its jsdom window, so the file threshold reads lower for that lane.
  */
 export const BUDGET: Budget = { fileWarnMs: 15_000, testLimitMs: 3000, testWarnMs: 1000 };
 
-/** A test allowed over the limit until its task lands. `name` is the describe path joined with ` > `. */
+/**
+ * A test allowed over the limit until its task lands. `name` is the describe
+ * path joined with ` > `. `file` is as the report writes it: from the
+ * repository root for the Bun lane, and from `packages/host` for Vitest.
+ */
 export type Exemption = { file: string; name: string; task: string };
 
 export const EXEMPTIONS: readonly Exemption[] = [];
@@ -56,9 +64,11 @@ function attributes(tag: string): Map<string, string> {
 }
 
 /**
- * Read the per-test and per-file times from a bun junit report. A file's
- * time is its top-level suite's; a test is named by the describe suites
- * around it. Skipped tests are left out.
+ * Read the per-test and per-file times from a Bun or Vitest junit report. A
+ * file's time is its top-level suite's. Bun nests a suite per describe block,
+ * and a test is named by the suites around it; Vitest writes one flat suite per
+ * file and puts the describe path in the test's name. Skipped tests are left
+ * out.
  */
 export function readJunit(xml: string): Timings {
   const files: FileTiming[] = [];
@@ -68,7 +78,7 @@ export function readJunit(xml: string): Timings {
   const tags = xml.matchAll(
     /<(\/?)(testsuite|testcase)\b([^>]*?)\/?>([\s\S]*?(?=<\/?test(?:suite|case)\b|$))/g,
   );
-  // A testcase's body runs to the next suite or case tag; bun writes <skipped> there for skip and todo.
+  // A testcase's body runs to the next suite or case tag; Bun and Vitest write <skipped> there for skip and todo.
   for (const [, closing, kind, attrText = '', body = ''] of tags) {
     if (kind === 'testsuite') {
       if (closing) {

@@ -50,5 +50,10 @@ jobs:
       - name: Test host
         run: bun run test:host
 
+      # The default reporter keeps the log readable; the junit report feeds the budget.
       - name: Test UI
-        run: bun run test:ui
+        run: bun run test:ui --reporter=default --reporter=junit --outputFile.junit="$RUNNER_TEMP/ui-junit.xml"
+
+      # The host Vitest lane's time budget, the same as the default bun lane's.
+      - name: Check the UI test budget
+        run: bun run test:budget "$RUNNER_TEMP/ui-junit.xml"

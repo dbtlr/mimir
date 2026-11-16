@@ -166,7 +166,8 @@ bun run test --update-timings
 The refresh merges new times into the file and keeps entries for removed files.
 Delete `test-timings.json` before refreshing to prune those entries.
 
-CI's gate checks the default bun lane's timings with `bun run test:budget`
+CI's gate checks the timings of both default lanes, `bun run test` and
+`bun run test:ui`, with `bun run test:budget`
 (`packages/cli/scripts/test-budget.ts`). A test over 3 s fails the gate, and a
 test over 1 s or a file over 15 s is reported in the log. Bun counts
 `beforeEach` and `afterEach` in a test's time but `beforeAll` and `afterAll`
@@ -175,14 +176,21 @@ that opens a PGlite store runs `beforeAll(bootPglite)` first
 (`bootEmptyPglite` when it opens only unmigrated databases), so each file's
 snapshot build, about 1.8 s on the gate, counts in that file's time and in no
 test's. A file that forgets the hook fails both alone and in the default lane,
-because each file gets a fresh module registry. A test over the limit may be
-exempted only against the task that will make it fast; remove the exemption in
-that task. An exemption that names a test the run did not include, as after a
-rename, fails the gate. To check a local run, write a report and pass it:
+because each file gets a fresh module registry. Vitest times a file by its tests
+and hooks, without its imports or its jsdom window, so a host file's time reads
+lower than its share of the run. A test over the limit may be exempted
+only against the task that will make it fast; remove the exemption in that
+task. An exemption names its file as the
+report does: from the repository root for the bun lane, and from
+`packages/host` for the Vitest lane. An exemption that names a test the run did
+not include, as after a rename, fails the gate. To check a local run, write a
+report and pass it:
 
 ```sh
 bun run test --reporter=junit --reporter-outfile=.scratch/bun-junit.xml
 bun run test:budget .scratch/bun-junit.xml
+bun run test:ui --reporter=default --reporter=junit --outputFile.junit="$PWD/.scratch/ui-junit.xml"
+bun run test:budget .scratch/ui-junit.xml
 ```
 
 The integration lanes outside `bun run verify` (`test:host`, `test:sandbox`,
