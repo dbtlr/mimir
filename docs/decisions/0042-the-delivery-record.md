@@ -491,7 +491,11 @@ when the kind has none.
 - **Decisions** are those whose `delivery` names this delivery when the read
   runs, with all their events. A decision's `delivery` history row whose
   `from` or `to` names this delivery always appears, so a decision moved to
-  another delivery is seen leaving; its later events are not.
+  another delivery is seen leaving; its later events are not. Decisions take
+  no spans, unlike tasks: moving a decision's link corrects which delivery it
+  belongs to, so all of its events go with it to the delivery it names now. A
+  task that leaves and joins another delivery is a new attempt at the work, so
+  its events stay with the attempt they happened in.
 - **The run journal** is each artifact whose `delivery` names this delivery
   ([ADR 0027](0027-scratchpads-are-temporary-episode-state.md), MMR-691
   refinement), at its `created_at`. A live pad's checkpoints are not events:
@@ -503,8 +507,9 @@ when the kind has none.
 
 ### Inputs and errors
 
-- `--since` takes an instant: an ISO 8601 date-time with `Z` or an offset,
-  read as that instant. A value that is not one is a usage error, before the
+- `--since` takes an instant: an ISO 8601 date-time with a four-digit year and
+  `Z` or an offset, read as that instant. Instants compare as instants, not as
+  text. A value that is not one is a usage error, before the
   store opens.
 - `--since` is accepted only on a `KEY-dN` id. On any other id it is a usage
   error that says `--since` reads a delivery's change feed, and names the list
