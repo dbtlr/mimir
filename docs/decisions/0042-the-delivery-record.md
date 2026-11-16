@@ -351,8 +351,8 @@ mimir decline MMR-d3 "Retry the clone on a transient fetch failure" --reason "Fi
   and MCP tool (`limitation`, `decline`), and returns the delivery as `get`
   reads it.
 - **Any lifecycle.** Both verbs accept a delivery in any lifecycle, `landed` and
-  `abandoned` included. This is the one exception to "a terminal delivery
-  refuses every write" above: a finding declined in a review after the merge
+  `abandoned` included. This is the first exception to "a terminal delivery
+  refuses every write" above (the MMR-693 refinement adds follow-up links): a finding declined in a review after the merge
   still belongs to the attempt it was found in. Holds do not refuse them
   either.
 - **One transaction.** Each verb stamps the delivery's `updated_at`, allocates
@@ -546,9 +546,9 @@ that collects items from several deliveries
 ([ADR 0044](0044-checklist-items.md)). The link is a reference only. Mimir
 attaches no behavior to it and gives it no role word
 ([ADR 0002](0002-general-purpose-primitives-not-baked-in-semantics.md)): a
-reader that shows a delivery's follow-ups shows each one's status, and a linked
-task's checklist items, and needs no label to tell a cleanup task from any
-other task.
+reader that shows a delivery's follow-ups shows each one's status, and reads a
+linked task's checklist items with `get` on that task, and needs no label to
+tell a cleanup task from any other task.
 
 ### The links
 
@@ -557,7 +557,7 @@ other task.
 | `task`        | The linked task, or null. It names a node of type `task` in the delivery's project       |
 | `seed`        | The linked seed, or null. It names a seed in any project                                 |
 | `linked_at`   | The instant the link was added                                                           |
-| `unlinked_at` | The instant the link was removed, or null while it stands. Never earlier than `linked_at` |
+| `unlinked_at` | The instant the link was removed, or null while it stands. Never earlier than `linked_at`: a removal whose clock reads earlier records `linked_at` instead, as a checklist item's settle does |
 
 - Exactly one of `task` and `seed` is set. A task must be in the delivery's
   project, because work committed from the attempt belongs to the attempt's
@@ -582,8 +582,15 @@ mimir update MMR-d3 --unfollow-up MMR-55
 
 - `--follow-up` and `--unfollow-up` on `update KEY-dN` are repeatable, and
   each takes one id. The Engine's `deliveryUpdate` input gains `follow_ups`
-  and `unfollow_ups`, lists of ids, and MCP's `update` tool gains the same two
-  inputs. One update may combine them with the delivery's other fields.
+  and `unfollow_ups`, lists of ids. MCP's `update` tool takes its inputs from
+  the CLI options, so it gains `follow-up` and `unfollow-up`, each a list of
+  ids. One update may combine them with the delivery's other fields. An empty
+  list counts as not named.
+- **The echo.** `deliveryUpdate` returns the delivery as `get` reads it,
+  `follow_ups` and the MMR-691 lists included, as `limitation` and `decline`
+  do. Its output was the plain delivery before, so the contract snapshot and
+  the version window change with it
+  ([ADR 0038](0038-device-pairing-and-the-version-window.md)).
 - **Any lifecycle.** Links are writable in every lifecycle, `landed` and
   `abandoned` included, and holds do not refuse them. Follow-ups are often
   filed at close-out, after the milestone merged. This is the second exception
@@ -595,24 +602,42 @@ mimir update MMR-d3 --unfollow-up MMR-55
 - **One transaction.** The update stamps the delivery's `updated_at`, then
   writes its unlinks, then its links, each in the order given, in one store
   transaction.
-- **Errors.** Each refusal refuses the whole update.
-  - `validation`: an id that is not a task or seed id (a phase, an
-    initiative, a project, a delivery, a decision, or an artifact) names its
-    kind; a task in another project; a record already linked by a standing
-    link (to `--follow-up`) or not linked by one (to `--unfollow-up`); the
-    same id twice in one list, or in both lists.
-  - `not_found`: a task or seed that does not exist, or one in an archived
-    project, which reads as missing ([ADR 0015](0015-project-archive-frozen-and-hidden.md)).
-  - The write refuses while the delivery's project is archived, as every
-    delivery write does.
+- **Errors.** Each refusal refuses the whole update. The checks run in this
+  order, and the first that fails names the refusal:
+  1. The delivery: missing or in an archived project is `not_found`; terminal,
+     with any field named other than the two lists, is `validation`, as
+     before.
+  2. The lists: the same id twice in one list, or in both lists, is
+     `validation`.
+  3. Each id's grammar: a string that is not a Mimir id is `not_found`, as
+     `get` reads it. An id of another kind (a project, a phase, an
+     initiative, a delivery, a decision, or an artifact) is `validation`, and
+     names its kind. A node id is resolved first, so a phase or an initiative
+     is named as such.
+  4. Each record's existence: a task or seed that does not exist, or one in
+     an archived project, is `not_found`
+     ([ADR 0015](0015-project-archive-frozen-and-hidden.md)). This comes
+     before the project check, so a refusal never confirms that a hidden
+     record exists.
+  5. The project: a task in another project than the delivery's is
+     `validation`.
+  6. The link state: a record already linked by a standing link (to
+     `--follow-up`), or not linked by one (to `--unfollow-up`), is
+     `validation`.
 
 ### Reads
 
-- `get KEY-dN` gains `follow_ups`: the standing links, oldest link first, each
+- `get KEY-dN` gains `follow_ups`: the standing links, in row order, each
   as `{ id, title, status, linked_at }`. `status` is a task's status word, as
   `get` on the task reads it, or a seed's lifecycle. A link whose record's
   project is archived is left out while that project is archived, because
   archive hides the record from every default read; it returns on unarchive.
+  While it is hidden, `--unfollow-up` of it is `not_found` too, so the link
+  stays until the project is unarchived. That is deliberate: an archived
+  project is frozen, and the link is part of the delivery's record of it.
+- No task or seed read carries the reverse link. A follow-up does not know
+  which deliveries link it, and nothing reads that today; a later need can
+  add it, as ADR 0043's task `decisions` field was added.
 - The records view prints one `follow-up` line per standing link: its id,
   status, and title. It omits the lines when there are none. `deliveries` rows
   do not carry follow-ups.
@@ -631,7 +656,9 @@ mimir update MMR-d3 --unfollow-up MMR-55
   `unlinked_at`, whether or not the row's `linked_at` is in the window. The
   follow-up's own events (its transitions, notes, and checklist items) are not
   in the feed: it is not a member, and ADR 0044 leaves the tasks a read
-  covers to that read.
+  covers to that read. A link whose record's project is archived when the
+  read runs yields no events, as it is left out of `follow_ups`; its events
+  return on unarchive, whenever they fall after the caller's cursor.
 
 ### Transfer
 
