@@ -89,6 +89,12 @@ MMR-691 refinement).
 **Declined finding**: A review finding a delivery chose not to act on,
 recorded with its reason by `decline`.
 
+**Follow-up**: A task in the delivery's project, or a seed on any board, that
+a delivery links because the attempt gave rise to it, such as work filed from
+a review or a cleanup task. The link is a reference with no role and gates
+nothing ([ADR 0042](decisions/0042-the-delivery-record.md), MMR-693
+refinement).
+
 **Run journal**: The Scratchpad anchored to a delivery, frozen at close-out
 into an artifact that names the delivery and links every task that was ever a
 member. Not the pad's numbered Journal section, which is one part of it

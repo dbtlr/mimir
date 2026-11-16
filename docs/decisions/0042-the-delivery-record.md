@@ -537,3 +537,125 @@ when the kind has none.
   would widen ADR 0003's scope across existing verbs. The snapshot carries the
   delivery's current field values; a task's are read with `get` on the task.
   A later need can add the log.
+
+## Refinement (2026-11-16, MMR-693): follow-ups
+
+A **follow-up** is a task or a seed that a delivery links because the attempt
+gave rise to it: work filed from a review, a cross-board ask, or a cleanup task
+that collects items from several deliveries
+([ADR 0044](0044-checklist-items.md)). The link is a reference only. Mimir
+attaches no behavior to it and gives it no role word
+([ADR 0002](0002-general-purpose-primitives-not-baked-in-semantics.md)): a
+reader that shows a delivery's follow-ups shows each one's status, and a linked
+task's checklist items, and needs no label to tell a cleanup task from any
+other task.
+
+### The links
+
+| Field         | Shape                                                                                   |
+| ------------- | --------------------------------------------------------------------------------------- |
+| `task`        | The linked task, or null. It names a node of type `task` in the delivery's project       |
+| `seed`        | The linked seed, or null. It names a seed in any project                                 |
+| `linked_at`   | The instant the link was added                                                           |
+| `unlinked_at` | The instant the link was removed, or null while it stands. Never earlier than `linked_at` |
+
+- Exactly one of `task` and `seed` is set. A task must be in the delivery's
+  project, because work committed from the attempt belongs to the attempt's
+  board. A seed may be on any board, because a cross-board ask is a seed on
+  the other board ([ADR 0020](0020-seeds-grooming-queue-entity.md)).
+- The delivery owns its links, as a decision owns its task links
+  ([ADR 0043](0043-the-decision-record.md)). Only delivery writes change them,
+  and no task or seed verb writes one. A link gates nothing on either side.
+- A link stands from `linked_at` until `unlinked_at`. Removing a link stamps
+  `unlinked_at` and keeps the row, so a row is its own log, as a checklist
+  item is, and no `delivery_history` row is written. Linking the same record
+  again adds a new row. A delivery has at most one standing link per record.
+- Links live in one `delivery_follow_up` table with an integer row id that
+  orders the rows in insertion order.
+
+### Writes
+
+```sh
+mimir update MMR-d3 --follow-up MMR-55 --follow-up FLT-s17
+mimir update MMR-d3 --unfollow-up MMR-55
+```
+
+- `--follow-up` and `--unfollow-up` on `update KEY-dN` are repeatable, and
+  each takes one id. The Engine's `deliveryUpdate` input gains `follow_ups`
+  and `unfollow_ups`, lists of ids, and MCP's `update` tool gains the same two
+  inputs. One update may combine them with the delivery's other fields.
+- **Any lifecycle.** Links are writable in every lifecycle, `landed` and
+  `abandoned` included, and holds do not refuse them. Follow-ups are often
+  filed at close-out, after the milestone merged. This is the second exception
+  to "a terminal delivery refuses every write", beside the two lists of the
+  MMR-691 refinement. Every other field of a terminal delivery still refuses
+  an update: an update that names only `follow_ups` and `unfollow_ups` is
+  accepted on a terminal delivery, and one that names any other field refuses
+  as before.
+- **One transaction.** The update stamps the delivery's `updated_at`, then
+  writes its unlinks, then its links, each in the order given, in one store
+  transaction.
+- **Errors.** Each refusal refuses the whole update.
+  - `validation`: an id that is not a task or seed id (a phase, an
+    initiative, a project, a delivery, a decision, or an artifact) names its
+    kind; a task in another project; a record already linked by a standing
+    link (to `--follow-up`) or not linked by one (to `--unfollow-up`); the
+    same id twice in one list, or in both lists.
+  - `not_found`: a task or seed that does not exist, or one in an archived
+    project, which reads as missing ([ADR 0015](0015-project-archive-frozen-and-hidden.md)).
+  - The write refuses while the delivery's project is archived, as every
+    delivery write does.
+
+### Reads
+
+- `get KEY-dN` gains `follow_ups`: the standing links, oldest link first, each
+  as `{ id, title, status, linked_at }`. `status` is a task's status word, as
+  `get` on the task reads it, or a seed's lifecycle. A link whose record's
+  project is archived is left out while that project is archived, because
+  archive hides the record from every default read; it returns on unarchive.
+- The records view prints one `follow-up` line per standing link: its id,
+  status, and title. It omits the lines when there are none. `deliveries` rows
+  do not carry follow-ups.
+- **The since read** gains one source, ranked after the findings, and one
+  event kind, `follow_up`, with `record` set to `KEY-dN`, `text` set to the
+  linked record's id, and `task` and `number` null:
+
+  | Event | `from` | `to` | `id` |
+  | --- | --- | --- | --- |
+  | A link added | null | `linked` | `KEY-dN/follow-up/<row>/linked` |
+  | A link removed | `linked` | `unlinked` | `KEY-dN/follow-up/<row>/unlinked` |
+
+  `text` carries the id rather than `task`, because `task` names a member task
+  in every other delivery event and a follow-up can be a seed. Events sort
+  within the source by row id, then `id`. A removal is an event at its
+  `unlinked_at`, whether or not the row's `linked_at` is in the window. The
+  follow-up's own events (its transitions, notes, and checklist items) are not
+  in the feed: it is not a member, and ADR 0044 leaves the tasks a read
+  covers to that read.
+
+### Transfer
+
+- The store export carries `delivery_follow_ups`, in project-key, then
+  delivery-sequence, then row order, written after deliveries and seeds. Its
+  schema version increments, and an older export carries no links. Import
+  assigns new row ids in the exported order.
+- **Import refuses, and doctor reports,** a link whose delivery is missing;
+  a link with both or neither of `task` and `seed`; a `task` that is missing,
+  is not a node of type `task`, or is in another project than its delivery; a
+  `seed` that is missing; two standing links from one delivery to one record;
+  or a `linked_at` or `unlinked_at` that is not a canonical UTC instant, or an
+  `unlinked_at` earlier than its `linked_at`.
+
+### Considered and rejected
+
+- **A role on the link, such as `cleanup`.** The page would read a role word
+  to place a task, which is the tag-name reading ADR 0002 forbids. Showing a
+  linked task's items covers the cleanup task without one.
+- **Links in `delivery_history`.** A seed has no column there, and a new kind
+  needs a table rebuild of a log on SQLite. A row that carries its own two
+  instants already reads as a log, as a checklist item does.
+- **One untyped id column.** Two typed columns keep the store's foreign keys,
+  so a dangling link is refused at write, not only found by doctor.
+- **Tasks in any project.** A task filed from the attempt is committed work,
+  and only a board's owners commit work on it; another board's work reaches it
+  as a seed.
