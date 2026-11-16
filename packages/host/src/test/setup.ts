@@ -178,3 +178,16 @@ afterEach(() => {
     );
   }
 });
+
+// Each file gets a fresh global under vmThreads, but process.env belongs to the
+// worker and outlives the file. Put it back after every file, so a test that
+// writes it cannot reach the next file in the same worker.
+const envAtStart = { ...process.env };
+afterAll(() => {
+  for (const key of Object.keys(process.env)) {
+    if (!(key in envAtStart)) {
+      Reflect.deleteProperty(process.env, key);
+    }
+  }
+  Object.assign(process.env, envAtStart);
+});

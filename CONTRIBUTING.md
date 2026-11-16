@@ -145,9 +145,13 @@ once, and each file still gets a fresh jsdom window in its own VM context. The
 setup files run in order: `src/test/vm-globals.ts` fills the web-stream globals
 the VM context lacks, then `src/test/setup.ts`. The suite's time zone is pinned
 in `src/test/global-setup.ts`, in the main process before any worker starts, so
-a test cannot change it by assigning `process.env.TZ`. A test that renders the
-whole console uses `renderShell` (`src/test/router.tsx`), which loads the
-router before the first render.
+a test cannot change it by assigning `process.env.TZ`. `process.env` and the
+Node stream classes belong to the worker, not the file: setup restores
+`process.env` after each file, and a test that patches a stream class restores
+it. Objects Node creates, such as a real `fetch` failure or a `structuredClone`
+copy, come from Node's realm, so `instanceof Error` is false for them inside a
+test. A test that renders the whole console uses `renderShell`
+(`src/test/router.tsx`), which loads the router before the first render.
 
 [`test-timings.json`](test-timings.json) records per-file durations in milliseconds.
 Bun uses it only to start slower files first, not to select tests or enforce the
