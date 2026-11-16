@@ -1,4 +1,5 @@
 import {
+  checklistRecordSchema,
   decisionViewSchema,
   AGENDA_ITEM_STATE_VALUES,
   BLOCK_OWNER_VALUES,
@@ -86,6 +87,7 @@ export const transferSchema = z.object({
       stem: text,
     }),
   ),
+  checklist_items: z.array(checklistRecordSchema).default([]),
   decisions: z.array(decisionViewSchema).default([]),
   deliveries: z
     .array(deliveryRecordSchema.extend({ history: z.array(deliveryHistorySchema) }))
@@ -197,6 +199,7 @@ export const transferSchema = z.object({
       z.literal(8),
       z.literal(9),
       z.literal(10),
+      z.literal(11),
       z.literal(STORE_EXPORT_SCHEMA_VERSION),
     ])
     .transform((): typeof STORE_EXPORT_SCHEMA_VERSION => STORE_EXPORT_SCHEMA_VERSION),

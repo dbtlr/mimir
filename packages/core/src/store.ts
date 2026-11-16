@@ -1,5 +1,6 @@
 import type {
   BlockOwner,
+  ChecklistItem,
   ExecutionHandles,
   Grooming,
   Hold,
@@ -13,6 +14,7 @@ import type {
 
 import type { ArtifactStore } from './artifacts/store';
 import type { BodySectionStore, NextFacet } from './body-sections/store';
+import type { ChecklistSettle, ChecklistStore, NewChecklistItem } from './checklist/store';
 import type { DecisionStore } from './decisions/store';
 import type { StoredDelivery, DeliveryStore } from './deliveries/store';
 import type { ImportOptions, ImportReport, StoreExport } from './export';
@@ -265,6 +267,12 @@ export type StoreWriter = {
   /** Delete one edge; `true` iff a row was removed. */
   deleteDependency: (edge: Dependency) => Promise<boolean>;
   insertAnnotation: (row: NewAnnotationRecord) => Promise<void>;
+  /** A task's checklist items in number order, as this transaction sees them (ADR 0044). */
+  loadChecklist: (task: string) => Promise<ChecklistItem[]>;
+  /** Add an open item numbered one past the task's highest, and return it. */
+  insertChecklistItem: (row: NewChecklistItem) => Promise<ChecklistItem>;
+  /** Settle one open item as checked or dropped. */
+  settleChecklistItem: (task: string, number: number, settle: ChecklistSettle) => Promise<void>;
   /**
    * Re-author a project's or container's owned `## Next` narrative (MMR-321).
    * The section is written WHOLE — there is no append grain — and a null `text`
@@ -391,6 +399,8 @@ export type Store = {
    */
   readonly deliveries: DeliveryStore;
   readonly decisions: DecisionStore;
+  /** The read side of a task's checklist items (ADR 0044). */
+  readonly checklist: ChecklistStore;
 
   /** UUID-addressed, project-owned temporary episode documents. */
   readonly scratchpads: ScratchpadStore;

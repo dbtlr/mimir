@@ -60,8 +60,16 @@ async function readRecord(
     const seed = intentEncoders.seed.parse(await engine.getSeed({ content: true, id }));
     return { kind, presentation, seed, wire: ports.wire.seed(seed) };
   }
+  // `items` is no Engine facet: a task's `get` always carries its checklist, and
+  // the column only expands the records line. It is read off the list before the
+  // facet parser, which would refuse it.
+  const columns = cols.flatMap((col) => col.split(',').map((one) => one.trim()));
+  const expandItems = columns.includes('items');
   // Parsed before the store opens: a wrong invocation never opens it.
-  const facets = parseFacets(cols, 'get');
+  const facets = parseFacets(
+    columns.filter((col) => col !== 'items'),
+    'get',
+  );
   const engine = await ports.engine();
   const node = intentEncoders.node.parse(
     await engine.getNode({
@@ -71,7 +79,14 @@ async function readRecord(
   );
   // `annotations` is always read, so only the raw `--col` list says to expand it.
   const expandAnnotations = facets.includes('annotations');
-  return { expandAnnotations, kind: 'node', node, presentation, wire: ports.wire.node(node) };
+  return {
+    expandAnnotations,
+    expandItems,
+    kind: 'node',
+    node,
+    presentation,
+    wire: ports.wire.node(node),
+  };
 }
 
 export function getCommand(ports: Ports) {

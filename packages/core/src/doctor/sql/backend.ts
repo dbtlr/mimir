@@ -21,6 +21,7 @@ import type { DeliveryLifecycle } from '@mimir/contract';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 
+import { checklistFaults } from '../../checklist/validate';
 import { decisionFaults } from '../../decisions/validate';
 import { deliveryReferenceFault } from '../../deliveries/membership';
 import { parseIdentity } from '../../ids';
@@ -46,6 +47,7 @@ const STORE_SCOPE = 'store';
 /** The closed code vocabulary this backend reports. */
 type SqlCheck =
   | 'counter-behind'
+  | 'invalid-checklist-item'
   | 'invalid-delivery'
   | 'invalid-decision'
   | 'dangling-edge'
@@ -625,6 +627,47 @@ async function checkDecisionsIn(db: Kysely<DB>, dialect: StoreDialect): Promise<
   return findings;
 }
 
+/**
+ * The checklist rules the verbs keep (ADR 0044), over every stored item with
+ * the type of the node it names. A missing node reads as absent, so the
+ * fault says so rather than the join dropping the row.
+ */
+async function checkChecklistItems(db: Kysely<DB>): Promise<DoctorFinding[]> {
+  const rows = await db
+    .selectFrom('checklist_item')
+    .leftJoin('node', 'node.id', 'checklist_item.node_id')
+    .select([
+      'checklist_item.node_id as task',
+      'checklist_item.number',
+      'checklist_item.content',
+      'checklist_item.state',
+      'checklist_item.reason',
+      'checklist_item.created_at',
+      'checklist_item.settled_at',
+      'node.type as node_type',
+    ])
+    .orderBy('checklist_item.node_id')
+    .orderBy('checklist_item.number')
+    .execute();
+  const nodes = new Map(
+    rows.flatMap((row) => (row.node_type === null ? [] : [[row.task, { type: row.node_type }]])),
+  );
+  return checklistFaults(
+    rows.map(({ node_type: _type, ...row }) => row),
+    nodes,
+  ).map(({ id, message }) => {
+    const task = id.slice(0, id.indexOf(' '));
+    return finding({
+      check: 'invalid-checklist-item',
+      evidence: {},
+      locator: `checklist_item/${id.replace(' item ', '/')}`,
+      message: `${id} ${message}`,
+      stem: task,
+      where: 'checklist_item',
+    });
+  });
+}
+
 /** Findings for `scope`, or all of them when the run is unscoped. */
 async function diagnose(
   db: Kysely<DB>,
@@ -643,6 +686,7 @@ async function diagnose(
       checkDeliveryReferences(db),
       checkOrphanDecisionLinks(db),
       checkDecisions(db, dialect),
+      checkChecklistItems(db),
       checkDanglingParent(db),
       checkDanglingEdge(db),
       checkCounterBehind(db),
@@ -665,6 +709,7 @@ const CAUSES: Readonly<Record<string, string>> = {
   'counter-behind': 'counter behind',
   'dangling-edge': 'dangling dependency',
   'dangling-parent': 'dangling parent',
+  'invalid-checklist-item': 'invalid checklist item',
   'invalid-decision': 'invalid decision',
   'invalid-delivery': 'invalid delivery reference',
   'malformed-timestamp': 'malformed timestamp',

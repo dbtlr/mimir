@@ -106,6 +106,9 @@ reporting it complete), so the board is never behind the report.
   found after a genuine `done` is a new task.
 - `annotate <id> "note"` appends a ruling, a surprise, or a scope change to
   a task's notes.
+- `item add <task> "text"`, `item check <task> N`, and `item drop <task> N
+  "reason"` keep a task's checklist: small numbered items that are open, then
+  checked or dropped for good (`references/authoring.md`).
 
 `references/status-model.md` defines every status word, rollup, and the
 derived `ready`, `awaiting`, and `stale` states.
@@ -195,7 +198,8 @@ boundary that produced none skips it rather than inventing one.
   initiative is `KEY-seq` (`MMR-16`); an artifact is `KEY-a3`; a seed is
   `KEY-s3`. A Scratchpad is a UUID that only the `scratch` subcommands take.
 - Work-state verbs are flat (`mimir done MMR-16`, `mimir resolve MMR-s3 <reason>`).
-  Scratchpad operations group under `mimir scratch`, and installation commands
+  Scratchpad operations group under `mimir scratch`, a task's checklist under
+  `mimir item`, and installation commands
   (`store`, `skills`) group under their noun. `self-update` replaces the binary.
 - Every create and mutation echoes the affected id. Capture it and compose with
   it: `ID=$(mimir create task "…" --parent MMR-2 -f ids)`. Sequence numbers are

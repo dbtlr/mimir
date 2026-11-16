@@ -326,6 +326,18 @@ export function createEngineRouter(engine: Engine) {
       .input((value: unknown) => parseEngineInput(engineSchemas.getSeed.input, value))
       .output(engineSchemas.getSeed.output)
       .query(({ input }) => engine.getSeed(input)),
+    itemAdd: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.itemAdd.input, value))
+      .output(engineSchemas.itemAdd.output)
+      .mutation(({ input }) => engine.itemAdd(input)),
+    itemCheck: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.itemCheck.input, value))
+      .output(engineSchemas.itemCheck.output)
+      .mutation(({ input }) => engine.itemCheck(input)),
+    itemDrop: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.itemDrop.input, value))
+      .output(engineSchemas.itemDrop.output)
+      .mutation(({ input }) => engine.itemDrop(input)),
     list: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.list.input, value))
       .output(engineSchemas.list.output)

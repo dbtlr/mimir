@@ -95,6 +95,7 @@ import { doctorCommand } from './commands/doctor';
 import { getCommand } from './commands/get';
 import { groomCommand } from './commands/groom';
 import { installationInstallCommand, installationProtocolCommand } from './commands/installation';
+import { itemCommand } from './commands/item';
 import {
   abandonVerb,
   archiveVerb,
@@ -815,6 +816,7 @@ export function createApp(source: CliSource) {
       .command(resolveCommand(ports))
       .command(triageCommand(ports))
       .command(scratchCommand(ports))
+      .command(itemCommand(ports))
       // MMR-551: structure and node writes.
       .command(createCommand(ports))
       .command(updateCommand(ports))

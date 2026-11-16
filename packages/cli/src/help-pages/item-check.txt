@@ -1,0 +1,20 @@
+mimir item check · Check an open item: it is done, for good.
+
+USAGE
+  mimir item check <task> <number> [options]
+
+ARGUMENTS
+  task    The task (KEY-seq).
+  number  The item number.
+
+OPTIONS
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help      Show this help.
+      --no-input  Ask no questions, and take every answer from options.  (default: true)
+
+EXAMPLES
+  $ mimir item check MMR-12 2
+    item 2 is done

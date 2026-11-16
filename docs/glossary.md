@@ -73,6 +73,10 @@ work stays `needs_answers` or `block --on you`. The console's review page also
 calls its groups of tasks that need the operator "decisions"; those are tasks,
 not decision records.
 
+**Checklist item**: A small, numbered item on a task that is added, then
+checked or dropped with a reason. Checked and dropped are final, and items
+gate nothing ([ADR 0044](decisions/0044-checklist-items.md)).
+
 **Agent run**: One execution of an agent by the host on behalf of a task, such
 as a grooming run, recorded as a host-owned row with its state, usage, and
 outcome ([ADR 0041](decisions/0041-agent-runtime-on-the-host.md)). An agent

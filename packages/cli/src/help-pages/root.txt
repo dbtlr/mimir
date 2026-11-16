@@ -28,6 +28,7 @@ COMMANDS
   resolve            Resolve a seed: what it asked for is done. The reason is recorded.
   triage             Reconcile a board's seeds: list the untriaged and ready-to-resolve ones, and annotate the tasks whose upstream seed settled. A report, never a gate.
   scratch <command>  Read and keep Scratchpads, the working state of one episode.
+  item <command>     Keep a task's checklist: items added, then checked or dropped.
   create <command>   Create a project, initiative, phase, task, or delivery.
   update             Change a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), a seed (KEY-sN), a delivery (KEY-dN), or a decision (KEY-qN).
   annotate           Append a note to a task, phase, or initiative.

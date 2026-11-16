@@ -1,4 +1,5 @@
 import type {
+  ChecklistItemState,
   DecisionView,
   DecisionHistory,
   BlockOwner,
@@ -320,7 +321,18 @@ export type DecisionTable = Omit<DecisionView, 'tasks' | 'history' | 'options'> 
   options: Stored<string[]>;
 };
 
+export type ChecklistItemTable = {
+  node_id: string;
+  number: number;
+  content: string;
+  state: ChecklistItemState;
+  reason: string | null;
+  created_at: string;
+  settled_at: string | null;
+};
+
 export type DB = {
+  checklist_item: ChecklistItemTable;
   decision: DecisionTable;
   decision_task: { decision_id: string; task: string };
   decision_history: DecisionHistory & { id: RowId; decision_id: string };

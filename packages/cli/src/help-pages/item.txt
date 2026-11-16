@@ -1,0 +1,15 @@
+mimir item · Keep a task's checklist: items added, then checked or dropped.
+
+USAGE
+  mimir item <command> [options]
+
+COMMANDS
+  add    Add an open item to a task's checklist.
+  check  Check an open item: it is done, for good.
+  drop   Drop an open item with a reason: it will not be done, for good.
+
+GLOBAL OPTIONS
+  -h, --help      Show this help.
+      --no-input  Ask no questions, and take every answer from options.  (default: true)
+
+Run mimir item <command> --help for command details.

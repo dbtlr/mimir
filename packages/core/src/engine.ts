@@ -9,6 +9,7 @@ import {
 } from '@mimir/contract';
 import type { ConsoleEngine, Engine, EngineInput, Scratchpad } from '@mimir/contract';
 
+import { addItem, checkItem, dropItem } from './checklist/intent';
 import { decide, decisions, getDecision, updateDecision, answerDecision } from './decisions/intent';
 import { refuseDecisionInput } from './decisions/refusal';
 import {
@@ -139,6 +140,19 @@ export class LocalEngine extends UniformEngineBase implements Engine {
     );
   }
 
+  async itemAdd(input: EngineInput<'itemAdd'>) {
+    const { task, content } = parseEngineInput(engineSchemas.itemAdd.input, input);
+    return addItem(this.store, task, content);
+  }
+  async itemCheck(input: EngineInput<'itemCheck'>) {
+    const { task, number } = parseEngineInput(engineSchemas.itemCheck.input, input);
+    return checkItem(this.store, task, number);
+  }
+  async itemDrop(input: EngineInput<'itemDrop'>) {
+    const { task, number, reason } = parseEngineInput(engineSchemas.itemDrop.input, input);
+    return dropItem(this.store, task, number, reason);
+  }
+
   async deliveryStart(input: EngineInput<'deliveryStart'>) {
     refuseDecisionInput(input);
     const args = parseEngineInput(engineSchemas.deliveryStart.input, input);
@@ -239,6 +253,7 @@ export class LocalEngine extends UniformEngineBase implements Engine {
     const node = await getNode(this.store, id, { facets });
     if (node.type === 'task') {
       node.decisions = await this.store.decisions.forTask(node.id);
+      node.items = await this.store.checklist.forTask(node.id);
     }
     return intentViews.node.parse(node);
   }

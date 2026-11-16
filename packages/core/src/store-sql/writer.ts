@@ -5,6 +5,7 @@ import { renderId } from '../ids';
 import type { Artifact, Node, Project } from '../model';
 import type { NewNodeRecord, NewProjectRecord, NewTransitionRecord, StoreWriter } from '../store';
 import { now } from '../time';
+import { insertChecklistItem, loadChecklist, settleChecklistItem } from './checklist';
 import { appendMemberEvent } from './delivery-history';
 import type { StoreDialect } from './dialect';
 import { storedProse } from './prose';
@@ -139,6 +140,7 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
         .values({ content: row.content, created_at: row.created_at, node_id: row.node_id })
         .execute();
     },
+    insertChecklistItem: (row) => insertChecklistItem(tx, row),
     async insertDependency(edge) {
       await tx
         .insertInto('dependency')
@@ -265,6 +267,7 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
             title: row.title,
           };
     },
+    loadChecklist: (task) => loadChecklist(tx, task),
     async loadDelivery(id) {
       const row = await tx
         .selectFrom('delivery')
@@ -320,6 +323,7 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
         ? tx.updateTable('node').set(values).where('id', '=', entityId).execute()
         : tx.updateTable('project').set(values).where('key', '=', entityId).execute());
     },
+    settleChecklistItem: (task, number, settle) => settleChecklistItem(tx, task, number, settle),
     async updateNode(id, patch) {
       if (!(await nodeExists(id))) {
         throw invariant('the record vanished mid-transaction');

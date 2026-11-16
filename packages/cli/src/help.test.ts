@@ -66,6 +66,11 @@ test.each([
   ['scratch-agenda', ['scratch', 'agenda', '--help']],
   ['scratch-freeze', ['scratch', 'freeze', '--help']],
   ['scratch-discard', ['scratch', 'discard', '--help']],
+  // MMR-678: the checklist group.
+  ['item', ['item', '--help']],
+  ['item-add', ['item', 'add', '--help']],
+  ['item-check', ['item', 'check', '--help']],
+  ['item-drop', ['item', 'drop', '--help']],
   // MMR-551: the structure and node writes.
   ['create', ['create', '--help']],
   ['create-task', ['create', 'task', '--help']],

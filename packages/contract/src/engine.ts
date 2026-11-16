@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { checklistSchemas } from './checklist';
 import { decisionSchemas } from './decision';
 import { deliverySchemas } from './delivery';
 import { FACET_NAMES } from './dto';
@@ -158,6 +159,7 @@ export const engineSchemas = {
   },
   ...deliverySchemas(project),
   ...decisionSchemas(project),
+  ...checklistSchemas(),
   ...nodeWriteSchemas(project),
   ...seedScratchSchemas(project),
 } as const;

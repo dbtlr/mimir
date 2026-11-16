@@ -1,0 +1,558 @@
+### get argv: MMR-3
+exit 0
+--- stdout
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+|   blocking     MMR-4 · Render views
+|   tags         alpha
+|   annotations  2
+|   items        1 open · 1 checked · 1 dropped
+|   artifacts    1
+
+### get argv: MMR-3 --col items
+exit 0
+--- stdout
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+|   blocking     MMR-4 · Render views
+|   tags         alpha
+|   annotations  2
+|   items        1. checked: Remove the retired hint
+|                2. dropped: Rename the flag (Covered by MMR-14)
+|                3. open: Document the flag
+|   artifacts    1
+
+### get argv: MMR-3 --col items --ascii
+exit 0
+--- stdout
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+|   blocking     MMR-4 · Render views
+|   tags         alpha
+|   annotations  2
+|   items        1. checked: Remove the retired hint
+|                2. dropped: Rename the flag (Covered by MMR-14)
+|                3. open: Document the flag
+|   artifacts    1
+
+### get argv: MMR-3 --col items,history
+exit 0
+--- stdout
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+|   blocking     MMR-4 · Render views
+|   tags         alpha
+|   annotations  2
+|   items        1. checked: Remove the retired hint
+|                2. dropped: Rename the flag (Covered by MMR-14)
+|                3. open: Document the flag
+|   artifacts    1
+
+### get argv: MMR-3 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-3",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "Wire the store",
+|   "type": "task",
+|   "decisions": [],
+|   "items": [
+|     {
+|       "number": 1,
+|       "content": "Remove the retired hint",
+|       "state": "checked",
+|       "reason": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "number": 2,
+|       "content": "Rename the flag",
+|       "state": "dropped",
+|       "reason": "Covered by MMR-14",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "number": 3,
+|       "content": "Document the flag",
+|       "state": "open",
+|       "reason": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": null
+|     }
+|   ],
+|   "description": "Open the store once.\n\nKeep it open.",
+|   "summary": "one store per run",
+|   "priority": "p1",
+|   "size": "small",
+|   "lifecycle": "todo",
+|   "grooming": "groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "delivery": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "deps": {
+|     "awaiting_on": [],
+|     "blocking": [
+|       {
+|         "id": "MMR-4",
+|         "status": "awaiting",
+|         "title": "Render views"
+|       }
+|     ],
+|     "depends_on": []
+|   },
+|   "children": [],
+|   "tags": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "annotations": [
+|     {
+|       "content": "First pass.\nSecond line.",
+|       "created_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "content": "Settled; one; store.",
+|       "created_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "artifacts": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-a1",
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes"
+|     }
+|   ]
+| }
+
+### get argv: MMR-3 -f jsonl
+exit 0
+--- stdout
+| {
+|   "id": "MMR-3",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "Wire the store",
+|   "type": "task",
+|   "decisions": [],
+|   "items": [
+|     {
+|       "number": 1,
+|       "content": "Remove the retired hint",
+|       "state": "checked",
+|       "reason": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "number": 2,
+|       "content": "Rename the flag",
+|       "state": "dropped",
+|       "reason": "Covered by MMR-14",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "number": 3,
+|       "content": "Document the flag",
+|       "state": "open",
+|       "reason": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": null
+|     }
+|   ],
+|   "description": "Open the store once.\n\nKeep it open.",
+|   "summary": "one store per run",
+|   "priority": "p1",
+|   "size": "small",
+|   "lifecycle": "todo",
+|   "grooming": "groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "delivery": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "deps": {
+|     "awaiting_on": [],
+|     "blocking": [
+|       {
+|         "id": "MMR-4",
+|         "status": "awaiting",
+|         "title": "Render views"
+|       }
+|     ],
+|     "depends_on": []
+|   },
+|   "children": [],
+|   "tags": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "annotations": [
+|     {
+|       "content": "First pass.\nSecond line.",
+|       "created_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "content": "Settled; one; store.",
+|       "created_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "artifacts": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-a1",
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes"
+|     }
+|   ]
+| }
+
+### get argv: MMR-3 --col items -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-3",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "Wire the store",
+|   "type": "task",
+|   "decisions": [],
+|   "items": [
+|     {
+|       "number": 1,
+|       "content": "Remove the retired hint",
+|       "state": "checked",
+|       "reason": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "number": 2,
+|       "content": "Rename the flag",
+|       "state": "dropped",
+|       "reason": "Covered by MMR-14",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "number": 3,
+|       "content": "Document the flag",
+|       "state": "open",
+|       "reason": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": null
+|     }
+|   ],
+|   "description": "Open the store once.\n\nKeep it open.",
+|   "summary": "one store per run",
+|   "priority": "p1",
+|   "size": "small",
+|   "lifecycle": "todo",
+|   "grooming": "groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "delivery": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "deps": {
+|     "awaiting_on": [],
+|     "blocking": [
+|       {
+|         "id": "MMR-4",
+|         "status": "awaiting",
+|         "title": "Render views"
+|       }
+|     ],
+|     "depends_on": []
+|   },
+|   "children": [],
+|   "tags": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "annotations": [
+|     {
+|       "content": "First pass.\nSecond line.",
+|       "created_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "content": "Settled; one; store.",
+|       "created_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "artifacts": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-a1",
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes"
+|     }
+|   ]
+| }
+
+### get argv: MMR-4
+exit 0
+--- stdout
+| MMR-4
+|   type         task
+|   status       ~ awaiting
+|   title        Render views
+|   parent       MMR-2
+|   lifecycle    todo
+|   grooming     not_groomed
+|   hold         none
+|   depends on   MMR-3 · Wire the store
+|   awaiting on  MMR-3 · Wire the store
+|   tags         alpha
+
+### get argv: MMR-4 --col items
+exit 0
+--- stdout
+| MMR-4
+|   type         task
+|   status       ~ awaiting
+|   title        Render views
+|   parent       MMR-2
+|   lifecycle    todo
+|   grooming     not_groomed
+|   hold         none
+|   depends on   MMR-3 · Wire the store
+|   awaiting on  MMR-3 · Wire the store
+|   tags         alpha
+
+### get argv: MMR-4 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-4",
+|   "parent": "MMR-2",
+|   "status": "awaiting",
+|   "title": "Render views",
+|   "type": "task",
+|   "decisions": [],
+|   "items": [],
+|   "description": null,
+|   "summary": null,
+|   "priority": null,
+|   "size": null,
+|   "lifecycle": "todo",
+|   "grooming": "not_groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "delivery": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "deps": {
+|     "awaiting_on": [
+|       {
+|         "id": "MMR-3",
+|         "status": "ready",
+|         "title": "Wire the store"
+|       }
+|     ],
+|     "blocking": [],
+|     "depends_on": [
+|       {
+|         "id": "MMR-3",
+|         "status": "ready",
+|         "title": "Wire the store"
+|       }
+|     ]
+|   },
+|   "children": [],
+|   "tags": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "annotations": [],
+|   "artifacts": []
+| }
+
+### get argv: MMR-2 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-2",
+|   "parent": "MMR-1",
+|   "status": "in_progress",
+|   "title": "Skeleton",
+|   "type": "phase",
+|   "description": null,
+|   "summary": null,
+|   "target": "2026-11",
+|   "open_ended": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "deps": {
+|     "awaiting_on": [],
+|     "blocking": [],
+|     "depends_on": []
+|   },
+|   "children": [
+|     {
+|       "id": "MMR-3",
+|       "status": "ready",
+|       "title": "Wire the store"
+|     },
+|     {
+|       "id": "MMR-4",
+|       "status": "awaiting",
+|       "title": "Render views"
+|     },
+|     {
+|       "id": "MMR-5",
+|       "status": "in_progress",
+|       "title": "Ship it"
+|     },
+|     {
+|       "id": "MMR-6",
+|       "status": "blocked",
+|       "title": "Wait on review"
+|     },
+|     {
+|       "id": "MMR-7",
+|       "status": "done",
+|       "title": "Spike"
+|     },
+|     {
+|       "id": "MMR-8",
+|       "status": "ready",
+|       "title": "Tidy docs"
+|     }
+|   ],
+|   "distribution": {
+|     "ready": 2,
+|     "awaiting": 1,
+|     "in_progress": 1,
+|     "blocked": 1,
+|     "done": 1
+|   },
+|   "tags": [],
+|   "annotations": [],
+|   "artifacts": []
+| }
+
+### list argv: --col items
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "columns: deps, description, next, annotations, artifacts, history, tags, children, distribution, leafCounts, artifactCount, verdicts, home, lede, content"
+|   ],
+|   "message": "unknown column: items"
+| }
+

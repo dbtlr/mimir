@@ -137,6 +137,29 @@ mimir annotate KEY-9 "Realized the parser must be rewritten; filed KEY-12."
 - Transition _reasons_ belong on the transition itself
   (`park <id> "reason"`), not in annotations.
 
+## Checklist items
+
+```sh
+mimir item add KEY-9 "Remove the retired --since hint from flag-owners"
+mimir item check KEY-9 1
+mimir item drop KEY-9 2 "Covered by KEY-14"
+```
+
+- A checklist item is a small numbered item on a **task**: use it for follow-ups
+  that are too small for a task and need to be checked off, such as review
+  findings a cleanup task collects. A note that needs no checking is an
+  annotation.
+- Numbers start at 1 per task and are never reused. Each subcommand prints the
+  task's whole checklist in `-f json`; `get KEY-9 --col items` lists the items.
+- `check` and `drop` are final. An item that is checked or dropped cannot be
+  reopened or edited: add a new item, or drop a mistaken one with a reason that
+  says so. `drop` requires a reason; content and reasons cannot be blank.
+- A task in any status takes items, `done` and `abandoned` included. Items
+  gate nothing: a task can be `done` with open items.
+- Only a task takes an item; a phase, initiative, project, seed, delivery, or
+  decision id is refused. The tools are `item_add`, `item_check`, and
+  `item_drop`.
+
 ## The direction narrative (`## Next`)
 
 ```sh

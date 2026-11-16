@@ -9,7 +9,7 @@ import type { ParityCase } from './parity';
 const shown = (word: string): string => (/\s|^$/.test(word) ? JSON.stringify(word) : word);
 
 /** The command groups whose second word names the subcommand a line runs. */
-const GROUPS: ReadonlySet<string> = new Set(['create', 'scratch', 'store']);
+const GROUPS: ReadonlySet<string> = new Set(['create', 'item', 'scratch', 'store']);
 
 /**
  * The case for `line` on a color terminal when `tty`. `path` names the command
