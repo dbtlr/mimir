@@ -177,8 +177,8 @@ that opens a PGlite store runs `beforeAll(bootPglite)` first
 snapshot build, about 1.8 s on the gate, counts in that file's time and in no
 test's. A file that forgets the hook fails both alone and in the default lane,
 because each file gets a fresh module registry. Vitest times a file by its tests
-and hooks, without its imports or its jsdom window, so a host file's time reads
-lower than its share of the run. A test over the limit may be exempted
+and hooks, without its imports, setup files, or jsdom window, so a host file's
+time reads lower than its share of the run. A test over the limit may be exempted
 only against the task that will make it fast; remove the exemption in that
 task. An exemption names its file as the
 report does: from the repository root for the bun lane, and from

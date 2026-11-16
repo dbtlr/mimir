@@ -20,8 +20,9 @@ export type Budget = { testLimitMs: number; testWarnMs: number; fileWarnMs: numb
  * Vitest's 5 s default timeout. In the Bun lane, the one-off PGlite snapshot
  * boot, about 1.8 s on the gate, runs in a `beforeAll` of each file that opens
  * a Postgres store (`bootPglite`), so it counts in that file's time and in no
- * test's. Vitest times a file by its tests and hooks, without its imports or
- * its jsdom window, so the file threshold reads lower for that lane.
+ * test's. Vitest times a file by its tests and hooks, without its imports,
+ * setup files, or jsdom window, so the file threshold reads lower for that
+ * lane.
  */
 export const BUDGET: Budget = { fileWarnMs: 15_000, testLimitMs: 3000, testWarnMs: 1000 };
 
@@ -40,7 +41,7 @@ export type Timings = { files: FileTiming[]; tests: TestTiming[] };
 
 const ENTITIES: Record<string, string> = { amp: '&', apos: "'", gt: '>', lt: '<', quot: '"' };
 
-/** Decode the XML references bun writes: the five named ones and numeric ones such as `&#10;`. */
+/** Decode the XML references Bun and Vitest write: the five named ones and numeric ones such as `&#10;`. */
 function unescape(text: string): string {
   return text.replaceAll(
     /&(?:(amp|apos|gt|lt|quot)|#(\d+)|#x([\da-f]+));/gi,
