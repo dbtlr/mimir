@@ -290,3 +290,11 @@ delivery's known limitations and declined findings
 ([ADR 0042](0042-the-delivery-record.md), MMR-691 refinement). They are flat
 work-plane verbs under the MMR-678 placement test: an entry is never addressed
 after it is written, and both words are specific to the claim.
+
+## Amendment (2026-11-16, MMR-692): `get KEY-dN --since`
+
+`get` takes `--since <instant>` on a delivery id, and only there, for the since
+read of [ADR 0042](0042-the-delivery-record.md) (MMR-692 refinement). The
+retired `--since` stays retired everywhere else, and its refusal still names
+`--at-or-after`, because a since read is a change feed over one delivery, not a
+window over a list.
