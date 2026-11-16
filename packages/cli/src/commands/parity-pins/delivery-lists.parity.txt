@@ -135,8 +135,7 @@ exit 0
 | updated_at: 2026-10-01 12:00 UTC
 | members: 
 | Declined
-| 1. 2026-10-01 12:00 UTC - Retry the clone
-|    Filed as MMR-s55
+| 1. 2026-10-01 12:00 UTC - Retry the clone (Filed as MMR-s55)
 --- state
 unchanged
 
@@ -154,8 +153,7 @@ exit 0
 | updated_at: 2026-10-01 12:00 UTC
 | members: 
 | Declined
-| 1. 2026-10-01 12:00 UTC - Retry the clone
-|    Filed as MMR-s55
+| 1. 2026-10-01 12:00 UTC - Retry the clone (Filed as MMR-s55)
 --- state
 unchanged
 
@@ -298,8 +296,7 @@ exit 0
 | updated_at: 2026-10-01 12:00 UTC
 | members: 
 | Declined
-| 1. 2026-10-01 12:00 UTC - Retry the clone
-|    Filed as MMR-s55
+| 1. 2026-10-01 12:00 UTC - Retry the clone (Filed as MMR-s55)
 --- state
 unchanged
 
@@ -317,8 +314,7 @@ exit 0
 | updated_at: 2026-10-01 12:00 UTC
 | members: 
 | Declined
-| 1. 2026-10-01 12:00 UTC - Retry the clone
-|    -no longer needed
+| 1. 2026-10-01 12:00 UTC - Retry the clone (-no longer needed)
 --- state
 unchanged
 
@@ -646,8 +642,7 @@ exit 0
 | Limitations
 | 1. 2026-10-01 12:00 UTC - First limit
 | Declined
-| 2. 2026-10-01 12:00 UTC - A finding
-|    Why
+| 2. 2026-10-01 12:00 UTC - A finding (Why)
 --- state
 unchanged
 

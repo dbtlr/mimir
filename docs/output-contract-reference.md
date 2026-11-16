@@ -657,8 +657,9 @@ is the live pad anchored to the delivery, or `null`; `journal.artifacts` lists
 the ids of the frozen journals that name the delivery, oldest first. `records`
 prints a `journal: scratchpad <uuid>; frozen <ids>` line (either part left out
 when absent, and no line when there is neither), then a `Limitations` and a
-`Declined` section of one numbered entry each, before `History`. A section with
-no entries is omitted. The `deliveries` rows do not carry these fields.
+`Declined` section, before `History`. Each entry is one numbered line:
+`N. <at> — <text>` for a limitation and `N. <at> — <finding> (<reason>)` for a
+declined finding. A section with no entries is omitted. The `deliveries` rows do not carry these fields.
 
 A pad's views (`scratch get`, `scratch list`, the overview row) and an artifact's
 views (`get KEY-aN`, `artifacts`) carry `delivery`: the `KEY-dN` the pad or

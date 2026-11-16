@@ -51,12 +51,7 @@ export function renderDelivery(delivery: DeliveryShown, p: Presentation): string
     ...(declined.length
       ? [
           `Declined\n${declined
-            .map((e) =>
-              hangingIndent(
-                `${String(e.number)}. `,
-                `${formatInstant(e.created_at, p.zone)} ${dash} ${e.finding}\n${e.reason}`,
-              ),
-            )
+            .map((e) => entry(e.number, e.created_at, `${e.finding} (${e.reason})`))
             .join('\n')}`,
         ]
       : []),
