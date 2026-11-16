@@ -220,14 +220,27 @@ export function decodeDeliverySince(view: DeliverySinceView): EngineDeliverySinc
     since: new Date(view.since),
   };
 }
+/* eslint-disable sort-keys -- the wire order is the contract's reading order: the delivery, the cursors, then each event by id, time, record, kind, and its fields. */
 export function encodeDeliverySince(view: EngineDeliverySince): DeliverySinceView {
   return {
-    as_of: view.as_of.toISOString(),
     delivery: encodeDelivery(view.delivery),
-    events: view.events.map((event) => ({ ...event, at: event.at.toISOString() })),
     since: view.since.toISOString(),
+    as_of: view.as_of.toISOString(),
+    events: view.events.map((event) => ({
+      id: event.id,
+      at: event.at.toISOString(),
+      record: event.record,
+      kind: event.kind,
+      task: event.task,
+      number: event.number,
+      from: event.from,
+      to: event.to,
+      reason: event.reason,
+      text: event.text,
+    })),
   };
 }
+/* eslint-enable sort-keys */
 export type DeliveryRecord = z.output<typeof deliveryRecordSchema>;
 export type DeliveryHistory = z.output<typeof deliveryHistorySchema>;
 export type DeliveryView = z.output<typeof deliveryViewSchema>;

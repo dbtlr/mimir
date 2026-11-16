@@ -6,6 +6,7 @@ import {
   intersectWindows,
   isTimeZone,
   parseDateFilterTokens,
+  parseInstant,
   recentDaysWindow,
   systemTimeZone,
   withinWindow,
@@ -292,5 +293,38 @@ describe('recentDaysWindow', () => {
       recentDaysWindow('2026-03-16T12:00:00.000Z', 7, ''),
     );
     await expectMimirError('validation', async () => recentDaysWindow('not a time', 7, 'UTC'));
+  });
+});
+
+describe('parseInstant', () => {
+  test('reads a zoned ISO timestamp as that instant, Z or an offset', () => {
+    expect(parseInstant('2026-11-16T09:00:00Z').toISOString()).toBe('2026-11-16T09:00:00.000Z');
+    expect(parseInstant('2026-11-16T09:00:00.250+02:00').toISOString()).toBe(
+      '2026-11-16T07:00:00.250Z',
+    );
+    expect(parseInstant('2026-11-16T09:00-05:00').toISOString()).toBe('2026-11-16T14:00:00.000Z');
+  });
+
+  test('refuses a bare date, a zone-less time, and text, naming the form to use', async () => {
+    for (const value of [
+      '2026-11-16',
+      '2026-11-16T09:00:00',
+      'yesterday',
+      '2026-02-30T00:00:00Z',
+      '',
+    ]) {
+      await expectMimirError('validation', async () => parseInstant(value));
+    }
+    const refusal = (() => {
+      try {
+        return parseInstant('2026-11-16T09:00:00');
+      } catch (error) {
+        return error;
+      }
+    })();
+    expect(refusal).toMatchObject({
+      hint: expect.stringContaining('explicit zone'),
+      message: 'invalid instant: 2026-11-16T09:00:00',
+    });
   });
 });

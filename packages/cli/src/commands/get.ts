@@ -5,10 +5,18 @@
 import { Command } from '@loomcli/core';
 import { helpCommand } from '@loomcli/plugins/help/extension';
 import { mcpCommand } from '@loomcli/plugins/mcp/extension';
-import { encodeDecision, CHEAP_FACETS, encodeDelivery, intentEncoders } from '@mimir/contract';
+import {
+  encodeDecision,
+  CHEAP_FACETS,
+  encodeDelivery,
+  encodeDeliverySince,
+  intentEncoders,
+} from '@mimir/contract';
 
-import { asciiOption, colOption } from '../options';
-import { parseFacets } from '../parse';
+import { MimirUsageError } from '../failures';
+import { DATE_QUERY_VERBS } from '../flag-owners';
+import { asciiOption, colOption, text } from '../options';
+import { parseFacets, parseSince } from '../parse';
 import type { Ports } from '../ports';
 import { idOf, recordsOf, tableOf } from '../render/get';
 import type { GetValue } from '../render/get';
@@ -28,18 +36,42 @@ const views = recordViews<GetValue>({
 const wantsContent = (cols: readonly string[]): boolean =>
   cols.some((c) => c.split(',').some((part) => part.trim() === 'content'));
 
+/**
+ * The `--since` cursor, checked before the store opens: only a delivery id
+ * takes one, and the value must be a zoned instant (ADR 0042, MMR-692).
+ */
+function sinceOf(ports: Ports, id: string, since: string | undefined): Date | undefined {
+  if (since === undefined) {
+    return undefined;
+  }
+  if (ports.grammar.idKind(id) !== 'delivery') {
+    throw new MimirUsageError(
+      "--since reads a delivery's change feed, so it takes only a delivery id (KEY-dN)",
+      `to window a list by date, use --at-or-after with ${DATE_QUERY_VERBS.slice(0, -1).join(', ')}, or ${DATE_QUERY_VERBS.at(-1) ?? ''}`,
+    );
+  }
+  return parseSince(ports.grammar, since);
+}
+
 /** Read the record `id` names. Only the Engine reads work state. */
 async function readRecord(
   ports: Ports,
   id: string,
   cols: readonly string[],
   presentation: Presentation,
+  since?: Date,
 ): Promise<GetValue> {
   const kind = ports.grammar.idKind(id);
   if (kind === 'decision') {
     const result = await (await ports.engine()).getDecision({ id });
     const decision = encodeDecision(result);
     return { decision, kind, presentation, wire: { ...decision } };
+  }
+  if (kind === 'delivery' && since !== undefined) {
+    // The since read: the delivery as `get` reads it, then the events after the cursor.
+    const read = encodeDeliverySince(await (await ports.engine()).deliverySince({ id, since }));
+    const { delivery, ...feed } = read;
+    return { delivery, feed, kind, presentation, wire: { ...read } };
   }
   if (kind === 'delivery') {
     // A delivery's detail read carries its whole history, as a seed's carries
@@ -102,6 +134,10 @@ export function getCommand(ports: Ports) {
           { command: 'get MMR-a1 --col content', note: "an artifact's frozen body" },
           { command: 'get MMR-s1', note: 'a seed, with its description' },
           { command: 'get MMR-d1', note: 'a delivery, with its history' },
+          {
+            command: 'get MMR-d1 --since 2026-11-16T09:00:00Z',
+            note: "a delivery's changes after that instant, with the cursor for the next read",
+          },
         ],
       }),
       mcpCommand({ annotations: { openWorld: false, readOnly: true } }),
@@ -112,11 +148,19 @@ export function getCommand(ports: Ports) {
       required: true,
     })
     .option('col', colOption)
+    .option(
+      'since',
+      text(
+        "A delivery's change feed: events after this zoned instant (KEY-dN only). Pass the answer's as_of next time.",
+        'INSTANT',
+      ),
+    )
     .option('ascii', asciiOption)
     .result<GetValue>({ views })
     .views({ records: views.records }, { default: 'records' })
     .action(async ({ args, host, options, out }) => {
       const presentation = presentationOf(host, options.ascii);
-      await out.results(await readRecord(ports, args.id, options.col, presentation));
+      const since = sinceOf(ports, args.id, options.since);
+      await out.results(await readRecord(ports, args.id, options.col, presentation, since));
     });
 }

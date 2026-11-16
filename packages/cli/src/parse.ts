@@ -5,6 +5,7 @@
  */
 import {
   FACET_NAMES,
+  MimirError,
   PRIORITY_VALUES,
   PROJECT_STATUS_SELECTOR_VALUES,
   QUERY_OP_VALUES,
@@ -225,6 +226,21 @@ export function parseOffset(value: string | undefined): number | undefined {
     throw usage(`invalid offset: ${value}`, 'offset is a whole count of rows to skip (0 or more)');
   }
   return n;
+}
+
+/**
+ * The `--since` instant of a delivery's change feed (ADR 0042, MMR-692): a
+ * zoned ISO timestamp, refused as usage before the store opens.
+ */
+export function parseSince(grammar: Grammar, value: string): Date {
+  try {
+    return grammar.instant(value);
+  } catch (error) {
+    if (error instanceof MimirError) {
+      throw usage(`invalid --since: ${value}`, error.hint);
+    }
+    throw error;
+  }
 }
 
 /** The search cap: a whole number from 1 to the Engine's maximum. */

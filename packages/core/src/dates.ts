@@ -273,6 +273,22 @@ export function dateFilterWindow(
   return instantWindows(instant)[op];
 }
 
+/**
+ * A caller-supplied instant: a zoned ISO 8601 timestamp (`Z` or an offset),
+ * read as that instant. Refused when it names no instant, as a bare date or a
+ * time with no zone does (ADR 0042, MMR-692: the since read's cursor).
+ */
+export function parseInstant(value: string): Date {
+  const instant = parseZonedInstant(value);
+  if (instant === null) {
+    throw validation(
+      `invalid instant: ${value}`,
+      'takes a timestamp with an explicit zone: 2026-11-16T09:00:00Z or 2026-11-16T09:00:00-04:00',
+    );
+  }
+  return new Date(instant);
+}
+
 /** The five windows a caller-local calendar day describes — the day's own opening
  * and closing instants, never a synthesized final millisecond. */
 function calendarWindows(date: CalendarDate, zone: string): Record<DateOp, InstantWindow> {

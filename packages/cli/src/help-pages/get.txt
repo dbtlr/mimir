@@ -8,6 +8,7 @@ ARGUMENTS
 
 OPTIONS
       --col <col>        Add a column (deps tags children distribution …). Repeat it, or separate with commas.  (repeatable)
+      --since <INSTANT>  A delivery's change feed: events after this zoned instant (KEY-dN only). Pass the answer's as_of next time.
       --ascii            Print without color, in ASCII glyphs.
   -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
 
@@ -28,3 +29,5 @@ EXAMPLES
     a seed, with its description
   $ mimir get MMR-d1
     a delivery, with its history
+  $ mimir get MMR-d1 --since 2026-11-16T09:00:00Z
+    a delivery's changes after that instant, with the cursor for the next read
