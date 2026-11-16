@@ -507,8 +507,9 @@ when the kind has none.
 
 ### Inputs and errors
 
-- `--since` takes an instant: an ISO 8601 date-time with a four-digit year and
-  `Z` or an offset, read as that instant. Instants compare as instants, not as
+- `--since` takes an instant: an ISO 8601 date-time in a year from 0100 to
+  9999, with `Z` or an offset, read as that instant. The range is the one
+  Mimir's canonical instants already keep. Instants compare as instants, not as
   text. A value that is not one is a usage error, before the
   store opens.
 - `--since` is accepted only on a `KEY-dN` id. On any other id it is a usage
