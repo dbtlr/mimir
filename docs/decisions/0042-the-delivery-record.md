@@ -607,9 +607,9 @@ mimir update MMR-d3 --unfollow-up MMR-55
   usage and field-value checks (a blank title or agreement, for example) run
   first, as before. The follow-up checks then run in this order, and the
   first that fails names the refusal:
-  1. The delivery: missing is `not_found`. In an archived project it refuses
-     as every delivery write does (`conflict`, naming `unarchive`). On a
-     terminal delivery, an update that names any field other than
+  1. The delivery, checked as every delivery update is today: an archived
+     project refuses first (`conflict`, naming `unarchive`), then a missing
+     delivery is `not_found`. On a terminal delivery, an update that names any field other than
      `follow_ups` and `unfollow_ups`, or that names no follow-up at all,
      refuses as before.
   2. The id lists: the same id twice in one list, or in both lists, is
