@@ -66,7 +66,11 @@ const checksByOwner = new Map<string, readonly string[]>([
 ]);
 // JSON Schema drops a bound whose value it cannot write, while parsing still enforces it.
 const representableValues = new Map<string, (value: unknown) => boolean>([
-  ['value', (value: unknown) => (value instanceof Date ? !Number.isNaN(+value) : Number.isFinite(value))],
+  [
+    'value',
+    (value: unknown) =>
+      value instanceof Date ? !Number.isNaN(value.getTime()) : Number.isFinite(value),
+  ],
   ['minimum', Number.isSafeInteger],
   ['maximum', Number.isSafeInteger],
   ['length', Number.isSafeInteger],
@@ -221,7 +225,11 @@ function schemaDocument(direction: 'input' | 'output') {
           // An inclusive Date bound is written as the ISO instant it names.
           const bounds: Record<string, string> = {};
           for (const check of zodSchema._zod.def.checks ?? []) {
-            const { check: kind, inclusive, value } = check._zod.def as {
+            const {
+              check: kind,
+              inclusive,
+              value,
+            } = check._zod.def as {
               check: string;
               inclusive?: boolean;
               value?: unknown;

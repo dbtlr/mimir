@@ -36,7 +36,7 @@ test('the since read’s artifact, decision, and decision-history lookups use an
       const marks = sql.split('?').length - 1;
       const plan = database
         .query<{ detail: string }, string[]>(`EXPLAIN QUERY PLAN ${sql}`)
-        .all(...new Array<string>(marks).fill('x'))
+        .all(...Array.from({ length: marks }, () => 'x'))
         .map((row) => row.detail);
       expect(plan.length, `${table}: ${sql}`).toBeGreaterThan(0);
       for (const detail of plan) {

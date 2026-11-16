@@ -1,8 +1,8 @@
 import { beforeAll, describe, expect, setSystemTime, test } from 'bun:test';
 
 import { createInitiative, createPhase, createProject, createTask } from './create';
-import { LocalEngine } from './engine';
 import { sinceDelivery } from './deliveries/intent';
+import { LocalEngine } from './engine';
 import { archiveProject } from './mutations';
 import { bootPglite } from './store-postgres/testing';
 import { backends, errorOf } from './testing/conformance';
@@ -412,14 +412,10 @@ describe.each(backends)('the since read ($name)', (backend) => {
           return Reflect.get(target, key, receiver);
         },
       });
-      const view = await sinceDelivery(
-        watched,
-        { id: f.delivery, since: EPOCH },
-        () => {
-          calls.push('readAt');
-          return at(100).toISOString();
-        },
-      );
+      const view = await sinceDelivery(watched, { id: f.delivery, since: EPOCH }, () => {
+        calls.push('readAt');
+        return at(100).toISOString();
+      });
       expect(calls[0]).toBe('readAt');
       expect(calls).toContain('sinceSources');
       expect(view.as_of).toBe(at(95).toISOString());
