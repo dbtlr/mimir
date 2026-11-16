@@ -135,6 +135,7 @@
 
 ### item_add takes the content as words
 | {
+|   "task": "MMR-3",
 |   "items": [
 |     {
 |       "number": 1,
@@ -144,12 +145,12 @@
 |       "created_at": "2026-10-01T12:00:00.000Z",
 |       "settled_at": null
 |     }
-|   ],
-|   "task": "MMR-3"
+|   ]
 | }
 
 ### item_add adds a second item
 | {
+|   "task": "MMR-3",
 |   "items": [
 |     {
 |       "number": 1,
@@ -167,12 +168,12 @@
 |       "created_at": "2026-10-01T12:00:00.000Z",
 |       "settled_at": null
 |     }
-|   ],
-|   "task": "MMR-3"
+|   ]
 | }
 
 ### item_check takes the number as a word
 | {
+|   "task": "MMR-3",
 |   "items": [
 |     {
 |       "number": 1,
@@ -190,12 +191,12 @@
 |       "created_at": "2026-10-01T12:00:00.000Z",
 |       "settled_at": null
 |     }
-|   ],
-|   "task": "MMR-3"
+|   ]
 | }
 
 ### item_drop takes the number as a word and keeps the reason
 | {
+|   "task": "MMR-3",
 |   "items": [
 |     {
 |       "number": 1,
@@ -213,8 +214,7 @@
 |       "created_at": "2026-10-01T12:00:00.000Z",
 |       "settled_at": "2026-10-01T12:00:00.000Z"
 |     }
-|   ],
-|   "task": "MMR-3"
+|   ]
 | }
 
 ### scratch_agenda add takes the item as words

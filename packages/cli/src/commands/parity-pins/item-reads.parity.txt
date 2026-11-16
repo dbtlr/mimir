@@ -108,28 +108,28 @@ exit 0
 |   "decisions": [],
 |   "items": [
 |     {
-|       "content": "Remove the retired hint",
-|       "created_at": "2026-10-01T12:00:00.000Z",
 |       "number": 1,
+|       "content": "Remove the retired hint",
+|       "state": "checked",
 |       "reason": null,
-|       "settled_at": "2026-10-01T12:00:00.000Z",
-|       "state": "checked"
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": "2026-10-01T12:00:00.000Z"
 |     },
 |     {
-|       "content": "Rename the flag",
-|       "created_at": "2026-10-01T12:00:00.000Z",
 |       "number": 2,
+|       "content": "Rename the flag",
+|       "state": "dropped",
 |       "reason": "Covered by MMR-14",
-|       "settled_at": "2026-10-01T12:00:00.000Z",
-|       "state": "dropped"
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": "2026-10-01T12:00:00.000Z"
 |     },
 |     {
-|       "content": "Document the flag",
-|       "created_at": "2026-10-01T12:00:00.000Z",
 |       "number": 3,
+|       "content": "Document the flag",
+|       "state": "open",
 |       "reason": null,
-|       "settled_at": null,
-|       "state": "open"
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": null
 |     }
 |   ],
 |   "description": "Open the store once.\n\nKeep it open.",
@@ -206,28 +206,28 @@ exit 0
 |   "decisions": [],
 |   "items": [
 |     {
-|       "content": "Remove the retired hint",
-|       "created_at": "2026-10-01T12:00:00.000Z",
 |       "number": 1,
+|       "content": "Remove the retired hint",
+|       "state": "checked",
 |       "reason": null,
-|       "settled_at": "2026-10-01T12:00:00.000Z",
-|       "state": "checked"
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": "2026-10-01T12:00:00.000Z"
 |     },
 |     {
-|       "content": "Rename the flag",
-|       "created_at": "2026-10-01T12:00:00.000Z",
 |       "number": 2,
+|       "content": "Rename the flag",
+|       "state": "dropped",
 |       "reason": "Covered by MMR-14",
-|       "settled_at": "2026-10-01T12:00:00.000Z",
-|       "state": "dropped"
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": "2026-10-01T12:00:00.000Z"
 |     },
 |     {
-|       "content": "Document the flag",
-|       "created_at": "2026-10-01T12:00:00.000Z",
 |       "number": 3,
+|       "content": "Document the flag",
+|       "state": "open",
 |       "reason": null,
-|       "settled_at": null,
-|       "state": "open"
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": null
 |     }
 |   ],
 |   "description": "Open the store once.\n\nKeep it open.",
@@ -304,28 +304,28 @@ exit 0
 |   "decisions": [],
 |   "items": [
 |     {
-|       "content": "Remove the retired hint",
-|       "created_at": "2026-10-01T12:00:00.000Z",
 |       "number": 1,
+|       "content": "Remove the retired hint",
+|       "state": "checked",
 |       "reason": null,
-|       "settled_at": "2026-10-01T12:00:00.000Z",
-|       "state": "checked"
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": "2026-10-01T12:00:00.000Z"
 |     },
 |     {
-|       "content": "Rename the flag",
-|       "created_at": "2026-10-01T12:00:00.000Z",
 |       "number": 2,
+|       "content": "Rename the flag",
+|       "state": "dropped",
 |       "reason": "Covered by MMR-14",
-|       "settled_at": "2026-10-01T12:00:00.000Z",
-|       "state": "dropped"
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": "2026-10-01T12:00:00.000Z"
 |     },
 |     {
-|       "content": "Document the flag",
-|       "created_at": "2026-10-01T12:00:00.000Z",
 |       "number": 3,
+|       "content": "Document the flag",
+|       "state": "open",
 |       "reason": null,
-|       "settled_at": null,
-|       "state": "open"
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "settled_at": null
 |     }
 |   ],
 |   "description": "Open the store once.\n\nKeep it open.",

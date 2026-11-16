@@ -1,3 +1,4 @@
+import { orderedItem } from '@mimir/contract';
 import type { ChecklistItem, ChecklistView } from '@mimir/contract';
 
 import type { Presentation } from './presentation';
@@ -32,10 +33,17 @@ export function itemsExpanded(items: readonly ChecklistItem[]): string {
   return items.map(itemLine).join('\n');
 }
 
+/** The checklist as the ADR prints it: the task first, then each item in field order. */
+function checklistJson(checklist: ChecklistView): ChecklistView {
+  /* eslint-disable sort-keys -- the public order is the task, then its items. */
+  return { task: checklist.task, items: checklist.items.map(orderedItem) };
+  /* eslint-enable sort-keys */
+}
+
 /** The views of an item subcommand: `ids` the task, `json` the whole checklist, `records` the changed item. */
 export const itemEchoViews = recordViews<ItemEcho>({
   ids: (echo) => echo.checklist.task,
-  json: (echo) => echo.checklist,
+  json: (echo) => checklistJson(echo.checklist),
   records: (echo) => {
     const item = echo.checklist.items.find((candidate) => candidate.number === echo.changed);
     return item === undefined

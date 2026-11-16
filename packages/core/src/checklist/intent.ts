@@ -41,7 +41,11 @@ async function requireChecklistTask(w: StoreWriter, id: string): Promise<void> {
   refuseNonTaskKind(id);
   const node = await requireNode(w, id);
   if (node.type !== 'task') {
-    throw validation(`${id} is a ${node.type}, not a task`, 'checklist items belong to tasks');
+    const article = node.type === 'initiative' ? 'an' : 'a';
+    throw validation(
+      `${id} is ${article} ${node.type}, not a task`,
+      'checklist items belong to tasks',
+    );
   }
 }
 

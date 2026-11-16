@@ -31,6 +31,24 @@ export const checklistEngineSchema = checklistViewSchema.extend({
   items: z.array(checklistItemEngineSchema),
 });
 
+/**
+ * An item with its fields in the order every printed form uses (ADR 0044),
+ * wherever it came from: the Engine's schema parse sorts keys, a store read
+ * keeps column order.
+ */
+export function orderedItem(item: ChecklistItem): ChecklistItem {
+  /* eslint-disable sort-keys -- the public item order is not alphabetical. */
+  return {
+    number: item.number,
+    content: item.content,
+    state: item.state,
+    reason: item.reason,
+    created_at: item.created_at,
+    settled_at: item.settled_at,
+  };
+  /* eslint-enable sort-keys */
+}
+
 /** An item with the task that holds it: the row the transfer document carries. */
 export const checklistRecordSchema = checklistItemSchema.extend({ task: z.string() });
 

@@ -23,6 +23,7 @@ exit 0
 exit 0
 --- stdout
 | {
+|   "task": "MMR-3",
 |   "items": [
 |     {
 |       "number": 1,
@@ -56,8 +57,7 @@ exit 0
 |       "created_at": "2026-10-01T12:00:00.000Z",
 |       "settled_at": null
 |     }
-|   ],
-|   "task": "MMR-3"
+|   ]
 | }
 --- state
 + nodes[MMR-3].items[@3]: {"content":"Remove the retired hint","created_at":"2026-10-01T12:00:00.000Z","number":4,"reason":null,"settled_at":null,"state":"open"}
@@ -66,6 +66,7 @@ exit 0
 exit 0
 --- stdout
 | {
+|   "task": "MMR-3",
 |   "items": [
 |     {
 |       "number": 1,
@@ -99,8 +100,7 @@ exit 0
 |       "created_at": "2026-10-01T12:00:00.000Z",
 |       "settled_at": null
 |     }
-|   ],
-|   "task": "MMR-3"
+|   ]
 | }
 --- state
 + nodes[MMR-3].items[@3]: {"content":"Remove the retired hint","created_at":"2026-10-01T12:00:00.000Z","number":4,"reason":null,"settled_at":null,"state":"open"}
@@ -133,6 +133,7 @@ exit 0
 exit 0
 --- stdout
 | {
+|   "task": "MMR-3",
 |   "items": [
 |     {
 |       "number": 1,
@@ -158,8 +159,7 @@ exit 0
 |       "created_at": "2026-10-01T12:00:00.000Z",
 |       "settled_at": "2026-10-01T12:00:00.000Z"
 |     }
-|   ],
-|   "task": "MMR-3"
+|   ]
 | }
 --- state
 ~ nodes[MMR-3].items[@0].settled_at: null -> "2026-10-01T12:00:00.000Z"
@@ -169,6 +169,7 @@ exit 0
 exit 0
 --- stdout
 | {
+|   "task": "MMR-3",
 |   "items": [
 |     {
 |       "number": 1,
@@ -194,8 +195,7 @@ exit 0
 |       "created_at": "2026-10-01T12:00:00.000Z",
 |       "settled_at": "2026-10-01T12:00:00.000Z"
 |     }
-|   ],
-|   "task": "MMR-3"
+|   ]
 | }
 --- state
 ~ nodes[MMR-3].items[@0].settled_at: null -> "2026-10-01T12:00:00.000Z"
@@ -232,6 +232,7 @@ exit 0
 exit 0
 --- stdout
 | {
+|   "task": "MMR-3",
 |   "items": [
 |     {
 |       "number": 1,
@@ -257,8 +258,7 @@ exit 0
 |       "created_at": "2026-10-01T12:00:00.000Z",
 |       "settled_at": "2026-10-01T12:00:00.000Z"
 |     }
-|   ],
-|   "task": "MMR-3"
+|   ]
 | }
 --- state
 ~ nodes[MMR-3].items[@1].reason: null -> "Covered by MMR-14"
@@ -269,6 +269,7 @@ exit 0
 exit 0
 --- stdout
 | {
+|   "task": "MMR-3",
 |   "items": [
 |     {
 |       "number": 1,
@@ -294,8 +295,7 @@ exit 0
 |       "created_at": "2026-10-01T12:00:00.000Z",
 |       "settled_at": "2026-10-01T12:00:00.000Z"
 |     }
-|   ],
-|   "task": "MMR-3"
+|   ]
 | }
 --- state
 ~ nodes[MMR-3].items[@1].reason: null -> "Covered by MMR-14"
@@ -534,6 +534,7 @@ unchanged
 exit 0
 --- stdout
 | {
+|   "task": "MMR-3",
 |   "items": [
 |     {
 |       "number": 1,
@@ -559,8 +560,7 @@ exit 0
 |       "created_at": "2026-10-01T12:00:00.000Z",
 |       "settled_at": "2026-10-01T12:00:00.000Z"
 |     }
-|   ],
-|   "task": "MMR-3"
+|   ]
 | }
 --- state
 ~ nodes[MMR-3].items[@1].settled_at: null -> "2026-10-01T12:00:00.000Z"
@@ -627,7 +627,7 @@ exit 1
 |   "hints": [
 |     "checklist items belong to tasks"
 |   ],
-|   "message": "MMR-1 is a initiative, not a task"
+|   "message": "MMR-1 is an initiative, not a task"
 | }
 --- state
 unchanged

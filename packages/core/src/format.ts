@@ -1,3 +1,4 @@
+import { orderedItem } from '@mimir/contract';
 import type {
   ArtifactDetail,
   ArtifactSummary,
@@ -103,7 +104,7 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
   }
   // A task `get` carries its checklist (ADR 0044), in number order.
   if (node.items !== undefined) {
-    wire.items = node.items;
+    wire.items = node.items.map(orderedItem);
   }
   // `description` is a facet now (MMR-162) — present only when read (detail get),
   // like the other opt-in fields; absent from bulk list/next rows.

@@ -163,13 +163,13 @@ describe.each(backends)('checklist items ($name)', (backend) => {
     try {
       const delivery = await f.engine.deliveryCreate({ phase: f.phase, tasks: [], title: 'Try' });
       const named: [string, string][] = [
-        [f.phase, 'phase'],
-        [f.initiative, 'initiative'],
-        ['CHK', 'a project'],
-        ['CHK-s1', 'a seed'],
-        ['CHK-a1', 'an artifact'],
-        [delivery.id, 'a delivery'],
-        ['CHK-q1', 'a decision'],
+        [f.phase, 'is a phase'],
+        [f.initiative, 'is an initiative'],
+        ['CHK', 'is a project'],
+        ['CHK-s1', 'is a seed'],
+        ['CHK-a1', 'is an artifact'],
+        [delivery.id, 'is a delivery'],
+        ['CHK-q1', 'is a decision'],
       ];
       for (const [id, kind] of named) {
         const error = await errorOf(f.engine.itemAdd({ content: 'x', task: id }));
