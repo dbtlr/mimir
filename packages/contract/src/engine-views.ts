@@ -172,6 +172,7 @@ function viewSchemas<T extends z.ZodType>(instant: T) {
     },
   });
   const scratchpadRow = z.object({
+    delivery: z.string().nullable(),
     id: z.string(),
     linkedWork: z.array(z.string()),
     openAgenda: z.number(),
@@ -189,6 +190,7 @@ function viewSchemas<T extends z.ZodType>(instant: T) {
     artifactDetail: z.object({
       content: z.string().optional(),
       createdAt: instant,
+      delivery: z.string().nullable(),
       id: z.string(),
       links: z.array(z.string()),
       project: z.string(),
@@ -199,6 +201,7 @@ function viewSchemas<T extends z.ZodType>(instant: T) {
     artifactSet: setSchema(
       z.object({
         createdAt: instant,
+        delivery: z.string().nullable(),
         id: z.string(),
         links: z.array(z.string()),
         project: z.string(),
@@ -269,6 +272,7 @@ function viewSchemas<T extends z.ZodType>(instant: T) {
       ),
       anchors: z.array(z.string()),
       createdAt: instant,
+      delivery: z.string().nullable(),
       freezingAt: instant.nullable(),
       id: z.string(),
       journal: z.array(z.object({ at: instant, content: z.string(), number: z.number() })),

@@ -90,6 +90,7 @@ import { bindCommand, LEGACY_BINDING_FILE } from './commands/bind';
 import { createCommand } from './commands/create';
 import { decideCommand, decisionAnswerCommand, decisionsCommand } from './commands/decisions';
 import { landVerb, deliveriesCommand } from './commands/deliveries';
+import { declineVerb, limitationVerb } from './commands/delivery-lists';
 import { dependCommand, undependCommand } from './commands/depend';
 import { doctorCommand } from './commands/doctor';
 import { getCommand } from './commands/get';
@@ -817,6 +818,8 @@ export function createApp(source: CliSource) {
       .command(triageCommand(ports))
       .command(scratchCommand(ports))
       .command(itemCommand(ports))
+      .command(limitationVerb(ports))
+      .command(declineVerb(ports))
       // MMR-551: structure and node writes.
       .command(createCommand(ports))
       .command(updateCommand(ports))

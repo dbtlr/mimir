@@ -11,6 +11,8 @@ export type ScratchpadStore = {
   create: (scratchpad: Scratchpad) => Promise<void>;
   load: (id: string) => Promise<Scratchpad | undefined>;
   list: (project?: string) => Promise<Scratchpad[]>;
+  /** The live pad anchored to a delivery (ADR 0027, MMR-691), or undefined. */
+  forDelivery: (delivery: string) => Promise<Scratchpad | undefined>;
   replace: (scratchpad: Scratchpad, expectedUpdatedAt: string) => Promise<void>;
   delete: (id: string, expectedUpdatedAt: string) => Promise<void>;
 };

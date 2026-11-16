@@ -1,6 +1,7 @@
 import { DELIVERY_OP_FACTS } from '@mimir/contract';
 import type {
   DeliveryHistory,
+  DeliveryDetailView,
   DeliveryLifecycle,
   DeliveryVerb,
   DeliveryView,
@@ -10,7 +11,7 @@ import type {
 
 import { assertBoardActive } from '../archive-lock';
 import { blankProse, notFound, projectNotFound, validation } from '../errors';
-import { parseIdentity, renderDeliveryRef } from '../ids';
+import { parseIdentity, renderArtifactRef, renderDeliveryRef } from '../ids';
 import type { Node, Project } from '../model';
 import { normalizeHandle } from '../mutations/handles';
 import { completeTaskInTransaction } from '../mutations/lifecycle';
@@ -19,7 +20,13 @@ import { rankAppender } from '../rank';
 import type { Store } from '../store';
 import { now } from '../time';
 import { releaseMember } from './membership';
-import type { DeliveryStatePatch, DeliveryCreate, DeliveryPatch, StoredDelivery } from './store';
+import type {
+  DeliveryStatePatch,
+  DeliveryCreate,
+  DeliveryPatch,
+  NewDeliveryFinding,
+  StoredDelivery,
+} from './store';
 
 /**
  * The delivery verbs (MMR-676, ADR 0042): the transport-agnostic rules above
@@ -164,8 +171,44 @@ export async function createDelivery(
   return viewOf(await store.deliveries.create(create));
 }
 
+/**
+ * A delivery as `get KEY-dN` reads it: the record, its two lists in number
+ * order, and where its run journal is — the live pad's UUID and the frozen
+ * journals' ids, oldest first (ADR 0042, MMR-691).
+ */
+async function detailOf(store: Store, stored: StoredDelivery): Promise<DeliveryDetailView> {
+  const id = renderDeliveryRef(stored);
+  const entries = await store.deliveries.findings(stored.key, stored.seq);
+  const pad = await store.scratchpads.forDelivery(id);
+  const frozen = await store.artifacts.listForDelivery(id);
+  return {
+    ...viewOf(stored),
+    declined: entries.flatMap((entry) =>
+      entry.kind === 'declined' && entry.reason !== null
+        ? [
+            {
+              created_at: entry.created_at,
+              finding: entry.text,
+              number: entry.number,
+              reason: entry.reason,
+            },
+          ]
+        : [],
+    ),
+    journal: {
+      artifacts: frozen.map((artifact) => renderArtifactRef(artifact)),
+      scratchpad: pad?.id ?? null,
+    },
+    limitations: entries.flatMap((entry) =>
+      entry.kind === 'limitation'
+        ? [{ created_at: entry.created_at, number: entry.number, text: entry.text }]
+        : [],
+    ),
+  };
+}
+
 /** `get KEY-dN` — one delivery with its whole history. An archived board reads as absent. */
-export async function getDelivery(store: Store, id: string): Promise<DeliveryView> {
+export async function getDelivery(store: Store, id: string): Promise<DeliveryDetailView> {
   const ref = requireDeliveryRef(id);
   const projects = await store.loadProjects();
   const stored =
@@ -175,7 +218,53 @@ export async function getDelivery(store: Store, id: string): Promise<DeliveryVie
   if (stored === undefined) {
     throw notFound(`${id} doesn't exist`);
   }
-  return viewOf(stored);
+  return detailOf(store, stored);
+}
+
+/** Append one entry to a delivery's lists and read the delivery back as `get` does. */
+async function appendFinding(
+  store: Store,
+  id: string,
+  entry: NewDeliveryFinding,
+): Promise<DeliveryDetailView> {
+  const { key, seq } = requireDeliveryRef(id);
+  await store.deliveries.appendFinding(key, seq, entry);
+  return getDelivery(store, id);
+}
+
+/** `limitation KEY-dN <text>` — record an edge case the delivery ships knowingly. */
+export async function addLimitation(
+  store: Store,
+  input: EngineInput<'deliveryLimitation'>,
+): Promise<DeliveryDetailView> {
+  if (input.text.trim() === '') {
+    throw validation('a limitation cannot be blank', `limitation ${input.id} "text"`);
+  }
+  return appendFinding(store, input.id, { kind: 'limitation', reason: null, text: input.text });
+}
+
+/** `decline KEY-dN <finding> <reason>` — record a review finding the delivery did not act on. */
+export async function declineFinding(
+  store: Store,
+  input: EngineInput<'deliveryDecline'>,
+): Promise<DeliveryDetailView> {
+  if (input.finding.trim() === '') {
+    throw validation(
+      'a declined finding cannot be blank',
+      `decline ${input.id} "finding" "reason"`,
+    );
+  }
+  if (input.reason.trim() === '') {
+    throw validation(
+      'decline requires a nonblank reason',
+      `decline ${input.id} "finding" "reason"`,
+    );
+  }
+  return appendFinding(store, input.id, {
+    kind: 'declined',
+    reason: input.reason,
+    text: input.finding,
+  });
 }
 
 /** `deliveries` — a project's deliveries, oldest first. An unknown or archived

@@ -66,6 +66,9 @@ test.each([
   ['scratch-agenda', ['scratch', 'agenda', '--help']],
   ['scratch-freeze', ['scratch', 'freeze', '--help']],
   ['scratch-discard', ['scratch', 'discard', '--help']],
+  // MMR-691: the delivery list verbs.
+  ['limitation', ['limitation', '--help']],
+  ['decline', ['decline', '--help']],
   // MMR-678: the checklist group.
   ['item', ['item', '--help']],
   ['item-add', ['item', 'add', '--help']],

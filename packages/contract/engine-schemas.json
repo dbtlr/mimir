@@ -765,6 +765,33 @@
             "required": ["kind", "schema"],
             "additionalProperties": false
           },
+          "deliveryDecline": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "finding": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": ["finding", "id", "reason"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
           "deliveryLand": {
             "type": "object",
             "properties": {
@@ -780,6 +807,30 @@
                   }
                 },
                 "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "deliveryLimitation": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id", "text"],
                 "additionalProperties": false
               }
             },
@@ -2799,7 +2850,9 @@
           "deliveryAbandon",
           "deliveryBlock",
           "deliveryCreate",
+          "deliveryDecline",
           "deliveryLand",
+          "deliveryLimitation",
           "deliveryPark",
           "deliveryReturn",
           "deliveryStart",
@@ -3500,6 +3553,9 @@
                         "createdAt": {
                           "$ref": "#/$defs/__schema26"
                         },
+                        "delivery": {
+                          "type": ["string", "null"]
+                        },
                         "id": {
                           "type": "string"
                         },
@@ -3525,7 +3581,15 @@
                           "type": "string"
                         }
                       },
-                      "required": ["createdAt", "id", "links", "project", "tags", "title"],
+                      "required": [
+                        "createdAt",
+                        "delivery",
+                        "id",
+                        "links",
+                        "project",
+                        "tags",
+                        "title"
+                      ],
                       "additionalProperties": false
                     }
                   },
@@ -3842,6 +3906,20 @@
             "required": ["kind", "schema"],
             "additionalProperties": false
           },
+          "deliveryDecline": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema105"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
           "deliveryLand": {
             "type": "object",
             "properties": {
@@ -3851,6 +3929,20 @@
               },
               "schema": {
                 "$ref": "#/$defs/__schema84"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "deliveryLimitation": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema105"
               }
             },
             "required": ["kind", "schema"],
@@ -3962,7 +4054,7 @@
                 "const": "query"
               },
               "schema": {
-                "$ref": "#/$defs/__schema84"
+                "$ref": "#/$defs/__schema105"
               }
             },
             "required": ["kind", "schema"],
@@ -3976,7 +4068,7 @@
                 "const": "mutation"
               },
               "schema": {
-                "$ref": "#/$defs/__schema86"
+                "$ref": "#/$defs/__schema107"
               }
             },
             "required": ["kind", "schema"],
@@ -3990,7 +4082,7 @@
                 "const": "mutation"
               },
               "schema": {
-                "$ref": "#/$defs/__schema86"
+                "$ref": "#/$defs/__schema107"
               }
             },
             "required": ["kind", "schema"],
@@ -4004,7 +4096,7 @@
                 "const": "mutation"
               },
               "schema": {
-                "$ref": "#/$defs/__schema86"
+                "$ref": "#/$defs/__schema107"
               }
             },
             "required": ["kind", "schema"],
@@ -4020,7 +4112,7 @@
               "schema": {
                 "type": "array",
                 "items": {
-                  "$ref": "#/$defs/__schema86"
+                  "$ref": "#/$defs/__schema107"
                 }
               }
             },
@@ -4035,7 +4127,7 @@
                 "const": "query"
               },
               "schema": {
-                "$ref": "#/$defs/__schema86"
+                "$ref": "#/$defs/__schema107"
               }
             },
             "required": ["kind", "schema"],
@@ -4049,7 +4141,7 @@
                 "const": "mutation"
               },
               "schema": {
-                "$ref": "#/$defs/__schema86"
+                "$ref": "#/$defs/__schema107"
               }
             },
             "required": ["kind", "schema"],
@@ -4063,7 +4155,7 @@
                 "const": "mutation"
               },
               "schema": {
-                "$ref": "#/$defs/__schema87"
+                "$ref": "#/$defs/__schema108"
               }
             },
             "required": ["kind", "schema"],
@@ -4077,7 +4169,7 @@
                 "const": "mutation"
               },
               "schema": {
-                "$ref": "#/$defs/__schema87"
+                "$ref": "#/$defs/__schema108"
               }
             },
             "required": ["kind", "schema"],
@@ -4091,7 +4183,7 @@
                 "const": "mutation"
               },
               "schema": {
-                "$ref": "#/$defs/__schema87"
+                "$ref": "#/$defs/__schema108"
               }
             },
             "required": ["kind", "schema"],
@@ -5056,7 +5148,9 @@
           "deliveryAbandon",
           "deliveryBlock",
           "deliveryCreate",
+          "deliveryDecline",
           "deliveryLand",
+          "deliveryLimitation",
           "deliveryPark",
           "deliveryReturn",
           "deliveryStart",
@@ -6760,6 +6854,9 @@
       "__schema74": {
         "type": "object",
         "properties": {
+          "delivery": {
+            "type": ["string", "null"]
+          },
           "id": {
             "type": "string"
           },
@@ -6786,7 +6883,16 @@
             "$ref": "#/$defs/__schema26"
           }
         },
-        "required": ["id", "linkedWork", "openAgenda", "project", "state", "title", "updatedAt"],
+        "required": [
+          "delivery",
+          "id",
+          "linkedWork",
+          "openAgenda",
+          "project",
+          "state",
+          "title",
+          "updatedAt"
+        ],
         "additionalProperties": false
       },
       "__schema75": {
@@ -6922,6 +7028,9 @@
           "createdAt": {
             "$ref": "#/$defs/__schema26"
           },
+          "delivery": {
+            "type": ["string", "null"]
+          },
           "id": {
             "type": "string"
           },
@@ -6947,7 +7056,7 @@
             "type": "string"
           }
         },
-        "required": ["createdAt", "id", "links", "project", "tags", "title"],
+        "required": ["createdAt", "delivery", "id", "links", "project", "tags", "title"],
         "additionalProperties": false
       },
       "__schema80": {
@@ -7050,6 +7159,9 @@
           "createdAt": {
             "$ref": "#/$defs/__schema26"
           },
+          "delivery": {
+            "type": ["string", "null"]
+          },
           "freezingAt": {
             "anyOf": [
               {
@@ -7096,6 +7208,7 @@
           "agenda",
           "anchors",
           "createdAt",
+          "delivery",
           "freezingAt",
           "id",
           "journal",
@@ -7269,116 +7382,64 @@
         "type": "object",
         "properties": {
           "agreement": {
-            "type": ["string", "null"]
-          },
-          "branch": {
-            "type": ["string", "null"]
-          },
-          "created_at": {
-            "format": "date-time",
-            "type": "string",
-            "x-mimir-type": "Date"
-          },
-          "external_ref": {
-            "type": ["string", "null"]
-          },
-          "harness": {
-            "type": ["string", "null"]
-          },
-          "hold": {
-            "type": "string",
-            "enum": ["none", "stopped", "paused"]
-          },
-          "hold_reason": {
-            "type": ["string", "null"]
-          },
-          "host": {
-            "type": ["string", "null"]
-          },
-          "id": {
-            "type": "string"
-          },
-          "lifecycle": {
-            "type": "string",
-            "enum": ["agreed", "running", "milestone", "landed", "abandoned"]
-          },
-          "phase": {
-            "type": "string"
-          },
-          "project_key": {
-            "type": "string"
-          },
-          "seq": {
             "$ref": "#/$defs/__schema85"
           },
+          "branch": {
+            "$ref": "#/$defs/__schema86"
+          },
+          "created_at": {
+            "$ref": "#/$defs/__schema87"
+          },
+          "external_ref": {
+            "$ref": "#/$defs/__schema88"
+          },
+          "harness": {
+            "$ref": "#/$defs/__schema89"
+          },
+          "hold": {
+            "$ref": "#/$defs/__schema90"
+          },
+          "hold_reason": {
+            "$ref": "#/$defs/__schema91"
+          },
+          "host": {
+            "$ref": "#/$defs/__schema92"
+          },
+          "id": {
+            "$ref": "#/$defs/__schema93"
+          },
+          "lifecycle": {
+            "$ref": "#/$defs/__schema94"
+          },
+          "phase": {
+            "$ref": "#/$defs/__schema95"
+          },
+          "project_key": {
+            "$ref": "#/$defs/__schema96"
+          },
+          "seq": {
+            "$ref": "#/$defs/__schema97"
+          },
           "session": {
-            "type": ["string", "null"]
+            "$ref": "#/$defs/__schema98"
           },
           "time_cap_minutes": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/__schema85"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/$defs/__schema99"
           },
           "title": {
-            "type": "string"
+            "$ref": "#/$defs/__schema100"
           },
           "updated_at": {
-            "format": "date-time",
-            "type": "string",
-            "x-mimir-type": "Date"
+            "$ref": "#/$defs/__schema101"
           },
           "elapsed_minutes": {
-            "anyOf": [
-              {
-                "type": "number",
-                "minimum": 0
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/$defs/__schema102"
           },
           "history": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "at": {
-                  "format": "date-time",
-                  "type": "string",
-                  "x-mimir-type": "Date"
-                },
-                "from_value": {
-                  "type": ["string", "null"]
-                },
-                "kind": {
-                  "type": "string",
-                  "enum": ["lifecycle", "hold", "member"]
-                },
-                "reason": {
-                  "type": ["string", "null"]
-                },
-                "task": {
-                  "type": ["string", "null"]
-                },
-                "to_value": {
-                  "type": ["string", "null"]
-                }
-              },
-              "required": ["at", "from_value", "kind", "reason", "task", "to_value"],
-              "additionalProperties": false
-            }
+            "$ref": "#/$defs/__schema103"
           },
           "members": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "$ref": "#/$defs/__schema104"
           }
         },
         "required": [
@@ -7406,11 +7467,277 @@
         "additionalProperties": false
       },
       "__schema85": {
+        "type": ["string", "null"]
+      },
+      "__schema86": {
+        "type": ["string", "null"]
+      },
+      "__schema87": {
+        "format": "date-time",
+        "type": "string",
+        "x-mimir-type": "Date"
+      },
+      "__schema88": {
+        "type": ["string", "null"]
+      },
+      "__schema89": {
+        "type": ["string", "null"]
+      },
+      "__schema90": {
+        "type": "string",
+        "enum": ["none", "stopped", "paused"]
+      },
+      "__schema91": {
+        "type": ["string", "null"]
+      },
+      "__schema92": {
+        "type": ["string", "null"]
+      },
+      "__schema93": {
+        "type": "string"
+      },
+      "__schema94": {
+        "type": "string",
+        "enum": ["agreed", "running", "milestone", "landed", "abandoned"]
+      },
+      "__schema95": {
+        "type": "string"
+      },
+      "__schema96": {
+        "type": "string"
+      },
+      "__schema97": {
         "type": "integer",
         "exclusiveMinimum": 0,
         "maximum": 2147483647
       },
-      "__schema86": {
+      "__schema98": {
+        "type": ["string", "null"]
+      },
+      "__schema99": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/__schema97"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "__schema100": {
+        "type": "string"
+      },
+      "__schema101": {
+        "format": "date-time",
+        "type": "string",
+        "x-mimir-type": "Date"
+      },
+      "__schema102": {
+        "anyOf": [
+          {
+            "type": "number",
+            "minimum": 0
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "__schema103": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "at": {
+              "format": "date-time",
+              "type": "string",
+              "x-mimir-type": "Date"
+            },
+            "from_value": {
+              "type": ["string", "null"]
+            },
+            "kind": {
+              "type": "string",
+              "enum": ["lifecycle", "hold", "member"]
+            },
+            "reason": {
+              "type": ["string", "null"]
+            },
+            "task": {
+              "type": ["string", "null"]
+            },
+            "to_value": {
+              "type": ["string", "null"]
+            }
+          },
+          "required": ["at", "from_value", "kind", "reason", "task", "to_value"],
+          "additionalProperties": false
+        }
+      },
+      "__schema104": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "__schema105": {
+        "type": "object",
+        "properties": {
+          "agreement": {
+            "$ref": "#/$defs/__schema85"
+          },
+          "branch": {
+            "$ref": "#/$defs/__schema86"
+          },
+          "created_at": {
+            "$ref": "#/$defs/__schema87"
+          },
+          "external_ref": {
+            "$ref": "#/$defs/__schema88"
+          },
+          "harness": {
+            "$ref": "#/$defs/__schema89"
+          },
+          "hold": {
+            "$ref": "#/$defs/__schema90"
+          },
+          "hold_reason": {
+            "$ref": "#/$defs/__schema91"
+          },
+          "host": {
+            "$ref": "#/$defs/__schema92"
+          },
+          "id": {
+            "$ref": "#/$defs/__schema93"
+          },
+          "lifecycle": {
+            "$ref": "#/$defs/__schema94"
+          },
+          "phase": {
+            "$ref": "#/$defs/__schema95"
+          },
+          "project_key": {
+            "$ref": "#/$defs/__schema96"
+          },
+          "seq": {
+            "$ref": "#/$defs/__schema97"
+          },
+          "session": {
+            "$ref": "#/$defs/__schema98"
+          },
+          "time_cap_minutes": {
+            "$ref": "#/$defs/__schema99"
+          },
+          "title": {
+            "$ref": "#/$defs/__schema100"
+          },
+          "updated_at": {
+            "$ref": "#/$defs/__schema101"
+          },
+          "elapsed_minutes": {
+            "$ref": "#/$defs/__schema102"
+          },
+          "history": {
+            "$ref": "#/$defs/__schema103"
+          },
+          "members": {
+            "$ref": "#/$defs/__schema104"
+          },
+          "declined": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "created_at": {
+                  "format": "date-time",
+                  "type": "string",
+                  "x-mimir-type": "Date"
+                },
+                "finding": {
+                  "type": "string"
+                },
+                "number": {
+                  "$ref": "#/$defs/__schema106"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": ["created_at", "finding", "number", "reason"],
+              "additionalProperties": false
+            }
+          },
+          "journal": {
+            "type": "object",
+            "properties": {
+              "artifacts": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "scratchpad": {
+                "type": ["string", "null"]
+              }
+            },
+            "required": ["artifacts", "scratchpad"],
+            "additionalProperties": false
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "created_at": {
+                  "format": "date-time",
+                  "type": "string",
+                  "x-mimir-type": "Date"
+                },
+                "number": {
+                  "$ref": "#/$defs/__schema106"
+                },
+                "text": {
+                  "type": "string"
+                }
+              },
+              "required": ["created_at", "number", "text"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "agreement",
+          "branch",
+          "created_at",
+          "external_ref",
+          "harness",
+          "hold",
+          "hold_reason",
+          "host",
+          "id",
+          "lifecycle",
+          "phase",
+          "project_key",
+          "seq",
+          "session",
+          "time_cap_minutes",
+          "title",
+          "updated_at",
+          "elapsed_minutes",
+          "history",
+          "members",
+          "declined",
+          "journal",
+          "limitations"
+        ],
+        "additionalProperties": false
+      },
+      "__schema106": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 2147483647
+      },
+      "__schema107": {
         "type": "object",
         "properties": {
           "class": {
@@ -7541,7 +7868,7 @@
         ],
         "additionalProperties": false
       },
-      "__schema87": {
+      "__schema108": {
         "type": "object",
         "properties": {
           "items": {

@@ -27,6 +27,7 @@ function toScratchpad(row: ScratchpadRow, dialect: StoreDialect): Scratchpad {
     agenda: json.decode(row.agenda),
     anchors: list.decode(row.anchors),
     createdAt: row.created_at,
+    delivery: row.delivery,
     freezingAt: row.freezing_at,
     id: row.id,
     journal: json.decode(row.journal),
@@ -44,6 +45,7 @@ function toRow(pad: Scratchpad, dialect: StoreDialect): Insertable<ScratchpadTab
     agenda: json.encode(pad.agenda),
     anchors: list.encode(pad.anchors),
     created_at: pad.createdAt,
+    delivery: pad.delivery,
     freezing_at: pad.freezingAt,
     id: pad.id,
     journal: json.encode(pad.journal),
@@ -78,6 +80,28 @@ export async function insertScratchpads(
   );
 }
 
+/**
+ * Refuse a second live pad on a delivery (ADR 0027, MMR-691), naming the pad
+ * that holds it. Runs inside the write that would break it.
+ */
+async function assertDeliveryFree(tx: Executor, pad: Scratchpad): Promise<void> {
+  if (pad.delivery === null) {
+    return;
+  }
+  const holder = await tx
+    .selectFrom('scratchpad')
+    .select('id')
+    .where('delivery', '=', pad.delivery)
+    .where('id', '!=', pad.id)
+    .executeTakeFirst();
+  if (holder !== undefined) {
+    throw conflict(
+      `${pad.delivery} already has a live run journal: scratchpad ${holder.id}`,
+      'freeze or discard that pad first, or keep working in it',
+    );
+  }
+}
+
 /** One pad's row by its UUID handle, or undefined. */
 async function rowOf(ex: Executor, id: string): Promise<ScratchpadRow | undefined> {
   return ex.selectFrom('scratchpad').selectAll().where('id', '=', id).executeTakeFirst();
@@ -101,6 +125,7 @@ export function createSqlScratchpadStore(db: Kysely<DB>, dialect: StoreDialect):
         if (project === undefined) {
           throw validation('the scratchpad is not valid for persistence');
         }
+        await assertDeliveryFree(tx, pad);
         await insertScratchpads(tx, dialect, [pad]);
       });
     },
@@ -120,6 +145,16 @@ export function createSqlScratchpadStore(db: Kysely<DB>, dialect: StoreDialect):
         }
         await tx.deleteFrom('scratchpad').where('id', '=', id).execute();
       });
+    },
+
+    async forDelivery(delivery) {
+      const row = await db
+        .selectFrom('scratchpad')
+        .selectAll()
+        .where('delivery', '=', delivery)
+        .orderBy('id')
+        .executeTakeFirst();
+      return row === undefined ? undefined : toScratchpad(row, dialect);
     },
 
     async list(project) {
@@ -157,12 +192,14 @@ export function createSqlScratchpadStore(db: Kysely<DB>, dialect: StoreDialect):
         if (pad.project !== row.project_key || pad.createdAt !== row.created_at) {
           throw validation('scratchpad project and createdAt are immutable');
         }
+        await assertDeliveryFree(tx, pad);
         const next = toRow(pad, dialect);
         await tx
           .updateTable('scratchpad')
           .set({
             agenda: next.agenda,
             anchors: next.anchors,
+            delivery: next.delivery,
             freezing_at: next.freezing_at,
             journal: next.journal,
             title: next.title,

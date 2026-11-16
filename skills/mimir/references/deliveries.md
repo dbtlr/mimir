@@ -72,6 +72,37 @@ and rank and write no task transition. Every release clears membership and
 adds a `released` member history row. Abandon also clears and logs a delivery
 hold. Terminal attempts keep their own handles and refuse further writes.
 
+## Limitations, declined findings, and the run journal
+
+A delivery keeps two append-only lists, numbered together from 1:
+
+```sh
+mimir limitation MMR-d3 "A cancelled run is charged its full reservation"
+mimir decline MMR-d3 "Retry the clone on a fetch failure" "Filed as MMR-s55"
+mimir decline MMR-d3 "Retry the clone on a fetch failure" --reason "Filed as MMR-s55"
+```
+
+- A **known limitation** is an edge case the delivery ships knowingly. A
+  **declined finding** is a review finding it chose not to act on, with its
+  reason. Mimir attaches no behavior to either list.
+- Entries are never edited or deleted; a wrong one is corrected by a new one.
+- **Any lifecycle.** Both verbs work on a `landed` or `abandoned` delivery and
+  under a hold, the one exception to "a terminal delivery refuses every
+  write": a finding declined after the merge belongs to the attempt it was
+  found in. An archived project still refuses them.
+- Blank text, a blank finding, and a missing or blank decline reason are
+  `validation`; an id that is not a delivery is `validation` naming its kind.
+- `get KEY-dN` shows both lists and a `journal` line: the live pad anchored to
+  the delivery and the frozen journals that name it. `-f json` carries
+  `limitations`, `declined`, and `journal` always.
+
+The delivery's **run journal** is a Scratchpad linked to it: `mimir scratch
+create "Run journal" --link MMR-d3`. The delivery's orchestrator freezes it at
+close-out; Mimir does not enforce who. The frozen artifact names the delivery
+and links every task that was ever a member, so a landed delivery still leads
+to its journal. `land` and `abandon` leave the pad alone, and a terminal
+delivery whose journal is still live shows it under `journal` on `get`.
+
 ## Board rules
 
 Board-wide `mimir next` omits all members. Use `mimir next --delivery KEY-dN`

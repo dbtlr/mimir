@@ -23,6 +23,7 @@ import { seedLane } from './seeds/lane';
 /** Map the compact active-Scratchpad projection to its public wire vocabulary. */
 export function overviewScratchpadToWire(scratchpad: OverviewScratchpad) {
   return {
+    delivery: scratchpad.delivery,
     id: scratchpad.id,
     linked_work: scratchpad.linkedWork,
     open_agenda: scratchpad.openAgenda,
@@ -48,6 +49,7 @@ export function scratchpadToWire(scratchpad: Scratchpad): Record<string, unknown
       state: item.state,
     })),
     created_at: scratchpad.createdAt,
+    delivery: scratchpad.delivery,
     freezing_at: scratchpad.freezingAt,
     id: scratchpad.id,
     journal: scratchpad.journal.map((entry) => ({
@@ -333,6 +335,7 @@ export function formatStatusJson(status: StatusView): string {
 export function artifactToWire(artifact: ArtifactDetail): Record<string, unknown> {
   const wire: Record<string, unknown> = {
     created_at: artifact.createdAt,
+    delivery: artifact.delivery,
     id: artifact.id,
     links: artifact.links,
     project: artifact.project,
@@ -568,6 +571,7 @@ export function formatOverviewJson(report: OverviewReport): string {
 export function artifactSummaryToWire(a: ArtifactSummary): Record<string, unknown> {
   const wire: Record<string, unknown> = {
     created_at: a.createdAt,
+    delivery: a.delivery,
     id: a.id,
     links: a.links,
     project: a.project,

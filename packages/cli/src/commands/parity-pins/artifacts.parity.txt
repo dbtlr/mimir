@@ -31,6 +31,7 @@ exit 0
 |   "artifacts": [
 |     {
 |       "created_at": "2026-10-01T12:00:00.000Z",
+|       "delivery": null,
 |       "id": "MMR-a2",
 |       "links": [],
 |       "project": "MMR",
@@ -42,6 +43,7 @@ exit 0
 |     },
 |     {
 |       "created_at": "2026-10-01T12:00:00.000Z",
+|       "delivery": null,
 |       "id": "MMR-a1",
 |       "links": [
 |         "MMR-3"
@@ -62,8 +64,8 @@ exit 0
 ### artifacts -s MMR -f jsonl
 exit 0
 --- stdout
-| {"created_at":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":[],"project":"MMR","tags":["session_summary"],"title":"Session notes","summary":"a session retrospective"}
-| {"created_at":"2026-10-01T12:00:00.000Z","id":"MMR-a1","links":["MMR-3"],"project":"MMR","tags":["design"],"title":"Store notes","summary":"design notes"}
+| {"created_at":"2026-10-01T12:00:00.000Z","delivery":null,"id":"MMR-a2","links":[],"project":"MMR","tags":["session_summary"],"title":"Session notes","summary":"a session retrospective"}
+| {"created_at":"2026-10-01T12:00:00.000Z","delivery":null,"id":"MMR-a1","links":["MMR-3"],"project":"MMR","tags":["design"],"title":"Store notes","summary":"design notes"}
 
 ### artifacts -s MMR --ascii
 exit 0
@@ -82,6 +84,7 @@ exit 0
 |   "artifacts": [
 |     {
 |       "created_at": "2026-10-01T12:00:00.000Z",
+|       "delivery": null,
 |       "id": "XX-a1",
 |       "links": [],
 |       "project": "XX",
@@ -138,6 +141,7 @@ exit 0
 |   "artifacts": [
 |     {
 |       "created_at": "2026-10-01T12:00:00.000Z",
+|       "delivery": null,
 |       "id": "MMR-a2",
 |       "links": [],
 |       "project": "MMR",
@@ -331,6 +335,7 @@ exit 0
 |   "artifacts": [
 |     {
 |       "created_at": "2026-10-01T12:00:00.000Z",
+|       "delivery": null,
 |       "id": "MMR-a2",
 |       "links": [],
 |       "project": "MMR",
@@ -342,6 +347,7 @@ exit 0
 |     },
 |     {
 |       "created_at": "2026-10-01T12:00:00.000Z",
+|       "delivery": null,
 |       "id": "MMR-a1",
 |       "links": [
 |         "MMR-3"

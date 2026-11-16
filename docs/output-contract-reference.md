@@ -632,3 +632,35 @@ has none; a phase, initiative, or project `get` has no `items` key. `records`
 shows one line with the count by state (`2 open · 1 checked · 1 dropped`, no
 line when there are no items), and `--col items` expands it to one line per item,
 `2. dropped: content (reason)`. No list, overview, or board read counts items.
+
+## Delivery limitations, declined findings, and the run journal
+
+`limitation KEY-dN <text>` and `decline KEY-dN <finding> <reason>`
+([ADR 0042](decisions/0042-the-delivery-record.md), MMR-691 refinement) each
+return the delivery as `get KEY-dN` reads it. The Engine methods
+`deliveryLimitation` and `deliveryDecline` return it with `Date` instants, and
+the MCP tools `limitation` and `decline` return the `json` view. `decline` takes
+the reason as trailing words or `--reason`; a blank text, a blank finding, and a
+missing or blank reason are `validation` on every transport.
+
+`get KEY-dN` carries three fields beyond the record, in `json`, `jsonl`, and the
+Engine, always present:
+
+```json
+{ "limitations": [ { "number": 1, "text": "…", "created_at": "2026-11-16T09:00:00.000Z" } ],
+  "declined":    [ { "number": 2, "finding": "…", "reason": "…", "created_at": "2026-11-16T09:05:00.000Z" } ],
+  "journal":     { "scratchpad": "123e4567-e89b-42d3-a456-426614174000", "artifacts": ["MMR-a7"] } }
+```
+
+Each list is in number order, and the two lists number together. `journal.scratchpad`
+is the live pad anchored to the delivery, or `null`; `journal.artifacts` lists
+the ids of the frozen journals that name the delivery, oldest first. `records`
+prints a `journal: scratchpad <uuid>; frozen <ids>` line (either part left out
+when absent, and no line when there is neither), then a `Limitations` and a
+`Declined` section, before `History`. Each entry is one numbered line:
+`N. <at> — <text>` for a limitation and `N. <at> — <finding> (<reason>)` for a
+declined finding. A section with no entries is omitted. The `deliveries` rows do not carry these fields.
+
+A pad's views (`scratch get`, `scratch list`, the overview row) and an artifact's
+views (`get KEY-aN`, `artifacts`) carry `delivery`: the `KEY-dN` the pad or
+frozen journal names, or `null`. The `scratch freeze` receipt carries it too.

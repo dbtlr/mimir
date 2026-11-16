@@ -297,6 +297,7 @@ export function scratchpad(anchor: string, overrides: Partial<Scratchpad> = {}):
     agenda: [{ content: 'settle the document shape', number: 1, reason: null, state: 'open' }],
     anchors: [anchor],
     createdAt: '2026-09-01T12:00:00.000Z',
+    delivery: null,
     freezingAt: null,
     id: PAD_ID,
     journal: [{ at: '2026-09-01T12:00:00.000Z', content: 'started', number: 1 }],

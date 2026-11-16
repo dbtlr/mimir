@@ -134,6 +134,7 @@ test('active Scratchpads are capped with a true count and freezing first', async
           : [],
       anchors: index === 0 ? [phaseStem] : [],
       createdAt: at,
+      delivery: null,
       freezingAt: index === 0 ? at : null,
       id,
       journal: [],

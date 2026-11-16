@@ -646,6 +646,7 @@ const OVERVIEW_CAP = 5;
 /** Compact public projection shared by Overview's human and wire transports. */
 export function overviewScratchpadOf(scratchpad: Scratchpad): OverviewScratchpad {
   return {
+    delivery: scratchpad.delivery,
     id: scratchpad.id,
     linkedWork: scratchpad.anchors,
     openAgenda: scratchpad.agenda.filter((item) => item.state === 'open').length,
@@ -1047,6 +1048,7 @@ export async function listArtifacts(
   const items = result.items.map((record) => {
     const summary: ArtifactSummary = {
       createdAt: record.created_at,
+      delivery: record.delivery,
       id: renderArtifactRef({ key: record.key, seq: record.seq }),
       links: canonicalSetOrder(record.links),
       project: record.key,

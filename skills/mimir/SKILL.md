@@ -113,6 +113,12 @@ reporting it complete), so the board is never behind the report.
 `references/status-model.md` defines every status word, rollup, and the
 derived `ready`, `awaiting`, and `stale` states.
 
+- `limitation KEY-dN "text"` records an edge case a delivery ships knowingly,
+  and `decline KEY-dN "finding" "reason"` records a review finding it chose not
+  to act on. Both append to the delivery's numbered lists, in any lifecycle
+  (`references/deliveries.md`). A delivery's run journal is a Scratchpad
+  created with `--link KEY-dN` (`references/scratchpad.md`).
+
 ## Task owners
 
 `--harness` and `--session` identify the main user conversation or workflow
@@ -196,7 +202,8 @@ boundary that produced none skips it rather than inventing one.
 
 - Ids share one grammar: a project is `KEY` (`MMR`); a task, phase, or
   initiative is `KEY-seq` (`MMR-16`); an artifact is `KEY-a3`; a seed is
-  `KEY-s3`. A Scratchpad is a UUID that only the `scratch` subcommands take.
+  `KEY-s3`; a delivery is `KEY-d1`. A Scratchpad is a UUID that only the
+  `scratch` subcommands take.
 - Work-state verbs are flat (`mimir done MMR-16`, `mimir resolve MMR-s3 <reason>`).
   Scratchpad operations group under `mimir scratch`, a task's checklist under
   `mimir item`, and installation commands

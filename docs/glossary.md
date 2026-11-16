@@ -77,6 +77,19 @@ not decision records.
 checked or dropped with a reason. Checked and dropped are final, and items
 gate nothing ([ADR 0044](decisions/0044-checklist-items.md)).
 
+**Known limitation**: An edge case a delivery ships knowingly, recorded on
+the delivery with `limitation` ([ADR 0042](decisions/0042-the-delivery-record.md),
+MMR-691 refinement).
+
+**Declined finding**: A review finding a delivery chose not to act on,
+recorded with its reason by `decline`.
+
+**Run journal**: The Scratchpad anchored to a delivery, frozen at close-out
+into an artifact that names the delivery and links every task that was ever a
+member. Not the pad's numbered Journal section, which is one part of it
+([ADR 0027](decisions/0027-scratchpads-are-temporary-episode-state.md), MMR-691
+refinement).
+
 **Agent run**: One execution of an agent by the host on behalf of a task, such
 as a grooming run, recorded as a host-owned row with its state, usage, and
 outcome ([ADR 0041](decisions/0041-agent-runtime-on-the-host.md)). An agent

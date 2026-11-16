@@ -64,21 +64,107 @@ export const deliveryEngineSchema = deliveryViewSchema.extend({
   updated_at: z.date(),
 });
 export type EngineDelivery = z.output<typeof deliveryEngineSchema>;
-export function decodeDelivery(view: DeliveryView): EngineDelivery {
-  return {
+
+/** The kinds of a delivery's finding entries (ADR 0042, MMR-691): one table, one numbering. */
+export const DELIVERY_FINDING_KIND_VALUES = ['limitation', 'declined'] as const;
+const findingNumber = z.number().int().positive().max(DELIVERY_INT_MAX);
+/** A known limitation as `get KEY-dN` carries it. */
+export const deliveryLimitationSchema = z.strictObject({
+  created_at: z.string(),
+  number: findingNumber,
+  text: z.string(),
+});
+/** A declined finding as `get KEY-dN` carries it. */
+export const deliveryDeclinedSchema = z.strictObject({
+  created_at: z.string(),
+  finding: z.string(),
+  number: findingNumber,
+  reason: z.string(),
+});
+/** Where a delivery's run journal is: the live pad's UUID and the frozen journals' ids. */
+export const deliveryJournalSchema = z.strictObject({
+  artifacts: z.array(z.string()),
+  scratchpad: z.string().nullable(),
+});
+/** One entry with its delivery: the row the transfer document carries. */
+export const deliveryFindingRecordSchema = z.strictObject({
+  created_at: z.string(),
+  delivery: z.string(),
+  kind: z.enum(DELIVERY_FINDING_KIND_VALUES),
+  number: findingNumber,
+  reason: z.string().nullable(),
+  text: z.string(),
+});
+export type DeliveryFindingRecord = z.output<typeof deliveryFindingRecordSchema>;
+export type DeliveryLimitation = z.output<typeof deliveryLimitationSchema>;
+export type DeliveryDeclined = z.output<typeof deliveryDeclinedSchema>;
+export type DeliveryJournal = z.output<typeof deliveryJournalSchema>;
+
+/** A delivery as `get KEY-dN` reads it: the record, its lists, and where its journal is. */
+export const deliveryDetailViewSchema = deliveryViewSchema.extend({
+  declined: z.array(deliveryDeclinedSchema),
+  journal: deliveryJournalSchema,
+  limitations: z.array(deliveryLimitationSchema),
+});
+export const deliveryDetailEngineSchema = deliveryEngineSchema.extend({
+  declined: z.array(deliveryDeclinedSchema.extend({ created_at: z.date() })),
+  journal: deliveryJournalSchema,
+  limitations: z.array(deliveryLimitationSchema.extend({ created_at: z.date() })),
+});
+export type DeliveryDetailView = z.output<typeof deliveryDetailViewSchema>;
+export type EngineDeliveryDetail = z.output<typeof deliveryDetailEngineSchema>;
+
+export function decodeDelivery(view: DeliveryDetailView): EngineDeliveryDetail;
+export function decodeDelivery(view: DeliveryView): EngineDelivery;
+export function decodeDelivery(
+  view: DeliveryView | DeliveryDetailView,
+): EngineDelivery | EngineDeliveryDetail {
+  const decoded = {
     ...view,
     created_at: new Date(view.created_at),
     history: view.history.map((entry) => ({ ...entry, at: new Date(entry.at) })),
     updated_at: new Date(view.updated_at),
   };
+  if ('limitations' in view) {
+    return {
+      ...decoded,
+      declined: view.declined.map((entry) => ({
+        ...entry,
+        created_at: new Date(entry.created_at),
+      })),
+      limitations: view.limitations.map((entry) => ({
+        ...entry,
+        created_at: new Date(entry.created_at),
+      })),
+    };
+  }
+  return decoded;
 }
-export function encodeDelivery(view: EngineDelivery): DeliveryView {
-  return {
+export function encodeDelivery(view: EngineDeliveryDetail): DeliveryDetailView;
+export function encodeDelivery(view: EngineDelivery): DeliveryView;
+export function encodeDelivery(
+  view: EngineDelivery | EngineDeliveryDetail,
+): DeliveryView | DeliveryDetailView {
+  const encoded = {
     ...view,
     created_at: view.created_at.toISOString(),
     history: view.history.map((entry) => ({ ...entry, at: entry.at.toISOString() })),
     updated_at: view.updated_at.toISOString(),
   };
+  if ('limitations' in view) {
+    return {
+      ...encoded,
+      declined: view.declined.map((entry) => ({
+        ...entry,
+        created_at: entry.created_at.toISOString(),
+      })),
+      limitations: view.limitations.map((entry) => ({
+        ...entry,
+        created_at: entry.created_at.toISOString(),
+      })),
+    };
+  }
+  return encoded;
 }
 export type DeliveryRecord = z.output<typeof deliveryRecordSchema>;
 export type DeliveryHistory = z.output<typeof deliveryHistorySchema>;
@@ -110,10 +196,20 @@ export function deliverySchemas<P extends z.ZodType<string>>(project: P) {
       kind: 'mutation',
       output: deliveryEngineSchema,
     },
+    deliveryDecline: {
+      input: z.strictObject({ finding: z.string(), id: z.string(), reason: z.string() }),
+      kind: 'mutation',
+      output: deliveryDetailEngineSchema,
+    },
     deliveryLand: {
       input: z.strictObject({ id: z.string() }),
       kind: 'mutation',
       output: deliveryEngineSchema,
+    },
+    deliveryLimitation: {
+      input: z.strictObject({ id: z.string(), text: z.string() }),
+      kind: 'mutation',
+      output: deliveryDetailEngineSchema,
     },
     deliveryPark: {
       input: z.strictObject({ id: z.string(), reason: z.string() }),
@@ -157,7 +253,7 @@ export function deliverySchemas<P extends z.ZodType<string>>(project: P) {
     getDelivery: {
       input: z.strictObject({ id: z.string() }),
       kind: 'query',
-      output: deliveryEngineSchema,
+      output: deliveryDetailEngineSchema,
     },
   } as const;
 }

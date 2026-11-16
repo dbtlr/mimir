@@ -29,6 +29,8 @@ COMMANDS
   triage             Reconcile a board's seeds: list the untriaged and ready-to-resolve ones, and annotate the tasks whose upstream seed settled. A report, never a gate.
   scratch <command>  Read and keep Scratchpads, the working state of one episode.
   item <command>     Keep a task's checklist: items added, then checked or dropped.
+  limitation         Record a known limitation of a delivery: an edge case it ships knowingly.
+  decline            Record a review finding a delivery chose not to act on, with its reason.
   create <command>   Create a project, initiative, phase, task, or delivery.
   update             Change a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), a seed (KEY-sN), a delivery (KEY-dN), or a decision (KEY-qN).
   annotate           Append a note to a task, phase, or initiative.

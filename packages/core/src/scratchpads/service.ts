@@ -5,6 +5,7 @@ import type { Scratchpad, ScratchpadAgendaItem } from '@mimir/contract';
 import type { ArtifactRecord, ArtifactStore } from '../artifacts/store';
 import { deriveSet } from '../derive';
 import { MimirError, conflict, notFound, validation } from '../errors';
+import { parseDeliveryRef, parseIdentity, renderDeliveryRef } from '../ids';
 import { normalizeSummary, resolveAttachTargetsInSet } from '../mutations/data';
 import type { Store } from '../store';
 import { now } from '../time';
@@ -12,6 +13,9 @@ import { encodeScratchpadBody } from './codec';
 import type { ScratchpadStore } from './store';
 
 export type ScratchpadMutationGuard = { expectedUpdatedAt: string };
+
+/** Whether a `--link` token names a delivery rather than a node. */
+const isDelivery = (token: string): boolean => parseIdentity(token)?.kind === 'delivery';
 
 export type ScratchpadService = ReturnType<typeof createScratchpadService>;
 
@@ -30,7 +34,7 @@ function assertGuard(scratchpad: Scratchpad, expectedUpdatedAt: string): void {
 export function createScratchpadService(
   scratchpads: ScratchpadStore,
   artifacts: ArtifactStore,
-  projects: Pick<Store, 'loadProjects' | 'loadWorkingSet'>,
+  projects: Pick<Store, 'deliveries' | 'loadProjects' | 'loadWorkingSet'>,
   deps: { clock?: () => string; uuid?: () => string } = {},
 ) {
   const clock = deps.clock ?? now;
@@ -49,6 +53,53 @@ export function createScratchpadService(
     return candidate > current
       ? candidate
       : new Date(new Date(current).valueOf() + 1).toISOString();
+  };
+
+  /**
+   * Split `--link` tokens into node anchors and the one delivery they may
+   * name (ADR 0027, MMR-691). Two delivery ids, a delivery of another
+   * project, and a delivery that does not exist are refused.
+   */
+  const resolveLinks = async (
+    tokens: readonly string[],
+    project: string,
+  ): Promise<{ anchors: string[]; delivery: string | null }> => {
+    // Canonical spelling first, so JRN-d01 and JRN-d1 are one delivery.
+    const deliveries = [
+      ...new Set(
+        tokens.filter(isDelivery).map((token) => {
+          const ref = parseDeliveryRef(token);
+          return ref === null ? token : renderDeliveryRef(ref);
+        }),
+      ),
+    ];
+    if (deliveries.length > 1) {
+      throw validation(
+        `a scratchpad is the journal of one delivery, not ${deliveries.join(' and ')}`,
+        'link one delivery id',
+      );
+    }
+    const nodeTokens = tokens.filter((token) => !isDelivery(token));
+    const anchors =
+      nodeTokens.length === 0
+        ? []
+        : resolveAttachTargetsInSet(deriveSet(await projects.loadWorkingSet()), nodeTokens, project)
+            .linkNodeIds;
+    const id = deliveries[0];
+    const identity = id === undefined ? null : parseIdentity(id);
+    if (id === undefined || identity?.kind !== 'delivery') {
+      return { anchors, delivery: null };
+    }
+    if (identity.key !== project) {
+      throw validation(
+        `${id} is in project ${identity.key}, not ${project}`,
+        'a scratchpad links work of its own project',
+      );
+    }
+    if ((await projects.deliveries.load(identity.key, identity.seq)) === undefined) {
+      throw notFound(`${id} doesn't exist`);
+    }
+    return { anchors, delivery: id };
   };
 
   const mutate = async (
@@ -157,20 +208,13 @@ export function createScratchpadService(
           `unarchive it first: mimir unarchive ${project.key}`,
         );
       }
-      const anchors = input.anchors ?? [];
-      const links =
-        anchors.length === 0
-          ? []
-          : resolveAttachTargetsInSet(
-              deriveSet(await projects.loadWorkingSet()),
-              anchors,
-              input.project,
-            ).linkNodeIds;
+      const { anchors: links, delivery } = await resolveLinks(input.anchors ?? [], input.project);
       const timestamp = clock();
       const scratchpad: Scratchpad = {
         agenda: [],
         anchors: links,
         createdAt: timestamp,
+        delivery,
         freezingAt: null,
         id: uuid(),
         journal: [],
@@ -240,6 +284,7 @@ export function createScratchpadService(
         recovered ??
         (await artifacts.create({
           content: encodeScratchpadBody(scratchpad),
+          delivery: scratchpad.delivery,
           key: scratchpad.project,
           links: scratchpad.anchors,
           sourceScratch: scratchpad.id,
@@ -265,11 +310,13 @@ export function createScratchpadService(
       const scratchpad = await loadRequired(id);
       assertGuard(scratchpad, input.expectedUpdatedAt);
       let anchors = scratchpad.anchors;
+      let delivery = scratchpad.delivery;
       if (input.anchors === undefined) {
         assertWorking(scratchpad);
       } else {
         const set = deriveSet(await projects.loadWorkingSet());
-        anchors = resolveAttachTargetsInSet(set, input.anchors, scratchpad.project).linkNodeIds;
+        // `--link` replaces the node anchors and the delivery together.
+        ({ anchors, delivery } = await resolveLinks(input.anchors, scratchpad.project));
         if (scratchpad.freezingAt !== null) {
           // Only invalid links prove this snapshot cannot create an artifact.
           // Read failures and ordinary interrupted freezes must stay locked.
@@ -299,6 +346,7 @@ export function createScratchpadService(
       const replacement = {
         ...scratchpad,
         anchors,
+        delivery,
         freezingAt: null,
         title: input.title?.trim() ?? scratchpad.title,
         updatedAt: stampAfter(scratchpad.updatedAt),

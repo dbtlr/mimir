@@ -34,3 +34,11 @@ An artifact is `{ id, project_id (required), content, created_at }` plus **0..N 
 - New `artifact_link(artifact_id, node_id)` join (0..N).
 - `attach_artifact(project_id, content, node_ids?, tags?)`.
 - **Multi-project artifacts deferred** — promote `project_id` to a join table only if a session ever provably spans projects (house style: start with the FK).
+
+## Refinement (2026-11-16, MMR-691): an artifact may name a delivery
+
+A frozen run journal names the delivery it journaled in a nullable `delivery`
+column, beside its project and node links
+([ADR 0027](0027-scratchpads-are-temporary-episode-state.md), MMR-691
+refinement). A delivery is not a node, so it is not an `artifact_link` row.
+The column is set at freeze and never changes after.

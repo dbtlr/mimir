@@ -1,4 +1,4 @@
-import type { DeliveryHistory } from '@mimir/contract';
+import type { DeliveryFindingRecord, DeliveryHistory } from '@mimir/contract';
 import type { Kysely, Transaction } from 'kysely';
 
 import { assertBoardActive } from '../archive-lock';
@@ -9,7 +9,7 @@ import { notFound, validation } from '../errors';
 import type { StoreExport } from '../export';
 import { renderDeliveryRef } from '../ids';
 import { now } from '../time';
-import { inLists } from './batch';
+import { inLists, insertBatched } from './batch';
 import { appendDeliveryHistory } from './delivery-history';
 import type { StoreDialect } from './dialect';
 import type { DB, DeliveryRow, Executor } from './schema';
@@ -122,8 +122,48 @@ async function lockActiveBoard(tx: Transaction<DB>, key: string): Promise<number
   return project?.last_delivery_seq ?? 0;
 }
 
+/** A delivery's entries in number order. */
+async function loadFindings(ex: Executor, id: string): Promise<DeliveryFindingRecord[]> {
+  return ex
+    .selectFrom('delivery_finding')
+    .select(['delivery_id as delivery', 'number', 'kind', 'text', 'reason', 'created_at'])
+    .where('delivery_id', '=', id)
+    .orderBy('number')
+    .execute();
+}
+
 export function createSqlDeliveryStore(db: Kysely<DB>, dialect: StoreDialect): DeliveryStore {
   return {
+    async appendFinding(key, seq, entry) {
+      await dialect.write(db, async (tx) => {
+        await lockActiveBoard(tx, key);
+        const id = stemOf(key, seq);
+        // The stamp comes first: it takes the delivery's row, so concurrent
+        // appends queue here and each reads the number the last one wrote.
+        const stamped = await tx
+          .updateTable('delivery')
+          .set({ updated_at: now() })
+          .where('id', '=', id)
+          .executeTakeFirst();
+        if (Number(stamped.numUpdatedRows) === 0) {
+          throw notFound(`${id} doesn't exist`);
+        }
+        const highest = await tx
+          .selectFrom('delivery_finding')
+          .select((eb) => eb.fn.max<number | null>('number').as('highest'))
+          .where('delivery_id', '=', id)
+          .executeTakeFirst();
+        const number = (highest?.highest ?? 0) + 1;
+        if (number > MAX_DELIVERY_SEQ) {
+          throw validation(`${id} has used every entry number it can hold`);
+        }
+        await tx
+          .insertInto('delivery_finding')
+          .values({ ...entry, created_at: now(), delivery_id: id, number })
+          .execute();
+      });
+    },
+
     create(input) {
       return dialect.write(db, async (tx) => {
         const last = await lockActiveBoard(tx, input.key);
@@ -178,6 +218,8 @@ export function createSqlDeliveryStore(db: Kysely<DB>, dialect: StoreDialect): D
         return (await storedOf(tx, dialect, [row]))[0] ?? toStored(row, []);
       });
     },
+
+    findings: (key, seq) => loadFindings(db, stemOf(key, seq)),
 
     // A read is the row, its history, and its members: one snapshot, so a join
     // committing mid-read never shows a member without its history row.
@@ -292,4 +334,35 @@ export async function insertExportedDeliveries(
     await tx.insertInto('delivery').values(row).execute();
     await appendDeliveryHistory(tx, row.id, history);
   }
+}
+
+/** Every entry, in project-key, then delivery-sequence, then number order. */
+export async function exportDeliveryFindings(ex: Executor): Promise<DeliveryFindingRecord[]> {
+  return ex
+    .selectFrom('delivery_finding')
+    .innerJoin('delivery', 'delivery.id', 'delivery_finding.delivery_id')
+    .select([
+      'delivery_finding.delivery_id as delivery',
+      'delivery_finding.number',
+      'delivery_finding.kind',
+      'delivery_finding.text',
+      'delivery_finding.reason',
+      'delivery_finding.created_at',
+    ])
+    .orderBy('delivery.project_key')
+    .orderBy('delivery.seq')
+    .orderBy('delivery_finding.number')
+    .execute();
+}
+
+/** Write imported entries, one statement per chunk (MMR-380's batching rule). */
+export async function insertExportedDeliveryFindings(
+  ex: Executor,
+  dialect: StoreDialect,
+  entries: readonly DeliveryFindingRecord[],
+): Promise<void> {
+  const rows = entries.map(({ delivery, ...entry }) => ({ ...entry, delivery_id: delivery }));
+  await insertBatched(rows, dialect.maxParameters, (chunk) =>
+    ex.insertInto('delivery_finding').values(chunk).execute(),
+  );
 }

@@ -78,6 +78,7 @@ export function scratchpadRow(
   overrides: Partial<ScratchpadRow> & Pick<ScratchpadRow, 'id' | 'linkedWork'>,
 ): ScratchpadRow {
   return {
+    delivery: null,
     openAgenda: 0,
     project: 'MMR',
     state: 'active',

@@ -14,6 +14,7 @@ import { cycleEdges } from './cycles';
 import { decisionFaults } from './decisions/validate';
 import { deliveryReferenceFault } from './deliveries/membership';
 import { isTerminalDelivery } from './deliveries/store';
+import { deliveryFindingFaults, journalFaults } from './deliveries/validate';
 import { validation } from './errors';
 import type { StoreExport } from './export';
 import { READABLE_STORE_EXPORT_SCHEMA_VERSIONS } from './export';
@@ -185,9 +186,24 @@ export function parseTransferDocument(input: unknown): StoreExport {
 function assertReferences(document: StoreExport): void {
   const projects = new Set(document.projects.map((project) => project.key));
   const nodes = new Map(document.nodes.map((node) => [node.id, node]));
+  const deliveryProjects = new Map(document.deliveries.map((d) => [d.id, d.project_key]));
   const faults: string[] = [
     ...decisionFaults(document),
     ...checklistFaults(document.checklist_items, nodes),
+    ...deliveryFindingFaults(document.delivery_findings, deliveryProjects),
+    ...journalFaults(
+      document.scratchpads.map((pad) => ({
+        delivery: pad.delivery,
+        id: pad.id,
+        project: pad.project,
+      })),
+      document.artifacts.map((artifact) => ({
+        delivery: artifact.delivery,
+        id: renderArtifactRef(artifact),
+        project: artifact.key,
+      })),
+      deliveryProjects,
+    ),
   ].map(({ id, message }) => `${id} ${message}`);
   const projectRef = (key: string, field: string): void => {
     if (!projects.has(key)) {

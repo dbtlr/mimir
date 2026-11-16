@@ -212,7 +212,13 @@ exit 0
 |       "task": "MMR-8",
 |       "at": "2026-10-01T12:00:00.000Z"
 |     }
-|   ]
+|   ],
+|   "declined": [],
+|   "journal": {
+|     "artifacts": [],
+|     "scratchpad": null
+|   },
+|   "limitations": []
 | }
 
 ### deliveries -f jsonl
@@ -281,7 +287,13 @@ exit 0
 |       "task": "MMR-8",
 |       "at": "2026-10-01T12:00:00.000Z"
 |     }
-|   ]
+|   ],
+|   "declined": [],
+|   "journal": {
+|     "artifacts": [],
+|     "scratchpad": null
+|   },
+|   "limitations": []
 | }
 
 ### deliveries -f ids

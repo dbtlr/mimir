@@ -29,7 +29,12 @@ import { inLists, insertBatched, pairKey } from './batch';
 import { createSqlBodySectionStore } from './body-sections';
 import { exportChecklist, insertExportedChecklist } from './checklist';
 import { exportDecisions, insertExportedDecisions } from './decisions';
-import { exportDeliveries, insertExportedDeliveries } from './deliveries';
+import {
+  exportDeliveries,
+  exportDeliveryFindings,
+  insertExportedDeliveries,
+  insertExportedDeliveryFindings,
+} from './deliveries';
 import type { StoreDialect } from './dialect';
 import { storedProse } from './prose';
 import type {
@@ -177,6 +182,7 @@ export async function exportSqlStore(ex: Executor, dialect: StoreDialect): Promi
     checklist_items: await exportChecklist(ex),
     decisions: await exportDecisions(ex, dialect),
     deliveries: await exportDeliveries(ex, dialect),
+    delivery_findings: await exportDeliveryFindings(ex),
     edges: [...workingSet.edges],
     exported_at: now(),
     nodes,
@@ -330,6 +336,7 @@ function bundlesOf(
   const tags = indexTags(document);
   const annotations = groupBy(document.annotations, (row) => row.node_id);
   const items = groupBy(document.checklist_items, (row) => row.task);
+  const findings = groupBy(document.delivery_findings, (row) => row.delivery);
   const prereqs = groupBy(document.edges, (edge) => edge.node_id);
   const history = groupBy(document.transitions, (row) => row.node_id ?? row.project_id ?? '');
   const bundles: Bundles = {
@@ -342,7 +349,18 @@ function bundlesOf(
         { ...row, tasks: row.tasks.toSorted((a, b) => taskSeq(a) - taskSeq(b)) },
       ]),
     ),
-    deliveries: new Map(document.deliveries.map((row) => [row.id, row])),
+    // A document may list a delivery's entries in any order; the store reads them by number.
+    deliveries: new Map(
+      document.deliveries.map((row) => [
+        row.id,
+        {
+          ...row,
+          findings: (findings.get(row.id) ?? [])
+            .map(({ delivery: _delivery, ...entry }) => entry)
+            .toSorted((a, b) => a.number - b.number),
+        },
+      ]),
+    ),
     nodes: new Map(),
     projects: new Map(),
     scratchpads: new Map(),
@@ -474,6 +492,40 @@ export async function importSqlStore(
       return error.report;
     }
     throw error;
+  }
+}
+
+/**
+ * Refuse an inserted live pad on a delivery whose live pad is already stored
+ * (ADR 0027, MMR-691): the document check sees only the document, so a resume
+ * could otherwise add a second journal beside the stored one.
+ */
+async function assertNoRivalPads(
+  tx: Transaction<DB>,
+  pads: readonly { delivery: string | null; id: string }[],
+): Promise<void> {
+  const deliveries = pads.flatMap((pad) => (pad.delivery === null ? [] : [pad.delivery]));
+  if (deliveries.length === 0) {
+    return;
+  }
+  const stored = await tx
+    .selectFrom('scratchpad')
+    .select(['delivery', 'id'])
+    .where('delivery', 'in', deliveries)
+    .execute();
+  const faults = pads.flatMap((pad) =>
+    stored
+      .filter((row) => row.delivery === pad.delivery && row.id !== pad.id)
+      .map(
+        (row) =>
+          `delivery ${row.delivery} has 2 live scratchpads: ${[row.id, pad.id].toSorted().join(', ')}`,
+      ),
+  );
+  if (faults.length > 0) {
+    throw validation(
+      `the transfer document would give a delivery a second live scratchpad: ${faults.join('; ')}`,
+      'a delivery has one live run journal — freeze or discard the stored pad, or drop the document pad, before importing',
+    );
   }
 }
 
@@ -637,6 +689,7 @@ async function applyImport(
   );
   const seeds = document.seeds.filter((seed) => settle('seeds', renderSeedRef(seed)));
   const pads = document.scratchpads.filter((pad) => settle('scratchpads', pad.id));
+  await assertNoRivalPads(tx, pads);
 
   // Written in foreign-key order: a project owns its nodes, artifacts, seeds,
   // and pads, and a node owns its edges, annotations, and transitions.
@@ -675,9 +728,13 @@ async function applyImport(
     tx.insertInto('transition_log').values(chunk).execute(),
   );
   await insertExportedArtifacts(tx, dialect, artifacts);
-  await insertExportedDeliveries(
+  const newDeliveries = document.deliveries.filter((delivery) => settle('deliveries', delivery.id));
+  await insertExportedDeliveries(tx, newDeliveries);
+  const importedDeliveries = new Set(newDeliveries.map((delivery) => delivery.id));
+  await insertExportedDeliveryFindings(
     tx,
-    document.deliveries.filter((delivery) => settle('deliveries', delivery.id)),
+    dialect,
+    document.delivery_findings.filter((entry) => importedDeliveries.has(entry.delivery)),
   );
   await insertExportedDecisions(
     tx,
@@ -781,6 +838,7 @@ const EMPTY_COLLECTIONS = {
   checklist_items: [],
   decisions: [],
   deliveries: [],
+  delivery_findings: [],
   edges: [],
   nodes: [],
   projects: [],

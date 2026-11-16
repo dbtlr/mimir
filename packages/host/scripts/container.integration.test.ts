@@ -474,7 +474,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
         statement,
       ]);
     await sql(
-      'DROP TABLE checklist_item; DROP TABLE decision_history; DROP TABLE decision_task; DROP TABLE decision; ALTER TABLE project DROP COLUMN last_decision_seq; ALTER TABLE node DROP COLUMN delivery; DROP TABLE delivery_history; DROP TABLE delivery; ALTER TABLE project DROP COLUMN last_delivery_seq; ALTER TABLE project DROP COLUMN remote; ALTER TABLE project DROP COLUMN pinned; ALTER TABLE node DROP COLUMN worker_harness; ALTER TABLE node DROP COLUMN worker_session; ALTER TABLE transition_log DROP CONSTRAINT transition_log_assignment_node_check; DROP TABLE device_tokens; DROP TABLE pairing_requests; DROP TABLE host_secrets; DROP TABLE runs; DELETE FROM schema_version WHERE version >= 5;',
+      'DROP TABLE delivery_finding; ALTER TABLE scratchpad DROP COLUMN delivery; ALTER TABLE artifact DROP COLUMN delivery; DROP TABLE checklist_item; DROP TABLE decision_history; DROP TABLE decision_task; DROP TABLE decision; ALTER TABLE project DROP COLUMN last_decision_seq; ALTER TABLE node DROP COLUMN delivery; DROP TABLE delivery_history; DROP TABLE delivery; ALTER TABLE project DROP COLUMN last_delivery_seq; ALTER TABLE project DROP COLUMN remote; ALTER TABLE project DROP COLUMN pinned; ALTER TABLE node DROP COLUMN worker_harness; ALTER TABLE node DROP COLUMN worker_session; ALTER TABLE transition_log DROP CONSTRAINT transition_log_assignment_node_check; DROP TABLE device_tokens; DROP TABLE pairing_requests; DROP TABLE host_secrets; DROP TABLE runs; DELETE FROM schema_version WHERE version >= 5;',
     );
     await runPostgresHost();
     base = await ready(postgresHost, 12345);

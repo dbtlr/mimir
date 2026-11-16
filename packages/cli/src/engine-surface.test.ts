@@ -104,6 +104,9 @@ const SURFACES: readonly Surface[] = [
   same('reject', 'seedReject'),
   same('resolve', 'seedResolve'),
   same('triage'),
+  // The delivery lists (MMR-691): one flat verb and MCP tool per Engine method.
+  same('limitation', 'deliveryLimitation'),
+  same('decline', 'deliveryDecline'),
   // Scratchpad writes. `scratch agenda` takes the action as an argument.
   // The checklist group: one subcommand and MCP tool per Engine method.
   nested('item add', 'itemAdd'),

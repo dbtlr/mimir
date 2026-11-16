@@ -28,6 +28,8 @@ export type ArtifactRecord = {
   updated_at: string;
   tags: string[];
   links: string[];
+  /** The delivery a frozen run journal names (ADR 0027, MMR-691); null when none. */
+  delivery: string | null;
 };
 
 export type ArtifactCreate = {
@@ -42,6 +44,13 @@ export type ArtifactCreate = {
   links: string[];
   /** Scratchpad UUID when this artifact is the durable result of freeze. */
   sourceScratch?: string;
+  /**
+   * The delivery a frozen run journal names (ADR 0027, MMR-691). The store
+   * also links the artifact to every task named by a `member` row in that
+   * delivery's history, reading them in the transaction that creates the
+   * artifact, so a retried freeze never sees a later membership.
+   */
+  delivery?: string | null;
 };
 
 /**
@@ -88,6 +97,8 @@ export type ArtifactStore = {
   updateMetadata: (key: string, seq: number, patch: ArtifactMetadataPatch) => Promise<boolean>;
   /** Artifacts linked to a node (its `artifacts` facet), seq ascending. */
   listForNode: (nodeStem: string) => Promise<ArtifactRecord[]>;
+  /** The frozen run journals naming a delivery, oldest first (ADR 0042, MMR-691). */
+  listForDelivery: (delivery: string) => Promise<ArtifactRecord[]>;
   /** A project's whole inventory (`get KEY --col artifacts`), seq ascending. */
   listForProject: (key: string) => Promise<ArtifactRecord[]>;
   /** Recover the unique artifact created by a staged Scratchpad freeze. */
