@@ -5,6 +5,16 @@ import { readSinceSources } from '../store-sql/delivery-since';
 import { readySqlite } from './client';
 import { sqliteDialect } from './dialect';
 
+/** The index keys each lookup must search by; "USING INDEX" alone also passes a kind-only scan. */
+const KEYS: Record<string, RegExp[]> = {
+  artifact: [/USING (COVERING )?INDEX \w+ \(delivery=\?/],
+  decision: [/USING (COVERING )?INDEX \w+ \(delivery=\?/],
+  decision_history: [
+    /idx_decision_history_from \(kind=\? AND from_value=\?\)/,
+    /idx_decision_history_to \(kind=\? AND to_value=\?\)/,
+  ],
+};
+
 /**
  * The since read must not scan whole tables (ADR 0042, MMR-692). Run the real
  * read, capture each statement it prepares, and ask SQLite how it would run the
@@ -42,7 +52,11 @@ test('the since read’s artifact, decision, and decision-history lookups use an
       for (const detail of plan) {
         expect(detail, `${table}: ${sql}`).not.toMatch(/^SCAN /);
       }
-      expect(plan.join('\n'), `${table}: ${sql}`).toMatch(/USING (COVERING )?INDEX/);
+      const text = plan.join('\n');
+      expect(text, `${table}: ${sql}`).toMatch(/USING (COVERING )?INDEX/);
+      for (const key of KEYS[table] ?? []) {
+        expect(text, `${table}: ${sql}`).toMatch(key);
+      }
     }
   } finally {
     await handle.close();

@@ -94,8 +94,14 @@ async function decisionRows(
   const naming = await ex
     .selectFrom('decision_history')
     .select(columns)
-    .where('kind', '=', 'delivery')
-    .where((eb) => eb.or([eb('from_value', '=', delivery), eb('to_value', '=', delivery)]))
+    // Each branch repeats `kind` so SQLite plans a multi-index OR over idx_decision_history_from and _to;
+    // factoring `kind` out leaves it scanning every delivery row through the kind-only prefix.
+    .where((eb) =>
+      eb.or([
+        eb.and([eb('kind', '=', 'delivery'), eb('from_value', '=', delivery)]),
+        eb.and([eb('kind', '=', 'delivery'), eb('to_value', '=', delivery)]),
+      ]),
+    )
     .execute();
   const own: typeof naming = [];
   for (const chunk of inLists(
