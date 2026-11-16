@@ -695,8 +695,8 @@ Engine method is `deliverySince({ id, since })` and returns `Date` instants; the
   do not parse them.
 - A `get` of any other id with `--since` is a `usage` error naming `list`,
   `next`, `artifacts`, and `seeds`, whose `--at-or-after` windows a list. A
-  value that is not a zoned ISO 8601 instant whose UTC year has four digits
-  (0000 to 9999) is a `usage` error before the store opens.
+  value that is not a zoned ISO 8601 instant whose UTC year is 0100 to 9999
+  (the range of Mimir's canonical instants) is a `usage` error before the store opens.
   A missing or archived delivery is `not_found`.
 - `records` prints the delivery as `get` does, a `since: <since> as_of: <as_of>`
   line (both in ISO form, ready to pass back), then one line per event:

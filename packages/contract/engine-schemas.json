@@ -902,7 +902,7 @@
                     "format": "date-time",
                     "type": "string",
                     "x-mimir-type": "Date",
-                    "x-mimir-minimum": "0000-01-01T00:00:00.000Z",
+                    "x-mimir-minimum": "0100-01-01T00:00:00.000Z",
                     "x-mimir-maximum": "9999-12-31T23:59:59.999Z"
                   }
                 },

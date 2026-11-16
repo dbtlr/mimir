@@ -305,7 +305,7 @@ describe('parseInstant', () => {
     expect(parseInstant('2026-11-16T09:00-05:00').toISOString()).toBe('2026-11-16T14:00:00.000Z');
   });
 
-  test('refuses an instant outside years 0000 to 9999, as the offset normalizes it', async () => {
+  test('refuses an instant outside years 0100 to 9999, as the offset normalizes it', async () => {
     expect(parseInstant('9999-12-31T23:59:59.999Z').toISOString()).toBe('9999-12-31T23:59:59.999Z');
     expect(parseInstant('9999-12-31T23:59:59.999+00:00').getUTCFullYear()).toBe(9999);
     for (const value of ['9999-12-31T23:00:00-04:00', '9999-12-31T23:59:59.999-00:01']) {
@@ -318,7 +318,24 @@ describe('parseInstant', () => {
         return error;
       }
     })();
-    expect(refusal).toMatchObject({ hint: expect.stringContaining('four-digit year') });
+    expect(refusal).toMatchObject({ hint: expect.stringContaining('0100 to 9999') });
+  });
+
+  test('refuses a year outside 0100 to 9999 with one hint naming the range, and accepts both edges', () => {
+    expect(parseInstant('0100-01-01T00:00:00.000Z').toISOString()).toBe('0100-01-01T00:00:00.000Z');
+    for (const value of ['0099-12-31T23:59:59.999Z', '0000-01-01T00:00:00Z']) {
+      const refusal = (() => {
+        try {
+          return parseInstant(value);
+        } catch (error) {
+          return error;
+        }
+      })();
+      expect(refusal, value).toMatchObject({
+        code: 'validation',
+        hint: expect.stringContaining('0100 to 9999'),
+      });
+    }
   });
 
   test('refuses a bare date, a zone-less time, and text, naming the form to use', async () => {

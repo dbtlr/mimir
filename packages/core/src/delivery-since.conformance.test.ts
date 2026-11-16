@@ -440,6 +440,20 @@ describe.each(backends)('the since read ($name)', (backend) => {
     }
   });
 
+  test('a cursor before year 0100 is validation, and the first canonical instant is read', async () => {
+    const f = await fixture();
+    try {
+      const before = new Date('0099-12-31T23:59:59.999Z');
+      expect((await errorOf(f.engine.deliverySince({ id: f.delivery, since: before }))).code).toBe(
+        'validation',
+      );
+      expect(await feed(f, new Date('0100-01-01T00:00:00.000Z'))).not.toBeNull();
+    } finally {
+      setSystemTime();
+      await f.close();
+    }
+  });
+
   test('a delivery id of another kind is validation, a missing delivery is not_found, an archived board hides it', async () => {
     const f = await fixture();
     try {

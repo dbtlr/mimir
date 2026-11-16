@@ -204,13 +204,14 @@ export const deliverySinceViewSchema = z.strictObject({
   since: z.string(),
 });
 /**
- * The since cursor: an instant whose UTC year has four digits, years 0000 to
- * 9999 (ADR 0042, MMR-692). An instant beyond them has no four-digit spelling
- * the caller could pass back.
+ * The since cursor: an instant whose UTC year is 0100 to 9999, the range of
+ * Mimir's canonical instants (MIN_YEAR in core's time module; ADR 0042,
+ * MMR-692). An instant outside it has no four-digit spelling the caller could
+ * pass back.
  */
 export const sinceCursorSchema = z
   .date()
-  .min(new Date('0000-01-01T00:00:00.000Z'))
+  .min(new Date('0100-01-01T00:00:00.000Z'))
   .max(new Date('9999-12-31T23:59:59.999Z'));
 export const deliverySinceEngineSchema = z.strictObject({
   as_of: z.date(),
