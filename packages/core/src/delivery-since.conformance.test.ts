@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, setSystemTime, test } from 'bun:test';
 
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import { LocalEngine } from './engine';
+import { sinceDelivery } from './deliveries/intent';
 import { archiveProject } from './mutations';
 import { bootPglite } from './store-postgres/testing';
 import { backends, errorOf } from './testing/conformance';
@@ -376,6 +377,52 @@ describe.each(backends)('the since read ($name)', (backend) => {
         (e) => e.record === decision.id,
       );
       expect(there.map((e) => e.kind)).toEqual(['decided', 'delivery', 'delivery', 'lifecycle']);
+    } finally {
+      setSystemTime();
+      await f.close();
+    }
+  });
+
+  test('the clock is read before the store is, so as_of is never later than the snapshot', async () => {
+    const f = await fixture();
+    try {
+      const calls: string[] = [];
+      const watched = new Proxy(f.store, {
+        get(target, key, receiver) {
+          if (key === 'loadProjects') {
+            return (...args: unknown[]) => {
+              calls.push('loadProjects');
+              return (target.loadProjects as (...a: unknown[]) => unknown)(...args);
+            };
+          }
+          if (key === 'deliveries') {
+            return new Proxy(target.deliveries, {
+              get(inner, innerKey, innerReceiver) {
+                const value: unknown = Reflect.get(inner, innerKey, innerReceiver);
+                if (innerKey === 'sinceSources' && typeof value === 'function') {
+                  return (...args: unknown[]) => {
+                    calls.push('sinceSources');
+                    return (value as (...a: unknown[]) => unknown).apply(inner, args);
+                  };
+                }
+                return value;
+              },
+            });
+          }
+          return Reflect.get(target, key, receiver);
+        },
+      });
+      const view = await sinceDelivery(
+        watched,
+        { id: f.delivery, since: EPOCH },
+        () => {
+          calls.push('readAt');
+          return at(100).toISOString();
+        },
+      );
+      expect(calls[0]).toBe('readAt');
+      expect(calls).toContain('sinceSources');
+      expect(view.as_of).toBe(at(95).toISOString());
     } finally {
       setSystemTime();
       await f.close();
