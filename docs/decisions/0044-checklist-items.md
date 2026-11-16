@@ -77,16 +77,19 @@ mimir item drop MMR-12 3 "Covered by MMR-14"
   `reason` and `settled_at` are `null` when the record has none. The CLI's
   `json` view prints this object, `ids` prints the task id, and `records`
   shows the item the subcommand changed.
-- **One transaction.** Each subcommand runs in one store transaction. It stamps
-  the task's `updated_at` first, which serializes concurrent writers on the
-  task row, then allocates the number or checks the item's state, writes, and
-  reads the checklist back. Two concurrent adds on one task get consecutive
+- **One transaction.** Each subcommand runs in one store transaction: it
+  stamps the task's `updated_at`, allocates the number or checks the item's
+  state, writes, and reads the checklist back. The store's write transactions
+  serialize concurrent writers (one writer at a time on SQLite; serializable
+  isolation with replay on Postgres), so the number and the state check are
+  read and written as one step. Two concurrent adds on one task get consecutive
   numbers; two concurrent settles of one item leave one settled and the other
   refused as settled.
 - Each subcommand is its own Engine method (`itemAdd`, `itemCheck`,
   `itemDrop`) and its own MCP tool (`item_add`, `item_check`, `item_drop`),
-  with typed inputs: the task id, then the content, the number, or the number
-  and the reason. Each returns the task's whole checklist, in number order.
+  whose inputs follow the CLI arguments, as `scratch_agenda`'s do: the task
+  id, then the content words, the number as a word, or the number and the
+  reason (as `reason` or trailing words). Each returns the task's whole checklist, in number order.
   The CLI echoes the task id, and its records view shows the item the
   subcommand changed.
 - The task can be in any status, `done` and `abandoned` included. A finding
@@ -136,8 +139,8 @@ refuses while the project is archived, as every other node write does.
 
 ### Transfer
 
-- The store export carries `checklist_item`. Its schema version increments. An
-  export of an older version reads as having no items.
+- The store export carries `checklist_items`. Its schema version increments.
+  An export of an older version carries no items.
 - Items export in project-key, then task-sequence, then item-number order.
   Import writes them after nodes.
 - **Import refuses, and doctor reports,** an item that breaks a rule the verbs

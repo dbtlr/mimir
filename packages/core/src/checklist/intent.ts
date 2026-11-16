@@ -9,9 +9,9 @@ import { isCanonicalInstant, now } from '../time';
 
 /**
  * The checklist verbs (ADR 0044). Each runs in one transaction: it stamps the
- * task's `updated_at` first, which serializes concurrent writers on the task
- * row, then allocates the number or checks the item, writes, and reads the
- * whole checklist back.
+ * task's `updated_at`, allocates the number or checks the item, writes, and
+ * reads the whole checklist back. The store's write transaction serializes
+ * concurrent writers, so allocation and the state check cannot race.
  */
 
 /** What a non-task id names, in the words a refusal uses. */
