@@ -352,6 +352,14 @@ export type DB = {
   decision_history: DecisionHistory & { id: RowId; decision_id: string };
   delivery: DeliveryTable;
   delivery_finding: DeliveryFindingTable;
+  delivery_follow_up: {
+    id: RowId;
+    delivery_id: string;
+    task: string | null;
+    seed: string | null;
+    linked_at: string;
+    unlinked_at: string | null;
+  };
   delivery_history: DeliveryHistoryTable;
   runs: RunTable;
   pairing_requests: PairingRequestTable;

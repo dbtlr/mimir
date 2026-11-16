@@ -33,6 +33,7 @@ export const MIGRATIONS = [
   { name: '0018_checklist_item', version: 18 },
   { name: '0019_delivery_finding', version: 19 },
   { name: '0020_delivery_since_indexes', version: 20 },
+  { name: '0021_delivery_follow_up', version: 21 },
 ] as const;
 
 export type Migration = (typeof MIGRATIONS)[number];
