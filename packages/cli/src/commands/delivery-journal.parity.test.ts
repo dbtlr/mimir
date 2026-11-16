@@ -6,10 +6,13 @@ const argv = argvCase;
 
 /** Both structured formats and the records view of one command line. */
 const shown = (line: readonly string[], setup?: Setup): SetupCase[] =>
-  (['records', 'json'] as const).map((format) => ({
-    ...argv([...line, '-f', format]),
-    ...(setup === undefined ? {} : { setup }),
-  }));
+  (['records', 'json'] as const).map((format) => {
+    const made: SetupCase = argv([...line, '-f', format]);
+    if (setup !== undefined) {
+      made.setup = setup;
+    }
+    return made;
+  });
 
 /** A live pad that journals MMR-d1; `{jpad}` names it and `{jtoken}` is its guard. */
 const liveJournal: Setup = async (board) => {

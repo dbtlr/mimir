@@ -153,10 +153,6 @@ export async function boardSnapshot(
         await read(() => engine.getArtifact({ content: true, id })),
       ]),
     ),
-    // Each delivery with its limitations, declined findings, and journal anchor, as `get` reads it.
-    deliveries: await Promise.all(
-      ids.deliveries.map(async (id) => [id, await read(() => engine.getDelivery({ id }))]),
-    ),
     // Each project's tasks in board order, by id alone. A task's rank is stored, but no record
     // carries it as a field: the order of the board is how it reads (ADR 0007).
     board: Object.fromEntries(
@@ -172,6 +168,10 @@ export async function boardSnapshot(
           },
         ]),
       ),
+    ),
+    // Each delivery with its limitations, declined findings, and journal anchor, as `get` reads it.
+    deliveries: await Promise.all(
+      ids.deliveries.map(async (id) => [id, await read(() => engine.getDelivery({ id }))]),
     ),
     nodes: await Promise.all(
       ids.nodes.map(async (id) => [
