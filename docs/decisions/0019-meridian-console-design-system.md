@@ -551,3 +551,58 @@ amber, chartreuse, green, then jade reads as the path to done.
   words, and each takes one status hue.
 - The CLI's ANSI status colors are out of scope; `staged` is magenta there,
   beside `under_review`, with its own glyph.
+
+## Refinement (2026-11-16, MMR-680): the delivery page
+
+A delivery ([ADR 0042](0042-the-delivery-record.md)) gets its own page at
+`/p/KEY/d<seq>`, in the layout of variant A of the build-run design's mocks
+(artifact MMR-a398). It puts what needs the operator first. This refinement
+records the page's read-only shape. MMR-694 adds the needs-you set's new rows,
+and MMR-695 adds the answer and verb controls.
+
+- **The address.** `/p/KEY/d<seq>` reads `KEY-d<seq>`. A sequence with leading
+  zeros redirects to the canonical address, as a seed's `s<seq>` does. An
+  unknown delivery, or one in an archived project, shows the not-found state.
+- **The order, phone first.** One scroll, in this order:
+  1. A header: the breadcrumb (project, phase, delivery), the title, the
+     lifecycle and hold words, and a time bar that fills elapsed time against
+     the time cap. With no cap, elapsed time shows as text with no bar. A
+     delivery that has not started reads "Not started".
+  2. The stop, when the delivery is `stopped`: its reason in a verdict block.
+  3. Needs you: the delivery's provisional decisions, each as a decision row
+     with its question, class, options, answer taken, and linked tasks, in
+     the work page's needs-you group.
+  4. Now: the members that are `in_progress` or `under_review`.
+  5. Progress: the members as a distribution bar and a count by status.
+  6. Follow-ups: each linked follow-up's status and title, and each linked
+     task's checklist items.
+  7. The known limitations and the declined findings.
+  8. The recent run journal: the live pad's latest Journal entries, or a link
+     to each frozen journal.
+  9. The delivery's facts: branch, pull request, T3 thread, and start, so
+     the pull request is in reach on a phone too.
+- **Desktop.** At the large breakpoint and up, sections 1 to 5 sit in the
+  main column. A rail holds section 9 first, then sections 6, 7, and 8. A
+  fact with no value reads "None".
+- **Hues.**
+  - Attention takes only the stop and the open decisions, because both ask
+    the operator to act (§1). A `paused` delivery is the operator's own
+    pause, so its notice draws in ink.
+  - A delivery's lifecycle and hold words are not task status words. They
+    draw in ink, as text chips, so §3's vocabulary stays closed.
+  - Members use the status hues as every task row does, `staged` green
+    included.
+- **The phase page.** A phase's page lists its live deliveries (not `landed`
+  or `abandoned`) as cards. Each card shows the delivery's id, title,
+  lifecycle and hold words, time, and a distribution bar over its members, and
+  links to the delivery's page.
+- **Long text wraps.** Titles, reasons, options, and findings wrap anywhere,
+  as a seed's and an artifact's title do, so a long unbroken token never
+  widens the page past a phone's width.
+- **Reuse.** The page is built from the work page's sections, rows,
+  distribution bar, and needs-you groups. It adds one kind of row, the
+  decision row, for a decision record
+  ([ADR 0043](0043-the-decision-record.md)). MMR-694 shows the same row in
+  the needs-you set beside the task rows the review page groups, and renames
+  the review report's `decisions` field to `needsYou`, so "decision" names
+  only a decision record and a decision reads the same on every surface.

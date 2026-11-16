@@ -4,6 +4,8 @@ import type { ChecklistItem } from '@mimir/contract';
 export type ChecklistStore = {
   /** A task's items in number order. */
   forTask: (id: string) => Promise<ChecklistItem[]>;
+  /** Several tasks' items in one read, each in number order; a task with none maps to []. */
+  forTasks: (ids: readonly string[]) => Promise<Map<string, ChecklistItem[]>>;
 };
 
 /** What `add` records: the number is allocated inside the writing transaction. */

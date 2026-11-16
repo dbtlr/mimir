@@ -61,6 +61,7 @@ import {
   reviewPageOf,
   upstreamTasksOf,
 } from './intent/console';
+import { deliveryPageOf, phaseDeliveriesOf } from './intent/delivery-page';
 import { listProjects, listProjectsByRemote, nodeTree } from './resource';
 import { createScratchpadService } from './scratchpads';
 import type { ScratchpadService } from './scratchpads';
@@ -599,6 +600,9 @@ const isoOf = (instant: Date | undefined) => instant?.toISOString();
 /** The console's views: core assembles them, the schemas decode their instants into `Date`s. */
 function consoleMethods(store: Store, options: LocalEngineOptions): ConsoleEngine {
   return {
+    async deliveryPage(input) {
+      return deliveryPageOf(store, parseEngineInput(consoleSchemas.deliveryPage.input, input).id);
+    },
     async nodeWork(input) {
       const { asOf, id, timeZone } = parseEngineInput(consoleSchemas.nodeWork.input, input);
       return consoleIntentViews.work.parse(
@@ -613,6 +617,12 @@ function consoleMethods(store: Store, options: LocalEngineOptions): ConsoleEngin
       const { asOf, project } = parseEngineInput(consoleSchemas.overview.input, input);
       return intentViews.overview.parse(
         await projectOverviewOf(store, project, { asOf: isoOf(asOf) }),
+      );
+    },
+    async phaseDeliveries(input) {
+      return phaseDeliveriesOf(
+        store,
+        parseEngineInput(consoleSchemas.phaseDeliveries.input, input).id,
       );
     },
     async projectWork(input) {

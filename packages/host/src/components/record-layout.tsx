@@ -17,10 +17,13 @@ export function RailSection({
   label,
   count,
   headingRef,
+  className,
   children,
 }: {
   label: string;
   count?: number;
+  /** Extra classes, e.g. a breakpoint where the section is no longer last on screen. */
+  className?: string;
   /** Makes the heading focusable, as a landing place for useRowFocusHandoff. */
   headingRef?: Ref<HTMLHeadingElement>;
   children: ReactNode;
@@ -29,7 +32,10 @@ export function RailSection({
   return (
     <section
       aria-labelledby={headingId}
-      className="flex flex-col gap-2 border-b border-line pb-4 last:border-b-0 last:pb-0"
+      className={cn(
+        'flex flex-col gap-2 border-b border-line pb-4 last:border-b-0 last:pb-0',
+        className,
+      )}
     >
       <h2
         id={headingId}
@@ -144,11 +150,14 @@ export function RecordLayout({
   rail,
   chips,
   railLabel = 'Record details',
+  large = false,
   children,
   className,
 }: {
   /** Path, status, and title — above the phone chips. */
   head: ReactNode;
+  /** Use the large breakpoint for dossiers whose rail stacks in phone order. */
+  large?: boolean;
   /** The desktop rail's sections. */
   rail: ReactNode;
   /** The same rail regrouped as phone chips; omitted, the rail stacks under the main column. */
@@ -162,7 +171,12 @@ export function RecordLayout({
     // tabIndex -1: a focus fallback for a control that unmounts itself, such
     // as a row's button once its action moves the row out of the list.
     <main tabIndex={-1} className={cn('min-h-0 flex-1 overflow-y-auto', className)}>
-      <div className="mx-auto grid min-h-full w-full max-w-[1200px] grid-cols-1 md:grid-cols-[minmax(0,1fr)_300px]">
+      <div
+        className={cn(
+          'mx-auto grid min-h-full w-full max-w-[1200px] grid-cols-1',
+          large ? 'lg:grid-cols-[minmax(0,1fr)_300px]' : 'md:grid-cols-[minmax(0,1fr)_300px]',
+        )}
+      >
         <article className="flex min-w-0 flex-col gap-4 px-4 py-5 md:px-6">
           {head}
           {chips !== undefined && <RailChips chips={chips} label={railLabel} />}
@@ -171,8 +185,9 @@ export function RecordLayout({
         <aside
           aria-label={railLabel}
           className={cn(
-            'flex-col gap-4 border-line px-4 py-5 md:flex md:border-l',
-            chips === undefined ? 'flex border-t md:border-t-0' : 'hidden',
+            'flex-col gap-4 border-line px-4 py-5',
+            large ? 'lg:flex lg:border-l lg:border-t-0' : 'md:flex md:border-l md:border-t-0',
+            chips === undefined ? 'flex border-t' : 'hidden',
           )}
         >
           {rail}

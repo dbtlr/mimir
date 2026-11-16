@@ -41,3 +41,17 @@ export const overview = createServerFn({ method: 'GET' })
     parseEngineInput(consoleSchemas.overview.input, input),
   )
   .handler(async ({ data }) => (await engine()).console.overview(data));
+
+/** Read-only delivery console projection. */
+export const deliveryPage = createServerFn({ method: 'GET' })
+  .validator((input: ConsoleInput<'deliveryPage'>) =>
+    parseEngineInput(consoleSchemas.deliveryPage.input, input),
+  )
+  .handler(async ({ data }) => (await engine()).console.deliveryPage(data));
+
+/** Read-only delivery console projection. */
+export const phaseDeliveries = createServerFn({ method: 'GET' })
+  .validator((input: ConsoleInput<'phaseDeliveries'>) =>
+    parseEngineInput(consoleSchemas.phaseDeliveries.input, input),
+  )
+  .handler(async ({ data }) => (await engine()).console.phaseDeliveries(data));

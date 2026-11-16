@@ -3,7 +3,7 @@ import type { Kysely } from 'kysely';
 
 import type { ChecklistSettle, ChecklistStore, NewChecklistItem } from '../checklist/store';
 import { invariant } from '../errors';
-import { insertBatched } from './batch';
+import { inLists, insertBatched } from './batch';
 import type { StoreDialect } from './dialect';
 import type { DB, Executor } from './schema';
 
@@ -68,8 +68,33 @@ export async function settleChecklistItem(
     .execute();
 }
 
-export function createSqlChecklistStore(db: Kysely<DB>): ChecklistStore {
-  return { forTask: (id) => loadChecklist(db, id) };
+/** Several tasks' items, read in as few `IN` lists as the dialect's parameter limit allows. */
+async function loadChecklists(
+  db: Kysely<DB>,
+  dialect: StoreDialect,
+  tasks: readonly string[],
+): Promise<Map<string, ChecklistItem[]>> {
+  const byTask = new Map<string, ChecklistItem[]>(tasks.map((task) => [task, []]));
+  for (const chunk of inLists([...new Set(tasks)], dialect.maxParameters)) {
+    const rows = await db
+      .selectFrom('checklist_item')
+      .select(['node_id', ...ITEM_COLUMNS])
+      .where('node_id', 'in', chunk)
+      .orderBy('node_id')
+      .orderBy('number')
+      .execute();
+    for (const { node_id, ...item } of rows) {
+      byTask.get(node_id)?.push(item);
+    }
+  }
+  return byTask;
+}
+
+export function createSqlChecklistStore(db: Kysely<DB>, dialect: StoreDialect): ChecklistStore {
+  return {
+    forTask: (id) => loadChecklist(db, id),
+    forTasks: (ids) => loadChecklists(db, dialect, ids),
+  };
 }
 
 /** Every item with its task, in project-key, then task-sequence, then item-number order. */

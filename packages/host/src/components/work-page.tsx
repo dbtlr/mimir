@@ -15,6 +15,7 @@ import { STATUS_META, STATUS_ORDER } from '../lib/status';
 import { absoluteTime } from '../lib/time';
 import { RAIL_ARTIFACT_CAP, newestArtifacts } from '../lib/work-page';
 import type { RecordArtifact } from '../lib/work-page';
+import { PhaseDeliveries } from './delivery-summary';
 import { DirectionPanel } from './direction-line';
 import { DistributionBar } from './distribution-bar';
 import { FindingsChip } from './findings-chip';
@@ -298,18 +299,21 @@ function WorkBody({
     );
   }
   return (
-    <WorkSections
-      report={work.data}
-      projectKey={projectKey}
-      home={isProject ? undefined : record.id}
-      zone={browserTimeZone()}
-      offline={offline}
-      agentRun={scopedRun(
-        activity.data,
-        projectKey,
-        isProject ? undefined : { id: record.id, tree },
-      )}
-    />
+    <>
+      {record.type === 'phase' && <PhaseDeliveries id={record.id} />}
+      <WorkSections
+        report={work.data}
+        projectKey={projectKey}
+        home={isProject ? undefined : record.id}
+        zone={browserTimeZone()}
+        offline={offline}
+        agentRun={scopedRun(
+          activity.data,
+          projectKey,
+          isProject ? undefined : { id: record.id, tree },
+        )}
+      />
+    </>
   );
 }
 

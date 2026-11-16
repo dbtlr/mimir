@@ -365,12 +365,16 @@ function isMutation(value: unknown): value is { mutate: (input: unknown) => Prom
 /** The console namespace's bindings, one query procedure per method. */
 function consoleBindings(client: TRPCClient<EngineRouter>): ConsoleEngine {
   return {
+    deliveryPage: (input: ConsoleInput<'deliveryPage'>) =>
+      domainResult(client.console.deliveryPage.query(input)),
     nodeWork: (input: ConsoleInput<'nodeWork'>) =>
       domainResult(client.console.nodeWork.query(input)),
     openTasks: (input: ConsoleInput<'openTasks'>) =>
       domainResult(client.console.openTasks.query(input)),
     overview: (input: ConsoleInput<'overview'>) =>
       domainResult(client.console.overview.query(input)),
+    phaseDeliveries: (input: ConsoleInput<'phaseDeliveries'>) =>
+      domainResult(client.console.phaseDeliveries.query(input)),
     projectWork: (input: ConsoleInput<'projectWork'>) =>
       domainResult(client.console.projectWork.query(input)),
     review: (input: ConsoleInput<'review'>) => domainResult(client.console.review.query(input)),

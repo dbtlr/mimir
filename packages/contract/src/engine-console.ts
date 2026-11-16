@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+import { checklistItemEngineSchema } from './checklist';
+import { decisionEngineSchema } from './decision';
+import { deliveryDetailEngineSchema, deliveryEngineSchema } from './delivery';
 import { engineViews, nodeRefSchema, nodeSchema, seedSchema } from './engine-views';
 
 /** A work-page row tagged with the project it belongs to, as the review page lists them. */
@@ -113,6 +116,26 @@ const asOf = z.date().optional();
  * for the pages that place a shipped window.
  */
 export const consoleSchemas = {
+  deliveryPage: {
+    input: z.strictObject({ id: z.string() }),
+    kind: 'query',
+    output: z.object({
+      decisions: z.array(decisionEngineSchema),
+      delivery: deliveryDetailEngineSchema,
+      followUps: z.array(
+        z.object({
+          id: z.string(),
+          items: z.array(checklistItemEngineSchema),
+          status: z.string(),
+          title: z.string(),
+        }),
+      ),
+      journal: engineViews.scratchpad.shape.journal,
+      members: z.array(engineViews.node),
+      now: consoleEngineViews.work.shape.now,
+      phase: engineViews.node,
+    }),
+  },
   nodeWork: {
     input: z.strictObject({ asOf, id: z.string(), timeZone }),
     kind: 'query',
@@ -127,6 +150,13 @@ export const consoleSchemas = {
     input: z.strictObject({ asOf, project: z.string() }),
     kind: 'query',
     output: engineViews.overview,
+  },
+  phaseDeliveries: {
+    input: z.strictObject({ id: z.string() }),
+    kind: 'query',
+    output: z.array(
+      z.object({ delivery: deliveryEngineSchema, members: z.array(engineViews.node) }),
+    ),
   },
   projectWork: {
     input: z.strictObject({ asOf, project: z.string(), timeZone }),
