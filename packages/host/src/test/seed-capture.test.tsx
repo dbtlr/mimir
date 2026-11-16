@@ -1,15 +1,14 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { render, screen, waitFor } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
 import { seedCreate } from '../api/fns/browse';
-import { routeTree } from '../router';
 import { engineSeed } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
 import { serveBareRecords } from './node-fns';
+import { renderShell } from './router';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
@@ -42,28 +41,19 @@ function mockApi() {
   serveBrowse();
 }
 
-function renderApp(initial = '/p/MMR/seeds') {
-  const testRouter = createRouter({
-    history: createMemoryHistory({ initialEntries: [initial] }),
-    routeTree,
-  });
-  render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } })
-      }
-    >
-      <RouterProvider router={testRouter} />
-    </QueryClientProvider>,
-  );
-  return testRouter;
-}
+const renderApp = async (initial = '/p/MMR/seeds') =>
+  (
+    await renderShell(
+      initial,
+      new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } }),
+    )
+  ).router;
 
 describe('seed capture popover (12c, MMR-247)', () => {
   it('files the right body (project/title/kind, no requester) and resets on success', async () => {
     mockApi();
     vi.mocked(seedCreate).mockResolvedValue(engineSeed({ id: 'MMR-s7' }));
-    renderApp();
+    await renderApp();
     const user = userEvent.setup();
 
     await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
@@ -91,7 +81,7 @@ describe('seed capture popover (12c, MMR-247)', () => {
   // ADR 0019 §1 (MMR-626): seed kind is a category, so the picked kind draws in ink.
   it('a picked kind draws in ink, never a status hue', async () => {
     mockApi();
-    renderApp();
+    await renderApp();
     const user = userEvent.setup();
 
     await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
@@ -109,7 +99,7 @@ describe('seed capture popover (12c, MMR-247)', () => {
 
   it('enter files; Shift+Enter adds a body line — the whole blob rides `title` (MMR-263)', async () => {
     mockApi();
-    renderApp();
+    await renderApp();
     const user = userEvent.setup();
 
     await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
@@ -133,7 +123,7 @@ describe('seed capture popover (12c, MMR-247)', () => {
 
   it('opens on the global `s` hotkey', async () => {
     mockApi();
-    renderApp();
+    await renderApp();
     const user = userEvent.setup();
     await screen.findByRole('heading', { name: 'Seeds' });
 

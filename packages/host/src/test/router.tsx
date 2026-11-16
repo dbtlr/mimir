@@ -58,8 +58,8 @@ export async function renderInRouter(ui: ReactElement, client = new QueryClient(
  * Pass `Wrapper` to supply a context the shell normally provides, such as
  * `SeedCaptureProvider` for the seeds page. A test that claims something about
  * route matching (a canonical spelling, a redirect, which route a path reaches)
- * passes `consoleRoutes`, the real table. Tests of the shell itself keep
- * mounting `routeTree`.
+ * passes `consoleRoutes`, the real table. Tests of the shell itself use
+ * `renderShell`.
  */
 export async function renderRoute(
   routes: readonly AnyRoute[],
@@ -89,4 +89,29 @@ export async function renderRoute(
     </QueryClientProvider>,
   );
   return { ...view, router };
+}
+
+/**
+ * Renders the whole console, the real `routeTree` with its `Shell` (sidebar,
+ * jump palette, Toaster, review query, health checks), at `initial`. Use it
+ * for tests of the shell itself; a page test uses `renderRoute`.
+ *
+ * The router loads before the first render, as in the helpers above: page
+ * components are lazy route chunks, and a first render that waits on them can
+ * outlast a `findBy` on a loaded machine.
+ */
+export async function renderShell(initial: string, client = new QueryClient()) {
+  // Imported lazily, so renderInRouter's tests never load the route tree.
+  const { routeTree } = await import('../router');
+  const router = createRouter({
+    history: createMemoryHistory({ initialEntries: [initial] }),
+    routeTree,
+  });
+  await router.load();
+  const view = render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+  return { ...view, client, router };
 }

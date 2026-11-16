@@ -8,6 +8,8 @@
 import * as jestDomMatchers from '@testing-library/jest-dom/matchers';
 import { cleanup } from '@testing-library/react';
 
+import { PINNED_TIME_ZONE } from './global-setup';
+
 // Register jest-dom's matchers by hand instead of importing
 // '@testing-library/jest-dom/vitest': that entry's type augmentation predates
 // Vitest 5's `Assertion<R, T>` and loses the matcher types. The corrected
@@ -93,10 +95,15 @@ vi.mock('../api/health', () => ({
   }),
 }));
 
-// Every human-facing timestamp renders in the reader's zone (ADR 0029), so the
-// suite pins one: a date assertion means the same thing on any machine.
-// oxlint-disable-next-line vitest/require-hook
-process.env.TZ = 'America/New_York';
+// The zone is pinned in global-setup.ts, before any worker starts; a test file
+// cannot change it. Fail fast when a run skipped the global setup, rather than
+// letting every date assertion fail one by one.
+const zone = new Intl.DateTimeFormat().resolvedOptions().timeZone;
+if (zone !== PINNED_TIME_ZONE) {
+  throw new Error(
+    `host tests expect the ${PINNED_TIME_ZONE} time zone, not ${zone}: run them through the package's vite.config.ts, which pins it in src/test/global-setup.ts`,
+  );
+}
 
 // Node 26 defines its own global localStorage, so Vitest does not replace it
 // while copying jsdom's globals. Point the browser global at jsdom's in-memory
@@ -170,4 +177,17 @@ afterEach(() => {
       `${calls[0] ?? 'a test'} called an unmocked server function ${String(calls.length)}×: mock its module by function (see test/setup.ts)`,
     );
   }
+});
+
+// Each file gets a fresh global under vmThreads, but process.env belongs to the
+// worker and outlives the file. Put it back after every file, so a test that
+// writes it cannot reach the next file in the same worker.
+const envAtStart = { ...process.env };
+afterAll(() => {
+  for (const key of Object.keys(process.env)) {
+    if (!(key in envAtStart)) {
+      Reflect.deleteProperty(process.env, key);
+    }
+  }
+  Object.assign(process.env, envAtStart);
 });
