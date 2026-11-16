@@ -134,4 +134,22 @@ describe.each(backends)('delivery console page ($name)', (backend) => {
       await f.close();
     }
   });
+
+  test('leaves out a member that joined after the read’s snapshot', async () => {
+    const f = await backend.make();
+    try {
+      const { delivery, engine, phase, task } = await seeded(f.store);
+      // The reads load the working set first and the delivery second; a join can land between.
+      const before = await f.store.loadWorkingSet();
+      const late = await createTask(f.store, { parentId: phase.id, title: 'Late' });
+      await engine.update({ delivery: delivery.id, id: late.id });
+      f.store.loadWorkingSet = () => Promise.resolve(before);
+      const [card] = await engine.console.phaseDeliveries({ id: phase.id });
+      expect(card?.members.map((member) => member.id)).toEqual([task.id]);
+      const page = await engine.console.deliveryPage({ id: delivery.id });
+      expect(page.members.map((member) => member.id)).toEqual([task.id]);
+    } finally {
+      await f.close();
+    }
+  });
 });

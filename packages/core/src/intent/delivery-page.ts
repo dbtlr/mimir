@@ -27,6 +27,19 @@ async function rowOf(store: Store, set: DerivationSet, id: string) {
   );
 }
 
+/**
+ * A delivery's member rows from the read's snapshot. The snapshot loads before
+ * the delivery does, so a task that joined in between is left out until the
+ * next read, as an archived follow-up is, rather than failing the whole read.
+ */
+function memberRows(store: Store, set: DerivationSet, members: readonly string[]) {
+  return Promise.all(
+    members
+      .filter((member) => findNodeInSet(set, member) !== undefined)
+      .map((member) => rowOf(store, set, member)),
+  );
+}
+
 /** The journal's newest entries the dossier shows, newest first. */
 export const RECENT_JOURNAL_ENTRIES = 5;
 
@@ -54,7 +67,7 @@ export async function deliveryPageOf(store: Store, id: string) {
     .filter((followUp) => findNodeInSet(set, followUp)?.type === 'task');
   const [phase, members, open, followUps, pad] = await Promise.all([
     rowOf(store, set, delivery.phase),
-    Promise.all(delivery.members.map((member) => rowOf(store, set, member))),
+    memberRows(store, set, delivery.members),
     decisions(store, {
       delivery: delivery.id,
       project: delivery.project_key,
@@ -104,7 +117,7 @@ export async function phaseDeliveriesOf(store: Store, id: string) {
   return Promise.all(
     liveDeliveriesOf(deliveries, id).map(async (delivery) => ({
       delivery: decodeDelivery(delivery),
-      members: await Promise.all(delivery.members.map((member) => rowOf(store, set, member))),
+      members: await memberRows(store, set, delivery.members),
     })),
   );
 }
