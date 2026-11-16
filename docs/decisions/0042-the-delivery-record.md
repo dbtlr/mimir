@@ -425,7 +425,8 @@ mimir get MMR-d3 --since 2026-11-16T09:00:00.000Z
   tags) are not reported by this read at all.
 - `events` holds every event whose `at` is strictly after `since`, oldest
   first. Events with the same `at` sort by this tuple: the source's rank, then
-  `record`, then the row id or number (an integer), then `id`. The ranks are,
+  `record` compared as a string, then the row id or number (an integer, or
+  none for a kind that has neither, which sorts first), then `id`. The ranks are,
   from first: the delivery's history; its findings (limitations and declined
   findings share one rank and one numbering); a member task's transition log;
   its annotations; its checklist items; a decision recorded; a decision's
