@@ -1,0 +1,1 @@
+- Add the wake: when you pause, resume, return, abandon, edit, or unblock a delivery, or overturn one of its decisions, in the console, the host now sends a short message to the delivery's T3 thread, and the console says when it could not.

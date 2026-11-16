@@ -77,6 +77,8 @@ export type StubOptions = {
   launchReply?: StubLaunchReply;
   /** Milliseconds `t3_thread_launch` takes before it answers. */
   launchDelayMs?: number;
+  /** How `t3_thread_send` answers at first; `setWakeReply` changes it. */
+  wakeReply?: StubLaunchReply;
   /** Tools this T3 does not expose: each answers as T3 0.1.6 answers an unknown tool. */
   missingTools?: readonly string[];
 };
@@ -94,6 +96,9 @@ export type StubLaunchReply =
   | 'is_error'
   | 'no_thread'
   | 'unknown_tool';
+
+/** The text of the stub's send refusal: T3's words, which never reach a log or the console. */
+export const STUB_WAKE_REFUSAL = 'Thread has broader modes than the sender';
 
 /** The text of the stub's launch refusal: T3's words, which never reach a log or the console. */
 export const STUB_LAUNCH_REFUSAL = "Branch 'feature/taken' already exists";
@@ -125,11 +130,19 @@ const unknownTool = (name: string) => ({ code: -32602, message: `Tool '${name}' 
 export function stubT3(options: StubOptions) {
   const requests: StubRequest[] = [];
   const codes = new Map<string, { challenge: string; clientId: string; redirectUri: string }>();
-  const state: { acceptToken: boolean; codeCounter: number; launchReply: StubLaunchReply } = {
+  const state: {
+    acceptToken: boolean;
+    codeCounter: number;
+    launchReply: StubLaunchReply;
+    wakeReply: StubLaunchReply;
+  } = {
     acceptToken: true,
     codeCounter: 0,
     launchReply: options.launchReply ?? 'answer',
+    wakeReply: options.wakeReply ?? 'answer',
   };
+  /** Each `t3_thread_send` call's arguments, in order. */
+  const wakes: Record<string, unknown>[] = [];
   /** Each `t3_thread_launch` call's arguments, in order. */
   const launches: Record<string, unknown>[] = [];
   /** The thread made for each `clientRequestId`: T3 answers the same thread for the same id. */
@@ -333,6 +346,42 @@ export function stubT3(options: StubOptions) {
     });
   };
 
+  /** `t3_thread_send`: record the call, then answer as set. */
+  const send = async (
+    id: number | undefined,
+    args: Record<string, unknown>,
+    signal: AbortSignal | null | undefined,
+  ) => {
+    wakes.push(args);
+    switch (state.wakeReply) {
+      case 'is_error': {
+        return rpcReply({
+          id,
+          jsonrpc: '2.0',
+          result: { content: [{ text: STUB_WAKE_REFUSAL, type: 'text' }], isError: true },
+        });
+      }
+      case 'unknown_tool': {
+        return rpcReply({ error: unknownTool('t3_thread_send'), id, jsonrpc: '2.0' });
+      }
+      case 'drop': {
+        throw new TypeError('fetch failed');
+      }
+      case 'hang': {
+        await once(signal ?? new EventTarget(), 'abort');
+        throw new Error('aborted');
+      }
+      default: {
+        const payload = { accepted: true, threadId: args.threadId };
+        return rpcReply({
+          id,
+          jsonrpc: '2.0',
+          result: { content: [{ text: JSON.stringify(payload), type: 'text' }] },
+        });
+      }
+    }
+  };
+
   const mcp = async (request: Request, body: string, signal: AbortSignal | null | undefined) => {
     if (
       request.headers.get('authorization') !== `Bearer ${STUB_ACCESS_TOKEN}` ||
@@ -371,6 +420,9 @@ export function stubT3(options: StubOptions) {
     }
     if (name === 't3_thread_launch') {
       return launch(message.id, message.params?.arguments ?? {}, signal);
+    }
+    if (name === 't3_thread_send') {
+      return send(message.id, message.params?.arguments ?? {}, signal);
     }
     if (name === 't3_environment_links') {
       if (options.links === 'absent') {
@@ -503,8 +555,14 @@ export function stubT3(options: StubOptions) {
     setLaunchReply(reply: StubLaunchReply) {
       state.launchReply = reply;
     },
+    /** Change how `t3_thread_send` answers from now on. */
+    setWakeReply(reply: StubLaunchReply) {
+      state.wakeReply = reply;
+    },
     /** The thread made for each `clientRequestId`. */
     threads,
+    /** Each `t3_thread_send` call's arguments, in order. */
+    wakes,
   };
 }
 

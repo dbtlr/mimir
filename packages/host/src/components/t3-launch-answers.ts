@@ -9,7 +9,7 @@ const openLink = (link: string) => () => {
   window.open(link, '_self');
 };
 
-const openAction = (origin: string, handles: T3ThreadHandles) => {
+export const openAction = (origin: string, handles: T3ThreadHandles) => {
   const link = t3ThreadLink(origin, handles);
   return link === null ? undefined : { label: 'Open in T3', onClick: openLink(link) };
 };
