@@ -117,6 +117,7 @@ async function heldIds(board: ParityBoard) {
   const held = await board.store.export();
   return {
     artifacts: byId(held.artifacts.map((a) => `${a.key}-a${String(a.seq)}`)),
+    deliveries: byId(held.deliveries.map((d) => d.id)),
     nodes: byId(held.nodes.map((n) => n.id)),
     pads: byId(held.scratchpads.map((p) => p.id)),
   };
@@ -151,6 +152,10 @@ export async function boardSnapshot(
         id,
         await read(() => engine.getArtifact({ content: true, id })),
       ]),
+    ),
+    // Each delivery with its limitations, declined findings, and journal anchor, as `get` reads it.
+    deliveries: await Promise.all(
+      ids.deliveries.map(async (id) => [id, await read(() => engine.getDelivery({ id }))]),
     ),
     // Each project's tasks in board order, by id alone. A task's rank is stored, but no record
     // carries it as a field: the order of the board is how it reads (ADR 0007).

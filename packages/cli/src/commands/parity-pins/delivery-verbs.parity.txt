@@ -17,7 +17,9 @@ exit 0
 | 2026-10-01 12:00 UTC member: - -> joined MMR-3
 | 2026-10-01 12:00 UTC lifecycle: agreed -> running
 --- state
-unchanged
+~ deliveries[MMR-d1].lifecycle: "agreed" -> "running"
+~ deliveries[MMR-d1].elapsed_minutes: null -> 0
++ deliveries[MMR-d1].history[@1]: {"kind":"lifecycle","from_value":"agreed","to_value":"running","reason":null,"task":null,"at":"2026-10-01T12:00:00.000Z"}
 
 ### start argv: MMR-d1 -f table
 exit 0
@@ -38,14 +40,18 @@ exit 0
 | 2026-10-01 12:00 UTC member: - -> joined MMR-3
 | 2026-10-01 12:00 UTC lifecycle: agreed -> running
 --- state
-unchanged
+~ deliveries[MMR-d1].lifecycle: "agreed" -> "running"
+~ deliveries[MMR-d1].elapsed_minutes: null -> 0
++ deliveries[MMR-d1].history[@1]: {"kind":"lifecycle","from_value":"agreed","to_value":"running","reason":null,"task":null,"at":"2026-10-01T12:00:00.000Z"}
 
 ### start argv: MMR-d1 -f ids
 exit 0
 --- stdout
 | MMR-d1
 --- state
-unchanged
+~ deliveries[MMR-d1].lifecycle: "agreed" -> "running"
+~ deliveries[MMR-d1].elapsed_minutes: null -> 0
++ deliveries[MMR-d1].history[@1]: {"kind":"lifecycle","from_value":"agreed","to_value":"running","reason":null,"task":null,"at":"2026-10-01T12:00:00.000Z"}
 
 ### start argv: MMR-d1 -f json
 exit 0
@@ -92,7 +98,9 @@ exit 0
 |   ]
 | }
 --- state
-unchanged
+~ deliveries[MMR-d1].lifecycle: "agreed" -> "running"
+~ deliveries[MMR-d1].elapsed_minutes: null -> 0
++ deliveries[MMR-d1].history[@1]: {"kind":"lifecycle","from_value":"agreed","to_value":"running","reason":null,"task":null,"at":"2026-10-01T12:00:00.000Z"}
 
 ### start argv: MMR-d1 -f jsonl
 exit 0
@@ -139,7 +147,9 @@ exit 0
 |   ]
 | }
 --- state
-unchanged
+~ deliveries[MMR-d1].lifecycle: "agreed" -> "running"
+~ deliveries[MMR-d1].elapsed_minutes: null -> 0
++ deliveries[MMR-d1].history[@1]: {"kind":"lifecycle","from_value":"agreed","to_value":"running","reason":null,"task":null,"at":"2026-10-01T12:00:00.000Z"}
 
 ### start argv: MMR-d1 --session explicit
 exit 1
@@ -188,7 +198,9 @@ exit 0
 | 2026-10-01 12:00 UTC member: - -> joined MMR-3
 | 2026-10-01 12:00 UTC hold: none -> stopped - reason
 --- state
-unchanged
+~ deliveries[MMR-d1].hold: "none" -> "stopped"
+~ deliveries[MMR-d1].hold_reason: null -> "reason"
++ deliveries[MMR-d1].history[@1]: {"kind":"hold","from_value":"none","to_value":"stopped","reason":"reason","task":null,"at":"2026-10-01T12:00:00.000Z"}
 
 ### park argv: MMR-d1 reason
 exit 0
@@ -209,7 +221,9 @@ exit 0
 | 2026-10-01 12:00 UTC member: - -> joined MMR-3
 | 2026-10-01 12:00 UTC hold: none -> paused - reason
 --- state
-unchanged
+~ deliveries[MMR-d1].hold: "none" -> "paused"
+~ deliveries[MMR-d1].hold_reason: null -> "reason"
++ deliveries[MMR-d1].history[@1]: {"kind":"hold","from_value":"none","to_value":"paused","reason":"reason","task":null,"at":"2026-10-01T12:00:00.000Z"}
 
 ### unblock argv: MMR-d1
 exit 0
@@ -230,7 +244,9 @@ exit 0
 | 2026-10-01 12:00 UTC hold: none -> stopped - wait
 | 2026-10-01 12:00 UTC hold: stopped -> none
 --- state
-unchanged
+~ deliveries[MMR-d1].hold: "stopped" -> "none"
+~ deliveries[MMR-d1].hold_reason: "wait" -> null
++ deliveries[MMR-d1].history[@2]: {"kind":"hold","from_value":"stopped","to_value":"none","reason":null,"task":null,"at":"2026-10-01T12:00:00.000Z"}
 
 ### unpark argv: MMR-d1
 exit 0
@@ -251,7 +267,9 @@ exit 0
 | 2026-10-01 12:00 UTC hold: none -> paused - wait
 | 2026-10-01 12:00 UTC hold: paused -> none
 --- state
-unchanged
+~ deliveries[MMR-d1].hold: "paused" -> "none"
+~ deliveries[MMR-d1].hold_reason: "wait" -> null
++ deliveries[MMR-d1].history[@2]: {"kind":"hold","from_value":"paused","to_value":"none","reason":null,"task":null,"at":"2026-10-01T12:00:00.000Z"}
 
 ### submit argv: MMR-d1
 exit 0
@@ -273,7 +291,8 @@ exit 0
 | 2026-10-01 12:00 UTC lifecycle: agreed -> running
 | 2026-10-01 12:00 UTC lifecycle: running -> milestone
 --- state
-unchanged
+~ deliveries[MMR-d1].lifecycle: "running" -> "milestone"
++ deliveries[MMR-d1].history[@2]: {"kind":"lifecycle","from_value":"running","to_value":"milestone","reason":null,"task":null,"at":"2026-10-01T12:00:00.000Z"}
 
 ### return argv: MMR-d1 revise
 exit 0
@@ -296,7 +315,8 @@ exit 0
 | 2026-10-01 12:00 UTC lifecycle: running -> milestone
 | 2026-10-01 12:00 UTC lifecycle: milestone -> running - revise
 --- state
-unchanged
+~ deliveries[MMR-d1].lifecycle: "milestone" -> "running"
++ deliveries[MMR-d1].history[@3]: {"kind":"lifecycle","from_value":"milestone","to_value":"running","reason":"revise","task":null,"at":"2026-10-01T12:00:00.000Z"}
 
 ### land argv: MMR-d1 -f json
 exit 0
@@ -357,6 +377,9 @@ exit 0
 |   ]
 | }
 --- state
+~ deliveries[MMR-d1].lifecycle: "milestone" -> "landed"
+- deliveries[MMR-d1].members[@0]: "MMR-3"
++ deliveries[MMR-d1].history[@3]: {"kind":"lifecycle","from_value":"milestone","to_value":"landed","reason":null,"task":null,"at":"2026-10-01T12:00:00.000Z"}
 ~ nodes[MMR-3].completedAt: null -> "2026-10-01T12:00:00.000Z"
 + nodes[MMR-3].history[@3]: {"at":"2026-10-01T12:00:00.000Z","from":"staged","kind":"lifecycle","reason":null,"to":"done"}
 ~ nodes[MMR-3].lifecycle: "staged" -> "done"
@@ -420,6 +443,10 @@ exit 0
 |   ]
 | }
 --- state
+~ deliveries[MMR-d1].lifecycle: "running" -> "abandoned"
+- deliveries[MMR-d1].members[@0]: "MMR-3"
++ deliveries[MMR-d1].history[@2]: {"kind":"member","from_value":null,"to_value":"released","reason":null,"task":"MMR-3","at":"2026-10-01T12:00:00.000Z"}
++ deliveries[MMR-d1].history[@3]: {"kind":"lifecycle","from_value":"running","to_value":"abandoned","reason":"reset","task":null,"at":"2026-10-01T12:00:00.000Z"}
 ~ nodes[MMR-3].delivery: "MMR-d1" -> null
 
 ### abandon argv: MMR-d1
