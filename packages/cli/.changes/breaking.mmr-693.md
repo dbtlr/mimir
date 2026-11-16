@@ -3,8 +3,19 @@
 
 ### Migration
 
-Upgrade the host before clients. Regenerate Engine adapters: `deliveryUpdate`
-now returns the detail view, and delivery events admit `follow_up`.
-The current unreleased version window remains `0.29.0-next`.
-Older exports import without follow-up links. New exports require a binary
-that reads schema version 14. Validate with `get KEY-dN -f json` and `doctor`.
+**Affected surface.** Engine and tRPC clients, CLI and MCP output, store schema,
+and store export and import.
+
+**Why.** A delivery links work it gave rise to, including follow-ups filed after
+landing, and retains the history of those links.
+
+**Before and after.** `deliveryUpdate` now returns the detail view, `get` carries
+`follow_ups`, and delivery events admit `follow_up`. Store migration 0021 adds
+the link table; export version 14 carries its rows. Older exports import without
+links. The current unreleased version window remains `0.29.0-next`.
+
+**Steps.** Upgrade the host before clients. Regenerate Engine adapters from the
+contract snapshot. Read new exports with a binary that supports version 14.
+
+**Validation.** Link a record with `update KEY-dN --follow-up ID`, inspect
+`get KEY-dN -f json`, and run `doctor`.
