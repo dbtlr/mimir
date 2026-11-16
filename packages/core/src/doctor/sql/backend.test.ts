@@ -425,6 +425,8 @@ describe.each(arms)('$name', (arm) => {
         "INSERT INTO checklist_item (node_id, number, content, state, reason, created_at, settled_at) VALUES ('MMR-404', 1, 'x', 'open', NULL, '2026-01-01T00:00:00.000Z', NULL)",
         "INSERT INTO checklist_item (node_id, number, content, state, reason, created_at, settled_at) VALUES ('MMR-1', 1, 'x', 'open', NULL, '2026-01-01T00:00:00.000Z', '2026-01-02T00:00:00.000Z')",
         "INSERT INTO checklist_item (node_id, number, content, state, reason, created_at, settled_at) VALUES ('MMR-1', 2, 'x', 'checked', NULL, '2026-01-02T00:00:00.000Z', '2026-01-01T00:00:00.000Z')",
+        "INSERT INTO checklist_item (node_id, number, content, state, reason, created_at, settled_at) VALUES ('MMR-4', 5, 'x', 'open', NULL, 'banana', NULL)",
+        "INSERT INTO checklist_item (node_id, number, content, state, reason, created_at, settled_at) VALUES ('MMR-4', 6, 'x', 'checked', NULL, '2026-11-16T09:00:00.000Z', '2026-11-16T10:00:00.000+05:00')",
       ]);
       const messages = byCode(
         (await f.doctor.diagnose(undefined)).findings,
@@ -442,6 +444,8 @@ describe.each(arms)('$name', (arm) => {
           'MMR-1 item 1 is open but has a settled_at',
           'MMR-1 item 2 names an initiative, not a task',
           'MMR-1 item 2 settled_at is before its created_at',
+          'MMR-4 item 5 created_at is not a canonical UTC instant',
+          'MMR-4 item 6 settled_at is not a canonical UTC instant',
         ].toSorted(),
       );
     } finally {

@@ -129,6 +129,22 @@ describe.each(backends)('checklist transfer ($name)', (backend) => {
         [{ ...checked, settled_at: '2000-01-01T00:00:00.000Z' }],
         'settled_at is before its created_at',
       ],
+      ['created_at that is no instant', [{ ...open, created_at: 'banana' }], 'created_at is not'],
+      [
+        'created_at with an offset',
+        [{ ...open, created_at: '2026-11-16T09:00:00.000+05:00' }],
+        'created_at is not',
+      ],
+      [
+        'settled_at that is no instant',
+        [{ ...checked, settled_at: 'banana' }],
+        'settled_at is not',
+      ],
+      [
+        'settled_at with an offset',
+        [{ ...checked, created_at: '2026-11-16T09:00:00.000Z', settled_at: '2026-11-16T10:00:00.000+05:00' }],
+        'settled_at is not',
+      ],
     ];
     // A refused import writes nothing, so one target serves every case.
     const target = await backend.make();

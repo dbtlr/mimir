@@ -5,7 +5,7 @@ import { conflict, notFound, validation } from '../errors';
 import { parseIdentity } from '../ids';
 import { requireNode, stamp } from '../mutations/common';
 import type { Store, StoreWriter } from '../store';
-import { now } from '../time';
+import { isCanonicalInstant, now } from '../time';
 
 /**
  * The checklist verbs (ADR 0044). Each runs in one transaction: it stamps the
@@ -69,10 +69,15 @@ async function openItem(w: StoreWriter, task: string, number: number): Promise<C
   return item;
 }
 
-/** The instant a settle records: never earlier than the item's own `created_at`. */
-function settledAt(item: ChecklistItem): string {
+/**
+ * The instant a settle records: never earlier than the item's own `created_at`.
+ * Canonical instants sort as instants, so the comparison is on parsed time and
+ * only a canonical `created_at` is ever copied; anything else yields `now()`.
+ */
+export function settledAt(item: ChecklistItem): string {
   const at = now();
-  return at < item.created_at ? item.created_at : at;
+  const created = item.created_at;
+  return isCanonicalInstant(created) && Date.parse(at) < Date.parse(created) ? created : at;
 }
 
 async function write(

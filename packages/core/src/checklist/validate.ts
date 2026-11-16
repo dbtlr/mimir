@@ -2,6 +2,8 @@ import { CHECKLIST_ITEM_STATE_VALUES } from '@mimir/contract';
 import type { ChecklistRecord } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
+import { isCanonicalInstant } from '../time';
+
 /**
  * The rules the checklist verbs keep, checked on stored or imported rows
  * (ADR 0044). Import and doctor share it, so a row one refuses the other
@@ -53,7 +55,16 @@ export function checklistFaults(
     if (item.state !== 'open' && item.settled_at === null) {
       fail(`is ${item.state} without a settled_at`);
     }
-    if (item.settled_at !== null && item.settled_at < item.created_at) {
+    // The stamps are compared as instants, so only canonical ones are compared.
+    const createdOk = isCanonicalInstant(item.created_at);
+    const settledOk = item.settled_at === null || isCanonicalInstant(item.settled_at);
+    if (!createdOk) {
+      fail('created_at is not a canonical UTC instant');
+    }
+    if (!settledOk) {
+      fail('settled_at is not a canonical UTC instant');
+    }
+    if (createdOk && settledOk && item.settled_at !== null && item.settled_at < item.created_at) {
       fail('settled_at is before its created_at');
     }
   }
