@@ -217,6 +217,10 @@ export function createEngineRouter(engine: Engine) {
       .output(engineSchemas.confirm.output)
       .mutation(({ input }) => engine.confirm(input)),
     console: t.router({
+      deliveryPage: procedure
+        .input((value: unknown) => parseEngineInput(consoleSchemas.deliveryPage.input, value))
+        .output(consoleSchemas.deliveryPage.output)
+        .query(({ input }) => engine.console.deliveryPage(input)),
       nodeWork: procedure
         .input((value: unknown) => parseEngineInput(consoleSchemas.nodeWork.input, value))
         .output(consoleSchemas.nodeWork.output)
@@ -229,6 +233,10 @@ export function createEngineRouter(engine: Engine) {
         .input((value: unknown) => parseEngineInput(consoleSchemas.overview.input, value))
         .output(consoleSchemas.overview.output)
         .query(({ input }) => engine.console.overview(input)),
+      phaseDeliveries: procedure
+        .input((value: unknown) => parseEngineInput(consoleSchemas.phaseDeliveries.input, value))
+        .output(consoleSchemas.phaseDeliveries.output)
+        .query(({ input }) => engine.console.phaseDeliveries(input)),
       projectWork: procedure
         .input((value: unknown) => parseEngineInput(consoleSchemas.projectWork.input, value))
         .output(consoleSchemas.projectWork.output)

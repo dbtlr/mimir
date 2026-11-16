@@ -11,6 +11,7 @@ import type {
 } from '@mimir/contract';
 
 import { assertBoardActive } from '../archive-lock';
+import type { DerivationSet } from '../derive';
 import { deriveSet, findNodeInSet, nodeStatusWord } from '../derive';
 import { blankProse, notFound, projectNotFound, validation } from '../errors';
 import { parseIdentity, renderArtifactRef, renderDeliveryRef } from '../ids';
@@ -179,7 +180,11 @@ export async function createDelivery(
  * order, and where its run journal is — the live pad's UUID and the frozen
  * journals' ids, oldest first (ADR 0042, MMR-691).
  */
-async function detailOf(store: Store, stored: StoredDelivery): Promise<DeliveryDetailView> {
+async function detailOf(
+  store: Store,
+  stored: StoredDelivery,
+  snapshot?: DerivationSet,
+): Promise<DeliveryDetailView> {
   const id = renderDeliveryRef(stored);
   const entries = await store.deliveries.findings(stored.key, stored.seq);
   const pad = await store.scratchpads.forDelivery(id);
@@ -188,7 +193,7 @@ async function detailOf(store: Store, stored: StoredDelivery): Promise<DeliveryD
   const links = await store.deliveries.followUps(stored.key, stored.seq);
   // One derivation serves every linked task's status word; none when only seeds are linked.
   const set = links.some((link) => parseIdentity(link.id)?.kind !== 'seed')
-    ? deriveSet(await store.loadWorkingSet())
+    ? (snapshot ?? deriveSet(await store.loadWorkingSet()))
     : undefined;
   for (const link of links) {
     const { seed, ...rest } = link;
@@ -230,7 +235,11 @@ async function detailOf(store: Store, stored: StoredDelivery): Promise<DeliveryD
 }
 
 /** `get KEY-dN` — one delivery with its whole history. An archived board reads as absent. */
-export async function getDelivery(store: Store, id: string): Promise<DeliveryDetailView> {
+export async function getDelivery(
+  store: Store,
+  id: string,
+  snapshot?: DerivationSet,
+): Promise<DeliveryDetailView> {
   const ref = requireDeliveryRef(id);
   const projects = await store.loadProjects();
   const stored =
@@ -240,7 +249,7 @@ export async function getDelivery(store: Store, id: string): Promise<DeliveryDet
   if (stored === undefined) {
     throw notFound(`${id} doesn't exist`);
   }
-  return detailOf(store, stored);
+  return detailOf(store, stored, snapshot);
 }
 
 /**

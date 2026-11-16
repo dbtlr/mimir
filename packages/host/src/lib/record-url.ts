@@ -114,3 +114,20 @@ export function bareIdRedirect(segment: string) {
   const artifact = BARE_ARTIFACT.exec(upper);
   return artifact === null ? undefined : artifactLink(`${artifact[1] ?? ''}-a${artifact[2] ?? ''}`);
 }
+
+/** Router target and canonical address for a delivery record. */
+export function deliveryLink(id: string) {
+  const dash = id.indexOf('-');
+  return {
+    params: { key: id.slice(0, dash), seq: id.slice(dash + 2) },
+    to: '/p/$key/d{$seq}' as const,
+  };
+}
+export function deliveryPath(id: string): string {
+  const { params } = deliveryLink(id);
+  return `/p/${params.key}/d${params.seq}`;
+}
+export function deliveryIdOf(key: string, seq: string): string | undefined {
+  const upper = key.toUpperCase();
+  return KEY.test(upper) && NODE_SUFFIX.test(seq) ? `${upper}-d${seq}` : undefined;
+}

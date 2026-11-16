@@ -81,6 +81,7 @@ beforeAll(async () => {
     submitted: submitted.id,
   };
   local = new LocalEngine(store, { findings: findingsProviderOf(doctor) });
+  await local.deliveryCreate({ phase: phase.id, tasks: [ready.id], title: 'Delivery view' });
   const handle = createEngineHandler(local, {
     verifyToken: fixture.tokens.verify,
     version: WINDOW_VERSION,
@@ -101,6 +102,8 @@ afterAll(async () => fixture.close());
 type Case = { name: string; engine: (engine: ConsoleEngine) => Promise<unknown> };
 
 const cases: Case[] = [
+  { engine: (engine) => engine.deliveryPage({ id: 'ENG-d1' }), name: 'deliveryPage' },
+  { engine: (engine) => engine.phaseDeliveries({ id: ids.phase }), name: 'phaseDeliveries' },
   { engine: (engine) => engine.review({ timeZone: 'UTC' }), name: 'review' },
   {
     engine: (engine) => engine.projectWork({ project: 'ENG', timeZone: 'UTC' }),

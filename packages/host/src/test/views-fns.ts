@@ -1,6 +1,6 @@
 // Shared test seam module, not a test body.
 // oxlint-disable vitest/require-hook
-import { nodeWork, projectWork, review } from '../api/fns/views';
+import { phaseDeliveries, nodeWork, projectWork, review } from '../api/fns/views';
 import type { ReviewReport, WorkReport } from '../api/view-queries';
 import { engineReview, engineWork } from './views-fixtures';
 
@@ -26,6 +26,7 @@ export type ViewsWorld = {
 /** Answer the views' server functions from `world`; the returned state is live. */
 export function serveViews(world: Partial<ViewsWorld> = {}): ViewsWorld {
   const state: ViewsWorld = { nodes: {}, projects: {}, review: engineReview(), ...world };
+  vi.mocked(phaseDeliveries).mockResolvedValue([]);
   vi.mocked(review).mockImplementation(async () => state.review);
   vi.mocked(projectWork).mockImplementation(
     async ({ data }) =>

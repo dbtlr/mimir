@@ -9,6 +9,9 @@ import {
 
 import { warmable } from './lib/chunk-warmup';
 import {
+  deliveryIdOf,
+  deliveryLink,
+  deliveryPath,
   artifactIdOf,
   artifactLink,
   artifactPath,
@@ -115,8 +118,11 @@ export const nodeRoute = createRoute({
  * or undefined when the key or suffix is off the grammar and the page shows
  * not-found.
  */
-function lettered(key: string, letter: 's' | 'a', seq: string): string | undefined {
+function lettered(key: string, letter: 's' | 'a' | 'd', seq: string): string | undefined {
   const bare = seq.replace(/^0+(?=\d)/, '');
+  if (letter === 'd') {
+    return deliveryIdOf(key, bare);
+  }
   return letter === 's' ? seedIdOf(key, bare) : artifactIdOf(key, bare);
 }
 
@@ -125,6 +131,22 @@ function lettered(key: string, letter: 's' | 'a', seq: string): string | undefin
  * The route matches `S41` and `s041` too, so any spelling but the seed's own
  * moves to it, keeping the search.
  */
+export const deliveryRoute = createRoute({
+  beforeLoad: ({ params, location }) => {
+    const id = lettered(params.key, 'd', params.seq);
+    if (id !== undefined && location.pathname !== deliveryPath(id)) {
+      // oxlint-disable-next-line typescript/only-throw-error -- the router's redirect contract
+      throw redirect({ ...deliveryLink(id), replace: true, search: true });
+    }
+  },
+  component: lazyRouteComponent(
+    warmable(async () => import('./routes/delivery')),
+    'DeliveryPage',
+  ),
+  getParentRoute: () => rootRoute,
+  path: '/p/$key/d{$seq}',
+});
+
 export const seedRoute = createRoute({
   beforeLoad: ({ params, location }) => {
     const id = lettered(params.key, 's', params.seq);
@@ -423,6 +445,7 @@ export const consoleRoutes = [
   projectRoute,
   nodeRoute,
   seedRoute,
+  deliveryRoute,
   artifactRoute,
   artifactsRoute,
   seedsRoute,

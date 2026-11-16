@@ -1,7 +1,7 @@
 import type { ConsoleOutput } from '@mimir/contract';
 import { queryOptions } from '@tanstack/react-query';
 
-import { nodeWork, projectWork, review } from './fns/views';
+import { deliveryPage, phaseDeliveries, nodeWork, projectWork, review } from './fns/views';
 import { browserTimeZone } from './queries';
 
 /*
@@ -79,3 +79,15 @@ export const workQuery = (target: WorkTarget) => {
         queryKey: ['nodes', 'work', target.id, zone],
       });
 };
+
+/** One read for the delivery dossier; node invalidation also refreshes member status. */
+export const deliveryPageQuery = (id: string) =>
+  queryOptions({
+    queryFn: () => deliveryPage({ data: { id } }),
+    queryKey: ['nodes', 'delivery', id],
+  });
+export const phaseDeliveriesQuery = (id: string) =>
+  queryOptions({
+    queryFn: () => phaseDeliveries({ data: { id } }),
+    queryKey: ['nodes', 'deliveries', id],
+  });
