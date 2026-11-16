@@ -106,7 +106,12 @@ export function FocusQueue({ offline }: { offline: boolean }) {
           onSkip={() => setCursor(index + 1)}
         />
       ) : (
-        <RecordCard key={needsYouId(current)} row={current} onSkip={() => setCursor(index + 1)} />
+        <RecordCard
+          key={needsYouId(current)}
+          row={current}
+          offline={offline}
+          onSkip={() => setCursor(index + 1)}
+        />
       )}
       {next !== undefined && (
         <section aria-label="Up next" className="flex flex-col gap-1">
@@ -126,21 +131,33 @@ export function FocusQueue({ offline }: { offline: boolean }) {
 }
 
 /**
- * A stopped delivery or a decision: its row and Skip, until MMR-695 adds their
- * controls. Like a task's card it mounts per member, so when it takes the
- * place of one that left, focus lands on Skip rather than the page body.
+ * Decision cards take focus on the card, so a held key cannot answer.
+ * Stopped deliveries keep Skip first; it writes nothing.
  */
-function RecordCard({ row, onSkip }: { row: NeedsYouMember; onSkip: () => void }) {
+function RecordCard({
+  row,
+  offline,
+  onSkip,
+}: {
+  row: NeedsYouMember;
+  offline: boolean;
+  onSkip: () => void;
+}) {
+  const cardRef = useRef<HTMLElement>(null);
   const skipRef = useRef<HTMLButtonElement>(null);
   useLayoutEffect(() => {
     const active = document.activeElement;
     if (active === null || active === document.body) {
-      skipRef.current?.focus({ preventScroll: true });
+      (row.kind === 'decision' ? cardRef.current : skipRef.current)?.focus({ preventScroll: true });
     }
-  }, []);
+  }, [row.kind]);
   return (
-    <section className="flex flex-col gap-3 rounded-lg border border-line bg-well-850 p-5">
-      <NeedsYouRow row={row} />
+    <section
+      ref={cardRef}
+      tabIndex={-1}
+      className="flex flex-col gap-3 rounded-lg border border-line bg-well-850 p-5"
+    >
+      <NeedsYouRow row={row} actions={needsYouActions(row, offline, NO_HANDOFF)} />
       <div className="flex flex-wrap gap-2">
         <ActionButton
           ref={skipRef}

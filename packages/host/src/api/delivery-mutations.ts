@@ -25,7 +25,7 @@ import { t3OriginQuery, useConnectT3 } from './t3-queries';
  * waking write makes one attempt id for the action, sends it with the write,
  * and announces the wake's answer; a Retry goes through `wakeT3` with the
  * state's own `retry`, which carries that attempt. The write refreshes the
- * shared read keys. No page uses these yet.
+ * shared read keys.
  */
 
 /** The wake's toasts, wired to the console: Retry, Reconnect T3, and the Devices page. */
@@ -84,25 +84,49 @@ function useWakingWrite<Fields extends object, Rec>(
 }
 
 /** Clear a delivery's stop and wake its thread. */
-export const useDeliveryUnblock = () => useWakingWrite(deliveryUnblock);
+export const useDeliveryUnblock = () =>
+  useWakingWrite<
+    EngineInput<'deliveryUnblock'>,
+    Awaited<ReturnType<typeof deliveryUnblock>>['record']
+  >(deliveryUnblock);
 
 /** Pause a delivery and wake its thread. */
-export const useDeliveryPark = () => useWakingWrite(deliveryPark);
+export const useDeliveryPark = () =>
+  useWakingWrite<EngineInput<'deliveryPark'>, Awaited<ReturnType<typeof deliveryPark>>['record']>(
+    deliveryPark,
+  );
 
 /** Resume a paused delivery and wake its thread. */
-export const useDeliveryUnpark = () => useWakingWrite(deliveryUnpark);
+export const useDeliveryUnpark = () =>
+  useWakingWrite<
+    EngineInput<'deliveryUnpark'>,
+    Awaited<ReturnType<typeof deliveryUnpark>>['record']
+  >(deliveryUnpark);
 
 /** Send a delivery's milestone back and wake its thread. */
-export const useDeliveryReturn = () => useWakingWrite(deliveryReturn);
+export const useDeliveryReturn = () =>
+  useWakingWrite<
+    EngineInput<'deliveryReturn'>,
+    Awaited<ReturnType<typeof deliveryReturn>>['record']
+  >(deliveryReturn);
 
 /** Abandon a delivery and wake its thread. */
-export const useDeliveryAbandon = () => useWakingWrite(deliveryAbandon);
+export const useDeliveryAbandon = () =>
+  useWakingWrite<
+    EngineInput<'deliveryAbandon'>,
+    Awaited<ReturnType<typeof deliveryAbandon>>['record']
+  >(deliveryAbandon);
 
 /** Edit a delivery and wake the thread its handles name after the edit. */
-export const useDeliveryUpdate = () => useWakingWrite(deliveryUpdate);
+export const useDeliveryUpdate = () =>
+  useWakingWrite<
+    EngineInput<'deliveryUpdate'>,
+    Awaited<ReturnType<typeof deliveryUpdate>>['record']
+  >(deliveryUpdate);
 
 /** Overturn a decision and wake the thread of the delivery it names. */
-export const useOverturn = () => useWakingWrite(overturn);
+export const useOverturn = () =>
+  useWakingWrite<EngineInput<'overturn'>, Awaited<ReturnType<typeof overturn>>['record']>(overturn);
 
 /** Confirm a decision. A confirm never wakes. */
 export function useConfirm() {

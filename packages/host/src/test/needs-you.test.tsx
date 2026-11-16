@@ -1,7 +1,8 @@
 import { QueryClient } from '@tanstack/react-query';
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen, within, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
+import { confirm } from '../api/fns/deliveries';
 import type { NeedsYouMember } from '../api/view-queries';
 import { consoleRoutes } from '../router';
 import { serveBrowse } from './browse-fns';
@@ -13,6 +14,7 @@ import { stubViewport } from './viewport';
 import { engineReview, engineWork, needsYouRow, stripRow } from './views-fixtures';
 import { serveViews } from './views-fns';
 
+vi.mock('../api/fns/deliveries');
 vi.mock('../api/fns/browse');
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
@@ -109,6 +111,7 @@ test('focus walks delivery and decision cards with Skip only and the right up-ne
   await open('/?mode=focus');
   await screen.findByText('Stopped run');
   expect(screen.getByText('Stopped')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Skip' })).toHaveFocus();
   expect(
     within(screen.getByRole('main'))
       .getAllByRole('button')
@@ -124,7 +127,7 @@ test('focus walks delivery and decision cards with Skip only and the right up-ne
     within(screen.getByRole('main'))
       .getAllByRole('button')
       .map((b) => b.textContent),
-  ).toEqual(['Skip']);
+  ).toEqual(['Confirm 1', 'Take 2', 'Note…', 'Skip']);
   expect(screen.getByRole('link', { name: 'MMR-d1' })).toHaveAttribute('href', '/p/MMR/d1');
 });
 
@@ -138,7 +141,7 @@ test('a work page preserves the ordered mixed list', async () => {
   expect(within(main).getByText('Stopped')).toBeInTheDocument();
 });
 
-test('focus lands on a decision card’s Skip after Skip on a task card', async () => {
+test('focus lands on a decision card itself after Skip on a task card', async () => {
   const [, decision] = rows();
   const task = needsYouRow(
     { id: 'MMR-480', status: 'ready', title: 'Pick the skip behavior' },
@@ -162,5 +165,88 @@ test('focus lands on a decision card’s Skip after Skip on a task card', async 
   skip.focus();
   fireEvent.click(skip);
   await screen.findByRole('heading', { name: 'Keep the rail?' });
-  expect(screen.getByRole('button', { name: 'Skip' })).toHaveFocus();
+  expect(screen.getByRole('heading', { name: 'Keep the rail?' }).closest('section')).toHaveFocus();
+});
+
+test.each(['review', 'popover'])(
+  'answer hands focus to the next decision row, never a chip or link (%s)',
+  async (surface) => {
+    const first = rows()[1]!;
+    if (first.kind !== 'decision') {
+      throw new Error('fixture');
+    }
+    const second: NeedsYouMember = {
+      ...first,
+      decision: { ...first.decision, id: 'MMR-q2', question: 'Second question?', seq: 2 },
+    };
+    const members = [first, second];
+    const world = serveViews({
+      review: engineReview({
+        needsYou: [{ project: { key: 'MMR', name: 'Mimir' }, rows: members }],
+        projects: [stripRow({ key: 'MMR', name: 'Mimir' }, { needsYou: 2 })],
+        queue: [
+          { id: 'MMR-q1', kind: 'decision' },
+          { id: 'MMR-q2', kind: 'decision' },
+        ],
+      }),
+    });
+    vi.mocked(confirm).mockImplementation(async () => {
+      world.review = engineReview({
+        needsYou: [{ project: { key: 'MMR', name: 'Mimir' }, rows: [second] }],
+        projects: [stripRow({ key: 'MMR', name: 'Mimir' }, { needsYou: 1 })],
+        queue: [{ id: 'MMR-q2', kind: 'decision' }],
+      });
+      return { ...first.decision, history: [] };
+    });
+    if (surface === 'popover') {
+      await renderShell('/p/MMR');
+    } else {
+      await open('/');
+    }
+    let scope: HTMLElement;
+    if (surface === 'popover') {
+      fireEvent.click(await screen.findByRole('button', { name: '2 need you' }));
+      scope = await screen.findByRole('dialog', { name: 'Needs you' });
+    } else {
+      await screen.findByRole('heading', { name: 'Keep the rail?' });
+      scope = screen.getByRole('main');
+    }
+    const chip = await within(scope).findByRole('button', {
+      name: 'Confirm option 1 for MMR-q1: Keep',
+    });
+    chip.focus();
+    fireEvent.click(chip);
+    await waitFor(() => expect(chip).not.toBeInTheDocument());
+    const next = within(scope)
+      .getByRole('heading', { name: 'Second question?' })
+      .closest('[data-row-id]');
+    await waitFor(() => expect(next).toHaveFocus());
+    expect(document.activeElement?.tagName).toBe('DIV');
+    expect(next?.querySelector('[data-row-actions]')).toBeNull();
+    for (const action of next!.querySelectorAll('button, a')) {
+      expect(action).not.toHaveFocus();
+    }
+    fireEvent.keyDown(next!, { key: 'Enter' });
+    expect(confirm).toHaveBeenCalledExactlyOnceWith({ data: { id: 'MMR-q1' } });
+  },
+);
+
+test.each(['/p/MMR', '/?mode=focus'])('decision answer chips are wired on %s', async (path) => {
+  const first = rows()[1]!;
+  if (first.kind !== 'decision') {
+    throw new Error('fixture');
+  }
+  const members = [first];
+  serveViews({
+    projects: { MMR: engineWork({ needsYou: members }) },
+    review: engineReview({
+      needsYou: [{ project: { key: 'MMR', name: 'Mimir' }, rows: members }],
+      projects: [stripRow({ key: 'MMR', name: 'Mimir' }, { needsYou: 1 })],
+      queue: [{ id: first.decision.id, kind: 'decision' }],
+    }),
+  });
+  vi.mocked(confirm).mockResolvedValue({ ...first.decision, history: [] });
+  await open(path);
+  fireEvent.click(await screen.findByRole('button', { name: 'Confirm option 1 for MMR-q1: Keep' }));
+  await waitFor(() => expect(confirm).toHaveBeenCalledExactlyOnceWith({ data: { id: 'MMR-q1' } }));
 });
