@@ -591,8 +591,11 @@ attempt's grammar (16 to 64 of `[A-Za-z0-9_-]`); a Retry reuses it, so T3 can
 treat it as the same send. A duplicate is harmless in any case: the message
 only points at the since read.
 
-The send uses the adapter's default 10-second timeout, and the server
-function waits for it, so its answer carries the outcome.
+Each request of the send uses the adapter's default 10-second timeout, as
+every adapter call does. Opening the MCP session and sending take three
+requests, so a T3 that answers slowly at each step can hold the answer for up
+to about 30 seconds; the write is already saved. The server function waits
+for the send, so its answer carries the outcome.
 
 ### The answer
 

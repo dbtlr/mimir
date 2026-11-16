@@ -52,7 +52,13 @@ const isSince = (value: unknown): value is string => {
     return false;
   }
   const time = Date.parse(value);
-  return !Number.isNaN(time) && time >= SINCE_MIN && time <= SINCE_MAX;
+  // A rolled-over date (Feb 30, hour 24) parses but is not its own spelling; the CLI refuses it.
+  return (
+    !Number.isNaN(time) &&
+    time >= SINCE_MIN &&
+    time <= SINCE_MAX &&
+    new Date(time).toISOString() === value
+  );
 };
 
 const shapeSchema = z.strictObject({

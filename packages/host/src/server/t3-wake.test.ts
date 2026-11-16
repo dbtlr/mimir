@@ -427,6 +427,7 @@ describe('wakeT3', () => {
     ['attempt', { attempt: 'short' }],
     ['since', { since: '2026-11-16T09:10:02Z' }],
     ['since', { since: '0099-01-01T00:00:00.000Z' }],
+    ['since', { since: '2026-02-30T00:00:00.000Z' }],
   ])('a bad %s reads invalid and sends nothing', async (field, change) => {
     const h = harness();
     expect(await h.adapter.wakeT3({ ...retryFor(), ...change })).toEqual({
