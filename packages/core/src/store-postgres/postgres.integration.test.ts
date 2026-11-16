@@ -78,6 +78,7 @@ lane('upgradeSchema builds the schema from empty, and the gate then passes', asy
           '0015_delivery',
           '0016_delivery_membership',
           '0017_decision',
+          '0018_checklist_item',
         ],
         from: 0,
         to: SCHEMA_VERSION,
