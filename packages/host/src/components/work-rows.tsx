@@ -282,7 +282,7 @@ function AnswerAction({
   );
 }
 
-/** What a needs-you row offers: an answer on a question, or nothing for a block. */
+/** What a needs-you row offers: answer chips for a provisional decision, an answer for a question, or nothing for a block. */
 export function needsYouActions(
   row: NeedsYouMember,
   offline: boolean,

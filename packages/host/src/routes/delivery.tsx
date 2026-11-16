@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import {
   useDeliveryUnblock,
@@ -54,24 +54,49 @@ function DeliveryRecord({ id }: { id: string }) {
   const abandon = useDeliveryAbandon();
   const pending = unblock.isPending || park.isPending || unpark.isPending || abandon.isPending;
   const disabled = conn.offline || pending;
-  const [dialog, setDialog] = useState<'pause' | 'abandon' | null>(null);
+  // The dialog stays mounted so Base UI can return focus to its opener on close.
+  const [dialog, setDialog] = useState<'pause' | 'abandon'>('pause');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  // Set before `mutate`, since the verbs only disable after TanStack re-renders.
+  const inFlight = useRef(false);
+  const [refusals, setRefusals] = useState(0);
+  const refocused = useRef(0);
   const heading = useRef<HTMLHeadingElement>(null);
-  const dialogCommitted = useRef(false);
   const control = useRef<HTMLButtonElement | null>(null);
   const { handoff, headingRef } = useRowFocusHandoff(query.data?.decisions.map((d) => d.id) ?? []);
   useLayoutEffect(() => {
-    if (control.current && !control.current.isConnected && dialog === null) {
+    if (control.current && !control.current.isConnected && !dialogOpen) {
       if (document.activeElement === document.body) {
         heading.current?.focus();
       }
       control.current = null;
     }
   });
-  const refusal = () =>
-    requestAnimationFrame(() => {
+  // A refused verb takes focus back once the write settled and its chip is enabled again.
+  useEffect(() => {
+    if (refusals !== refocused.current && !pending) {
+      refocused.current = refusals;
       control.current?.focus();
       control.current = null;
+    }
+  }, [refusals, pending]);
+  // Runs a one-tap verb unless another write is already in flight.
+  const verb = (
+    event: { currentTarget: HTMLButtonElement },
+    send: (callbacks: { onError: () => void; onSettled: () => void }) => void,
+  ) => {
+    if (inFlight.current) {
+      return;
+    }
+    inFlight.current = true;
+    control.current = event.currentTarget;
+    send({
+      onError: () => setRefusals((n) => n + 1),
+      onSettled: () => {
+        inFlight.current = false;
+      },
     });
+  };
   if (isNotFound(query.error)) {
     return <NotFoundPage projectKey={id.split('-')[0]}>No record {id}.</NotFoundPage>;
   }
@@ -92,8 +117,7 @@ function DeliveryRecord({ id }: { id: string }) {
       className={PHONE_TOUCH_TARGET}
       disabled={disabled}
       onClick={(event) => {
-        control.current = event.currentTarget;
-        unblock.mutate({ id }, { onError: refusal });
+        verb(event, (callbacks) => unblock.mutate({ id }, callbacks));
       }}
     >
       Clear stop
@@ -136,8 +160,8 @@ function DeliveryRecord({ id }: { id: string }) {
               disabled={disabled}
               onClick={(event) => {
                 control.current = event.currentTarget;
-                dialogCommitted.current = false;
                 setDialog('pause');
+                setDialogOpen(true);
               }}
             >
               Pause…
@@ -150,8 +174,7 @@ function DeliveryRecord({ id }: { id: string }) {
               className={PHONE_TOUCH_TARGET}
               disabled={disabled}
               onClick={(event) => {
-                control.current = event.currentTarget;
-                unpark.mutate({ id }, { onError: refusal });
+                verb(event, (callbacks) => unpark.mutate({ id }, callbacks));
               }}
             >
               Resume
@@ -164,8 +187,8 @@ function DeliveryRecord({ id }: { id: string }) {
             disabled={disabled}
             onClick={(event) => {
               control.current = event.currentTarget;
-              dialogCommitted.current = false;
               setDialog('abandon');
+              setDialogOpen(true);
             }}
           >
             Abandon…
@@ -240,32 +263,27 @@ function DeliveryRecord({ id }: { id: string }) {
   return (
     <>
       <OfflineBanner {...conn} />
-      {dialog !== null && (
-        <ReasonDialog
-          open
-          required
-          keepOpenOnRefusal
-          disabled={disabled}
-          title={`${dialog === 'pause' ? 'Pause' : 'Abandon'} ${id}`}
-          confirmLabel={dialog === 'pause' ? 'Pause delivery' : 'Abandon delivery'}
-          confirmVariant={dialog === 'pause' ? 'outline' : 'destructiveOutline'}
-          finalFocus={control}
-          onClose={() => {
-            setDialog(null);
-            if (!dialogCommitted.current) {
-              control.current = null;
-            }
-          }}
-          onConfirm={async (reason) => {
-            if (dialog === 'pause') {
-              await park.mutateAsync({ id, reason });
-            } else {
-              await abandon.mutateAsync({ id, reason });
-            }
-            dialogCommitted.current = true;
-          }}
-        />
-      )}
+      <ReasonDialog
+        open={dialogOpen}
+        required
+        keepOpenOnRefusal
+        disabled={disabled}
+        closeLocked={pending}
+        title={`${dialog === 'pause' ? 'Pause' : 'Abandon'} ${id}`}
+        confirmLabel={dialog === 'pause' ? 'Pause delivery' : 'Abandon delivery'}
+        confirmVariant={dialog === 'pause' ? 'outline' : 'destructiveOutline'}
+        finalFocus={() => (control.current?.isConnected ? control.current : heading.current)}
+        onClose={() => {
+          setDialogOpen(false);
+        }}
+        onConfirm={async (reason) => {
+          if (dialog === 'pause') {
+            await park.mutateAsync({ id, reason });
+          } else {
+            await abandon.mutateAsync({ id, reason });
+          }
+        }}
+      />
       <RecordLayout large head={head} rail={rail} railLabel="Delivery details">
         {d.hold !== 'none' && (
           <section

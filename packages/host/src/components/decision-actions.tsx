@@ -1,11 +1,12 @@
 import { Dialog } from '@base-ui-components/react/dialog';
 import type { EngineDecision } from '@mimir/contract';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useConfirm, useOverturn } from '../api/delivery-mutations';
 import { PHONE_TOUCH_TARGET } from '../lib/touch-target';
 import { useDisarmWhenSettled } from '../lib/use-row-focus-handoff';
 import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
+import { DIALOG_CANCEL_CLASS, DIALOG_FIELD_CLASS, DIALOG_TITLE_CLASS } from './reason-dialog';
 import { ActionButton } from './ui/action-button';
 
 /** Terminal answers stay outside data-row-actions: handoff must never commit another answer. */
@@ -23,6 +24,10 @@ export function DecisionActions({
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState('');
   const opener = useRef<HTMLButtonElement>(null);
+  // Set before `mutate`, since the buttons only disable after TanStack re-renders.
+  const inFlight = useRef(false);
+  const [refusal, setRefusal] = useState<{ chip: HTMLButtonElement } | null>(null);
+  const refocused = useRef(refusal);
   const pending = confirm.isPending || overturn.isPending;
   const disabled = offline || pending;
   // Successful answers are terminal; keep the handoff armed until the refreshed row leaves.
@@ -33,15 +38,31 @@ export function DecisionActions({
       ? null
       : Math.max(confirm.submittedAt, overturn.submittedAt),
   );
+  // A refused chip takes focus back once the write settled and the chip is enabled again.
+  useEffect(() => {
+    if (refusal !== refocused.current && !pending) {
+      refocused.current = refusal;
+      refusal?.chip.focus();
+    }
+  }, [refusal, pending]);
   function answer(
     input: { option?: number; note?: string },
     confirming: boolean,
     chip?: HTMLButtonElement,
   ) {
+    if (inFlight.current) {
+      return;
+    }
+    inFlight.current = true;
     handoff.arm(decision.id);
     const callbacks = {
       onError: () => {
-        requestAnimationFrame(() => chip?.focus());
+        if (chip) {
+          setRefusal({ chip });
+        }
+      },
+      onSettled: () => {
+        inFlight.current = false;
       },
       onSuccess: () => {
         setOpen(false);
@@ -103,22 +124,26 @@ export function DecisionActions({
         }}
       >
         <Dialog.Portal>
-          <Dialog.Backdrop className="fixed inset-0 z-50 bg-well-950/70" />
+          <Dialog.Backdrop className="fixed inset-0 z-50 bg-well-950/70 backdrop-blur-[2px]" />
           <Dialog.Popup
             finalFocus={opener}
-            className="fixed top-1/2 left-1/2 z-50 flex w-[min(92vw,480px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 rounded-lg border border-line bg-well-900 p-4 shadow-2xl"
+            className="fixed top-1/2 left-1/2 z-50 flex max-h-[90dvh] w-[min(92vw,480px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 overflow-y-auto rounded-lg border border-line bg-well-900 p-4 shadow-2xl outline-none"
           >
-            <Dialog.Title>Answer {decision.id}</Dialog.Title>
-            <Dialog.Description>{decision.question}</Dialog.Description>
+            <Dialog.Title className={DIALOG_TITLE_CLASS}>Answer {decision.id}</Dialog.Title>
+            <Dialog.Description className="text-xs wrap-anywhere text-ink-dim">
+              {decision.question}
+            </Dialog.Description>
             <textarea
               aria-label="Note (required)"
               autoFocus
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className="min-h-20 border border-line p-2"
+              className={DIALOG_FIELD_CLASS}
             />
             <div className="flex flex-wrap justify-end gap-2">
-              <Dialog.Close disabled={pending}>Cancel</Dialog.Close>
+              <Dialog.Close disabled={pending} className={DIALOG_CANCEL_CLASS}>
+                Cancel
+              </Dialog.Close>
               <ActionButton
                 size="sm"
                 variant="outline"

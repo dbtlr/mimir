@@ -644,3 +644,131 @@ test('the delivery Needs you section hands focus to the next decision row', asyn
     ).toHaveFocus(),
   );
 });
+
+async function goOffline(queryClient: QueryClient) {
+  vi.mocked(deliveryPage).mockRejectedValue(new Error('Offline'));
+  await queryClient.invalidateQueries({ queryKey: ['nodes'] });
+  await waitFor(() =>
+    expect(screen.getByRole('button', { hidden: true, name: /Confirm option/ })).toBeDisabled(),
+  );
+}
+
+function holdNone() {
+  const data = fixture();
+  data.delivery.hold = 'none';
+  vi.mocked(deliveryPage).mockResolvedValue(data);
+}
+
+test.each(['Cancel', 'Escape'])(
+  'going offline never traps an open Pause dialog (%s)',
+  async (how) => {
+    holdNone();
+    const { qc: queryClient } = await open();
+    fireEvent.click(await screen.findByRole('button', { name: 'Pause…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Pause MMR-d3' });
+    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'Wait' } });
+    await goOffline(queryClient);
+    expect(within(dialog).getByRole('button', { name: 'Pause delivery' })).toBeDisabled();
+    if (how === 'Cancel') {
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    } else {
+      fireEvent.keyDown(within(dialog).getByRole('textbox'), { key: 'Escape' });
+    }
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+  },
+);
+
+test.each(['Pause', 'Abandon'])(
+  'Cancel on %s… returns focus to the chip that opened it',
+  async (verb) => {
+    holdNone();
+    await open();
+    const chip = await screen.findByRole('button', { name: `${verb}…` });
+    chip.focus();
+    fireEvent.click(chip);
+    const dialog = await screen.findByRole('dialog', { name: `${verb} MMR-d3` });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    await waitFor(() => expect(chip).toHaveFocus());
+  },
+);
+
+test('the Note dialog scrolls inside the viewport and wraps a long question', async () => {
+  const data = fixture();
+  data.decisions[0]!.question = `https://example.test/${'x'.repeat(200)}`;
+  vi.mocked(deliveryPage).mockResolvedValue(data);
+  await open();
+  fireEvent.click(await screen.findByRole('button', { name: /Note for MMR-q1/ }));
+  const dialog = await screen.findByRole('dialog', { name: 'Answer MMR-q1' });
+  expect(dialog).toHaveClass('max-h-[90dvh]');
+  expect(dialog).toHaveClass('overflow-y-auto');
+  expect(within(dialog).getByText(data.decisions[0]!.question)).toHaveClass('wrap-anywhere');
+});
+
+test('two synchronous clicks on a Take chip make one overturn', async () => {
+  await open();
+  const chip = await screen.findByRole('button', { name: 'Take option 2 for MMR-q1: Remove' });
+  fireEvent.click(chip);
+  fireEvent.click(chip);
+  await waitFor(() => expect(overturn).toHaveBeenCalledTimes(1));
+});
+
+test('Take then Confirm in quick succession writes only the first', async () => {
+  await open();
+  fireEvent.click(await screen.findByRole('button', { name: 'Take option 2 for MMR-q1: Remove' }));
+  fireEvent.click(screen.getByRole('button', { name: /Confirm option 1/ }));
+  await waitFor(() => expect(overturn).toHaveBeenCalledTimes(1));
+  expect(confirm).not.toHaveBeenCalled();
+});
+
+test('two synchronous clicks on Answer with note make one overturn', async () => {
+  await open();
+  fireEvent.click(await screen.findByRole('button', { name: /Note for MMR-q1/ }));
+  const dialog = await screen.findByRole('dialog', { name: 'Answer MMR-q1' });
+  fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'Neither' } });
+  const commit = within(dialog).getByRole('button', { name: 'Answer with note' });
+  fireEvent.click(commit);
+  fireEvent.click(commit);
+  await waitFor(() => expect(overturn).toHaveBeenCalledTimes(1));
+});
+
+test('two synchronous clicks on Clear stop make one unblock', async () => {
+  await open();
+  const chip = (await screen.findAllByRole('button', { name: 'Clear stop' }))[0]!;
+  fireEvent.click(chip);
+  fireEvent.click(chip);
+  await waitFor(() => expect(deliveryUnblock).toHaveBeenCalledTimes(1));
+});
+
+test('a double click on Pause delivery makes one park', async () => {
+  holdNone();
+  await open();
+  fireEvent.click(await screen.findByRole('button', { name: 'Pause…' }));
+  const dialog = await screen.findByRole('dialog', { name: 'Pause MMR-d3' });
+  fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'Wait' } });
+  const commit = within(dialog).getByRole('button', { name: 'Pause delivery' });
+  fireEvent.click(commit);
+  fireEvent.click(commit);
+  await waitFor(() => expect(deliveryPark).toHaveBeenCalledTimes(1));
+});
+
+test('a refused chip refocuses only once it is enabled again', async () => {
+  let refuse!: () => void;
+  vi.mocked(confirm).mockImplementation(
+    () =>
+      new Promise((_resolve, reject) => {
+        refuse = () => reject(new Error('Refused answer'));
+      }),
+  );
+  await open();
+  const chip = await screen.findByRole('button', { name: /Confirm option/ });
+  chip.focus();
+  fireEvent.click(chip);
+  chip.blur();
+  await waitFor(() => expect(confirm).toHaveBeenCalledTimes(1));
+  const focusSpy = vi.spyOn(chip, 'focus');
+  refuse();
+  await waitFor(() => expect(chip).toHaveFocus());
+  expect(focusSpy).toHaveBeenCalledTimes(1);
+  expect(chip).toBeEnabled();
+});
