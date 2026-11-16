@@ -60,8 +60,8 @@ afterEach(() => {
 /** A page that reads nothing, so only the shell around it asks for data. */
 const StubPage = () => <main>page</main>;
 
-/** The shell around stub pages, at `path`. */
-function renderShell(path: string) {
+/** The shell around stub pages, at `path`. The stubs are not lazy, so this skips `renderShell`'s router load. */
+function renderShellAroundStubs(path: string) {
   const root = createRootRoute({ component: Shell });
   const routeTree = root.addChildren([
     createRoute({ component: StubPage, getParentRoute: () => root, path: '/' }),
@@ -85,7 +85,7 @@ function renderShell(path: string) {
 describe('the shell on server functions (MMR-537)', () => {
   it('reads its projects, tree, search, and version', async () => {
     const user = userEvent.setup();
-    renderShell('/p/MMR');
+    renderShellAroundStubs('/p/MMR');
 
     // The sidebar's outline comes from the tree; the switcher lists both shelves.
     await expect(screen.findByRole('link', { name: /Console/ })).resolves.toBeInTheDocument();

@@ -1,9 +1,10 @@
 // Fills the web-stream globals a vmThreads jsdom context leaves out.
 //
-// It is the first setup file, so it runs before any module imports
-// @tanstack/react-start, whose RPC frame decoder builds a
-// ByteLengthQueuingStrategy when the module loads. setup.ts mocks that package,
-// and the mock's factory loads the real one.
+// The globals must exist before a test file imports @tanstack/react-start,
+// whose RPC frame decoder builds a ByteLengthQueuingStrategy when the module
+// loads (setup.ts's mock of that package loads the real one). Every setup file
+// runs before a test file's imports, so the position in setupFiles does not
+// matter; it is listed first by convention.
 //
 // Only the browser's own stream globals are copied, and only when missing:
 // node:stream/web also exports names a browser lacks (ReadableStreamTee, a
