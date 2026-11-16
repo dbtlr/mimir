@@ -64,18 +64,33 @@ test('every pull request retains the full Linux suite, including stacked branche
   expect(step?.['working-directory']).toBeUndefined();
 });
 
-test('the gate checks the test budget on the report its test step writes', async () => {
-  const path = new URL('../../../.github/workflows/ci.yml', import.meta.url);
-  const { steps } = z
-    .object({ jobs: z.object({ gate: jobSchema }) })
-    .parse(Bun.YAML.parse(await Bun.file(path).text())).jobs.gate;
-  const report = steps.map((candidate) => gateTestReport(candidate.run)).find(Boolean);
-  expect(report).toBeDefined();
-  const budget = steps.find((candidate) => candidate.run === `bun run test:budget ${report}`);
-  expect(budget).toBeDefined();
-  expect(budget?.if).toBeUndefined();
-  expect(budget?.['continue-on-error']).toBeUndefined();
-});
+/** The junit report path the gate's Test UI step writes, if `run` is that step. */
+function gateUiTestReport(run: string | undefined): string | undefined {
+  return /^bun run test:ui --reporter=default --reporter=github-actions --reporter=junit --outputFile\.junit=("\$RUNNER_TEMP\/[\w.-]+")$/.exec(
+    run ?? '',
+  )?.[1];
+}
+
+test.each([
+  ['bun', gateTestReport],
+  ['ui', gateUiTestReport],
+] as const)(
+  'the gate checks the %s lane against the test budget on the report its test step writes',
+  async (lane, testReport) => {
+    const path = new URL('../../../.github/workflows/ci.yml', import.meta.url);
+    const { steps } = z
+      .object({ jobs: z.object({ gate: jobSchema }) })
+      .parse(Bun.YAML.parse(await Bun.file(path).text())).jobs.gate;
+    const report = steps.map((candidate) => testReport(candidate.run)).find(Boolean);
+    expect(report).toBeDefined();
+    const budget = steps.find(
+      (candidate) => candidate.run === `bun run test:budget ${lane} ${report}`,
+    );
+    expect(budget).toBeDefined();
+    expect(budget?.if).toBeUndefined();
+    expect(budget?.['continue-on-error']).toBeUndefined();
+  },
+);
 
 test('pull requests validate every native release target, including Bun upgrades', async () => {
   const workflow = workflowSchema.parse(Bun.YAML.parse(await Bun.file(workflowPath).text()));

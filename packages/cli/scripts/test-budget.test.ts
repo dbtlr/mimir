@@ -167,16 +167,59 @@ function io(reports: Record<string, string>) {
   };
 }
 
+describe('readJunit, on a Vitest report', () => {
+  // Vitest writes one flat suite per file, named by its path, with no `file`
+  // attribute; a case's name already carries its describe path.
+  const vitest = `<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="3" failures="0" errors="0" time="4.5">
+    <testsuite name="src/test/work-page.test.tsx" timestamp="2026-11-16T16:20:03.959Z" hostname="runner" tests="3" failures="0" errors="0" skipped="1" time="3.25">
+        <testcase classname="src/test/work-page.test.tsx" name="the work page &gt; shows a run" time="3.2">
+        </testcase>
+        <testcase classname="src/test/work-page.test.tsx" name="renders flat" time="0.05">
+        </testcase>
+        <testcase classname="src/test/work-page.test.tsx" name="the work page &gt; a todo case" time="0">
+            <skipped/>
+        </testcase>
+    </testsuite>
+</testsuites>
+`;
+
+  test('times each file by its suite and names each test as Vitest wrote it', () => {
+    expect(readJunit(vitest)).toEqual({
+      files: [{ file: 'src/test/work-page.test.tsx', ms: 3250 }],
+      tests: [
+        { file: 'src/test/work-page.test.tsx', ms: 3200, name: 'the work page > shows a run' },
+        { file: 'src/test/work-page.test.tsx', ms: 50, name: 'renders flat' },
+      ],
+    });
+  });
+});
+
 describe('run', () => {
+  const none = { bun: [], ui: [] };
+  const within = report.replaceAll('time="3.000"', 'time="0.5"');
+
   test('exits 1 when the report is over budget and 0 when it is within it', () => {
-    const within = report.replaceAll('time="3.000"', 'time="0.5"');
-    expect(run(['over.xml'], io({ 'over.xml': report }), budget, [])).toBe(1);
-    expect(run(['within.xml'], io({ 'within.xml': within }), budget, [])).toBe(0);
+    expect(run(['bun', 'over.xml'], io({ 'over.xml': report }), budget, none)).toBe(1);
+    expect(run(['bun', 'within.xml'], io({ 'within.xml': within }), budget, none)).toBe(0);
   });
 
-  test('exits 2 with its usage when no report is named', () => {
-    const terminal = io({});
-    expect(run([], terminal, budget, [])).toBe(2);
-    expect(terminal.out.join('\n')).toContain('usage:');
+  test("checks only the named lane's exemptions, so one lane's cannot fail the other", () => {
+    const uiOnly = {
+      bun: [],
+      ui: [{ file: 'src/test/gone.test.tsx', name: 'renders', task: 'MMR-1' }],
+    };
+    const files = io({ 'within.xml': within });
+    expect(run(['bun', 'within.xml'], files, budget, uiOnly)).toBe(0);
+    expect(run(['ui', 'within.xml'], files, budget, uiOnly)).toBe(1);
   });
+
+  test.each([[[]], [['within.xml']], [['vitest', 'within.xml']]])(
+    'exits 2 with its usage unless a known lane and a report are named: %j',
+    (args) => {
+      const terminal = io({ 'within.xml': within });
+      expect(run(args, terminal, budget, none)).toBe(2);
+      expect(terminal.out.join('\n')).toContain('usage:');
+    },
+  );
 });
