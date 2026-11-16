@@ -424,9 +424,13 @@ mimir get MMR-d3 --since 2026-11-16T09:00:00.000Z
   current value. Field edits on member tasks (title, description, priority,
   tags) are not reported by this read at all.
 - `events` holds every event whose `at` is strictly after `since`, oldest
-  first. Events with the same `at` sort by source, in the order of the table
-  below, then by `record`, then by row id or number, then by `id`. A source
-  with one log table keeps its insertion order this way. An event stamped later than the read's clock is included
+  first. Events with the same `at` sort by this tuple: the source's rank, then
+  `record`, then the row id or number (an integer), then `id`. The ranks are,
+  from first: the delivery's history; its findings (limitations and declined
+  findings share one rank and one numbering); a member task's transition log;
+  its annotations; its checklist items; a decision recorded; a decision's
+  history; a run journal frozen. A source with one log table keeps its
+  insertion order this way. An event stamped later than the read's clock is included
   too; `as_of` does not move past it.
 - `as_of` is the cursor for the next read: the reading process's clock when
   the read ran, minus a **settle window** of 5 seconds, and never earlier than
@@ -477,7 +481,8 @@ when the kind has none.
   `done` rows that `land` writes. A span that a task's `abandon` ended, whose
   `member` row reads `abandoned`, runs on to that task's next `lifecycle` row
   to `abandoned`, so the abandon and its reason are in the feed. A span still
-  open on a live delivery runs to now. A task that left and joined again has two spans. The `member` rows
+  open has no upper bound: every event of that task the read can see is in
+  it, including one stamped later than the reader's clock. A task that left and joined again has two spans. The `member` rows
   themselves always appear, because they are the delivery's own history.
 - **Spans compare timestamps, both ends included.** Rows in different tables
   share no order finer than their `at`, so an event in the same millisecond as
@@ -522,5 +527,6 @@ when the kind has none.
   landed or abandoned delivery's last changes; the second reports a released
   task's later work in another delivery as this attempt's.
 - **Logging unlogged edits first.** Logging delivery-field and task-field edits
-  would widen ADR 0003's scope across existing verbs. The snapshot carries
-  their current values, and a later need can add the log.
+  would widen ADR 0003's scope across existing verbs. The snapshot carries the
+  delivery's current field values; a task's are read with `get` on the task.
+  A later need can add the log.
