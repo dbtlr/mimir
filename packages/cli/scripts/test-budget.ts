@@ -41,7 +41,7 @@ export type Timings = { files: FileTiming[]; tests: TestTiming[] };
 
 const ENTITIES: Record<string, string> = { amp: '&', apos: "'", gt: '>', lt: '<', quot: '"' };
 
-/** Decode the XML references Bun and Vitest write: the five named ones and numeric ones such as `&#10;`. */
+/** Decode the XML references in a report: the five named ones both tools write, and numeric ones such as `&#10;` that Bun writes. */
 function unescape(text: string): string {
   return text.replaceAll(
     /&(?:(amp|apos|gt|lt|quot)|#(\d+)|#x([\da-f]+));/gi,
