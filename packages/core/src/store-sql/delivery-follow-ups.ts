@@ -88,7 +88,8 @@ export async function writeFollowUps(
   }
   for (const { id, record } of records) {
     if ('type' in record && record.type !== 'task') {
-      throw validation(`${id} is a ${String(record.type)}, not a task`);
+      const article = record.type === 'initiative' ? 'an' : 'a';
+      throw validation(`${id} is ${article} ${String(record.type)}, not a task`);
     }
   }
   for (const { id, kind, key } of records) {

@@ -30,6 +30,7 @@ describe.each(backends)('delivery follow-ups ($name)', (backend) => {
       engine,
       foreign: foreign.id,
       id: delivery.id,
+      initiative: initiative.id,
       phase: phase.id,
       seed: seed.id,
       task: task.id,
@@ -150,6 +151,12 @@ describe.each(backends)('delivery follow-ups ($name)', (backend) => {
         })),
         { code: 'not_found', follow_ups: [f.phase, 'FUP-999'], id: f.id, message: 'FUP-999' },
         { code: 'validation', follow_ups: [f.foreign, f.phase], id: f.id, message: 'phase' },
+        {
+          code: 'validation',
+          follow_ups: [f.initiative],
+          id: f.id,
+          message: 'is an initiative',
+        },
         { code: 'validation', follow_ups: [f.foreign], id: f.id, message: 'another project' },
       ];
       const kind = await errorOf(f.engine.deliveryUpdate({ follow_ups: ['FUP-a1'], id: f.id }));
