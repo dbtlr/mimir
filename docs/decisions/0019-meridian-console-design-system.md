@@ -749,8 +749,7 @@ lines when a decision has many options.
   question shown. The note is required. The dialog has two outline commits
   beside _Cancel_: _Confirm with note_ confirms the answer taken with the note
   as its outcome note, and _Answer with note_ overturns with the note alone,
-  which records an answer outside the list. A refused commit keeps the
-  dialog open with the note in it.
+  which records an answer outside the list.
 - ADR 0043 also allows an overturn to an option with a note. The console
   leaves that out: _Take M_ records the option alone.
 - Each chip's accessible name says what it commits, with the decision id and
@@ -765,15 +764,19 @@ lines when a decision has many options.
 - **Focus never lands on a committing chip by itself.** A confirmed or
   overturned decision leaves the needs-you set, and focus moves on as it
   does when a task row leaves (MMR-474), with one change. When the next row
-  is a decision, focus lands on that row's first link, or on the row itself
-  when it has none. It never lands on _Confirm N_ or a _Take M_ chip. A key
-  held down or pressed twice therefore cannot answer a second decision
-  unread. On a focus-queue card the first focus lands on _Skip_.
-- A refusal shows as a toast, and the row stays.
-
-On a focus-queue card, a decision's chips come before _Skip_. A stopped
-delivery's card keeps _Skip_ and its link to the delivery's page. This
-replaces the MMR-694 refinement's "Skip only" for a decision's card.
+  is a decision, focus lands on the row itself, which takes focus but does
+  nothing on Enter. It never lands on _Confirm N_, a _Take M_ chip, or a
+  link. A key held down or pressed twice therefore writes nothing and goes
+  nowhere. The mechanism: a decision's chip group is not a handoff target, so
+  it sits outside the row's `data-row-actions` group, and the handoff's
+  doc says so. A test proves that a decision row arriving next takes focus
+  on the row and on no chip.
+- On a decision's focus-queue card, the first focus lands on the card itself,
+  for the same reason. The decision's chips come before _Skip_. A stopped
+  delivery's card keeps _Skip_ and its link to the delivery's page, and its
+  first focus stays on _Skip_: a held key there only skips, which writes
+  nothing. This replaces the MMR-694 refinement's "Skip only" for a
+  decision's card.
 
 ### Driving a delivery
 
@@ -802,7 +805,19 @@ The rules for these chips:
   because only the stop needs the operator.
 - A delivery write in flight disables every verb on the page, and offline
   disables them all.
-- After a verb commits, focus moves to the page's heading. It never moves to
+- After a verb commits, focus moves to the page's title, the `h1`, which
+  takes focus for this, when focus was lost with the control that unmounted.
+  Focus the operator moved elsewhere stays where it is. It never moves to
   another verb, and never to _Abandon…_.
 - The page's _Needs you_ group hands focus on as a work page's does.
 - A stopped delivery's row elsewhere links to this page and carries no verbs.
+
+### Refusals
+
+A refused write shows its error as a toast, and nothing it touched moves:
+
+- **A dialog stays open.** The answer, Pause, and Abandon dialogs each stay
+  open with their text in them, so a required note or reason is never lost.
+  This applies to every console reason dialog.
+- **A one-tap chip keeps focus.** A refused one-tap chip returns focus to
+  itself once the write ends, because its row stays.
