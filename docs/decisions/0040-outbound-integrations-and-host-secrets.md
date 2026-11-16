@@ -546,18 +546,19 @@ wakes the new thread. The send goes to `threadId=<session>` on
 `environmentId=<host>`. The checks run in this order, and the first that
 fails ends the wake:
 
-1. The T3 feature is usable (the adapter's settings check). An unset
-   `MIMIR_T3_URL` is `skipped`, `unconfigured`; a misconfigured feature
-   reads `misconfigured`, because an operator who set it up expects the
-   wake.
+1. The T3 feature is enabled (`MIMIR_T3_URL` is set); otherwise `skipped`,
+   `unconfigured`.
 2. For an overturn, the decision names a delivery; otherwise `skipped`,
    `no_delivery`. The delivery is read through the Engine.
 3. The delivery has `harness=t3` with a nonblank `session` and `host`;
    otherwise `skipped`, `no_thread`.
-4. The sealed token opens and is current; otherwise `disconnected`.
+4. The feature's settings pass their check; otherwise `misconfigured`,
+   because an operator who set the feature up expects the wake.
+5. The sealed token opens and is current; otherwise `disconnected`.
 
-A skip never reads the host secret, so a delivery that does not run in T3
-never asks the operator to reconnect.
+A skip never reads the host secret, and a delivery that does not run in T3
+never raises a toast, so the operator is asked to fix T3 only for a wake
+that was due.
 
 ### The message
 
@@ -601,7 +602,7 @@ output, and `wake` is a tagged state.
 | -------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | `sent`         | T3 accepted the send                                                                         | nothing more                                                  |
 | `skipped`      | `reason`: `unconfigured`, `no_delivery`, or `no_thread` (see *Who receives it*)              | nothing more                                                  |
-| `misconfigured`| The feature's settings fail their check (`setting` and `problem`, as for the catalog)        | warning toast linking to Devices                              |
+| `misconfigured` | The feature's settings fail their check (`setting` and `problem`, as for the catalog)        | warning toast linking to Devices                              |
 | `disconnected` | No usable token: `reason` is `none`, `expired`, or `rejected`                                | warning toast with Reconnect T3                               |
 | `unreachable`  | T3 did not answer, timed out, or sent an unreadable reply                                    | warning toast with Retry                                      |
 | `refused`      | T3 answered the send with a tool error (`isError`), or has no send tool; carries `thread`    | warning toast with Open in T3, naming the access-level cause  |
@@ -625,8 +626,9 @@ output, and `wake` is a tagged state.
   after the write. A fault logs `t3_wake_fault` and reads `failed`.
 - **The toast** says the write was saved and the thread was not told, and
   why: `T3 did not answer` for `unreachable`, `T3 refused the message` for
-  `refused`, `connect T3 again` for `disconnected`, and no cause for
-  `failed`. For example `Saved. The T3 thread was not told: T3 did not
+  `refused`, `connect T3 again` for `disconnected`, `T3 is not set up
+  correctly` for `misconfigured`, and no cause for `failed`. `invalid` is a
+  Retry's own error, worded for the field it names. For example `Saved. The T3 thread was not told: T3 did not
   answer.` A send T3 refuses on every try is most often a thread running with
   more access than Mimir's connection (T3 refuses a send to a thread with
   broader modes than the sender's), so the `refused` toast names reconnecting
@@ -645,8 +647,9 @@ output, and `wake` is a tagged state.
   not re-check that the action happened: the console is the operator's own
   surface, and the message only points at the since read, which shows what
   did. The browser never names a T3 operation.
-- **Each wake that is not a skip logs** `t3_wake` with its `outcome` and the
-  delivery id, never the message. A skip logs nothing.
+- **Each wake that is neither a skip nor `invalid` logs** `t3_wake` with its
+  `outcome` and the delivery id, never the message; a `failed` wake logs
+  `t3_wake_fault` in its place. A skip and an `invalid` Retry log nothing.
 
 ### Considered and rejected
 
