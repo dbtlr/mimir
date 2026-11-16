@@ -49,7 +49,14 @@ test('a delivery records an attempt beside its phase, and updates replace its te
     expect(updated.agreement).toBeNull();
     expect(updated.time_cap_minutes).toBeNull();
     expect(await engine.getDelivery({ id: delivery.id })).toEqual(detail);
-    expect(await engine.deliveries({ project: 'DEL' })).toEqual([updated]);
+    const {
+      follow_ups: _followUps,
+      limitations: _limitations,
+      declined: _declined,
+      journal: _journal,
+      ...listed
+    } = updated;
+    expect(await engine.deliveries({ project: 'DEL' })).toEqual([listed]);
     expect(
       await refusalOf(engine.deliveryCreate({ phase: initiative.id, title: 'Invalid' })),
     ).toContain('phase');

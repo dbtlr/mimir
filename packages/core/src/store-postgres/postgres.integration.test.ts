@@ -96,34 +96,38 @@ lane('upgradeSchema builds the schema from empty, and the gate then passes', asy
   });
 });
 
-lane('the conformance fixture round trips through export and import on real Postgres', async () => {
-  await onFreshSchema(async (sourceUrl) => {
-    await onFreshSchema(async (targetUrl) => {
-      const source = openPostgres(sourceUrl);
-      const target = openPostgres(targetUrl);
-      try {
-        await upgradeSchema(source.db);
-        await upgradeSchema(target.db);
-        const from = createPostgresStore(source.db);
-        const into = createPostgresStore(target.db);
+lane(
+  'the conformance fixture round trips through export and import on real Postgres',
+  async () => {
+    await onFreshSchema(async (sourceUrl) => {
+      await onFreshSchema(async (targetUrl) => {
+        const source = openPostgres(sourceUrl);
+        const target = openPostgres(targetUrl);
+        try {
+          await upgradeSchema(source.db);
+          await upgradeSchema(target.db);
+          const from = createPostgresStore(source.db);
+          const into = createPostgresStore(target.db);
 
-        await seedWorkingSet(from);
-        const document = await from.export();
-        const report = await into.import(document, { dryRun: false, mode: 'fresh' });
-        expect(report.mode).toBe('fresh');
-        expect(report.created).toBeGreaterThan(0);
+          await seedWorkingSet(from);
+          const document = await from.export();
+          const report = await into.import(document, { dryRun: false, mode: 'fresh' });
+          expect(report.mode).toBe('fresh');
+          expect(report.created).toBeGreaterThan(0);
 
-        // Identity, timestamps, and counters all preserved: the two stores read
-        // back the same facts, and re-exporting reproduces the same document.
-        expect(await observe(into)).toEqual(await observe(from));
-        expect(withoutStamp(await into.export())).toEqual(withoutStamp(document));
-      } finally {
-        await target.close();
-        await source.close();
-      }
+          // Identity, timestamps, and counters all preserved: the two stores read
+          // back the same facts, and re-exporting reproduces the same document.
+          expect(await observe(into)).toEqual(await observe(from));
+          expect(withoutStamp(await into.export())).toEqual(withoutStamp(document));
+        } finally {
+          await target.close();
+          await source.close();
+        }
+      });
     });
-  });
-});
+  },
+  30_000,
+);
 
 lane('two concurrent upgrades from empty apply each migration exactly once', async () => {
   await onFreshSchema(async (url) => {

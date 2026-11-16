@@ -207,13 +207,13 @@ test('a blocked task with no owner key takes the owner its upstream implies', ()
 test('a version this binary does not know is refused, never read lossily', () => {
   let refusal: unknown;
   try {
-    parseTransferDocument({ ...structuredClone(document), schema_version: 14 });
+    parseTransferDocument({ ...structuredClone(document), schema_version: 15 });
   } catch (error) {
     refusal = error;
   }
   expect(refusal).toBeInstanceOf(MimirError);
   expect(refusal).toMatchObject({
-    hint: 'this binary reads schema versions 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13',
-    message: 'unsupported transfer document schema version 14',
+    hint: 'this binary reads schema versions 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14',
+    message: 'unsupported transfer document schema version 15',
   });
 });
