@@ -294,6 +294,10 @@ export function createEngineRouter(engine: Engine) {
       .input((value: unknown) => parseEngineInput(engineSchemas.deliveryReturn.input, value))
       .output(engineSchemas.deliveryReturn.output)
       .mutation(({ input }) => engine.deliveryReturn(input)),
+    deliverySince: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.deliverySince.input, value))
+      .output(engineSchemas.deliverySince.output)
+      .query(({ input }) => engine.deliverySince(input)),
     deliveryStart: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.deliveryStart.input, value))
       .output(engineSchemas.deliveryStart.output)

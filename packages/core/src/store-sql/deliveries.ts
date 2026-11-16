@@ -11,6 +11,7 @@ import { renderDeliveryRef } from '../ids';
 import { now } from '../time';
 import { inLists, insertBatched } from './batch';
 import { appendDeliveryHistory } from './delivery-history';
+import { readSinceSources } from './delivery-since';
 import type { StoreDialect } from './dialect';
 import type { DB, DeliveryRow, Executor } from './schema';
 import { createSqlWriter } from './writer';
@@ -270,6 +271,8 @@ export function createSqlDeliveryStore(db: Kysely<DB>, dialect: StoreDialect): D
         await appendDeliveryHistory(tx, id, history);
       });
     },
+    sinceSources: (key, seq) => readSinceSources(db, dialect, stemOf(key, seq)),
+
     transact(key, seq, apply) {
       return dialect.write(db, async (tx) => {
         await lockActiveBoard(tx, key);

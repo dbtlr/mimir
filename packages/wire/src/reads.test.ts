@@ -154,6 +154,14 @@ const reads: { [K in ReadMethod]: ReadCase<K> } = {
     },
     input: () => ({ project: 'OTH' }),
   },
+  deliverySince: {
+    check: (read) => {
+      expect(read.since).toBeInstanceOf(Date);
+      expect(read.as_of).toBeInstanceOf(Date);
+      expect(read.delivery.id).toBe('OTH-d1');
+    },
+    input: () => ({ id: 'OTH-d1', since: new Date('2000-01-01T00:00:00.000Z') }),
+  },
   getArtifact: {
     check: (artifact) => {
       expect(artifact.content).toBe('Frozen body');
