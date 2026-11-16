@@ -75,8 +75,16 @@ export type DeliveryStatePatch = Partial<
   Pick<StoredDelivery, 'lifecycle' | 'hold' | 'hold_reason'>
 >;
 export type DeliveryStore = {
-  /** Standing links in row order, excluding archived projects. */
-  followUps: (key: string, seq: number) => Promise<{ id: string; linked_at: string }[]>;
+  /**
+   * Standing links in row order, excluding archived projects. A seed link
+   * carries the seed's title and lifecycle; a task link carries null.
+   */
+  followUps: (
+    key: string,
+    seq: number,
+  ) => Promise<
+    { id: string; linked_at: string; seed: { title: string; lifecycle: string } | null }[]
+  >;
   /**
    * Append a known limitation or declined finding (ADR 0042, MMR-691). In one
    * write it stamps the delivery's `updated_at`, allocates the next number

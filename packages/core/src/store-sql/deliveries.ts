@@ -226,7 +226,7 @@ export function createSqlDeliveryStore(db: Kysely<DB>, dialect: StoreDialect): D
     followUps: async (key, seq) =>
       (await visibleFollowUps(db, stemOf(key, seq)))
         .filter((row) => row.unlinked_at === null)
-        .map((row) => ({ id: row.record, linked_at: row.linked_at })),
+        .map((row) => ({ id: row.record, linked_at: row.linked_at, seed: row.seed })),
     // A read is the row, its history, and its members: one snapshot, so a join
     // committing mid-read never shows a member without its history row.
     listForProject(key) {

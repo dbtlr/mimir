@@ -29,14 +29,31 @@ export async function visibleFollowUps(ex: Executor, delivery: string) {
         ]),
       ),
     )
-    .select(['link.id', 'link.task', 'link.seed', 'link.linked_at', 'link.unlinked_at'])
+    .select([
+      'link.id',
+      'link.task',
+      'link.seed',
+      'link.linked_at',
+      'link.unlinked_at',
+      'seed.title as seed_title',
+      'seed.lifecycle as seed_lifecycle',
+    ])
     .where('link.delivery_id', '=', delivery)
     .where('project.archived_at', 'is', null)
     .orderBy('link.id')
     .execute();
   return rows.flatMap((row) => {
     const record = row.task ?? row.seed;
-    return record === null ? [] : [{ ...row, id: toRowId(row.id), record }];
+    if (record === null) {
+      return [];
+    }
+    const { seed_lifecycle, seed_title, ...link } = row;
+    // A seed's title and lifecycle ride the join, so a read costs no query per seed.
+    const seed =
+      row.seed !== null && seed_title !== null && seed_lifecycle !== null
+        ? { lifecycle: seed_lifecycle, title: seed_title }
+        : null;
+    return [{ ...link, id: toRowId(row.id), record, seed }];
   });
 }
 

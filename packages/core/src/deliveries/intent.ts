@@ -191,17 +191,14 @@ async function detailOf(store: Store, stored: StoredDelivery): Promise<DeliveryD
     ? deriveSet(await store.loadWorkingSet())
     : undefined;
   for (const link of links) {
-    const ref = parseIdentity(link.id);
-    if (ref?.kind === 'seed') {
-      const seed = await store.seeds.load(ref.key, ref.seq);
-      if (seed) {
-        follow_ups.push({ ...link, status: seed.lifecycle, title: seed.title });
-      }
+    const { seed, ...rest } = link;
+    if (seed !== null) {
+      follow_ups.push({ ...rest, status: seed.lifecycle, title: seed.title });
     } else if (set !== undefined) {
       // A task the derivation cannot see (archived between reads) is left out, as archived boards are.
       const task = findNodeInSet(set, link.id);
       if (task && !set.archivedProjects.has(task.project_id)) {
-        follow_ups.push({ ...link, status: nodeStatusWord(set, task), title: task.title });
+        follow_ups.push({ ...rest, status: nodeStatusWord(set, task), title: task.title });
       }
     }
   }

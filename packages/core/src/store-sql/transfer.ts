@@ -345,6 +345,7 @@ function bundlesOf(
   const annotations = groupBy(document.annotations, (row) => row.node_id);
   const items = groupBy(document.checklist_items, (row) => row.task);
   const findings = groupBy(document.delivery_findings, (row) => row.delivery);
+  const followUps = groupBy(document.delivery_follow_ups, (row) => row.delivery);
   const prereqs = groupBy(document.edges, (edge) => edge.node_id);
   const history = groupBy(document.transitions, (row) => row.node_id ?? row.project_id ?? '');
   const bundles: Bundles = {
@@ -366,7 +367,7 @@ function bundlesOf(
           findings: (findings.get(row.id) ?? [])
             .map(({ delivery: _delivery, ...entry }) => entry)
             .toSorted((a, b) => a.number - b.number),
-          follow_ups: document.delivery_follow_ups.filter((link) => link.delivery === row.id),
+          follow_ups: followUps.get(row.id) ?? [],
         },
       ]),
     ),
