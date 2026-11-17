@@ -20,7 +20,7 @@ later sections group entries as Breaking Changes, Features, and Fixes.
 ### Breaking Changes
 
 - **Stage a task whose code is accepted on its branch but not yet on `main`** (MMR-675). `mimir stage <id>` and the MCP `stage` tool move a task from `under_review` to the new `staged` status; any other task is refused, with a pointer to `submit` when it is `todo`, `queued`, or `in_progress`. A staged task keeps its handles, leaves `next`, counts as work in flight, and is chased by `stale`. It finishes with `done`, goes back to `in_progress` with `return`, or ends with `abandon`. `list --status staged` selects it. In a phase or initiative, `staged` reads just below `under_review`, so a phase whose remaining tasks are all staged reads `staged`. A dependent of a staged task still reads `awaiting`. The console shows a green `staged` badge, offers **Stage** on a task in review, and lists a staged task in _Now_ as _Staged · submitted 2h ago_, timed from its latest submit like a review.
-- **Schema version 14 admits the `staged` status** (MMR-675). A SQLite store, a local CLI's included, migrates to schema 14 when it is opened, and the host's Postgres store migrates at host startup. Older binaries then refuse the store, so rolling back past this release needs a restore from a backup taken before the upgrade. `mimir store export` writes transfer version 8, which carries staged tasks and which older releases refuse; this release still imports versions 1 to 7.
+- **Schema version 14 admits the `staged` status** (MMR-675). A SQLite store, a local CLI's included, migrates to schema 14 when it is opened, and the host's Postgres store migrates at host startup. Older binaries then refuse the store, so rolling back past this release needs a restore from a backup taken before the upgrade. Transfer version 8 carries staged tasks, and older releases refuse it. Later entries in this section raise the transfer version further: this release's `mimir store export` writes version 14, and it imports versions 1 to 14.
 
 ### Migration
 
@@ -145,7 +145,7 @@ later sections group entries as Breaking Changes, Features, and Fixes.
 
 1. Upgrade the host before its clients, so the store reaches schema 18 first.
 2. Regenerate Engine adapters from the contract snapshot.
-3. Re-export any store backup that a version 11 binary must read, or import it with this build.
+3. Before upgrading, keep an export taken with your current binary if an older binary may need to read it. This release writes transfer version 14, which older binaries refuse, and importing an old backup with this build does not change that.
 
 **Validation.** Run `mimir item add <task> "text"`, then `mimir get <task> --col items`, and `mimir doctor`; the doctor reports no `invalid-checklist-item` finding.
 
@@ -166,7 +166,7 @@ later sections group entries as Breaking Changes, Features, and Fixes.
 
 1. Upgrade the host before its clients, so the store reaches schema 19 first.
 2. Regenerate Engine adapters from the contract snapshot, and read the new `delivery` field on scratchpad and artifact views.
-3. Re-export any store backup that a version 12 binary must read, or import it with this build.
+3. Before upgrading, keep an export taken with your current binary if an older binary may need to read it. This release writes transfer version 14, which older binaries refuse, and importing an old backup with this build does not change that.
 
 **Validation.** Run `mimir limitation <delivery> "text"`, then `mimir get <delivery> -f json`, and `mimir doctor`; the doctor reports no `invalid-delivery-finding` or `invalid-run-journal` finding.
 
