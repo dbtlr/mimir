@@ -15,6 +15,241 @@ cuts them into a new release section at each release
 Sections before v0.26.0 follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 later sections group entries as Breaking Changes, Features, and Fixes.
 
+## v0.29.0 - 2026-11-17
+
+### Breaking Changes
+
+- **Stage a task whose code is accepted on its branch but not yet on `main`** (MMR-675). `mimir stage <id>` and the MCP `stage` tool move a task from `under_review` to the new `staged` status; any other task is refused, with a pointer to `submit` when it is `todo`, `queued`, or `in_progress`. A staged task keeps its handles, leaves `next`, counts as work in flight, and is chased by `stale`. It finishes with `done`, goes back to `in_progress` with `return`, or ends with `abandon`. `list --status staged` selects it. In a phase or initiative, `staged` reads just below `under_review`, so a phase whose remaining tasks are all staged reads `staged`. A dependent of a staged task still reads `awaiting`. The console shows a green `staged` badge, offers **Stage** on a task in review, and lists a staged task in _Now_ as _Staged · submitted 2h ago_, timed from its latest submit like a review.
+- **Schema version 14 admits the `staged` status** (MMR-675). A SQLite store, a local CLI's included, migrates to schema 14 when it is opened, and the host's Postgres store migrates at host startup. Older binaries then refuse the store, so rolling back past this release needs a restore from a backup taken before the upgrade. `mimir store export` writes transfer version 8, which carries staged tasks and which older releases refuse; this release still imports versions 1 to 7.
+
+### Migration
+
+**Affected surface.** Engine clients and scripts that read a task's `lifecycle` or status word, and a host serving clients of this release.
+
+**Why.** The Engine contract gains the `stage` method and the `staged` value in the lifecycle and status vocabularies. A reader that switches over a closed list of statuses meets a value it does not know. Earlier CLIs are such readers: their table output fails on a `staged` task. `MIN_CLIENT` rises to `0.29.0-next`, so a host of this release refuses them with the update to run. From this release on, the CLI renders a status word it does not know instead of failing.
+
+**Before and after.**
+
+```json
+{ "lifecycle": "under_review", "status": "under_review" }
+{ "lifecycle": "staged", "status": "staged" }
+```
+
+**Steps.**
+
+1. Update the host before its clients, as for every Engine change.
+2. Update every CLI paired with that host to this release; the host refuses an older one and names the update.
+3. In scripts that branch on a task's status, treat `staged` as live, non-terminal work.
+
+**Validation.** Run `mimir stage <id>` on a task under review, then `mimir get <id>` and check that it reads `staged`.
+
+- **Add delivery records (MMR-676).** Record a phase attempt with `create delivery --phase`, read it with `deliveries` or `get KEY-dN`, and replace its terms with `update`. Both stores preserve delivery records, history, and sequence allocation through export and import.
+
+### Migration
+
+**Affected surface.** Engine and tRPC consumers, CLI and MCP command descriptors, store schema 15, and transfer schema 9.
+
+**Why.** Deliveries are project-anchored records with their own identities and terms.
+
+**Before and after.** The Engine gains `deliveryCreate`, `getDelivery`, `deliveries`, and `deliveryUpdate`. `deliveryCreate` takes the `phase` and no `project`: the delivery belongs to the phase's project. Node verbs now refuse a `KEY-dN` id as a validation error. Transfer documents gain deliveries and the delivery counter.
+
+**Steps.** Update the host before its clients. Host startup migrates hosted stores; local SQLite stores migrate on open. Regenerate Engine adapters and transfer readers against the new schemas.
+
+**Validation.** Create a phase and delivery, read and update the delivery, then export and import into a throwaway store.
+
+- **Reserve tasks with delivery membership (MMR-682).** Delivery creation sweeps eligible tasks or selects repeated `--task` ids. Join and leave with `update --delivery`. Queue, move, done, staged leave, and staged abandon enforce the reservation: `done` refuses a member, which finishes when its delivery lands. Reopen clears a task's delivery reference. Import refuses, and doctor reports, a delivery reference no verb produces. Task and delivery reads expose membership and its ordered history.
+
+### Migration
+
+**Affected surface.** Engine, tRPC, CLI and MCP descriptors, store schema 16, and transfer schema 10.
+
+**Why.** Membership reserves unclaimed work for one delivery.
+
+**Before and after.** Tasks gain nullable `delivery`, delivery views gain `members`, and delivery creation accepts optional `tasks`. Creation now joins eligible phase tasks by default. `done` on a member now refuses; leave first with `update <task> --delivery none` to finish it alone.
+
+**Steps.** Update the host before its clients. Stores migrate on open or host startup. Regenerate Engine adapters against the new snapshot.
+
+**Validation.** Create a delivery with phase tasks, leave and rejoin a task, verify queue refusal, and round-trip members through export and import.
+
+- **Deliver and release an attempt (MMR-683).** Delivery ids accept start, block, unblock, park, unpark, submit, return, and abandon. Land completes every staged member in one transaction; abandon releases live members back to unclaimed todo work while preserving their holds. Delivery history records lifecycle, hold, and release events.
+
+### Migration
+
+**Affected surface.** Engine, tRPC, CLI and MCP.
+
+**Why.** One milestone lands or releases all of an attempt's work atomically.
+
+**Before and after.** The Engine gains nine delivery verb methods. Existing task verbs dispatch delivery ids to those methods. Delivery reasons are required for block, park, and abandon, and recorded in the delivery history; a blank return reason records none. Task start handles and block --on are refused on deliveries. Each delivery verb's help and MCP description names its own delivery transition and reason policy, and its id argument names `KEY-dN`. A task-only verb (queue, unqueue, stage, done, reopen, archive, unarchive) refuses a `KEY-dN` before checking its own inputs, with `done` naming `land` and the rest listing the delivery verbs.
+
+**Steps.** Update the host before clients and regenerate Engine adapters from the contract snapshot.
+
+**Validation.** Start and submit a delivery, stage its members, and land it. Abandon another delivery and confirm its members return to todo with their holds preserved.
+
+- **Apply delivery board rules (MMR-684).** Board-wide next excludes delivery members; next --delivery lists an attempt's ready members in rank order. A submitted or staged prerequisite settles a direct dependency only for another member of the same live delivery, even when held. Blocking follows the same rule.
+
+### Migration
+
+**Affected surface.** Engine, tRPC, CLI and MCP next reads.
+
+**Why.** Reserved delivery work belongs to its attempt's queue, and review on the shared branch unlocks its dependents.
+
+**Before and after.** Engine next gains optional delivery. Board-wide next omits members; next --delivery KEY-dN selects ready members. Dependencies remain advisory; start stays ungated.
+
+**Steps.** Update the host before clients and regenerate adapters from the contract snapshot. Use next --delivery to select work in an attempt.
+
+**Validation.** Submit a prerequisite shared with a dependent in one delivery. Confirm the dependent appears in next --delivery and is absent from board-wide next.
+
+- **Record provisional answers as decisions (MMR-677).** `decide` records a question the agent answered without stopping, with its options, recommendation, answer taken, and class. `update KEY-qN` links the tasks built on it and its delivery, `confirm` and `overturn` settle it, and `get KEY-qN` reads the whole record. Overturn annotates every linked task in the same transaction. A task's `get` lists its linked decisions.
+- **Delivery and decision records show times in your zone (MMR-677).** `get KEY-dN` and `get KEY-qN` records print `created_at`, `updated_at`, and history times in the caller's zone, as task records do. `json` and `jsonl` keep ISO instants.
+
+### Migration
+
+**Affected surface.** Engine, tRPC, CLI, MCP, store schema and transfer documents.
+
+**Why.** Provisional answers need durable records that the operator can settle.
+
+**Before and after.** Engine gains `decide`, `getDecision`, `decisionUpdate`, `confirm`, and `overturn`. Task `get` gains `decisions`. Store schema 17 adds decisions, links, history and a project counter. Export schema 11 carries decisions; older exports default to no decisions.
+
+**Steps.** Upgrade the host before clients and regenerate Engine adapters from the contract snapshot. Reopen local stores to migrate them.
+
+**Validation.** Record a decision, link a task, read both, and confirm or overturn the answer. Check that an overturn annotates all linked tasks and terminal decisions refuse writes.
+
+- **Read decisions and cap filters (MMR-690).** Add `decisions` to CLI and MCP and `decisions` to Engine and tRPC. Read provisional decisions by default, filter by lifecycle, alternative classes, delivery, and linked non-abandoned tasks, in decision sequence order.
+- **Count provisional decisions in overview (MMR-690).** Show every provisional decision in the project, including those outside the cap subset.
+
+### Migration
+
+**Affected surface.** Engine, tRPC, CLI, MCP, and overview reports.
+
+**Why.** Decision reads and the cap query need a shared contract across transports.
+
+**Before and after.** Engine gains `decisions`. Overview gains `provisionalDecisions` in Engine and `provisional_decisions` in CLI and MCP JSON. No store migration is required.
+
+**Steps.** Upgrade the host before clients. Regenerate Engine adapters from the contract snapshot and add the provisional count to overview fixtures.
+
+**Validation.** Run `decisions --class product --class architecture --linked` and compare overview's provisional count with the unfiltered default `decisions` total.
+
+- **Add checklist items on tasks (MMR-678).** `item add <task> "text"` adds an open numbered item to a task, `item check <task> N` marks it done, and `item drop <task> N "reason"` marks it as not to be done. Checked and dropped items are final. Each subcommand returns the task's whole checklist, and the MCP tools are `item_add`, `item_check`, and `item_drop`.
+- **Show items on a task's `get`.** `get <task>` carries `items` in `json` and `jsonl`, shows a count by state in `records`, and `--col items` lists each item. Items are allowed on a task in any status and gate nothing.
+- **Carry items in the store export.** The transfer document is schema version 12 and holds `checklist_items`; import refuses an item that breaks a checklist rule, and `doctor` reports it as `invalid-checklist-item`. Migration 0018 adds the `checklist_item` table.
+
+### Migration
+
+**Affected surface.** Engine and tRPC clients, the CLI and MCP surface, the store schema, and store export and import.
+
+**Why.** A task needs a list of small follow-ups that can be checked off, which annotations and child tasks cannot give.
+
+**Before and after.** Engine gains `itemAdd`, `itemCheck`, and `itemDrop`, and a task's `getNode` carries `items`. The store schema moves to version 18, and the transfer document to version 12. An export of version 11 or older imports with no items.
+
+**Steps.**
+
+1. Upgrade the host before its clients, so the store reaches schema 18 first.
+2. Regenerate Engine adapters from the contract snapshot.
+3. Re-export any store backup that a version 11 binary must read, or import it with this build.
+
+**Validation.** Run `mimir item add <task> "text"`, then `mimir get <task> --col items`, and `mimir doctor`; the doctor reports no `invalid-checklist-item` finding.
+
+- **Add known limitations and declined findings on a delivery (MMR-691).** `limitation KEY-dN "text"` records an edge case a delivery ships knowingly, and `decline KEY-dN "finding" "reason"` (or `--reason`) records a review finding it chose not to act on. Entries are numbered together per delivery, never edited, and accepted in any delivery lifecycle. The MCP tools are `limitation` and `decline`.
+- **Show them on `get KEY-dN`.** `json` and `jsonl` always carry `limitations`, `declined`, and `journal`, and `records` prints each non-empty list and a `journal` line.
+- **Let a Scratchpad be a delivery's run journal.** `scratch create --link KEY-dN` and `scratch update --link KEY-dN` take one delivery id. Freeze names the delivery on the artifact and links every task that was ever a member. Scratchpad and artifact views carry `delivery`, and a delivery has at most one live pad.
+- **Carry them in the store export.** The transfer document is schema version 13 and holds `delivery_findings` and the `delivery` of pads and artifacts. Import refuses, and `doctor` reports as `invalid-delivery-finding` or `invalid-run-journal`, an entry or journal reference that breaks a rule. Migration 0019 adds the `delivery_finding` table and the `delivery` columns.
+
+### Migration
+
+**Affected surface.** Engine and tRPC clients, the CLI and MCP surface, the store schema, and store export and import.
+
+**Why.** A build's delivery needs a record of what it ships knowingly and what it declined, and a run journal that outlives the delivery.
+
+**Before and after.** Engine gains `deliveryLimitation` and `deliveryDecline`; `getDelivery` carries `limitations`, `declined`, and `journal`; and scratchpad and artifact views carry `delivery`. The store schema moves to version 19, and the transfer document to version 13. An export of version 12 or older imports with no entries and no journal delivery.
+
+**Steps.**
+
+1. Upgrade the host before its clients, so the store reaches schema 19 first.
+2. Regenerate Engine adapters from the contract snapshot, and read the new `delivery` field on scratchpad and artifact views.
+3. Re-export any store backup that a version 12 binary must read, or import it with this build.
+
+**Validation.** Run `mimir limitation <delivery> "text"`, then `mimir get <delivery> -f json`, and `mimir doctor`; the doctor reports no `invalid-delivery-finding` or `invalid-run-journal` finding.
+
+- **Read what changed on a delivery with `get KEY-dN --since <instant>` (MMR-692).** The answer is `{ delivery, since, as_of, events }`: the delivery as `get` reads it, the cursors, and every event strictly after `since` (the delivery's history and lists, its members' transitions, notes, and checklist items while they were members, its decisions, and its frozen run journal), oldest first. Each event has an `id` and the fields `at`, `record`, `kind`, `task`, `number`, `from`, `to`, `reason`, and `text`. Pass `as_of`, which lags the clock by 5 seconds, as the next `--since` and drop ids already seen.
+- **Accept `--since` only on a delivery id.** On any other id it is a usage error that names the list reads (`list`, `next`, `artifacts`, `seeds`) whose `--at-or-after` windows a list. The retired `--since` stays retired on every other command, and a value that is not a zoned ISO 8601 instant whose UTC year is 0100 to 9999 is a usage error before the store opens. The MCP `get` tool takes `since` with the same rule.
+
+### Migration
+
+**Affected surface.** Engine and tRPC clients, and the CLI and MCP `get` surface.
+
+**Why.** An orchestrator's heartbeat and an agent before close-out need what changed on a delivery since their last look, without storing a cursor in Mimir.
+
+**Before and after.** Engine gains the query `deliverySince({ id, since })`, and `get` gains `--since` and the MCP `since` input. Nothing is stored. Store migration 0020 adds four indexes the read searches by (`artifact(delivery)`, `decision(delivery)`, and two on `decision_history`) and changes no row, so the store migrates forward on first open. `--since` on a command other than `get KEY-dN` still fails as it did.
+
+**Steps.**
+
+1. Upgrade the host before its clients (it migrates its store to schema version 20 on start), so a remote client's `deliverySince` has a server to answer it.
+2. Regenerate Engine adapters from the contract snapshot.
+3. Poll with `get KEY-dN --since <instant> -f json`, pass each answer's `as_of` back, and drop events whose `id` you have seen.
+
+**Validation.** Run `mimir get <delivery> --since 2000-01-01T00:00:00Z -f json` and see the delivery's events; run it again with the answer's `as_of` and see the overlap with the same ids.
+
+- **Link a delivery's follow-up tasks and seeds (MMR-693).** `update KEY-dN --follow-up ID` and `--unfollow-up ID` repeat and work in any lifecycle. Tasks stay on the delivery's board; seeds may be cross-board. `get` and update echoes carry the standing `follow_ups`; since reads include `follow_up` events. Archived projects hide linked records and events.
+- **Preserve link history in transfer.** Migration 0021 adds `delivery_follow_up`; export version 14 carries retained link rows. Import and doctor validate references, standing uniqueness, and canonical timestamps.
+
+### Migration
+
+**Affected surface.** Engine and tRPC clients, CLI and MCP output, store schema,
+and store export and import.
+
+**Why.** A delivery links work it gave rise to, including follow-ups filed after
+landing, and retains the history of those links.
+
+**Before and after.** `deliveryUpdate` now returns the detail view, `get` carries
+`follow_ups`, and delivery events admit `follow_up`. Store migration 0021 adds
+the link table; export version 14 carries its rows. Older exports import without
+links. The current unreleased version window remains `0.29.0-next`.
+
+**Steps.** Upgrade the host before clients. Regenerate Engine adapters from the
+contract snapshot. Read new exports with a binary that supports version 14.
+
+**Validation.** Link a record with `update KEY-dN --follow-up ID`, inspect
+`get KEY-dN -f json`, and run `doctor`.
+
+- **Read delivery progress in the console (MMR-680).** Delivery pages show the stop reason, open decisions and answers taken, member progress, follow-up checklists, known limitations, declined findings, and recent journal entries. Phase pages link their live deliveries.
+
+### Migration
+
+**Affected surface.** The console Engine namespace and its tRPC contract.
+
+**Why.** Operators need a read-only view of a delivery’s progress and pending decisions.
+
+**Before and after.** The additive `console.deliveryPage` and
+`console.phaseDeliveries` reads assemble read-only delivery pages and cards.
+
+**Steps.** Upgrade the host before clients. Regenerate Engine adapters from the
+contract snapshot when maintaining an adapter.
+
+**Validation.** Open a delivery at `/p/KEY/dN` or follow its card from a phase.
+
+- **Include decisions and stopped deliveries in Needs you (MMR-694).** The console uses one ordered set and count across review, alerts, focus queues, and work pages.
+
+### Migration
+
+**Affected surface.** Console Engine reports and their tRPC contract.
+
+**Why.** Stopped deliveries and provisional decisions also wait on the operator.
+
+**Before and after.** Review `decisions` becomes `needsYou`, project counts use
+`needsYou`, and review groups and work reports carry tagged `delivery`,
+`decision`, and `task` rows. The focus queue carries `{ kind, id }` entries.
+
+**Steps.** Upgrade the host before clients. Regenerate adapters from the contract
+snapshot. MIN_CLIENT stays at the current minor’s floor.
+
+**Validation.** Open review or a work page and check the Needs you set.
+
+### Features
+
+- Add the wake to the host: its console functions for clearing a delivery's stop, pausing, resuming, sending back, abandoning, or editing it, and for overturning one of its decisions, now send a short message to the delivery's T3 thread after the write saves, and answer whether the thread was told. Confirming a decision sends nothing. The delivery page that offers these actions comes in a later change.
+
+- Answer provisional decisions from the console with Confirm, Take, or a required note. Delivery pages now offer Clear stop, Pause, Resume, and Abandon when legal, with refusal-safe dialogs and keyboard focus handoff.
+
 ## v0.28.0 - 2026-11-09
 
 ### Breaking Changes
