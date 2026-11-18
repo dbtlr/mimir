@@ -88,7 +88,9 @@ each migration, and run `bun run test:host` before pushing.
 The real-Postgres lane also pins every migration:
 `packages/core/src/store-postgres/postgres.integration.test.ts` expects the
 full list of applied migration names in order, so add each new migration to
-that list. `bun run verify` does not run this lane either; run
+that list. The list stays when a migration closes: it is how the lane proves
+that every migration applied in order on real Postgres, so rule 6 of "Which
+tests to write" does not retire it. `bun run verify` does not run this lane either; run
 `bun run test:postgres` (needs Docker) before pushing, or CI's gate fails.
 A Postgres migration adds or replaces a CHECK constraint in one step, without
 the `NOT VALID` / `VALIDATE CONSTRAINT` split: the host migrates before it
@@ -223,9 +225,9 @@ test.
 
 To time a test-lane change on the macOS release runner, dispatch the release
 workflow at the branch: `gh workflow run release.yml --ref <branch>`. A
-dispatch that is not a pull request runs the full `bun run test` on every
-target. It publishes nothing, because the publish job and the image push
-require a `v*` tag.
+dispatch at a branch runs the full `bun run test` on every target and
+publishes nothing, because the publish job and the image push require a `v*`
+tag. Never dispatch it at a tag to time tests.
 
 ## Which tests to write
 

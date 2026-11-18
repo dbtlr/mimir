@@ -568,5 +568,6 @@ at once, and with a stop that reaches the main agent while a reader runs:
 `modelUsage` leaves out the turn in flight: about 33k tokens in one spike run.
 It is only a lower bound. Charging the larger of that result and an estimate
 needed a new column, and the estimate could be gamed when a turn's input
-jumps. Stopping at the gate needs no migration and settles on a result that
-covers every turn.
+jumps. Stopping at the gate needs no migration, and it normally settles on a
+result that covers every turn. A run whose stream ends without a result keeps
+the fallback above.
