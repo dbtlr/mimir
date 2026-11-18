@@ -2,6 +2,7 @@ import type { DecisionHistory, DecisionView } from '@mimir/contract';
 import type { Kysely } from 'kysely';
 
 import { assertBoardActive } from '../archive-lock';
+import { carriesNoDetail, optionDetailsFault } from '../decisions/option-details';
 import type { DecisionStore } from '../decisions/store';
 import { invariant, notFound, validation } from '../errors';
 import type { ExportedDecision } from '../export';
@@ -72,14 +73,10 @@ function loadedDetailsOf(
   if (row.option_details === null) {
     return options.map(() => null);
   }
-  const value: unknown = exportedDetailsOf(row.option_details, dialect);
+  const value = exportedDetailsOf(row.option_details, dialect);
   if (
-    !Array.isArray(value) ||
-    value.length !== options.length ||
-    !value.every(
-      (detail) => detail === null || (typeof detail === 'string' && detail.trim() !== ''),
-    ) ||
-    value.every((detail) => detail === null)
+    value === null ||
+    optionDetailsFault(value, options.length, { allowAllNull: false }) !== null
   ) {
     throw invariant(
       `${row.id} has damaged option_details and cannot be read or changed`,
@@ -90,9 +87,7 @@ function loadedDetailsOf(
 }
 
 function encodedDetailsOf(details: ExportedDecision['option_details'], dialect: StoreDialect) {
-  return details === null || details.every((d) => d === null)
-    ? null
-    : dialect.codecs.json.encode(details);
+  return details === null || carriesNoDetail(details) ? null : dialect.codecs.json.encode(details);
 }
 
 /** Normalize echoes and loaded rows to table column order. */

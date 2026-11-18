@@ -7,6 +7,7 @@ import { parseDeliveryRef, renderDeliveryRef, parseIdentity, renderDecisionRef }
 import { stamp } from '../mutations/common';
 import type { Store, StoreWriter } from '../store';
 import { now } from '../time';
+import { optionDetailsFault } from './option-details';
 
 const prose = (s: string | undefined): string | null =>
   s === undefined || s.trim() === '' ? null : s;
@@ -71,8 +72,8 @@ export function decide(store: Store, input: EngineInput<'decide'>): Promise<Deci
     }
     if (
       input.option_details !== undefined &&
-      (input.option_details.length !== input.options.length ||
-        input.option_details.some((detail) => detail !== null && !detail.trim()))
+      optionDetailsFault(input.option_details, input.options.length, { allowAllNull: true }) !==
+        null
     ) {
       throw validation('invalid option_details', 'pass one nonblank detail or null per option');
     }

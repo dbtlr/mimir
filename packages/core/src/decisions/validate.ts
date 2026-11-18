@@ -3,6 +3,7 @@ import { decisionViewSchema } from '@mimir/contract';
 import type { StoreExport } from '../export';
 import { renderDecisionRef } from '../ids';
 import { isCanonicalInstant } from '../time';
+import { optionDetailsFault } from './option-details';
 
 /** Cross-record and history invariants shared by import and doctor. */
 export function decisionFaults(document: {
@@ -32,9 +33,7 @@ export function decisionFaults(document: {
     }
     if (
       d.option_details !== null &&
-      (d.option_details.length !== d.options.length ||
-        d.option_details.some((detail) => detail !== null && !detail.trim()) ||
-        d.option_details.every((detail) => detail === null))
+      optionDetailsFault(d.option_details, d.options.length, { allowAllNull: false }) !== null
     ) {
       fail(
         'invalid option_details: use an aligned list of nonblank text or null, with at least one detail',

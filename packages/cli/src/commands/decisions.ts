@@ -20,11 +20,17 @@ import type { Presentation } from '../render/presentation';
 import { recordViews } from '../render/views';
 import { boardProject, boundProject } from '../scope';
 
+/** An option number as `--recommend` writes it: no sign, space, or leading zero. */
+const OPTION_NUMBER = '[1-9][0-9]*';
+const OPTION_NUMBER_VALUE = new RegExp(`^${OPTION_NUMBER}$`);
+/** `--detail "N: text"`: the spaces and tabs after the colon drop; the rest, line breaks included, is the detail. */
+const DETAIL_VALUE = new RegExp(`^(${OPTION_NUMBER}):[ \\t]*(.*)$`, 's');
+
 function numberOf(value: string | undefined): number | undefined {
   if (value === undefined) {
     return undefined;
   }
-  if (!/^[1-9]\d*$/.test(value) || !Number.isSafeInteger(Number(value))) {
+  if (!OPTION_NUMBER_VALUE.test(value) || !Number.isSafeInteger(Number(value))) {
     throw new MimirUsageError('option numbers must be positive whole numbers');
   }
   return Number(value);
@@ -32,7 +38,7 @@ function numberOf(value: string | undefined): number | undefined {
 function detailsOf(values: string[], options: string[]): (string | null)[] {
   const details = options.map((): string | null => null);
   for (const value of values) {
-    const match = /^([1-9][0-9]*):[ \t]*(.*)$/s.exec(value);
+    const match = DETAIL_VALUE.exec(value);
     if (!match) {
       throw new MimirUsageError(
         '--detail must be "N: text"; pass a positive option number with no spaces or leading zero',
