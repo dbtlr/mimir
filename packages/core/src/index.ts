@@ -97,6 +97,12 @@ export type {
 } from './tokens';
 export { createHostSecretStore } from './host-secrets';
 export type { HostSecretStore } from './host-secrets';
+export { createPushSubscriptionStore } from './push-subscriptions';
+export type {
+  PushSubscriptionMatch,
+  PushSubscriptionRecord,
+  PushSubscriptionStore,
+} from './push-subscriptions';
 export { chargedTokens, createRunStore } from './runs';
 export type {
   AdmitResult,

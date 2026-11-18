@@ -8,6 +8,7 @@ test('host defaults select isolated SQLite and the standard port', async () => {
     dataDirectory: expect.stringContaining('.dev/host'),
     gitCredentials: { configured: false },
     port: 64647,
+    push: { enabled: false },
     serve: {},
     store: { backend: 'sqlite' },
     t3: { enabled: false },
@@ -27,6 +28,7 @@ test('host validates environment configuration and refuses conflicting URLs', as
     dataDirectory: '/data',
     gitCredentials: { configured: false },
     port: 12345,
+    push: { enabled: false },
     serve: { hosts: ['mimir.example', '[::1]'], url: 'https://mimir.example' },
     store: { backend: 'postgres', url: 'postgres://user:secret@db/example' },
     t3: { enabled: false },
@@ -152,6 +154,29 @@ test('T3 is absent without MIMIR_T3_URL, and the key settings are then ignored',
   ]) {
     expect((await readHostConfig(env)).t3).toEqual({ enabled: false });
   }
+});
+
+test('Web Push is read beside T3 from the same validated serve settings and secret key', async () => {
+  const { push } = await readHostConfig({
+    ...T3_READY,
+    MIMIR_PUSH_CONTACT: 'mailto:operator@example.net',
+  });
+  expect(push).toMatchObject({
+    consoleUrl: 'https://mimir.example',
+    contact: 'mailto:operator@example.net',
+    enabled: true,
+    problems: [],
+  });
+  expect(push.enabled && push.key).toBeTruthy();
+  expect(
+    (await readHostConfig({ MIMIR_PUSH_CONTACT: 'mailto:operator@example.net' })).push,
+  ).toMatchObject({
+    problems: [
+      { problem: 'unset', setting: 'MIMIR_URL' },
+      { problem: 'unset', setting: 'MIMIR_HOSTS' },
+      { problem: 'missing', setting: 'MIMIR_SECRET_KEY' },
+    ],
+  });
 });
 
 test('setting both secret key variables refuses startup, with or without T3', async () => {

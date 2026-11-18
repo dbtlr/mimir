@@ -62,7 +62,9 @@ const arms: Arm[] = [
     anchorTo404: "UPDATE scratchpad SET anchors = anchors || ARRAY['MMR-404']",
     dialect: postgresDialect,
     empty: async () => {
-      const db = new Kysely<DB>({ dialect: createPgliteDialect(await createEmptyPglite()) });
+      const db = new Kysely<DB>({
+        dialect: createPgliteDialect(await createEmptyPglite()),
+      });
       return { close: () => db.destroy(), db };
     },
     falseLiteral: 'false',
@@ -132,10 +134,22 @@ describe.each(arms)('$name', (arm) => {
     try {
       const engine = new LocalEngine(f.store);
       await createProject(f.store, { key: 'FUP', name: 'Follow-ups' });
-      const plan = await createInitiative(f.store, { projectId: 'FUP', title: 'Plan' });
-      const phase = await createPhase(f.store, { parentId: plan.id, title: 'Phase' });
-      const task = await createTask(f.store, { parentId: phase.id, title: 'Task' });
-      const delivery = await engine.deliveryCreate({ phase: phase.id, title: 'Attempt' });
+      const plan = await createInitiative(f.store, {
+        projectId: 'FUP',
+        title: 'Plan',
+      });
+      const phase = await createPhase(f.store, {
+        parentId: plan.id,
+        title: 'Phase',
+      });
+      const task = await createTask(f.store, {
+        parentId: phase.id,
+        title: 'Task',
+      });
+      const delivery = await engine.deliveryCreate({
+        phase: phase.id,
+        title: 'Attempt',
+      });
       await engine.deliveryUpdate({ follow_ups: [task.id], id: delivery.id });
       await sql.raw("UPDATE delivery_follow_up SET linked_at = 'bad'").execute(f.db);
       expect(
@@ -319,12 +333,13 @@ describe.each(arms)('$name', (arm) => {
         question: 'Which?',
         recommended: 1,
       });
+      await sql.raw('DROP TABLE push_subscriptions').execute(f.db);
       await sql.raw('ALTER TABLE decision DROP COLUMN option_details').execute(f.db);
       await f.db.deleteFrom('schema_version').where('version', '>=', 22).execute();
       expect(await upgradeSchema(f.db, arm.dialect)).toMatchObject({
-        applied: ['0022_decision_option_details'],
+        applied: ['0022_decision_option_details', '0023_push_subscriptions'],
         from: 21,
-        to: 22,
+        to: 23,
       });
       expect(await engine.getDecision({ id: d.id })).toEqual(d);
       expect((await f.store.export()).decisions[0]?.option_details).toBeNull();
@@ -465,7 +480,10 @@ describe.each(arms)('$name', (arm) => {
         .select(['lifecycle', 'overturn_option'])
         .where('id', '=', d.id)
         .executeTakeFirstOrThrow();
-      expect(after).toEqual({ lifecycle: 'provisional', overturn_option: null });
+      expect(after).toEqual({
+        lifecycle: 'provisional',
+        overturn_option: null,
+      });
     } finally {
       await f.close();
       await target.close();
@@ -600,12 +618,30 @@ describe.each(arms)('$name', (arm) => {
       await seedWorkingSet(f.store);
       const engine = new LocalEngine(f.store);
       await createProject(f.store, { key: 'OTH', name: 'Other' });
-      const otherRoot = await createInitiative(f.store, { projectId: 'OTH', title: 'Other' });
-      const otherPhase = await createPhase(f.store, { parentId: otherRoot.id, title: 'Phase' });
-      await engine.deliveryCreate({ phase: 'MMR-2', tasks: [], title: 'Attempt' });
-      await engine.deliveryCreate({ phase: otherPhase.id, tasks: [], title: 'Foreign' });
+      const otherRoot = await createInitiative(f.store, {
+        projectId: 'OTH',
+        title: 'Other',
+      });
+      const otherPhase = await createPhase(f.store, {
+        parentId: otherRoot.id,
+        title: 'Phase',
+      });
+      await engine.deliveryCreate({
+        phase: 'MMR-2',
+        tasks: [],
+        title: 'Attempt',
+      });
+      await engine.deliveryCreate({
+        phase: otherPhase.id,
+        tasks: [],
+        title: 'Foreign',
+      });
       await engine.deliveryLimitation({ id: 'MMR-d1', text: 'one' });
-      await engine.deliveryDecline({ finding: 'two', id: 'MMR-d1', reason: 'why' });
+      await engine.deliveryDecline({
+        finding: 'two',
+        id: 'MMR-d1',
+        reason: 'why',
+      });
       await engine.deliveryLimitation({ id: 'MMR-d1', text: 'three' });
       const frozen = await engine.scratchCreate({
         anchors: ['MMR-d1'],
@@ -622,7 +658,10 @@ describe.each(arms)('$name', (arm) => {
         project: 'MMR',
         title: 'Live journal',
       });
-      const loose = await engine.scratchCreate({ project: 'MMR', title: 'Loose' });
+      const loose = await engine.scratchCreate({
+        project: 'MMR',
+        title: 'Loose',
+      });
       const codes = new Set(['invalid-delivery-finding', 'invalid-run-journal']);
       const found = async () =>
         (await f.doctor.diagnose(undefined)).findings.filter((item) => codes.has(item.code));
@@ -662,10 +701,19 @@ describe.each(arms)('$name', (arm) => {
     try {
       await seedWorkingSet(f.store);
       const engine = new LocalEngine(f.store);
-      const later = await createPhase(f.store, { parentId: 'MMR-1', title: 'Later' });
+      const later = await createPhase(f.store, {
+        parentId: 'MMR-1',
+        title: 'Later',
+      });
       await createProject(f.store, { key: 'OTH', name: 'Other' });
-      const otherRoot = await createInitiative(f.store, { projectId: 'OTH', title: 'Other' });
-      const otherPhase = await createPhase(f.store, { parentId: otherRoot.id, title: 'Phase' });
+      const otherRoot = await createInitiative(f.store, {
+        projectId: 'OTH',
+        title: 'Other',
+      });
+      const otherPhase = await createPhase(f.store, {
+        parentId: otherRoot.id,
+        title: 'Phase',
+      });
       const task = async (title: string, parentId = 'MMR-2') =>
         (await createTask(f.store, { parentId, title })).id;
       const landedTask = await task('Landed', later.id);
@@ -678,9 +726,21 @@ describe.each(arms)('$name', (arm) => {
         await task('Live on landed'),
         await task('Done on live'),
       ];
-      await engine.deliveryCreate({ phase: 'MMR-2', tasks: ['MMR-4'], title: 'Live' });
-      await engine.deliveryCreate({ phase: 'MMR-2', tasks: [], title: 'Landed' });
-      await engine.deliveryCreate({ phase: otherPhase.id, tasks: [], title: 'Foreign' });
+      await engine.deliveryCreate({
+        phase: 'MMR-2',
+        tasks: ['MMR-4'],
+        title: 'Live',
+      });
+      await engine.deliveryCreate({
+        phase: 'MMR-2',
+        tasks: [],
+        title: 'Landed',
+      });
+      await engine.deliveryCreate({
+        phase: otherPhase.id,
+        tasks: [],
+        title: 'Foreign',
+      });
       for (const id of [landedTask, foreign, doneOnLive]) {
         await engine.done({ id });
       }

@@ -76,4 +76,27 @@ describe.each([
     expect(await secrets.read('other.token')).toBe('v1.b');
     expect((await rows()).map((row) => row.name)).toEqual(['other.token', 't3.oauth']);
   });
+
+  test('insertIfAbsent inserts when the name is absent', async () => {
+    const { rows, secrets } = await fixture();
+    expect(await secrets.insertIfAbsent('push.vapid', 'v1.first')).toBe(true);
+    expect(await secrets.read('push.vapid')).toBe('v1.first');
+    expect(await rows()).toEqual([
+      {
+        ciphertext: 'v1.first',
+        created_at: '2026-11-01T12:00:00.000Z',
+        name: 'push.vapid',
+        updated_at: '2026-11-01T12:00:00.000Z',
+      },
+    ]);
+  });
+
+  test('insertIfAbsent returns false and leaves the existing ciphertext untouched when present', async () => {
+    const { advance, rows, secrets } = await fixture();
+    await secrets.write('push.vapid', 'v1.first');
+    advance(60_000);
+    expect(await secrets.insertIfAbsent('push.vapid', 'v1.second')).toBe(false);
+    expect(await secrets.read('push.vapid')).toBe('v1.first');
+    expect((await rows())[0]?.updated_at).toBe('2026-11-01T12:00:00.000Z');
+  });
 });

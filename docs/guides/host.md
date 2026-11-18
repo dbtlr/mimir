@@ -196,6 +196,7 @@ that names an invalid one. It does not read the CLI's `config.toml`.
 | `MIMIR_HOSTS`             | Turn on the Host allowlist: comma-separated bare hostnames. An empty value is allowed.   |
 | `MIMIR_PORT`              | The port inside the container, `64647` by default.                                       |
 | `MIMIR_T3_URL`            | Turn on the T3 Code integration: the T3 server's origin. See [Connect T3 Code](#connect-t3-code). |
+| `MIMIR_PUSH_CONTACT`      | Turn on Web Push notifications: a `mailto:` or `https:` contact for the push services. See [Turn on Web Push notifications](#turn-on-web-push-notifications). |
 | `MIMIR_SECRET_KEY_FILE`   | Read the 32-byte key that seals host secrets from this file, such as a mounted secret.   |
 | `MIMIR_SECRET_KEY`        | The 32-byte key that seals host secrets, as base64 or base64url text.                    |
 | `MIMIR_GIT_CREDENTIALS_FILE` | A git credential-store file for cloning private repositories. See [Clone private repositories](#clone-private-repositories). |
@@ -219,9 +220,10 @@ The host always refuses a browser write from another origin, with the
 header pass.
 
 Setting both `MIMIR_SECRET_KEY` and `MIMIR_SECRET_KEY_FILE` refuses startup.
-A problem with the T3 settings does not: the host starts, logs a warning that
-names the setting, and the integration stays off until you fix it. Without
-`MIMIR_T3_URL`, the key settings are ignored.
+A problem with the T3 or Web Push settings does not: the host starts, logs a
+warning that names the setting, and that integration stays off until you fix
+it. The host reads the key settings only when `MIMIR_T3_URL` or
+`MIMIR_PUSH_CONTACT` is set.
 
 On Postgres, the host writes nothing to `MIMIR_DATA_DIR` at start. It creates
 the directory's `clones` and `git` folders the first time it syncs a project's
@@ -487,6 +489,39 @@ A connection lasts 30 days. When it expires, or T3 stops accepting it, the
 card says so: select **Reconnect T3** and approve again. Changing the secret
 key makes the saved connection unreadable, and the card asks you to connect
 again.
+
+## Turn on Web Push notifications
+
+The host can send a notification to each browser that subscribed to it when
+something needs you. The console's control for subscribing a device comes in a
+later release; until then, the settings below prepare the host. A push carries the record's title and a short text, and
+opening it opens the record in the console. The host signs each push with a
+key that it stores in the store, encrypted under the secret key.
+
+Set these variables on the host, then restart it:
+
+- `MIMIR_PUSH_CONTACT`: a contact the push services can reach if your host
+  misbehaves. Use a `mailto:` URL with one address, such as
+  `mailto:you@example.net`, or an `https:` URL whose host is not this
+  machine: not `localhost` or a name under it, not an address in
+  `127.0.0.0/8`, and not `0.0.0.0` or `[::1]`.
+- `MIMIR_URL`, as an HTTPS origin. A notification opens this address. HTTP
+  is allowed only on a loopback name, for a development host.
+- `MIMIR_HOSTS`, to turn on the Host allowlist. An empty value is allowed.
+- `MIMIR_SECRET_KEY_FILE` or `MIMIR_SECRET_KEY`, as for
+  [T3 Code](#connect-t3-code). Both integrations use the same key.
+
+Subscribing a device arrives with the console control; until then, no device
+can subscribe.
+
+When a setting is missing or wrong, the host still starts. It logs one
+warning for each problem, naming the setting but never its value, and sends
+no notification until you fix the setting and restart.
+
+Changing the secret key makes the stored signing key unreadable. The host
+then sends nothing until you restore the old secret key. Resetting the signing
+key also arrives with the console control; a reset removes every device's
+subscription, and each device must subscribe again.
 
 ## Clone private repositories
 

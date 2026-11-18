@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 
 import { createProject } from './create';
 import { createHostSecretStore } from './host-secrets';
+import { createPushSubscriptionStore } from './push-subscriptions';
 import { createRunStore } from './runs';
 import type { AdmitRun } from './runs';
 import { sqliteDialect } from './store-sqlite/dialect';
@@ -29,7 +30,10 @@ const clock = () => '2026-11-01T12:00:00.000Z';
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 
 const admission = (id: string, runner: string): AdmitRun => ({
-  budget: { dailyTokens: Number.MAX_SAFE_INTEGER, since: '2026-11-01T00:00:00.000Z' },
+  budget: {
+    dailyTokens: Number.MAX_SAFE_INTEGER,
+    since: '2026-11-01T00:00:00.000Z',
+  },
   id,
   kind: 'groom',
   model: 'opus',
@@ -49,6 +53,11 @@ async function host(label: string, seedProject: boolean) {
   const tokens = createTokenStore({ clock, db, dialect: sqliteDialect });
   const secrets = createHostSecretStore({ clock, db, dialect: sqliteDialect });
   const runs = createRunStore({ clock, db, dialect: sqliteDialect });
+  const pushSubscriptions = createPushSubscriptionStore({
+    clock,
+    db,
+    dialect: sqliteDialect,
+  });
   if (seedProject) {
     await createProject(store, { key: 'MMR', name: 'Mimir' });
   }
@@ -56,7 +65,26 @@ async function host(label: string, seedProject: boolean) {
   const pending = await tokens.request(`${label}-pending`);
   await secrets.write(`${label}.oauth`, `v1.${label}-sealed`);
   await runs.admit(admission(`${label}-run`, `${label}-runner`));
-  return { db, pending, runs, secrets, store, token, tokens };
+  await pushSubscriptions.subscribe(
+    {
+      auth: 'a',
+      endpoint: `https://push.example/${label}`,
+      label,
+      p256dh: 'p',
+      serverKey: 'k',
+    },
+    5,
+  );
+  return {
+    db,
+    pending,
+    pushSubscriptions,
+    runs,
+    secrets,
+    store,
+    token,
+    tokens,
+  };
 }
 
 test('tokens, host secrets, and runs stay out of the transfer document, and an import leaves the target’s own intact', async () => {
@@ -75,6 +103,8 @@ test('tokens, host secrets, and runs stay out of the transfer document, and an i
   expect(exported).not.toContain('v1.source-sealed');
   // Runs: the id and the runner.
   expect(exported).not.toContain('source-run');
+  // Push subscriptions: the endpoint.
+  expect(exported).not.toContain('push.example/source');
   expect(exported).not.toContain('source-runner');
 
   const target = await host('target', false);
@@ -85,6 +115,7 @@ test('tokens, host secrets, and runs stay out of the transfer document, and an i
     device_tokens: await source.db.selectFrom('device_tokens').selectAll().execute(),
     host_secrets: await source.db.selectFrom('host_secrets').selectAll().execute(),
     pairing_requests: await source.db.selectFrom('pairing_requests').selectAll().execute(),
+    push_subscriptions: await source.db.selectFrom('push_subscriptions').selectAll().execute(),
     runs: await source.db.selectFrom('runs').selectAll().execute(),
   };
   await target.store.import(enriched, { dryRun: true, mode: 'fresh' });
@@ -101,4 +132,7 @@ test('tokens, host secrets, and runs stay out of the transfer document, and an i
   expect(await target.secrets.read('source.oauth')).toBeUndefined();
   expect((await target.runs.running())?.id).toBe('target-run');
   expect(await target.runs.get('source-run')).toBeUndefined();
+  expect((await target.pushSubscriptions.list()).map((r) => r.endpoint)).toEqual([
+    'https://push.example/target',
+  ]);
 });

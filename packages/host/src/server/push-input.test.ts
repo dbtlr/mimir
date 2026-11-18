@@ -1,0 +1,58 @@
+import { describe, expect, test } from 'bun:test';
+
+import { parsePushEndpointInput, parsePushSubscribeInput } from './push-input';
+
+const SUBSCRIBE = {
+  auth: 'BTBZMqHH6r4Tts7J_aSIgg',
+  endpoint: 'https://web.push.apple.com/abc',
+  label: 'Phone',
+  p256dh: 'BCVxsr7N',
+  serverKey: 'BP4z9KsN',
+};
+
+describe('the push server functions validate their input structure', () => {
+  test('subscribe takes the subscription, the key it used, and a label', () => {
+    expect(parsePushSubscribeInput(SUBSCRIBE)).toEqual(SUBSCRIBE);
+    // A label the channel will normalize, and keys it will judge, are well-formed here.
+    expect(parsePushSubscribeInput({ ...SUBSCRIBE, label: '', p256dh: 'x' })).toMatchObject({
+      label: '',
+    });
+    for (const input of [
+      {},
+      { ...SUBSCRIBE, endpoint: 7 },
+      { ...SUBSCRIBE, extra: true },
+      Object.fromEntries(Object.entries(SUBSCRIBE).filter(([name]) => name !== 'serverKey')),
+    ]) {
+      expect(() => parsePushSubscribeInput(input)).toThrow(
+        expect.objectContaining({ code: 'validation' }),
+      );
+    }
+  });
+
+  test('subscribe bounds each field before the channel reads it', () => {
+    const longest = {
+      auth: 'a'.repeat(256),
+      endpoint: 'e'.repeat(2048),
+      label: 'l'.repeat(1000),
+      p256dh: 'p'.repeat(256),
+      serverKey: 's'.repeat(256),
+    };
+    expect(parsePushSubscribeInput(longest)).toEqual(longest);
+    for (const [name, value] of Object.entries(longest)) {
+      expect(() => parsePushSubscribeInput({ ...longest, [name]: `${value}x` })).toThrow(
+        expect.objectContaining({ code: 'validation' }),
+      );
+    }
+  });
+
+  test('unsubscribe and send test take one endpoint', () => {
+    expect(parsePushEndpointInput({ endpoint: 'https://web.push.apple.com/abc' })).toEqual({
+      endpoint: 'https://web.push.apple.com/abc',
+    });
+    for (const input of [{}, { endpoint: null }, { endpoint: 'x', other: 1 }]) {
+      expect(() => parsePushEndpointInput(input)).toThrow(
+        expect.objectContaining({ code: 'validation' }),
+      );
+    }
+  });
+});

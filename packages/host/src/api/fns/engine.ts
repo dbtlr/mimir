@@ -3,6 +3,7 @@ import { getRequest } from '@tanstack/react-start/server';
 
 import type { AgentConsole } from '../../server/agent-console-states';
 import type { DeviceTokens } from '../../server/devices';
+import type { PushChannel } from '../../server/push-channel';
 import { hostRuntime } from '../../server/runtime';
 import type { T3Adapter } from '../../server/t3';
 import type { WireDoctorFacet } from '../doctor-facet';
@@ -53,6 +54,16 @@ export async function t3Integration(): Promise<T3Adapter> {
 }
 
 /**
+ * The Web Push channel's console operations (ADR 0045, MMR-709): status,
+ * subscribe, the device list, a test push, unsubscribe, and the key reset.
+ * Like {@link t3Integration}, a host concern beside the Engine; its VAPID key
+ * stays in the host-secret store and never crosses to the browser.
+ */
+export async function pushNotifications(): Promise<PushChannel> {
+  return (await hostRuntime()).push;
+}
+
+/**
  * The agent runtime's console surface (ADR 0041, MMR-633): the task card's
  * read, the running run for Now, and Groom with agent. Like
  * {@link t3Integration}, a host concern beside the Engine; the token and the
@@ -69,4 +80,13 @@ export async function agentConsole(): Promise<AgentConsole> {
  */
 export function requestOrigin(): string {
   return new URL(getRequest().url).origin;
+}
+
+/**
+ * The `Origin` header of the request a server function is answering, or null
+ * without one. Subscribe compares it, not the request URL, which is `http:`
+ * behind a proxy that ends TLS.
+ */
+export function requestOriginHeader(): string | null {
+  return getRequest().headers.get('origin');
 }

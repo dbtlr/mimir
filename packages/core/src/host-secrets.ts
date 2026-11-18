@@ -15,6 +15,8 @@ export type HostSecretStore = {
   read: (name: string) => Promise<string | undefined>;
   /** Insert or replace; sets created_at on insert and updated_at on every write. */
   write: (name: string, sealed: string) => Promise<void>;
+  /** Insert only when no row of that name exists; returns whether it inserted. */
+  insertIfAbsent: (name: string, sealed: string) => Promise<boolean>;
 };
 
 /** The host-secret rows over one store handle. */
@@ -30,6 +32,17 @@ export function createHostSecretStore({
   // Stored instants are canonical, including those from injected clocks.
   const clockInstant = () => new Date(clock()).toISOString();
   return {
+    insertIfAbsent: async (name, sealed) => {
+      const result = await dialect.write(db, async (tx) => {
+        const at = clockInstant();
+        return tx
+          .insertInto('host_secrets')
+          .values({ ciphertext: sealed, created_at: at, name, updated_at: at })
+          .onConflict((oc) => oc.column('name').doNothing())
+          .executeTakeFirst();
+      });
+      return Number(result.numInsertedOrUpdatedRows ?? 0) > 0;
+    },
     read: async (name) => {
       const row = await db
         .selectFrom('host_secrets')
