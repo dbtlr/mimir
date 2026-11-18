@@ -12,6 +12,7 @@ import { isNotFound } from '../api/errors';
 import { deliveryPageQuery } from '../api/view-queries';
 import { BrowserGroup, BrowserRow } from '../components/browser-list';
 import { DecisionActions } from '../components/decision-actions';
+import { DecisionsEntry, entryLabel } from '../components/decisions-entry';
 import { DeliveryDecisions } from '../components/decisions-walkthrough';
 import {
   DeliveryFacts,
@@ -112,6 +113,7 @@ function DeliveryRecord({ id }: { id: string }) {
     );
   }
   const { delivery: d, phase, members, decisions, followUps, journal, now } = query.data;
+  const provisional = decisions.filter((x) => x.lifecycle === 'provisional').length;
   const terminal = d.lifecycle === 'landed' || d.lifecycle === 'abandoned';
   const clearStop = () => (
     <ActionButton
@@ -316,6 +318,13 @@ function DeliveryRecord({ id }: { id: string }) {
           labelClassName="text-attention-foreground"
         >
           {!decisions.length && <Empty lead="No open decisions." />}
+          {provisional > 0 && (
+            <p className="mb-1">
+              <DecisionsEntry set={{ id: d.id, kind: 'delivery' }}>
+                {entryLabel(provisional)}
+              </DecisionsEntry>
+            </p>
+          )}
           {decisions.map((decision) => (
             <DecisionRow
               currentDelivery={d.id}
