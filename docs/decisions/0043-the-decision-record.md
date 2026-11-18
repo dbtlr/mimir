@@ -338,3 +338,120 @@ decision refuses while its project is archived. `get KEY-qN` resolves
   page, which shows decision records in the needs-you set, settles how the
   two read side by side.
 - A project that never records a decision behaves exactly as before.
+
+## Refinement (2026-11-18, MMR-705): an option's detail
+
+An option's text is short so that it reads as an answer, in a radio row, a
+chip, or an overturn annotation. Some answers cannot be understood from
+their text alone. An agent may give any option a **detail**: a sentence or
+two of context the operator reads before answering. Most options carry
+none.
+
+### The record
+
+| Field            | Shape                                                                                                     |
+| ---------------- | --------------------------------------------------------------------------------------------------------- |
+| `option_details` | A list as long as `options`: entry N is option N's detail, or null when it has none. Stored on the decision row as a nullable JSON column: null when no option has a detail, otherwise the whole list |
+
+- **One stored form.** A decision whose options carry no detail stores
+  null, never a list of nulls. `decide` turns a list of nulls into null
+  before it writes, so a decision has exactly one stored form for each set
+  of details.
+- **Every read returns the whole list.** `get`, `decisions`, and every
+  console read return `option_details` as a list as long as `options`, so a
+  reader pairs an option with its detail by position. A stored null reads
+  as a list of nulls.
+- A detail is non-blank text, stored as given. It has no length limit, as no
+  decision text has one. The skill steers its length.
+- The detail is fixed at `decide`, as the options are.
+- **A damaged stored list refuses,** as damaged options do. A stored JSON
+  null reads as a SQL null does, because neither backend's driver can tell
+  them apart on every path. Any other stored value that is not a list as
+  long as `options`, each entry null or
+  non-blank text and at least one entry text, makes every read and write
+  of the decision refuse and point to `mimir doctor`. No read pads, cuts, or drops a damaged list.
+- The field is additive. `options` keeps its shape, so a client older than
+  this refinement keeps working inside the version window and ignores the
+  field ([ADR 0038](0038-device-pairing-and-the-version-window.md)).
+  `MIN_CLIENT` does not rise.
+
+### `decide`
+
+```sh
+mimir decide "Store snapshots per task or per phase?" \
+  --option "Per task" --option "Per phase" \
+  --detail "2: Phase is the review unit in ADR 0042, so one snapshot covers a review." \
+  --recommend 2 --class architecture -p MMR
+```
+
+- `--detail "N: text"` repeats. A value matches `^([1-9][0-9]*):[ \t]*(.*)$`,
+  with `.` matching line breaks. N is written as `--recommend` writes an
+  option number, with no sign, space, or leading zero. The spaces and tabs
+  after the colon are dropped, and the rest is the detail, stored as given.
+- `decide` refuses, and names the fix, when a value does not match that
+  pattern, N is not an option, N appears twice, or the detail is blank.
+- A value whose detail text itself starts with digits and a colon, such as
+  a forgotten prefix before `3:00 UTC is the batch window`, attaches to that
+  option number. This is a known limitation: the echo shows the detail under
+  its option, and the agent rereads its echo.
+- The Engine's `decide` takes `option_details` as an optional list as long
+  as `options`, each entry a non-blank text or null. It refuses a list of
+  another length or a blank entry. The CLI and MCP turn their `--detail`
+  values into that list. MCP takes the CLI's `detail` values, as every
+  command's tool takes its flags.
+
+### Reads
+
+- `get KEY-qN` and the `decisions` read carry `option_details` in JSON.
+- In text, the field prints only inside the _Options_ block, never as a
+  field line of its own. A detail prints under its option, every line of it
+  indented two columns deeper than the option's text, so an option whose
+  own text runs over several lines still reads apart from its detail.
+- The overturn annotation keeps its form and names the option's text only.
+
+### Transfer
+
+- The store export carries each decision's stored `option_details`: null,
+  or the whole list. A damaged stored value exports as stored, as damaged
+  options do, so a backup loses nothing and import refuses it by shape.
+- The export's schema version increments. A decision with no
+  `option_details` key, in a document of any version, imports with no
+  details, as every field added to the document so far defaults when
+  absent.
+- **Import refuses, and doctor reports,** an `option_details` that is not
+  null and not a list, a list whose length differs from `options`, an
+  entry that is neither null nor non-blank text, or a list whose entries
+  are all null. An export never writes that last form, because the store
+  never holds it, so refusing it keeps a re-export of an import the same
+  document.
+
+### The console
+
+The decisions walkthrough shows a detail under its option's text ([ADR 0019](0019-meridian-console-design-system.md),
+MMR-705 refinement). Decision rows, chips, the walkthrough's rail, and its
+check step show no details.
+
+### Consequences
+
+- Both stores gain a nullable `option_details` JSON column on `decision`,
+  through a new migration on SQLite and PostgreSQL. The database schema
+  version and the export's schema version each rise by one, and
+  [the schema reference](../schema-reference.md) records both.
+- The Engine's `decide` input and every decision read gain the field. The
+  contract snapshot changes additively.
+
+### Why
+
+- **A list beside `options`, not options as objects.** Objects read more
+  cleanly, but changing `options` breaks every older client that renders a
+  decision. A parallel list is additive, and the read always fills it, so no
+  reader has to guess at a missing or short list.
+- **Null when there are none.** Most decisions carry no detail. Storing
+  null for them gives one stored form, so export, import, and doctor agree
+  without normalizing on every path.
+- **`N:` names the option.** Options are already named by number, as
+  `overturn --option N` does. A detail paired by position would need a
+  placeholder for each option without one, and a miscount would move a
+  detail to the wrong option without any error.
+- **No length limit.** No other decision text has one. The walkthrough
+  clamps a long detail, and the skill asks for a sentence or two.

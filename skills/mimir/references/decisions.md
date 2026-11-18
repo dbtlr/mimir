@@ -19,6 +19,17 @@ Use repeated `--option` flags (at least two), required `--recommend N` and
 `--why` records rationale. The project comes from `--delivery`, otherwise `-p`
 or the clone binding. An explicit project must agree with the delivery.
 
+Keep each option's answer concise. Add optional `--detail "N: text"`, a
+sentence or two, only when the answer needs more context to be understood;
+most options carry none. Repeat it for different options. Details are fixed at
+creation. A detail whose own text starts with digits and a colon, after a
+forgotten `N:` prefix (`3:00 UTC is the batch window`), attaches to that option
+number. Reread the echo, which shows each detail under its option.
+
+```sh
+mimir decide "Where should snapshots live?" --option "Per task" --option "Per phase" --detail "2: Phase is the review unit, so one snapshot covers a review." --recommend 2 --class architecture -p MMR
+```
+
 Only a provisional decision accepts changes. Update owns task links and the
 optional delivery reference. Links name tasks in the same project, including
 done tasks. Duplicate links and no-op updates refuse. A delivery must be in the

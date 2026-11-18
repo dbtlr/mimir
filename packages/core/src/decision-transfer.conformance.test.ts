@@ -1,11 +1,10 @@
 /* oxlint-disable no-map-spread -- each fixture is an independent copy of valid history. */
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 
-import type { DecisionView } from '@mimir/contract';
-
 import { createProject, createInitiative, createTask, createPhase } from './create';
 import { decisionFaults } from './decisions/validate';
 import { LocalEngine } from './engine';
+import type { ExportedDecision } from './export';
 import { bootPglite } from './store-postgres/testing';
 import { backends, refusalOf, withoutStamp } from './testing/conformance';
 
@@ -88,14 +87,14 @@ describe.each(backends)('decision transfer ($name)', (backend) => {
       if (!original) {
         throw new Error('missing decision');
       }
-      const provisional: DecisionView = {
+      const provisional: ExportedDecision = {
         ...original,
         history: original.history.filter((h) => h.kind !== 'lifecycle'),
         lifecycle: 'provisional',
         outcome_note: null,
         overturn_option: null,
       };
-      const confirmed: DecisionView = {
+      const confirmed: ExportedDecision = {
         ...original,
         history: original.history.map((h) =>
           h.kind === 'lifecycle' ? { ...h, to_value: 'confirmed' } : h,
@@ -103,9 +102,9 @@ describe.each(backends)('decision transfer ($name)', (backend) => {
         lifecycle: 'confirmed',
         overturn_option: null,
       };
-      const history = (patch: Partial<DecisionView['history'][number]>) =>
+      const history = (patch: Partial<ExportedDecision['history'][number]>) =>
         provisional.history.map((h) => ({ ...h, ...patch }));
-      const cases: [string, DecisionView, string][] = [
+      const cases: [string, ExportedDecision, string][] = [
         [
           'blank question',
           { ...provisional, question: ' ' },
@@ -190,7 +189,7 @@ describe.each(backends)('decision transfer ($name)', (backend) => {
           { ...provisional, history: history({ from_value: 'linked' }) },
           'invalid link history',
         ],
-        ...['DEC-d999', otherDelivery.id].map((id): [string, DecisionView, string] => [
+        ...['DEC-d999', otherDelivery.id].map((id): [string, ExportedDecision, string] => [
           `invalid delivery history ${id}`,
           {
             ...provisional,

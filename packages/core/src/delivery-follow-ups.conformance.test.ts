@@ -329,7 +329,7 @@ describe.each(backends)('delivery follow-ups ($name)', (backend) => {
       await f.engine.deliveryUpdate({ id: f.id, unfollow_ups: [f.seed] });
       await f.engine.deliveryUpdate({ follow_ups: [f.seed], id: f.id });
       const document = await f.store.export();
-      expect(document.schema_version).toBe(14);
+      expect(document.schema_version).toBe(15);
       expect(document.delivery_follow_ups.map((row) => row.task ?? row.seed)).toEqual([
         f.seed,
         f.task,

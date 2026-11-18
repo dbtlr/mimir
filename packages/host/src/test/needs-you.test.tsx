@@ -43,6 +43,7 @@ function rows(): NeedsYouMember[] {
         delivery: 'MMR-d1',
         id: 'MMR-q1',
         lifecycle: 'provisional',
+        option_details: [null, null],
         options: ['Keep', 'Remove'],
         outcome_note: null,
         overturn_option: null,

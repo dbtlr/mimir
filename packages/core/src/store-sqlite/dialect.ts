@@ -34,6 +34,7 @@ import { statements as checklistItem } from './migrations/0018-checklist-item';
 import { statements as deliveryFinding } from './migrations/0019-delivery-finding';
 import { statements as deliverySinceIndexes } from './migrations/0020-delivery-since-indexes';
 import { statements as deliveryFollowUp } from './migrations/0021-delivery-follow-up';
+import { statements as decisionOptionDetails } from './migrations/0022-decision-option-details';
 
 /**
  * The SQLite dialect of the shared SQL store (ADR 0032) — the local tier's
@@ -136,6 +137,7 @@ export const sqliteDialect: StoreDialect = {
     '0019_delivery_finding': deliveryFinding,
     '0020_delivery_since_indexes': deliverySinceIndexes,
     '0021_delivery_follow_up': deliveryFollowUp,
+    '0022_decision_option_details': decisionOptionDetails,
   },
   // A local store migrates forward whenever it is opened (ADR 0032 Decision
   // 3), so a gap only shows to a reader that skipped the opener.

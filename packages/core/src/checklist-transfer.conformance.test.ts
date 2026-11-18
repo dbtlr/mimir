@@ -39,7 +39,7 @@ describe.each(backends)('checklist transfer ($name)', (backend) => {
   });
 
   test('items export in task-sequence then number order and round-trip', async () => {
-    expect(document.schema_version).toBe(14);
+    expect(document.schema_version).toBe(15);
     expect(document.checklist_items.map((item) => [item.task, item.number, item.state])).toEqual([
       [first, 1, 'checked'],
       [first, 2, 'dropped'],

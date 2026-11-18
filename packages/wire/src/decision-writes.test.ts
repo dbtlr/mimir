@@ -27,11 +27,13 @@ test('decision mutations cross the wire with Date instants and read back identic
     });
     const d = await remote.decide({
       class: 'other',
+      option_details: [null, 'Context'],
       options: ['Here', 'There'],
       project: 'DEC',
       question: 'Where?',
       recommended: 1,
     });
+    expect(d.option_details).toEqual([null, 'Context']);
     expect(d.created_at).toBeInstanceOf(Date);
     expect(await local.getDecision({ id: d.id })).toEqual(d);
     const confirmed = await remote.confirm({ id: d.id, note: 'Accepted' });

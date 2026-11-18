@@ -16,6 +16,7 @@ export const decisionRecordSchema = z.strictObject({
   delivery: z.string().nullable(),
   id: z.string(),
   lifecycle: z.enum(DECISION_LIFECYCLE_VALUES),
+  option_details: z.array(z.string().nullable()),
   options: z.array(z.string()),
   outcome_note: z.string().nullable(),
   overturn_option: z.number().int().nullable(),
@@ -68,6 +69,7 @@ export function decisionSchemas<P extends z.ZodType<string>>(project: P) {
       input: z.strictObject({
         class: z.enum(DECISION_CLASS_VALUES),
         delivery: z.string().optional(),
+        option_details: z.array(z.string().nullable()).optional(),
         options: z.array(z.string()),
         project: project.optional(),
         question: z.string(),

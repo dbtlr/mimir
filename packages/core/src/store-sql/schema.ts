@@ -321,8 +321,12 @@ export type DeliveryTable = {
 /** A delivery's append-only log; its insertion id is its order. */
 export type DeliveryHistoryTable = DeliveryHistory & { id: RowId; delivery_id: string };
 
-export type DecisionTable = Omit<DecisionView, 'tasks' | 'history' | 'options'> & {
+export type DecisionTable = Omit<
+  DecisionView,
+  'tasks' | 'history' | 'options' | 'option_details'
+> & {
   options: Stored<string[]>;
+  option_details: Stored<(string | null)[]> | null;
 };
 
 /** One known limitation or declined finding of a delivery (ADR 0042, MMR-691). */

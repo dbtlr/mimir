@@ -2,8 +2,10 @@ import type { DecisionHistory, DecisionView } from '@mimir/contract';
 import type { Kysely } from 'kysely';
 
 import { assertBoardActive } from '../archive-lock';
+import { carriesNoDetail, optionDetailsFault } from '../decisions/option-details';
 import type { DecisionStore } from '../decisions/store';
 import { invariant, notFound, validation } from '../errors';
+import type { ExportedDecision } from '../export';
 import { inLists, insertBatched } from './batch';
 import type { StoreDialect } from './dialect';
 import type { DB, Executor, DecisionTable } from './schema';
@@ -48,8 +50,48 @@ function loadedOptionsOf(
   return options;
 }
 
+function exportedDetailsOf(
+  row: DecisionTable['option_details'],
+  dialect: StoreDialect,
+): ExportedDecision['option_details'] {
+  if (row === null) {
+    return null;
+  }
+  try {
+    return dialect.codecs.json.decode(row);
+  } catch {
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- preserve damaged raw backups
+    return row as unknown as ExportedDecision['option_details'];
+  }
+}
+
+function loadedDetailsOf(
+  row: DecisionTable,
+  dialect: StoreDialect,
+): DecisionView['option_details'] {
+  const options = loadedOptionsOf(row.id, row.options, dialect);
+  const value = exportedDetailsOf(row.option_details, dialect);
+  // A stored JSON null reads as a SQL null does (ADR 0043, MMR-705 refinement).
+  if (value === null) {
+    return options.map(() => null);
+  }
+  if (optionDetailsFault(value, options.length, { allowAllNull: false }) !== null) {
+    throw invariant(
+      `${row.id} has damaged option_details and cannot be read or changed`,
+      'run `mimir doctor` to find it, then repair the row from a backup',
+    );
+  }
+  return value;
+}
+
+function encodedDetailsOf(details: ExportedDecision['option_details'], dialect: StoreDialect) {
+  return details === null || carriesNoDetail(details) ? null : dialect.codecs.json.encode(details);
+}
+
 /** Normalize echoes and loaded rows to table column order. */
-function toStored(d: DecisionView): DecisionView {
+function toStored(d: DecisionView): DecisionView;
+function toStored(d: ExportedDecision): ExportedDecision;
+function toStored(d: ExportedDecision): ExportedDecision {
   /* eslint-disable sort-keys -- SQL column order is the public echo order. */
   return {
     id: d.id,
@@ -57,6 +99,7 @@ function toStored(d: DecisionView): DecisionView {
     seq: d.seq,
     question: d.question,
     options: d.options,
+    option_details: d.option_details,
     recommended: d.recommended,
     taken: d.taken,
     class: d.class,
@@ -105,6 +148,7 @@ async function load(
   return toStored({
     ...row,
     history: history.map(({ id: _id, decision_id: _decision, ...r }) => r),
+    option_details: loadedDetailsOf(row, dialect),
     options: loadedOptionsOf(id, row.options, dialect),
     tasks: tasks.map((r) => r.task),
   });
@@ -118,7 +162,11 @@ export async function writeDecision(
   prior?: DecisionView,
 ): Promise<void> {
   const { tasks, history, ...row } = value;
-  const encoded = { ...row, options: dialect.codecs.json.encode(row.options) };
+  const encoded = {
+    ...row,
+    option_details: encodedDetailsOf(row.option_details, dialect),
+    options: dialect.codecs.json.encode(row.options),
+  };
   if (prior) {
     await ex.updateTable('decision').set(encoded).where('id', '=', value.id).execute();
   } else {
@@ -154,10 +202,11 @@ export async function writeDecision(
 export async function insertExportedDecisions(
   ex: Executor,
   dialect: StoreDialect,
-  decisions: readonly DecisionView[],
+  decisions: readonly ExportedDecision[],
 ): Promise<void> {
   const rows = decisions.map(({ tasks: _tasks, history: _history, ...row }) => ({
     ...row,
+    option_details: encodedDetailsOf(row.option_details, dialect),
     options: dialect.codecs.json.encode(row.options),
   }));
   await insertBatched(rows, dialect.maxParameters, (chunk) =>
@@ -260,6 +309,7 @@ export function createSqlDecisionStore(db: Kysely<DB>, dialect: StoreDialect): D
           const { history: _history, ...listed } = toStored({
             ...row,
             history: [],
+            option_details: loadedDetailsOf(row, dialect),
             options: loadedOptionsOf(row.id, row.options, dialect),
             tasks: links.get(row.id) ?? [],
           });
@@ -293,7 +343,7 @@ export function createSqlDecisionStore(db: Kysely<DB>, dialect: StoreDialect): D
 export async function exportDecisions(
   ex: Executor,
   dialect: StoreDialect,
-): Promise<DecisionView[]> {
+): Promise<ExportedDecision[]> {
   const rows = await ex
     .selectFrom('decision')
     .selectAll()
@@ -328,12 +378,24 @@ async function taskLinksOf(
 }
 
 /** Hydrate only the selected rows, with bounded batches for owned links and history. */
+function hydrateDecisions(
+  ex: Executor,
+  dialect: StoreDialect,
+  rows: DecisionTable[],
+  exporting: false,
+): Promise<DecisionView[]>;
+function hydrateDecisions(
+  ex: Executor,
+  dialect: StoreDialect,
+  rows: DecisionTable[],
+  exporting: true,
+): Promise<ExportedDecision[]>;
 async function hydrateDecisions(
   ex: Executor,
   dialect: StoreDialect,
   rows: DecisionTable[],
   exporting: boolean,
-): Promise<DecisionView[]> {
+): Promise<ExportedDecision[]> {
   const links = await taskLinksOf(
     ex,
     dialect,
@@ -360,6 +422,9 @@ async function hydrateDecisions(
     toStored({
       ...row,
       history: histories.get(row.id) ?? [],
+      option_details: exporting
+        ? exportedDetailsOf(row.option_details, dialect)
+        : loadedDetailsOf(row, dialect),
       options: exporting
         ? exportedOptionsOf(row.options, dialect)
         : loadedOptionsOf(row.id, row.options, dialect),

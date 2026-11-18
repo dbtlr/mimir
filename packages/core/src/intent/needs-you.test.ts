@@ -39,6 +39,7 @@ const decision = (seq: number, created_at: string, updated_at: string): WorkNeed
     delivery: null,
     id: `SET-q${seq}`,
     lifecycle: 'provisional',
+    option_details: [null, null],
     options: ['A', 'B'],
     outcome_note: null,
     overturn_option: null,

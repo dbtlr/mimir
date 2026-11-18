@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { groom } from '../api/fns/nodes';
 import { review } from '../api/fns/views';
 import type { NeedsYouTask, ReviewReport } from '../api/view-queries';
+import { readMark } from '../lib/walkthrough-mark';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
 import { engineTask } from './node-fixtures';
@@ -224,6 +225,52 @@ describe('the Needs you popover', () => {
     expect(testRouter.state.location.search).toEqual({ mode: 'focus' });
   });
 
+  it('closes when a decisions entry opens the walkthrough, marked with the page it was on', async () => {
+    const stamp = new Date('2026-11-16T12:00:00Z');
+    const rows: ReviewReport['needsYou'][number]['rows'] = [
+      {
+        decision: {
+          class: 'product',
+          created_at: stamp,
+          delivery: 'MMR-d3',
+          id: 'MMR-q1',
+          lifecycle: 'provisional',
+          option_details: [null, null],
+          options: ['Keep', 'Remove'],
+          outcome_note: null,
+          overturn_option: null,
+          project_key: 'MMR',
+          question: 'Keep it?',
+          recommended: 1,
+          seq: 1,
+          taken: 1,
+          tasks: [],
+          updated_at: stamp,
+          why: null,
+        },
+        kind: 'decision' as const,
+        workBuiltOnIt: false,
+      },
+    ];
+    const { testRouter } = await renderAt(
+      '/p/MMR/tasks',
+      engineReview({
+        needsYou: [{ project: MMR, rows }],
+        projects: [stripRow(MMR, { needsYou: 1 })],
+        queue: [{ id: 'MMR-q1', kind: 'decision' }],
+      }),
+    );
+    const panel = await openAlert('1 needs you');
+
+    await userEvent.click(within(panel).getByRole('link', { name: 'Review 1 decision on MMR-d3' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Needs you' })).toBeNull();
+    });
+    expect(testRouter.state.location.search).toEqual({ mode: 'decisions' });
+    expect(readMark(testRouter.state.location.state)).toBe('/p/MMR/tasks');
+  });
+
   it('closes on a link to the page already showing', async () => {
     await renderAt('/p/MMR/480', twoProjects());
     const panel = await openAlert('3 need you');
@@ -306,6 +353,7 @@ describe('the Needs you popover', () => {
         delivery: null,
         id: 'MMR-q1',
         lifecycle: 'provisional' as const,
+        option_details: [null, null],
         options: ['Keep', 'Remove'],
         outcome_note: null,
         overturn_option: null,

@@ -7,6 +7,7 @@ import { parseDeliveryRef, renderDeliveryRef, parseIdentity, renderDecisionRef }
 import { stamp } from '../mutations/common';
 import type { Store, StoreWriter } from '../store';
 import { now } from '../time';
+import { optionDetailsFault } from './option-details';
 
 const prose = (s: string | undefined): string | null =>
   s === undefined || s.trim() === '' ? null : s;
@@ -69,6 +70,13 @@ export function decide(store: Store, input: EngineInput<'decide'>): Promise<Deci
     if (input.options.some((s) => s.trim() === '')) {
       throw validation('an option is blank', 'pass nonblank --option text');
     }
+    if (
+      input.option_details !== undefined &&
+      optionDetailsFault(input.option_details, input.options.length, { allowAllNull: true }) !==
+        null
+    ) {
+      throw validation('invalid option_details', 'pass one nonblank detail or null per option');
+    }
     const taken = input.taken ?? input.recommended;
     for (const n of [taken, input.recommended]) {
       if (n < 1 || n > input.options.length) {
@@ -96,6 +104,7 @@ export function decide(store: Store, input: EngineInput<'decide'>): Promise<Deci
       delivery: delivery?.id ?? null,
       history,
       lifecycle: 'provisional',
+      option_details: input.option_details ?? input.options.map(() => null),
       options: input.options,
       outcome_note: null,
       overturn_option: null,

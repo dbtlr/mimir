@@ -3,6 +3,7 @@ import { expect, test } from 'vitest';
 import {
   checkEffect,
   effectLine,
+  reviewSetLabel,
   sendLabel,
   sendLine,
   stepButtonLabel,
@@ -47,4 +48,9 @@ test('the check step words its effect, its Send line, and its count', () => {
   expect(sendLine(null)).toBe('Sending records every answer.');
   expect(sendLabel(3)).toBe('Send 3 answers');
   expect(sendLabel(1)).toBe('Send 1 answer');
+});
+
+test('the next-set link reads "Review it" for one decision and "Review them" otherwise', () => {
+  expect(reviewSetLabel(1)).toBe('Review it');
+  expect(reviewSetLabel(2)).toBe('Review them');
 });

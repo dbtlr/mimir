@@ -112,11 +112,12 @@ function stored(view: EngineView): Record<string, unknown> {
   );
 }
 
-/** The id of every node, artifact, and Scratchpad the store holds, read from its export. */
+/** The id of every node, decision, artifact, and Scratchpad the store holds, read from its export. */
 async function heldIds(board: ParityBoard) {
   const held = await board.store.export();
   return {
     artifacts: byId(held.artifacts.map((a) => `${a.key}-a${String(a.seq)}`)),
+    decisions: byId(held.decisions.map((d) => d.id)),
     deliveries: byId(held.deliveries.map((d) => d.id)),
     nodes: byId(held.nodes.map((n) => n.id)),
     pads: byId(held.scratchpads.map((p) => p.id)),
@@ -125,7 +126,7 @@ async function heldIds(board: ParityBoard) {
 
 /**
  * The stored state of every record on the board: all seeds, nodes,
- * artifacts, and projects of both boards, every Scratchpad it holds and each
+ * artifacts, decisions, and projects of both boards, every Scratchpad it holds and each
  * one a token names (a removed pad reads as the way its read fails), each
  * read through the Engine. UUIDs, which differ by design, read as `<uuid>`.
  */
@@ -168,6 +169,10 @@ export async function boardSnapshot(
           },
         ]),
       ),
+    ),
+    // Each decision as `get` reads it: its options, per-option details, taken option, and lifecycle.
+    decisions: await Promise.all(
+      ids.decisions.map(async (id) => [id, await read(() => engine.getDecision({ id }))]),
     ),
     // Each delivery with its limitations, declined findings, and journal anchor, as `get` reads it.
     deliveries: await Promise.all(

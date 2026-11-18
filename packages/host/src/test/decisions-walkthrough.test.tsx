@@ -31,6 +31,7 @@ type Decision = Page['decisions'][number];
 
 /** A provisional decision of delivery MMR-d3; `seq` also numbers its id. */
 function decision(seq: number, over: Partial<Decision> = {}): Decision {
+  const options = over.options ?? ['Keep', 'Remove', 'Merge'];
   return {
     class: 'product',
     created_at: stamp,
@@ -38,7 +39,8 @@ function decision(seq: number, over: Partial<Decision> = {}): Decision {
     history: [],
     id: `MMR-q${String(seq)}`,
     lifecycle: 'provisional',
-    options: ['Keep', 'Remove', 'Merge'],
+    option_details: options.map(() => null),
+    options,
     outcome_note: null,
     overturn_option: null,
     project_key: 'MMR',
@@ -421,7 +423,7 @@ test('the done screen lists refused and failed answers with reasons, the rework,
   expect(refused).toHaveTextContent('Question 2?MMR-q2 is already confirmed');
   expect(refused).toHaveTextContent('Question 3?');
   expect(layer).toHaveTextContent('MMR-d4 has 1 decision for you');
-  expect(within(layer).getByRole('link', { name: 'Review them' })).toHaveAttribute(
+  expect(within(layer).getByRole('link', { name: 'Review it' })).toHaveAttribute(
     'href',
     '/p/MMR/d4?mode=decisions',
   );
@@ -856,4 +858,81 @@ test('a restored draft moves to the opened set, so pruning its old set keeps it'
   ).toHaveValue('Moved');
   pruneDrafts('MMR-d9', []);
   expect(readDraft('MMR-q1')).toMatchObject({ note: 'Moved', set: 'MMR-d3' });
+});
+
+const DETAIL = 'First line\nSecond line';
+const withDetail = () => [
+  decision(1, { option_details: [null, DETAIL, null], recommended: 2 }),
+  decision(2, { option_details: [null, null], options: ['Yes', 'No'], taken: 2 }),
+];
+
+test('an option detail sits under its option, out of the radio name, and described by it', async () => {
+  vi.mocked(deliveryPage).mockResolvedValue(page(withDetail()));
+  const { layer } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  const remove = within(layer).getByRole('radio', { name: /^Remove/ });
+  expect(remove).toHaveAccessibleName('Remove, Agent recommends');
+  expect(remove).toHaveAccessibleDescription(DETAIL);
+  expect(within(layer).getByRole('radio', { name: /^Keep/ })).not.toHaveAttribute(
+    'aria-describedby',
+  );
+  expect(within(layer).getByRole('radio', { name: 'Something else' })).not.toHaveAttribute(
+    'aria-describedby',
+  );
+  const detail = within(layer).getByText(/First line/);
+  expect(detail.className).toContain('whitespace-pre-line');
+  expect(detail.textContent).toBe(DETAIL);
+});
+
+test('clicking the detail selects its option; the clamp lifts when selected', async () => {
+  vi.mocked(deliveryPage).mockResolvedValue(page(withDetail()));
+  const { layer } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  const detail = within(layer).getByText(/First line/);
+  expect(detail).toHaveClass('line-clamp-2', 'md:line-clamp-3');
+  fireEvent.click(detail);
+  expect(within(layer).getByRole('radio', { name: /^Remove/ })).toBeChecked();
+  expect(detail).not.toHaveClass('line-clamp-2');
+  expect(detail).not.toHaveClass('md:line-clamp-3');
+});
+
+test('clicking a detail while a Send writes leaves the selection alone', async () => {
+  const gate = Promise.withResolvers<Awaited<ReturnType<typeof answerDecisions>>>();
+  vi.mocked(answerDecisions).mockReturnValue(gate.promise);
+  vi.mocked(deliveryPage).mockResolvedValue(page([withDetail()[0]!]));
+  const { layer } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  fireEvent.click(button(layer, 'Confirm and send (MMR-q1)'));
+  await waitFor(() => {
+    expect(button(layer, 'Confirm and send (MMR-q1)')).toBeDisabled();
+  });
+  fireEvent.click(within(layer).getByText(/First line/));
+  expect(within(layer).getByRole('radio', { name: /^Keep/ })).toBeChecked();
+  expect(within(layer).getByRole('radio', { name: /^Remove/ })).not.toBeChecked();
+  gate.resolve({ results: [recorded('MMR-q1', 'confirmed')], wake: { state: 'sent' } });
+  await heading(layer, 'Answers sent');
+});
+
+test('details show nowhere but the answers: not the briefing, rail, or check step', async () => {
+  vi.mocked(deliveryPage).mockResolvedValue(page(withDetail()));
+  const { layer } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  pick(layer, /^Remove/);
+  expect(within(layer).getAllByText(/First line/)).toHaveLength(1);
+  expect(within(layer).getByRole('navigation', { name: 'Decisions' })).not.toHaveTextContent(
+    'First line',
+  );
+  fireEvent.click(next(layer));
+  await heading(layer, 'Question 2?');
+  fireEvent.click(next(layer));
+  await heading(layer, 'Check your answers');
+  expect(layer).not.toHaveTextContent('First line');
+});
+
+test('a decision with no details renders no description', async () => {
+  const { layer } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  for (const radio of within(layer).getAllByRole('radio')) {
+    expect(radio).not.toHaveAttribute('aria-describedby');
+  }
 });

@@ -872,7 +872,7 @@ agent's briefing. The chips stay as MMR-695 defines them.
   delivery" and the project key, then the progress as "N of M", or "Check
   and send" on the check step. Close is an icon button named "Close the
   walkthrough". Close leaves the mode and shows the page; the browser's
-  Back returns to the entry before the walkthrough, which is the page when
+  Back returns to the history entry before the walkthrough, which is the page when
   the walkthrough opened from it. Both keep the answers chosen so far
   (_Drafts_) and ask nothing. Leaving while _Send_ is writing does not stop
   the write; the next opening shows what landed.
@@ -1015,3 +1015,123 @@ function.
 - Attention violet marks the agent's answer and its flag, and the current
   step; the "Agent recommends" flag is dim ink. "Confirmed" takes the `done`
   green and "Overturned" the `in_progress` amber, the hue of work sent back.
+
+## Refinement (2026-11-18, MMR-704): opening the walkthrough
+
+The MMR-703 refinement defines the decisions walkthrough and its address.
+This refinement adds the links that open it, called entries here.
+The MMR-695 chips stay on every decision row, so a quick confirm stays one
+tap.
+
+### The entries
+
+An entry is a link that opens one set's walkthrough at its first decision,
+the oldest one waiting, as the MMR-703 refinement orders a set.
+
+- **In the Needs you popover and on the review page,** each project group
+  shows its entries directly under the project heading, before the rows. It
+  shows one entry for each delivery that has a provisional decision in the
+  group, then one for the group's decisions that name no delivery. The
+  delivery entries follow the needs-you order of each delivery's first
+  decision row, and the no-delivery entry comes last. A group with no
+  decision rows shows no entries.
+- **On the delivery page,** the _Needs you_ section shows one entry above
+  its decision rows when the delivery has a provisional decision.
+- Copy, with N counting the set's decision rows in the read the surface
+  shows:
+  - a delivery in a project group: `Review N decisions on KEY-dN`, or
+    `Review 1 decision on KEY-dN`;
+  - no delivery in a project group: `Review N decisions without a
+    delivery`, or `Review 1 decision without a delivery`;
+  - on the delivery page: `Review N decisions`, or `Review 1 decision`.
+- N counts the read, not the opening. A set of more than 100 decisions
+  opens with its oldest 100, as the MMR-703 refinement caps an opening, and
+  the rest wait for the next opening, where the entry counts them again.
+  This is accepted: a set that large is rare.
+- An entry targets `/p/KEY/dN?mode=decisions` for a delivery and
+  `/p/KEY?mode=decisions` for decisions without a delivery.
+- An entry is a text link in the attention hue, because the set is in the
+  needs-you set. On a phone, it takes the 44px touch target. Activating an
+  entry in the popover closes the popover, as every link in it does.
+- The focus queue, a work page's needs-you group, and the T3 wake gain no
+  entry. A work page's delivery row links to the delivery page, which has
+  one. The wake goes to the agent after the operator has answered, so it
+  keeps the ids-only message of
+  [ADR 0040](0040-outbound-integrations-and-host-secrets.md).
+
+### Leaving a walkthrough an entry opened
+
+This replaces the MMR-703 refinement's rule that Close "leaves the mode and
+shows the page" for a walkthrough an entry opened. That rule still holds
+for every other opening.
+
+- An entry opens the walkthrough as a new history entry and marks that
+  history entry as opened in-app, in its history state. The mark records
+  the path of the page the entry was on, the opener. It survives a reload,
+  as history state does.
+- On a walkthrough so marked, Close goes back one history entry, so the
+  page the entry was on shows again. When that page is the walkthrough's
+  own page, this keeps MMR-703's rule that Back returns to the history entry
+  before the walkthrough. A replace would leave two copies of the page in
+  history, and the next Back would seem to do nothing.
+- A walkthrough opened any other way carries no mark: by an address typed
+  or followed from outside the console, or in a new tab. The done screen's
+  link to the next set passes on the mark it found, as below. On a
+  walkthrough without a mark, Close replaces the history entry with the
+  page without the mode, as the console does today.
+- The done screen's and the empty state's link back to the page the
+  walkthrough opened on keep their label and target, the walkthrough's own
+  page, for every opening. This revises the MMR-703 refinement, whose link
+  pushes a new history entry:
+  - on a marked walkthrough whose opener is the walkthrough's own page,
+    the link goes back one history entry, as Close does;
+  - otherwise the link replaces the walkthrough's history entry with the
+    page without the mode.
+
+  Either way, Back from that page returns to where the operator was before
+  the walkthrough and does not reopen it. It meets no second copy of the
+  page unless the operator typed the walkthrough's address while already on
+  its page, an unmarked opening the console cannot tell apart from a deep
+  link. That case keeps the MMR-703 behavior and is accepted.
+- The done screen's link to the next set replaces the walkthrough's history
+  entry with the next set's walkthrough, and carries the walkthrough's mark,
+  with its opener, over to it, or no mark when it had none. This revises
+  the MMR-703 refinement, whose link pushes. A chain of walkthroughs then
+  holds one history entry and keeps the first one's opener, so leaving the
+  last one never reopens an earlier one or meets a second copy of a page.
+- Scroll is not restored. The console restores no scroll position on any
+  navigation, and this refinement adds none.
+
+### The done screen
+
+This revises the MMR-703 refinement's link copy. The done screen's link to
+the next set reads _Review them_, or _Review it_ when that set holds one
+decision.
+
+## Refinement (2026-11-18, MMR-705): an option's detail in the walkthrough
+
+ADR 0043's MMR-705 refinement lets an agent give an option a detail. The
+walkthrough shows it. No other surface does.
+
+- A detail sits under its option's text in the answers group, in a smaller,
+  dim type. Its line breaks show.
+- The detail stays out of the radio's accessible name. The whole row stays
+  one label, so tapping anywhere on it, the detail included, selects its
+  option, as a row without a detail does. The radio takes its name from the
+  option's text and flags alone (`aria-labelledby`), and the detail is tied
+  to it with `aria-describedby`, so a screen reader reads the detail after
+  the name. A radio without a detail has no `aria-describedby`.
+- A flag beside an option reads after a comma in the radio's name:
+  "Remove, Agent recommends". This corrects the MMR-703 walkthrough, whose
+  name ran the option's text into its flag, and applies to every option,
+  with or without a detail.
+- A detail clamps to two lines below the `md` breakpoint and to three at
+  `md` and up, ending in an ellipsis. The selected answer's detail shows in
+  full, so the operator reads all of what they pick. Moving the selection
+  reflows the rows. This is accepted, because selecting writes nothing and
+  the operator can read any detail by selecting it.
+- An option without a detail reads as it did before this refinement,
+  apart from the comma before its flag.
+- The briefing line that names the taken and recommended options, the rail,
+  the check step, the done screen, and the decision rows and chips show no
+  details.

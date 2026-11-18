@@ -4,6 +4,7 @@ import { needsYouId } from '../api/view-queries';
 import type { ReviewReport } from '../api/view-queries';
 import { cn } from '../lib/cn';
 import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
+import { DecisionsEntry, groupEntries, groupEntryLabel } from './decisions-entry';
 import { NeedsYouRow, needsYouActions } from './work-rows';
 
 /** A link to a project or a count in the review page's lists. */
@@ -48,6 +49,11 @@ export function NeedsYouGroups({
       {groups.map((group) => (
         <section key={group.project.key} aria-label={group.project.name}>
           <ProjectHeading project={group.project} />
+          {groupEntries(group.rows, group.project.key).map((entry) => (
+            <p key={entry.set.kind === 'delivery' ? entry.set.id : entry.set.key} className="mb-1">
+              <DecisionsEntry set={entry.set}>{groupEntryLabel(entry)}</DecisionsEntry>
+            </p>
+          ))}
           {group.rows.map((row) => (
             <NeedsYouRow
               key={needsYouId(row)}

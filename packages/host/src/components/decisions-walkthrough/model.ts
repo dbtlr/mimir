@@ -18,6 +18,7 @@ export type WalkDecision = {
   created_at: Instant;
   delivery: string | null;
   lifecycle: string;
+  option_details: (string | null)[];
   options: string[];
   project_key: string;
   question: string;
@@ -70,6 +71,17 @@ export function verdictOf(decision: Pick<WalkDecision, 'taken'>, selection: Sele
 /** "Something else" with no words in it cannot be sent. */
 export function isBlankCustom(selection: Selection): boolean {
   return selection.choice === 'custom' && selection.answer.trim() === '';
+}
+
+/**
+ * An option's detail (1-based option number), or null when it has none. A view
+ * restored from a cache written before details existed has no list at all.
+ */
+export function optionDetail(
+  decision: Partial<Pick<WalkDecision, 'option_details'>>,
+  number: number,
+): string | null {
+  return decision.option_details?.[number - 1] ?? null;
 }
 
 /** The answer's text: the chosen option's, or the operator's own words. */

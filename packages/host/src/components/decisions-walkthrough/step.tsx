@@ -6,19 +6,36 @@ import { GrowingTextarea } from '../ui/growing-textarea';
 import { effectLine, stepButtonLabel } from './copy';
 import type { StepTarget } from './copy';
 import { AgentGlyph } from './icons';
-import { isBlankCustom, verdictOf } from './model';
+import { isBlankCustom, optionDetail, verdictOf } from './model';
 import type { Selection, WalkDecision } from './model';
 import { BackButton, Composer, MetaLine, PrimaryButton, Scroll, ScreenHeading } from './parts';
 
-/** The flags beside an option: "Agent's answer" in attention violet, "Agent recommends" in dim ink. */
+/**
+ * The flags beside an option: "Agent's answer" in attention violet, "Agent
+ * recommends" in dim ink. Each flag's visible text is hidden from the
+ * accessibility tree and a hidden ", <flag>" stands in for it, so the
+ * option's accessible name reads "Remove, Agent recommends" rather than
+ * running the option's text into the flag.
+ */
+function Flag({ text, className }: { text: string; className: string }) {
+  return (
+    <>
+      <span aria-hidden="true" className={`text-tag font-semibold ${className}`}>
+        {text}
+      </span>
+      <span className="sr-only">, {text}</span>
+    </>
+  );
+}
+
 function Flags({ decision, number }: { decision: WalkDecision; number: number }) {
   return (
     <>
       {number === decision.taken && (
-        <span className="text-tag font-semibold text-attention-foreground">Agent's answer</span>
+        <Flag text="Agent's answer" className="text-attention-foreground" />
       )}
       {number === decision.recommended && decision.recommended !== decision.taken && (
-        <span className="text-tag font-semibold text-ink-dim">Agent recommends</span>
+        <Flag text="Agent recommends" className="text-ink-dim" />
       )}
     </>
   );
@@ -55,21 +72,40 @@ function Answers({
         {decision.options.map((text, index) => {
           const number = index + 1;
           const picked = selection.choice === number;
+          const detail = optionDetail(decision, number);
+          // The whole row is the label, so a tap anywhere on it, the detail included,
+          // selects the option. The radio's name comes from the text and flags alone;
+          // the detail describes it instead.
+          const textId = `${group}-${String(number)}`;
+          const detailId = `${textId}-detail`;
           return (
             <label key={number} className={ROW_CLASS}>
               <input
                 type="radio"
                 name={group}
                 className={RADIO_CLASS}
+                aria-labelledby={textId}
+                aria-describedby={detail === null ? undefined : detailId}
                 checked={picked}
                 disabled={disabled}
                 onChange={() => onChange({ choice: number })}
               />
-              <span
-                className={`flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-0.5 text-[15.5px] leading-[1.45] wrap-anywhere ${picked ? 'text-ink-bright' : 'text-ink'}`}
-              >
-                <span>{text}</span>
-                <Flags decision={decision} number={number} />
+              <span className="flex min-w-0 flex-col gap-1">
+                <span
+                  id={textId}
+                  className={`flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-0.5 text-[15.5px] leading-[1.45] wrap-anywhere ${picked ? 'text-ink-bright' : 'text-ink'}`}
+                >
+                  <span>{text}</span>
+                  <Flags decision={decision} number={number} />
+                </span>
+                {detail !== null && (
+                  <span
+                    id={detailId}
+                    className={`text-meta leading-[1.45] whitespace-pre-line text-ink-dim wrap-anywhere ${picked ? '' : 'line-clamp-2 md:line-clamp-3'}`}
+                  >
+                    {detail}
+                  </span>
+                )}
               </span>
             </label>
           );

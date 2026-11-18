@@ -3,6 +3,7 @@ import { decisionViewSchema } from '@mimir/contract';
 import type { StoreExport } from '../export';
 import { renderDecisionRef } from '../ids';
 import { isCanonicalInstant } from '../time';
+import { optionDetailsFault } from './option-details';
 
 /** Cross-record and history invariants shared by import and doctor. */
 export function decisionFaults(document: {
@@ -20,9 +21,23 @@ export function decisionFaults(document: {
     const fail = (message: string) => {
       faults.push({ id: d.id, message });
     };
-    if (!decisionViewSchema.safeParse(d).success) {
+    if (
+      !decisionViewSchema.safeParse({
+        ...d,
+        option_details:
+          d.option_details ?? (Array.isArray(d.options) ? d.options.map(() => null) : []),
+      }).success
+    ) {
       fail('invalid decision shape or closed value');
       continue;
+    }
+    if (
+      d.option_details !== null &&
+      optionDetailsFault(d.option_details, d.options.length, { allowAllNull: false }) !== null
+    ) {
+      fail(
+        'invalid option_details: use an aligned list of nonblank text or null, with at least one detail',
+      );
     }
     if (ids.has(d.id)) {
       fail('duplicate decision identity');

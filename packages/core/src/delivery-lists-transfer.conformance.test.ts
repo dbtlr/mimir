@@ -45,7 +45,7 @@ describe.each(backends)('delivery lists and run journals transfer ($name)', (bac
   });
 
   test('entries and journal deliveries export in order and round-trip', async () => {
-    expect(document.schema_version).toBe(14);
+    expect(document.schema_version).toBe(15);
     expect(document.delivery_findings.map((e) => [e.delivery, e.number, e.kind])).toEqual([
       [first, 1, 'limitation'],
       [first, 2, 'declined'],

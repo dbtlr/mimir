@@ -56,6 +56,10 @@ exit 0
 |         "Here",
 |         "There"
 |       ],
+|       "option_details": [
+|         null,
+|         null
+|       ],
 |       "recommended": 1,
 |       "taken": 1,
 |       "class": "product",
@@ -95,7 +99,7 @@ exit 0
 ### decisions -f jsonl
 exit 0
 --- stdout
-| {"id":"MMR-q1","project_key":"MMR","seq":1,"question":"Where?","options":["Here","There"],"recommended":1,"taken":1,"class":"product","why":null,"delivery":"MMR-d1","lifecycle":"provisional","overturn_option":null,"outcome_note":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","tasks":["MMR-3"],"history":[{"kind":"link","from_value":null,"to_value":"linked","reason":null,"task":"MMR-3","at":"2026-10-01T12:00:00.000Z"},{"kind":"delivery","from_value":null,"to_value":"MMR-d1","reason":null,"task":null,"at":"2026-10-01T12:00:00.000Z"}]}
+| {"id":"MMR-q1","project_key":"MMR","seq":1,"question":"Where?","options":["Here","There"],"option_details":[null,null],"recommended":1,"taken":1,"class":"product","why":null,"delivery":"MMR-d1","lifecycle":"provisional","overturn_option":null,"outcome_note":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","tasks":["MMR-3"],"history":[{"kind":"link","from_value":null,"to_value":"linked","reason":null,"task":"MMR-3","at":"2026-10-01T12:00:00.000Z"},{"kind":"delivery","from_value":null,"to_value":"MMR-d1","reason":null,"task":null,"at":"2026-10-01T12:00:00.000Z"}]}
 
 ### decisions -f ids
 exit 0
@@ -115,6 +119,10 @@ exit 0
 |       "options": [
 |         "Here",
 |         "There"
+|       ],
+|       "option_details": [
+|         null,
+|         null
 |       ],
 |       "recommended": 1,
 |       "taken": 1,
@@ -157,6 +165,10 @@ exit 0
 |         "Here",
 |         "There"
 |       ],
+|       "option_details": [
+|         null,
+|         null
+|       ],
 |       "recommended": 1,
 |       "taken": 1,
 |       "class": "other",
@@ -187,6 +199,10 @@ exit 0
 |       "options": [
 |         "Here",
 |         "There"
+|       ],
+|       "option_details": [
+|         null,
+|         null
 |       ],
 |       "recommended": 1,
 |       "taken": 1,
@@ -228,6 +244,10 @@ exit 0
 |         "Here",
 |         "There"
 |       ],
+|       "option_details": [
+|         null,
+|         null
+|       ],
 |       "recommended": 1,
 |       "taken": 1,
 |       "class": "other",
@@ -268,6 +288,10 @@ exit 0
 |         "Here",
 |         "There"
 |       ],
+|       "option_details": [
+|         null,
+|         null
+|       ],
 |       "recommended": 1,
 |       "taken": 1,
 |       "class": "architecture",
@@ -307,6 +331,10 @@ exit 0
 |       "options": [
 |         "Here",
 |         "There"
+|       ],
+|       "option_details": [
+|         null,
+|         null
 |       ],
 |       "recommended": 1,
 |       "taken": 1,
@@ -357,6 +385,10 @@ exit 0
 |       "options": [
 |         "Here",
 |         "There"
+|       ],
+|       "option_details": [
+|         null,
+|         null
 |       ],
 |       "recommended": 1,
 |       "taken": 1,

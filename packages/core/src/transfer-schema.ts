@@ -92,7 +92,13 @@ export const transferSchema = z.object({
     }),
   ),
   checklist_items: z.array(checklistRecordSchema).default([]),
-  decisions: z.array(decisionViewSchema).default([]),
+  decisions: z
+    .array(
+      decisionViewSchema.extend({
+        option_details: z.array(z.string().nullable()).nullable().default(null),
+      }),
+    )
+    .default([]),
   deliveries: z
     .array(deliveryRecordSchema.extend({ history: z.array(deliveryHistorySchema) }))
     .default([]),
@@ -208,6 +214,7 @@ export const transferSchema = z.object({
       z.literal(11),
       z.literal(12),
       z.literal(13),
+      z.literal(14),
       z.literal(STORE_EXPORT_SCHEMA_VERSION),
     ])
     .transform((): typeof STORE_EXPORT_SCHEMA_VERSION => STORE_EXPORT_SCHEMA_VERSION),

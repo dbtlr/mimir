@@ -8,6 +8,7 @@ ARGUMENTS
 
 OPTIONS
       --option <text>    An option; repeat at least twice.  (repeatable)
+      --detail <text>    Option context as N: text; repeat.  (repeatable)
       --recommend <n>    The recommended option number.  (required)
       --take <n>         The option taken; defaults to recommend.
       --class <text>     product, architecture, or other.  (required)

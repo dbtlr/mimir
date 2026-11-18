@@ -65,7 +65,7 @@ test('a v0.20 Norn export imports into the SQLite store and re-exports unchanged
         pinned: false,
         remote: null,
       })),
-      schema_version: 14,
+      schema_version: 15,
       scratchpads: document.scratchpads.map((pad) => ({ ...pad, delivery: null })),
     };
     const reexported = await target.store.export();

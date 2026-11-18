@@ -11,6 +11,7 @@ import { postgresDialect } from '../../store-postgres/index';
 import { createPgliteDialect } from '../../store-postgres/pglite';
 import { bootPglite, createEmptyPglite, createPgliteTestStore } from '../../store-postgres/testing';
 import type { StoreDialect } from '../../store-sql/dialect';
+import { upgradeSchema } from '../../store-sql/migrator';
 import type { DB } from '../../store-sql/schema';
 import { createBunSqliteDialect } from '../../store-sqlite/driver';
 import { sqliteDialect } from '../../store-sqlite/index';
@@ -301,6 +302,114 @@ describe.each(arms)('$name', (arm) => {
       expect(findings.map((item) => [item.evidence.kind, item.where])).toEqual([
         ['delivery', 'project · last_delivery_seq'],
       ]);
+    } finally {
+      await f.close();
+    }
+  });
+
+  test(`${arm.name}: migration 0022 preserves existing decisions without details`, async () => {
+    const f = await arm.make();
+    try {
+      await seedWorkingSet(f.store);
+      const engine = new LocalEngine(f.store);
+      const d = await engine.decide({
+        class: 'other',
+        options: ['A', 'B'],
+        project: 'MMR',
+        question: 'Which?',
+        recommended: 1,
+      });
+      await sql.raw('ALTER TABLE decision DROP COLUMN option_details').execute(f.db);
+      await f.db.deleteFrom('schema_version').where('version', '>=', 22).execute();
+      expect(await upgradeSchema(f.db, arm.dialect)).toMatchObject({
+        applied: ['0022_decision_option_details'],
+        from: 21,
+        to: 22,
+      });
+      expect(await engine.getDecision({ id: d.id })).toEqual(d);
+      expect((await f.store.export()).decisions[0]?.option_details).toBeNull();
+    } finally {
+      await f.close();
+    }
+  });
+
+  test(`${arm.name}: damaged option details refuse reads and writes but survive export for doctor`, async () => {
+    const f = await arm.make();
+    try {
+      await seedWorkingSet(f.store);
+      const engine = new LocalEngine(f.store);
+      const d = await engine.decide({
+        class: 'other',
+        options: ['A', 'B'],
+        project: 'MMR',
+        question: 'Which?',
+        recommended: 1,
+      });
+      for (const value of ['bad', [], ['Context'], [null, 1], [null, ' '], [null, null]]) {
+        const json = JSON.stringify(value).replaceAll("'", "''");
+        await sql
+          .raw(
+            `UPDATE decision SET option_details = '${json}'${arm.name === 'sqlite' ? '' : '::jsonb'}`,
+          )
+          .execute(f.db);
+        expect(JSON.stringify((await f.store.export()).decisions[0]?.option_details)).toBe(
+          JSON.stringify(value),
+        );
+        expect(
+          (await f.doctor.diagnose(undefined)).findings.some(
+            (r) => r.code === 'invalid-decision' && r.stem === d.id,
+          ),
+        ).toBe(true);
+        for (const attempt of [
+          () => engine.getDecision({ id: d.id }),
+          () => engine.decisions({ project: 'MMR' }),
+          () => f.store.decisions.listProvisional(),
+          () => engine.confirm({ id: d.id }),
+          () => engine.overturn({ id: d.id, option: 2 }),
+          () => engine.decisionUpdate({ id: d.id, tasks: ['MMR-4'] }),
+        ]) {
+          const refusal = await refusalOf(attempt());
+          expect(refusal).toContain('damaged option_details');
+          expect(refusal).toContain('mimir doctor');
+        }
+      }
+      if (arm.name === 'sqlite') {
+        await sql.raw("UPDATE decision SET option_details = 'not json'").execute(f.db);
+        expect(JSON.stringify((await f.store.export()).decisions[0]?.option_details)).toBe(
+          JSON.stringify('not json'),
+        );
+        expect(
+          (await f.doctor.diagnose(undefined)).findings.some((r) => r.code === 'invalid-decision'),
+        ).toBe(true);
+      }
+    } finally {
+      await f.close();
+    }
+  });
+
+  test(`${arm.name}: a stored JSON null option_details reads as no details everywhere`, async () => {
+    const f = await arm.make();
+    try {
+      await seedWorkingSet(f.store);
+      const engine = new LocalEngine(f.store);
+      const d = await engine.decide({
+        class: 'other',
+        options: ['A', 'B'],
+        project: 'MMR',
+        question: 'Which?',
+        recommended: 1,
+      });
+      await sql
+        .raw(`UPDATE decision SET option_details = 'null'${arm.name === 'sqlite' ? '' : '::jsonb'}`)
+        .execute(f.db);
+      expect((await engine.getDecision({ id: d.id })).option_details).toEqual([null, null]);
+      expect((await engine.decisions({ project: 'MMR' })).map((r) => r.option_details)).toEqual([
+        [null, null],
+      ]);
+      expect((await f.store.export()).decisions[0]?.option_details).toBeNull();
+      expect(
+        (await f.doctor.diagnose(undefined)).findings.some((r) => r.code === 'invalid-decision'),
+      ).toBe(false);
     } finally {
       await f.close();
     }

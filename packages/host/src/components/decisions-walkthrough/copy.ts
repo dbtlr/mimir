@@ -66,3 +66,8 @@ export function sendLabel(count: number): string {
 export function decisionCount(count: number): string {
   return `${String(count)} ${count === 1 ? 'decision' : 'decisions'}`;
 }
+
+/** The done screen's link to the next set: "Review it" for one decision, else "Review them". */
+export function reviewSetLabel(count: number): string {
+  return count === 1 ? 'Review it' : 'Review them';
+}
