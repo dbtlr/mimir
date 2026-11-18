@@ -12,6 +12,7 @@ import { isNotFound } from '../api/errors';
 import { deliveryPageQuery } from '../api/view-queries';
 import { BrowserGroup, BrowserRow } from '../components/browser-list';
 import { DecisionActions } from '../components/decision-actions';
+import { DeliveryDecisions } from '../components/decisions-walkthrough';
 import {
   DeliveryFacts,
   DeliveryTime,
@@ -47,6 +48,7 @@ export function DeliveryPage() {
 }
 function DeliveryRecord({ id }: { id: string }) {
   const query = useQuery(deliveryPageQuery(id));
+  const { mode } = deliveryRoute.useSearch();
   const conn = connectivity([query]);
   const unblock = useDeliveryUnblock();
   const park = useDeliveryPark();
@@ -264,6 +266,7 @@ function DeliveryRecord({ id }: { id: string }) {
   return (
     <>
       <OfflineBanner {...conn} />
+      {mode === 'decisions' && <DeliveryDecisions key={id} id={id} />}
       <ReasonDialog
         open={dialogOpen}
         required
