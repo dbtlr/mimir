@@ -97,6 +97,13 @@ export function decideCommand(ports: Ports) {
       if (!cls) {
         throw new MimirUsageError('--class must be product, architecture, or other');
       }
+      const recommended = numberOf(options.recommend);
+      if (recommended === undefined) {
+        throw new MimirUsageError('pass --recommend N');
+      }
+      const taken = numberOf(options.take);
+      // Usage errors come before the store opens (the Ports.engine contract).
+      const optionDetails = detailsOf(options.detail, options.option);
       const project =
         options.project ??
         (options.delivery
@@ -104,21 +111,17 @@ export function decideCommand(ports: Ports) {
           : await boundProject(ports, undefined, (line) => {
               void out.print(line);
             }));
-      const recommended = numberOf(options.recommend);
-      if (recommended === undefined) {
-        throw new MimirUsageError('pass --recommend N');
-      }
       const decision = await (
         await ports.engine()
       ).decide({
         class: cls,
         delivery: options.delivery,
-        option_details: detailsOf(options.detail, options.option),
+        option_details: optionDetails,
         options: options.option,
         project,
         question: args.question,
         recommended,
-        taken: numberOf(options.take),
+        taken,
         tasks: options.task,
         why: options.why,
       });

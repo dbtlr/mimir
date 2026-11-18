@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 
-import { parityBoard } from '../testing/fixture';
+import { createApp } from '../app';
+import { boundClone, parityBoard } from '../testing/fixture';
 import { runArgv } from '../testing/run';
 
 test('decision updates refuse delivery-only flags even with task links', async () => {
@@ -180,4 +181,31 @@ test('decide parses numbered details, rejects mistakes, and indents multiline te
   } finally {
     await board.close();
   }
+});
+
+test('a malformed decide flag is a usage error before the Engine is requested', async () => {
+  const requested: string[] = [];
+  const app = createApp({
+    git: boundClone('MMR'),
+    remote: {
+      diagnose: () => Promise.reject(new Error('not diagnosed here')),
+      engine: () => {
+        requested.push('engine');
+        return Promise.reject(new Error('store unreadable'));
+      },
+      origin: () => 'https://host.example',
+    },
+  });
+  const base = ['decide', 'Which?', '--option', 'A', '--option', 'B', '--class', 'other'];
+  for (const flags of [
+    ['--recommend', '1', '--detail', 'x'],
+    ['--recommend', '1', '--detail', '3: x'],
+    ['--recommend', '1', '--take', '0'],
+    ['--recommend', 'x'],
+  ]) {
+    const run = await runArgv(app, [...base, ...flags]);
+    expect(run.exitCode).toBe(2);
+    expect(run.stderr).not.toContain('store unreadable');
+  }
+  expect(requested).toEqual([]);
 });
