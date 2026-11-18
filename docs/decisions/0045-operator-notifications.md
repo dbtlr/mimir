@@ -90,19 +90,26 @@ its signal exists. So a check does not ask which window a write belonged to:
   latest success is not earlier than the instant the last successful check
   began its read.
 
-A check that fails is logged as `needs_you_check_fault`. It replaces nothing
-and retires nothing, so its causes carry to the next check, which the next
-window brings.
+A check succeeds only when its read and the building of its events both
+succeed. Its reads have 30 seconds; a check that takes longer fails, and
+whatever the late read returns is ignored. A check that fails is logged as
+`needs_you_check_fault`. It replaces nothing and retires nothing, so its
+causes carry to the next check, which the next window brings.
 
 **Boot.** The notifier reads the set once before the host serves any request,
-remembers it, and emits nothing. A failure of that read is logged as
-`needs_you_check_fault` and never refuses startup. A notifier with no remembered set treats its next successful
+remembers it, and emits nothing. That read has the same 30 seconds. A failure
+of it is logged as `needs_you_check_fault` and never refuses startup. Boot
+runs once: a second call does nothing. A notifier with no remembered set treats its next successful
 read as the first and emits nothing for it.
 
 **Close.** Closing the host cancels an open window and a waiting check. The
 result of a running check is discarded and logs nothing. Close does not wait
 for a delivery in flight. After close the notifier ignores everything a view
 tells it.
+
+The window and the marks are timed on a monotonic clock, so a step of the
+wall clock changes neither a window's length nor which mutations a check
+retires. Only the instant handed to the review read comes from the wall clock.
 
 The remembered set, the marks, and the window live in memory only. Every
 member enters the set through a write, and none enters because time passed,
@@ -195,7 +202,8 @@ the other channels still receive the event.
 
 The notifier runs on every host, with or without a channel. It logs each event
 as `needs_you_event` with the kind, the ids, the target, and the count, and
-never the title or the body. With no channel, its log lines are its only
+never the title or the body. Each of its log lines is one JSON object with
+`event` and `time`, the form of the host's other named events. With no channel, its log lines are its only
 output.
 
 ### The notifier never touches the write
@@ -220,6 +228,9 @@ notifier.
 - An entry is lost when the host stops before its check runs, when its check
   fails and no later write follows, and when it enters before the first
   successful read of a host whose boot read failed.
+- A mutation that commits and then fails while building its answer counts as
+  failed, so it opens no window. Its entry is found by the next check and
+  reported or withheld by that check's causes.
 - A member that enters and leaves before its check is never reported. A member
   that leaves and returns between two checks is not an entry: a task whose
   question is answered and asked again inside one window is not reported
