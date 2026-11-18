@@ -872,7 +872,7 @@ agent's briefing. The chips stay as MMR-695 defines them.
   delivery" and the project key, then the progress as "N of M", or "Check
   and send" on the check step. Close is an icon button named "Close the
   walkthrough". Close leaves the mode and shows the page; the browser's
-  Back returns to the entry before the walkthrough, which is the page when
+  Back returns to the history entry before the walkthrough, which is the page when
   the walkthrough opened from it. Both keep the answers chosen so far
   (_Drafts_) and ask nothing. Leaving while _Send_ is writing does not stop
   the write; the next opening shows what landed.
@@ -1019,7 +1019,7 @@ function.
 ## Refinement (2026-11-18, MMR-704): opening the walkthrough
 
 The MMR-703 refinement defines the decisions walkthrough and its address.
-This refinement adds the links that open it, the **walkthrough entries**.
+This refinement adds the links that open it, called entries here.
 The MMR-695 chips stay on every decision row, so a quick confirm stays one
 tap.
 
@@ -1046,8 +1046,8 @@ the oldest one waiting, as the MMR-703 refinement orders a set.
   - on the delivery page: `Review N decisions`, or `Review 1 decision`.
 - N counts the read, not the opening. A set of more than 100 decisions
   opens with its oldest 100, as the MMR-703 refinement caps an opening, and
-  the rest wait for the next opening. This is accepted: a set that large is
-  rare, and the done screen names what still waits.
+  the rest wait for the next opening, where the entry counts them again.
+  This is accepted: a set that large is rare.
 - An entry targets `/p/KEY/dN?mode=decisions` for a delivery and
   `/p/KEY?mode=decisions` for decisions without a delivery.
 - An entry is a text link in the attention hue, because the set is in the
@@ -1073,12 +1073,17 @@ for every other opening.
   own page, this keeps MMR-703's rule that Back returns to the history entry
   before the walkthrough. A replace would leave two copies of the page in
   history, and the next Back would seem to do nothing.
-- The done screen's and the empty state's link back to the page the
-  walkthrough opened on behave as Close does.
 - Every other opening carries no mark: an address typed or followed from
   outside the console, a new tab, or the done screen's link to the next
-  set. Close and the link back to the page then replace the history entry
-  with the page without the mode, as the MMR-703 refinement defines.
+  set. Close then replaces the history entry with the page without the
+  mode, as the console does today.
+- The done screen's and the empty state's link back to the page the
+  walkthrough opened on keep their label and target, the walkthrough's own
+  page, for every opening. This revises the MMR-703 refinement, whose link
+  pushes a new history entry: the link now replaces the walkthrough's
+  history entry with the page without the mode, so Back from that page
+  returns to where the operator was before the walkthrough and does not
+  reopen it.
 - Scroll is not restored. The console restores no scroll position on any
   navigation, and this refinement adds none.
 
@@ -1098,7 +1103,8 @@ walkthrough shows it. No other surface does.
 - The detail stays out of the radio's label, so the radio's accessible name
   does not gain it. It is tied to the radio with `aria-describedby`, so a
   screen reader reads it after the name. A radio without a detail has no
-  `aria-describedby`.
+  `aria-describedby`. Tapping or clicking the detail selects its option, as
+  the option's text does.
 - A detail clamps to two lines below the `md` breakpoint and to three at
   `md` and up, ending in an ellipsis. The selected answer's detail shows in
   full, so the operator reads all of what they pick. Moving the selection

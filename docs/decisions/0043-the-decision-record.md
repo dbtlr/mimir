@@ -354,9 +354,9 @@ none.
 | `option_details` | A list as long as `options`: entry N is option N's detail, or null when it has none. Stored on the decision row as a nullable JSON column: null when no option has a detail, otherwise the whole list |
 
 - **One stored form.** A decision whose options carry no detail stores
-  null, never a list of nulls. `decide` and import turn a list of nulls
-  into null before they write, so a decision has exactly one stored form
-  for each set of details.
+  null, never a list of nulls. `decide` turns a list of nulls into null
+  before it writes, so a decision has exactly one stored form for each set
+  of details.
 - **Every read returns the whole list.** `get`, `decisions`, and every
   console read return `option_details` as a list as long as `options`, so a
   reader pairs an option with its detail by position. A stored null reads
@@ -402,9 +402,9 @@ mimir decide "Store snapshots per task or per phase?" \
 
 - `get KEY-qN` and the `decisions` read carry `option_details` in JSON.
 - In text, the field prints only inside the _Options_ block, never as a
-  field line of its own. A detail prints under its option, indented two
-  columns deeper than the option's text, so an option whose own text runs
-  over several lines still reads apart from its detail.
+  field line of its own. A detail prints under its option, every line of it
+  indented two columns deeper than the option's text, so an option whose
+  own text runs over several lines still reads apart from its detail.
 - The overturn annotation keeps its form and names the option's text only.
 
 ### Transfer
@@ -412,14 +412,16 @@ mimir decide "Store snapshots per task or per phase?" \
 - The store export carries each decision's stored `option_details`: null,
   or the whole list. A damaged stored value exports as stored, as damaged
   options do, so a backup loses nothing and import refuses it by shape.
-- The export's schema version increments. A document of an older version
-  has no `option_details`, and every decision imports with none. A document
-  of this version or later may carry null or the whole list, and import
-  refuses a missing field.
+- The export's schema version increments. A decision with no
+  `option_details` key, in a document of any version, imports with no
+  details, as every field added to the document so far defaults when
+  absent.
 - **Import refuses, and doctor reports,** an `option_details` that is not
-  null and not a list, a list whose length differs from `options`, or an
-  entry that is neither null nor non-blank text. Import stores a list of
-  nulls as null, so a re-export of an import is the same document.
+  null and not a list, a list whose length differs from `options`, an
+  entry that is neither null nor non-blank text, or a list whose entries
+  are all null. An export never writes that last form, because the store
+  never holds it, so refusing it keeps a re-export of an import the same
+  document.
 
 ### The console
 
