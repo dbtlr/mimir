@@ -5,7 +5,8 @@ import type { Ref } from 'react';
 import type { DecisionAnswerResult } from '../../api/fns/deliveries';
 import { reviewQuery } from '../../api/view-queries';
 import { deliveryLink } from '../../lib/record-url';
-import { decisionCount } from './copy';
+import { markState, useOpenerMark } from '../../lib/walkthrough-mark';
+import { decisionCount, reviewSetLabel } from './copy';
 import { CheckGlyph } from './icons';
 import { setOfDecision } from './model';
 import type { WalkDecision, WalkScope } from './model';
@@ -25,6 +26,7 @@ const LINK_CLASS =
  */
 function NextSet({ current }: { current: string }) {
   const review = useQuery(reviewQuery());
+  const state = markState(useOpenerMark());
   const report = review.data;
   if (report === undefined) {
     return null;
@@ -51,17 +53,25 @@ function NextSet({ current }: { current: string }) {
           : `${set} has ${decisionCount(count)} without a delivery`}
       </span>
       {forDelivery ? (
-        <Link {...deliveryLink(set)} search={{ mode: 'decisions' }} className={LINK_CLASS}>
-          Review them
+        <Link
+          {...deliveryLink(set)}
+          search={{ mode: 'decisions' }}
+          replace
+          state={state}
+          className={LINK_CLASS}
+        >
+          {reviewSetLabel(count)}
         </Link>
       ) : (
         <Link
           to="/p/$key"
           params={{ key: set }}
           search={{ mode: 'decisions' }}
+          replace
+          state={state}
           className={LINK_CLASS}
         >
-          Review them
+          {reviewSetLabel(count)}
         </Link>
       )}
     </p>
