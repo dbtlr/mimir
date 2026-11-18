@@ -562,3 +562,11 @@ at once, and with a stop that reaches the main agent while a reader runs:
   canary read outside the clone and a grant write check;
 - after `continue: false`, the run ends with a result whose `modelUsage`
   covers every turn, the readers' included.
+
+**Considered and rejected: interrupt and estimate.** `query.interrupt()`
+(which needs streaming input) ends a run with a result, but that result's
+`modelUsage` leaves out the turn in flight: about 33k tokens in one spike run.
+It is only a lower bound. Charging the larger of that result and an estimate
+needed a new column, and the estimate could be gamed when a turn's input
+jumps. Stopping at the gate needs no migration and settles on a result that
+covers every turn.

@@ -39,7 +39,10 @@ that holds a task in `under_review` until merge.
    settled. When no such line exists, the operator merges. The required
    checks are `gate` and `changelog-guard`. CodeRabbit and Kody are advisory:
    settle their findings like any other finding, but a skipped, rate-limited,
-   or failed bot review does not hold the merge.
+   or failed bot review does not hold the merge. A CodeRabbit review still in
+   progress does hold it until the review posts: its check is not required,
+   so green required checks do not wait for it, and its full review has
+   found real defects.
 6. **Done** — `mimir done <id>` once the PR has merged, whoever merged it.
 
 ## Settling review findings

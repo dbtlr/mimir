@@ -68,6 +68,9 @@ mimir groom KEY-11 not_groomed                     # back to the default
   next reader.
 - `update` never touches the state, and editing a description never resets it.
   When you rewrite a groomed task enough to change what it asks, re-groom it.
+- When a ruling changes a task's contract, rewrite the description in the same
+  step, not only an annotation. Implementers and automated reviewers check the
+  work against the description.
 - The state gates nothing: `start` never checks it. A task that hits a question
   after you started it is blocked with `block --on you`, not moved back to
   `needs_answers`.

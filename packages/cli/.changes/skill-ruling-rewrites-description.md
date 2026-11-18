@@ -1,0 +1,1 @@
+- Change the bundled Mimir skill's authoring guide: when a ruling changes a task's contract, rewrite the task's description in the same step, not only an annotation.

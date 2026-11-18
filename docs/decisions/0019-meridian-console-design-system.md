@@ -516,6 +516,8 @@ state. The red marks the consequence of the click, and the label names it.
 - The hairline is the only status hue a control may wear, and only for an
   action that ends or removes something. A confirm keeps the destructive
   button an outline too, beside a neutral safe choice that takes focus first.
+- A confirm opens as a modal dialog, never as a box that expands in place on
+  the page.
 - Unpair and its confirm (`/devices`), Deny (`/pair`), the agent card's Stop, the stop icon
   on a work page's Now row, and the confirm's **Stop run** (MMR-635) use the
   variant. They no longer carry their
