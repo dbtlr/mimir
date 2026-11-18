@@ -543,7 +543,8 @@ async function openTimedHost() {
   await host.engine.create({ parent: 'NTF-1', title: 'Second', type: 'task' });
   // The setup writes opened a window; its check finds nothing.
   await rig.closeWindow();
-  await Bun.sleep(5);
+  // The setup check is over once its read limit timer is cleared.
+  await until(() => rig.armed().length === 0);
   return { host, rig };
 }
 
@@ -642,7 +643,10 @@ test('closing the host closes the notifier: its window is cancelled and nothing 
   const logged = rig.notifierLines().length;
   await host.close();
   expect(rig.armed()).toEqual([]);
-  await Bun.sleep(5);
+  // Let any pending read settle; the closed notifier must log nothing for it.
+  for (let turn = 0; turn < 100; turn += 1) {
+    await Bun.sleep(0);
+  }
   expect(rig.notifierLines()).toHaveLength(logged);
 });
 

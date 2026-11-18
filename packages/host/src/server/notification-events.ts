@@ -127,12 +127,16 @@ function singleEvent(
  * Events for the entries, in the order given (the review's `queue` order). The
  * decision entries naming one delivery form one event, and those naming none
  * form one event per project; a decisions event takes the place of its first
- * member. An entry with no row in the read is skipped.
+ * member. An entry with no row in the read is skipped. `stillLive` is the
+ * notifier's judgement of the check (open, within its limit; it may throw);
+ * it is consulted after each title read, and once it says no, no further
+ * title read starts and the events built so far are returned.
  */
 export async function buildEvents(
   entries: QueueEntry[],
   review: ReviewRead,
   readDeliveryTitle: (id: string) => Promise<string>,
+  stillLive: () => boolean,
 ): Promise<NotificationEvent[]> {
   const rows = locate(review);
   const needsYou = review.queue.length;
@@ -180,6 +184,9 @@ export async function buildEvents(
     events.push(
       'decisions' in draft ? await decisionsEvent(draft, readDeliveryTitle) : draft.event,
     );
+    if (!stillLive()) {
+      break;
+    }
   }
   return events;
 }

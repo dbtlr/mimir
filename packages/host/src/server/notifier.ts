@@ -146,7 +146,7 @@ export function createNotifier<Handle>(options: NotifierOptions<Handle>): Notifi
       entries.length > 0 && causes.size > 0 && [...causes].every((cause) => cause === RECIPIENT);
     const events =
       entries.length > 0 && !withheld
-        ? await buildEvents(entries, review, reads.deliveryTitle)
+        ? await buildEvents(entries, review, reads.deliveryTitle, stillLive)
         : [];
     if (!stillLive()) {
       return;

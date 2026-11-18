@@ -148,6 +148,23 @@ function rig(initial: FixtureMember[] | Error = [], extraChannels: NotificationC
 
 const task1 = blockedTask('MMR-1', 'Wire it', 'Need a key');
 
+/** Two deliveries with decisions; the first title read is held. */
+async function twoDeliveries() {
+  const r = rig([]);
+  await r.notifier.boot();
+  const started: string[] = [];
+  const first = Promise.withResolvers<string>();
+  r.setTitleRead((id) => {
+    started.push(id);
+    return id === 'MMR-d3' ? first.promise : Promise.resolve(`Title of ${id}`);
+  });
+  r.set([decision('MMR-q1', 'MMR-d3'), decision('MMR-q2', 'MMR-d4')]);
+  r.write('other');
+  await r.advance(WINDOW_QUIET_MS);
+  expect(started).toEqual(['MMR-d3']);
+  return { first, r, started };
+}
+
 describe('what counts as an entry', () => {
   test('a member that leaves the set and returns is an entry again, and one that stays is not', async () => {
     const r = rig([task1]);
@@ -802,5 +819,38 @@ describe('the cases a mutation could slip through', () => {
     await flush();
     expect(r.events).toEqual([]);
     expect(r.logs).toEqual([]);
+  });
+
+  describe('the title reads of one build', () => {
+    test('a read that settles past 30 seconds starts no further title read, and commits nothing', async () => {
+      const { first, r, started } = await twoDeliveries();
+      r.stall(30_000);
+      first.resolve('Late');
+      await flush();
+      expect(started).toEqual(['MMR-d3']);
+      expect(r.events).toEqual([]);
+      expect(r.lines()).toEqual([{ event: 'needs_you_check_fault' }]);
+      r.write('other');
+      await r.advance(WINDOW_QUIET_MS);
+      expect(r.events.map((event) => event.ids)).toEqual([['MMR-q1'], ['MMR-q2']]);
+    });
+
+    test('a close while a read is pending starts no further title read and logs nothing', async () => {
+      const { first, r, started } = await twoDeliveries();
+      r.notifier.close();
+      first.resolve('Late');
+      await flush();
+      expect(started).toEqual(['MMR-d3']);
+      expect(r.events).toEqual([]);
+      expect(r.logs).toEqual([]);
+    });
+
+    test('reads that finish in time build every event', async () => {
+      const { first, r, started } = await twoDeliveries();
+      first.resolve('First');
+      await flush();
+      expect(started).toEqual(['MMR-d3', 'MMR-d4']);
+      expect(r.events.map((event) => event.ids)).toEqual([['MMR-q1'], ['MMR-q2']]);
+    });
   });
 });

@@ -92,7 +92,8 @@ reads it across every active project
 ([ADR 0045](decisions/0045-operator-notifications.md)).
 
 **Notification event**: What the host emits when a record enters the needs-you
-set, unless the recipient made every write behind it. It names the record,
+set, unless the check that found the entry has causes and every one of them is
+the recipient. It names the record,
 carries one line of its text, and gives the console path that opens it. A channel
 delivers it to a device
 ([ADR 0045](decisions/0045-operator-notifications.md)).

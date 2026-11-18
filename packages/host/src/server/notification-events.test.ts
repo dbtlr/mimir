@@ -10,11 +10,12 @@ import {
   stoppedDelivery,
 } from './notification-fixtures';
 
+const live = () => true;
 const titles = async (id: string) => `Title of ${id}`;
 
 async function eventsOf(members: Parameters<typeof reviewOf>[0], read = titles) {
   const review = reviewOf(members);
-  return buildEvents(review.queue, review, read);
+  return buildEvents(review.queue, review, read, live);
 }
 
 describe('event building', () => {
@@ -114,7 +115,7 @@ describe('event building', () => {
   test('only the given entries make events, but the count is the whole set', async () => {
     const review = reviewOf([blockedTask('MMR-1'), blockedTask('MMR-2')]);
     const entries: QueueEntry[] = [review.queue[1]!];
-    const events = await buildEvents(entries, review, titles);
+    const events = await buildEvents(entries, review, titles, live);
     expect(events.map((event) => [event.ids, event.needs_you])).toEqual([[['MMR-2'], 2]]);
   });
 
@@ -176,7 +177,7 @@ describe('event building, the cases a mutation could slip through', () => {
   test('a queue entry with no row in the read is skipped, not thrown on', async () => {
     const review = reviewOf([blockedTask('MMR-1'), blockedTask('MMR-2')]);
     const entries: QueueEntry[] = [{ id: 'MMR-99', kind: 'task' }, review.queue[1]!];
-    const events = await buildEvents(entries, review, titles);
+    const events = await buildEvents(entries, review, titles, live);
     expect(events.map((event) => event.ids)).toEqual([['MMR-2']]);
   });
 });
