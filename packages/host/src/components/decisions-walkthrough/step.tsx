@@ -178,7 +178,7 @@ export function Step({
             <AgentGlyph />
             Agent
           </span>
-          <span>{decision.class}</span>
+          <span className="capitalize">{decision.class}</span>
           <span>{ago(decision.created_at)}</span>
           <span className="font-mono text-mono-id">{decision.id}</span>
         </MetaLine>
