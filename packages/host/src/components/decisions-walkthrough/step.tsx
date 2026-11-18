@@ -10,7 +10,7 @@ import { isBlankCustom, verdictOf } from './model';
 import type { Selection, WalkDecision } from './model';
 import { BackButton, Composer, MetaLine, PrimaryButton, Scroll, ScreenHeading } from './parts';
 
-/** Where a flag sits beside an option: the agent's answer in attention violet, its recommendation dimmer. */
+/** The flags beside an option: "Agent's answer" in attention violet, "Agent recommends" in dim ink. */
 function Flags({ decision, number }: { decision: WalkDecision; number: number }) {
   return (
     <>
@@ -29,7 +29,10 @@ const ROW_CLASS =
 const RADIO_CLASS =
   'mt-[3px] size-[18px] shrink-0 appearance-none rounded-full border-[1.5px] border-ink-faint outline-none checked:border-attention checked:bg-attention checked:shadow-[inset_0_0_0_3.5px_var(--color-well-900)]';
 
-/** The answers: a native radio group, one row per option and a last row for the operator's own words. */
+/**
+ * The answers: a native radio group, one row per option and a last row for
+ * the operator's own words, whose text box shows under the group.
+ */
 function Answers({
   decision,
   selection,
@@ -43,44 +46,46 @@ function Answers({
 }) {
   const group = useId();
   return (
-    <div
-      role="radiogroup"
-      aria-label={`Your answer to ${decision.id}`}
-      className="mb-0 border-t border-line"
-    >
-      {decision.options.map((text, index) => {
-        const number = index + 1;
-        const picked = selection.choice === number;
-        return (
-          <label key={number} className={ROW_CLASS}>
-            <input
-              type="radio"
-              name={group}
-              className={RADIO_CLASS}
-              checked={picked}
-              disabled={disabled}
-              onChange={() => onChange({ choice: number })}
-            />
-            <span
-              className={`flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-0.5 text-[15.5px] leading-[1.45] wrap-anywhere ${picked ? 'text-ink-bright' : 'text-ink'}`}
-            >
-              <span>{text}</span>
-              <Flags decision={decision} number={number} />
-            </span>
-          </label>
-        );
-      })}
-      <label className={ROW_CLASS}>
-        <input
-          type="radio"
-          name={group}
-          className={RADIO_CLASS}
-          checked={selection.choice === 'custom'}
-          disabled={disabled}
-          onChange={() => onChange({ choice: 'custom' })}
-        />
-        <span className="text-[15.5px] leading-[1.45] text-ink-dim">Something else</span>
-      </label>
+    <>
+      <div
+        role="radiogroup"
+        aria-label={`Your answer to ${decision.id}`}
+        className="mb-0 border-t border-line"
+      >
+        {decision.options.map((text, index) => {
+          const number = index + 1;
+          const picked = selection.choice === number;
+          return (
+            <label key={number} className={ROW_CLASS}>
+              <input
+                type="radio"
+                name={group}
+                className={RADIO_CLASS}
+                checked={picked}
+                disabled={disabled}
+                onChange={() => onChange({ choice: number })}
+              />
+              <span
+                className={`flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-0.5 text-[15.5px] leading-[1.45] wrap-anywhere ${picked ? 'text-ink-bright' : 'text-ink'}`}
+              >
+                <span>{text}</span>
+                <Flags decision={decision} number={number} />
+              </span>
+            </label>
+          );
+        })}
+        <label className={ROW_CLASS}>
+          <input
+            type="radio"
+            name={group}
+            className={RADIO_CLASS}
+            checked={selection.choice === 'custom'}
+            disabled={disabled}
+            onChange={() => onChange({ choice: 'custom' })}
+          />
+          <span className="text-[15.5px] leading-[1.45] text-ink-dim">Something else</span>
+        </label>
+      </div>
       {selection.choice === 'custom' && (
         <div className="pt-2.5 pb-1">
           <GrowingTextarea
@@ -92,7 +97,7 @@ function Answers({
           />
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -161,7 +166,8 @@ export function Step({
   offline: boolean;
   onChange: (patch: Partial<Selection>) => void;
   onBack: () => void;
-  onNext: () => void;
+  /** Move on, or write for a lone decision; `control` is the button, which takes focus back if the write fails. */
+  onNext: (control: HTMLElement) => void;
 }) {
   const taken = decision.options[decision.taken - 1] ?? '';
   const recommended = decision.options[decision.recommended - 1];
@@ -184,7 +190,7 @@ export function Step({
         </MetaLine>
         <ScreenHeading
           headingRef={headingRef}
-          className="mb-2.5 text-[21px] leading-[1.28] md:text-[24px]"
+          className="mb-2.5 text-header leading-[1.28] md:text-[24px]"
         >
           {decision.question}
         </ScreenHeading>
@@ -240,7 +246,7 @@ export function Step({
           <PrimaryButton
             aria-label={`${label} (${decision.id})`}
             disabled={blocked}
-            onClick={onNext}
+            onClick={(event) => onNext(event.currentTarget)}
           >
             {label}
           </PrimaryButton>

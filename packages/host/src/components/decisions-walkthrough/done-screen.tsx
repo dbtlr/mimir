@@ -100,14 +100,15 @@ export function DoneScreen({
             Done
           </span>
         </MetaLine>
-        <ScreenHeading headingRef={headingRef} className="mb-2.5 text-[21px] md:text-[24px]">
+        <ScreenHeading headingRef={headingRef} className="mb-2.5 text-header md:text-[24px]">
           {scope.kind === 'delivery' ? 'Answers sent' : 'Answers recorded'}
         </ScreenHeading>
         <p className="mb-2 max-w-[52ch] text-ink">
           {recorded.length === 0
             ? 'No answer was recorded.'
             : `${decisionCount(recorded.length)} recorded.`}
-          {rework.length > 0 && ` ${rework.join(', ')} go back for rework.`}
+          {rework.length > 0 &&
+            ` ${rework.join(', ')} ${rework.length === 1 ? 'goes' : 'go'} back for rework.`}
         </p>
         {recorded.length > 0 && (
           <ul aria-label="Recorded" className="mb-2 flex flex-col gap-1 text-body">

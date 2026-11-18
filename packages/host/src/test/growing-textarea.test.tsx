@@ -32,14 +32,16 @@ describe('GrowingTextarea', () => {
     expect(screen.getByLabelText('note').style.height).toBe(
       `${String(GROWING_TEXTAREA_MAX_HEIGHT)}px`,
     );
-    expect(GROWING_TEXTAREA_MAX_HEIGHT).toBe(110);
   });
 
-  it('with field-sizing, leaves the height to CSS', () => {
+  it('with field-sizing, leaves the height to CSS, capped at the same height', () => {
     vi.stubGlobal('CSS', { supports: () => true });
     stubScrollHeight(60);
     render(<GrowingTextarea aria-label="note" />);
     expect(screen.getByLabelText('note').style.height).toBe('');
+    expect(screen.getByLabelText('note').style.maxHeight).toBe(
+      `${String(GROWING_TEXTAREA_MAX_HEIGHT)}px`,
+    );
   });
 
   it('forwards onInput and refits on input', () => {

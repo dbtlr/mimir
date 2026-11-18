@@ -2,7 +2,7 @@ import type { Ref } from 'react';
 
 import { checkEffect, sendLabel, sendLine } from './copy';
 import { CheckGlyph, SendGlyph } from './icons';
-import { answerText, noteOf, verdictOf } from './model';
+import { answerText, isBlankCustom, noteOf, verdictOf } from './model';
 import type { Selection, WalkDecision } from './model';
 import {
   BackButton,
@@ -21,7 +21,8 @@ export type CheckEntry = { index: number; decision: WalkDecision; selection: Sel
 /**
  * "Check your answers" (ADR 0019, MMR-703 refinement): each answer to be sent
  * with its outcome, note, and effect, a Change link back to its step, and the
- * one Send. A decision that left the live read is not listed and not sent.
+ * one Send. A decision that left the live read is not listed and not sent,
+ * and a blank "Something else" holds Send back.
  */
 export function CheckStep({
   entries,
@@ -40,8 +41,10 @@ export function CheckStep({
   offline: boolean;
   onChange: (index: number) => void;
   onBack: () => void;
-  onSend: () => void;
+  /** Write the answers; `control` is Send, which takes focus back if the write fails. */
+  onSend: (control: HTMLElement) => void;
 }) {
+  const blank = entries.some(({ selection }) => isBlankCustom(selection));
   return (
     <section aria-label="Check your answers" className="flex min-h-0 flex-1 flex-col">
       <Scroll>
@@ -51,7 +54,7 @@ export function CheckStep({
             Before you send
           </span>
         </MetaLine>
-        <ScreenHeading headingRef={headingRef} className="mb-2.5 text-[21px] md:text-[24px]">
+        <ScreenHeading headingRef={headingRef} className="mb-2.5 text-header md:text-[24px]">
           Check your answers
         </ScreenHeading>
         <ol className="mt-2 border-t border-line">
@@ -94,7 +97,10 @@ export function CheckStep({
       <Composer>
         <div className="grid grid-cols-[auto_minmax(0,1fr)] items-end gap-2 md:grid-cols-[auto_minmax(0,1fr)_auto]">
           <BackButton disabled={writing} onClick={onBack} />
-          <PrimaryButton disabled={writing || offline || entries.length === 0} onClick={onSend}>
+          <PrimaryButton
+            disabled={writing || offline || blank || entries.length === 0}
+            onClick={(event) => onSend(event.currentTarget)}
+          >
             {sendLabel(entries.length)}
           </PrimaryButton>
         </div>

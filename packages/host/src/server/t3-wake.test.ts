@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import { MimirError } from '@mimir/contract';
+import type { Engine } from '@mimir/contract';
 import {
   createInitiative,
   createPhase,
@@ -14,7 +15,6 @@ import { createTestStore } from '@mimir/core/testing';
 import type { TestStore } from '@mimir/core/testing';
 
 import { createT3Adapter, T3_SECRET_NAME } from './t3';
-import type { T3AdapterOptions } from './t3';
 import type { T3Settings } from './t3-settings';
 import { T3_WAKE_ACTIONS } from './t3-states';
 import type { T3WakeAction, T3WakeField, T3WakeInput, T3WakeState } from './t3-states';
@@ -80,7 +80,7 @@ function fakeEngine(deliveries: FakeDelivery[], decisions: Record<string, string
   };
   return {
     control,
-    engine: engine as unknown as T3AdapterOptions['engine'],
+    engine: engine as unknown as Pick<Engine, 'getDecision' | 'getDelivery' | 'getNode' | 'queue'>,
   };
 }
 

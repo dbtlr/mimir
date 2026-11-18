@@ -853,7 +853,12 @@ agent's briefing. The chips stay as MMR-695 defines them.
   most one _Send_ takes; the rest wait for the next opening.
 - A decision that leaves the live read while the walkthrough is open,
   because it was answered or moved elsewhere, shows "This decision no longer
-  waits on you" in place of its answers, and _Send_ leaves it out.
+  waits on you" in place of its answers, and _Send_ leaves it out. Its step
+  has no effect line or note box, and its step's button moves on without an
+  answer: "Continue", or "Review" on the last decision of a set with a check
+  step. In a set of one, the button reads "Nothing to send" and is disabled.
+  The decisions a _Send_ is writing count as waiting until its results
+  show, because the write's own refetch lands first.
 - A set with no provisional decisions shows "Nothing waits on you here" and a
   link back to the page.
 
@@ -864,12 +869,13 @@ agent's briefing. The chips stay as MMR-695 defines them.
   inert while the layer is open, so focus and the screen reader stay in the
   walkthrough.
 - Its header shows the delivery's title and id, or "Decisions without a
-  delivery" and the project key, then the progress as "N of M". Close is an
-  icon button named "Close the walkthrough". Close leaves the mode and shows
-  the page; the browser's Back returns to the entry before the walkthrough,
-  which is the page when the walkthrough opened from it. Both keep the
-  answers chosen so far (_Drafts_) and ask nothing. Leaving while _Send_ is
-  writing does not stop the write; the next opening shows what landed.
+  delivery" and the project key, then the progress as "N of M", or "Check
+  and send" on the check step. Close is an icon button named "Close the
+  walkthrough". Close leaves the mode and shows the page; the browser's
+  Back returns to the entry before the walkthrough, which is the page when
+  the walkthrough opened from it. Both keep the answers chosen so far
+  (_Drafts_) and ask nothing. Leaving while _Send_ is writing does not stop
+  the write; the next opening shows what landed.
 - The offline notice shows at the top of the layer, and toasts show above it.
 - The layer uses the console's tokens, so both themes apply.
 
@@ -986,6 +992,9 @@ function.
   heading, which takes focus for this. It never lands on the step's button,
   _Send_, or the one-decision commit, so a key held down or pressed twice
   writes nothing.
+- A _Send_ that fails shows its error as a toast, as the MMR-695
+  refinement's refusals do, and returns focus to _Send_ or the one-decision
+  commit once the write ends, when focus was lost with it.
 - The answers are a native radio group: the arrow keys move the selection.
 - The answer group's name and the step button's name include the
   decision's id.
@@ -1000,6 +1009,6 @@ function.
   rail is hidden. The reply bar puts the note box on its own row, above Back
   and the step's button.
 - Controls take the 44px phone touch target.
-- Attention violet marks the agent's answer, the flags, and the current
-  step. "Confirmed" takes the `done` green and "Overturned" the
-  `in_progress` amber, the hue of work sent back.
+- Attention violet marks the agent's answer and its flag, and the current
+  step; the "Agent recommends" flag is dim ink. "Confirmed" takes the `done`
+  green and "Overturned" the `in_progress` amber, the hue of work sent back.

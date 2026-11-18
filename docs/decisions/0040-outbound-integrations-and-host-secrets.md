@@ -728,11 +728,13 @@ given. For each one:
    or overturned elsewhere is refused here, by the Engine.
 3. Any other error, a `MimirError` with the code `invariant` included, gives
    the outcome `failed`, logs `decision_answer_fault` with the decision id,
-   and the function moves on.
+   the error's class name, and a `MimirError`'s code, never its message, and
+   the function moves on.
 
 Each answer is its own Engine write, as it is from the chips, so a refusal
 never undoes or blocks another answer. Once the input checks pass, the
-function never throws.
+function never throws. As with every waking function, the console function
+makes the Engine writes, and the T3 adapter only sends the wake.
 
 ### The wake
 

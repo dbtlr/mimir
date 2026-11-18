@@ -2,11 +2,12 @@ import { engineSchemas, parseEngineInput } from '@mimir/contract';
 import type { EngineDecision, EngineInput } from '@mimir/contract';
 import { createServerFn } from '@tanstack/react-start';
 
+import { writeDecisionAnswers } from '../../server/decision-answer-writes';
 import { parseAnswerDecisions } from '../../server/decision-answers';
 import type { AnswerDecisionsInput, DecisionAnswers } from '../../server/decision-answers';
 import type { T3WakeInput } from '../../server/t3-states';
 import { decisionTarget, deliveryTarget, wakeAttemptSchema } from '../../server/t3-wake';
-import { engine, t3Integration } from './engine';
+import { engine, hostLog, t3Integration } from './engine';
 
 export type {
   AnswerDecisionsInput,
@@ -142,13 +143,21 @@ export const confirm = createServerFn({ method: 'POST' })
 
 /**
  * The decisions walkthrough's Send (ADR 0040, MMR-703 refinement): write each
- * answer in order as its own Engine write, then wake the delivery's thread
- * once when an overturn landed. A refused answer does not stop the rest.
+ * answer in order as its own Engine write, then have the T3 adapter wake the
+ * delivery's thread once when an overturn landed. A refused answer does not
+ * stop the rest.
  */
 export const answerDecisions = createServerFn({ method: 'POST' })
   .validator((input: AnswerDecisionsInput) => parseAnswerDecisions(input))
   .handler(async ({ data }): Promise<DecisionAnswers<EngineDecision>> =>
-    (await t3Integration()).answerDecisions(data),
+    writeDecisionAnswers(
+      {
+        engine: await engine(),
+        log: await hostLog(),
+        wake: (await t3Integration()).wakeAfterAnswers,
+      },
+      data,
+    ),
   );
 
 /**

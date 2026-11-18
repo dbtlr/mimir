@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import { MimirError } from '@mimir/contract';
+import type { Engine } from '@mimir/contract';
 import { parseSecretKey, sealSecret } from '@mimir/core';
 
 import { createT3Adapter, T3_SECRET_NAME } from './t3';
@@ -167,7 +168,7 @@ function fakeEngine(tasks: FakeTask[], deliveries: Record<string, string> = {}) 
   };
   return {
     control,
-    engine: engine as unknown as T3AdapterOptions['engine'],
+    engine: engine as unknown as Pick<Engine, 'getNode' | 'getDelivery' | 'getDecision' | 'queue'>,
     nodes,
     queued,
   };

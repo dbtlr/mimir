@@ -80,7 +80,7 @@ and tasks waiting on the operator under "Needs you".
 **Decisions walkthrough**: The console flow that takes the operator through a
 set of provisional decisions, a delivery's or a project's decisions without a
 delivery, one decision per screen, and records the answers together with one
-Send.
+Send ([ADR 0019](decisions/0019-meridian-console-design-system.md)).
 _Avoid_: decision wizard, answer flow
 
 **Checklist item**: A small, numbered item on a task that is added, then

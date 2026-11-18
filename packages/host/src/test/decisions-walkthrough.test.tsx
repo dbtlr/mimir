@@ -1,6 +1,7 @@
 import type { ConsoleOutput } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { toast } from 'sonner';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { answerDecisions } from '../api/fns/deliveries';
@@ -252,6 +253,11 @@ test('Something else hides the note box and sends its text as the note, with no 
   expect(
     within(layer).queryByRole('textbox', { name: 'Add a note for the agent (optional)' }),
   ).toBeNull();
+  expect(
+    within(within(layer).getByRole('radiogroup')).queryByRole('textbox', {
+      name: 'Your own answer',
+    }),
+  ).toBeNull();
   fireEvent.change(within(layer).getByRole('textbox', { name: 'Your own answer' }), {
     target: { value: ' Drop it entirely ' },
   });
@@ -410,7 +416,7 @@ test('the done screen lists refused and failed answers with reasons, the rework,
   await toCheck(layer);
   fireEvent.click(button(layer, 'Send 3 answers'));
   await heading(layer, 'Answers sent');
-  expect(layer).toHaveTextContent('MMR-3 go back for rework.');
+  expect(layer).toHaveTextContent('MMR-3 goes back for rework.');
   const refused = within(layer).getByRole('list', { name: 'Not recorded' });
   expect(refused).toHaveTextContent('Question 2?MMR-q2 is already confirmed');
   expect(refused).toHaveTextContent('Question 3?');
@@ -573,22 +579,122 @@ test('an empty set says nothing waits and links back', async () => {
   expect(within(layer).getByRole('link', { name: 'Back to MMR-d3' })).toBeInTheDocument();
 });
 
-test('the phone layout shows the segmented bar, hides the rail, and puts the note on its own row', async () => {
-  const { layer } = await openDelivery();
-  await heading(layer, 'Question 1?');
-  const rail = within(layer).getByRole('navigation', { name: 'Decisions' });
-  expect(rail).toHaveClass('max-md:hidden');
-  const bar = layer.querySelector(String.raw`[aria-hidden].md\:hidden`);
-  expect(bar).not.toBeNull();
-  expect(bar!.children).toHaveLength(4);
-  const note = within(layer).getByRole('textbox', { name: 'Add a note for the agent (optional)' });
-  expect(note).toHaveClass('max-md:order-first', 'max-md:col-span-2');
-  expect(button(layer, 'Back')).toHaveClass('size-12');
-  expect(next(layer)).toHaveClass('min-h-12');
-});
-
-test('the review read is only asked for after a send', async () => {
+test('the review read is not requested before a send', async () => {
   const { layer } = await openDelivery();
   await heading(layer, 'Question 1?');
   expect(review).not.toHaveBeenCalled();
+});
+
+test('an opening holds the oldest 100 decisions and keeps the drafts of the rest', async () => {
+  const many = Array.from({ length: 101 }, (_, i) => decision(101 - i));
+  vi.mocked(deliveryPage).mockResolvedValue(page(many));
+  writeDraft('MMR-q101', { answer: '', choice: 2, note: 'Later', set: 'MMR-d3' });
+  const { layer } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  expect(within(layer).getByText('1 of 100')).toBeInTheDocument();
+  const rail = within(layer).getByRole('navigation', { name: 'Decisions' });
+  expect(rail).toHaveTextContent('Question 100?');
+  expect(rail).not.toHaveTextContent('Question 101?');
+  expect(readDraft('MMR-q101')).toMatchObject({ note: 'Later' });
+});
+
+test('a decision that joins the live read after opening waits for the next opening', async () => {
+  const { layer, qc } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  vi.mocked(deliveryPage).mockResolvedValue(page([...decisions(), decision(4)]));
+  await qc.refetchQueries({ queryKey: ['nodes', 'delivery', 'MMR-d3'] });
+  expect(within(layer).getByText('1 of 3')).toBeInTheDocument();
+  await toCheck(layer);
+  expect(layer).not.toHaveTextContent('Question 4?');
+  fireEvent.click(button(layer, 'Send 3 answers'));
+  await heading(layer, 'Answers sent');
+  expect(vi.mocked(answerDecisions).mock.calls[0]![0].data.answers.map((a) => a.id)).toStrictEqual([
+    'MMR-q1',
+    'MMR-q2',
+    'MMR-q3',
+  ]);
+});
+
+test('Escape does nothing while a Send is in flight', async () => {
+  const gate = Promise.withResolvers<Awaited<ReturnType<typeof answerDecisions>>>();
+  vi.mocked(answerDecisions).mockReturnValue(gate.promise);
+  const { layer, router } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  await toCheck(layer);
+  fireEvent.click(button(layer, 'Send 3 answers'));
+  await waitFor(() => {
+    expect(button(layer, 'Send 3 answers')).toBeDisabled();
+  });
+  fireEvent.keyDown(within(layer).getByRole('heading', { name: 'Check your answers' }), {
+    key: 'Escape',
+  });
+  expect(screen.getByRole('dialog')).toBe(layer);
+  expect(router.state.location.search).toHaveProperty('mode', 'decisions');
+  gate.resolve({ results: [recorded('MMR-q1', 'confirmed')], wake: { state: 'sent' } });
+  await heading(layer, 'Answers sent');
+});
+
+test('the rail cannot reach Send while an answer that waits is a blank Something else', async () => {
+  const { layer } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  pick(layer, 'Something else');
+  fireEvent.change(within(layer).getByRole('textbox', { name: 'Your own answer' }), {
+    target: { value: 'Drop it' },
+  });
+  await toCheck(layer);
+  const rail = within(layer).getByRole('navigation', { name: 'Decisions' });
+  fireEvent.click(within(rail).getByRole('button', { name: /Question 1\?/ }));
+  await heading(layer, 'Question 1?');
+  fireEvent.change(within(layer).getByRole('textbox', { name: 'Your own answer' }), {
+    target: { value: '  ' },
+  });
+  expect(within(rail).getByRole('button', { name: 'Check and send' })).toBeDisabled();
+  pick(layer, /^Keep/);
+  expect(within(rail).getByRole('button', { name: 'Check and send' })).toBeEnabled();
+});
+
+/** MMR-q1's Note chip on the page beneath the layer, which leaves once the read drops MMR-q1. */
+const noteChip = () => document.querySelector('[aria-label^="Note for MMR-q1"]');
+
+test('a Send in flight keeps its answers on screen when the read drops them first', async () => {
+  const gate = Promise.withResolvers<Awaited<ReturnType<typeof answerDecisions>>>();
+  vi.mocked(answerDecisions).mockReturnValue(gate.promise);
+  const { layer, qc } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  await toCheck(layer);
+  fireEvent.click(button(layer, 'Send 3 answers'));
+  await waitFor(() => {
+    expect(button(layer, 'Send 3 answers')).toBeDisabled();
+  });
+  // The write's refetch lands before its answer: the read no longer holds the sent decisions.
+  expect(noteChip()).not.toBeNull();
+  vi.mocked(deliveryPage).mockResolvedValue(page([]));
+  qc.setQueryData(['nodes', 'delivery', 'MMR-d3'], page([]));
+  // The page beneath drops the decision once the read lands.
+  await waitFor(() => {
+    expect(noteChip()).toBeNull();
+  });
+  expect(button(layer, 'Send 3 answers')).toBeDisabled();
+  expect(within(layer).getAllByRole('button', { name: /^Change your answer/ })).toHaveLength(3);
+  expect(layer).not.toHaveTextContent('No longer waits on you');
+  gate.resolve({ results: [recorded('MMR-q1', 'confirmed')], wake: { state: 'sent' } });
+  await heading(layer, 'Answers sent');
+});
+
+test('a failed Send returns focus to Send once the write ends', async () => {
+  vi.mocked(answerDecisions).mockRejectedValue(new Error('Host unreachable'));
+  const { layer } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  await toCheck(layer);
+  const send = button(layer, 'Send 3 answers');
+  send.focus();
+  fireEvent.click(send);
+  send.blur();
+  await waitFor(() => {
+    expect(toast.error).toHaveBeenCalledWith('Host unreachable');
+  });
+  await waitFor(() => {
+    expect(send).toHaveFocus();
+  });
+  await heading(layer, 'Check your answers');
 });

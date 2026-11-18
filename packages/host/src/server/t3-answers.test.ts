@@ -3,6 +3,8 @@ import { describe, expect, test } from 'bun:test';
 import { MimirError } from '@mimir/contract';
 import { parseSecretKey, sealSecret } from '@mimir/core';
 
+import { writeDecisionAnswers } from './decision-answer-writes';
+import type { DecisionAnswerWrites } from './decision-answer-writes';
 import { parseAnswerDecisions } from './decision-answers';
 import type { AnswerDecisionsInput, DecisionAnswer } from './decision-answers';
 import { createT3Adapter, T3_SECRET_NAME } from './t3';
@@ -27,7 +29,10 @@ const ready: T3Settings = {
 
 type Behavior = 'fault' | 'invariant' | 'ok' | 'refuse';
 
-/** A fake Engine over decisions {id: delivery}; `behave` scripts each write by decision id. */
+/**
+ * A Send over a fake Engine of decisions {id: delivery}, waking through a
+ * real adapter over a stub T3; `behave` scripts each write by decision id.
+ */
 function harness(
   options: {
     decisions?: Record<string, string | null>;
@@ -84,7 +89,7 @@ function harness(
       };
     },
     overturn: write('overturn'),
-  } as unknown as T3AdapterOptions['engine'];
+  };
   const stub = stubT3({
     configured: 'env-valhalla',
     environments: { 'env-valhalla': { label: 'Valhalla', projects: [] } },
@@ -106,7 +111,7 @@ function harness(
   const logs: string[] = [];
   const adapter = createT3Adapter({
     clock: () => clock.now,
-    engine,
+    engine: engine as unknown as T3AdapterOptions['engine'],
     fetch: stub.fetch,
     log: (line) => logs.push(line),
     secrets,
@@ -114,7 +119,17 @@ function harness(
     timeoutMs: 1000,
     version: '0.29.0',
   });
-  return { adapter, calls, inputs, logs, stub };
+  const answer = (input: unknown) =>
+    writeDecisionAnswers(
+      {
+        clock: () => clock.now,
+        engine: engine as unknown as DecisionAnswerWrites['engine'],
+        log: (line) => logs.push(line),
+        wake: adapter.wakeAfterAnswers,
+      },
+      input,
+    );
+  return { adapter, answer, calls, inputs, logs, stub };
 }
 
 const overturn = (id: string): DecisionAnswer => ({ id, option: 2, verdict: 'overturn' });
@@ -131,7 +146,7 @@ const send = (
 describe('answerDecisions: the answers', () => {
   test('writes each answer in input order, reading before writing', async () => {
     const h = harness();
-    const out = await h.adapter.answerDecisions(send([overturn('MMR-q2'), confirm('MMR-q1')]));
+    const out = await h.answer(send([overturn('MMR-q2'), confirm('MMR-q1')]));
     expect(h.calls.filter((call) => !call.startsWith('delivery'))).toEqual([
       'read MMR-q2',
       'overturn MMR-q2',
@@ -146,7 +161,7 @@ describe('answerDecisions: the answers', () => {
 
   test('a refusal does not stop later answers', async () => {
     const h = harness({ behave: { 'MMR-q1': 'refuse' } });
-    const out = await h.adapter.answerDecisions(send([confirm('MMR-q1'), overturn('MMR-q2')]));
+    const out = await h.answer(send([confirm('MMR-q1'), overturn('MMR-q2')]));
     expect(out.results[0]).toEqual({
       id: 'MMR-q1',
       outcome: 'refused',
@@ -157,7 +172,7 @@ describe('answerDecisions: the answers', () => {
 
   test('a refused read is refused with the Engine message', async () => {
     const h = harness();
-    const out = await h.adapter.answerDecisions(send([confirm('MMR-q50'), overturn('MMR-q2')]));
+    const out = await h.answer(send([confirm('MMR-q50'), overturn('MMR-q2')]));
     expect(out.results[0]).toEqual({
       id: 'MMR-q50',
       outcome: 'refused',
@@ -168,7 +183,7 @@ describe('answerDecisions: the answers', () => {
 
   test('a decision in another delivery, or none, is refused and nothing is written', async () => {
     const h = harness();
-    const out = await h.adapter.answerDecisions(send([overturn('MMR-q7'), overturn('MMR-q9')]));
+    const out = await h.answer(send([overturn('MMR-q7'), overturn('MMR-q9')]));
     expect(out.results.map((r) => r.outcome)).toEqual(['refused', 'refused']);
     expect(h.calls).toEqual(['read MMR-q7', 'read MMR-q9']);
     expect(JSON.stringify(out.results)).toContain('not in this walkthrough');
@@ -176,15 +191,13 @@ describe('answerDecisions: the answers', () => {
 
   test('a null delivery refuses a decision that names one, and accepts one that names none', async () => {
     const h = harness();
-    const out = await h.adapter.answerDecisions(send([confirm('MMR-q1'), confirm('MMR-q9')], null));
+    const out = await h.answer(send([confirm('MMR-q1'), confirm('MMR-q9')], null));
     expect(out.results.map((r) => r.outcome)).toEqual(['refused', 'confirmed']);
   });
 
-  test('an invariant error and a plain error are failed, logged, and carry no text', async () => {
+  test('an invariant error and a plain error are failed, logged by class and code, and carry no text', async () => {
     const h = harness({ behave: { 'MMR-q1': 'invariant', 'MMR-q2': 'fault' } });
-    const out = await h.adapter.answerDecisions(
-      send([confirm('MMR-q1'), confirm('MMR-q2'), confirm('MMR-q3')]),
-    );
+    const out = await h.answer(send([confirm('MMR-q1'), confirm('MMR-q2'), confirm('MMR-q3')]));
     expect(out.results).toMatchObject([
       { id: 'MMR-q1', outcome: 'failed' },
       { id: 'MMR-q2', outcome: 'failed' },
@@ -193,13 +206,17 @@ describe('answerDecisions: the answers', () => {
     const faults = h.logs
       .map((l) => JSON.parse(l) as Record<string, string>)
       .filter((l) => l.event === 'decision_answer_fault');
-    expect(faults.map((l) => l.decision)).toEqual(['MMR-q1', 'MMR-q2']);
+    expect(faults.map(({ code, decision, error }) => ({ code, decision, error }))).toEqual([
+      { code: 'invariant', decision: 'MMR-q1', error: 'MimirError' },
+      { code: undefined, decision: 'MMR-q2', error: 'Error' },
+    ]);
     expect(h.logs.join('\n')).not.toContain('secret operator text');
+    expect(h.logs.join('\n')).not.toContain('disk on fire');
   });
 
   test('a note and an option reach the Engine as given, and absent ones are not sent', async () => {
     const h = harness();
-    await h.adapter.answerDecisions(
+    await h.answer(
       send([
         { id: 'MMR-q1', note: 'why', verdict: 'confirm' },
         { id: 'MMR-q2', note: 'because', option: 3, verdict: 'overturn' },
@@ -217,7 +234,7 @@ describe('answerDecisions: the answers', () => {
 describe('answerDecisions: the wake', () => {
   test('one overturn sends one wake with the fixed phrase and the since before the first read', async () => {
     const h = harness();
-    const out = await h.adapter.answerDecisions(send([overturn('MMR-q1'), confirm('MMR-q2')]));
+    const out = await h.answer(send([overturn('MMR-q1'), confirm('MMR-q2')]));
     expect(out.wake).toEqual({ state: 'sent' });
     expect(h.stub.wakes).toHaveLength(1);
     expect(h.stub.wakes[0]).toMatchObject({
@@ -230,48 +247,52 @@ describe('answerDecisions: the wake', () => {
 
   test('several overturns still send one wake', async () => {
     const h = harness();
-    await h.adapter.answerDecisions(
-      send([overturn('MMR-q1'), overturn('MMR-q2'), overturn('MMR-q3')]),
-    );
+    await h.answer(send([overturn('MMR-q1'), overturn('MMR-q2'), overturn('MMR-q3')]));
     expect(h.stub.wakes).toHaveLength(1);
   });
 
   test('confirms only skip no_overturn', async () => {
     const h = harness();
-    const out = await h.adapter.answerDecisions(send([confirm('MMR-q1')]));
+    const out = await h.answer(send([confirm('MMR-q1')]));
     expect(out.wake).toEqual({ reason: 'no_overturn', state: 'skipped' });
     expect(h.stub.wakes).toEqual([]);
   });
 
   test('a refused overturn is no overturn', async () => {
     const h = harness({ behave: { 'MMR-q1': 'refuse' } });
-    const out = await h.adapter.answerDecisions(send([overturn('MMR-q1')]));
+    const out = await h.answer(send([overturn('MMR-q1')]));
     expect(out.wake).toEqual({ reason: 'no_overturn', state: 'skipped' });
   });
 
   test('a null delivery skips no_delivery', async () => {
     const h = harness();
-    const out = await h.adapter.answerDecisions(send([overturn('MMR-q9')], null));
+    const out = await h.answer(send([overturn('MMR-q9')], null));
+    expect(out.wake).toEqual({ reason: 'no_delivery', state: 'skipped' });
+  });
+
+  test('confirms only with a null delivery skip no_delivery, before the overturn check', async () => {
+    const h = harness();
+    const out = await h.answer(send([confirm('MMR-q9')], null));
     expect(out.wake).toEqual({ reason: 'no_delivery', state: 'skipped' });
   });
 
   test('an unset feature skips unconfigured before the other checks', async () => {
     const h = harness({ settings: { enabled: false } });
-    const out = await h.adapter.answerDecisions(send([confirm('MMR-q9')], null));
+    const out = await h.answer(send([confirm('MMR-q9')], null));
     expect(out.wake).toEqual({ reason: 'unconfigured', state: 'skipped' });
     expect(out.results[0]?.outcome).toBe('confirmed');
   });
 
   test('a delivery not in T3 skips no_thread, read after the writes', async () => {
     const h = harness({ harnessName: 'claude' });
-    const out = await h.adapter.answerDecisions(send([overturn('MMR-q1')]));
+    const out = await h.answer(send([overturn('MMR-q1')]));
     expect(out.wake).toEqual({ reason: 'no_thread', state: 'skipped' });
     expect(h.calls.indexOf('delivery MMR-d3')).toBeGreaterThan(h.calls.indexOf('overturn MMR-q1'));
   });
 
   test('a sent wake logs t3_wake with the delivery', async () => {
     const h = harness();
-    await h.adapter.answerDecisions(send([overturn('MMR-q1')]));
+    await h.answer(send([overturn('MMR-q1')]));
     expect(JSON.parse(h.logs.at(-1) ?? '')).toMatchObject({
       delivery: 'MMR-d3',
       event: 't3_wake',
@@ -355,11 +376,11 @@ describe('parseAnswerDecisions: the input checks', () => {
     refuses(send([confirm('mmr-q1')]));
   });
 
-  test('refuses duplicates after canonicalization, and the adapter writes nothing', async () => {
+  test('refuses duplicates after canonicalization, and nothing is written', async () => {
     const input = send([confirm('MMR-q07'), confirm('MMR-q7')]);
     refuses(input);
     const h = harness();
-    const error = await h.adapter.answerDecisions(input).catch((caught: unknown) => caught);
+    const error = await h.answer(input).catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(MimirError);
     expect(h.calls).toEqual([]);
   });

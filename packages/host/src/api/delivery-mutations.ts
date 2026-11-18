@@ -17,7 +17,7 @@ import {
   overturn,
   wakeT3,
 } from './fns/deliveries';
-import type { AnswerDecisionsInput, T3WakeInput, T3WakeState, T3Woken } from './fns/deliveries';
+import type { AnswerDecisionsInput, T3WakeInput, T3WakeState } from './fns/deliveries';
 import { useInvalidateOnWrite } from './mutations';
 import { t3OriginQuery, useConnectT3 } from './t3-queries';
 
@@ -66,11 +66,12 @@ function useWakeAnnouncer() {
 
 /**
  * One waking write: the server function takes the input plus a fresh attempt
- * id. The wake is announced before the refetches land, since they may unmount
- * the control that wrote.
+ * id, and answers its wake beside the write's own answer. The wake is
+ * announced before the refetches land, since they may unmount the control
+ * that wrote.
  */
-function useWakingWrite<Fields extends object, Rec>(
-  write: (options: { data: Fields & { attempt: string } }) => Promise<T3Woken<Rec>>,
+function useWakingWrite<Fields extends object, Answer extends { wake: T3WakeState }>(
+  write: (options: { data: Fields & { attempt: string } }) => Promise<Answer>,
 ) {
   const invalidate = useInvalidateOnWrite();
   const announce = useWakeAnnouncer();
@@ -86,48 +87,43 @@ function useWakingWrite<Fields extends object, Rec>(
 
 /** Clear a delivery's stop and wake its thread. */
 export const useDeliveryUnblock = () =>
-  useWakingWrite<
-    EngineInput<'deliveryUnblock'>,
-    Awaited<ReturnType<typeof deliveryUnblock>>['record']
-  >(deliveryUnblock);
+  useWakingWrite<EngineInput<'deliveryUnblock'>, Awaited<ReturnType<typeof deliveryUnblock>>>(
+    deliveryUnblock,
+  );
 
 /** Pause a delivery and wake its thread. */
 export const useDeliveryPark = () =>
-  useWakingWrite<EngineInput<'deliveryPark'>, Awaited<ReturnType<typeof deliveryPark>>['record']>(
+  useWakingWrite<EngineInput<'deliveryPark'>, Awaited<ReturnType<typeof deliveryPark>>>(
     deliveryPark,
   );
 
 /** Resume a paused delivery and wake its thread. */
 export const useDeliveryUnpark = () =>
-  useWakingWrite<
-    EngineInput<'deliveryUnpark'>,
-    Awaited<ReturnType<typeof deliveryUnpark>>['record']
-  >(deliveryUnpark);
+  useWakingWrite<EngineInput<'deliveryUnpark'>, Awaited<ReturnType<typeof deliveryUnpark>>>(
+    deliveryUnpark,
+  );
 
 /** Send a delivery's milestone back and wake its thread. */
 export const useDeliveryReturn = () =>
-  useWakingWrite<
-    EngineInput<'deliveryReturn'>,
-    Awaited<ReturnType<typeof deliveryReturn>>['record']
-  >(deliveryReturn);
+  useWakingWrite<EngineInput<'deliveryReturn'>, Awaited<ReturnType<typeof deliveryReturn>>>(
+    deliveryReturn,
+  );
 
 /** Abandon a delivery and wake its thread. */
 export const useDeliveryAbandon = () =>
-  useWakingWrite<
-    EngineInput<'deliveryAbandon'>,
-    Awaited<ReturnType<typeof deliveryAbandon>>['record']
-  >(deliveryAbandon);
+  useWakingWrite<EngineInput<'deliveryAbandon'>, Awaited<ReturnType<typeof deliveryAbandon>>>(
+    deliveryAbandon,
+  );
 
 /** Edit a delivery and wake the thread its handles name after the edit. */
 export const useDeliveryUpdate = () =>
-  useWakingWrite<
-    EngineInput<'deliveryUpdate'>,
-    Awaited<ReturnType<typeof deliveryUpdate>>['record']
-  >(deliveryUpdate);
+  useWakingWrite<EngineInput<'deliveryUpdate'>, Awaited<ReturnType<typeof deliveryUpdate>>>(
+    deliveryUpdate,
+  );
 
 /** Overturn a decision and wake the thread of the delivery it names. */
 export const useOverturn = () =>
-  useWakingWrite<EngineInput<'overturn'>, Awaited<ReturnType<typeof overturn>>['record']>(overturn);
+  useWakingWrite<EngineInput<'overturn'>, Awaited<ReturnType<typeof overturn>>>(overturn);
 
 /** Confirm a decision. A confirm never wakes. */
 export function useConfirm() {
@@ -140,20 +136,11 @@ export function useConfirm() {
 }
 
 /**
- * The decisions walkthrough's Send: one fresh attempt id per Send, the answers
- * written in order, and the one wake announced before the refetches land. The
- * answer's per-decision results are for the caller's done screen.
+ * The decisions walkthrough's Send: the answers written in order and the one
+ * wake. The answer's per-decision results are for the caller's done screen.
  */
-export function useAnswerDecisions() {
-  const invalidate = useInvalidateOnWrite();
-  const announce = useWakeAnnouncer();
-  return useMutation({
-    mutationFn: (input: Omit<AnswerDecisionsInput, 'attempt'>) =>
-      answerDecisions({ data: { ...input, attempt: newAttempt() } }),
-    onError: (err: Error) => toast.error(err.message),
-    onSettled: invalidate,
-    onSuccess: (answer) => {
-      announce(answer.wake);
-    },
-  });
-}
+export const useAnswerDecisions = () =>
+  useWakingWrite<
+    Omit<AnswerDecisionsInput, 'attempt'>,
+    Awaited<ReturnType<typeof answerDecisions>>
+  >(answerDecisions);

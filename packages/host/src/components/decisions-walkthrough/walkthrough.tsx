@@ -10,7 +10,14 @@ import type { StepTarget } from './copy';
 import { DoneScreen } from './done-screen';
 import type { SendResult } from './done-screen';
 import { CloseGlyph } from './icons';
-import { answerFor, initialSelection, scopeDelivery, scopeSet, walkSet } from './model';
+import {
+  answerFor,
+  initialSelection,
+  isBlankCustom,
+  scopeDelivery,
+  scopeSet,
+  walkSet,
+} from './model';
 import type { Selection, WalkDecision, WalkScope } from './model';
 import { PageLink } from './page-link';
 import { Scroll, ScreenHeading } from './parts';
@@ -94,6 +101,11 @@ export function DecisionsWalkthrough({
   const [step, setStep] = useState<Place>(0);
   const [answered, setAnswered] = useState<ReadonlySet<number>>(new Set());
   const [results, setResults] = useState<SendResult[] | null>(null);
+  // The decisions a Send is writing. Its refetches land before its results, so they stay live until then.
+  const [sending, setSending] = useState<ReadonlySet<string> | null>(null);
+  // The control whose Send failed: it takes focus back once the write ends, if focus was lost with it.
+  const [refusal, setRefusal] = useState<{ control: HTMLElement } | null>(null);
+  const refocused = useRef(refusal);
   const send = useAnswerDecisions();
   // Set before `mutate`, since the controls only disable after TanStack re-renders.
   const inFlight = useRef(false);
@@ -118,9 +130,9 @@ export function DecisionsWalkthrough({
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [fixed]);
 
-  const live = new Set(
-    (read.decisions ?? []).filter((d) => d.lifecycle === 'provisional').map((d) => d.id),
-  );
+  const live =
+    sending ??
+    new Set((read.decisions ?? []).filter((d) => d.lifecycle === 'provisional').map((d) => d.id));
   const decisions = fixed ?? [];
   const count = decisions.length;
   const hasCheck = count > 1;
@@ -136,18 +148,32 @@ export function DecisionsWalkthrough({
   useEffect(() => {
     headingRef.current?.focus();
   }, [screen]);
+  useEffect(() => {
+    if (refusal === refocused.current || writing) {
+      return;
+    }
+    refocused.current = refusal;
+    const active = document.activeElement;
+    // Focus is lost when it fell back to the page or the layer; focus the operator moved stays put.
+    if (refusal !== null && (active === null || active.contains(refusal.control))) {
+      refusal.control.focus();
+    }
+  }, [refusal, writing]);
 
   const change = (id: string, patch: Partial<Selection>) => {
     const next = { ...selections[id]!, ...patch };
     setSelections((current) => ({ ...current, [id]: next }));
     writeDraft(id, { ...next, set });
   };
-  const sendAll = async () => {
+  // A blank "Something else" that still waits cannot be sent, so nothing leads to Send while one stands.
+  const blank = decisions.some((d) => live.has(d.id) && isBlankCustom(selections[d.id]!));
+  const sendAll = async (control: HTMLElement) => {
     const items = decisions.filter((d) => live.has(d.id));
-    if (inFlight.current || items.length === 0) {
+    if (inFlight.current || items.length === 0 || blank) {
       return;
     }
     inFlight.current = true;
+    setSending(live);
     try {
       const answer = await send.mutateAsync({
         answers: items.map((d) => answerFor(d, selections[d.id]!)),
@@ -162,18 +188,20 @@ export function DecisionsWalkthrough({
       setResults(answer.results);
     } catch {
       // The write's own error toast has said why; the answers stay as they are.
+      setRefusal({ control });
     } finally {
       inFlight.current = false;
+      setSending(null);
     }
   };
-  const next = () => {
+  const next = (control: HTMLElement) => {
     setAnswered((current) => new Set(current).add(place));
     if (place < count - 1) {
       setStep(place + 1);
     } else if (hasCheck) {
       setStep(count);
     } else {
-      void sendAll();
+      void sendAll(control);
     }
   };
 
@@ -229,7 +257,7 @@ export function DecisionsWalkthrough({
         offline={read.conn.offline}
         onChange={setStep}
         onBack={() => setStep(count - 1)}
-        onSend={() => void sendAll()}
+        onSend={(control) => void sendAll(control)}
       />
     );
   } else if (current !== undefined) {
@@ -298,7 +326,7 @@ export function DecisionsWalkthrough({
                 }))}
                 step={place}
                 hasCheck={hasCheck}
-                checkReady={decisions.every((_, index) => answered.has(index))}
+                checkReady={!blank && decisions.every((_, index) => answered.has(index))}
                 disabled={writing}
                 onGo={setStep}
               />

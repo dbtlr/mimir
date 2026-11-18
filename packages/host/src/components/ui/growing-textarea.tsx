@@ -43,8 +43,9 @@ export function GrowingTextarea({ className, onInput, ref, ...props }: Component
         fit();
         onInput?.(event);
       }}
+      style={{ maxHeight: GROWING_TEXTAREA_MAX_HEIGHT, ...props.style }}
       className={cn(
-        'max-h-[110px] min-h-11 w-full resize-none overflow-y-auto rounded-md border border-line-bright bg-well-950 px-3 py-2.5 text-[15px] leading-[22px] text-ink-bright outline-none [field-sizing:content] placeholder:text-ink-ghost focus-visible:border-accent',
+        'min-h-11 w-full resize-none overflow-y-auto rounded-md border border-line-bright bg-well-950 px-3 py-2.5 text-[15px] leading-[22px] text-ink-bright outline-none [field-sizing:content] placeholder:text-ink-ghost focus-visible:border-accent',
         className,
       )}
     />
