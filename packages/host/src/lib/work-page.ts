@@ -136,11 +136,22 @@ export type OutlineEntry = {
   mark?: OutlineMark;
 };
 
+/**
+ * A finished top-level initiative in the fold: its own row, and the rows
+ * inside it, which the sidebar shows only when the initiative is opened.
+ * `holdsOpen` says the open record is the initiative or sits inside it.
+ */
+export type FinishedInitiative = {
+  row: OutlineEntry;
+  inside: OutlineEntry[];
+  holdsOpen: boolean;
+};
+
 export type ProjectOutline = {
   /** Live top-level containers and everything under them, in tree order. */
   entries: OutlineEntry[];
-  /** Finished top-level initiatives, folded: how many, and their rows. */
-  finished: { count: number; entries: OutlineEntry[] };
+  /** Finished top-level initiatives, folded apart from the live outline, in tree order. */
+  finished: FinishedInitiative[];
 };
 
 const isContainer = (node: EngineTree): boolean => node.type !== 'task';
@@ -249,7 +260,22 @@ export function buildOutline(tree: EngineTree, openId?: string): ProjectOutline 
       entries = withTaskRow(entries, open, parentId);
     }
   }
-  return { entries, finished: { count: finishedTop.length, entries: folded } };
+  return { entries, finished: groupByInitiative(folded) };
+}
+
+/** Split the fold's flat rows at each top-level row, one group per finished initiative. */
+function groupByInitiative(rows: OutlineEntry[]): FinishedInitiative[] {
+  const groups: FinishedInitiative[] = [];
+  for (const row of rows) {
+    const group = groups.at(-1);
+    if (row.depth === 0 || group === undefined) {
+      groups.push({ holdsOpen: row.mark !== undefined, inside: [], row });
+    } else {
+      group.inside.push(row);
+      group.holdsOpen ||= row.mark !== undefined;
+    }
+  }
+  return groups;
 }
 
 /** How many artifacts the project rail lists before pointing at the full browser. */

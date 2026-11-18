@@ -2,7 +2,7 @@ import { Dialog } from '@base-ui-components/react/dialog';
 import type { EngineTree } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useLinkProps, useRouterState } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 import { nodeQuery } from '../api/node-queries';
 import { treeQuery } from '../api/shell-queries';
@@ -12,7 +12,7 @@ import type { SidebarContext } from '../lib/project-sidebar';
 import { nodeLink } from '../lib/record-url';
 import { useArchivedProject } from '../lib/use-archived-project';
 import { buildOutline } from '../lib/work-page';
-import type { OutlineEntry, OutlineTally } from '../lib/work-page';
+import type { FinishedInitiative, OutlineEntry, OutlineTally } from '../lib/work-page';
 import { ProjectPicker } from './project-picker';
 import { SidebarProjects } from './sidebar-projects';
 import { StatusDot } from './status-dot';
@@ -143,9 +143,129 @@ function OutlineRow({ entry, onNavigate }: { entry: OutlineEntry; onNavigate?: (
 }
 
 /**
+ * Whether a fold is open: `initial` at first, and again whenever `resetKey`
+ * changes, with the reader's own toggles in between. The sidebar outlives page
+ * changes, so a fold keys this on the open record and re-asserts its starting
+ * state on each navigation without remounting, which keeps a focused row.
+ */
+function useFoldState(initial: boolean, resetKey: string) {
+  const [open, setOpen] = useState(initial);
+  const [seenKey, setSeenKey] = useState(resetKey);
+  if (seenKey !== resetKey) {
+    setSeenKey(resetKey);
+    setOpen(initial);
+  }
+  return [open, setOpen] as const;
+}
+
+/**
+ * A finished initiative inside the fold: its row, and a toggle that shows the
+ * rows inside it. It starts shut unless the open record is the initiative or
+ * sits inside it, and each navigation re-asserts that.
+ */
+function FinishedInitiativeRows({
+  initiative,
+  openId,
+  onNavigate,
+}: {
+  initiative: FinishedInitiative;
+  openId: string | undefined;
+  onNavigate?: () => void;
+}) {
+  const { row, inside, holdsOpen } = initiative;
+  const [open, setOpen] = useFoldState(holdsOpen, `${openId ?? ''}:${String(holdsOpen)}`);
+  const insideId = useId();
+  return (
+    <>
+      <div className="flex min-w-0 items-center">
+        {inside.length > 0 ? (
+          <button
+            type="button"
+            aria-label={`Contents of ${row.title}`}
+            aria-expanded={open}
+            aria-controls={open ? insideId : undefined}
+            onClick={() => {
+              setOpen((v) => !v);
+            }}
+            className="flex w-6 shrink-0 items-center justify-center self-stretch rounded-sm text-ink-faint transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent max-lg:w-9"
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+              className={cn('transition-transform', open && 'rotate-90')}
+            >
+              <path d="m9 6 6 6-6 6" />
+            </svg>
+          </button>
+        ) : (
+          <span aria-hidden="true" className="w-6 shrink-0 max-lg:w-9" />
+        )}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <OutlineRow entry={row} onNavigate={onNavigate} />
+        </div>
+      </div>
+      {open && (
+        <div id={insideId} className="ml-6 flex flex-col gap-px max-lg:ml-9">
+          {inside.map((entry) => (
+            <OutlineRow key={entry.id} entry={entry} onNavigate={onNavigate} />
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+/**
+ * The finished top-level initiatives, in one disclosure that starts shut unless
+ * the open record sits inside one of them; each navigation re-asserts that.
+ */
+function FinishedFold({
+  finished,
+  openId,
+  onNavigate,
+}: {
+  finished: FinishedInitiative[];
+  openId: string | undefined;
+  onNavigate?: () => void;
+}) {
+  const insideFold = finished.some((f) => f.holdsOpen);
+  const [open, setOpen] = useFoldState(insideFold, `${openId ?? ''}:${String(insideFold)}`);
+  return (
+    <details
+      open={open}
+      onToggle={(event) => {
+        setOpen(event.currentTarget.open);
+      }}
+    >
+      <summary className="cursor-pointer rounded-sm px-2 py-1 text-xs text-ink-faint focus-visible:outline-2 focus-visible:outline-accent max-lg:py-2">
+        {finished.length} finished {finished.length === 1 ? 'initiative' : 'initiatives'}
+      </summary>
+      <div className="flex flex-col gap-px">
+        {finished.map((initiative) => (
+          <FinishedInitiativeRows
+            key={initiative.row.id}
+            initiative={initiative}
+            openId={openId}
+            onNavigate={onNavigate}
+          />
+        ))}
+      </div>
+    </details>
+  );
+}
+
+/**
  * The project's initiatives and phases, each at its own page with its progress,
  * and the open record's place marked. Finished top-level initiatives fold into
- * one disclosure, open when the record sits inside one.
+ * one disclosure, and each of them folds on its own inside it; both open when
+ * the record sits inside one.
  */
 function Outline({
   tree,
@@ -166,27 +286,16 @@ function Outline({
     );
   }
   const outline = buildOutline(tree, openId);
-  const insideFold = outline.finished.entries.some((e) => e.mark !== undefined);
   return (
     <nav aria-label="Outline" className="mb-1 ml-2.5 flex flex-col gap-px">
-      {outline.entries.length === 0 && outline.finished.count === 0 && (
+      {outline.entries.length === 0 && outline.finished.length === 0 && (
         <p className="px-2 py-1 text-xs text-ink-faint">No initiatives or phases.</p>
       )}
       {outline.entries.map((entry) => (
         <OutlineRow key={entry.id} entry={entry} onNavigate={onNavigate} />
       ))}
-      {outline.finished.count > 0 && (
-        // The sidebar outlives page changes and the fold toggles natively, so
-        // keying on the open record re-asserts `open` on every navigation.
-        <details key={openId ?? 'none'} open={insideFold}>
-          <summary className="cursor-pointer rounded-sm px-2 py-1 text-xs text-ink-faint focus-visible:outline-2 focus-visible:outline-accent max-lg:py-2">
-            {outline.finished.count} finished{' '}
-            {outline.finished.count === 1 ? 'initiative' : 'initiatives'}
-          </summary>
-          {outline.finished.entries.map((entry) => (
-            <OutlineRow key={entry.id} entry={entry} onNavigate={onNavigate} />
-          ))}
-        </details>
+      {outline.finished.length > 0 && (
+        <FinishedFold finished={outline.finished} openId={openId} onNavigate={onNavigate} />
       )}
     </nav>
   );
