@@ -15,7 +15,7 @@ import { engineTask } from './node-fixtures';
 import { serveNodes } from './node-fns';
 import { renderRoute } from './router';
 import { serveShell } from './shell-fns';
-import { engineReview, needsYouRow, stripRow } from './views-fixtures';
+import { engineReview, engineWork, needsYouRow, stripRow } from './views-fixtures';
 import { serveViews } from './views-fns';
 
 vi.mock('../api/fns/deliveries');
@@ -169,9 +169,15 @@ test('a group whose rows are not decisions shows no entry', async () => {
 });
 
 test('the delivery page offers one entry above its decisions, counting the provisional ones', async () => {
-  vi.mocked(deliveryPage).mockResolvedValue(page([decision(1, 'MMR-d3')]));
+  vi.mocked(deliveryPage).mockResolvedValue(
+    page([
+      decision(1, 'MMR-d3'),
+      decision(2, 'MMR-d3', { lifecycle: 'confirmed' }),
+      decision(3, 'MMR-d3'),
+    ]),
+  );
   await renderRoute(consoleRoutes, '/p/MMR/d3');
-  const link = await screen.findByRole('link', { name: 'Review 1 decision' });
+  const link = await screen.findByRole('link', { name: 'Review 2 decisions' });
   expect(link).toHaveAttribute('href', '/p/MMR/d3?mode=decisions');
 });
 
@@ -263,4 +269,75 @@ test('the next-set link carries no mark when the walkthrough had none', async ()
     expect(router.state.location.pathname).toBe('/p/MMR/d4');
   });
   expect(readMark(router.state.location.state)).toBeUndefined();
+});
+
+test('a modified click on the link back is left to the browser', async () => {
+  const { router, layer } = await sendFrom('/p/MMR/d3', 'Review 1 decision');
+  const back = vi.spyOn(router.history, 'back');
+  const link = within(layer).getByRole('link', { name: 'Back to MMR-d3' });
+  fireEvent.click(link, { ctrlKey: true });
+  fireEvent.click(link, { metaKey: true });
+  expect(back).not.toHaveBeenCalled();
+});
+
+test('the link back that goes back does not also navigate', async () => {
+  const { router, layer } = await sendFrom('/p/MMR/d3', 'Review 1 decision');
+  const back = vi.spyOn(router.history, 'back');
+  const navigate = vi.spyOn(router, 'navigate');
+  fireEvent.click(within(layer).getByRole('link', { name: 'Back to MMR-d3' }));
+  expect(back).toHaveBeenCalledOnce();
+  expect(navigate).not.toHaveBeenCalled();
+});
+
+/** Open MMR's one decision with no delivery from the review page's entry and send its answer. */
+async function sendProjectFrom(path: string, entry: string) {
+  const q2 = decision(2, null);
+  serveViews({
+    projects: { MMR: engineWork({ needsYou: [row(q2)] }) },
+    review: report(),
+  });
+  vi.mocked(answerDecisions).mockResolvedValue({
+    results: [{ id: 'MMR-q2', outcome: 'confirmed', record: q2 }],
+    wake: { state: 'sent' },
+  });
+  const view = await renderRoute(consoleRoutes, path, client());
+  fireEvent.click(await screen.findByRole('link', { name: entry }));
+  const layer = await screen.findByRole('dialog');
+  fireEvent.click(await within(layer).findByRole('button', { name: 'Confirm and send (MMR-q2)' }));
+  await within(layer).findByRole('heading', { name: 'Answers recorded' });
+  return { ...view, layer };
+}
+
+test('a project walkthrough’s link back replaces the entry when the opener is another page', async () => {
+  const { router, layer } = await sendProjectFrom('/', 'Review 1 decision without a delivery');
+  expect(router.state.location.search).toHaveProperty('mode', 'decisions');
+  const back = vi.spyOn(router.history, 'back');
+  const length = router.history.length;
+  fireEvent.click(within(layer).getByRole('link', { name: 'Back to MMR' }));
+  await waitFor(() => {
+    expect(router.state.location.search).not.toHaveProperty('mode');
+  });
+  expect(router.state.location.pathname).toBe('/p/MMR');
+  expect(back).not.toHaveBeenCalled();
+  expect(router.history).toHaveLength(length);
+});
+
+test('the next-set link to a project walkthrough replaces the entry and carries the mark over', async () => {
+  const rows = [row(decision(2, null)), row(decision(3, 'MMR-d3'))];
+  serveViews({
+    review: engineReview({
+      needsYou: [{ project: { key: 'MMR', name: 'Mimir' }, rows }],
+      projects: [stripRow({ key: 'MMR', name: 'Mimir' }, { needsYou: rows.length })],
+      queue: rows.map((r) => ({ id: r.decision.id, kind: 'decision' as const })),
+    }),
+  });
+  const { router, layer } = await sendFrom('/', 'Review 1 decision on MMR-d3');
+  const length = router.history.length;
+  fireEvent.click(within(layer).getByRole('link', { name: 'Review it' }));
+  await waitFor(() => {
+    expect(router.state.location.pathname).toBe('/p/MMR');
+  });
+  expect(router.state.location.search).toHaveProperty('mode', 'decisions');
+  expect(router.history).toHaveLength(length);
+  expect(readMark(router.state.location.state)).toBe('/');
 });
