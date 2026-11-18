@@ -19,11 +19,33 @@ import { createPairingHandlers } from './pairing';
 import { createT3Adapter } from './t3';
 import { t3StartupWarnings } from './t3-settings';
 
+/** A timer the notifier arms; the host unrefs it so an open window never keeps the process alive. */
+export type NotifierTimer = ReturnType<typeof setTimeout>;
+
+/** The notifier's clocks and timers: the host's own, or a test's to drive time itself. */
+export type NotifierTiming = {
+  clearTimeout: (timer: NotifierTimer) => void;
+  monotonicNow: () => number;
+  setTimeout: (run: () => void, ms: number) => NotifierTimer;
+  wallNow: () => number;
+};
+
+const REAL_NOTIFIER_TIMING: NotifierTiming = {
+  clearTimeout: (timer) => clearTimeout(timer),
+  monotonicNow: () => performance.now(),
+  setTimeout: (run, ms) => setTimeout(run, ms),
+  wallNow: Date.now,
+};
+
+/** What a caller may replace in `openHost`; a test drives the notifier's time through it. */
+export type HostDependencies = { notifierTiming?: NotifierTiming };
+
 /** Open the host-owned store and finish migrations before exposing handlers. */
 export async function openHost(
   config: HostConfig,
   version: string,
   log: (line: string) => void = (line) => console.error(line),
+  { notifierTiming = REAL_NOTIFIER_TIMING }: HostDependencies = {},
 ) {
   assertHostVersion(version);
   if (config.store.backend === 'sqlite') {
@@ -58,20 +80,21 @@ export async function openHost(
     // Operator notifications (ADR 0045): one Engine, one view per caller. The
     // console's server functions and the T3 adapter write as the operator;
     // the /trpc handler and an agent run's grant write as `other`.
-    const notifier = createNotifier<ReturnType<typeof setTimeout>>({
+    const notifier = createNotifier<NotifierTimer>({
       channels: [], // No channel is registered yet; the log lines are the only output.
-      clearTimer: (handle) => clearTimeout(handle),
+      clearTimer: (timer) => notifierTiming.clearTimeout(timer),
       log,
-      now: Date.now,
+      monotonicNow: notifierTiming.monotonicNow,
       reads: {
         deliveryTitle: async (id) => (await store.getDelivery({ id })).title,
         review: (input) => store.console.review(input),
       },
       setTimer: (run, ms) => {
-        const handle = setTimeout(run, ms);
-        handle.unref();
-        return handle;
+        const timer = notifierTiming.setTimeout(run, ms);
+        timer.unref();
+        return timer;
       },
+      wallNow: notifierTiming.wallNow,
     });
     const engine = createEngineView(store, 'operator', notifier.marks);
     const otherEngine = createEngineView(store, 'other', notifier.marks);

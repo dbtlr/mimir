@@ -4,7 +4,8 @@ import type { HostSecretStore, SecretKey } from '@mimir/core';
 import { z } from 'zod';
 
 import { isEngineRefusal } from '../api/errors';
-import { logEvent, openMcpSession, T3RequestError } from './t3-http';
+import { logEvent } from './log-event';
+import { openMcpSession, T3RequestError } from './t3-http';
 import type { McpSession, T3Fetch, T3Http } from './t3-http';
 import type { T3LaunchRequest } from './t3-input';
 import { choiceKey, createAttemptRegistry, createTaskLocks, invalidField } from './t3-launch';

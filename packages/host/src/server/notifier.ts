@@ -1,3 +1,4 @@
+import { logEvent } from './log-event';
 import { buildEvents, entryKey } from './notification-events';
 import type { NotificationEvent, QueueEntry, ReviewRead } from './notification-events';
 
@@ -15,6 +16,9 @@ export type Actor = 'operator' | 'other';
 export const WINDOW_QUIET_MS = 2_000;
 export const WINDOW_MAX_MS = 10_000;
 
+/** A check's reads, and the boot read, have this long. */
+export const READ_LIMIT_MS = 30_000;
+
 /** The only recipient today. */
 const RECIPIENT: Actor = 'operator';
 
@@ -27,12 +31,15 @@ export type NotifierOptions<Handle> = {
   channels: readonly NotificationChannel[];
   clearTimer: (handle: Handle) => void;
   log: (line: string) => void;
-  now: () => number;
+  /** Times the window and the marks; it never steps backward. */
+  monotonicNow: () => number;
   reads: {
     deliveryTitle: (id: string) => Promise<string>;
     review: (input: { asOf: Date; timeZone: 'UTC' }) => Promise<ReviewRead>;
   };
   setTimer: (run: () => void, ms: number) => Handle;
+  /** The wall clock: the review read's instant and the log lines' time, nothing else. */
+  wallNow: () => number;
 };
 
 /** What a view tells the notifier. Each call is synchronous, does no I/O, and never throws. */
@@ -53,16 +60,21 @@ export type Notifier = {
 type ActorMark = { inFlight: number; lastSuccess: number | null };
 
 export function createNotifier<Handle>(options: NotifierOptions<Handle>): Notifier {
-  const { channels, clearTimer, log, now, reads, setTimer } = options;
+  const { channels, clearTimer, log, monotonicNow, reads, setTimer, wallNow } = options;
   const marks = new Map<Actor, ActorMark>();
   let remembered: Set<string> | null = null;
-  /** The instant the last successful check began its read; mutations that succeeded before it are retired. */
+  /** The monotonic instant the last successful check began its read; mutations that succeeded before it are retired. */
   let retiredBefore = Number.NEGATIVE_INFINITY;
   let closed = false;
+  let booted = false;
   let windowOpenedAt: number | null = null;
   let windowTimer: Handle | null = null;
+  const limitTimers = new Set<Handle>();
   let running = false;
   let waiting = false;
+
+  const logEventLine = (event: string, fields: Record<string, number | string> = {}): void =>
+    logEvent({ clock: wallNow, log }, event, fields);
 
   const markOf = (actor: Actor): ActorMark => {
     let mark = marks.get(actor);
@@ -88,63 +100,71 @@ export function createNotifier<Handle>(options: NotifierOptions<Handle>): Notifi
     try {
       await channel.deliver(event);
     } catch {
-      log(`needs_you_channel_fault kind=${event.kind} ids=${event.ids.join(',')}`);
+      logEventLine('needs_you_channel_fault', { ids: event.ids.join(','), kind: event.kind });
     }
   }
 
   const emit = (event: NotificationEvent): void => {
-    log(
-      `needs_you_event kind=${event.kind} ids=${event.ids.join(',')} target=${event.target} count=${event.needs_you}`,
-    );
+    logEventLine('needs_you_event', {
+      count: event.needs_you,
+      ids: event.ids.join(','),
+      kind: event.kind,
+      target: event.target,
+    });
     for (const channel of channels) {
       void deliver(channel, event);
     }
   };
 
-  /** One check. Resolves when its events are handed to the channels; never rejects. */
-  async function check(): Promise<void> {
-    const startedAt = now();
-    let review: ReviewRead;
-    try {
-      review = await reads.review({ asOf: new Date(startedAt), timeZone: 'UTC' });
-    } catch {
-      if (!closed) {
-        log('needs_you_check_fault');
-      }
-      return;
-    }
-    if (closed) {
+  /**
+   * One check's work. It commits (replaces the remembered set, retires the
+   * mutations) and emits only when its read and its events both succeeded and
+   * `live` still holds: the host is open and the check is within its limit.
+   */
+  async function attempt(live: () => boolean): Promise<void> {
+    const startedAt = monotonicNow();
+    const review = await reads.review({ asOf: new Date(wallNow()), timeZone: 'UTC' });
+    if (!live()) {
       return;
     }
     const causes = causesNow();
     const previous = remembered;
+    const entries: QueueEntry[] =
+      previous === null ? [] : review.queue.filter((entry) => !previous.has(entryKey(entry)));
+    const withheld =
+      entries.length > 0 && causes.size > 0 && [...causes].every((cause) => cause === RECIPIENT);
+    const events =
+      entries.length > 0 && !withheld
+        ? await buildEvents(entries, review, reads.deliveryTitle)
+        : [];
+    if (!live()) {
+      return;
+    }
     remembered = new Set(review.queue.map(entryKey));
     retiredBefore = startedAt;
-    if (previous === null) {
-      return;
-    }
-    const entries: QueueEntry[] = review.queue.filter((entry) => !previous.has(entryKey(entry)));
-    if (entries.length === 0) {
-      return;
-    }
-    if (causes.size > 0 && [...causes].every((cause) => cause === RECIPIENT)) {
-      log(`needs_you_withheld ids=${entries.map((entry) => entry.id).join(',')}`);
-      return;
-    }
-    let events: NotificationEvent[];
-    try {
-      events = await buildEvents(entries, review, reads.deliveryTitle);
-    } catch {
-      if (!closed) {
-        log('needs_you_check_fault');
-      }
-      return;
-    }
-    if (closed) {
-      return;
+    if (withheld) {
+      logEventLine('needs_you_withheld', { ids: entries.map((entry) => entry.id).join(',') });
     }
     for (const event of events) {
       emit(event);
+    }
+  }
+
+  /** Run `attempt` under the read limit: past it the check fails and a late result is ignored. */
+  async function limited(): Promise<void> {
+    const outrun = Promise.withResolvers<never>();
+    let expired = false;
+    const handle = setTimer(() => {
+      expired = true;
+      limitTimers.delete(handle);
+      outrun.reject(new Error('the check outran its read limit'));
+    }, READ_LIMIT_MS);
+    limitTimers.add(handle);
+    try {
+      await Promise.race([attempt(() => !closed && !expired), outrun.promise]);
+    } finally {
+      limitTimers.delete(handle);
+      clearTimer(handle);
     }
   }
 
@@ -152,10 +172,10 @@ export function createNotifier<Handle>(options: NotifierOptions<Handle>): Notifi
   async function runCheck(): Promise<void> {
     running = true;
     try {
-      await check();
+      await limited();
     } catch {
       if (!closed) {
-        log('needs_you_check_fault');
+        logEventLine('needs_you_check_fault');
       }
     }
     running = false;
@@ -182,7 +202,7 @@ export function createNotifier<Handle>(options: NotifierOptions<Handle>): Notifi
     if (windowTimer !== null) {
       clearTimer(windowTimer);
     }
-    const at = now();
+    const at = monotonicNow();
     windowOpenedAt ??= at;
     const delay = Math.min(WINDOW_QUIET_MS, windowOpenedAt + WINDOW_MAX_MS - at);
     windowTimer = setTimer(windowClosed, Math.max(0, delay));
@@ -203,7 +223,13 @@ export function createNotifier<Handle>(options: NotifierOptions<Handle>): Notifi
     };
 
   return {
-    boot: runCheck,
+    boot: async () => {
+      if (booted || closed) {
+        return;
+      }
+      booted = true;
+      await runCheck();
+    },
     close: () => {
       closed = true;
       waiting = false;
@@ -211,6 +237,10 @@ export function createNotifier<Handle>(options: NotifierOptions<Handle>): Notifi
         clearTimer(windowTimer);
         windowTimer = null;
       }
+      for (const handle of limitTimers) {
+        clearTimer(handle);
+      }
+      limitTimers.clear();
       windowOpenedAt = null;
     },
     marks: {
@@ -224,7 +254,7 @@ export function createNotifier<Handle>(options: NotifierOptions<Handle>): Notifi
       succeeded: guarded((actor) => {
         const mark = markOf(actor);
         mark.inFlight = Math.max(0, mark.inFlight - 1);
-        mark.lastSuccess = now();
+        mark.lastSuccess = monotonicNow();
         signal();
       }),
     },

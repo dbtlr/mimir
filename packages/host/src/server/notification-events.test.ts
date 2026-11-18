@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { buildEvents, plainText } from './notification-events';
+import { BODY_LIMIT, TITLE_LIMIT, buildEvents, plainText } from './notification-events';
 import type { QueueEntry } from './notification-events';
 import {
   askingTask,
@@ -127,7 +127,64 @@ describe('event building', () => {
   });
 });
 
+describe('event building, the cases a mutation could slip through', () => {
+  test('decisions with no delivery group per project, never across projects', async () => {
+    const events = await eventsOf([
+      decision('AAA-q1', null, 'First?', 'AAA'),
+      decision('BBB-q1', null, 'Second?', 'BBB'),
+      decision('AAA-q2', null, 'Third?', 'AAA'),
+    ]);
+    expect(events.map((event) => [event.project, event.ids, event.target, event.title])).toEqual([
+      ['AAA', ['AAA-q1', 'AAA-q2'], '/p/AAA?mode=decisions', '2 decisions on AAA'],
+      ['BBB', ['BBB-q1'], '/p/BBB?mode=decisions', 'Decision on BBB'],
+    ]);
+  });
+
+  test('a decision that names a delivery targets that delivery, never the project', async () => {
+    const [event] = await eventsOf([decision('MMR-q1', 'MMR-d12')]);
+    expect(event?.target).toBe('/p/MMR/d12?mode=decisions');
+  });
+
+  test('a blocked task with a hold reason and an open question carries the hold reason', async () => {
+    const [event] = await eventsOf([blockedTask('MMR-1', 'Wire it', 'Need a key', 'Which API?')]);
+    expect(event?.body).toBe('Need a key');
+  });
+
+  test('a task that needs answers carries its question, not a hold reason it also has', async () => {
+    const [event] = await eventsOf([askingTask('MMR-1', 'Groom it', 'Which API?', 'Held')]);
+    expect(event?.body).toBe('Which API?');
+  });
+
+  test('a task title is cut at 100 and a task body at 240', async () => {
+    const [blocked] = await eventsOf([blockedTask('MMR-1', 't'.repeat(150), 'b'.repeat(300))]);
+    expect(blocked?.title).toHaveLength(TITLE_LIMIT);
+    expect(blocked?.body).toHaveLength(BODY_LIMIT);
+    const [asking] = await eventsOf([askingTask('MMR-2', 't'.repeat(150), 'q'.repeat(300))]);
+    expect(asking?.title).toHaveLength(TITLE_LIMIT);
+    expect(asking?.body).toHaveLength(BODY_LIMIT);
+  });
+
+  test('a decisions title is cut at 100 and its body at 240', async () => {
+    const [event] = await eventsOf([decision('MMR-q1', 'MMR-d3', 'q'.repeat(300))], async () =>
+      'd'.repeat(300),
+    );
+    expect(event?.title).toHaveLength(TITLE_LIMIT);
+    expect(event?.body).toHaveLength(BODY_LIMIT);
+  });
+
+  test('a queue entry with no row in the read is skipped, not thrown on', async () => {
+    const review = reviewOf([blockedTask('MMR-1'), blockedTask('MMR-2')]);
+    const entries: QueueEntry[] = [{ id: 'MMR-99', kind: 'task' }, review.queue[1]!];
+    const events = await buildEvents(entries, review, titles);
+    expect(events.map((event) => event.ids)).toEqual([['MMR-2']]);
+  });
+});
+
 describe('plain text', () => {
+  test('a space before the cut is trimmed so the ellipsis follows a word', () => {
+    expect(plainText('aaaa bbbbbbbb', 6)).toBe('aaaa…');
+  });
+
   test('runs of whitespace collapse to one space', () => {
     expect(plainText('  a \n\n b\t c  ', 100)).toBe('a b c');
   });

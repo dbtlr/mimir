@@ -6,6 +6,7 @@ import { createInitiative, createPhase, createProject, createTask, LocalEngine }
 import { createTestStore } from '@mimir/core/testing';
 
 import { createEngineView } from './engine-view';
+import type { ViewSchemas } from './engine-view';
 import { createNotifier } from './notifier';
 import type { Actor, MutationMarks } from './notifier';
 
@@ -104,6 +105,27 @@ describe('an Engine view', () => {
   });
 });
 
+describe('a namespace of the Engine', () => {
+  test('a mutation in a nested namespace is marked, and a query in it is not', async () => {
+    const engine = {
+      extra: { change: async () => 'changed', look: async () => 'looked' },
+    } as unknown as Engine;
+    const { marks, told } = recorder();
+    const view = createEngineView(engine, 'other', marks, {
+      flat: {},
+      namespaces: {
+        extra: { change: { kind: 'mutation' }, look: { kind: 'query' } },
+        // The map is typed for the contract's namespaces; a test names its own.
+      } as unknown as ViewSchemas['namespaces'],
+    });
+    const nested = (view as unknown as { extra: Record<string, () => Promise<string>> }).extra;
+    expect(await nested.look!()).toBe('looked');
+    expect(told).toEqual([]);
+    expect(await nested.change!()).toBe('changed');
+    expect(told).toEqual(['began:other', 'succeeded:other']);
+  });
+});
+
 describe('views over a real Engine', () => {
   test('a write through each view is withheld or reported by who made it', async () => {
     const fixture = await createTestStore();
@@ -122,12 +144,13 @@ describe('views over a real Engine', () => {
         channels: [],
         clearTimer: () => {},
         log: (line) => void logs.push(line),
-        now: () => time++,
+        monotonicNow: () => time++,
         reads: {
           deliveryTitle: async (id) => (await engine.getDelivery({ id })).title,
           review: (input) => engine.console.review(input),
         },
         setTimer: (run) => timers.push(run),
+        wallNow: () => 0,
       });
       await notifier.boot();
       const as = (actor: Actor) => createEngineView(engine, actor, notifier.marks);
@@ -140,12 +163,21 @@ describe('views over a real Engine', () => {
       };
       await as('operator').block({ id: first.id, on: 'you', reason: 'Console help' });
       await closeWindow();
-      expect(logs).toEqual([`needs_you_withheld ids=${first.id}`]);
+      const lines = () =>
+        logs.map((line) => {
+          const { time: _time, ...rest } = JSON.parse(line) as { time: string };
+          return rest;
+        });
+      expect(lines()).toEqual([{ event: 'needs_you_withheld', ids: first.id }]);
       await as('other').block({ id: second.id, on: 'you', reason: 'Agent help' });
       await closeWindow();
-      expect(logs.at(-1)).toBe(
-        `needs_you_event kind=task_blocked ids=${second.id} target=/p/VEW/${second.id.split('-')[1]} count=2`,
-      );
+      expect(lines().at(-1)).toEqual({
+        count: 2,
+        event: 'needs_you_event',
+        ids: second.id,
+        kind: 'task_blocked',
+        target: `/p/VEW/${second.id.split('-')[1]}`,
+      });
       notifier.close();
     } finally {
       await fixture.close();

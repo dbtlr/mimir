@@ -18,6 +18,8 @@ function gate(): Gate {
   return { release: resolve, wait: promise };
 }
 
+const titleOf = async (id: string) => `Title of ${id}`;
+
 const flush = async () => {
   for (let turn = 0; turn < 40; turn += 1) {
     await Promise.resolve();
@@ -28,9 +30,13 @@ const flush = async () => {
 function rig(initial: FixtureMember[] | Error = [], extraChannels: NotificationChannel[] = []) {
   let current: ReviewRead | Error = initial instanceof Error ? initial : reviewOf(initial);
   let time = 10_000;
+  /** The wall clock is the monotonic one plus this; a test steps it alone. */
+  let wallOffset = 1_700_000_000_000;
+  let titleRead = titleOf;
   const timers: { at: number; handle: number; run: () => void }[] = [];
   let nextHandle = 1;
   const state = {
+    asOfs: [] as number[],
     gates: [] as Gate[],
     inRead: 0,
     maxInRead: 0,
@@ -48,11 +54,12 @@ function rig(initial: FixtureMember[] | Error = [], extraChannels: NotificationC
       }
     },
     log: (line) => void logs.push(line),
-    now: () => time,
+    monotonicNow: () => time,
     reads: {
-      deliveryTitle: async (id) => `Title of ${id}`,
-      review: async () => {
+      deliveryTitle: (id) => titleRead(id),
+      review: async ({ asOf }) => {
         state.reads += 1;
+        state.asOfs.push(asOf.getTime());
         state.readStarts.push(time);
         state.inRead += 1;
         state.maxInRead = Math.max(state.maxInRead, state.inRead);
@@ -75,6 +82,7 @@ function rig(initial: FixtureMember[] | Error = [], extraChannels: NotificationC
       timers.push({ at: time + ms, handle, run });
       return handle;
     },
+    wallNow: () => time + wallOffset,
   });
   return {
     /** Move the clock forward, firing each timer at its own instant. */
@@ -101,13 +109,31 @@ function rig(initial: FixtureMember[] | Error = [], extraChannels: NotificationC
       state.gates.push(held);
       return held;
     },
+    /** The log lines as objects, each with a valid ISO `time` taken out. */
+    lines: () =>
+      logs.map((line) => {
+        const { time: at, ...rest } = JSON.parse(line) as {
+          [field: string]: unknown;
+          time: string;
+        };
+        expect(new Date(at).toISOString()).toBe(at);
+        return rest;
+      }),
     logs,
     notifier,
     set: (next: FixtureMember[] | Error) => {
       current = next instanceof Error ? next : reviewOf(next);
     },
+    setTitleRead: (read: (id: string) => Promise<string>) => {
+      titleRead = read;
+    },
     state,
+    /** Step the wall clock alone; the monotonic clock does not move. */
+    stepWall: (ms: number) => {
+      wallOffset += ms;
+    },
     timers,
+    wallTime: () => time + wallOffset,
     /** A write that succeeded. */
     write: (actor: 'operator' | 'other') => {
       notifier.marks.began(actor);
@@ -168,7 +194,7 @@ describe('who is told', () => {
     r.write('operator');
     await r.advance(WINDOW_QUIET_MS);
     expect(r.events).toEqual([]);
-    expect(r.logs).toContain('needs_you_withheld ids=MMR-1');
+    expect(r.lines()).toEqual([{ event: 'needs_you_withheld', ids: 'MMR-1' }]);
     r.write('other');
     await r.advance(WINDOW_QUIET_MS);
     expect(r.events).toEqual([]);
@@ -196,7 +222,7 @@ describe('boot', () => {
   test('a failed boot read is logged, resolves, and the next successful read emits nothing', async () => {
     const r = rig(new Error('store down'));
     await r.notifier.boot();
-    expect(r.logs).toEqual(['needs_you_check_fault']);
+    expect(r.lines()).toEqual([{ event: 'needs_you_check_fault' }]);
     r.set([task1]);
     r.write('other');
     await r.advance(WINDOW_QUIET_MS);
@@ -230,7 +256,7 @@ describe('channels', () => {
     await flush();
     expect(seen).toHaveLength(1);
     expect(r.events).toHaveLength(1);
-    expect(r.logs.filter((line) => line.startsWith('needs_you_channel_fault'))).toHaveLength(2);
+    expect(r.lines().filter((line) => line.event === 'needs_you_channel_fault')).toHaveLength(2);
   });
 });
 
@@ -256,7 +282,10 @@ describe('the window', () => {
       r.write('other');
     }
     expect(r.state.reads).toBe(1);
-    await r.advance(WINDOW_MAX_MS - 6 * 1_500);
+    const remaining = 10_000 - 6 * 1_500; // the contract's 10 seconds, spelled out
+    await r.advance(remaining - 1);
+    expect(r.state.reads).toBe(1);
+    await r.advance(1);
     expect(r.state.reads).toBe(2);
   });
 
@@ -337,7 +366,7 @@ describe('causes and retirement', () => {
     r.write('other');
     r.set(new Error('store down'));
     await r.advance(WINDOW_QUIET_MS);
-    expect(r.logs).toEqual(['needs_you_check_fault']);
+    expect(r.lines()).toEqual([{ event: 'needs_you_check_fault' }]);
     r.set([task1]);
     r.write('operator');
     await r.advance(WINDOW_QUIET_MS);
@@ -353,7 +382,7 @@ describe('causes and retirement', () => {
     r.set([task1]);
     await r.advance(WINDOW_QUIET_MS);
     expect(r.events.map((event) => event.ids)).toEqual([['MMR-1']]);
-    expect(r.logs.filter((line) => line.startsWith('needs_you_withheld'))).toEqual([]);
+    expect(r.lines().map((line) => line.event)).toEqual(['needs_you_event']);
   });
 });
 
@@ -365,6 +394,7 @@ describe('close', () => {
     r.notifier.close();
     expect(r.timers).toEqual([]);
     r.write('other');
+    expect(r.timers).toEqual([]);
     await r.advance(WINDOW_MAX_MS * 2);
     expect(r.state.reads).toBe(1);
   });
@@ -381,6 +411,17 @@ describe('close', () => {
     held.release();
     await flush();
     expect(r.state.reads).toBe(2);
+  });
+
+  test('it leaves no timer armed while a check is running', async () => {
+    const r = rig([]);
+    await r.notifier.boot();
+    r.holdNextRead();
+    r.write('other');
+    await r.advance(WINDOW_QUIET_MS);
+    expect(r.timers).toHaveLength(1); // the running check's read limit
+    r.notifier.close();
+    expect(r.timers).toEqual([]);
   });
 
   test('it discards a running check result without a log', async () => {
@@ -415,8 +456,253 @@ describe('the log', () => {
     r.set([stoppedDelivery('MMR-d3', 3, 'Secret title words', 'Secret body words')]);
     r.write('other');
     await r.advance(WINDOW_QUIET_MS);
-    expect(r.logs).toEqual([
-      'needs_you_event kind=delivery_stopped ids=MMR-d3 target=/p/MMR/d3 count=1',
+    expect(r.lines()).toEqual([
+      {
+        count: 1,
+        event: 'needs_you_event',
+        ids: 'MMR-d3',
+        kind: 'delivery_stopped',
+        target: '/p/MMR/d3',
+      },
     ]);
+    // `time` is the wall clock's instant, as ISO text.
+    expect(JSON.parse(r.logs[0]!).time).toBe(new Date(r.wallTime()).toISOString());
+    expect(r.logs.join('')).not.toContain('Secret');
+  });
+});
+
+describe('a check commits only when it succeeds', () => {
+  test('a delivery-title read that throws fails the check and leaves its entries for the next', async () => {
+    const r = rig([]);
+    await r.notifier.boot();
+    r.setTitleRead(() => {
+      throw new Error('synchronous fault');
+    });
+    r.set([decision('MMR-q1', 'MMR-d3')]);
+    r.write('other');
+    await r.advance(WINDOW_QUIET_MS);
+    expect(r.lines()).toEqual([{ event: 'needs_you_check_fault' }]);
+    expect(r.events).toEqual([]);
+    r.setTitleRead(titleOf);
+    // The failed check kept its cause, so even an operator write reports the entry.
+    r.write('operator');
+    await r.advance(WINDOW_QUIET_MS);
+    expect(r.events.map((event) => event.ids)).toEqual([['MMR-q1']]);
+  });
+});
+
+describe('the clocks', () => {
+  test('a wall clock that steps changes neither a window length nor the review read time', async () => {
+    const r = rig([]);
+    await r.notifier.boot();
+    r.write('other');
+    await r.advance(1_500);
+    r.stepWall(-3_600_000);
+    await r.advance(WINDOW_QUIET_MS - 1_500 - 1);
+    expect(r.state.reads).toBe(1);
+    await r.advance(1);
+    expect(r.state.reads).toBe(2);
+    expect(r.state.asOfs.at(-1)).toBe(r.wallTime());
+    r.write('other');
+    r.stepWall(7_200_000);
+    await r.advance(WINDOW_QUIET_MS);
+    expect(r.state.reads).toBe(3);
+    expect(r.state.asOfs.at(-1)).toBe(r.wallTime());
+  });
+
+  test('a wall clock stepped forward between two signals does not shorten the window', async () => {
+    const r = rig([]);
+    await r.notifier.boot();
+    r.write('other');
+    r.stepWall(3_600_000);
+    await r.advance(500);
+    r.write('other');
+    await r.advance(WINDOW_QUIET_MS - 1);
+    expect(r.state.reads).toBe(1);
+    await r.advance(1);
+    expect(r.state.reads).toBe(2);
+  });
+
+  test('a wall clock stepped back does not make a retired mutation a cause again', async () => {
+    const r = rig([]);
+    await r.notifier.boot();
+    r.write('other');
+    await r.advance(WINDOW_QUIET_MS);
+    r.stepWall(-3_600_000);
+    r.set([task1]);
+    r.write('operator');
+    await r.advance(WINDOW_QUIET_MS);
+    expect(r.events).toEqual([]);
+    expect(r.lines()).toEqual([{ event: 'needs_you_withheld', ids: 'MMR-1' }]);
+  });
+});
+
+describe('the limit on reads', () => {
+  test('a review read that never settles fails the check at 30 seconds and its late result is ignored', async () => {
+    const r = rig([]);
+    await r.notifier.boot();
+    const held = r.holdNextRead();
+    r.write('other');
+    await r.advance(WINDOW_QUIET_MS);
+    await r.advance(30_000 - 1);
+    expect(r.lines()).toEqual([]);
+    await r.advance(1);
+    expect(r.lines()).toEqual([{ event: 'needs_you_check_fault' }]);
+    r.set([task1]);
+    held.release();
+    await flush();
+    expect(r.events).toEqual([]);
+    expect(r.lines()).toHaveLength(1);
+    // Later windows run, and the late read replaced nothing: the entry is still news.
+    r.write('operator');
+    await r.advance(WINDOW_QUIET_MS);
+    expect(r.state.reads).toBe(3);
+    expect(r.events.map((event) => event.ids)).toEqual([['MMR-1']]);
+  });
+
+  test('a delivery-title read that never settles fails the check at 30 seconds', async () => {
+    const r = rig([]);
+    await r.notifier.boot();
+    const never = Promise.withResolvers<string>();
+    r.setTitleRead(() => never.promise);
+    r.set([decision('MMR-q1', 'MMR-d3')]);
+    r.write('other');
+    await r.advance(WINDOW_QUIET_MS + 30_000 - 1);
+    expect(r.lines()).toEqual([]);
+    await r.advance(1);
+    expect(r.lines()).toEqual([{ event: 'needs_you_check_fault' }]);
+    never.resolve('Late title');
+    await flush();
+    expect(r.events).toEqual([]);
+    r.setTitleRead(titleOf);
+    r.write('other');
+    await r.advance(WINDOW_QUIET_MS);
+    expect(r.events.map((event) => event.title)).toEqual(['Decision on Title of MMR-d3']);
+  });
+
+  test('a boot read that never settles resolves boot at 30 seconds with a fault', async () => {
+    const r = rig([task1]);
+    const held = r.holdNextRead();
+    let resolved = false;
+    const booting = (async () => {
+      await r.notifier.boot();
+      resolved = true;
+    })();
+    await r.advance(30_000 - 1);
+    expect(resolved).toBe(false);
+    await r.advance(1);
+    await booting;
+    expect(resolved).toBe(true);
+    expect(r.lines()).toEqual([{ event: 'needs_you_check_fault' }]);
+    held.release();
+    await flush();
+    expect(r.lines()).toHaveLength(1);
+    expect(r.timers).toEqual([]);
+  });
+
+  test('a check that finishes in time leaves no limit timer armed', async () => {
+    const r = rig([]);
+    await r.notifier.boot();
+    expect(r.timers).toEqual([]);
+  });
+});
+
+describe('boot runs once', () => {
+  test('a second call does nothing, while the first runs and after it', async () => {
+    const r = rig([task1]);
+    const held = r.holdNextRead();
+    const first = r.notifier.boot();
+    await r.notifier.boot();
+    expect(r.state.reads).toBe(1);
+    held.release();
+    await first;
+    await r.notifier.boot();
+    expect(r.state.reads).toBe(1);
+    expect(r.state.maxInRead).toBe(1);
+  });
+
+  test('a boot after close does nothing', async () => {
+    const r = rig([task1]);
+    r.notifier.close();
+    await r.notifier.boot();
+    expect(r.state.reads).toBe(0);
+  });
+});
+
+describe('the cases a mutation could slip through', () => {
+  test('a mutation that succeeds mid-read stays a cause of the next check', async () => {
+    const r = rig([]);
+    await r.notifier.boot();
+    r.write('operator');
+    const held = r.holdNextRead();
+    await r.advance(WINDOW_QUIET_MS);
+    await r.advance(500);
+    r.write('other');
+    await r.advance(500);
+    held.release();
+    await flush();
+    r.set([task1]);
+    r.write('operator');
+    await r.advance(WINDOW_QUIET_MS);
+    expect(r.events.map((event) => event.ids)).toEqual([['MMR-1']]);
+  });
+
+  test('a failed mutation stops counting as in flight', async () => {
+    const r = rig([]);
+    await r.notifier.boot();
+    r.notifier.marks.began('other');
+    r.notifier.marks.failed('other');
+    r.set([task1]);
+    r.write('operator');
+    await r.advance(WINDOW_QUIET_MS);
+    expect(r.events).toEqual([]);
+    expect(r.lines()).toEqual([{ event: 'needs_you_withheld', ids: 'MMR-1' }]);
+  });
+
+  test('close during a read whose entries would be withheld logs nothing', async () => {
+    const r = rig([]);
+    await r.notifier.boot();
+    r.write('operator');
+    const held = r.holdNextRead();
+    await r.advance(WINDOW_QUIET_MS);
+    r.set([task1]);
+    r.notifier.close();
+    held.release();
+    await flush();
+    expect(r.logs).toEqual([]);
+  });
+
+  test('close during the read builds no event and reads no title', async () => {
+    const r = rig([]);
+    await r.notifier.boot();
+    let titleReads = 0;
+    r.setTitleRead(async () => {
+      titleReads += 1;
+      return 'Title';
+    });
+    r.write('other');
+    const held = r.holdNextRead();
+    await r.advance(WINDOW_QUIET_MS);
+    r.set([decision('MMR-q1', 'MMR-d3')]);
+    r.notifier.close();
+    held.release();
+    await flush();
+    expect(titleReads).toBe(0);
+    expect(r.events).toEqual([]);
+  });
+
+  test('close during the build emits nothing and logs nothing', async () => {
+    const r = rig([]);
+    await r.notifier.boot();
+    const title = Promise.withResolvers<string>();
+    r.setTitleRead(() => title.promise);
+    r.set([decision('MMR-q1', 'MMR-d3')]);
+    r.write('other');
+    await r.advance(WINDOW_QUIET_MS);
+    r.notifier.close();
+    title.resolve('Late');
+    await flush();
+    expect(r.events).toEqual([]);
+    expect(r.logs).toEqual([]);
   });
 });

@@ -55,11 +55,36 @@ function wrapNamespace(
   return view;
 }
 
+/** The schema maps a view wraps: the flat methods, and each namespace of the Engine by name. */
+export type ViewSchemas = {
+  flat: Kinded;
+  // A namespace is any key of `Engine` that is not a flat method: a new one fails to compile
+  // here until the default below names its schemas.
+  namespaces: Record<Exclude<keyof Engine, keyof typeof engineSchemas>, Kinded>;
+};
+
+const CONTRACT_SCHEMAS: ViewSchemas = {
+  flat: engineSchemas,
+  namespaces: { console: consoleSchemas },
+};
+
 /** The Engine as `actor` sees it: the same methods, with each mutation marked. */
-export function createEngineView(engine: Engine, actor: Actor, marks: MutationMarks): Engine {
-  const flat = wrapNamespace(engine, engineSchemas, actor, marks);
-  const console = wrapNamespace(engine.console, consoleSchemas, actor, marks);
+export function createEngineView(
+  engine: Engine,
+  actor: Actor,
+  marks: MutationMarks,
+  schemas: ViewSchemas = CONTRACT_SCHEMAS,
+): Engine {
+  const flat = wrapNamespace(engine, schemas.flat, actor, marks);
+  const namespaces: Record<string, Record<string, Call>> = {};
+  for (const [name, namespaceSchemas] of Object.entries(schemas.namespaces)) {
+    const target: unknown = Reflect.get(engine, name);
+    if (typeof target !== 'object' || target === null) {
+      throw new TypeError(`the Engine has no namespace ${name}`);
+    }
+    namespaces[name] = wrapNamespace(target, namespaceSchemas, actor, marks);
+  }
   // The view has exactly the Engine's methods, one per contract schema.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return { ...flat, console } as unknown as Engine;
+  return { ...flat, ...namespaces } as unknown as Engine;
 }

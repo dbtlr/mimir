@@ -1,5 +1,7 @@
 import type { ConsoleOutput } from '@mimir/contract';
 
+import { deliveryPath, nodeLink } from '../lib/record-url';
+
 /*
  * The notifier's event building (ADR 0045): a member of the needs-you set
  * becomes an event kind, a text, and a target. Pure apart from the one
@@ -57,10 +59,11 @@ export function plainText(text: string, limit: number): string {
 const orFallback = (text: string | null | undefined, fallback: string): string =>
   (text ?? '').trim() === '' ? fallback : text!;
 
-const trailingNumber = (id: string, marker: RegExp): string | null => marker.exec(id)?.[1] ?? null;
-
-/** The task's sequence number in its path: `MMR-708` is `708`. */
-const taskSeq = (id: string): string => trailingNumber(id, /-(\d+)$/) ?? id;
+/** The console path of a task: `MMR-708` is `/p/MMR/708`. */
+function taskPath(id: string): string {
+  const { params } = nodeLink(id);
+  return `/p/${params.key}/${params.seq}`;
+}
 
 type Located = { project: string; row: NeedsYouRow };
 
@@ -104,7 +107,7 @@ function singleEvent(
       body: plainText(orFallback(delivery.hold_reason, delivery.id), BODY_LIMIT),
       ids: [delivery.id],
       kind: 'delivery_stopped',
-      target: `/p/${project}/d${delivery.seq}`,
+      target: deliveryPath(delivery.id),
       title: plainText(orFallback(delivery.title, delivery.id), TITLE_LIMIT),
     };
   }
@@ -115,7 +118,7 @@ function singleEvent(
     body: plainText(orFallback(blocked ? task.holdReason : row.question, task.id), BODY_LIMIT),
     ids: [task.id],
     kind: blocked ? 'task_blocked' : 'task_needs_answers',
-    target: `/p/${project}/${taskSeq(task.id)}`,
+    target: taskPath(task.id),
     title: plainText(orFallback(task.title, task.id), TITLE_LIMIT),
   };
 }
@@ -190,10 +193,7 @@ async function decisionsEvent(
   let target = `/p/${project}?mode=decisions`;
   if (delivery !== null) {
     subject = await readDeliveryTitle(delivery).catch(() => delivery);
-    const seq = trailingNumber(delivery, /-d(\d+)$/);
-    if (seq !== null) {
-      target = `/p/${project}/d${seq}?mode=decisions`;
-    }
+    target = `${deliveryPath(delivery)}?mode=decisions`;
   }
   const lead = members.length > 1 ? `${members.length} decisions` : 'Decision';
   return {
