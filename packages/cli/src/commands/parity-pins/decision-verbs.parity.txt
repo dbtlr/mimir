@@ -18,6 +18,7 @@ exit 0
 | History
 | 2026-10-01 12:00 UTC link: none -> linked MMR-3
 --- state
++ decisions[MMR-q2]: {"id":"MMR-q2","project_key":"MMR","seq":2,"question":"Where?","options":["Here","There"],"option_details":[null,null],"recommended":1,"taken":1,"class":"architecture","why":null,"delivery":null,"lifecycle":"provisional","overturn_option":null,"outcome_note":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","tasks":["MMR-3"],"history":[{"kind":"link","from_value":null,"to_value":"linked","reason":null,"task":"MMR-3","at":"2026-10-01T12:00:00.000Z"}]}
 + nodes[MMR-3].decisions[MMR-q2]: {"id":"MMR-q2","lifecycle":"provisional"}
 
 ### decide argv: Where? --option Here --option There --recommend 1 --class architecture -p MMR --task MMR-3 -f table
@@ -40,6 +41,7 @@ exit 0
 | History
 | 2026-10-01 12:00 UTC link: none -> linked MMR-3
 --- state
++ decisions[MMR-q2]: {"id":"MMR-q2","project_key":"MMR","seq":2,"question":"Where?","options":["Here","There"],"option_details":[null,null],"recommended":1,"taken":1,"class":"architecture","why":null,"delivery":null,"lifecycle":"provisional","overturn_option":null,"outcome_note":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","tasks":["MMR-3"],"history":[{"kind":"link","from_value":null,"to_value":"linked","reason":null,"task":"MMR-3","at":"2026-10-01T12:00:00.000Z"}]}
 + nodes[MMR-3].decisions[MMR-q2]: {"id":"MMR-q2","lifecycle":"provisional"}
 
 ### decide argv: Where? --option Here --option There --recommend 1 --class architecture -p MMR --task MMR-3 -f ids
@@ -47,6 +49,7 @@ exit 0
 --- stdout
 | MMR-q2
 --- state
++ decisions[MMR-q2]: {"id":"MMR-q2","project_key":"MMR","seq":2,"question":"Where?","options":["Here","There"],"option_details":[null,null],"recommended":1,"taken":1,"class":"architecture","why":null,"delivery":null,"lifecycle":"provisional","overturn_option":null,"outcome_note":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","tasks":["MMR-3"],"history":[{"kind":"link","from_value":null,"to_value":"linked","reason":null,"task":"MMR-3","at":"2026-10-01T12:00:00.000Z"}]}
 + nodes[MMR-3].decisions[MMR-q2]: {"id":"MMR-q2","lifecycle":"provisional"}
 
 ### decide argv: Where? --option Here --option There --recommend 1 --class architecture -p MMR --task MMR-3 -f json
@@ -90,6 +93,7 @@ exit 0
 |   ]
 | }
 --- state
++ decisions[MMR-q2]: {"id":"MMR-q2","project_key":"MMR","seq":2,"question":"Where?","options":["Here","There"],"option_details":[null,null],"recommended":1,"taken":1,"class":"architecture","why":null,"delivery":null,"lifecycle":"provisional","overturn_option":null,"outcome_note":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","tasks":["MMR-3"],"history":[{"kind":"link","from_value":null,"to_value":"linked","reason":null,"task":"MMR-3","at":"2026-10-01T12:00:00.000Z"}]}
 + nodes[MMR-3].decisions[MMR-q2]: {"id":"MMR-q2","lifecycle":"provisional"}
 
 ### decide argv: Where? --option Here --option There --recommend 1 --class architecture -p MMR --task MMR-3 -f jsonl
@@ -133,6 +137,7 @@ exit 0
 |   ]
 | }
 --- state
++ decisions[MMR-q2]: {"id":"MMR-q2","project_key":"MMR","seq":2,"question":"Where?","options":["Here","There"],"option_details":[null,null],"recommended":1,"taken":1,"class":"architecture","why":null,"delivery":null,"lifecycle":"provisional","overturn_option":null,"outcome_note":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","tasks":["MMR-3"],"history":[{"kind":"link","from_value":null,"to_value":"linked","reason":null,"task":"MMR-3","at":"2026-10-01T12:00:00.000Z"}]}
 + nodes[MMR-3].decisions[MMR-q2]: {"id":"MMR-q2","lifecycle":"provisional"}
 
 ### decide argv: Where? --option Here --recommend 1 --class product -p MMR
@@ -168,7 +173,7 @@ exit 0
 |   2. There
 |        Context
 --- state
-unchanged
++ decisions[MMR-q2]: {"id":"MMR-q2","project_key":"MMR","seq":2,"question":"Where?","options":["Here","There"],"option_details":[null,"Context"],"recommended":1,"taken":1,"class":"product","why":null,"delivery":null,"lifecycle":"provisional","overturn_option":null,"outcome_note":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","tasks":[],"history":[]}
 
 ### decide argv: Where? --option Here --option There --detail "02: Context" --recommend 1 --class product -p MMR
 exit 2
@@ -203,6 +208,8 @@ exit 0
 | 2026-10-01 12:00 UTC link: none -> linked MMR-3
 | 2026-10-01 12:00 UTC link: none -> linked MMR-4
 --- state
++ decisions[MMR-q1].tasks[@1]: "MMR-4"
++ decisions[MMR-q1].history[@1]: {"kind":"link","from_value":null,"to_value":"linked","reason":null,"task":"MMR-4","at":"2026-10-01T12:00:00.000Z"}
 + nodes[MMR-4].decisions[MMR-q1]: {"id":"MMR-q1","lifecycle":"provisional"}
 
 ### update argv: MMR-q1 --untask MMR-3
@@ -226,6 +233,8 @@ exit 0
 | 2026-10-01 12:00 UTC link: none -> linked MMR-3
 | 2026-10-01 12:00 UTC link: none -> unlinked MMR-3
 --- state
+- decisions[MMR-q1].tasks[@0]: "MMR-3"
++ decisions[MMR-q1].history[@1]: {"kind":"link","from_value":null,"to_value":"unlinked","reason":null,"task":"MMR-3","at":"2026-10-01T12:00:00.000Z"}
 - nodes[MMR-3].decisions[MMR-q1]: {"id":"MMR-q1","lifecycle":"provisional"}
 
 ### update argv: MMR-q1 --title Wrong
@@ -624,6 +633,8 @@ exit 0
 |   ]
 | }
 --- state
+~ decisions[MMR-q1].lifecycle: "provisional" -> "confirmed"
++ decisions[MMR-q1].history[@1]: {"kind":"lifecycle","from_value":"provisional","to_value":"confirmed","reason":null,"task":null,"at":"2026-10-01T12:00:00.000Z"}
 ~ nodes[MMR-3].decisions[MMR-q1].lifecycle: "provisional" -> "confirmed"
 
 ### overturn argv: MMR-q1 --option 2 -f jsonl
@@ -675,6 +686,9 @@ exit 0
 |   ]
 | }
 --- state
+~ decisions[MMR-q1].lifecycle: "provisional" -> "overturned"
+~ decisions[MMR-q1].overturn_option: null -> 2
++ decisions[MMR-q1].history[@1]: {"kind":"lifecycle","from_value":"provisional","to_value":"overturned","reason":null,"task":null,"at":"2026-10-01T12:00:00.000Z"}
 + nodes[MMR-3].annotations[@2]: {"content":"decision MMR-q1 overturned: option 2 (There)","createdAt":"2026-10-01T12:00:00.000Z"}
 ~ nodes[MMR-3].decisions[MMR-q1].lifecycle: "provisional" -> "overturned"
 
@@ -727,6 +741,9 @@ exit 0
 |   ]
 | }
 --- state
+~ decisions[MMR-q1].lifecycle: "provisional" -> "confirmed"
+~ decisions[MMR-q1].outcome_note: null -> "\"Accepted\""
++ decisions[MMR-q1].history[@1]: {"kind":"lifecycle","from_value":"provisional","to_value":"confirmed","reason":"\"Accepted\"","task":null,"at":"2026-10-01T12:00:00.000Z"}
 ~ nodes[MMR-3].decisions[MMR-q1].lifecycle: "provisional" -> "confirmed"
 
 ### overturn argv: MMR-q1 --option 2 "Move" -f json
@@ -778,6 +795,10 @@ exit 0
 |   ]
 | }
 --- state
+~ decisions[MMR-q1].lifecycle: "provisional" -> "overturned"
+~ decisions[MMR-q1].overturn_option: null -> 2
+~ decisions[MMR-q1].outcome_note: null -> "\"Move\""
++ decisions[MMR-q1].history[@1]: {"kind":"lifecycle","from_value":"provisional","to_value":"overturned","reason":"\"Move\"","task":null,"at":"2026-10-01T12:00:00.000Z"}
 + nodes[MMR-3].annotations[@2]: {"content":"decision MMR-q1 overturned: option 2 (There): \"Move\"","createdAt":"2026-10-01T12:00:00.000Z"}
 ~ nodes[MMR-3].decisions[MMR-q1].lifecycle: "provisional" -> "overturned"
 
@@ -803,6 +824,9 @@ exit 0
 | 2026-10-01 12:00 UTC link: none -> linked MMR-3
 | 2026-10-01 12:00 UTC lifecycle: provisional -> overturned: "Neither"
 --- state
+~ decisions[MMR-q1].lifecycle: "provisional" -> "overturned"
+~ decisions[MMR-q1].outcome_note: null -> "\"Neither\""
++ decisions[MMR-q1].history[@1]: {"kind":"lifecycle","from_value":"provisional","to_value":"overturned","reason":"\"Neither\"","task":null,"at":"2026-10-01T12:00:00.000Z"}
 + nodes[MMR-3].annotations[@2]: {"content":"decision MMR-q1 overturned: \"Neither\"","createdAt":"2026-10-01T12:00:00.000Z"}
 ~ nodes[MMR-3].decisions[MMR-q1].lifecycle: "provisional" -> "overturned"
 
