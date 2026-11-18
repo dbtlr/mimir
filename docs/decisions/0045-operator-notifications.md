@@ -86,7 +86,9 @@ its signal exists. So a check does not ask which window a write belonged to:
   still in flight and one that succeeded while the check was reading.
 - A successful check **retires** the mutations that had succeeded before its
   read began. A later mutation stays, and counts again as a cause of the next
-  check.
+  check. So an actor is a cause when it has a mutation in flight, or when its
+  latest success is not earlier than the instant the last successful check
+  began its read.
 
 A check that fails is logged as `needs_you_check_fault`. It replaces nothing
 and retires nothing, so its causes carry to the next check, which the next
