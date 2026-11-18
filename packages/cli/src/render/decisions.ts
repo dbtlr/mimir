@@ -18,13 +18,23 @@ function fieldText(key: string, value: unknown, zone: string): string {
 
 /** The full decision and its append-only log, using the delivery record layout. */
 export function renderDecision(decision: DecisionView, p: Presentation): string {
-  const { history, options, ...fields } = decision;
+  const { history, options, option_details, ...fields } = decision;
   const lines = Object.entries(fields)
     .filter(([, v]) => v !== null)
     .map(([key, value]) => hangingIndent(`${key}: `, fieldText(key, value, p.zone)));
   lines.push(
     'Options',
-    ...options.map((text, index) => hangingIndent(`  ${String(index + 1)}. `, text)),
+    ...options.map((text, index) => {
+      const prefix = `  ${String(index + 1)}. `;
+      const option = hangingIndent(prefix, text);
+      const detail = option_details[index];
+      return detail == null
+        ? option
+        : `${option}\n${detail
+            .split('\n')
+            .map((line) => ' '.repeat(prefix.length + 2) + line)
+            .join('\n')}`;
+    }),
   );
   if (history.length) {
     lines.push(

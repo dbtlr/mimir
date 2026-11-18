@@ -104,3 +104,51 @@ test('decide refuses words beyond the quoted question, before or after --', asyn
     await board.close();
   }
 });
+
+test('decide parses numbered details, rejects mistakes, and indents multiline text', async () => {
+  const board = await parityBoard();
+  try {
+    const base = [
+      'decide',
+      'Which?',
+      '--option',
+      'A\ncontinued',
+      '--option',
+      'B',
+      '--recommend',
+      '1',
+      '--class',
+      'other',
+      '-p',
+      'MMR',
+    ];
+    for (const details of [
+      ['02: x'],
+      [' 2: x'],
+      ['2 : x'],
+      ['3: x'],
+      ['2: x', '2: y'],
+      ['2: \t'],
+    ]) {
+      const run = await runArgv(board.app(), [...base, ...details.flatMap((d) => ['--detail', d])]);
+      expect(run.exitCode).not.toBe(0);
+      expect(run.stderr).toContain('--detail');
+    }
+    const run = await runArgv(board.app(), [...base, '--detail', '1: \tContext\nMore']);
+    expect(run.exitCode, run.stderr).toBe(0);
+    expect(run.stdout).toContain(
+      'Options\n  1. A\n     continued\n       Context\n       More\n  2. B',
+    );
+    expect(run.stdout).not.toContain('option_details:');
+    expect((await board.engine.getDecision({ id: 'MMR-q1' })).option_details).toEqual([
+      'Context\nMore',
+      null,
+    ]);
+    const plain = await runArgv(board.app(), base);
+    expect(plain.exitCode).toBe(0);
+    expect(plain.stdout).not.toContain('option_details:');
+    expect(plain.stdout).toContain('Options\n  1. A\n     continued\n  2. B');
+  } finally {
+    await board.close();
+  }
+});

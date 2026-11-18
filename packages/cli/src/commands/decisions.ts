@@ -29,6 +29,31 @@ function numberOf(value: string | undefined): number | undefined {
   }
   return Number(value);
 }
+function detailsOf(values: string[], options: string[]): (string | null)[] {
+  const details = options.map((): string | null => null);
+  for (const value of values) {
+    const match = /^([1-9][0-9]*):[ \t]*(.*)$/s.exec(value);
+    if (!match) {
+      throw new MimirUsageError(
+        '--detail must be "N: text"; pass a positive option number with no spaces or leading zero',
+      );
+    }
+    const n = Number(match[1]);
+    if (!Number.isSafeInteger(n) || n > options.length) {
+      throw new MimirUsageError('--detail names no option; pass a listed option number');
+    }
+    const detail = match[2] ?? '';
+    if (!detail.trim()) {
+      throw new MimirUsageError('--detail is blank; pass nonblank text after N:');
+    }
+    if (details[n - 1] !== null) {
+      throw new MimirUsageError('--detail names an option twice; name each option once');
+    }
+    details[n - 1] = detail;
+  }
+  return details;
+}
+
 export function decideCommand(ports: Ports) {
   return new Command('decide', {
     description: 'Record a provisional answer without stopping work.',
@@ -47,6 +72,7 @@ export function decideCommand(ports: Ports) {
   })
     .argument('question', { description: 'The question answered.', required: true })
     .option('option', { ...text('An option; repeat at least twice.'), multiple: true })
+    .option('detail', { ...text('Option context as N: text; repeat.'), multiple: true })
     .option('recommend', { ...text('The recommended option number.', 'n'), required: true })
     .option('take', text('The option taken; defaults to recommend.', 'n'))
     .option('class', { ...text('product, architecture, or other.'), required: true })
@@ -81,6 +107,7 @@ export function decideCommand(ports: Ports) {
       ).decide({
         class: cls,
         delivery: options.delivery,
+        option_details: detailsOf(options.detail, options.option),
         options: options.option,
         project,
         question: args.question,

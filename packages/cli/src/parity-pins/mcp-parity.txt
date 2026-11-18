@@ -512,7 +512,7 @@
 | create_phase(desc: string, not-open-ended: boolean, open-ended: boolean, parent: string, summary: string, tag: array, target: string, title: string)
 | create_project(desc: string, key: string, name: string, remote: string, tag: array, yes: boolean)
 | create_task(branch: string, desc: string, groomed: boolean, harness: string, host: string, parent: string, priority: string, ref: string, session: string, size: string, summary: string, tag: array, title: string, upstream: string)
-| decide(class: string, delivery: string, option: array, project: string, question: string, recommend: string, take: string, task: array, why: string)
+| decide(class: string, delivery: string, detail: array, option: array, project: string, question: string, recommend: string, take: string, task: array, why: string)
 | decisions(class: array, delivery: string, linked: boolean, project: string, status: string)
 | decline(finding: string, id: string, reason: string, words: array)
 | deliveries(project: string)

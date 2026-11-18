@@ -61,6 +61,10 @@ exit 0
 |     "Here",
 |     "There"
 |   ],
+|   "option_details": [
+|     null,
+|     null
+|   ],
 |   "recommended": 1,
 |   "taken": 1,
 |   "class": "architecture",
@@ -100,6 +104,10 @@ exit 0
 |     "Here",
 |     "There"
 |   ],
+|   "option_details": [
+|     null,
+|     null
+|   ],
 |   "recommended": 1,
 |   "taken": 1,
 |   "class": "architecture",
@@ -137,6 +145,30 @@ exit 1
 |     "add another --option"
 |   ],
 |   "message": "a decision requires at least two options"
+| }
+--- state
+unchanged
+
+### decide argv: Where? --option Here --option There --detail "2: Context" --recommend 1 --class product -p MMR
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"decide\" accepts 1 argument. Remove the extra values."
+| }
+--- state
+unchanged
+
+### decide argv: Where? --option Here --option There --detail "02: Context" --recommend 1 --class product -p MMR
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"decide\" accepts 1 argument. Remove the extra values."
 | }
 --- state
 unchanged
@@ -423,6 +455,10 @@ exit 0
 |     "Here",
 |     "There"
 |   ],
+|   "option_details": [
+|     null,
+|     null
+|   ],
 |   "recommended": 1,
 |   "taken": 1,
 |   "class": "architecture",
@@ -542,6 +578,10 @@ exit 0
 |     "Here",
 |     "There"
 |   ],
+|   "option_details": [
+|     null,
+|     null
+|   ],
 |   "recommended": 1,
 |   "taken": 1,
 |   "class": "architecture",
@@ -588,6 +628,10 @@ exit 0
 |   "options": [
 |     "Here",
 |     "There"
+|   ],
+|   "option_details": [
+|     null,
+|     null
 |   ],
 |   "recommended": 1,
 |   "taken": 1,
@@ -637,6 +681,10 @@ exit 0
 |     "Here",
 |     "There"
 |   ],
+|   "option_details": [
+|     null,
+|     null
+|   ],
 |   "recommended": 1,
 |   "taken": 1,
 |   "class": "architecture",
@@ -683,6 +731,10 @@ exit 0
 |   "options": [
 |     "Here",
 |     "There"
+|   ],
+|   "option_details": [
+|     null,
+|     null
 |   ],
 |   "recommended": 1,
 |   "taken": 1,

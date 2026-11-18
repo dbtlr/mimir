@@ -11,6 +11,7 @@ import { postgresDialect } from '../../store-postgres/index';
 import { createPgliteDialect } from '../../store-postgres/pglite';
 import { bootPglite, createEmptyPglite, createPgliteTestStore } from '../../store-postgres/testing';
 import type { StoreDialect } from '../../store-sql/dialect';
+import { upgradeSchema } from '../../store-sql/migrator';
 import type { DB } from '../../store-sql/schema';
 import { createBunSqliteDialect } from '../../store-sqlite/driver';
 import { sqliteDialect } from '../../store-sqlite/index';
@@ -301,6 +302,32 @@ describe.each(arms)('$name', (arm) => {
       expect(findings.map((item) => [item.evidence.kind, item.where])).toEqual([
         ['delivery', 'project · last_delivery_seq'],
       ]);
+    } finally {
+      await f.close();
+    }
+  });
+
+  test(`${arm.name}: migration 0022 preserves existing decisions without details`, async () => {
+    const f = await arm.make();
+    try {
+      await seedWorkingSet(f.store);
+      const engine = new LocalEngine(f.store);
+      const d = await engine.decide({
+        class: 'other',
+        options: ['A', 'B'],
+        project: 'MMR',
+        question: 'Which?',
+        recommended: 1,
+      });
+      await sql.raw('ALTER TABLE decision DROP COLUMN option_details').execute(f.db);
+      await f.db.deleteFrom('schema_version').where('version', '>=', 22).execute();
+      expect(await upgradeSchema(f.db, arm.dialect)).toMatchObject({
+        applied: ['0022_decision_option_details'],
+        from: 21,
+        to: 22,
+      });
+      expect(await engine.getDecision({ id: d.id })).toEqual(d);
+      expect((await f.store.export()).decisions[0]?.option_details).toBeNull();
     } finally {
       await f.close();
     }
