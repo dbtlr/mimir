@@ -182,6 +182,7 @@ test('the delivery page offers one entry above its decisions, counting the provi
 });
 
 test('an entry pushes the walkthrough marked with the page it was on', async () => {
+  vi.mocked(deliveryPage).mockResolvedValue(page([decision(3, 'MMR-d3')]));
   const { router } = await renderRoute(consoleRoutes, '/', client());
   fireEvent.click(await screen.findByRole('link', { name: 'Review 1 decision on MMR-d3' }));
   await screen.findByRole('dialog');
@@ -207,6 +208,7 @@ async function sendFrom(path: string, entry?: string) {
 }
 
 test('Close on a marked walkthrough goes back one entry', async () => {
+  vi.mocked(deliveryPage).mockResolvedValue(page([decision(3, 'MMR-d3')]));
   const { router } = await renderRoute(consoleRoutes, '/', client());
   fireEvent.click(await screen.findByRole('link', { name: 'Review 1 decision on MMR-d3' }));
   const layer = await screen.findByRole('dialog');
@@ -223,12 +225,15 @@ test('Close on an unmarked walkthrough replaces its entry and goes nowhere back'
   vi.mocked(deliveryPage).mockResolvedValue(page([decision(3, 'MMR-d3')]));
   const { router } = await renderRoute(consoleRoutes, '/p/MMR/d3?mode=decisions', client());
   const back = vi.spyOn(router.history, 'back');
+  const length = router.history.length;
   const layer = await screen.findByRole('dialog');
   fireEvent.click(await within(layer).findByRole('button', { name: 'Close the walkthrough' }));
   await waitFor(() => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
   expect(back).not.toHaveBeenCalled();
+  expect(router.state.location.search).not.toHaveProperty('mode');
+  expect(router.history).toHaveLength(length);
 });
 
 test('the link back goes back when the opener is the walkthrough’s own page', async () => {
