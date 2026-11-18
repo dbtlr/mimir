@@ -665,11 +665,37 @@ describe('the limit on reads', () => {
     held.release();
     await booting;
     expect(r.lines()).toEqual([{ event: 'needs_you_check_fault' }]);
-    // Nothing was remembered, so the next check only remembers and emits nothing.
+    // Nothing was remembered, so the next read is the first: it emits nothing
+    // even for a member the boot read did not see.
+    r.set([task1, blockedTask('MMR-2')]);
     r.write('other');
     await r.advance(WINDOW_QUIET_MS);
     expect(r.events).toEqual([]);
     expect(r.lines()).toHaveLength(1);
+    // That read was remembered, so the check after it reports only what is new.
+    r.set([task1, blockedTask('MMR-2'), blockedTask('MMR-3')]);
+    r.write('other');
+    await r.advance(WINDOW_QUIET_MS);
+    expect(r.events.map((event) => event.ids)).toEqual([['MMR-3']]);
+  });
+
+  test('a review read that settles past 30 seconds before its timer runs reads no delivery title', async () => {
+    const r = rig([]);
+    await r.notifier.boot();
+    let titleReads = 0;
+    r.setTitleRead(async (id) => {
+      titleReads += 1;
+      return titleOf(id);
+    });
+    const held = r.holdNextRead();
+    r.set([decision('MMR-q1', 'MMR-d3')]);
+    r.write('other');
+    await r.advance(WINDOW_QUIET_MS);
+    r.stall(30_000);
+    held.release();
+    await flush();
+    expect(titleReads).toBe(0);
+    expect(r.lines()).toEqual([{ event: 'needs_you_check_fault' }]);
   });
 
   test('a check that finishes in time leaves no limit timer armed', async () => {
