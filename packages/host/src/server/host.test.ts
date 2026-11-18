@@ -12,6 +12,7 @@ import { RemoteEngine } from '@mimir/wire/client';
 import { readHostConfig } from './config';
 import { guardEveryRoute, hostGuard } from './guard';
 import { openHost } from './host';
+import type { NotifierTimer } from './host';
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -448,6 +449,209 @@ test('a fresh run of another host survives boot and keeps the slot', async () =>
       run: { id: 'live-run' },
       stale: false,
     });
+  } finally {
+    await host.close();
+  }
+});
+
+/*
+ * The notifier's wiring (ADR 0045), on the real `openHost`: which view each
+ * caller gets, that boot runs, that close reaches the notifier, and that its
+ * timers are unref'd. The test drives the notifier's time through the
+ * `notifierTiming` seam, so no test waits on a real timer.
+ */
+/** Yield until `done` holds; the store's reads settle on their own. */
+async function until(done: () => boolean) {
+  for (let turn = 0; turn < 500 && !done(); turn += 1) {
+    await Bun.sleep(0);
+  }
+  expect(done()).toBe(true);
+}
+
+function timedHost() {
+  let monotonic = 1_000;
+  const timers: {
+    at: number;
+    cancelled: boolean;
+    run: () => void;
+    unref: () => void;
+    unrefd: boolean;
+  }[] = [];
+  const lines: Record<string, unknown>[] = [];
+  const timing = {
+    clearTimeout: (timer: unknown) => {
+      const found = timers.find((candidate) => Object.is(candidate, timer));
+      if (found !== undefined) {
+        found.cancelled = true;
+      }
+    },
+    monotonicNow: () => monotonic,
+    setTimeout: (run: () => void, ms: number) => {
+      const timer = {
+        at: monotonic + ms,
+        cancelled: false,
+        run,
+        unref: () => {
+          timer.unrefd = true;
+        },
+        unrefd: false,
+      };
+      timers.push(timer);
+      // The host asks only for `unref` and a handle to clear; this is a stand-in for a Timeout.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      return timer as unknown as NotifierTimer;
+    },
+    wallNow: () => 1_700_000_000_000 + monotonic,
+  };
+  const log = (line: string) => {
+    if (line.startsWith('{')) {
+      const { time: _time, ...rest } = JSON.parse(line) as Record<string, unknown>;
+      lines.push(rest);
+    }
+  };
+  const armed = () => timers.filter((timer) => !timer.cancelled);
+  const notifierLines = () => lines.filter((line) => String(line.event).startsWith('needs_you'));
+  /** Fire every armed window, then wait for the check it starts to finish. */
+  const closeWindow = async () => {
+    const before = notifierLines().length;
+    const due = armed().toSorted((a, b) => a.at - b.at);
+    expect(due.length).toBeGreaterThan(0);
+    for (const timer of due) {
+      timer.cancelled = true;
+      monotonic = Math.max(monotonic, timer.at);
+      timer.run();
+    }
+    await Bun.sleep(0);
+    return before;
+  };
+  return { armed, closeWindow, lines, log, notifierLines, timers, timing };
+}
+
+async function openTimedHost() {
+  const root = await mkdtemp(join(tmpdir(), 'mimir-host-notifier-'));
+  roots.push(root);
+  const rig = timedHost();
+  const host = await openHost(
+    await readHostConfig({ MIMIR_DATA_DIR: root }),
+    WINDOW_VERSION,
+    rig.log,
+    { notifierTiming: rig.timing },
+  );
+  await host.engine.create({ key: 'NTF', name: 'Notifier', type: 'project' });
+  await host.engine.create({ parent: 'NTF', title: 'Plan', type: 'initiative' });
+  await host.engine.create({ parent: 'NTF-1', title: 'First', type: 'task' });
+  await host.engine.create({ parent: 'NTF-1', title: 'Second', type: 'task' });
+  // The setup writes opened a window; its check finds nothing.
+  await rig.closeWindow();
+  // The setup check is over once its read limit timer is cleared.
+  await until(() => rig.armed().length === 0);
+  return { host, rig };
+}
+
+async function pairedRemote(host: Awaited<ReturnType<typeof openHost>>) {
+  const filed = await host.handlePairingRequest(
+    new Request('http://host.test/auth/pairing/requests', {
+      body: JSON.stringify({ device: 'notifier-test' }),
+      method: 'POST',
+    }),
+  );
+  const request = await filed.json();
+  await host.tokens.approve(request.user_code);
+  const polled = await host.handlePairingPoll(
+    new Request('http://host.test/auth/pairing/poll', {
+      body: JSON.stringify({ poll_secret: request.poll_secret }),
+      method: 'POST',
+    }),
+  );
+  const { token } = await polled.json();
+  const server = Bun.serve({
+    fetch: (incoming) => host.handleTrpc(incoming),
+    hostname: '127.0.0.1',
+    port: 0,
+  });
+  const remote = new RemoteEngine({
+    headers: { authorization: `Bearer ${token}` },
+    url: new URL('/trpc', server.url).href,
+    version: WINDOW_VERSION,
+  });
+  return { remote, server };
+}
+
+test('a block made through /trpc is another actor, so the operator is told', async () => {
+  const { host, rig } = await openTimedHost();
+  const { remote, server } = await pairedRemote(host);
+  try {
+    await remote.block({ id: 'NTF-3', on: 'you', reason: 'Agent needs a key' });
+    await rig.closeWindow();
+    await until(() => rig.notifierLines().length > 0);
+    expect(rig.notifierLines()).toEqual([
+      {
+        count: 1,
+        event: 'needs_you_event',
+        ids: 'NTF-3',
+        kind: 'task_blocked',
+        target: '/p/NTF/3',
+      },
+    ]);
+  } finally {
+    await server.stop(true);
+    await host.close();
+  }
+});
+
+test('a block made through the console engine is the operator, so it is withheld', async () => {
+  const { host, rig } = await openTimedHost();
+  try {
+    await host.engine.block({ id: 'NTF-3', on: 'you', reason: 'Console help' });
+    await rig.closeWindow();
+    await until(() => rig.notifierLines().length > 0);
+    expect(rig.notifierLines()).toEqual([{ event: 'needs_you_withheld', ids: 'NTF-3' }]);
+  } finally {
+    await host.close();
+  }
+});
+
+test('the host boots the notifier: an entry already in the set is no news, a new one is', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mimir-host-notifier-boot-'));
+  roots.push(root);
+  const config = await readHostConfig({ MIMIR_DATA_DIR: root });
+  const first = await openHost(config, WINDOW_VERSION, () => {});
+  await first.engine.create({ key: 'NTF', name: 'Notifier', type: 'project' });
+  await first.engine.create({ parent: 'NTF', title: 'Plan', type: 'initiative' });
+  await first.engine.create({ parent: 'NTF-1', title: 'First', type: 'task' });
+  await first.engine.create({ parent: 'NTF-1', title: 'Second', type: 'task' });
+  await first.engine.block({ id: 'NTF-2', on: 'you', reason: 'Already waiting' });
+  await first.close();
+  const rig = timedHost();
+  const host = await openHost(config, WINDOW_VERSION, rig.log, { notifierTiming: rig.timing });
+  const { remote, server } = await pairedRemote(host);
+  try {
+    await remote.block({ id: 'NTF-3', on: 'you', reason: 'New' });
+    await rig.closeWindow();
+    await until(() => rig.notifierLines().length > 0);
+    expect(rig.notifierLines().map((line) => line.ids)).toEqual(['NTF-3']);
+  } finally {
+    await server.stop(true);
+    await host.close();
+  }
+});
+
+test('closing the host closes the notifier: its window is cancelled and nothing is logged', async () => {
+  const { host, rig } = await openTimedHost();
+  await host.engine.block({ id: 'NTF-3', on: 'you', reason: 'Console help' });
+  expect(rig.armed()).toHaveLength(1);
+  const logged = rig.notifierLines().length;
+  await host.close();
+  expect(rig.armed()).toEqual([]);
+  expect(rig.notifierLines()).toHaveLength(logged);
+});
+
+test('every timer the notifier arms is unref, so an open window never holds the process', async () => {
+  const { host, rig } = await openTimedHost();
+  try {
+    await host.engine.block({ id: 'NTF-3', on: 'you', reason: 'Console help' });
+    expect(rig.timers.length).toBeGreaterThan(1);
+    expect(rig.timers.every((timer) => timer.unrefd)).toBe(true);
   } finally {
     await host.close();
   }

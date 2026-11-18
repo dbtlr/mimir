@@ -12,16 +12,40 @@ import { createAgentRunner, RUNNER_TIMING } from './agent-runner';
 import { agentStartupWarnings, createAgentConnection } from './agent-settings';
 import { syncClone } from './clones';
 import type { HostConfig } from './config';
+import { createEngineViews } from './engine-view';
 import { gitCredentialsWarnings } from './git-credentials';
+import { createNotifier } from './notifier';
 import { createPairingHandlers } from './pairing';
 import { createT3Adapter } from './t3';
 import { t3StartupWarnings } from './t3-settings';
+
+/** A timer the notifier arms; the host unrefs it so an open window never keeps the process alive. */
+export type NotifierTimer = ReturnType<typeof setTimeout>;
+
+/** The notifier's clocks and timers: the host's own, or a test's to drive time itself. */
+export type NotifierTiming = {
+  clearTimeout: (timer: NotifierTimer) => void;
+  monotonicNow: () => number;
+  setTimeout: (run: () => void, ms: number) => NotifierTimer;
+  wallNow: () => number;
+};
+
+const REAL_NOTIFIER_TIMING: NotifierTiming = {
+  clearTimeout: (timer) => clearTimeout(timer),
+  monotonicNow: () => performance.now(),
+  setTimeout: (run, ms) => setTimeout(run, ms),
+  wallNow: Date.now,
+};
+
+/** What a caller may replace in `openHost`; a test drives the notifier's time through it. */
+export type HostDependencies = { notifierTiming?: NotifierTiming };
 
 /** Open the host-owned store and finish migrations before exposing handlers. */
 export async function openHost(
   config: HostConfig,
   version: string,
   log: (line: string) => void = (line) => console.error(line),
+  { notifierTiming = REAL_NOTIFIER_TIMING }: HostDependencies = {},
 ) {
   assertHostVersion(version);
   if (config.store.backend === 'sqlite') {
@@ -50,9 +74,28 @@ export async function openHost(
       },
     );
     // The host owns doctor; core only receives the per-project counts console.review shows.
-    const engine = new LocalEngine(built.store, {
+    const store = new LocalEngine(built.store, {
       findings: findingsProviderOf(built.doctor.facet),
     });
+    // Operator notifications (ADR 0045): one Engine, and `createEngineViews`
+    // names the view each consumer gets.
+    const notifier = createNotifier<NotifierTimer>({
+      channels: [], // No channel is registered yet; the log lines are the only output.
+      clearTimer: (timer) => notifierTiming.clearTimeout(timer),
+      log,
+      monotonicNow: notifierTiming.monotonicNow,
+      reads: {
+        deliveryTitle: async (id) => (await store.getDelivery({ id })).title,
+        review: (input) => store.console.review(input),
+      },
+      setTimer: (run, ms) => {
+        const timer = notifierTiming.setTimeout(run, ms);
+        timer.unref();
+        return timer;
+      },
+      wallNow: notifierTiming.wallNow,
+    });
+    const views = createEngineViews(store, notifier.marks);
     const pairing = createPairingHandlers({ log, tokens: built.tokens });
     // An optional integration's bad setting warns and degrades; it never refuses startup.
     for (const warning of [
@@ -74,7 +117,7 @@ export async function openHost(
     // The agent runtime (ADR 0041): host-internal, started only by host server code.
     const agent = createAgentRunner({
       connection: createAgentConnection(),
-      engine,
+      engine: views.agentRuns,
       gitCredentials: config.gitCredentials,
       log,
       query,
@@ -85,24 +128,29 @@ export async function openHost(
       syncClone,
     });
     const t3 = createT3Adapter({
-      engine,
+      engine: views.t3,
       log,
       secrets: built.secrets,
       settings: config.t3,
       version,
     });
+    // The first read of the set, before any request: it emits nothing and never refuses startup.
+    await notifier.boot();
     return {
       agent,
       // The agent runtime's console surface (MMR-633): the task card, Now, and Groom with agent.
-      agentConsole: createAgentConsole({ agent, engine, log, runs: built.runs }),
-      close: built.close,
+      agentConsole: createAgentConsole({ agent, engine: views.console, log, runs: built.runs }),
+      close: async () => {
+        notifier.close();
+        await built.close();
+      },
       // The record-health facet: a host concern, not an Engine method (ADR 0034).
       doctor: built.doctor.facet,
-      engine,
+      engine: views.console,
       handlePairingPoll: pairing.poll,
       handlePairingRequest: pairing.request,
       handleT3Callback: t3.callback,
-      handleTrpc: createEngineHandler(engine, { verifyToken: built.tokens.verify, version }),
+      handleTrpc: createEngineHandler(views.trpc, { verifyToken: built.tokens.verify, version }),
       // The host's log line sink, for console functions that log beside the adapters.
       log,
       // Host-only run records (ADR 0041); never reached through the Engine or the wire.

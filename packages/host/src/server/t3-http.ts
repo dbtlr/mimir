@@ -5,6 +5,8 @@
  * rule: never a body, a code, a verifier, or a token.
  */
 
+import { logEvent } from './log-event';
+
 /** The fetch the adapter calls through; tests pass a stub T3. */
 export type T3Fetch = (input: string, init: RequestInit) => Promise<Response>;
 
@@ -37,15 +39,6 @@ export class T3RequestError extends Error {
     this.name = 'T3RequestError';
     this.kind = kind;
   }
-}
-
-/** Log one adapter event as a JSON line, with its time. */
-export function logEvent(
-  http: Pick<T3Http, 'clock' | 'log'>,
-  event: string,
-  fields: Record<string, number | string> = {},
-): void {
-  http.log(JSON.stringify({ event, ...fields, time: new Date(http.clock()).toISOString() }));
 }
 
 /**
