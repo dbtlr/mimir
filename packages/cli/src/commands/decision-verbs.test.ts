@@ -105,6 +105,35 @@ test('decide refuses words beyond the quoted question, before or after --', asyn
   }
 });
 
+test("decide drops only spaces and tabs after a detail's colon, keeping a leading line break", async () => {
+  const board = await parityBoard();
+  try {
+    const run = await runArgv(board.app(), [
+      'decide',
+      'Which?',
+      '--option',
+      'A',
+      '--option',
+      'B',
+      '--detail',
+      '1:\nfoo',
+      '--recommend',
+      '1',
+      '--class',
+      'other',
+      '-p',
+      'MMR',
+    ]);
+    expect(run.exitCode, run.stderr).toBe(0);
+    expect((await board.engine.getDecision({ id: 'MMR-q1' })).option_details).toEqual([
+      '\nfoo',
+      null,
+    ]);
+  } finally {
+    await board.close();
+  }
+});
+
 test('decide parses numbered details, rejects mistakes, and indents multiline text', async () => {
   const board = await parityBoard();
   try {
