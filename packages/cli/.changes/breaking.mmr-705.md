@@ -1,4 +1,5 @@
 - Add optional `decide --detail "N: text"` (repeatable, also MCP `detail`) and aligned `option_details` on every decision read. Store and transfer schemas advance to 22 and 15.
+- Show an option's detail under its text in the console decisions walkthrough: dim, line breaks kept, clamped to two lines (three at `md` and up) until the option is selected. The radio's name stays the option's text, and `aria-describedby` carries the detail.
 
 ### Migration
 

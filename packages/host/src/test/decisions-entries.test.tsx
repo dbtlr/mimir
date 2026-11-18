@@ -37,6 +37,7 @@ function decision(seq: number, delivery: string | null, over: Partial<Decision> 
     history: [],
     id: `MMR-q${String(seq)}`,
     lifecycle: 'provisional',
+    option_details: [null, null],
     options: ['Keep', 'Remove'],
     outcome_note: null,
     overturn_option: null,
