@@ -487,3 +487,13 @@ This refines step 2 of the client behavior above. A default install has no
 a host route like the pairing routes: inside the host guard, outside the
 version window and the bearer check. The JSON `404` for other paths under
 `/auth` stands.
+
+## Addendum (2026-11-14, MMR-675): a new value in a closed vocabulary is not additive
+
+The additive changes above are a new method, a new optional input, and a new
+output field. A new value in a closed output vocabulary, such as a status word
+or a lifecycle, is not one of them: a client that switches over the old list
+meets a value it does not know. CLIs through v0.28 failed on `staged`, so
+MMR-675 raised `MIN_CLIENT` to `0.29.0-next`. From that version the CLI renders
+an unknown status word with a fallback style. Before treating a new value as
+safe, check every other closed vocabulary a client reads.

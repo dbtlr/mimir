@@ -29,7 +29,11 @@ See the [sandbox guide](docs/guides/development-sandboxes.md)
 for the test lanes, the development host against disposable Postgres, the
 installer lifecycle, and skill evaluation.
 
-The CLI, host admin CLI, and sandbox use Loom 0.16. Keep every `@loomcli`
+To fix formatting and autofixable lint findings, run `bunx vp check --fix`.
+Do not run `bun fmt`: it is not this repository's formatter, and it reformats
+the whole repository.
+
+The CLI, host admin CLI, and sandbox use Loom 0.17. Keep every `@loomcli`
 dependency, the `@loomcli/loom` toolchain in `packages/cli` included, pinned to the
 same exact version. `vp check` loads Loom's lint
 rules, and `bun test` checks that each application assembles with
@@ -81,6 +85,17 @@ creates, so the host can apply them again. A constraint that a migration
 replaces stays, because the migration drops it first. Update the rollback with
 each migration, and run `bun run test:host` before pushing.
 
+The real-Postgres lane also pins every migration:
+`packages/core/src/store-postgres/postgres.integration.test.ts` expects the
+full list of applied migration names in order, so add each new migration to
+that list. The list stays when a migration closes: it is how the lane proves
+that every migration applied in order on real Postgres, so rule 6 of "Which
+tests to write" does not retire it. `bun run verify` does not run this lane either; run
+`bun run test:postgres` (needs Docker) before pushing, or CI's gate fails.
+A Postgres migration adds or replaces a CHECK constraint in one step, without
+the `NOT VALID` / `VALIDATE CONSTRAINT` split: the host migrates before it
+serves, so no request waits on the validating scan.
+
 A Postgres step-migration test in
 `packages/core/src/store-postgres/migrator.test.ts` is deleted once the release
 that carries its step has been applied to every Postgres store. Postgres runs
@@ -131,6 +146,12 @@ The usual causes, and their fixes:
   named-role query over more than 100 links).
 
 Confirm a fix with a stress run under the default timeouts.
+
+A test that pins an order must not depend on a tie. Under a frozen clock, rows
+written in one test share a timestamp, and a tie that a random UUID breaks
+changes order between runs. Give each row a distinct time or sort by a stable
+key, and run a new pin or parity test with `bun test <file> --rerun-each 10`
+before pushing.
 
 The default Bun lane runs files across three worker processes. Each file gets
 a fresh global and module registry. The worker limit caps contention on the
@@ -202,6 +223,12 @@ a test that only a lane switches on, such as the sandbox lifecycle tests behind
 `*.integration.test.ts` file that runs under `bun run test` is a default-lane
 test.
 
+To time a test-lane change on the macOS release runner, dispatch the release
+workflow at the branch: `gh workflow run release.yml --ref <branch>`. A
+dispatch at a branch runs the full `bun run test` on every target and
+publishes nothing, because the publish job and the image push require a `v*`
+tag. Never dispatch it at a tag to time tests.
+
 ## Which tests to write
 
 A test earns its place when it proves behavior that a user or another program
@@ -245,6 +272,11 @@ Apply these rules when you add a test and when you review one.
    this group. Pins that an ADR commits to stay, such as the CLI's reviewed
    output snapshots and the help pages (ADR 0037).
 
+Before deleting a test because another test covers it, check by mutation:
+break the rule the test proves and confirm that a test that stays fails. Check
+the premise of every accepted drop the same way. In the 2026-11 test-value
+audit, claims that another test covered a case were wrong in most tasks.
+
 ## Project shape
 
 One core, thin transports, in a Bun workspace. `packages/contract`
@@ -282,7 +314,11 @@ remain code-based in `src/router.tsx`, behind `src/start-router.tsx`.
 `src/start-routes` supplies Start's generated route tree, including the `/health`
 and `/trpc/$` server routes. The host imports `@mimir/wire/server`,
 never `@mimir/cli`. One host runtime shares a store and `LocalEngine` across the
-server bundles; `hostRuntime()` exposes the Engine for console server functions.
+server bundles; `hostRuntime()` exposes the operator's view of the Engine for
+console server functions. Each host consumer that writes takes a named view
+from `createEngineViews` (`src/server/engine-view.ts`), never the raw Engine,
+because the view marks each mutation with its actor for the notifier
+(ADR 0045).
 
 `bun run build:ui` builds the host and prerenders a data-free `_shell.html`.
 Prerendering ignores deployment configuration and uses a loopback-only request
