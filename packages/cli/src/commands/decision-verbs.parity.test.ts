@@ -1,4 +1,4 @@
-import { argvLine } from '../testing/argv-case';
+import { argvCase, argvLine } from '../testing/argv-case';
 import { writeCases } from '../testing/writes';
 
 writeCases(
@@ -10,12 +10,38 @@ writeCases(
       ),
     ),
     argvLine('decide Where? --option Here --recommend 1 --class product -p MMR'),
-    argvLine(
-      'decide Where? --option Here --option There --detail "2: Context" --recommend 1 --class product -p MMR',
-    ),
-    argvLine(
-      'decide Where? --option Here --option There --detail "02: Context" --recommend 1 --class product -p MMR',
-    ),
+    argvCase([
+      'decide',
+      'Where?',
+      '--option',
+      'Here',
+      '--option',
+      'There',
+      '--detail',
+      '2: Context',
+      '--recommend',
+      '1',
+      '--class',
+      'product',
+      '-p',
+      'MMR',
+    ]),
+    argvCase([
+      'decide',
+      'Where?',
+      '--option',
+      'Here',
+      '--option',
+      'There',
+      '--detail',
+      '02: Context',
+      '--recommend',
+      '1',
+      '--class',
+      'product',
+      '-p',
+      'MMR',
+    ]),
     argvLine('update MMR-q1 --task MMR-4'),
     argvLine('update MMR-q1 --untask MMR-3'),
     argvLine('update MMR-q1 --title Wrong'),
