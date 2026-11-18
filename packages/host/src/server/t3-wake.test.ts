@@ -163,6 +163,7 @@ const retryFor = (action: T3WakeAction = 'deliveryPark'): T3WakeInput => ({
 describe('the wake message', () => {
   test('each action has its fixed phrase, naming only ids', () => {
     const phrases: Record<T3WakeAction, string> = {
+      answerDecisions: 'answered decisions on delivery MMR-d3',
       deliveryAbandon: 'abandoned delivery MMR-d3',
       deliveryPark: 'paused delivery MMR-d3',
       deliveryReturn: 'sent back the milestone of delivery MMR-d3',

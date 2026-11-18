@@ -37,6 +37,11 @@ export async function deviceTokens(): Promise<DeviceTokens> {
   return (await hostRuntime()).tokens;
 }
 
+/** The host's log line sink, so a console function's events reach the same log as the adapters'. */
+export async function hostLog(): Promise<(line: string) => void> {
+  return (await hostRuntime()).log;
+}
+
 /**
  * The T3 Code adapter (ADR 0040): Connect, status, and the launch catalog.
  * Like {@link deviceTokens}, a host concern beside the Engine; its credential

@@ -21,6 +21,7 @@ const SINCE_MAX = Date.parse('9999-12-31T23:59:59.999Z');
 
 /** The phrase of each action: fixed text that carries only ids. */
 const PHRASES: Record<T3WakeAction, (delivery: string, decision: string | null) => string> = {
+  answerDecisions: (delivery) => `answered decisions on delivery ${delivery}`,
   deliveryAbandon: (delivery) => `abandoned delivery ${delivery}`,
   deliveryPark: (delivery) => `paused delivery ${delivery}`,
   deliveryReturn: (delivery) => `sent back the milestone of delivery ${delivery}`,

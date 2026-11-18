@@ -156,10 +156,13 @@ export type T3Origin = { origin: string | null };
 
 /**
  * The operator actions that wake a delivery's T3 thread (ADR 0040, the wake),
- * named by the Engine method each console function calls. `confirm` is not
- * one: a confirm never wakes.
+ * named for the console function that wakes. Most share the name of the one
+ * Engine method they call; `answerDecisions` has no single Engine method (it
+ * writes several answers, then wakes once). `confirm` is not one: a confirm
+ * never wakes.
  */
 export const T3_WAKE_ACTIONS = [
+  'answerDecisions',
   'deliveryAbandon',
   'deliveryPark',
   'deliveryReturn',
@@ -186,8 +189,11 @@ export type T3WakeInput = {
 /** The input an `invalid` wake names. */
 export type T3WakeField = 'action' | 'attempt' | 'decision' | 'delivery' | 'since';
 
-/** Why a wake was skipped: no feature, no delivery to read, or a delivery not running in T3. */
-export type T3WakeSkip = 'no_delivery' | 'no_thread' | 'unconfigured';
+/**
+ * Why a wake was skipped: no feature, no delivery to read, a Send that
+ * overturned nothing, or a delivery not running in T3.
+ */
+export type T3WakeSkip = 'no_delivery' | 'no_overturn' | 'no_thread' | 'unconfigured';
 
 /** The T3 thread a delivery's handles name, as Open in T3 builds its link. */
 export type T3WakeThread = { host: string; session: string };

@@ -77,6 +77,19 @@ export type T3AdapterOptions = {
   launchTimeoutMs?: number;
 };
 
+/**
+ * What the decisions walkthrough's wake takes (ADR 0040, MMR-703 refinement):
+ * the Send's attempt, the delivery it names (null for a project's decisions
+ * with no delivery), the since read before the first answer's read, and
+ * whether any answer's outcome is `overturned`.
+ */
+export type T3AnswersWake = {
+  attempt: string;
+  delivery: string | null;
+  since: string;
+  overturned: boolean;
+};
+
 const sealedSchema = z.strictObject({
   accessToken: z.string().min(1),
   expiresAt: z.iso.datetime(),
@@ -928,6 +941,27 @@ export function createT3Adapter(options: T3AdapterOptions) {
       } catch (error) {
         return failureState(error);
       }
+    },
+
+    /**
+     * The decisions walkthrough's one wake (ADR 0040, MMR-703 refinement),
+     * once the console function has written its answers: skipped
+     * `unconfigured`, then `no_delivery`, then `no_overturn` when no answer
+     * overturned, then the wake's own checks on the delivery read now. Every
+     * failure is a state, never a throw.
+     */
+    wakeAfterAnswers: async (request: T3AnswersWake): Promise<T3WakeState> => {
+      if (!settings.enabled) {
+        return { reason: 'unconfigured', state: 'skipped' };
+      }
+      const { attempt, delivery, since } = request;
+      if (delivery === null) {
+        return { reason: 'no_delivery', state: 'skipped' };
+      }
+      if (!request.overturned) {
+        return { reason: 'no_overturn', state: 'skipped' };
+      }
+      return wake({ action: 'answerDecisions', attempt, decision: null, delivery, since });
     },
 
     /**

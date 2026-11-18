@@ -103,6 +103,8 @@ export async function openHost(
       handlePairingRequest: pairing.request,
       handleT3Callback: t3.callback,
       handleTrpc: createEngineHandler(engine, { verifyToken: built.tokens.verify, version }),
+      // The host's log line sink, for console functions that log beside the adapters.
+      log,
       // Host-only run records (ADR 0041); never reached through the Engine or the wire.
       runs: built.runs,
       // The T3 adapter: a host concern beside the Engine (ADR 0040).

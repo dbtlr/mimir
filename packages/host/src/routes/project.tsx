@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { doctorQuery } from '../api/browse-queries';
 import { isNotFound } from '../api/errors';
 import { projectQuery } from '../api/node-queries';
+import { ProjectDecisions } from '../components/decisions-walkthrough';
 import { OfflineBanner } from '../components/offline-banner';
 import { UnavailableProject } from '../components/project-unavailable';
 import { RecordPending } from '../components/record-layout';
@@ -20,6 +21,7 @@ import { projectRoute } from '../router';
  */
 export function ProjectPage() {
   const { key } = projectRoute.useParams();
+  const { mode } = projectRoute.useSearch();
   // An archived project's record 404s (ADR 0015). Once the archived list names
   // the key, stop asking for it, so a retry or poll cannot swap the notice for
   // the loading skeleton.
@@ -51,6 +53,7 @@ export function ProjectPage() {
   return (
     <>
       <OfflineBanner {...conn} />
+      {mode === 'decisions' && <ProjectDecisions key={key} projectKey={key} />}
       <WorkPage
         record={project.data}
         findings={health.data?.finding_total ?? 0}

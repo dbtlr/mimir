@@ -666,3 +666,126 @@ output, and `wake` is a tagged state.
 - **Recording a failed wake on the delivery.** The adapter writes only the
   generic fields its verbs carry; a failed send is an integration state, so
   it stays in the console and the log.
+
+## Refinement (2026-11-18, MMR-703): answering several decisions at once
+
+The console's decisions walkthrough ([ADR 0019](0019-meridian-console-design-system.md),
+MMR-703 refinement) collects answers to several provisional decisions and
+writes them with one _Send_. One _Send_ is one operator action, so it sends at
+most one message, under a new waking function. `confirm`, `overturn`, and
+every function of the MMR-679 refinement keep their behavior. Three of that
+refinement's statements about every waking function do not hold for
+`answerDecisions`, and this section replaces them for it: it takes no single
+Engine method's input, it answers `{ results, wake }` rather than
+`{ record, wake }`, and a refused Engine write does not throw.
+
+### The function
+
+`answerDecisions` takes:
+
+| Field      | Shape                                                                                                             |
+| ---------- | ----------------------------------------------------------------------------------------------------------------- |
+| `attempt`  | The browser's id for this _Send_, with the grammar of _The send_                                                   |
+| `delivery` | The delivery whose decisions the walkthrough shows (`KEY-dN`), or null for a project's decisions with no delivery |
+| `answers`  | One to 100 answers, each naming a different decision                                                              |
+
+Each answer is `{ id, verdict: 'confirm', note? }` or
+`{ id, verdict: 'overturn', option?, note? }`. A confirm's note is its
+outcome note. An overturn with `option` chooses another listed option, and
+its note explains it; an overturn with a note and no option records an
+answer outside the list ([ADR 0043](0043-the-decision-record.md)).
+
+**Input checks.** Before anything is written, the call refuses with a
+`validation` error, as an Engine input error does, when:
+
+- `attempt` breaks its grammar;
+- `delivery` is neither null nor a `KEY-dN`, or an answer's `id` is not a
+  `KEY-qN`;
+- two answers name the same decision. `delivery` and the answer ids are
+  read in canonical form, so `MMR-q07` and `MMR-q7` are the same decision and
+  `MMR-d03` is `MMR-d3`. Every later check, the wake, and the answer use the
+  canonical form;
+- the answers name decisions in more than one project, or in a project other
+  than the delivery's;
+- an answer breaks its shape: an unknown verdict, an `option` that is not a
+  positive integer, or a non-string `note`. Whether an overturn has an option
+  or a non-blank note is the Engine's check, per answer.
+
+**The answers.** The function then works through the answers in the order
+given. For each one:
+
+1. It reads the decision through the Engine. A refused read, such as
+   `not_found`, gives the outcome `refused` with the Engine's message. A
+   decision that names a delivery other than `delivery`, or names one when
+   `delivery` is null, gives `refused` with the reason that it is not in this
+   walkthrough, and nothing is written for it. This keeps the wake on the
+   thread that built on the answers. The read and the write are separate
+   transactions, so a decision moved to another delivery between them is
+   still answered; the wake then reaches the thread the walkthrough named.
+2. It calls `confirm` or `overturn`. An Engine refusal, a `MimirError` with
+   the code `not_found`, `validation`, or `conflict`, gives `refused` with the
+   Engine's message, and the function moves on. A decision already confirmed
+   or overturned elsewhere is refused here, by the Engine.
+3. Any other error, a `MimirError` with the code `invariant` included, gives
+   the outcome `failed`, logs `decision_answer_fault` with the decision id,
+   the error's class name, and a `MimirError`'s code, never its message, and
+   the function moves on.
+
+Each answer is its own Engine write, as it is from the chips, so a refusal
+never undoes or blocks another answer. Once the input checks pass, the
+function never throws. As with every waking function, the console function
+makes the Engine writes, and the T3 adapter only sends the wake.
+
+### The wake
+
+After the last answer, the function wakes the delivery's thread at most once.
+The checks run in this order, and the first that fails ends the wake:
+
+1. The T3 feature is enabled; otherwise `skipped`, `unconfigured`.
+2. `delivery` is not null; otherwise `skipped`, `no_delivery`.
+3. At least one answer's outcome is `overturned`; otherwise `skipped`, the
+   new reason `no_overturn`. A _Send_ of confirms wakes nothing, as a single
+   confirm does.
+4. Checks 3 to 5 of _Who receives it_, on the delivery read after the
+   writes: `no_thread`, `misconfigured`, `disconnected`.
+
+- **Action and phrase.** The action is `answerDecisions`, named for the
+  console function, because no single Engine method backs it. Its phrase is
+  `answered decisions on delivery <d>`. The phrase is fixed and carries only
+  the delivery's id; the since read shows which decisions moved and how.
+- **Since.** `<since>` is the host's clock read just before the first
+  answer's read, minus one millisecond, so the since read shows every answer
+  of the _Send_.
+- **Retry.** `retry` is
+  `{ delivery, action: 'answerDecisions', decision: null, attempt, since }`.
+  `wakeT3` accepts `answerDecisions` with a null `decision`, and reads
+  `invalid`, naming `decision`, when one is given.
+- **Logs.** The wake logs `t3_wake` and `t3_wake_fault` as every wake does.
+- **A lost answer.** When the browser never receives the answer to a _Send_
+  and sends again, the second _Send_ finds the decisions answered: every
+  answer reads `refused`, and the wake skips at the first check that fails,
+  `no_overturn` when T3 is enabled and the set names a delivery. The first
+  _Send_'s `retry` is lost with its answer, so if its wake was not delivered
+  either, the agent learns of its overturns from its since read.
+
+### The answer
+
+`answerDecisions` answers `{ results, wake }`. `results` holds one entry per
+answer, in input order: `{ id, outcome: 'confirmed' | 'overturned', record }`
+with the Engine's decision record, `{ id, outcome: 'refused', reason }`, or
+`{ id, outcome: 'failed' }`, each with the decision's canonical id. A
+`reason` is the Engine's message or the
+membership reason, never text the operator typed. `wake` is a state of _The
+answer_'s table, with `skipped` gaining the reason `no_overturn`. The console
+shows the wake state as it does for every waking function.
+
+### Considered and rejected
+
+- **One store transaction for the whole _Send_.** All or nothing would need a
+  new Engine method and a contract change, and it would hold back every
+  answer because one decision was answered elsewhere. Decisions are
+  independent records, so each answer stands alone.
+- **One wake per overturn.** A _Send_ that overturns three decisions would
+  start or steer the agent's turn three times for one operator action.
+- **Waking for confirms with notes.** A confirm changes nothing the agent
+  built on; the agent reads a confirm's note through its since read.

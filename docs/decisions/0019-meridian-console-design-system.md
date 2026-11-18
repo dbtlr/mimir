@@ -822,3 +822,196 @@ A refused write shows its error as a toast, and nothing it touched moves:
   is separate work.
 - **A one-tap chip keeps focus.** A refused one-tap chip returns focus to
   itself once the write ends, because its row stays.
+
+## Refinement (2026-11-18, MMR-703): the decisions walkthrough
+
+The MMR-695 chips answer one decision at a time, wherever its row shows. The
+**decisions walkthrough** answers a set of decisions in order, one decision
+per screen, and sends the answers together. Each decision reads as the
+agent's briefing. The chips stay as MMR-695 defines them.
+
+### Where it opens
+
+- `?mode=decisions` on a delivery page (`/p/KEY/dN?mode=decisions`) opens
+  the walkthrough of that delivery's provisional decisions. On a project's
+  page (`/p/KEY?mode=decisions`) it opens the walkthrough of the project's
+  provisional decisions that name no delivery. `mode` takes no other value,
+  and the page drops one it does not know.
+- This refinement defines the walkthrough and its address. The controls that
+  open it from other surfaces are defined separately.
+
+### The set
+
+- A delivery's set is the provisional decisions of the delivery page's read.
+  A project's set is the decisions of the project page's _Needs you_ that
+  name no delivery. Both reads hold provisional decisions only.
+- The set is fixed when the walkthrough opens, ordered by sequence number,
+  oldest first. This departs from the needs-you order, newest first, on
+  purpose: a walkthrough reads in the order the agent decided. A decision
+  that joins the read later waits for the next opening, as in the focus
+  queue. An opening holds at most 100 decisions, the oldest, which is the
+  most one _Send_ takes; the rest wait for the next opening.
+- A decision that leaves the live read while the walkthrough is open,
+  because it was answered or moved elsewhere, shows "This decision no longer
+  waits on you" in place of its answers, and _Send_ leaves it out. Its step
+  has no effect line or note box, and its step's button moves on without an
+  answer: "Continue", or "Review" on the last decision of a set with a check
+  step. In a set of one, the button reads "Nothing to send" and is disabled.
+  The decisions a _Send_ is writing count as waiting until its results
+  show, because the write's own refetch lands first.
+- A set with no provisional decisions shows "Nothing waits on you here" and a
+  link back to the page.
+
+### The surface
+
+- The walkthrough covers the whole console at every width: no top bar, no
+  sidebar. It is a layer over the page it opened on. The console beneath is
+  inert while the layer is open, so focus and the screen reader stay in the
+  walkthrough.
+- Its header shows the delivery's title and id, or "Decisions without a
+  delivery" and the project key, then the progress as "N of M", or "Check
+  and send" on the check step. Close is an icon button named "Close the
+  walkthrough". Close leaves the mode and shows the page; the browser's
+  Back returns to the entry before the walkthrough, which is the page when
+  the walkthrough opened from it. Both keep the answers chosen so far
+  (_Drafts_) and ask nothing. Leaving while _Send_ is writing does not stop
+  the write; the next opening shows what landed.
+- The offline notice shows at the top of the layer, and toasts show above it.
+- The layer uses the console's tokens, so both themes apply.
+
+### A step
+
+Each decision reads as the agent's briefing, top to bottom:
+
+- A meta line: the agent mark and "Agent", the decision's class, its age, and
+  its id.
+- The question, as the step's heading.
+- `It took <taken option> and kept building.`, with the option's text in
+  bold. When the recommendation differs from the answer taken, it adds
+  `It recommends <recommended option>.`
+- The why, when the decision has one.
+- The answers, a radio group named "Your answer to KEY-qN": one row per
+  option, in order, with the option's full text. The taken option is flagged
+  "Agent's answer" and the recommended one, when it differs, "Agent
+  recommends". The taken option is selected on arrival, unless a draft holds
+  another answer.
+- A last row, "Something else", opens a box for an answer outside the list.
+  While it is selected, the box holds the answer, which may not be blank, and
+  the note box is hidden. The answer is sent as the overturn's note, with no
+  option.
+- "Built on this answer": the linked tasks, each with its id and title. A
+  delivery's walkthrough takes titles from the delivery's members and a
+  project's from the project's tree; a task in neither shows its id alone.
+
+### The reply bar
+
+The reply bar sits at the bottom of the step. It holds, in order:
+
+- **The effect line**, which follows the selected answer. For the taken
+  option: `Confirming changes nothing.`, followed by `<ids> stay as built.`
+  (`stays` for one task) when tasks are linked. For another option:
+  `Overturning sends <ids> back for rework.` For _Something else_:
+  `Your answer overturns this decision and sends <ids> back for rework.`
+  With no linked tasks, these read `Overturning records this answer.` and
+  `Your answer overturns this decision.`
+- **The note box**, "Add a note for the agent (optional)", hidden while
+  _Something else_ is selected. The note is the outcome note of a confirm,
+  or the note of an overturn to another option. The walkthrough allows an
+  overturn to an option with a note, which ADR 0043 allows. This replaces
+  the MMR-695 refinement's "The console leaves that out" for the
+  walkthrough; the chips still leave it out.
+- **Back**, an icon button, disabled on the first step.
+- **The step's button**, the surface's one solid action. Its label follows
+  the selected answer: "Confirm and continue", "Overturn and continue", or
+  "Use my answer and continue". On the last decision, "continue" reads
+  "review". It moves to the next step and writes nothing.
+
+The note box and the _Something else_ box start one line tall, grow with
+their text to four lines, then scroll. They do this with `field-sizing:
+content` and a four-line maximum height, and a script sets the height where
+the browser lacks `field-sizing`.
+
+### Check and Send
+
+- After the last decision comes the check step, "Check your answers". It
+  lists each decision's question, its outcome ("Confirmed" or "Overturned")
+  with the answer, the note, and its effect (`Nothing to redo` or
+  `Redoes <ids>`), with a _Change_ link that returns to that step.
+- A line under the list says what _Send_ does:
+  `Sending records every answer and wakes the agent on <delivery> once if any answer overturns.`
+  A project's walkthrough says `Sending records every answer.`
+- **Send N answers** writes them with `answerDecisions` ([ADR 0040](0040-outbound-integrations-and-host-secrets.md),
+  MMR-703 refinement), in the set's order. N counts the decisions that still
+  wait on the operator.
+- While a blank _Something else_ waits, _Send_ is disabled and a muted line
+  beside it says why:
+  `Write your own answer to "<question>", or pick another answer, before sending.`
+- **With one decision there is no check step.** The step's button commits
+  directly and reads "Confirm and send", "Overturn and send", or "Send my
+  answer".
+- Nothing is written before _Send_. A write in flight disables _Send_, Back,
+  _Change_, and Close. Offline disables _Send_ and the one-decision commit;
+  moving between steps still works.
+
+### After Send
+
+The done screen replaces the steps. Its heading is "Answers sent" for a
+delivery and "Answers recorded" for a project. Under it:
+
+- What was recorded, and the tasks sent back for rework.
+- Each refused or failed answer, with its question and the reason. A
+  decision that is still provisional appears in the next opening, with its
+  draft; one answered elsewhere does not.
+- The next set waiting: the first decision in the review read's `queue`, the
+  needs-you order across projects that the focus queue uses, whose set
+  differs from this one. It reads
+  `<delivery id> has N decisions for you`, or for a project's decisions
+  without a delivery `<project key> has N decisions without a delivery`,
+  with _Review them_, which opens that walkthrough. N counts that set's rows
+  in the review read.
+- A link back to the page the walkthrough opened on.
+
+The wake state shows as the MMR-695 refinement shows it for every waking
+function.
+
+### Drafts
+
+- Each decision's selected answer, its _Something else_ text, and its note
+  are kept in the browser's local storage under the decision's id as they
+  change, and are restored when the walkthrough opens again.
+- A draft is removed when its answer is recorded. A refused or failed answer
+  keeps its draft. A draft whose decision is no longer in the set when the
+  walkthrough opens is removed.
+- A draft never sends by itself; only _Send_ writes. ADR 0013's rule of no
+  offline write queue holds.
+- Storage that is missing or refuses a write is ignored: the walkthrough
+  works without drafts.
+- An opening starts at the first decision. The rail marks a decision answered
+  once the operator moves past it in this opening, whatever its draft holds.
+
+### Focus
+
+- When a step, the check step, or the done screen shows, focus moves to its
+  heading, which takes focus for this. It never lands on the step's button,
+  _Send_, or the one-decision commit, so a key held down or pressed twice
+  writes nothing.
+- A _Send_ that fails shows its error as a toast, as the MMR-695
+  refinement's refusals do, and returns focus to _Send_ or the one-decision
+  commit once the write ends, when focus was lost with it.
+- The answers are a native radio group: the arrow keys move the selection.
+- The answer group's name and the step button's name include the
+  decision's id.
+
+### Phone and desktop
+
+- At the `md` breakpoint and up, a rail beside the steps lists the set: an
+  answered decision shows a check, its outcome, and its answer, and opens its
+  step again; the current one is marked in attention violet; later ones are
+  dimmed and disabled. The last entry is the check step, when there is one.
+- Below `md`, a segmented bar under the header shows the progress, and the
+  rail is hidden. The reply bar puts the note box on its own row, above Back
+  and the step's button.
+- Controls take the 44px phone touch target.
+- Attention violet marks the agent's answer and its flag, and the current
+  step; the "Agent recommends" flag is dim ink. "Confirmed" takes the `done`
+  green and "Overturned" the `in_progress` amber, the hue of work sent back.

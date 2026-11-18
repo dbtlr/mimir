@@ -76,6 +76,16 @@ function canonicalKey(
   }
 }
 
+export type DecisionsSearch = {
+  /** The decisions walkthrough; absent = the page. Only `decisions` is carried (MMR-703). */
+  mode?: 'decisions';
+};
+
+/** `?mode=decisions` opens the decisions walkthrough over a page; any other `mode` drops. */
+const validateDecisionsSearch = (search: Record<string, unknown>): DecisionsSearch => ({
+  mode: search.mode === 'decisions' ? 'decisions' : undefined,
+});
+
 /** A project's own page: what it is, where it is headed, and what it holds. */
 export const projectRoute = createRoute({
   beforeLoad: ({ params }) => {
@@ -87,6 +97,7 @@ export const projectRoute = createRoute({
   ),
   getParentRoute: () => rootRoute,
   path: '/p/$key',
+  validateSearch: validateDecisionsSearch,
 });
 
 export type NodeSearch = {
@@ -129,6 +140,7 @@ function lettered(key: string, letter: 's' | 'a' | 'd', seq: string): string | u
 /**
  * A delivery's page: the delivery id split at its hyphen (`MMR-d3` →
  * `/p/MMR/d3`). Any other spelling (`D003`) moves to it, keeping the search.
+ * `?mode=decisions` opens the decisions walkthrough over it.
  */
 export const deliveryRoute = createRoute({
   beforeLoad: ({ params, location }) => {
@@ -144,6 +156,7 @@ export const deliveryRoute = createRoute({
   ),
   getParentRoute: () => rootRoute,
   path: '/p/$key/d{$seq}',
+  validateSearch: validateDecisionsSearch,
 });
 
 /**
