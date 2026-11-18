@@ -2,6 +2,8 @@ import { useId, useState } from 'react';
 import type { MouseEvent, ReactNode, Ref } from 'react';
 
 import { cn } from '../lib/cn';
+import { iconButtonClass } from './ui/icon-button';
+import { CloseIcon } from './ui/icons';
 import { Sheet, SheetClose, SheetContent, SheetTitle } from './ui/sheet';
 import { Skeleton } from './ui/skeleton';
 
@@ -112,11 +114,8 @@ function RailChips({ chips, label }: { chips: readonly RailChip[]; label: string
           <SheetContent side="bottom" aria-describedby={undefined}>
             <div className="flex items-center border-b border-line px-5 py-3">
               <SheetTitle className="microlabel text-ink-faint">{active.label}</SheetTitle>
-              <SheetClose
-                aria-label="Close"
-                className="ml-auto flex size-9 items-center justify-center rounded text-ink-faint transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
-              >
-                ✕
+              <SheetClose aria-label="Close" className={cn(iconButtonClass, '-mr-2 ml-auto')}>
+                <CloseIcon />
               </SheetClose>
             </div>
             {/* The sheet body is a click boundary, not a control: choosing a

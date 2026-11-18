@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
 import { apply, resolve, setTheme, storedChoice, systemTheme } from '../lib/theme';
-import { WELL_900 } from '../lib/theme-colors';
+import { WELL_950 } from '../lib/theme-colors';
 
 /** Stub `matchMedia` so the prefers-color-scheme query resolves deterministically. */
 function mockOS(prefersLight: boolean) {
@@ -59,8 +59,9 @@ describe('theme resolution (MMR-74)', () => {
     setTheme('light');
     expect(localStorage.getItem('mimir-theme')).toBe('light');
     expect(document.documentElement.dataset.theme).toBe('light');
+    // The browser chrome takes the top bar's ground, so the two read as one band.
     expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe(
-      WELL_900.light,
+      WELL_950.light,
     );
   });
 

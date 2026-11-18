@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 
 import { cn } from '../lib/cn';
 import { usePwaUpdate } from './pwa-update-provider';
+import { iconButtonClass } from './ui/icon-button';
+import { RefreshIcon } from './ui/icons';
 
 const STANDALONE_QUERY = '(display-mode: standalone)';
 
@@ -18,14 +20,22 @@ function useStandalone(): boolean {
   return standalone;
 }
 
-/** Compact manual discovery/refresh affordance for the installed console. */
-export function PwaRefreshAction() {
+/** The manual refresh's state, shared by the top-bar button and the phone's More menu. */
+export type PwaRefresh = {
+  /** False outside the installed console: there is nothing to offer. */
+  shown: boolean;
+  /** An update is waiting; acting applies it. */
+  ready: boolean;
+  checking: boolean;
+  disabled: boolean;
+  label: string;
+  /** Applies a waiting update, or checks for one. */
+  handleRefresh: () => void;
+};
+
+export function usePwaRefresh(): PwaRefresh {
   const standalone = useStandalone();
   const update = usePwaUpdate();
-  if (!standalone) {
-    return null;
-  }
-
   const ready = update.available;
   let label = 'Refresh console';
   if (update.checking) {
@@ -35,42 +45,47 @@ export function PwaRefreshAction() {
   } else if (ready) {
     label = 'Update ready — refresh console';
   }
+  return {
+    checking: update.checking,
+    disabled: update.phase === 'applying',
+    handleRefresh: () => void (ready ? update.refreshNow() : update.checkForUpdate()),
+    label,
+    ready,
+    shown: standalone,
+  };
+}
+
+/** The dot that marks a waiting update on whichever control offers it. */
+export function UpdateReadyDot() {
+  return (
+    <span
+      aria-hidden
+      className="absolute top-1.5 right-1.5 size-2 rounded-full bg-action ring-2 ring-well-950"
+    />
+  );
+}
+
+/** Compact manual discovery/refresh affordance for the installed console. */
+export function PwaRefreshAction() {
+  const refresh = usePwaRefresh();
+  if (!refresh.shown) {
+    return null;
+  }
   return (
     <button
       type="button"
-      aria-label={label}
-      title={label}
-      disabled={update.phase === 'applying'}
-      onClick={() => void (ready ? update.refreshNow() : update.checkForUpdate())}
+      aria-label={refresh.label}
+      title={refresh.label}
+      disabled={refresh.disabled}
+      onClick={refresh.handleRefresh}
       className={cn(
-        'relative flex size-[42px] shrink-0 items-center justify-center rounded-full text-ink-dim transition-colors focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50',
-        ready
-          ? 'bg-action/15 text-action inset-ring inset-ring-action/30 hover:bg-action/20'
-          : 'hover:bg-line/50 hover:text-ink-bright',
+        iconButtonClass,
+        refresh.ready &&
+          'bg-action/15 text-action inset-ring inset-ring-action/30 hover:bg-action/20 hover:text-action',
       )}
     >
-      <svg
-        width="17"
-        height="17"
-        viewBox="0 0 24 24"
-        fill="none"
-        aria-hidden="true"
-        className={cn(update.checking && 'animate-spin')}
-      >
-        <path
-          d="M20 7v5h-5M4 17v-5h5M6.1 8.2A7 7 0 0 1 18.7 7M17.9 15.8A7 7 0 0 1 5.3 17"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-      {ready && (
-        <span
-          aria-hidden
-          className="absolute top-1 right-1 size-2 rounded-full bg-action ring-2 ring-well-900"
-        />
-      )}
+      <RefreshIcon className={cn(refresh.checking && 'animate-spin')} />
+      {refresh.ready && <UpdateReadyDot />}
     </button>
   );
 }

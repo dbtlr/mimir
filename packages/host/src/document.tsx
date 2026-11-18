@@ -1,7 +1,7 @@
 import { HeadContent, Scripts } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 
-import { WELL_900 } from './lib/theme-colors';
+import { WELL_950 } from './lib/theme-colors';
 
 import stylesheet from './styles.css?url';
 
@@ -14,7 +14,7 @@ export function Document({ children }: { children: ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-        <meta name="theme-color" content={WELL_900.dark} />
+        <meta name="theme-color" content={WELL_950.dark} />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <link rel="icon" type="image/svg+xml" href="/icons/mimir.svg" />
         <link rel="apple-touch-icon" href="/icons/mimir-maskable.svg" />

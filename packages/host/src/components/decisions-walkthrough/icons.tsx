@@ -32,14 +32,6 @@ export function CheckGlyph({ size }: { size?: number }) {
   );
 }
 
-export function CloseGlyph({ size }: { size?: number }) {
-  return (
-    <Glyph size={size ?? 16}>
-      <path d="M4 4l8 8M12 4l-8 8" />
-    </Glyph>
-  );
-}
-
 export function BackGlyph({ size }: { size?: number }) {
   return (
     <Glyph size={size ?? 16}>

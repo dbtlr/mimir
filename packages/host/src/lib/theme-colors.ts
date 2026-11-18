@@ -5,3 +5,10 @@
  * SVGs can't import JS, so `theme-colors.test.ts` asserts they still agree.
  */
 export const WELL_900 = { dark: '#0d1219', light: '#e9eff3' } as const;
+
+/**
+ * The top-bar ground per theme (`--color-well-950` in `styles.css`). The browser
+ * chrome (`<meta name=theme-color>`, the manifest's `theme_color`) takes it, so
+ * the status bar and the top bar read as one solid band (MMR-715).
+ */
+export const WELL_950 = { dark: '#0b0f14', light: '#f6f9fb' } as const;

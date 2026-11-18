@@ -7,18 +7,24 @@ import { describe, expect, it } from 'vitest';
 
 import mimirMaskableIcon from '../../public/icons/mimir-maskable.svg?raw';
 import mimirIcon from '../../public/icons/mimir.svg?raw';
-import { WELL_900 } from '../lib/theme-colors';
+import { WELL_900, WELL_950 } from '../lib/theme-colors';
 
 /**
  * `styles.css` and the icon SVGs are static assets — they can't import
  * `WELL_900` (MMR-254). This is the gate that keeps them from drifting from
  * the one importable source instead.
  */
-describe('the page-ground hex (WELL_900) stays single-sourced', () => {
+describe('the page and top-bar hexes (WELL_900, WELL_950) stay single-sourced', () => {
   it('styles.css well-900 tokens match dark and light', () => {
     const css = readFileSync('src/styles.css', 'utf8');
     expect(css).toContain(`--color-well-900: ${WELL_900.dark};`);
     expect(css).toContain(`--color-well-900: ${WELL_900.light};`);
+  });
+
+  it('styles.css well-950 tokens (the top bar) match dark and light', () => {
+    const css = readFileSync('src/styles.css', 'utf8');
+    expect(css).toContain(`--color-well-950: ${WELL_950.dark};`);
+    expect(css).toContain(`--color-well-950: ${WELL_950.light};`);
   });
 
   it('the app icon fills match the dark value', () => {

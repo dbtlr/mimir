@@ -774,3 +774,33 @@ in-flight set this ADR's MMR-615 refinement defined:
   done than one under review, so its dependents stay under _Next to unlock_.
 - **A staged task's record offers Mark done, Send back…, Park, Block, and
   Abandon.** A task under review also offers Stage.
+
+## Refinement (2026-11-18, MMR-715): a phone's top bar folds its rare controls into More
+
+The MMR-492 refinement's top bar keeps the brand, the jump palette, _Needs
+you_, and the theme toggle. On a phone (below Tailwind's `md`), those controls
+and the installed console's update action did not fit at the 44px touch
+target that ADR 0019 sets for phone controls. They had shrunk to five
+different icon and box sizes instead. On a phone:
+
+- **The top bar holds the project menu, the brand, _Jump to_, _Needs you_, and
+  _More_.** Each icon control is 44px with a 22px icon, and the _Needs you_
+  pill is 34px tall.
+- **_More_ holds the update action and the theme toggle.** Both are used
+  rarely. A waiting update marks the _More_ button with a dot and adds
+  "update ready" to its name. Outside the installed console, _More_ offers
+  only the theme.
+- **From `md` up the top bar is unchanged:** the update action and the theme
+  toggle sit in the bar, at 36px with 18px icons.
+
+Every icon-only control in the console uses one icon button
+(`components/ui/icon-button.tsx`) and one icon set (`components/ui/icons.tsx`).
+That covers the top bar, sheet and dialog close buttons, and search-field and
+chip glyphs. No control draws its icon from a text character, because the
+glyph's size and shape depend on the font.
+
+The top bar is solid `well-950` with no blur. Nothing scrolls under it, and
+the translucent bar it replaces let the status bar fade into the page. The
+browser chrome color (`theme-color` and the manifest's `theme_color`) is
+`well-950` too, so the status bar and the top bar read as one band. The
+manifest's `background_color` stays `well-900`, the page ground.

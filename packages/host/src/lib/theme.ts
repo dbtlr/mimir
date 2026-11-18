@@ -8,15 +8,15 @@
  * mirrors `resolve()` + `apply()` so the first paint is already themed (no
  * flash); this module owns runtime toggling and system-change following.
  */
-import { WELL_900 } from './theme-colors';
+import { WELL_950 } from './theme-colors';
 
 export type Theme = 'light' | 'dark';
 
 const STORAGE_KEY = 'mimir-theme';
 const LIGHT_QUERY = '(prefers-color-scheme: light)';
 
-/** The page background per theme, reflected onto `<meta name=theme-color>`. */
-const THEME_COLOR: Record<Theme, string> = WELL_900;
+/** The top bar's ground per theme, reflected onto `<meta name=theme-color>`. */
+const THEME_COLOR: Record<Theme, string> = WELL_950;
 
 export function systemTheme(): Theme {
   return globalThis.matchMedia(LIGHT_QUERY).matches ? 'light' : 'dark';

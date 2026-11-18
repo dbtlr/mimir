@@ -10,6 +10,7 @@ import { PwaUpdateBanner } from '../components/pwa-update-banner';
 import { PwaUpdateProvider } from '../components/pwa-update-provider';
 import { SeedCaptureProvider } from '../components/seed-capture';
 import { ThemeToggle } from '../components/theme-toggle';
+import { TopBarMore } from '../components/top-bar-more';
 import { VersionFooter } from '../components/version-footer';
 import { useCurrentProjectKey, useRememberCurrentProject } from '../lib/current-project';
 import { sidebarContextOf } from '../lib/project-sidebar';
@@ -23,6 +24,12 @@ import { useToastPosition } from '../lib/use-toast-position';
  * leave the content about 160px beside a 256px sidebar.
  */
 const DESKTOP = '(min-width: 1024px)';
+
+/**
+ * Tailwind's `md`: below it the top bar is a phone's, and folds its rare
+ * controls into More so the rest keep the 44px touch target (MMR-715).
+ */
+const WIDE = '(min-width: 768px)';
 
 /** The sidebar's width plus a gutter, so a desktop toast clears it. */
 const TOAST_OFFSET_PAST_SIDEBAR = { left: 'calc(16rem + 24px)' };
@@ -56,7 +63,8 @@ function SkipLink() {
 /**
  * The app shell (ADR 0013, MMR-492 refinement): a slim top bar (brand, jump
  * palette, Needs you, theme toggle), the sidebar (the page's project, or All
- * projects outside one), and the routed surface.
+ * projects outside one), and the routed surface. On a phone the update action
+ * and the theme toggle sit in the top bar's More menu (MMR-715).
  */
 export function Shell() {
   return (
@@ -70,6 +78,7 @@ function ShellContent() {
   const { theme, toggle } = useTheme();
   const toastPosition = useToastPosition();
   const desktop = useMediaQuery(DESKTOP);
+  const wide = useMediaQuery(WIDE);
   useRememberCurrentProject();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   // With no project there is nothing to frame: the review page at / handles
@@ -82,11 +91,15 @@ function ShellContent() {
     <SeedCaptureProvider>
       <div className="flex h-dvh flex-col overflow-hidden">
         <SkipLink />
-        <header className="z-20 flex items-center gap-2 border-b border-line bg-well-900/85 px-4 py-2 backdrop-blur max-lg:px-2">
+        {/* Solid well-950, the top bar's own ground, which the browser chrome
+          also takes (theme-color): a translucent bar here let the status bar
+          fade into it. The safe-area pad keeps the bar's ground under a status
+          bar that overlays the page. */}
+        <header className="z-20 flex items-center gap-2 border-b border-line bg-well-950 px-4 pt-[calc(0.5rem+env(safe-area-inset-top))] pb-2 max-lg:px-2 max-md:gap-1">
           {context !== undefined && !desktop && <ProjectDrawer context={context} />}
           <Link
             to="/"
-            className="flex items-center gap-2 rounded font-mono text-card-mobile font-bold tracking-tight text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
+            className="flex items-center gap-2 rounded font-mono text-card-mobile font-bold max-md:ml-1 tracking-tight text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
           >
             <BrandMark />
             Mimir
@@ -94,8 +107,14 @@ function ShellContent() {
           <div className="ml-auto flex items-center gap-1">
             <JumpPalette />
             <AttentionAlert />
-            <PwaRefreshAction />
-            <ThemeToggle theme={theme} onToggle={toggle} />
+            {wide ? (
+              <>
+                <PwaRefreshAction />
+                <ThemeToggle theme={theme} onToggle={toggle} />
+              </>
+            ) : (
+              <TopBarMore theme={theme} onToggleTheme={toggle} />
+            )}
           </div>
         </header>
         <div className="flex min-h-0 flex-1">
