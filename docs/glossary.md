@@ -83,6 +83,17 @@ delivery, one decision per screen, and records the answers together with one
 Send ([ADR 0019](decisions/0019-meridian-console-design-system.md)).
 _Avoid_: decision wizard, answer flow
 
+**Needs-you set**: The records that wait on the operator: stopped deliveries,
+provisional decisions, tasks blocked on the operator, and tasks that need
+answers, across every active project. The console lists it under "Needs you"
+([ADR 0045](decisions/0045-operator-notifications.md)).
+
+**Notification event**: What the host emits when a record enters the needs-you
+set through a write the recipient did not make. It names the record, carries
+one line of its text, and gives the console path that opens it. A channel
+delivers it to a device
+([ADR 0045](decisions/0045-operator-notifications.md)).
+
 **Checklist item**: A small, numbered item on a task that is added, then
 checked or dropped with a reason. Checked and dropped are final, and items
 gate nothing ([ADR 0044](decisions/0044-checklist-items.md)).
