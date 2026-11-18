@@ -943,6 +943,9 @@ the browser lacks `field-sizing`.
 - **Send N answers** writes them with `answerDecisions` ([ADR 0040](0040-outbound-integrations-and-host-secrets.md),
   MMR-703 refinement), in the set's order. N counts the decisions that still
   wait on the operator.
+- While a blank _Something else_ waits, _Send_ is disabled and a muted line
+  beside it says why:
+  `Write your own answer to "<question>", or pick another answer, before sending.`
 - **With one decision there is no check step.** The step's button commits
   directly and reads "Confirm and send", "Overturn and send", or "Send my
   answer".

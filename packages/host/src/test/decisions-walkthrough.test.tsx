@@ -682,21 +682,121 @@ test('a Send in flight keeps its answers on screen when the read drops them firs
 });
 
 test('a failed Send returns focus to Send once the write ends', async () => {
-  vi.mocked(answerDecisions).mockRejectedValue(new Error('Host unreachable'));
+  const gate = Promise.withResolvers<Awaited<ReturnType<typeof answerDecisions>>>();
+  vi.mocked(answerDecisions).mockReturnValue(gate.promise);
   const { layer } = await openDelivery();
   await heading(layer, 'Question 1?');
   await toCheck(layer);
   const send = button(layer, 'Send 3 answers');
   send.focus();
   fireEvent.click(send);
-  send.blur();
+  await waitFor(() => {
+    expect(send).toBeDisabled();
+  });
+  // Focus falls to the page while the write runs, as a disabled control drops it in a browser;
+  // jsdom keeps it on a disabled button, so the page reports itself focused instead.
+  const refocus = vi.spyOn(send, 'focus');
+  const active = vi.spyOn(document, 'activeElement', 'get').mockReturnValue(document.body);
+  try {
+    gate.reject(new Error('Host unreachable'));
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('Host unreachable');
+    });
+    await waitFor(() => {
+      expect(refocus).toHaveBeenCalledTimes(1);
+    });
+  } finally {
+    active.mockRestore();
+  }
+});
+
+test('a failed Send leaves focus where the operator moved it', async () => {
+  const gate = Promise.withResolvers<Awaited<ReturnType<typeof answerDecisions>>>();
+  vi.mocked(answerDecisions).mockReturnValue(gate.promise);
+  const { layer } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  await toCheck(layer);
+  const send = button(layer, 'Send 3 answers');
+  fireEvent.click(send);
+  await waitFor(() => {
+    expect(send).toBeDisabled();
+  });
+  const heading2 = within(layer).getByRole('heading', { name: 'Check your answers' });
+  heading2.focus();
+  gate.reject(new Error('Host unreachable'));
   await waitFor(() => {
     expect(toast.error).toHaveBeenCalledWith('Host unreachable');
   });
   await waitFor(() => {
-    expect(send).toHaveFocus();
+    expect(send).toBeEnabled();
   });
+  expect(heading2).toHaveFocus();
+});
+
+/** Leave q1 a blank "Something else", then reach the check step through the last step's button. */
+async function toCheckWithBlank(layer: HTMLElement) {
+  await heading(layer, 'Question 1?');
+  await toCheck(layer);
+  const rail = within(layer).getByRole('navigation', { name: 'Decisions' });
+  fireEvent.click(within(rail).getByRole('button', { name: /Question 1\?/ }));
+  await heading(layer, 'Question 1?');
+  pick(layer, 'Something else');
+  fireEvent.click(within(rail).getByRole('button', { name: /Question 3\?/ }));
+  await heading(layer, 'Question 3?');
+  fireEvent.click(button(layer, 'Confirm and review (MMR-q3)'));
   await heading(layer, 'Check your answers');
+}
+
+test('a blank Something else reaching the check step through the last step cannot be sent', async () => {
+  const { layer } = await openDelivery();
+  await toCheckWithBlank(layer);
+  const send = button(layer, 'Send 3 answers');
+  expect(send).toBeDisabled();
+  fireEvent.click(send);
+  expect(answerDecisions).not.toHaveBeenCalled();
+});
+
+test('the check step says why Send waits, only while a blank own answer waits', async () => {
+  const { layer } = await openDelivery();
+  await toCheckWithBlank(layer);
+  const reason = 'Write your own answer to "Question 1?", or pick another answer, before sending.';
+  expect(within(layer).getByText(reason)).toBeInTheDocument();
+  fireEvent.click(button(layer, 'Change your answer to MMR-q1'));
+  await heading(layer, 'Question 1?');
+  pick(layer, /^Keep/);
+  fireEvent.click(next(layer));
+  await heading(layer, 'Question 2?');
+  fireEvent.click(next(layer));
+  await heading(layer, 'Question 3?');
+  fireEvent.click(next(layer));
+  await heading(layer, 'Check your answers');
+  expect(within(layer).queryByText(reason)).toBeNull();
+  expect(button(layer, 'Send 3 answers')).toBeEnabled();
+});
+
+test('after a failed Send, a decision that leaves the read is no longer shown or sent', async () => {
+  vi.mocked(answerDecisions).mockRejectedValueOnce(new Error('Host unreachable'));
+  const { layer, qc } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  await toCheck(layer);
+  fireEvent.click(button(layer, 'Send 3 answers'));
+  await waitFor(() => {
+    expect(toast.error).toHaveBeenCalledWith('Host unreachable');
+  });
+  await waitFor(() => {
+    expect(button(layer, 'Send 3 answers')).toBeEnabled();
+  });
+  vi.mocked(deliveryPage).mockResolvedValue(page(decisions().filter((d) => d.id !== 'MMR-q2')));
+  await qc.refetchQueries({ queryKey: ['nodes', 'delivery', 'MMR-d3'] });
+  await waitFor(() => {
+    expect(button(layer, 'Send 2 answers')).toBeEnabled();
+  });
+  fireEvent.click(button(layer, 'Send 2 answers'));
+  await heading(layer, 'Answers sent');
+  expect(vi.mocked(answerDecisions).mock.calls[1]![0].data.answers.map((a) => a.id)).toStrictEqual([
+    'MMR-q1',
+    'MMR-q3',
+  ]);
 });
 
 test('the rail’s entries cannot be activated while a Send writes', async () => {

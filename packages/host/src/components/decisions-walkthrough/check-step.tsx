@@ -44,7 +44,7 @@ export function CheckStep({
   /** Write the answers; `control` is Send, which takes focus back if the write fails. */
   onSend: (control: HTMLElement) => void;
 }) {
-  const blank = entries.some(({ selection }) => isBlankCustom(selection));
+  const blank = entries.find(({ selection }) => isBlankCustom(selection));
   return (
     <section aria-label="Check your answers" className="flex min-h-0 flex-1 flex-col">
       <Scroll>
@@ -95,10 +95,15 @@ export function CheckStep({
         </p>
       </Scroll>
       <Composer>
+        {blank !== undefined && (
+          <p className="mb-2 text-meta text-ink-faint">
+            {`Write your own answer to "${blank.decision.question}", or pick another answer, before sending.`}
+          </p>
+        )}
         <div className="grid grid-cols-[auto_minmax(0,1fr)] items-end gap-2 md:grid-cols-[auto_minmax(0,1fr)_auto]">
           <BackButton disabled={writing} onClick={onBack} />
           <PrimaryButton
-            disabled={writing || offline || blank || entries.length === 0}
+            disabled={writing || offline || blank !== undefined || entries.length === 0}
             onClick={(event) => onSend(event.currentTarget)}
           >
             {sendLabel(entries.length)}
