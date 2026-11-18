@@ -100,6 +100,9 @@ describe('readPushSettings', () => {
       'https://127.1/',
       'https://0.0.0.0/',
       'https://0/',
+      'https://[::]/',
+      'https://[::ffff:127.0.0.1]/',
+      'https://[0:0:0:0:0:ffff:7f01:203]/',
       'ftp://example.net',
     ]) {
       const settings = await readPushSettings(

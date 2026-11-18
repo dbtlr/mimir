@@ -38,10 +38,14 @@ function isOneAddress(path: string): boolean {
 /** An IPv4 address in 127.0.0.0/8, as the URL parser serializes one. */
 const LOOPBACK_IPV4 = /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 
+/** An IPv4-mapped IPv6 address in 127.0.0.0/8, as the URL parser serializes one. */
+const LOOPBACK_IPV4_MAPPED = /^\[::ffff:7f[0-9a-f]{2}:[0-9a-f]{1,4}\]$/;
+
 /**
  * Whether a parsed hostname names this machine, more broadly than
  * {@link isLoopbackHostname}: with a trailing dot, any `*.localhost` name,
- * any address in 127.0.0.0/8, and 0.0.0.0. Only the contact is held to this.
+ * any address in 127.0.0.0/8 (also IPv4-mapped), and the unspecified
+ * addresses 0.0.0.0 and [::]. Only the contact is held to this.
  */
 function isLocalContactHost(hostname: string): boolean {
   const name = hostname.toLowerCase().replace(/\.$/, '');
@@ -49,7 +53,9 @@ function isLocalContactHost(hostname: string): boolean {
     isLoopbackHostname(name) ||
     name.endsWith('.localhost') ||
     LOOPBACK_IPV4.test(name) ||
-    name === '0.0.0.0'
+    LOOPBACK_IPV4_MAPPED.test(name) ||
+    name === '0.0.0.0' ||
+    name === '[::]'
   );
 }
 

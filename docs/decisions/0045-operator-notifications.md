@@ -303,8 +303,8 @@ subscribes a device is MMR-711.
 services require as the VAPID subject (RFC 8292): a `mailto:` URL with one
 address that contains `@`, or an `https:` URL whose host, as the URL parser
 normalizes it, does not name this machine: not `localhost` with or without a
-trailing dot, no name ending `.localhost`, no address in `127.0.0.0/8`, and
-not `0.0.0.0` or `[::1]`. With it unset, the channel is **absent**: no channel is registered with
+trailing dot, no name ending `.localhost`, no address in `127.0.0.0/8`
+(also IPv4-mapped), and not `0.0.0.0`, `[::]`, or `[::1]`. With it unset, the channel is **absent**: no channel is registered with
 the notifier, nothing is written to `push_subscriptions` or `host_secrets`,
 and every server function answers `unconfigured`.
 
