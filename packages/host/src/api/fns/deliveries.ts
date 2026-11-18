@@ -1,11 +1,18 @@
 import { engineSchemas, parseEngineInput } from '@mimir/contract';
-import type { EngineInput } from '@mimir/contract';
+import type { EngineDecision, EngineInput } from '@mimir/contract';
 import { createServerFn } from '@tanstack/react-start';
 
+import type { AnswerDecisionsInput, DecisionAnswers } from '../../server/decision-answers';
 import type { T3WakeInput } from '../../server/t3-states';
 import { decisionTarget, deliveryTarget, wakeAttemptSchema } from '../../server/t3-wake';
 import { engine, t3Integration } from './engine';
 
+export type {
+  AnswerDecisionsInput,
+  DecisionAnswer,
+  DecisionAnswerResult,
+  DecisionAnswers,
+} from '../../server/decision-answers';
 export type { T3WakeField, T3WakeInput, T3WakeState, T3Woken } from '../../server/t3-states';
 
 /*
@@ -131,6 +138,17 @@ export const confirm = createServerFn({ method: 'POST' })
     parseEngineInput(engineSchemas.confirm.input, input),
   )
   .handler(async ({ data }) => (await engine()).confirm(data));
+
+/**
+ * The decisions walkthrough's Send (ADR 0040, MMR-703 refinement): write each
+ * answer in order as its own Engine write, then wake the delivery's thread
+ * once when an overturn landed. A refused answer does not stop the rest.
+ */
+export const answerDecisions = createServerFn({ method: 'POST' })
+  .validator((input: AnswerDecisionsInput) => input)
+  .handler(async (): Promise<DecisionAnswers<EngineDecision>> => {
+    throw new Error('answerDecisions is not implemented yet');
+  });
 
 /**
  * Resend one wake from a state's `retry`. It writes nothing; it answers a

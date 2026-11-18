@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { announceWake } from '../components/t3-wake-answers';
 import { newAttempt } from '../lib/t3-attempt';
 import {
+  answerDecisions,
   confirm,
   deliveryAbandon,
   deliveryPark,
@@ -16,7 +17,7 @@ import {
   overturn,
   wakeT3,
 } from './fns/deliveries';
-import type { T3WakeInput, T3WakeState, T3Woken } from './fns/deliveries';
+import type { AnswerDecisionsInput, T3WakeInput, T3WakeState, T3Woken } from './fns/deliveries';
 import { useInvalidateOnWrite } from './mutations';
 import { t3OriginQuery, useConnectT3 } from './t3-queries';
 
@@ -135,5 +136,24 @@ export function useConfirm() {
     mutationFn: (input: EngineInput<'confirm'>) => confirm({ data: input }),
     onError: (err: Error) => toast.error(err.message),
     onSettled: invalidate,
+  });
+}
+
+/**
+ * The decisions walkthrough's Send: one fresh attempt id per Send, the answers
+ * written in order, and the one wake announced before the refetches land. The
+ * answer's per-decision results are for the caller's done screen.
+ */
+export function useAnswerDecisions() {
+  const invalidate = useInvalidateOnWrite();
+  const announce = useWakeAnnouncer();
+  return useMutation({
+    mutationFn: (input: Omit<AnswerDecisionsInput, 'attempt'>) =>
+      answerDecisions({ data: { ...input, attempt: newAttempt() } }),
+    onError: (err: Error) => toast.error(err.message),
+    onSettled: invalidate,
+    onSuccess: (answer) => {
+      announce(answer.wake);
+    },
   });
 }

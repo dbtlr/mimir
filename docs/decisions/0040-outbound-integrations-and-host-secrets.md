@@ -771,7 +771,8 @@ The checks run in this order, and the first that fails ends the wake:
 `answerDecisions` answers `{ results, wake }`. `results` holds one entry per
 answer, in input order: `{ id, outcome: 'confirmed' | 'overturned', record }`
 with the Engine's decision record, `{ id, outcome: 'refused', reason }`, or
-`{ id, outcome: 'failed' }`, each with the decision's canonical id. A `reason` is the Engine's message or the
+`{ id, outcome: 'failed' }`, each with the decision's canonical id. A
+`reason` is the Engine's message or the
 membership reason, never text the operator typed. `wake` is a state of _The
 answer_'s table, with `skipped` gaining the reason `no_overturn`. The console
 shows the wake state as it does for every waking function.
