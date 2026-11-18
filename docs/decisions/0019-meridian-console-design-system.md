@@ -1074,10 +1074,11 @@ for every other opening.
   own page, this keeps MMR-703's rule that Back returns to the history entry
   before the walkthrough. A replace would leave two copies of the page in
   history, and the next Back would seem to do nothing.
-- Every other opening carries no mark: an address typed or followed from
-  outside the console, a new tab, or the done screen's link to the next
-  set. Close then replaces the history entry with the page without the
-  mode, as the console does today.
+- A walkthrough opened any other way carries no mark: by an address typed
+  or followed from outside the console, or in a new tab. The done screen's
+  link to the next set passes on the mark it found, as below. On a
+  walkthrough without a mark, Close replaces the history entry with the
+  page without the mode, as the console does today.
 - The done screen's and the empty state's link back to the page the
   walkthrough opened on keep their label and target, the walkthrough's own
   page, for every opening. This revises the MMR-703 refinement, whose link
@@ -1091,10 +1092,11 @@ for every other opening.
   the walkthrough, does not reopen it, and never meets a second copy of the
   page.
 - The done screen's link to the next set replaces the walkthrough's history
-  entry with the next set's walkthrough, which carries no mark. This
-  revises the MMR-703 refinement, whose link pushes. A chain of
-  walkthroughs then holds one history entry, so leaving the last one never
-  reopens an earlier one.
+  entry with the next set's walkthrough, and carries the walkthrough's mark,
+  with its opener, over to it, or no mark when it had none. This revises
+  the MMR-703 refinement, whose link pushes. A chain of walkthroughs then
+  holds one history entry and keeps the first one's opener, so leaving the
+  last one never reopens an earlier one or meets a second copy of a page.
 - Scroll is not restored. The console restores no scroll position on any
   navigation, and this refinement adds none.
 
