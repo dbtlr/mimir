@@ -300,49 +300,76 @@ subscribes a device is MMR-711.
 ### The setting and its states
 
 `MIMIR_PUSH_CONTACT` turns the channel on. Its value is the contact the push
-services require as the VAPID subject (RFC 8292): a `mailto:` address or an
-`https:` URL. With it unset, the channel is absent: no channel is registered
-with the notifier, nothing is written to `push_subscriptions` or
-`host_secrets`, and the console's server functions answer `unconfigured`.
+services require as the VAPID subject (RFC 8292): a `mailto:` URL with one
+address that contains `@`, or an `https:` URL whose host is not a loopback
+name. With it unset, the channel is **absent**: no channel is registered with
+the notifier, nothing is written to `push_subscriptions` or `host_secrets`,
+and every server function answers `unconfigured`.
 
-With it set, the host reads three more things, and each problem it finds
+With it set, the host checks four more things, and each problem it finds
 makes the channel **misconfigured**:
 
-| Problem                                            | Setting named                                   |
-| -------------------------------------------------- | ----------------------------------------------- |
-| The value is not a `mailto:` or `https:` URL       | `MIMIR_PUSH_CONTACT` is malformed               |
-| `MIMIR_URL` is unset                               | `MIMIR_URL` is unset                            |
-| `MIMIR_URL` is neither HTTPS nor HTTP on loopback  | `MIMIR_URL` is not HTTPS                        |
+| Problem                                             | Setting named                                 |
+| --------------------------------------------------- | --------------------------------------------- |
+| The value is not a contact as above                 | `MIMIR_PUSH_CONTACT` is malformed             |
+| `MIMIR_URL` is unset                                | `MIMIR_URL` is unset                          |
+| `MIMIR_URL` is neither HTTPS nor HTTP on loopback   | `MIMIR_URL` is not HTTPS                      |
+| `MIMIR_HOSTS` is unset                              | `MIMIR_HOSTS` is unset                        |
 | The secret key is missing, unreadable, or malformed | `MIMIR_SECRET_KEY` or `MIMIR_SECRET_KEY_FILE` |
 
-`MIMIR_URL` is needed because a notification opens an absolute URL, and the
-notifier has no request to take an origin from. HTTP on loopback is allowed
-for a development host, as the T3 adapter allows it. The key is read and
-checked as ADR 0040 describes, whichever integration needs it.
+- `MIMIR_URL` is needed because a notification opens an absolute URL, and the
+  notifier has no request to take an origin from. HTTP on loopback is allowed
+  for a development host, as the T3 adapter allows it.
+- `MIMIR_HOSTS` is required for the reason ADR 0040 requires it of T3. A page
+  that rebinds its name to the host is same-origin, so without Host filtering
+  it could subscribe its own browser and receive every later event's text,
+  long after the page is closed.
+- The secret key is read and checked as ADR 0040 describes, by whichever
+  enabled integration needs it.
 
 A misconfigured channel warns at startup, one line per problem, naming the
-setting and never its value. It is not registered with the notifier and
-writes nothing. Its server functions answer `misconfigured` with the first
+setting and never its value. It is not registered with the notifier, writes
+nothing, and its server functions answer `misconfigured` with the first
 problem. Settings are read once at startup, so a fix takes a restart.
 
 ### The key
 
 The channel signs with one VAPID key pair (ECDSA P-256), kept as the host
-secret `push.vapid`: the sealed JSON of the raw public point and the private
-scalar, both base64url. The pair is made on first use, which is the first
-status read or the first send, and is never rotated by the host.
+secret `push.vapid`: the sealed JSON of the public key and the private
+scalar. The public key is always the raw 65-byte uncompressed point in
+unpadded base64url, the form a browser's `applicationServerKey` takes.
 
-A row that fails to open (the secret key changed, or the row was altered) is
-logged as `host_secret_unopenable` without its contents, as ADR 0040 says.
-The channel then makes a new pair, writes it, deletes every row of
-`push_subscriptions` (each was made for the old public key, and the push
-services refuse a request signed with another), and logs
-`push_key_replaced` with the number of rows deleted. Each device subscribes
-again; the console compares its subscription's key with the served one when
-it opens (MMR-711).
+**First use.** The pair is made the first time the channel needs it: the
+first status read, subscribe, or send. Within one host process, first use is
+single-flight: every caller awaits the same read, and at most one pair is
+made. The new row is written only if no row of that name exists (a
+host-secret write that inserts and never replaces), and the channel then
+reads the row back and uses whatever it holds. Two hosts that make a pair at
+once therefore both use the pair that was stored first. A loaded pair is kept
+in memory for the life of the process.
 
-The public key is served to the console in the status answer. The private
-scalar never leaves the channel and never appears in a log.
+A store error while reading or writing the key is a fault, never an absent
+row: it makes no pair.
+
+**An unusable row.** A row that fails to open (the secret key changed, or the
+row was altered) is logged as `host_secret_unopenable`, and a row that opens
+but does not hold a valid pair is logged as `host_secret_unreadable`, both
+without contents, as ADR 0040 says. Either way the channel is **key
+unusable**: it sends nothing, refuses subscribe, and writes nothing. It does
+not replace the key on its own, because the usual cause is a wrong secret key
+that the operator will restore, and replacing the key would strand every
+device.
+
+**Reset.** The operator replaces the key with the reset server function
+(below), from the `key unusable` state or any time the channel is ready. It
+writes a new pair over the row, then deletes every subscription made for
+another key. Each row records the key it was made for (below), so a reset
+interrupted between the two steps leaves rows that no send uses and that the
+next reset or a removal deletes. Each device subscribes again: the console
+compares its subscription's `applicationServerKey` with the served key when it
+opens (MMR-711).
+
+The private scalar never leaves the channel and never appears in a log.
 
 ### The table
 
@@ -353,9 +380,10 @@ skip it in both directions.
 
 | Column            | Meaning                                                                   |
 | ----------------- | ------------------------------------------------------------------------- |
-| `endpoint`        | Primary key: the push service URL the browser gave                        |
+| `endpoint`        | Primary key: the push service URL, as the URL parser serializes it        |
 | `p256dh`          | The browser's public key, base64url                                       |
 | `auth`            | The browser's authentication secret, base64url                            |
+| `server_key`      | The VAPID public key the browser subscribed with                          |
 | `label`           | The name the console gave the device                                      |
 | `created_at`      | When the endpoint was first subscribed                                    |
 | `last_success_at` | When a push service last accepted a push to it; absent until one does     |
@@ -364,65 +392,85 @@ skip it in both directions.
 
 The endpoint and the browser's keys are stored as given, not sealed. The
 browser's keys let the host encrypt to the browser, not decrypt, and the
-push services named below accept a request to an endpoint only when it is
-signed with the host's VAPID key.
+push services below accept a push only when it is signed with the VAPID key
+the endpoint was made for, whose private half is sealed.
 
 There is no recipient column. Every subscription belongs to the one
 recipient, the operator, so the notifier's rule above has already decided
 whether an event reaches it.
 
+This amends ADR 0040's boundary as its MMR-629 refinement did for `runs`: the
+core's store gains a second integration's host-only table and a generic
+insert-if-absent write on the host-secret store, and nothing else. Only the
+host reads or writes the table; the contract, the wire, the CLI, and the
+work-state export gain nothing.
+
 ### The server functions
 
-The console calls five server functions, off the Engine. Each one answers
-`unconfigured` or `misconfigured` when the channel is not ready, and touches
-neither table then.
+The console calls six server functions, off the Engine. Each answers
+`unconfigured` or `misconfigured` when the channel is not ready, and then
+touches neither table. A store error is a host fault, as in every other
+console server function; a push service's failure is an answer.
 
-- **Status** answers `ready` with the public key.
-- **Subscribe** takes the endpoint, the two browser keys, and a label. It
+- **Status** answers `ready` with the public key and the console origin
+  (`MIMIR_URL`), or `key_unusable`.
+- **Subscribe** takes the endpoint, the two browser keys, the
+  `applicationServerKey` the browser subscribed with, and a label. It
   refuses, and writes nothing, when:
-  - the endpoint is not an `https:` URL with no user, no password, and the
-    default port, on one of the push hosts below (`endpoint_not_allowed`);
+  - the request's `Origin` is not the origin of `MIMIR_URL`
+    (`wrong_origin`), because a notification opens `MIMIR_URL` and a device
+    installed from another origin would open it outside the app;
+  - the channel is `key_unusable`, or the given server key is not the
+    current one (`stale_key`);
+  - the endpoint is longer than 1024 characters, or is not an `https:` URL
+    with no user, password, or fragment, on the default port, on one of the
+    push hosts below (`endpoint_not_allowed`);
   - `p256dh` does not decode to a P-256 public point, or `auth` does not
     decode to 16 bytes (`invalid_keys`);
   - the table already holds 20 rows and the endpoint is not one of them
-    (`too_many_devices`).
+    (`too_many_devices`). The count and the write are one transaction.
 
   The label is plain text: runs of whitespace collapse to one space, it is
   cut to 60 characters, and an empty label becomes `Device`. A subscribe with
-  an endpoint the table holds replaces that row's keys and label, clears its
-  failure, and keeps its `created_at`.
+  an endpoint the table holds replaces that row's keys, server key, and
+  label, clears its failure, and keeps its `created_at`.
 - **Unsubscribe** takes an endpoint and deletes its row. An endpoint with no
   row is not an error.
 - **List** answers every row, newest first, with its endpoint, label, times,
-  and last failure, but not its keys.
+  last failure, and whether it was made for the current key, but not its
+  keys.
 - **Send test** takes an endpoint and sends one push to it alone, then
   answers `delivered`, `gone` (the row was deleted, below), or `failed` with
-  the failure. An endpoint with no row answers `not_found`.
+  the failure. An endpoint with no row answers `not_found`, and a row made
+  for another key answers `stale_key` and sends nothing.
+- **Reset key** replaces the pair, as above, and answers the new public key.
 
 The push hosts are the services of Apple, Google, Mozilla, and Microsoft:
 
-| Service   | Host                                                  |
-| --------- | ----------------------------------------------------- |
+| Service   | Host                                                     |
+| --------- | -------------------------------------------------------- |
 | Apple     | `web.push.apple.com`, or a host ending `.push.apple.com` |
-| Google    | `fcm.googleapis.com`                                  |
-| Mozilla   | a host ending `.push.services.mozilla.com`            |
-| Microsoft | a host ending `.notify.windows.com`                   |
+| Google    | `fcm.googleapis.com`                                     |
+| Mozilla   | a host ending `.push.services.mozilla.com`               |
+| Microsoft | a host ending `.notify.windows.com`                      |
 
 The browser chooses the endpoint, so the allowlist is what keeps the host
-from posting to an address of the browser's choosing. A host is compared in
-lowercase, after the URL parser normalizes it.
+from posting to an address of the browser's choosing. A host is compared
+after the URL parser has lowercased and normalized it.
 
 ### Sending
 
-The channel's `deliver` reads the table and sends the event to every row at
-once. It resolves when every send has an outcome. It rejects only when the
-table or the key cannot be read, which the notifier logs as
+The channel's `deliver` reads the table and sends the event to every row made
+for the current key, all at once. It resolves when every send has an outcome
+and every row update has finished or failed. It rejects only when the table
+or the key cannot be read, which the notifier logs as
 `needs_you_channel_fault`.
 
 Each push is one HTTP `POST` to the endpoint:
 
-- The body is the payload below, encrypted for the row's keys with RFC 8291
-  (`aes128gcm`, one record).
+- The body is the payload below, encrypted for the row's keys with RFC 8291:
+  one `aes128gcm` record of at most 4096 bytes.
+- `Content-Encoding: aes128gcm` and `Content-Type: application/octet-stream`.
 - `Authorization: vapid t=<JWT>, k=<public key>`, where the JWT (ES256) has
   `aud` set to the endpoint's origin, `sub` set to `MIMIR_PUSH_CONTACT`, and
   `exp` 12 hours ahead. Apple refuses an `exp` more than a day ahead.
@@ -431,21 +479,26 @@ Each push is one HTTP `POST` to the endpoint:
 - Redirects are not followed, and a send that has no answer in 10 seconds
   is a `timeout`.
 
-The outcome of a send updates its row:
+The outcome of a send updates its row, but only while the row still holds
+the endpoint and the browser keys the push was encrypted for. A row that was
+removed, or subscribed again with new keys, while the push was in flight is
+left alone.
 
-| Answer                         | Row                                           | Log                                    |
-| ------------------------------ | --------------------------------------------- | -------------------------------------- |
-| Any 2xx                        | `last_success_at` set, failure cleared        | nothing                                |
-| 404 or 410                     | deleted                                       | `push_subscription_gone`               |
-| Any other status, or no answer | `last_failure_at` and `last_failure` set      | `push_send_fault`                      |
+| Answer                         | Row                                      | Log                      |
+| ------------------------------ | ---------------------------------------- | ------------------------ |
+| Any 2xx                        | `last_success_at` set, failure cleared   | nothing                  |
+| 404 or 410                     | deleted                                  | `push_subscription_gone` |
+| Any other status, or no answer | `last_failure_at` and `last_failure` set | `push_send_fault`        |
 
 Both log lines carry the endpoint's host and the status (or `timeout` or
-`unreachable`), never the endpoint's path, a key, the JWT, or the payload.
-The channel does not retry. The push service already holds a push for its
-time-to-live, and the next event or a test push tries again.
+`unreachable`), never the endpoint's path, a key, the JWT, or the payload. A
+row update that fails is logged as `push_outcome_write_fault` with the
+endpoint's host and does not reject `deliver`.
 
-A send cannot fail the write that caused the event: the notifier does not
-wait for its channels.
+The channel does not retry. The push service already holds a push for its
+time-to-live, and the next event or a test push tries again. A send cannot
+fail the write that caused the event: the notifier does not wait for its
+channels.
 
 ### The payload
 
@@ -472,16 +525,16 @@ as a plain push (MMR-710).
 - `navigate` is absolute, as the format requires.
 - `tag` names what the event is about (the `kind` and `target` above). iOS
   does not replace a notification that has the same tag, so nothing depends
-  on replacement.
+  on replacement. A browser that does replace by tag would do so silently;
+  MMR-710's service worker shows a push with `renotify` so that it alerts.
 - `app_badge` is the event's `needs_you` count, at the top level as an
   integer. Safari 26 moved it there from `notification`, where a string value
   crashed earlier versions. A test push carries no `app_badge`.
 - The event's title and body are already plain and bounded (above), so the
-  payload stays far below the 4 KB the push services accept.
+  payload stays far below the record limit.
 
 A test push has the title `Mimir test notification`, the body
-`Notifications reach this device.`, the tag `test`, and opens the console's
-root.
+`Notifications reach this device.`, the tag `test`, and opens `MIMIR_URL`.
 
 ### Known limits of the channel
 
@@ -491,18 +544,22 @@ root.
   so a row can outlive its device.
 - A browser that is given a new endpoint subscribes as a new row, and its old
   row stays until one of the above.
+- When two deliveries to one row overlap, the later outcome to finish wins,
+  so the row can show an older failure after a newer success until the next
+  push.
 - Two hosts that serve one store, as during an overlapping deploy, each send
-  every event they find, and the first use of the key on both can make two
-  pairs, the later of which wins. A subscription made with the losing key
-  fails until the device subscribes again.
-- The channel sees only the subscriptions in its own store, so a host
-  restored from a transfer document has none.
+  every event they find.
+- A host restored from a transfer document has no subscriptions.
 
 ### Considered and rejected
 
 - **A dependency for the protocol (`web-push`).** The spike proved a
   126-line WebCrypto implementation against Apple. Both RFCs are fixed, and
   the dependency brings its own HTTP stack and a Node crypto path.
+- **Replacing the key when its row does not open.** It would delete every
+  device's subscription after a deploy with the wrong secret key, which the
+  operator would otherwise fix by restoring the key. Two hosts with different
+  keys on one store would replace each other's key without end.
 - **Sealing the subscriptions.** The browser's keys allow encryption only,
   and the endpoint is useless without the host's VAPID key, which is sealed.
 - **Retrying in the channel.** The push service queues for a day. A retry in
