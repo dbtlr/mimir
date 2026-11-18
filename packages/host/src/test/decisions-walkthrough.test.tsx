@@ -31,6 +31,7 @@ type Decision = Page['decisions'][number];
 
 /** A provisional decision of delivery MMR-d3; `seq` also numbers its id. */
 function decision(seq: number, over: Partial<Decision> = {}): Decision {
+  const options = over.options ?? ['Keep', 'Remove', 'Merge'];
   return {
     class: 'product',
     created_at: stamp,
@@ -38,8 +39,8 @@ function decision(seq: number, over: Partial<Decision> = {}): Decision {
     history: [],
     id: `MMR-q${String(seq)}`,
     lifecycle: 'provisional',
-    option_details: [null, null],
-    options: ['Keep', 'Remove', 'Merge'],
+    option_details: options.map(() => null),
+    options,
     outcome_note: null,
     overturn_option: null,
     project_key: 'MMR',
@@ -861,7 +862,7 @@ test('a restored draft moves to the opened set, so pruning its old set keeps it'
 
 const DETAIL = 'First line\nSecond line';
 const withDetail = () => [
-  decision(1, { option_details: [null, DETAIL], recommended: 2 }),
+  decision(1, { option_details: [null, DETAIL, null], recommended: 2 }),
   decision(2, { option_details: [null, null], options: ['Yes', 'No'], taken: 2 }),
 ];
 
