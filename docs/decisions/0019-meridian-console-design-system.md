@@ -1066,8 +1066,9 @@ shows the page" for a walkthrough an entry opened. That rule still holds
 for every other opening.
 
 - An entry opens the walkthrough as a new history entry and marks that
-  history entry as opened in-app, in its history state. The mark survives a
-  reload, as history state does.
+  history entry as opened in-app, in its history state. The mark records
+  the path of the page the entry was on, the opener. It survives a reload,
+  as history state does.
 - On a walkthrough so marked, Close goes back one history entry, so the
   page the entry was on shows again. When that page is the walkthrough's
   own page, this keeps MMR-703's rule that Back returns to the history entry
@@ -1080,10 +1081,20 @@ for every other opening.
 - The done screen's and the empty state's link back to the page the
   walkthrough opened on keep their label and target, the walkthrough's own
   page, for every opening. This revises the MMR-703 refinement, whose link
-  pushes a new history entry: the link now replaces the walkthrough's
-  history entry with the page without the mode, so Back from that page
-  returns to where the operator was before the walkthrough and does not
-  reopen it.
+  pushes a new history entry:
+  - on a marked walkthrough whose opener is the walkthrough's own page,
+    the link goes back one history entry, as Close does;
+  - otherwise the link replaces the walkthrough's history entry with the
+    page without the mode.
+
+  Either way, Back from that page returns to where the operator was before
+  the walkthrough, does not reopen it, and never meets a second copy of the
+  page.
+- The done screen's link to the next set replaces the walkthrough's history
+  entry with the next set's walkthrough, which carries no mark. This
+  revises the MMR-703 refinement, whose link pushes. A chain of
+  walkthroughs then holds one history entry, so leaving the last one never
+  reopens an earlier one.
 - Scroll is not restored. The console restores no scroll position on any
   navigation, and this refinement adds none.
 

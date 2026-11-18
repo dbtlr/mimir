@@ -366,8 +366,8 @@ none.
 - The detail is fixed at `decide`, as the options are.
 - **A damaged stored list refuses,** as damaged options do. A stored value
   that is not null and not a list as long as `options`, each entry null or
-  non-blank text, makes every read and write of the decision refuse and
-  point to `mimir doctor`. No read pads, cuts, or drops a damaged list.
+  non-blank text and at least one entry text, makes every read and write
+  of the decision refuse and point to `mimir doctor`. No read pads, cuts, or drops a damaged list.
 - The field is additive. `options` keeps its shape, so a client older than
   this refinement keeps working inside the version window and ignores the
   field ([ADR 0038](0038-device-pairing-and-the-version-window.md)).
