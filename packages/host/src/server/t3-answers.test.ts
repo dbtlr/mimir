@@ -170,6 +170,22 @@ describe('answerDecisions: the answers', () => {
     expect(out.results[1]?.outcome).toBe('overturned');
   });
 
+  test('a refusal reason never carries the operator’s note', async () => {
+    const h = harness({ behave: { 'MMR-q1': 'refuse' } });
+    const marker = 'NOTE-MARKER-7f3a';
+    const out = await h.answer(
+      send([
+        { id: 'MMR-q1', note: marker, verdict: 'confirm' },
+        { id: 'MMR-q7', note: marker, verdict: 'confirm' },
+      ]),
+    );
+    expect(out.results.map((r) => r.outcome)).toEqual(['refused', 'refused']);
+    for (const result of out.results) {
+      expect(result.outcome === 'refused' ? result.reason : '').not.toContain(marker);
+      expect(result.outcome === 'refused' ? result.reason : '').not.toBe('');
+    }
+  });
+
   test('a refused read is refused with the Engine message', async () => {
     const h = harness();
     const out = await h.answer(send([confirm('MMR-q50'), overturn('MMR-q2')]));

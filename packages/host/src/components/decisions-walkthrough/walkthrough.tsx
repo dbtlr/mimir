@@ -124,6 +124,13 @@ export function DecisionsWalkthrough({
   }
   useEffect(() => {
     if (fixed !== null) {
+      // A restored draft moves to this set, so a later opening of its old set cannot prune it.
+      for (const d of fixed) {
+        const draft = readDraft(d.id);
+        if (draft !== null && draft.set !== set) {
+          writeDraft(d.id, { ...draft, set });
+        }
+      }
       pruneDrafts(set, openIds);
     }
     // Once, when the set is fixed.

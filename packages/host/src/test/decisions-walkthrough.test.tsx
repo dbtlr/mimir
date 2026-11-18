@@ -1,13 +1,13 @@
 import type { ConsoleOutput } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { answerDecisions } from '../api/fns/deliveries';
 import { tree } from '../api/fns/shell';
 import { deliveryPage, review } from '../api/fns/views';
-import { readDraft, writeDraft } from '../lib/decision-drafts';
+import { pruneDrafts, readDraft, writeDraft } from '../lib/decision-drafts';
 import { consoleRoutes } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
@@ -697,4 +697,63 @@ test('a failed Send returns focus to Send once the write ends', async () => {
     expect(send).toHaveFocus();
   });
   await heading(layer, 'Check your answers');
+});
+
+test('the rail’s entries cannot be activated while a Send writes', async () => {
+  const gate = Promise.withResolvers<Awaited<ReturnType<typeof answerDecisions>>>();
+  vi.mocked(answerDecisions).mockReturnValue(gate.promise);
+  const { layer } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  await toCheck(layer);
+  fireEvent.click(button(layer, 'Send 3 answers'));
+  await waitFor(() => {
+    expect(button(layer, 'Send 3 answers')).toBeDisabled();
+  });
+  const rail = within(layer).getByRole('navigation', { name: 'Decisions' });
+  for (const entry of within(rail).getAllByRole('button')) {
+    expect(entry).toBeDisabled();
+  }
+  gate.resolve({ results: [recorded('MMR-q1', 'confirmed')], wake: { state: 'sent' } });
+  await heading(layer, 'Answers sent');
+});
+
+test('Send activated twice before the write resolves writes once', async () => {
+  const gate = Promise.withResolvers<Awaited<ReturnType<typeof answerDecisions>>>();
+  vi.mocked(answerDecisions).mockReturnValue(gate.promise);
+  const { layer } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  await toCheck(layer);
+  const send = button(layer, 'Send 3 answers');
+  // Both activations land before React re-renders the button disabled.
+  act(() => {
+    send.click();
+    send.click();
+  });
+  gate.resolve({ results: [recorded('MMR-q1', 'confirmed')], wake: { state: 'sent' } });
+  await heading(layer, 'Answers sent');
+  expect(answerDecisions).toHaveBeenCalledTimes(1);
+});
+
+test('the set is fixed from the fresh read, not a stale cached one', async () => {
+  const qc = client();
+  qc.setQueryData(['nodes', 'delivery', 'MMR-d3'], page([decision(1)]), {
+    updatedAt: Date.now() - 24 * 60 * 60_000,
+  });
+  const { layer } = await openDelivery('/p/MMR/d3?mode=decisions', qc);
+  await heading(layer, 'Question 1?');
+  // The fresh read holds three decisions; the stale one held one.
+  await waitFor(() => {
+    expect(within(layer).getByText('1 of 3')).toBeInTheDocument();
+  });
+});
+
+test('a restored draft moves to the opened set, so pruning its old set keeps it', async () => {
+  writeDraft('MMR-q1', { answer: '', choice: 3, note: 'Moved', set: 'MMR-d9' });
+  const { layer } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  expect(
+    within(layer).getByRole('textbox', { name: 'Add a note for the agent (optional)' }),
+  ).toHaveValue('Moved');
+  pruneDrafts('MMR-d9', []);
+  expect(readDraft('MMR-q1')).toMatchObject({ note: 'Moved', set: 'MMR-d3' });
 });
