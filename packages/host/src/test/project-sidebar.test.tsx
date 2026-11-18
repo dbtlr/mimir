@@ -752,6 +752,27 @@ describe('top bar', () => {
   });
 });
 
+describe('top bar on a phone (MMR-715)', () => {
+  beforeEach(() => {
+    stubViewport('phone');
+  });
+
+  it('keeps the menu, Jump to, and Needs you, and folds the theme toggle into More', async () => {
+    vi.mocked(review).mockResolvedValue(engineReview({ queue: [{ id: 'MMR-52', kind: 'task' }] }));
+    await renderAt('/p/MMR/tasks');
+    await screen.findByRole('button', { name: 'Open project menu' });
+    const bar = topBar();
+    expect(within(bar).getByRole('button', { name: 'Jump to…' })).toBeInTheDocument();
+    await expect(within(bar).findByRole('button', { name: /need/i })).resolves.toBeInTheDocument();
+    expect(within(bar).queryByRole('button', { name: /theme/i })).toBeNull();
+
+    await userEvent.click(within(bar).getByRole('button', { name: 'More' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Switch to light theme' }));
+
+    expect(document.documentElement.dataset.theme).toBe('light');
+  });
+});
+
 describe('sidebar drawer on a phone', () => {
   beforeEach(() => {
     stubViewport('phone');

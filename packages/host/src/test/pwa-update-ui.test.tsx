@@ -1,10 +1,11 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { PwaRefreshAction } from '../components/pwa-refresh-action';
 import { PwaUpdateBanner } from '../components/pwa-update-banner';
 import { PwaUpdateProvider } from '../components/pwa-update-provider';
+import { TopBarMore } from '../components/top-bar-more';
 import { createPwaUpdateController } from '../lib/pwa-update';
 import type { PwaUpdateEffects } from '../lib/pwa-update';
 
@@ -111,5 +112,70 @@ describe('PWA update surfaces (MMR-369)', () => {
     await expect(
       screen.findByRole('button', { name: 'Update failed — retry' }),
     ).resolves.toBeEnabled();
+  });
+
+  it('names a ready update on the phone More menu and applies it from there (MMR-715)', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      addEventListener: vi.fn(),
+      matches: query === '(display-mode: standalone)',
+      media: query,
+      removeEventListener: vi.fn(),
+    }));
+    const { controller, effects } = fixture();
+    controller.workerWaiting();
+    renderUpdate(controller, <TopBarMore theme="dark" onToggleTheme={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'More, update ready' }));
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: 'Update ready — refresh console' }),
+    );
+
+    expect(effects.activateWaiting).toHaveBeenCalledOnce();
+  });
+
+  it('leaves the update item out of More outside the installed console', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      addEventListener: vi.fn(),
+      matches: false,
+      media: query,
+      removeEventListener: vi.fn(),
+    }));
+    const { controller } = fixture();
+    renderUpdate(controller, <TopBarMore theme="dark" onToggleTheme={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'More' }));
+
+    await expect(
+      screen.findByRole('menuitem', { name: 'Switch to light theme' }),
+    ).resolves.toBeVisible();
+    expect(screen.queryByRole('menuitem', { name: /refresh|update/i })).toBeNull();
+  });
+
+  it('keeps More open while a check runs, so its progress shows (MMR-715)', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      addEventListener: vi.fn(),
+      matches: query === '(display-mode: standalone)',
+      media: query,
+      removeEventListener: vi.fn(),
+    }));
+    const { controller, effects } = fixture();
+    const check = Promise.withResolvers<void>();
+    vi.mocked(effects.checkForUpdate).mockReturnValueOnce(check.promise);
+    renderUpdate(controller, <TopBarMore theme="dark" onToggleTheme={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'More' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Refresh console' }));
+
+    expect(effects.checkForUpdate).toHaveBeenCalledOnce();
+    expect(screen.getByRole('menu')).toBeVisible();
+    await expect(
+      screen.findByRole('menuitem', { name: 'Checking for updates' }),
+    ).resolves.toBeVisible();
+
+    await act(async () => {
+      check.resolve();
+    });
+
+    await expect(screen.findByRole('menuitem', { name: 'Refresh console' })).resolves.toBeVisible();
   });
 });

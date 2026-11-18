@@ -9,7 +9,7 @@ import { nitro } from 'nitro/vite';
 import { searchForWorkspaceRoot } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-import { WELL_900 } from './src/lib/theme-colors.ts';
+import { WELL_900, WELL_950 } from './src/lib/theme-colors.ts';
 
 /**
  * The PWA layer is app-shell only — precache the shell so the installed app
@@ -35,7 +35,7 @@ const pwaPlugins = VitePWA({
     ],
     name: 'Mimir',
     short_name: 'Mimir',
-    theme_color: WELL_900.dark,
+    theme_color: WELL_950.dark,
   },
   outDir: '.output/public',
   registerType: 'prompt',

@@ -16,6 +16,8 @@ import { IS_APPLE, useCommandHotkey } from '../lib/use-hotkey';
 import { lazySheet } from './lazy-sheet';
 import { useSeedCapture } from './seed-capture';
 import { StatusDot } from './status-dot';
+import { iconButtonClass } from './ui/icon-button';
+import { SearchIcon } from './ui/icons';
 
 const AuthoringSheet = lazySheet(async () => (await import('./authoring-sheet')).AuthoringSheet);
 
@@ -79,9 +81,12 @@ export function JumpPalette() {
         aria-haspopup="dialog"
         ref={triggerRef}
         onClick={openPalette}
-        className="flex h-9 min-w-9 items-center justify-center gap-2 rounded text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent md:h-8 md:justify-start md:border md:border-line md:bg-well-850 md:px-2.5 md:text-meta"
+        className={cn(
+          iconButtonClass,
+          'md:h-8 md:w-auto md:justify-start md:gap-2 md:border md:border-line md:bg-well-850 md:px-2.5 md:text-meta md:hover:bg-well-850',
+        )}
       >
-        <span aria-hidden>⌕</span>
+        <SearchIcon className="md:size-3.5 md:[stroke-width:2.25]" />
         <span className="hidden md:inline">Jump to…</span>
         <kbd className="hidden font-mono text-micro text-ink-faint md:inline">
           {IS_APPLE ? '⌘K' : 'Ctrl K'}
@@ -280,9 +285,7 @@ function PaletteBody({
   return (
     <>
       <div className="flex items-center gap-2.5 border-b border-line px-4 py-3">
-        <span aria-hidden className="text-ink-faint">
-          ⌕
-        </span>
+        <SearchIcon className="size-4 text-ink-faint [stroke-width:2] md:size-4" />
         <input
           role="combobox"
           aria-label="Jump to a record or action"

@@ -9,6 +9,8 @@ import { PHONE_TOUCH_TARGET } from '../lib/touch-target';
 import { MarkdownBody } from './markdown-body';
 import type { ClampMeasure } from './markdown-body';
 import { ActionButton } from './ui/action-button';
+import { iconButtonClass } from './ui/icon-button';
+import { CloseIcon } from './ui/icons';
 
 /** The subject's on-screen handle — the project key or the node id. */
 function subjectId(subject: DirectionTarget): string {
@@ -90,11 +92,8 @@ function DirectionDialog({
               {subjectId(subject)}
             </span>
             <span className="min-w-0 truncate text-tag text-ink-dim">{title}</span>
-            <Dialog.Close
-              aria-label="Close"
-              className="ml-auto rounded px-2 py-1 text-ink-faint transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
-            >
-              ✕
+            <Dialog.Close aria-label="Close" className={cn(iconButtonClass, '-mr-2 ml-auto')}>
+              <CloseIcon />
             </Dialog.Close>
           </header>
 

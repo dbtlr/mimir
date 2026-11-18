@@ -13,14 +13,18 @@ import { useRowFocusHandoff } from '../lib/use-row-focus-handoff';
 import { deliveryRoute, nodeRoute } from '../router';
 import { NeedsYouGroups, PROJECT_LINK } from './decision-groups';
 import { actionButtonVariants } from './ui/action-button';
+import { iconButtonClass } from './ui/icon-button';
+import { CloseIcon } from './ui/icons';
 import { PopoverContent, PopoverRoot, PopoverTrigger } from './ui/popover';
 import { Sheet, SheetClose, SheetContent } from './ui/sheet';
 
 /** Tailwind's `md`: from here the alert opens a popover, below it a bottom sheet. */
 const DESKTOP = '(min-width: 768px)';
 
+// On a phone the pill sits among 44px icon buttons, so it takes their scale:
+// 34px tall with a 14px count (MMR-715).
 const PILL =
-  'inline-flex items-center gap-1.5 rounded-full whitespace-nowrap bg-attention/12 px-[11px] py-[5px] text-tag font-semibold text-attention-foreground inset-ring inset-ring-attention/24 transition-colors hover:bg-attention/16 focus-visible:outline-2 focus-visible:outline-accent';
+  'inline-flex items-center gap-1.5 rounded-full whitespace-nowrap bg-attention/12 px-[11px] py-[5px] text-tag font-semibold text-attention-foreground inset-ring inset-ring-attention/24 transition-colors hover:bg-attention/16 focus-visible:outline-2 focus-visible:outline-accent max-md:mx-1 max-md:h-[34px] max-md:gap-2 max-md:px-3 max-md:py-0 max-md:text-body';
 
 /** The id of the work node whose page is showing, or undefined on any other page. */
 function useCurrentNodeId(): string | undefined {
@@ -129,7 +133,7 @@ function NeedsYouPanel({
 function PillFace({ count, words }: { count: number; words: string }) {
   return (
     <>
-      <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-attention" />
+      <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-attention max-md:size-2" />
       {count}
       {/* A phone's top bar has room for the count alone; the label keeps the words. */}
       <span aria-hidden className="max-md:hidden">
@@ -212,11 +216,8 @@ export function AttentionAlert() {
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="bottom" aria-label="Needs you" aria-describedby={undefined}>
           {panel(
-            <SheetClose
-              aria-label="Close"
-              className="ml-auto flex size-9 items-center justify-center rounded text-ink-faint transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
-            >
-              ✕
+            <SheetClose aria-label="Close" className={cn(iconButtonClass, '-mr-2 ml-auto')}>
+              <CloseIcon />
             </SheetClose>,
           )}
         </SheetContent>

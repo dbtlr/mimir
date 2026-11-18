@@ -5,11 +5,12 @@ import { useAnswerDecisions } from '../../api/delivery-mutations';
 import type { Connectivity } from '../../lib/connectivity';
 import { readDraft, pruneDrafts, removeDraft, writeDraft } from '../../lib/decision-drafts';
 import { OfflineBanner } from '../offline-banner';
+import { iconButtonClass } from '../ui/icon-button';
+import { CloseIcon } from '../ui/icons';
 import { CheckStep } from './check-step';
 import type { StepTarget } from './copy';
 import { DoneScreen } from './done-screen';
 import type { SendResult } from './done-screen';
-import { CloseGlyph } from './icons';
 import {
   answerFor,
   initialSelection,
@@ -308,9 +309,9 @@ export function DecisionsWalkthrough({
             <Dialog.Close
               aria-label="Close the walkthrough"
               disabled={writing}
-              className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-ink-dim hover:bg-line/50 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40 md:size-9"
+              className={iconButtonClass}
             >
-              <CloseGlyph />
+              <CloseIcon />
             </Dialog.Close>
             <Dialog.Title className="flex min-w-0 flex-1 items-baseline gap-2.5 text-[15.5px] font-bold text-ink-bright">
               {heading}

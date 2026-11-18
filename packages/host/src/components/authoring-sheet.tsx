@@ -20,6 +20,7 @@ import { projectKeyOf } from '../lib/project-key';
 import { nodeLink } from '../lib/record-url';
 import { StatusDot } from './status-dot';
 import { ActionButton } from './ui/action-button';
+import { CloseIcon } from './ui/icons';
 import { SegmentedControl } from './ui/segmented-control';
 import { Sheet, SheetContent, SheetTitle } from './ui/sheet';
 
@@ -701,7 +702,7 @@ function AuthoringSheetBody({
                           onClick={() => setDeps((cur) => cur.filter((x) => x.id !== d.id))}
                           className="-my-2.5 flex min-h-11 min-w-11 items-center justify-center rounded-full text-ink-faint transition-colors hover:text-ink-bright sm:my-0 sm:min-h-0 sm:min-w-0 sm:px-1"
                         >
-                          ✕
+                          <CloseIcon className="size-3 [stroke-width:2.5] md:size-3" />
                         </button>
                       </span>
                     ))}
@@ -838,7 +839,7 @@ function AuthoringSheetBody({
                         onClick={() => setTagsText(tags.filter((x) => x !== t).join(', '))}
                         className="-my-2.5 flex min-h-11 min-w-11 items-center justify-center rounded-full text-ink-faint transition-colors hover:text-ink-bright sm:my-0 sm:min-h-0 sm:min-w-0 sm:px-1"
                       >
-                        ✕
+                        <CloseIcon className="size-3 [stroke-width:2.5] md:size-3" />
                       </button>
                     </span>
                   ))}

@@ -4,6 +4,7 @@ import type { ReactNode, Ref } from 'react';
 
 import { cn } from '../lib/cn';
 import type { artifactLink, nodeLink, seedLink } from '../lib/record-url';
+import { CloseIcon, SearchIcon } from './ui/icons';
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/menu';
 
 /**
@@ -56,9 +57,7 @@ export function BrowserSearch({
 }) {
   return (
     <label className="flex min-w-0 flex-[1_1_260px] items-center gap-2 rounded-[9px] border border-line-bright bg-well-950 px-2.5 py-1.5 transition-colors focus-within:border-accent">
-      <span aria-hidden className="text-ink-faint">
-        ⌕
-      </span>
+      <SearchIcon className="size-4 text-ink-faint [stroke-width:2] md:size-4" />
       <input
         type="search"
         value={value}
@@ -102,7 +101,7 @@ export function FilterChip({
 
 /**
  * A filter the URL carries but no chip offers (a deep-linked status, a date
- * window): shown in the accent wash with ✕, and clicking removes it.
+ * window): shown in the accent wash with a close mark, and clicking removes it.
  */
 export function RemovableChip({
   label,
@@ -122,7 +121,7 @@ export function RemovableChip({
       className={cn(CHIP, CHIP_ON, 'hover:bg-accent/15')}
     >
       <span className="max-w-40 truncate">{label}</span>
-      <span aria-hidden>✕</span>
+      <CloseIcon className="size-3 [stroke-width:2.5] md:size-3" />
     </button>
   );
 }
