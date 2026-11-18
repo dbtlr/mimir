@@ -3,8 +3,8 @@ import type { Engine, EngineDecision } from '@mimir/contract';
 import { isEngineRefusal } from '../api/errors';
 import { parseAnswerDecisions } from './decision-answers';
 import type { DecisionAnswer, DecisionAnswerResult, DecisionAnswers } from './decision-answers';
+import { logEvent } from './log-event';
 import type { T3AnswersWake } from './t3';
-import { logEvent } from './t3-http';
 import type { T3WakeState } from './t3-states';
 import { sinceBefore } from './t3-wake';
 

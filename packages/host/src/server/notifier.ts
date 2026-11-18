@@ -120,11 +120,22 @@ export function createNotifier<Handle>(options: NotifierOptions<Handle>): Notifi
    * One check's work. It commits (replaces the remembered set, retires the
    * mutations) and emits only when its read and its events both succeeded and
    * `live` still holds: the host is open and the check is within its limit.
+   * The limit is also judged against the monotonic clock at each decision, so
+   * an overdue result fails the check even when its limit timer has not run.
    */
   async function attempt(live: () => boolean): Promise<void> {
     const startedAt = monotonicNow();
+    const stillLive = (): boolean => {
+      if (!live()) {
+        return false;
+      }
+      if (monotonicNow() - startedAt >= READ_LIMIT_MS) {
+        throw new Error('the check outran its read limit');
+      }
+      return true;
+    };
     const review = await reads.review({ asOf: new Date(wallNow()), timeZone: 'UTC' });
-    if (!live()) {
+    if (!stillLive()) {
       return;
     }
     const causes = causesNow();
@@ -137,7 +148,7 @@ export function createNotifier<Handle>(options: NotifierOptions<Handle>): Notifi
       entries.length > 0 && !withheld
         ? await buildEvents(entries, review, reads.deliveryTitle)
         : [];
-    if (!live()) {
+    if (!stillLive()) {
       return;
     }
     remembered = new Set(review.queue.map(entryKey));

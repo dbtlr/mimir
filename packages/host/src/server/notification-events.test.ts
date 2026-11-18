@@ -55,6 +55,7 @@ describe('event building', () => {
       throw new Error('gone');
     });
     expect(event?.title).toBe('Decision on MMR-d3');
+    expect(event?.target).toBe('/p/MMR/d3?mode=decisions');
   });
 
   test('decisions with no delivery are one event per project, named by its key', async () => {

@@ -127,6 +127,10 @@ function rig(initial: FixtureMember[] | Error = [], extraChannels: NotificationC
     setTitleRead: (read: (id: string) => Promise<string>) => {
       titleRead = read;
     },
+    /** Move the monotonic clock without firing any timer, as a stalled event loop does. */
+    stall: (ms: number) => {
+      time += ms;
+    },
     state,
     /** Step the wall clock alone; the monotonic clock does not move. */
     stepWall: (ms: number) => {
@@ -598,6 +602,74 @@ describe('the limit on reads', () => {
     await flush();
     expect(r.lines()).toHaveLength(1);
     expect(r.timers).toEqual([]);
+  });
+
+  test('a review read that settles past 30 seconds before its timer runs is a fault and commits nothing', async () => {
+    const r = rig([]);
+    await r.notifier.boot();
+    const held = r.holdNextRead();
+    r.write('other');
+    await r.advance(WINDOW_QUIET_MS);
+    r.set([task1]);
+    r.stall(30_000);
+    held.release();
+    await flush();
+    expect(r.events).toEqual([]);
+    expect(r.lines()).toEqual([{ event: 'needs_you_check_fault' }]);
+    // Nothing was remembered or retired: the next check still reports the entry.
+    await r.advance(30_000);
+    r.write('operator');
+    await r.advance(WINDOW_QUIET_MS);
+    expect(r.events.map((event) => event.ids)).toEqual([['MMR-1']]);
+  });
+
+  test('a title read that settles past 30 seconds before its timer runs is a fault and commits nothing', async () => {
+    const r = rig([]);
+    await r.notifier.boot();
+    const slow = Promise.withResolvers<string>();
+    r.setTitleRead(() => slow.promise);
+    r.set([decision('MMR-q1', 'MMR-d3')]);
+    r.write('other');
+    await r.advance(WINDOW_QUIET_MS);
+    r.stall(30_000);
+    slow.resolve('Late title');
+    await flush();
+    expect(r.events).toEqual([]);
+    expect(r.lines()).toEqual([{ event: 'needs_you_check_fault' }]);
+    r.setTitleRead(titleOf);
+    await r.advance(30_000);
+    r.write('other');
+    await r.advance(WINDOW_QUIET_MS);
+    expect(r.events.map((event) => event.title)).toEqual(['Decision on Title of MMR-d3']);
+  });
+
+  test('a read that settles at 29,999 ms still succeeds', async () => {
+    const r = rig([]);
+    await r.notifier.boot();
+    const held = r.holdNextRead();
+    r.write('other');
+    await r.advance(WINDOW_QUIET_MS);
+    r.set([task1]);
+    r.stall(30_000 - 1);
+    held.release();
+    await flush();
+    expect(r.lines().map((line) => line.event)).toEqual(['needs_you_event']);
+    expect(r.events.map((event) => event.ids)).toEqual([['MMR-1']]);
+  });
+
+  test('a boot read that settles past 30 seconds before its timer runs is a fault and remembers nothing', async () => {
+    const r = rig([task1]);
+    const held = r.holdNextRead();
+    const booting = r.notifier.boot();
+    r.stall(30_000);
+    held.release();
+    await booting;
+    expect(r.lines()).toEqual([{ event: 'needs_you_check_fault' }]);
+    // Nothing was remembered, so the next check only remembers and emits nothing.
+    r.write('other');
+    await r.advance(WINDOW_QUIET_MS);
+    expect(r.events).toEqual([]);
+    expect(r.lines()).toHaveLength(1);
   });
 
   test('a check that finishes in time leaves no limit timer armed', async () => {
