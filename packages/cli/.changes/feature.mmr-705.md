@@ -1,0 +1,2 @@
+- Show an option's detail under its text in the console decisions walkthrough: dim, line breaks kept, clamped to two lines (three at `md` and up) until the option is selected. Tapping anywhere on the option's row, its detail included, selects it. The radio's name stays the option's text, and `aria-describedby` carries the detail.
+- Fix the walkthrough's radio name for a flagged option, which ran the option's text into its flag; it now reads after a comma, as in "Remove, Agent recommends".
