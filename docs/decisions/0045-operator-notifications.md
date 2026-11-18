@@ -34,8 +34,8 @@ It remembers the last set of identities it read. A **check** reads the set
 again and compares:
 
 - An identity in the new set and not in the remembered set is an **entry**.
-- An identity that left the set and is in it again at a later check is an
-  entry again.
+- An identity that was absent at one check and is present at a later one is
+  an entry again.
 - An identity that stays in the set is never an entry, whatever changed on the
   record. A task that needs answers and is then blocked on the operator keeps
   its identity, so it is not an entry.
@@ -64,7 +64,9 @@ called; then that it **succeeded** or **failed**. A query tells the notifier
 nothing. The Engine contract's `kind` field says which methods are mutations.
 
 A mutation that fails is forgotten at once. A mutation that succeeds is a
-**signal**.
+**signal**. A cause (below) is only an actor, so the notifier keeps, for each
+actor, the number of mutations in flight and the instant of the latest
+success. Its memory does not grow with the number of writes.
 
 ### A signal opens a window, and a window ends in one check
 
@@ -91,12 +93,14 @@ and retires nothing, so its causes carry to the next check, which the next
 window brings.
 
 **Boot.** The notifier reads the set once before the host serves any request,
-remembers it, and emits nothing. A failure of that read is logged and never
-refuses startup. A notifier with no remembered set treats its next successful
+remembers it, and emits nothing. A failure of that read is logged as
+`needs_you_check_fault` and never refuses startup. A notifier with no remembered set treats its next successful
 read as the first and emits nothing for it.
 
 **Close.** Closing the host cancels an open window and a waiting check. The
-result of a running check is discarded and logs nothing.
+result of a running check is discarded and logs nothing. Close does not wait
+for a delivery in flight. After close the notifier ignores everything a view
+tells it.
 
 The remembered set, the marks, and the window live in memory only. Every
 member enters the set through a write, and none enters because time passed,
@@ -105,8 +109,9 @@ so the notifier has no timer besides the window.
 ### An event reaches a recipient unless they caused it
 
 An **actor** is who made a write. A **recipient** is who receives events. The
-events of a check reach a recipient unless every cause of that check is that
-recipient.
+events of a check reach a recipient unless the check has at least one cause
+and every cause is that recipient. A check with no causes reports its
+entries.
 
 There are two actors today:
 
@@ -115,9 +120,9 @@ There are two actors today:
 | `operator` | The console's server functions, and the T3 adapter's writes for a console action           |
 | `other`    | The `/trpc` handler (a paired CLI or MCP server), and an agent run's grant ([ADR 0041](0041-agent-runtime-on-the-host.md)) |
 
-There is one recipient today, the operator. So a check whose causes are all
-`operator` emits no event, and any other check emits an event for each entry
-it found. The remembered set is replaced either way, so an entry the operator
+There is one recipient today, the operator. So a check that has causes, all
+of them `operator`, emits no event, and any other check emits an event for
+each entry it found. The remembered set is replaced either way, so an entry the operator
 caused is never reported later. A check that withholds its entries logs
 `needs_you_withheld` with their ids.
 
@@ -149,7 +154,9 @@ form one event per project. A check emits its events in `queue` order, and a
 `decisions` event takes the place of its first member.
 
 `kind` and `target` together identify what an event is about. A channel can use
-them to replace an earlier notification about the same record.
+them to replace an earlier notification about the same record, where its
+platform supports that. A `decisions` event counts the entries of its own
+check, not every provisional decision of the delivery or project.
 
 `needs_you` is for a channel that shows a count. It is the size at the check
 that emitted the event. No event is emitted when a member leaves the set, so
@@ -166,9 +173,11 @@ the count a channel last showed can be too high.
   to the implementation and can change without a new decision.
 - A `decisions` title names its delivery by title. The decision row carries
   only the delivery's id, so the notifier reads the delivery; when that read
-  fails, the title uses the id.
-- Text is plain. Runs of whitespace collapse to one space, a title is cut to
-  100 characters and a body to 240, and a cut ends in an ellipsis.
+  fails, the title uses the id. With no delivery, the title names the project
+  by its key.
+- Text is plain. Runs of whitespace collapse to one space. A title is at most
+  100 characters and a body at most 240; a longer text is cut so that it ends
+  in an ellipsis inside that limit.
 - `?mode=decisions` is reserved for the decisions walkthrough (MMR-703), a
   console page that walks the provisional decisions of one delivery, or of one
   project when they name no delivery. Until that page exists the console
@@ -198,8 +207,10 @@ notifier.
 - A command the operator types into a paired CLI is an `other` write, because
   the host cannot tell it from an agent's. It notifies.
 - A check with one `other` cause reports every entry it found, the operator's
-  own included. That happens when console writes and other writes share a
-  window, and when a write lands while a check is reading.
+  own included. That happens, for example, when console writes and other
+  writes share a window, when a write lands or is still in flight while a
+  check is reading, when two windows share one waiting check, and when an
+  earlier check failed and left its causes for this one.
 - An event follows its write by up to 10 seconds plus the check, and by longer
   when a check is already running.
 - Only decisions group. A write that puts several deliveries or tasks into the
@@ -207,7 +218,10 @@ notifier.
 - An entry is lost when the host stops before its check runs, when its check
   fails and no later write follows, and when it enters before the first
   successful read of a host whose boot read failed.
-- A member that enters and leaves before its check is never reported.
+- A member that enters and leaves before its check is never reported. A member
+  that leaves and returns between two checks is not an entry: a task whose
+  question is answered and asked again inside one window is not reported
+  again.
 - The notifier sees only the writes made through its own host process:
   - `mimir-host store import --apply` writes the store with no Engine call.
     Imported members are found by the next check, and reported or withheld by
