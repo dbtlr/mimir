@@ -1,6 +1,7 @@
 import type { GlobalConfig } from './config';
 import { createSqlDoctorBackend } from './doctor/sql/backend';
 import { createHostSecretStore } from './host-secrets';
+import { createPushSubscriptionStore } from './push-subscriptions';
 import { createRunStore } from './runs';
 import type { BuiltStore, StoreOverride } from './store-backend';
 /**
@@ -64,6 +65,7 @@ export async function buildPostgresStore(
   return {
     close: () => handle.close(),
     doctor: createSqlDoctorBackend(handle.db, postgresDialect),
+    pushSubscriptions: createPushSubscriptionStore({ db: handle.db, dialect: postgresDialect }),
     runs: createRunStore({ db: handle.db, dialect: postgresDialect }),
     secrets: createHostSecretStore({ db: handle.db, dialect: postgresDialect }),
     store: createPostgresStore(handle.db),

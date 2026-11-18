@@ -570,6 +570,14 @@ export function stubT3(options: StubOptions) {
 export function memorySecrets(): HostSecretStore & { rows: Map<string, string>; writes: number } {
   const rows = new Map<string, string>();
   const store = {
+    insertIfAbsent: async (name: string, sealed: string) => {
+      if (rows.has(name)) {
+        return false;
+      }
+      store.writes += 1;
+      rows.set(name, sealed);
+      return true;
+    },
     read: async (name: string) => rows.get(name),
     rows,
     write: async (name: string, sealed: string) => {

@@ -11,6 +11,7 @@ import { dirname } from 'node:path';
 import { createSqlDoctorBackend } from './doctor/sql/backend';
 import { sqliteStorePath } from './env';
 import { createHostSecretStore } from './host-secrets';
+import { createPushSubscriptionStore } from './push-subscriptions';
 import { createRunStore } from './runs';
 import type { BuiltStore, StoreOverride } from './store-backend';
 import type { SqliteHandle } from './store-sqlite/index';
@@ -38,6 +39,7 @@ function builtOver(handle: SqliteHandle): BuiltStore {
   return {
     close: () => handle.close(),
     doctor: createSqlDoctorBackend(handle.db, sqliteDialect),
+    pushSubscriptions: createPushSubscriptionStore({ db: handle.db, dialect: sqliteDialect }),
     runs: createRunStore({ db: handle.db, dialect: sqliteDialect }),
     secrets: createHostSecretStore({ db: handle.db, dialect: sqliteDialect }),
     store: createSqliteStore(handle.db),

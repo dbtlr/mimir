@@ -16,6 +16,9 @@ import { createEngineViews } from './engine-view';
 import { gitCredentialsWarnings } from './git-credentials';
 import { createNotifier } from './notifier';
 import { createPairingHandlers } from './pairing';
+import { createPushChannel } from './push-channel';
+import type { PushFetch } from './push-send';
+import { isPushReady, pushStartupWarnings } from './push-settings';
 import { createT3Adapter } from './t3';
 import { t3StartupWarnings } from './t3-settings';
 
@@ -37,15 +40,18 @@ const REAL_NOTIFIER_TIMING: NotifierTiming = {
   wallNow: Date.now,
 };
 
-/** What a caller may replace in `openHost`; a test drives the notifier's time through it. */
-export type HostDependencies = { notifierTiming?: NotifierTiming };
+/**
+ * What a caller may replace in `openHost`: a test drives the notifier's time
+ * through it, and stands in for the push services.
+ */
+export type HostDependencies = { notifierTiming?: NotifierTiming; pushFetch?: PushFetch };
 
 /** Open the host-owned store and finish migrations before exposing handlers. */
 export async function openHost(
   config: HostConfig,
   version: string,
   log: (line: string) => void = (line) => console.error(line),
-  { notifierTiming = REAL_NOTIFIER_TIMING }: HostDependencies = {},
+  { notifierTiming = REAL_NOTIFIER_TIMING, pushFetch }: HostDependencies = {},
 ) {
   assertHostVersion(version);
   if (config.store.backend === 'sqlite') {
@@ -77,10 +83,20 @@ export async function openHost(
     const store = new LocalEngine(built.store, {
       findings: findingsProviderOf(built.doctor.facet),
     });
+    // The Web Push channel (ADR 0045, MMR-709): its server functions answer
+    // whatever its settings allow, but the notifier sends through it only when
+    // it is set up with no problem.
+    const push = createPushChannel({
+      ...(pushFetch === undefined ? {} : { fetch: pushFetch }),
+      log,
+      secrets: built.secrets,
+      settings: config.push,
+      subscriptions: built.pushSubscriptions,
+    });
     // Operator notifications (ADR 0045): one Engine, and `createEngineViews`
     // names the view each consumer gets.
     const notifier = createNotifier<NotifierTimer>({
-      channels: [], // No channel is registered yet; the log lines are the only output.
+      channels: isPushReady(config.push) ? [push] : [],
       clearTimer: (timer) => notifierTiming.clearTimeout(timer),
       log,
       monotonicNow: notifierTiming.monotonicNow,
@@ -100,6 +116,7 @@ export async function openHost(
     // An optional integration's bad setting warns and degrades; it never refuses startup.
     for (const warning of [
       ...t3StartupWarnings(config.t3),
+      ...pushStartupWarnings(config.push),
       ...gitCredentialsWarnings(config.gitCredentials),
       ...agentStartupWarnings(config.agent),
     ]) {
@@ -153,6 +170,8 @@ export async function openHost(
       handleTrpc: createEngineHandler(views.trpc, { verifyToken: built.tokens.verify, version }),
       // The host's log line sink, for console functions that log beside the adapters.
       log,
+      // The Web Push channel's console operations (ADR 0045, MMR-709): a host concern beside the Engine.
+      push,
       // Host-only run records (ADR 0041); never reached through the Engine or the wire.
       runs: built.runs,
       // The T3 adapter: a host concern beside the Engine (ADR 0040).

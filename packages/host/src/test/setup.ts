@@ -61,7 +61,9 @@ vi.mock('../api/fns/engine', () => ({
   agentConsole: vi.fn(),
   deviceTokens: vi.fn(),
   engine: vi.fn(),
+  pushNotifications: vi.fn(),
   requestOrigin: vi.fn(),
+  requestOriginHeader: vi.fn(),
   t3Integration: vi.fn(),
 }));
 // The Open in T3 origin is read wherever a task's agent context shows, so every

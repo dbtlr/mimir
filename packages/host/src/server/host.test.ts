@@ -13,6 +13,8 @@ import { readHostConfig } from './config';
 import { guardEveryRoute, hostGuard } from './guard';
 import { openHost } from './host';
 import type { NotifierTimer } from './host';
+import { decryptPushBody, makeBrowserKeys } from './push-fixtures';
+import { stubPushService } from './push-stub';
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -652,6 +654,124 @@ test('every timer the notifier arms is unref, so an open window never holds the 
     await host.engine.block({ id: 'NTF-3', on: 'you', reason: 'Console help' });
     expect(rig.timers.length).toBeGreaterThan(1);
     expect(rig.timers.every((timer) => timer.unrefd)).toBe(true);
+  } finally {
+    await host.close();
+  }
+});
+
+async function untilWithin(ms: number, done: () => boolean) {
+  const deadline = Date.now() + ms;
+  while (!done() && Date.now() < deadline) {
+    await Bun.sleep(5);
+  }
+  expect(done()).toBe(true);
+}
+
+const PUSH_ENV = {
+  MIMIR_HOSTS: 'mimir.example',
+  MIMIR_PUSH_CONTACT: 'mailto:operator@example.net',
+  MIMIR_SECRET_KEY: Buffer.alloc(32, 7).toString('base64'),
+  MIMIR_URL: 'https://mimir.example',
+};
+
+test('a host with Web Push set up sends a block by another actor to a subscribed device', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mimir-host-push-'));
+  roots.push(root);
+  const rig = timedHost();
+  const service = stubPushService();
+  const host = await openHost(
+    await readHostConfig({ ...PUSH_ENV, MIMIR_DATA_DIR: root }),
+    WINDOW_VERSION,
+    rig.log,
+    { notifierTiming: rig.timing, pushFetch: service.fetch },
+  );
+  const { remote, server } = await pairedRemote(host);
+  try {
+    await host.engine.create({ key: 'NTF', name: 'Notifier', type: 'project' });
+    await host.engine.create({ parent: 'NTF', title: 'Plan', type: 'initiative' });
+    await host.engine.create({ parent: 'NTF-1', title: 'First', type: 'task' });
+    await rig.closeWindow();
+    await until(() => rig.armed().length === 0);
+    const status = await host.push.status();
+    if (status.state !== 'ready') {
+      throw new Error(status.state);
+    }
+    const browser = await makeBrowserKeys();
+    const endpoint = 'https://web.push.apple.com/host-device';
+    expect(
+      await host.push.subscribe(
+        { ...browser, endpoint, label: 'Phone', serverKey: status.publicKey },
+        'https://mimir.example',
+      ),
+    ).toEqual({ state: 'subscribed' });
+    await remote.block({ id: 'NTF-2', on: 'you', reason: 'Agent needs a key' });
+    await rig.closeWindow();
+    // Encryption and signing run on WebCrypto's threads, so wait by time, not by turns.
+    await untilWithin(5_000, () => service.requests.length > 0);
+    const [request] = service.requests;
+    expect(request?.endpoint).toBe(endpoint);
+    expect(JSON.parse(await decryptPushBody(request!.body, browser))).toMatchObject({
+      app_badge: 1,
+      notification: {
+        navigate: 'https://mimir.example/p/NTF/2',
+        tag: 'task_blocked:/p/NTF/2',
+        title: 'First',
+      },
+      web_push: 8030,
+    });
+  } finally {
+    await server.stop(true);
+    await host.close();
+  }
+});
+
+test('a host with Web Push misconfigured boots, warns by setting name, and writes nothing', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mimir-host-push-'));
+  roots.push(root);
+  const lines: string[] = [];
+  const host = await openHost(
+    await readHostConfig({
+      MIMIR_DATA_DIR: root,
+      MIMIR_PUSH_CONTACT: 'mailto:operator@example.net',
+      MIMIR_URL: 'https://mimir.example',
+    }),
+    WINDOW_VERSION,
+    (line) => lines.push(line),
+  );
+  try {
+    expect(lines.filter((line) => line.includes('Web Push'))).toEqual([
+      expect.stringContaining('MIMIR_HOSTS is unset'),
+      expect.stringContaining('MIMIR_SECRET_KEY is missing'),
+    ]);
+    expect(await host.push.status()).toEqual({
+      problem: 'unset',
+      setting: 'MIMIR_HOSTS',
+      state: 'misconfigured',
+    });
+    const database = new Database(join(root, SQLITE_FILE), { readonly: true });
+    try {
+      expect(database.query('select name from host_secrets').all()).toEqual([]);
+      expect(database.query('select endpoint from push_subscriptions').all()).toEqual([]);
+    } finally {
+      database.close();
+    }
+  } finally {
+    await host.close();
+  }
+});
+
+test('a host without MIMIR_PUSH_CONTACT logs nothing about Web Push and answers unconfigured', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mimir-host-no-push-'));
+  roots.push(root);
+  const lines: string[] = [];
+  const host = await openHost(
+    await readHostConfig({ MIMIR_DATA_DIR: root }),
+    WINDOW_VERSION,
+    (line) => lines.push(line),
+  );
+  try {
+    expect(lines.filter((line) => line.includes('Web Push'))).toEqual([]);
+    expect(await host.push.status()).toEqual({ state: 'unconfigured' });
   } finally {
     await host.close();
   }

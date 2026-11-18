@@ -275,6 +275,18 @@ export type HostSecretTable = {
   updated_at: string;
 };
 
+export type PushSubscriptionTable = {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  server_key: string;
+  label: string;
+  created_at: string;
+  last_success_at: string | null;
+  last_failure_at: string | null;
+  last_failure: string | null;
+};
+
 export type RunTable = {
   id: string;
   project: string;
@@ -369,6 +381,7 @@ export type DB = {
   pairing_requests: PairingRequestTable;
   device_tokens: DeviceTokenTable;
   host_secrets: HostSecretTable;
+  push_subscriptions: PushSubscriptionTable;
   annotation: AnnotationTable;
   artifact: ArtifactTable;
   artifact_link: ArtifactLinkTable;

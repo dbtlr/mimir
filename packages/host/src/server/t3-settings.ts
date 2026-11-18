@@ -1,8 +1,7 @@
-import { readFile } from 'node:fs/promises';
-
-import { normalizeServeUrl, parseSecretKey } from '@mimir/core';
+import { normalizeServeUrl } from '@mimir/core';
 import type { SecretKey, ServeConfig } from '@mimir/core';
 
+import { readSecretKey, refuseBothSecretKeySettings } from './secret-key-settings';
 import type { T3Misconfiguration } from './t3-states';
 
 /**
@@ -32,38 +31,13 @@ export function isLoopbackHostname(hostname: string): boolean {
   return LOOPBACK_HOSTS.has(hostname.toLowerCase());
 }
 
-/** An origin T3 accepts as a redirect or the console accepts as T3's: HTTPS, or HTTP on loopback. */
-function isSecureOrigin(origin: string): boolean {
+/**
+ * An origin T3 accepts as a redirect, the console accepts as T3's, or an
+ * integration accepts as `MIMIR_URL`: HTTPS, or HTTP on loopback.
+ */
+export function isSecureOrigin(origin: string): boolean {
   const url = new URL(origin);
   return url.protocol === 'https:' || isLoopbackHostname(url.hostname);
-}
-
-/**
- * Read the secret key from `MIMIR_SECRET_KEY` or `MIMIR_SECRET_KEY_FILE`; the
- * caller has already refused both. An unreadable file is an unusable key.
- */
-async function readSecretKey(
-  env: NodeJS.ProcessEnv,
-): Promise<{ key: SecretKey } | { problem: T3Misconfiguration }> {
-  if (env.MIMIR_SECRET_KEY_FILE !== undefined) {
-    let text: string;
-    try {
-      text = await readFile(env.MIMIR_SECRET_KEY_FILE, 'utf8');
-    } catch {
-      return { problem: { problem: 'unreadable', setting: 'MIMIR_SECRET_KEY_FILE' } };
-    }
-    const key = parseSecretKey(text);
-    return key === undefined
-      ? { problem: { problem: 'malformed', setting: 'MIMIR_SECRET_KEY_FILE' } }
-      : { key };
-  }
-  if (env.MIMIR_SECRET_KEY === undefined) {
-    return { problem: { problem: 'missing', setting: 'MIMIR_SECRET_KEY' } };
-  }
-  const key = parseSecretKey(env.MIMIR_SECRET_KEY);
-  return key === undefined
-    ? { problem: { problem: 'malformed', setting: 'MIMIR_SECRET_KEY' } }
-    : { key };
 }
 
 /**
@@ -76,9 +50,7 @@ export async function readT3Settings(
   env: NodeJS.ProcessEnv,
   serve: ServeConfig,
 ): Promise<T3Settings> {
-  if (env.MIMIR_SECRET_KEY !== undefined && env.MIMIR_SECRET_KEY_FILE !== undefined) {
-    throw new Error('MIMIR_SECRET_KEY and MIMIR_SECRET_KEY_FILE cannot both be set');
-  }
+  refuseBothSecretKeySettings(env);
   if (env.MIMIR_T3_URL === undefined) {
     return { enabled: false };
   }

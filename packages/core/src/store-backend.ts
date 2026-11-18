@@ -3,6 +3,7 @@ import { configPath, DEFAULT_STORE_BACKEND, hostOrigin, readRuntimeConfig } from
 import type { DoctorBackend } from './doctor/contract';
 import { invariant } from './errors';
 import type { HostSecretStore } from './host-secrets';
+import type { PushSubscriptionStore } from './push-subscriptions';
 import type { RunStore } from './runs';
 /**
  * Composition root for the work-state store (ADR 0030, ADR 0032). The backend
@@ -30,6 +31,8 @@ export type BuiltStore = {
   doctor: DoctorBackend;
   /** Sealed host secrets (ADR 0040), outside work state and board transfers. */
   secrets: HostSecretStore;
+  /** Web Push subscriptions (ADR 0045 MMR-709 refinement), outside work state and board transfers. */
+  pushSubscriptions: PushSubscriptionStore;
   /** Host-owned agent-run records (ADR 0041), outside work state and board transfers. */
   runs: RunStore;
   /** Host transport credentials, outside work state and board transfers. */
