@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { once } from 'node:events';
 
-import type { Engine } from '@mimir/contract';
 import { openSecret, parseSecretKey, sealSecret } from '@mimir/core';
 import type { SecretKey } from '@mimir/core';
 
@@ -105,7 +104,7 @@ function world(change: Partial<StubOptions> = {}): StubOptions {
 const remotes: Record<string, string | null> = { BRF: null, MMR: 'github.com/dbtlr/mimir' };
 const engine = {
   getNode: async ({ id }: { id: string }) => ({ id, remote: remotes[id] ?? null }),
-} as unknown as Pick<Engine, 'getNode' | 'getDelivery' | 'getDecision' | 'queue'>;
+} as unknown as T3AdapterOptions['engine'];
 
 /** An adapter over a stub T3, with its logs, secrets, requests, and a movable clock. */
 function harness(

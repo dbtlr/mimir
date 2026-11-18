@@ -1,9 +1,15 @@
-import type { Engine } from '@mimir/contract';
+import type { Engine, EngineDecision } from '@mimir/contract';
 import { isDeliveryMember, openSecret, sealSecret, tryNormalizeRemote } from '@mimir/core';
 import type { HostSecretStore, SecretKey } from '@mimir/core';
 import { z } from 'zod';
 
 import { isEngineRefusal } from '../api/errors';
+import type {
+  AnswerDecisionsInput,
+  DecisionAnswerResult,
+  DecisionAnswers,
+} from './decision-answers';
+import { parseAnswerDecisions } from './decision-answers';
 import { logEvent, openMcpSession, T3RequestError } from './t3-http';
 import type { McpSession, T3Fetch, T3Http } from './t3-http';
 import type { T3LaunchRequest } from './t3-input';
@@ -66,7 +72,10 @@ export type T3AdapterOptions = {
   settings: T3Settings;
   secrets: HostSecretStore;
   /** The Engine reads the catalog, launch, and wake use, and the queue write a launch ends with. */
-  engine: Pick<Engine, 'getNode' | 'getDelivery' | 'getDecision' | 'queue'>;
+  engine: Pick<
+    Engine,
+    'confirm' | 'getNode' | 'getDelivery' | 'getDecision' | 'overturn' | 'queue'
+  >;
   /** The host build, sent as the MCP client version. */
   version: string;
   fetch?: T3Fetch;
@@ -91,7 +100,11 @@ const environmentSchema = z.looseObject({
 
 const linksSchema = z.looseObject({
   links: z.array(
-    z.looseObject({ environmentId: z.string().min(1), label: z.string(), status: z.string() }),
+    z.looseObject({
+      environmentId: z.string().min(1),
+      label: z.string(),
+      status: z.string(),
+    }),
   ),
 });
 
@@ -175,6 +188,10 @@ function enabledProviders(capabilities: z.output<typeof capabilitiesSchema>): T3
     }));
 }
 
+/** Whether an Engine error is one an answer reports as `refused`: a refusal, not an invariant fault. */
+const isAnswerRefusal = (error: unknown): error is Error =>
+  isEngineRefusal(error) && error.code !== 'invariant';
+
 /** A disconnected or unreachable state for a T3 failure; anything else is a fault and rethrows. */
 function failureState(error: unknown): T3Unavailable {
   if (error instanceof T3RequestError) {
@@ -237,7 +254,9 @@ async function readSystem(
     const [projects, capabilities, envMode] = await Promise.all([
       matchingProjects(mcp, system.environmentId, remote),
       mcp
-        .call('orchestrator_capabilities', { environmentId: system.environmentId })
+        .call('orchestrator_capabilities', {
+          environmentId: system.environmentId,
+        })
         .then((reply) => parseReply(capabilitiesSchema, reply, 'orchestrator_capabilities')),
       defaultThreadEnvMode(),
     ]);
@@ -354,7 +373,10 @@ function launchArguments(input: T3LaunchRequest, title: string) {
     modelSelection: {
       instanceId: input.model.instanceId,
       model: input.model.model,
-      options: input.model.options.map((option) => ({ id: option.id, value: option.value })),
+      options: input.model.options.map((option) => ({
+        id: option.id,
+        value: option.value,
+      })),
     },
     projectId: input.projectId,
     runtimeMode: input.runtimeMode,
@@ -466,7 +488,11 @@ export function createT3Adapter(options: T3AdapterOptions) {
         ...(problem ?? { problem: 'malformed', setting: 'MIMIR_T3_URL' }),
       };
     }
-    return { consoleUrl: settings.consoleUrl, key: settings.key, t3: settings.url };
+    return {
+      consoleUrl: settings.consoleUrl,
+      key: settings.key,
+      t3: settings.url,
+    };
   };
 
   type Connection = { token: string; expiresAt: string };
@@ -799,7 +825,80 @@ export function createT3Adapter(options: T3AdapterOptions) {
     }
   };
 
+  /** Read, check membership, and write one answer; refusals and faults are outcomes. */
+  const answerOne = async (
+    answer: AnswerDecisionsInput['answers'][number],
+    delivery: string | null,
+  ): Promise<DecisionAnswerResult<EngineDecision>> => {
+    const { id } = answer;
+    try {
+      const decision = await engine.getDecision({ id });
+      if (decision.delivery !== delivery) {
+        return {
+          id,
+          outcome: 'refused',
+          reason: `${id} is not in this walkthrough`,
+        };
+      }
+      if (answer.verdict === 'confirm') {
+        const record = await engine.confirm({
+          id,
+          ...(answer.note === undefined ? {} : { note: answer.note }),
+        });
+        return { id, outcome: 'confirmed', record };
+      }
+      const record = await engine.overturn({
+        id,
+        ...(answer.note === undefined ? {} : { note: answer.note }),
+        ...(answer.option === undefined ? {} : { option: answer.option }),
+      });
+      return { id, outcome: 'overturned', record };
+    } catch (error) {
+      if (isAnswerRefusal(error)) {
+        return { id, outcome: 'refused', reason: error.message };
+      }
+      logEvent(http, 'decision_answer_fault', { decision: id });
+      return { id, outcome: 'failed' };
+    }
+  };
+
   return {
+    /**
+     * The decisions walkthrough's Send (ADR 0040, MMR-703): write each answer
+     * in order as its own Engine write, then wake the delivery's thread once
+     * when an overturn landed. `input` is the parsed form
+     * ({@link parseAnswerDecisions}); after it, nothing throws.
+     */
+    answerDecisions: async (
+      input: AnswerDecisionsInput,
+    ): Promise<DecisionAnswers<EngineDecision>> => {
+      const { answers, attempt, delivery } = parseAnswerDecisions(input);
+      const since = sinceBefore(http.clock());
+      const results: DecisionAnswerResult<EngineDecision>[] = [];
+      for (const answer of answers) {
+        results.push(await answerOne(answer, delivery));
+      }
+      if (!settings.enabled) {
+        return { results, wake: { reason: 'unconfigured', state: 'skipped' } };
+      }
+      if (delivery === null) {
+        return { results, wake: { reason: 'no_delivery', state: 'skipped' } };
+      }
+      if (!results.some((result) => result.outcome === 'overturned')) {
+        return { results, wake: { reason: 'no_overturn', state: 'skipped' } };
+      }
+      return {
+        results,
+        wake: await wake({
+          action: 'answerDecisions',
+          attempt,
+          decision: null,
+          delivery,
+          since,
+        }),
+      };
+    },
+
     /**
      * `GET /auth/t3/callback`: consume the pending authorization `state`
      * names, check `iss`, exchange the code, and seal the grant as
@@ -830,7 +929,10 @@ export function createT3Adapter(options: T3AdapterOptions) {
       try {
         const mcp = await session(setup, connection);
         const configured = await readEnvironment(mcp);
-        const connected = { expiresAt: connection.expiresAt, state: 'connected' } as const;
+        const connected = {
+          expiresAt: connection.expiresAt,
+          state: 'connected',
+        } as const;
         if (remote === null || remote === undefined) {
           return { ...connected, noRemote: true, systems: [] };
         }
@@ -876,7 +978,10 @@ export function createT3Adapter(options: T3AdapterOptions) {
           verifier: randomToken(),
         };
         pending.add(entry);
-        return { state: 'authorize', url: authorizationUrl(setup.t3, server, entry) };
+        return {
+          state: 'authorize',
+          url: authorizationUrl(setup.t3, server, entry),
+        };
       } catch (error) {
         // Any failed check or answer here, a 401 included, is T3's metadata failing.
         if (error instanceof T3RequestError) {
@@ -924,7 +1029,11 @@ export function createT3Adapter(options: T3AdapterOptions) {
       }
       try {
         const environment = await readEnvironment(await session(setup, connection));
-        return { expiresAt: connection.expiresAt, label: environment.label, state: 'connected' };
+        return {
+          expiresAt: connection.expiresAt,
+          label: environment.label,
+          state: 'connected',
+        };
       } catch (error) {
         return failureState(error);
       }
@@ -974,11 +1083,17 @@ export function createT3Adapter(options: T3AdapterOptions) {
       action: T3WakeAction,
       attempt: string,
       write: () => Promise<R>,
-      target: (record: R) => { delivery: string | null; decision: string | null },
+      target: (record: R) => {
+        delivery: string | null;
+        decision: string | null;
+      },
     ): Promise<T3Woken<R>> => {
       const since = sinceBefore(http.clock());
       const record = await write();
-      return { record, wake: await wake({ action, attempt, since, ...target(record) }) };
+      return {
+        record,
+        wake: await wake({ action, attempt, since, ...target(record) }),
+      };
     },
   };
 }

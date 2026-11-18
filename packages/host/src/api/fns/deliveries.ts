@@ -2,6 +2,7 @@ import { engineSchemas, parseEngineInput } from '@mimir/contract';
 import type { EngineDecision, EngineInput } from '@mimir/contract';
 import { createServerFn } from '@tanstack/react-start';
 
+import { parseAnswerDecisions } from '../../server/decision-answers';
 import type { AnswerDecisionsInput, DecisionAnswers } from '../../server/decision-answers';
 import type { T3WakeInput } from '../../server/t3-states';
 import { decisionTarget, deliveryTarget, wakeAttemptSchema } from '../../server/t3-wake';
@@ -145,10 +146,10 @@ export const confirm = createServerFn({ method: 'POST' })
  * once when an overturn landed. A refused answer does not stop the rest.
  */
 export const answerDecisions = createServerFn({ method: 'POST' })
-  .validator((input: AnswerDecisionsInput) => input)
-  .handler(async (): Promise<DecisionAnswers<EngineDecision>> => {
-    throw new Error('answerDecisions is not implemented yet');
-  });
+  .validator((input: AnswerDecisionsInput) => parseAnswerDecisions(input))
+  .handler(async ({ data }): Promise<DecisionAnswers<EngineDecision>> =>
+    (await t3Integration()).answerDecisions(data),
+  );
 
 /**
  * Resend one wake from a state's `retry`. It writes nothing; it answers a
