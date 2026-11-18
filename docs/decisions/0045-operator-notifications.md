@@ -113,7 +113,8 @@ retires. Only the instant handed to the review read comes from the wall clock.
 
 The remembered set, the marks, and the window live in memory only. Every
 member enters the set through a write, and none enters because time passed,
-so the notifier has no timer besides the window.
+so the notifier has no timer besides the window and the limit on a check's
+reads.
 
 ### An event reaches a recipient unless they caused it
 
