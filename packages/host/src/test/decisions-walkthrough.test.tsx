@@ -870,7 +870,7 @@ test('an option detail sits under its option, out of the radio name, and describ
   const { layer } = await openDelivery();
   await heading(layer, 'Question 1?');
   const remove = within(layer).getByRole('radio', { name: /^Remove/ });
-  expect(remove).toHaveAccessibleName('RemoveAgent recommends');
+  expect(remove).toHaveAccessibleName('Remove, Agent recommends');
   expect(remove).toHaveAccessibleDescription(DETAIL);
   expect(within(layer).getByRole('radio', { name: /^Keep/ })).not.toHaveAttribute(
     'aria-describedby',

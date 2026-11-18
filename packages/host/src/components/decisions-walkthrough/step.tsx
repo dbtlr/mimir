@@ -10,15 +10,32 @@ import { isBlankCustom, optionDetail, verdictOf } from './model';
 import type { Selection, WalkDecision } from './model';
 import { BackButton, Composer, MetaLine, PrimaryButton, Scroll, ScreenHeading } from './parts';
 
-/** The flags beside an option: "Agent's answer" in attention violet, "Agent recommends" in dim ink. */
+/**
+ * The flags beside an option: "Agent's answer" in attention violet, "Agent
+ * recommends" in dim ink. Each flag's visible text is hidden from the
+ * accessibility tree and a hidden ", <flag>" stands in for it, so the
+ * option's accessible name reads "Remove, Agent recommends" rather than
+ * running the option's text into the flag.
+ */
+function Flag({ text, className }: { text: string; className: string }) {
+  return (
+    <>
+      <span aria-hidden="true" className={`text-tag font-semibold ${className}`}>
+        {text}
+      </span>
+      <span className="sr-only">, {text}</span>
+    </>
+  );
+}
+
 function Flags({ decision, number }: { decision: WalkDecision; number: number }) {
   return (
     <>
       {number === decision.taken && (
-        <span className="text-tag font-semibold text-attention-foreground">Agent's answer</span>
+        <Flag text="Agent's answer" className="text-attention-foreground" />
       )}
       {number === decision.recommended && decision.recommended !== decision.taken && (
-        <span className="text-tag font-semibold text-ink-dim">Agent recommends</span>
+        <Flag text="Agent recommends" className="text-ink-dim" />
       )}
     </>
   );
