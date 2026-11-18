@@ -20,9 +20,25 @@ export function decisionFaults(document: {
     const fail = (message: string) => {
       faults.push({ id: d.id, message });
     };
-    if (!decisionViewSchema.safeParse(d).success) {
+    if (
+      !decisionViewSchema.safeParse({
+        ...d,
+        option_details:
+          d.option_details ?? (Array.isArray(d.options) ? d.options.map(() => null) : []),
+      }).success
+    ) {
       fail('invalid decision shape or closed value');
       continue;
+    }
+    if (
+      d.option_details !== null &&
+      (d.option_details.length !== d.options.length ||
+        d.option_details.some((detail) => detail !== null && !detail.trim()) ||
+        d.option_details.every((detail) => detail === null))
+    ) {
+      fail(
+        'invalid option_details: use an aligned list of nonblank text or null, with at least one detail',
+      );
     }
     if (ids.has(d.id)) {
       fail('duplicate decision identity');

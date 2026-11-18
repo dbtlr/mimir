@@ -105,7 +105,7 @@ describe.each([
         workerSession: 'same',
       });
       const document = await fixture.store.export();
-      expect(document.schema_version).toBe(14);
+      expect(document.schema_version).toBe(15);
       expect(document.nodes.find((n) => n.id === shared.id)).toMatchObject({
         session: 'same',
         worker_harness: 'claude',

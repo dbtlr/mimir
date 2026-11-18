@@ -352,6 +352,7 @@ describe('the Needs you popover', () => {
         delivery: null,
         id: 'MMR-q1',
         lifecycle: 'provisional' as const,
+        option_details: [null, null],
         options: ['Keep', 'Remove'],
         outcome_note: null,
         overturn_option: null,

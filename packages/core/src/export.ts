@@ -44,13 +44,17 @@ import type { NewAnnotationRecord, NewTagRecord, NewTransitionRecord, Store } fr
  * record carries the fact, and is commented where it does.
  */
 
+export type ExportedDecision = Omit<DecisionView, 'option_details'> & {
+  option_details: (string | null)[] | null;
+};
+
 /**
  * The transfer document's own schema version, bumped on any shape change so an
  * older binary refuses a document it would read lossily. Version 2 adds the
  * node `grooming` key (ADR 0033); version 3 adds the node `block_owner` key
- * (ADR 0001, MMR-438); version 4 adds the project `pinned` key (MMR-493); version 5 adds the project `remote` key (MMR-543); version 6 admits queued task reservations (MMR-564); version 7 adds optional whole-task worker handles and assignment history (MMR-568); version 8 admits staged tasks (MMR-675); version 9 adds delivery records and their allocation counter (MMR-676); version 11 adds decision records (MMR-677); version 12 adds checklist items (MMR-678); version 13 adds delivery findings and the delivery of run journals (MMR-691); version 14 adds delivery follow-up links (MMR-693).
+ * (ADR 0001, MMR-438); version 4 adds the project `pinned` key (MMR-493); version 5 adds the project `remote` key (MMR-543); version 6 admits queued task reservations (MMR-564); version 7 adds optional whole-task worker handles and assignment history (MMR-568); version 8 admits staged tasks (MMR-675); version 9 adds delivery records and their allocation counter (MMR-676); version 11 adds decision records (MMR-677); version 12 adds checklist items (MMR-678); version 13 adds delivery findings and the delivery of run journals (MMR-691); version 14 adds delivery follow-up links (MMR-693); version 15 adds option details (MMR-705).
  */
-export const STORE_EXPORT_SCHEMA_VERSION = 14;
+export const STORE_EXPORT_SCHEMA_VERSION = 15;
 
 /**
  * Every version this binary imports. A version-1 document predates `grooming`
@@ -76,6 +80,7 @@ export const READABLE_STORE_EXPORT_SCHEMA_VERSIONS: readonly number[] = [
   11,
   12,
   13,
+  14,
   STORE_EXPORT_SCHEMA_VERSION,
 ];
 
@@ -160,7 +165,7 @@ export type ExportedBodySections = {
 export type StoreExport = {
   /** A task's checklist items (ADR 0044), in project-key, task-sequence, then number order. */
   checklist_items: readonly ChecklistRecord[];
-  decisions: readonly DecisionView[];
+  decisions: readonly ExportedDecision[];
   /** A delivery's limitations and declined findings (ADR 0042), in project-key, delivery-sequence, then number order. */
   delivery_findings: readonly DeliveryFindingRecord[];
   delivery_follow_ups: readonly DeliveryFollowUpRecord[];
