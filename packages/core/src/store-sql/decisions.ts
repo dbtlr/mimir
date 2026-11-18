@@ -70,14 +70,12 @@ function loadedDetailsOf(
   dialect: StoreDialect,
 ): DecisionView['option_details'] {
   const options = loadedOptionsOf(row.id, row.options, dialect);
-  if (row.option_details === null) {
+  const value = exportedDetailsOf(row.option_details, dialect);
+  // A stored JSON null reads as a SQL null does (ADR 0043, MMR-705 refinement).
+  if (value === null) {
     return options.map(() => null);
   }
-  const value = exportedDetailsOf(row.option_details, dialect);
-  if (
-    value === null ||
-    optionDetailsFault(value, options.length, { allowAllNull: false }) !== null
-  ) {
+  if (optionDetailsFault(value, options.length, { allowAllNull: false }) !== null) {
     throw invariant(
       `${row.id} has damaged option_details and cannot be read or changed`,
       'run `mimir doctor` to find it, then repair the row from a backup',

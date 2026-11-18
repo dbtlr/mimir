@@ -387,6 +387,34 @@ describe.each(arms)('$name', (arm) => {
     }
   });
 
+  test(`${arm.name}: a stored JSON null option_details reads as no details everywhere`, async () => {
+    const f = await arm.make();
+    try {
+      await seedWorkingSet(f.store);
+      const engine = new LocalEngine(f.store);
+      const d = await engine.decide({
+        class: 'other',
+        options: ['A', 'B'],
+        project: 'MMR',
+        question: 'Which?',
+        recommended: 1,
+      });
+      await sql
+        .raw(`UPDATE decision SET option_details = 'null'${arm.name === 'sqlite' ? '' : '::jsonb'}`)
+        .execute(f.db);
+      expect((await engine.getDecision({ id: d.id })).option_details).toEqual([null, null]);
+      expect((await engine.decisions({ project: 'MMR' })).map((r) => r.option_details)).toEqual([
+        [null, null],
+      ]);
+      expect((await f.store.export()).decisions[0]?.option_details).toBeNull();
+      expect(
+        (await f.doctor.diagnose(undefined)).findings.some((r) => r.code === 'invalid-decision'),
+      ).toBe(false);
+    } finally {
+      await f.close();
+    }
+  });
+
   test(`${arm.name}: corrupt decision options preserve backup and unrelated doctor findings`, async () => {
     const f = await arm.make();
     const target = await arm.make();
