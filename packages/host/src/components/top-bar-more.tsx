@@ -28,7 +28,9 @@ export function TopBarMore({ theme, onToggleTheme }: { theme: Theme; onToggleThe
       </MenuTrigger>
       <MenuContent className="min-w-52">
         {refresh.shown && (
+          // Stays open: the check's spinner and label are its only feedback.
           <MenuItem
+            closeOnClick={false}
             disabled={refresh.disabled}
             onClick={refresh.handleRefresh}
             className={updateReady ? 'text-action' : undefined}
@@ -45,7 +47,7 @@ export function TopBarMore({ theme, onToggleTheme }: { theme: Theme; onToggleThe
         )}
         <MenuItem onClick={onToggleTheme}>
           {toLight ? <SunIcon className={ITEM_ICON} /> : <MoonIcon className={ITEM_ICON} />}
-          {toLight ? 'Light theme' : 'Dark theme'}
+          {toLight ? 'Switch to light theme' : 'Switch to dark theme'}
         </MenuItem>
       </MenuContent>
     </MenuRoot>

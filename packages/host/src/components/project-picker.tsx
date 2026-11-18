@@ -294,7 +294,7 @@ function SwitcherPanel({
     <>
       <div className="p-2.5">
         <div className="flex items-center gap-2 rounded-lg bg-well-950 px-2.5 py-1.5 inset-ring inset-ring-accent focus-within:inset-ring-2">
-          <SearchIcon className="size-4 text-ink-faint md:size-4" />
+          <SearchIcon className="size-4 text-ink-faint [stroke-width:2] md:size-4" />
           <input
             ref={searchRef}
             role="combobox"

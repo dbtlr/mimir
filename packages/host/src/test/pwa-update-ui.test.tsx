@@ -145,7 +145,26 @@ describe('PWA update surfaces (MMR-369)', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
 
-    await expect(screen.findByRole('menuitem', { name: 'Light theme' })).resolves.toBeVisible();
+    await expect(
+      screen.findByRole('menuitem', { name: 'Switch to light theme' }),
+    ).resolves.toBeVisible();
     expect(screen.queryByRole('menuitem', { name: /refresh|update/i })).toBeNull();
+  });
+
+  it('keeps More open while a check runs, so its progress shows (MMR-715)', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      addEventListener: vi.fn(),
+      matches: query === '(display-mode: standalone)',
+      media: query,
+      removeEventListener: vi.fn(),
+    }));
+    const { controller, effects } = fixture();
+    renderUpdate(controller, <TopBarMore theme="dark" onToggleTheme={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'More' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Refresh console' }));
+
+    expect(effects.checkForUpdate).toHaveBeenCalledOnce();
+    expect(screen.getByRole('menu')).toBeVisible();
   });
 });

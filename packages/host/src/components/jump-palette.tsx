@@ -86,7 +86,7 @@ export function JumpPalette() {
           'md:h-8 md:w-auto md:justify-start md:gap-2 md:border md:border-line md:bg-well-850 md:px-2.5 md:text-meta md:hover:bg-well-850',
         )}
       >
-        <SearchIcon className="md:size-3.5" />
+        <SearchIcon className="md:size-3.5 md:[stroke-width:2.25]" />
         <span className="hidden md:inline">Jump to…</span>
         <kbd className="hidden font-mono text-micro text-ink-faint md:inline">
           {IS_APPLE ? '⌘K' : 'Ctrl K'}
@@ -285,7 +285,7 @@ function PaletteBody({
   return (
     <>
       <div className="flex items-center gap-2.5 border-b border-line px-4 py-3">
-        <SearchIcon className="size-4 text-ink-faint md:size-4" />
+        <SearchIcon className="size-4 text-ink-faint [stroke-width:2] md:size-4" />
         <input
           role="combobox"
           aria-label="Jump to a record or action"

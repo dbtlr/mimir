@@ -57,7 +57,7 @@ export function BrowserSearch({
 }) {
   return (
     <label className="flex min-w-0 flex-[1_1_260px] items-center gap-2 rounded-[9px] border border-line-bright bg-well-950 px-2.5 py-1.5 transition-colors focus-within:border-accent">
-      <SearchIcon className="size-4 text-ink-faint md:size-4" />
+      <SearchIcon className="size-4 text-ink-faint [stroke-width:2] md:size-4" />
       <input
         type="search"
         value={value}
@@ -121,7 +121,7 @@ export function RemovableChip({
       className={cn(CHIP, CHIP_ON, 'hover:bg-accent/15')}
     >
       <span className="max-w-40 truncate">{label}</span>
-      <CloseIcon className="size-3 md:size-3" />
+      <CloseIcon className="size-3 [stroke-width:2.5] md:size-3" />
     </button>
   );
 }

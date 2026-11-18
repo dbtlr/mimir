@@ -788,16 +788,20 @@ different icon and box sizes instead. On a phone:
   pill is 34px tall.
 - **_More_ holds the update action and the theme toggle.** Both are used
   rarely. A waiting update marks the _More_ button with a dot and adds
-  "update ready" to its name. Outside the installed console, _More_ offers
+  "update ready" to its name. Choosing the update action keeps the menu open,
+  so a check shows its progress. Outside the installed console, _More_ offers
   only the theme.
-- **From `md` up the top bar is unchanged:** the update action and the theme
-  toggle sit in the bar, at 36px with 18px icons.
+- **From `md` up the top bar keeps its controls:** the update action and the
+  theme toggle sit in the bar, at 36px with 18px icons.
 
-Every icon-only control in the console uses one icon button
-(`components/ui/icon-button.tsx`) and one icon set (`components/ui/icons.tsx`).
-That covers the top bar, sheet and dialog close buttons, and search-field and
-chip glyphs. No control draws its icon from a text character, because the
-glyph's size and shape depend on the font.
+The top bar's icon controls and the close buttons of the record-page sheet,
+the _Needs you_ sheet, the _Direction_ dialog, and the decisions walkthrough
+share one icon button (`components/ui/icon-button.tsx`) and one icon set
+(`components/ui/icons.tsx`). Search fields and chip remove buttons take their
+marks from the same icon set. A text character's size and shape depend on the
+font, so these controls no longer draw their icons from one. The
+walkthrough's bordered _Back_ button and the seed composer's _esc_ close keep
+their own forms.
 
 The top bar is solid `well-950` with no blur. Nothing scrolls under it, and
 the translucent bar it replaces let the status bar fade into the page. The

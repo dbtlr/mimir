@@ -767,7 +767,7 @@ describe('top bar on a phone (MMR-715)', () => {
     expect(within(bar).queryByRole('button', { name: /theme/i })).toBeNull();
 
     await userEvent.click(within(bar).getByRole('button', { name: 'More' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Light theme' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Switch to light theme' }));
 
     expect(document.documentElement.dataset.theme).toBe('light');
   });
