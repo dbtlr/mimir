@@ -85,12 +85,15 @@ _Avoid_: decision wizard, answer flow
 
 **Needs-you set**: The records that wait on the operator: stopped deliveries,
 provisional decisions, tasks blocked on the operator, and tasks that need
-answers, across every active project. The console lists it under "Needs you"
+answers. The console lists it under "Needs you", narrowed to the page's scope
+on a work page
+([ADR 0019](decisions/0019-meridian-console-design-system.md)). The notifier
+reads it across every active project
 ([ADR 0045](decisions/0045-operator-notifications.md)).
 
 **Notification event**: What the host emits when a record enters the needs-you
-set through a write the recipient did not make. It names the record, carries
-one line of its text, and gives the console path that opens it. A channel
+set, unless the recipient made every write behind it. It names the record,
+carries one line of its text, and gives the console path that opens it. A channel
 delivers it to a device
 ([ADR 0045](decisions/0045-operator-notifications.md)).
 
