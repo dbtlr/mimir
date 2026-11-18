@@ -428,7 +428,7 @@ describe('sidebar outline', () => {
     const nav = await outline();
     await within(nav).findByRole('link', { name: /initiative MMR-1/ });
     await userEvent.click(within(nav).getByText('1 finished initiative'));
-    const toggle = within(nav).getByRole('button', { name: 'Phases of initiative MMR-5' });
+    const toggle = within(nav).getByRole('button', { name: 'Contents of initiative MMR-5' });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     expect(within(nav).queryByRole('link', { name: /phase MMR-6/ })).toBeNull();
 
@@ -488,10 +488,9 @@ describe('sidebar outline', () => {
     const phase = await within(nav).findByRole('link', { name: /phase MMR-6/ });
     expect(phase).toBeVisible();
     expect(nav.querySelector('details')).toHaveAttribute('open');
-    expect(within(nav).getByRole('button', { name: 'Phases of initiative MMR-5' })).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    );
+    expect(
+      within(nav).getByRole('button', { name: 'Contents of initiative MMR-5' }),
+    ).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('reopens a fold shut by hand when the next open record is inside it too', async () => {
@@ -506,6 +505,56 @@ describe('sidebar outline', () => {
     });
     await within(nav).findByRole('link', { name: /initiative MMR-5/ });
     expect(nav.querySelector('details')).toHaveAttribute('open');
+  });
+
+  it('reopens a finished initiative shut by hand when the next open record is inside it', async () => {
+    const testRouter = await renderAt('/p/MMR/6');
+    const nav = await outline();
+    await within(nav).findByRole('link', { name: /phase MMR-6/ });
+    const toggle = () => within(nav).getByRole('button', { name: 'Contents of initiative MMR-5' });
+    await userEvent.click(toggle());
+    expect(toggle()).toHaveAttribute('aria-expanded', 'false');
+
+    await act(async () => {
+      await testRouter.navigate({ params: { key: 'MMR', seq: '5' }, to: '/p/$key/$seq' });
+    });
+    await waitFor(() => {
+      expect(toggle()).toHaveAttribute('aria-expanded', 'true');
+    });
+  });
+
+  it('shuts a finished initiative opened by hand when the next open record is outside it', async () => {
+    const testRouter = await renderAt('/p/MMR/2');
+    const nav = await outline();
+    await within(nav).findByRole('link', { name: /phase MMR-2/ });
+    await userEvent.click(within(nav).getByText('1 finished initiative'));
+    await userEvent.click(
+      within(nav).getByRole('button', { name: 'Contents of initiative MMR-5' }),
+    );
+    expect(within(nav).getByRole('link', { name: /phase MMR-6/ })).toBeVisible();
+
+    await act(async () => {
+      await testRouter.navigate({ params: { key: 'MMR', seq: '4' }, to: '/p/$key/$seq' });
+    });
+    await waitFor(() => {
+      expect(within(nav).queryByRole('link', { name: /phase MMR-6/ })).toBeNull();
+    });
+    expect(nav.querySelector('details')).not.toHaveAttribute('open');
+  });
+
+  it('keeps focus on a row inside the fold when it opens that row’s page', async () => {
+    await renderAt('/p/MMR/6');
+    const nav = await outline();
+    const initiative = await within(nav).findByRole('link', { name: /initiative MMR-5/ });
+    initiative.focus();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => {
+      expect(within(nav).getByRole('link', { name: /initiative MMR-5/ })).toHaveAttribute(
+        'aria-current',
+        'page',
+      );
+    });
+    expect(document.activeElement).toBe(initiative);
   });
 
   it('keeps the fold shut otherwise', async () => {

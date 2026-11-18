@@ -300,6 +300,23 @@ describe('buildOutline marks the open record’s place', () => {
     ]);
   });
 
+  it('holds open only the finished initiative the open record sits in', () => {
+    const { finished } = buildOutline(
+      tn('MMR', 'project', 'in_progress', [
+        tn('MMR-1', 'initiative', 'done', [tn('MMR-2', 'phase', 'done')]),
+        tn('MMR-3', 'initiative', 'done', [tn('MMR-4', 'phase', 'done')]),
+        tn('MMR-5', 'initiative', 'done', [tn('MMR-6', 'phase', 'done')]),
+      ]),
+      'MMR-4',
+    );
+
+    expect(finished.map((f) => [f.row.id, f.holdsOpen])).toStrictEqual([
+      ['MMR-1', false],
+      ['MMR-3', true],
+      ['MMR-5', false],
+    ]);
+  });
+
   it('keeps a finished initiative shut when the open record is outside it', () => {
     expect(buildOutline(tree, 'MMR-2').finished[0]?.holdsOpen).toBe(false);
   });
