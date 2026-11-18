@@ -1,8 +1,8 @@
 import type { SecretKey, ServeConfig } from '@mimir/core';
 
+import { isLoopbackHostname, isSecureOrigin } from './origin-settings';
 import type { PushMisconfiguration } from './push-states';
 import { readSecretKey, refuseBothSecretKeySettings } from './secret-key-settings';
-import { isLoopbackHostname, isSecureOrigin } from './t3-settings';
 
 /**
  * The Web Push channel's settings (ADR 0045, the MMR-709 refinement). Absent
@@ -35,17 +35,35 @@ function isOneAddress(path: string): boolean {
   }
 }
 
+/** An IPv4 address in 127.0.0.0/8, as the URL parser serializes one. */
+const LOOPBACK_IPV4 = /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+
+/**
+ * Whether a parsed hostname names this machine, more broadly than
+ * {@link isLoopbackHostname}: with a trailing dot, any `*.localhost` name,
+ * any address in 127.0.0.0/8, and 0.0.0.0. Only the contact is held to this.
+ */
+function isLocalContactHost(hostname: string): boolean {
+  const name = hostname.toLowerCase().replace(/\.$/, '');
+  return (
+    isLoopbackHostname(name) ||
+    name.endsWith('.localhost') ||
+    LOOPBACK_IPV4.test(name) ||
+    name === '0.0.0.0'
+  );
+}
+
 /**
  * Whether a value is a contact the push services take as the VAPID subject:
  * a `mailto:` URL with one address and no header fields (which could add
- * more), or an `https:` URL whose host is not a loopback name.
+ * more), or an `https:` URL whose host does not name this machine.
  */
 function isPushContact(value: string): boolean {
   const url = URL.parse(value);
   if (url?.protocol === 'mailto:') {
     return url.search === '' && url.hash === '' && isOneAddress(url.pathname);
   }
-  return url?.protocol === 'https:' && !isLoopbackHostname(url.hostname);
+  return url?.protocol === 'https:' && !isLocalContactHost(url.hostname);
 }
 
 /** The `MIMIR_URL` problem, if any: a push opens it, so it must be set and secure. */

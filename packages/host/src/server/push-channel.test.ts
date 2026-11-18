@@ -351,6 +351,35 @@ describe('delivering an event', () => {
     });
   });
 
+  test('a push that cannot be built is logged as a build fault, leaves its row alone, and stops no other row', async () => {
+    const r = await rig();
+    await subscribed(r, GOOGLE);
+    // A stored key that no longer decodes to a P-256 point: a local fault, not the push service's.
+    await r.subscriptions.subscribe(
+      {
+        ...(await makeBrowserKeys()),
+        endpoint: APPLE,
+        label: 'Corrupt',
+        p256dh: 'BAAA',
+        serverKey: await publicKeyOf(r.channel),
+      },
+      PUSH_DEVICE_LIMIT,
+    );
+    await r.channel.deliver(EVENT);
+    expect(r.service.requests.map((request) => request.endpoint)).toEqual([GOOGLE]);
+    expect((await r.subscriptions.get(GOOGLE))?.lastSuccessAt).toEqual(expect.any(String));
+    const corrupt = await r.subscriptions.get(APPLE);
+    expect(corrupt?.lastFailure).toBeUndefined();
+    expect(corrupt?.lastFailureAt).toBeUndefined();
+    expect(r.events()).toEqual([
+      { event: 'push_build_fault', host: 'web.push.apple.com', time: expect.any(String) },
+    ]);
+    // A test push to that row is a host fault, not an answer about the push service.
+    // oxlint-disable-next-line typescript/await-thenable -- Bun awaits async matchers at runtime.
+    await expect(r.channel.sendTest(APPLE)).rejects.toThrow();
+    expect((await r.subscriptions.get(APPLE))?.lastFailure).toBeUndefined();
+  });
+
   test('a failed outcome write is logged with the host and does not reject', async () => {
     const r = await rig({
       subscriptions: (real) => ({
@@ -390,6 +419,11 @@ describe('delivering an event', () => {
     await expect(keyDown.channel.deliver(EVENT)).rejects.toThrow('database is locked');
   });
 });
+
+/** A store write that fails as a locked database does. */
+async function locked(): Promise<never> {
+  throw new Error('database is locked');
+}
 
 /** Subscribe a new browser to APPLE with the current key, changed as given. */
 async function attempt(
@@ -527,6 +561,20 @@ describe('the device list, test push, and unsubscribe', () => {
     expect(await r.subscriptions.get(GOOGLE)).toBeUndefined();
   });
 
+  test('a test push whose outcome write fails rejects as a host fault, never answering gone or delivered', async () => {
+    const r = await rig({
+      answers: { [GOOGLE]: 410 },
+      subscriptions: (real) => ({ ...real, recordSuccess: locked, removeIfMatches: locked }),
+    });
+    await subscribed(r, APPLE);
+    await subscribed(r, GOOGLE);
+    // oxlint-disable-next-line typescript/await-thenable -- Bun awaits async matchers at runtime.
+    await expect(r.channel.sendTest(APPLE)).rejects.toThrow('database is locked');
+    // oxlint-disable-next-line typescript/await-thenable -- Bun awaits async matchers at runtime.
+    await expect(r.channel.sendTest(GOOGLE)).rejects.toThrow('database is locked');
+    expect(await r.subscriptions.get(GOOGLE)).toBeDefined();
+  });
+
   test('a test push to no row is not_found, and to a row made for another key is stale_key', async () => {
     const r = await rig();
     expect(await r.channel.sendTest(APPLE)).toEqual({ state: 'not_found' });
@@ -549,6 +597,21 @@ describe('the device list, test push, and unsubscribe', () => {
     expect(await r.channel.unsubscribe(APPLE)).toEqual({ state: 'unsubscribed' });
   });
 });
+
+/** The public key the store holds now, opened as the channel opens it. */
+async function storedPublicKey(r: Rig): Promise<string | undefined> {
+  const { openSecret } = await import('@mimir/core');
+  const sealed = await r.secrets.read(PUSH_SECRET_NAME);
+  const pair = await readVapidKeys(
+    JSON.parse(openSecret(KEY, PUSH_SECRET_NAME, sealed ?? '') ?? 'null'),
+  );
+  return pair?.publicKey;
+}
+
+/** Settle when the promise does, or after the wait, whichever comes first. */
+async function settledOrAfter(promise: Promise<unknown>, ms: number): Promise<void> {
+  await Promise.race([promise, Bun.sleep(ms)]);
+}
 
 describe('the VAPID key', () => {
   test('concurrent first uses store one pair, and every caller uses it', async () => {
@@ -647,6 +710,7 @@ describe('the VAPID key', () => {
     expect(await r.secrets.read(PUSH_SECRET_NAME)).toBe(sealed);
     expect(r.events()).toEqual([
       {
+        cause: 'the row failed authentication: the key changed or the row was altered',
         event: 'host_secret_unopenable',
         name: PUSH_SECRET_NAME,
         time: expect.any(String),
@@ -678,6 +742,69 @@ describe('the VAPID key', () => {
     );
     expect(pair?.publicKey).toBe(publicKey);
     expect(JSON.stringify(await r.channel.status())).not.toContain(pair?.privateKey ?? '?');
+  });
+
+  test('a subscribe and a reset in one process never leave a row made for the replaced key', async () => {
+    const reachedWrite = deferred<void>();
+    const release = deferred<void>();
+    const r = await rig({
+      subscriptions: (real) => ({
+        ...real,
+        subscribe: async (row, limit) => {
+          reachedWrite.resolve();
+          await release.promise;
+          return real.subscribe(row, limit);
+        },
+      }),
+    });
+    const subscribing = attempt(r);
+    await reachedWrite.promise;
+    const resetting = r.channel.resetKey();
+    // A reset that does not wait for the subscribe finishes while the write is held.
+    await settledOrAfter(resetting, 200);
+    release.resolve();
+    expect(await subscribing).toEqual({ state: 'subscribed' });
+    const reset = await resetting;
+    expect(reset.state === 'reset' && reset.publicKey).toBe((await storedPublicKey(r))!);
+    expect(await r.subscriptions.list()).toEqual([]);
+  });
+
+  test('two resets in one process take turns: each deletion keeps the rows of the key the store holds', async () => {
+    const r = await rig();
+    await publicKeyOf(r.channel);
+    const firstRemoval = deferred<void>();
+    const secondSettled = deferred<void>();
+    const removals: { kept: string; stored: string | undefined }[] = [];
+    let calls = 0;
+    const gated = withStores(r.secrets, r.subscriptions, {
+      subscriptions: (real) => ({
+        ...real,
+        removeOtherKeys: async (kept) => {
+          calls += 1;
+          if (calls === 1) {
+            firstRemoval.resolve();
+            await settledOrAfter(secondSettled.promise, 200);
+          }
+          removals.push({ kept, stored: await storedPublicKey(r) });
+          return real.removeOtherKeys(kept);
+        },
+      }),
+    });
+    const first = gated.channel.resetKey();
+    await firstRemoval.promise;
+    const second = (async () => {
+      try {
+        return await gated.channel.resetKey();
+      } finally {
+        secondSettled.resolve();
+      }
+    })();
+    const answers = await Promise.all([first, second]);
+    expect(removals).toHaveLength(2);
+    for (const removal of removals) {
+      expect(removal.kept).toBe(removal.stored!);
+    }
+    expect(answers[1].state === 'reset' && answers[1].publicKey).toBe((await storedPublicKey(r))!);
   });
 
   test('a reset answers the new key and deletes every subscription made for another key', async () => {

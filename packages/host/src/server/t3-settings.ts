@@ -1,6 +1,7 @@
 import { normalizeServeUrl } from '@mimir/core';
 import type { SecretKey, ServeConfig } from '@mimir/core';
 
+import { isSecureOrigin } from './origin-settings';
 import { readSecretKey, refuseBothSecretKeySettings } from './secret-key-settings';
 import type { T3Misconfiguration } from './t3-states';
 
@@ -22,23 +23,6 @@ export type T3Settings =
       key: SecretKey | undefined;
       problems: T3Misconfiguration[];
     };
-
-/** Names a browser on this machine can reach the console or T3 by. */
-const LOOPBACK_HOSTS: ReadonlySet<string> = new Set(['localhost', '127.0.0.1', '[::1]']);
-
-/** Whether a URL hostname is a loopback name. */
-export function isLoopbackHostname(hostname: string): boolean {
-  return LOOPBACK_HOSTS.has(hostname.toLowerCase());
-}
-
-/**
- * An origin T3 accepts as a redirect, the console accepts as T3's, or an
- * integration accepts as `MIMIR_URL`: HTTPS, or HTTP on loopback.
- */
-export function isSecureOrigin(origin: string): boolean {
-  const url = new URL(origin);
-  return url.protocol === 'https:' || isLoopbackHostname(url.hostname);
-}
 
 /**
  * Read the T3 settings. Setting both key variables refuses startup, as with

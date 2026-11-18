@@ -2,7 +2,7 @@ import type { PushSubscriptionMatch, PushSubscriptionStore } from '@mimir/core';
 
 import { logEvent } from './log-event';
 import { buildPushRequest } from './push-protocol';
-import type { VapidKeys } from './push-protocol';
+import type { PushRequest, VapidKeys } from './push-protocol';
 import type { PushFailure } from './push-states';
 
 /*
@@ -24,8 +24,13 @@ export type PushSender = {
   contact: string;
 };
 
-/** What a push service's answer means for its row. `status` is what the log names. */
+/**
+ * What a push service's answer means for its row. `status` is what the log
+ * names. `unbuilt` is a local fault: the push could not be encrypted or
+ * signed, so nothing was sent and the row says nothing about the service.
+ */
 export type PushOutcome =
+  | { kind: 'unbuilt' }
   | { kind: 'delivered' }
   | { kind: 'gone'; status: number }
   | { kind: 'failed'; failure: PushFailure; status: number | 'timeout' | 'unreachable' };
@@ -54,10 +59,9 @@ export async function sendPush(
   vapid: VapidKeys,
   payload: unknown,
 ): Promise<PushOutcome> {
-  const signal = AbortSignal.timeout(sender.timeoutMs);
-  let response: Response;
+  let request: PushRequest;
   try {
-    const request = await buildPushRequest({
+    request = await buildPushRequest({
       contact: sender.contact,
       endpoint: target.endpoint,
       keys: target,
@@ -65,6 +69,12 @@ export async function sendPush(
       payload: new TextEncoder().encode(JSON.stringify(payload)),
       vapid,
     });
+  } catch {
+    return { kind: 'unbuilt' };
+  }
+  const signal = AbortSignal.timeout(sender.timeoutMs);
+  let response: Response;
+  try {
     response = await sender.fetch(request.endpoint, {
       body: request.body,
       headers: request.headers,
@@ -88,16 +98,24 @@ export type OutcomeRecorder = {
   clock: () => number;
 };
 
+/** Whether an outcome's row update landed, and the store error when it did not. */
+export type OutcomeWrite = { landed: true } | { landed: false; error: Error };
+
 /**
  * Update the row for an outcome, only while it still matches the target, and
- * log it. A failed update is logged and goes no further; this never rejects.
+ * log it. A failed update is logged and answered, never thrown; an unbuilt
+ * push has no update, so it lands.
  */
 export async function recordOutcome(
   recorder: OutcomeRecorder,
   target: PushTarget,
   outcome: PushOutcome,
-): Promise<void> {
+): Promise<OutcomeWrite> {
   const host = new URL(target.endpoint).hostname;
+  if (outcome.kind === 'unbuilt') {
+    logEvent(recorder, 'push_build_fault', { host });
+    return { landed: true };
+  }
   if (outcome.kind === 'gone') {
     logEvent(recorder, 'push_subscription_gone', { host, status: outcome.status });
   } else if (outcome.kind === 'failed') {
@@ -111,7 +129,9 @@ export async function recordOutcome(
     } else {
       await recorder.subscriptions.recordFailure(target, outcome.failure);
     }
-  } catch {
+  } catch (error) {
     logEvent(recorder, 'push_outcome_write_fault', { host });
+    return { error: error instanceof Error ? error : new Error(String(error)), landed: false };
   }
+  return { landed: true };
 }

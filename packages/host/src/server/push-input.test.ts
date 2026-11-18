@@ -29,6 +29,22 @@ describe('the push server functions validate their input structure', () => {
     }
   });
 
+  test('subscribe bounds each field before the channel reads it', () => {
+    const longest = {
+      auth: 'a'.repeat(256),
+      endpoint: 'e'.repeat(2048),
+      label: 'l'.repeat(1000),
+      p256dh: 'p'.repeat(256),
+      serverKey: 's'.repeat(256),
+    };
+    expect(parsePushSubscribeInput(longest)).toEqual(longest);
+    for (const [name, value] of Object.entries(longest)) {
+      expect(() => parsePushSubscribeInput({ ...longest, [name]: `${value}x` })).toThrow(
+        expect.objectContaining({ code: 'validation' }),
+      );
+    }
+  });
+
   test('unsubscribe and send test take one endpoint', () => {
     expect(parsePushEndpointInput({ endpoint: 'https://web.push.apple.com/abc' })).toEqual({
       endpoint: 'https://web.push.apple.com/abc',

@@ -498,26 +498,30 @@ later release; until then, the settings below prepare the host. A push carries t
 opening it opens the record in the console. The host signs each push with a
 key that it stores in the store, encrypted under the secret key.
 
-1. Set these variables on the host, then restart it:
-   - `MIMIR_PUSH_CONTACT`: a contact the push services can reach if your host
-     misbehaves. Use a `mailto:` URL with one address, such as
-     `mailto:you@example.net`, or an `https:` URL that is not on a loopback
-     name.
-   - `MIMIR_URL`, as an HTTPS origin. A notification opens this address. HTTP
-     is allowed only on a loopback name, for a development host.
-   - `MIMIR_HOSTS`, to turn on the Host allowlist. An empty value is allowed.
-   - `MIMIR_SECRET_KEY_FILE` or `MIMIR_SECRET_KEY`, as for
-     [T3 Code](#connect-t3-code). Both integrations use the same key.
-2. Subscribe each device from the console.
+Set these variables on the host, then restart it:
+
+- `MIMIR_PUSH_CONTACT`: a contact the push services can reach if your host
+  misbehaves. Use a `mailto:` URL with one address, such as
+  `mailto:you@example.net`, or an `https:` URL whose host is not this
+  machine: not `localhost` or a name under it, not an address in
+  `127.0.0.0/8`, and not `0.0.0.0` or `[::1]`.
+- `MIMIR_URL`, as an HTTPS origin. A notification opens this address. HTTP
+  is allowed only on a loopback name, for a development host.
+- `MIMIR_HOSTS`, to turn on the Host allowlist. An empty value is allowed.
+- `MIMIR_SECRET_KEY_FILE` or `MIMIR_SECRET_KEY`, as for
+  [T3 Code](#connect-t3-code). Both integrations use the same key.
+
+Subscribing a device arrives with the console control; until then, no device
+can subscribe.
 
 When a setting is missing or wrong, the host still starts. It logs one
 warning for each problem, naming the setting but never its value, and sends
 no notification until you fix the setting and restart.
 
 Changing the secret key makes the stored signing key unreadable. The host
-then sends nothing until you restore the old secret key or reset the signing
-key from the console. A reset removes every device's subscription, and each
-device must subscribe again.
+then sends nothing until you restore the old secret key. Resetting the signing
+key also arrives with the console control; a reset removes every device's
+subscription, and each device must subscribe again.
 
 ## Clone private repositories
 

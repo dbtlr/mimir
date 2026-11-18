@@ -138,8 +138,8 @@ export function createPushChannel(options: PushChannelOptions) {
   ) => {
     const target = targetOf(row);
     const outcome = await sendPush(sender, target, vapid, payload);
-    await recordOutcome(recorder, target, outcome);
-    return outcome;
+    const write = await recordOutcome(recorder, target, outcome);
+    return { outcome, write };
   };
 
   return {
@@ -172,17 +172,21 @@ export function createPushChannel(options: PushChannelOptions) {
       return { devices: rows.map((row) => deviceOf(row, current)), state: 'listed' };
     },
 
-    /** Replace the pair, delete every row made for another key, and answer the new key. */
+    /**
+     * Replace the pair, delete every row made for another key, and answer the
+     * new key, all in one turn of the keyring.
+     */
     resetKey: async (): Promise<PushResetResult> => {
       if ('state' in setup) {
         return setup;
       }
-      const keys = await setup.keyring.reset();
-      await subscriptions.removeOtherKeys(keys.publicKey);
+      const keys = await setup.keyring.reset((stored) =>
+        subscriptions.removeOtherKeys(stored.publicKey),
+      );
       return { publicKey: keys.publicKey, state: 'reset' };
     },
 
-    /** Send one test push to one endpoint. */
+    /** Send one test push to one endpoint; a local or store fault rejects. */
     sendTest: async (endpoint: string): Promise<PushSendTestResult> => {
       if ('state' in setup) {
         return setup;
@@ -199,7 +203,19 @@ export function createPushChannel(options: PushChannelOptions) {
       if (row.serverKey !== key.keys.publicKey) {
         return { state: 'stale_key' };
       }
-      const outcome = await pushTo(setup.sender, row, key.keys, testPayload(setup.consoleUrl));
+      const { outcome, write } = await pushTo(
+        setup.sender,
+        row,
+        key.keys,
+        testPayload(setup.consoleUrl),
+      );
+      // A local fault is a host fault: the answer would say nothing true about the device.
+      if (outcome.kind === 'unbuilt') {
+        throw new Error('the test push could not be encrypted or signed for its row');
+      }
+      if (!write.landed) {
+        throw write.error;
+      }
       if (outcome.kind === 'failed') {
         return { failure: outcome.failure, state: 'failed' };
       }
@@ -219,7 +235,9 @@ export function createPushChannel(options: PushChannelOptions) {
 
     /**
      * Subscribe a browser, from the request's `Origin` header. A refusal
-     * writes nothing; the count and the write are one transaction.
+     * writes nothing; the count and the write are one transaction. The key's
+     * read, its check, and the write take one turn of the keyring, so a reset
+     * in this process runs wholly before or after them.
      */
     subscribe: async (
       input: PushSubscribeInput,
@@ -231,31 +249,32 @@ export function createPushChannel(options: PushChannelOptions) {
       if (!isConsoleOrigin(origin, setup.consoleUrl)) {
         return { state: 'wrong_origin' };
       }
-      const key = await setup.keyring.current();
-      if (key.state !== 'ready') {
-        return key;
-      }
-      if (input.serverKey !== key.keys.publicKey) {
-        return { state: 'stale_key' };
-      }
-      const endpoint = normalizePushEndpoint(input.endpoint);
-      if (endpoint === undefined) {
-        return { state: 'endpoint_not_allowed' };
-      }
-      if (!(await isUsableSubscriptionKeys(input))) {
-        return { state: 'invalid_keys' };
-      }
-      const written = await subscriptions.subscribe(
-        {
-          auth: input.auth,
-          endpoint,
-          label: plainLabel(input.label),
-          p256dh: input.p256dh,
-          serverKey: key.keys.publicKey,
-        },
-        PUSH_DEVICE_LIMIT,
-      );
-      return { state: written };
+      return setup.keyring.withCurrent(async (key): Promise<PushSubscribeResult> => {
+        if (key.state !== 'ready') {
+          return key;
+        }
+        if (input.serverKey !== key.keys.publicKey) {
+          return { state: 'stale_key' };
+        }
+        const endpoint = normalizePushEndpoint(input.endpoint);
+        if (endpoint === undefined) {
+          return { state: 'endpoint_not_allowed' };
+        }
+        if (!(await isUsableSubscriptionKeys(input))) {
+          return { state: 'invalid_keys' };
+        }
+        const written = await subscriptions.subscribe(
+          {
+            auth: input.auth,
+            endpoint,
+            label: plainLabel(input.label),
+            p256dh: input.p256dh,
+            serverKey: key.keys.publicKey,
+          },
+          PUSH_DEVICE_LIMIT,
+        );
+        return { state: written };
+      });
     },
 
     /** Delete an endpoint's row; an endpoint with no row is not an error. */

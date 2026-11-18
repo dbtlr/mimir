@@ -69,6 +69,8 @@ describe('readPushSettings', () => {
       'mailto:Operator.Name+push@mail.example.net',
       'https://example.net',
       'https://example.net/contact',
+      'https://localhost.example.net',
+      'https://128.0.0.1',
     ]) {
       const settings = await readPushSettings(
         envWith({ MIMIR_PUSH_CONTACT: contact }),
@@ -90,6 +92,14 @@ describe('readPushSettings', () => {
       'https://localhost',
       'https://127.0.0.1/contact',
       'https://[::1]',
+      'https://localhost./',
+      'https://LOCALHOST./',
+      'https://a.localhost/',
+      'https://127.0.0.2/',
+      'https://127.255.255.255/',
+      'https://127.1/',
+      'https://0.0.0.0/',
+      'https://0/',
       'ftp://example.net',
     ]) {
       const settings = await readPushSettings(

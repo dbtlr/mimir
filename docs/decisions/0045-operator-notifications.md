@@ -301,8 +301,10 @@ subscribes a device is MMR-711.
 
 `MIMIR_PUSH_CONTACT` turns the channel on. Its value is the contact the push
 services require as the VAPID subject (RFC 8292): a `mailto:` URL with one
-address that contains `@`, or an `https:` URL whose host is not a loopback
-name. With it unset, the channel is **absent**: no channel is registered with
+address that contains `@`, or an `https:` URL whose host, as the URL parser
+normalizes it, does not name this machine: not `localhost` with or without a
+trailing dot, no name ending `.localhost`, no address in `127.0.0.0/8`, and
+not `0.0.0.0` or `[::1]`. With it unset, the channel is **absent**: no channel is registered with
 the notifier, nothing is written to `push_subscriptions` or `host_secrets`,
 and every server function answers `unconfigured`.
 
@@ -349,14 +351,16 @@ written only if no row of that name exists (a host-secret write that inserts
 and never replaces), and the channel then reads the row back and uses
 whatever it holds. Two callers or two hosts that make a pair at once
 therefore both use the pair that was stored first. Within one host process,
-making a pair and resetting it (below) take turns: one runs at a time. A
-failed attempt is not remembered, so the next use tries again.
+making a pair, resetting it (below), and a subscribe's key read, key check,
+and row write take turns: one runs at a time. A failed attempt is not
+remembered, so the next use tries again.
 
 A store error while reading or writing the key is a fault, never an absent
 row: it makes no pair.
 
 **An unusable row.** A row that fails to open (the secret key changed, or the
-row was altered) is logged as `host_secret_unopenable`, and a row that opens
+row was altered) is logged as `host_secret_unopenable`, with the `cause` that
+T3's log line for its own row carries, and a row that opens
 but does not hold a valid pair is logged as `host_secret_unreadable`, both
 without contents, as ADR 0040 says. Each is logged once per process for
 each row content, not on every use. Either way the channel is **key
@@ -365,9 +369,10 @@ own, because the usual cause is a wrong secret key that the operator will
 restore, and replacing the key would strand every device.
 
 **Reset.** The operator replaces the key with the reset server function
-(below), from the `key unusable` state or any time the channel is ready. It
-writes a new pair over the row, reads the row back, then deletes every
-subscription made for another key than the one it read. Each row records the key it was made for (below), so a reset
+(below), from the `key unusable` state or any time the channel is ready. In
+one turn, it writes a new pair over the row, reads the row back, deletes
+every subscription made for another key than the one it read, and answers
+that key. Each row records the key it was made for (below), so a reset
 interrupted between the two steps leaves rows that no send uses and that the
 next reset or a removal deletes. Each device subscribes again: the console
 compares its subscription's `applicationServerKey` with the served key when it
@@ -425,8 +430,10 @@ key, and Unsubscribe and Reset key work as usual.
 - **Status** answers `ready` with the public key and the console origin
   (`MIMIR_URL`), or `key_unusable`.
 - **Subscribe** takes the endpoint, the two browser keys, the
-  `applicationServerKey` the browser subscribed with, and a label. It
-  refuses, and writes nothing, when:
+  `applicationServerKey` the browser subscribed with, and a label. Input
+  with an endpoint over 2048 characters, a key over 256, or a label over
+  1000 is a validation error before any check below. It refuses, and writes
+  nothing, when:
   - the request's `Origin` header is missing, or its scheme, host, and port
     are not those of `MIMIR_URL` (`wrong_origin`), because a notification
     opens `MIMIR_URL` and a device installed from another origin would open
@@ -453,7 +460,9 @@ key, and Unsubscribe and Reset key work as usual.
 - **Send test** takes an endpoint and sends one push to it alone, then
   answers `delivered`, `gone` (the row was deleted, below), or `failed` with
   the failure. An endpoint with no row answers `not_found`, and a row made
-  for another key answers `stale_key` and sends nothing.
+  for another key answers `stale_key` and sends nothing. A push that cannot
+  be built (below), or a row update after the answer that fails, is a host
+  fault, never an answer.
 - **Reset key** replaces the pair, as above, and answers the new public key.
 
 The push hosts are the services of Apple, Google, Mozilla, and Microsoft:
@@ -506,6 +515,12 @@ Both log lines carry the endpoint's host and the status (or `timeout` or
 `unreachable`), never the endpoint's path, a key, the JWT, or the payload. A
 row update that fails is logged as `push_outcome_write_fault` with the
 endpoint's host and does not reject `deliver`.
+
+A push that cannot be built (its encryption or its JWT fails, as with a
+stored browser key that no longer decodes) is a local fault, not an answer
+from the push service. Nothing is sent, the row is left as it is, and the
+fault is logged as `push_build_fault` with the endpoint's host only. It
+stops no other row's push and does not reject `deliver`.
 
 The channel does not retry. The push service already holds a push for its
 time-to-live, and the next event or a test push tries again. A send cannot

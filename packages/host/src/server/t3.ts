@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import { isEngineRefusal } from '../api/errors';
 import { logEvent } from './log-event';
+import { isLoopbackHostname } from './origin-settings';
 import { openMcpSession, T3RequestError } from './t3-http';
 import type { McpSession, T3Fetch, T3Http } from './t3-http';
 import type { T3LaunchRequest } from './t3-input';
@@ -19,7 +20,6 @@ import {
   registerClient,
   T3_OPERATE_SCOPE,
 } from './t3-oauth';
-import { isLoopbackHostname } from './t3-settings';
 import type { T3Settings } from './t3-settings';
 import { T3_RUNTIME_MODES } from './t3-states';
 import type {

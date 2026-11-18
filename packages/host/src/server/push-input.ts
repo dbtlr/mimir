@@ -9,13 +9,22 @@ import { z } from 'zod';
  * left well-formed so it answers a refusal rather than a thrown error.
  */
 
+/*
+ * Each field is bounded well above any value the channel accepts, so an
+ * oversized request is refused before the channel parses or decodes it. The
+ * label is still cut to 60 characters after normalization.
+ */
+const ENDPOINT_MAX = 2048;
+const KEY_MAX = 256;
+const LABEL_MAX = 1000;
+
 const subscribeSchema = z.strictObject({
-  auth: z.string(),
-  endpoint: z.string(),
-  label: z.string(),
-  p256dh: z.string(),
+  auth: z.string().max(KEY_MAX),
+  endpoint: z.string().max(ENDPOINT_MAX),
+  label: z.string().max(LABEL_MAX),
+  p256dh: z.string().max(KEY_MAX),
   /** The `applicationServerKey` the browser subscribed with, base64url. */
-  serverKey: z.string(),
+  serverKey: z.string().max(KEY_MAX),
 });
 
 /** What Subscribe takes: the browser's subscription, the key it used, and a label. */

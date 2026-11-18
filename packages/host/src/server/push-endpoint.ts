@@ -31,18 +31,20 @@ function isPushHost(hostname: string): boolean {
 }
 
 /**
- * The endpoint as the URL parser serializes it, or undefined when it is not
- * an `https:` URL on the default port, with no user, password, or fragment,
- * on a push host, and at most {@link PUSH_ENDPOINT_LIMIT} characters long.
- */
-/**
  * The endpoint as the URL parser serializes it, or undefined when it does not
- * parse: the form every function that takes an endpoint looks a row up by.
+ * parse: the form Unsubscribe and Send test look a row up by. It applies no
+ * allowlist; a row only ever holds an endpoint that passed one.
  */
 export function serializePushEndpoint(raw: string): string | undefined {
   return URL.parse(raw)?.href;
 }
 
+/**
+ * The endpoint as the URL parser serializes it, or undefined when it is not
+ * an `https:` URL on the default port, with no user, password, or fragment,
+ * on a push host, and at most {@link PUSH_ENDPOINT_LIMIT} characters long.
+ * Subscribe stores what this answers.
+ */
 export function normalizePushEndpoint(raw: string): string | undefined {
   const url = URL.parse(raw);
   if (

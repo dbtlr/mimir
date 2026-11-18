@@ -15,6 +15,9 @@ import type { VapidKeys } from './push-protocol';
 /** The host secret that holds the sealed pair. */
 export const PUSH_SECRET_NAME = 'push.vapid';
 
+/** Why a row fails to open, in the words T3's log uses for its own row. */
+const UNOPENABLE_CAUSE = 'the row failed authentication: the key changed or the row was altered';
+
 /** The key a use signs with, or why there is none: the row does not open to a valid pair. */
 export type VapidKeyState = { state: 'ready'; keys: VapidKeys } | { state: 'key_unusable' };
 
@@ -64,7 +67,10 @@ export function createVapidKeyring({ clock, key, log, secrets }: VapidKeyringOpt
     const mark = `${event}\0${sealed}`;
     if (!logged.has(mark)) {
       logged.add(mark);
-      logEvent({ clock, log }, event, { name: PUSH_SECRET_NAME });
+      logEvent({ clock, log }, event, {
+        ...(event === 'host_secret_unopenable' ? { cause: UNOPENABLE_CAUSE } : {}),
+        name: PUSH_SECRET_NAME,
+      });
     }
   };
 
@@ -101,11 +107,13 @@ export function createVapidKeyring({ clock, key, log, secrets }: VapidKeyringOpt
     return sealed;
   };
 
-  /** First use: insert a new pair only if no row exists, then use whatever the row holds. */
-  const makePair = async (): Promise<VapidKeyState> => {
-    if ((await secrets.read(PUSH_SECRET_NAME)) === undefined) {
-      await secrets.insertIfAbsent(PUSH_SECRET_NAME, await sealedPair());
+  /** The row's pair; with no row, insert a new pair only if none exists, then use whatever the row holds. */
+  const readOrMake = async (): Promise<VapidKeyState> => {
+    const sealed = await secrets.read(PUSH_SECRET_NAME);
+    if (sealed !== undefined) {
+      return openRow(sealed);
     }
+    await secrets.insertIfAbsent(PUSH_SECRET_NAME, await sealedPair());
     return openRow(await readBack());
   };
 
@@ -113,18 +121,28 @@ export function createVapidKeyring({ clock, key, log, secrets }: VapidKeyringOpt
     /** The key this use signs with, making the pair when no row exists. */
     current: async (): Promise<VapidKeyState> => {
       const sealed = await secrets.read(PUSH_SECRET_NAME);
-      return sealed === undefined ? takeTurn(makePair) : openRow(sealed);
+      return sealed === undefined ? takeTurn(readOrMake) : openRow(sealed);
     },
-    /** Write a new pair over the row and answer the pair read back from it. */
-    reset: (): Promise<VapidKeys> =>
+    /**
+     * In one turn: write a new pair over the row, read it back, and run
+     * `then` with the pair read back; answer that pair.
+     */
+    reset: (then: (keys: VapidKeys) => Promise<unknown>): Promise<VapidKeys> =>
       takeTurn(async () => {
         await secrets.write(PUSH_SECRET_NAME, await sealedPair());
         const stored = await openRow(await readBack());
         if (stored.state !== 'ready') {
           throw new Error(`the ${PUSH_SECRET_NAME} host secret did not open after its reset`);
         }
+        await then(stored.keys);
         return stored.keys;
       }),
+    /**
+     * Run with the current key (made when no row exists) in one turn, so no
+     * reset in this process lands between the key's read and the run's end.
+     */
+    withCurrent: <T>(run: (key: VapidKeyState) => Promise<T>): Promise<T> =>
+      takeTurn(async () => run(await readOrMake())),
   };
 }
 
