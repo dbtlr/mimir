@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -159,6 +159,12 @@ describe('PWA update surfaces (MMR-369)', () => {
       removeEventListener: vi.fn(),
     }));
     const { controller, effects } = fixture();
+    let finishCheck = () => {};
+    vi.mocked(effects.checkForUpdate).mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishCheck = resolve;
+      }),
+    );
     renderUpdate(controller, <TopBarMore theme="dark" onToggleTheme={vi.fn()} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
@@ -166,5 +172,14 @@ describe('PWA update surfaces (MMR-369)', () => {
 
     expect(effects.checkForUpdate).toHaveBeenCalledOnce();
     expect(screen.getByRole('menu')).toBeVisible();
+    await expect(
+      screen.findByRole('menuitem', { name: 'Checking for updates' }),
+    ).resolves.toBeVisible();
+
+    await act(async () => {
+      finishCheck();
+    });
+
+    await expect(screen.findByRole('menuitem', { name: 'Refresh console' })).resolves.toBeVisible();
   });
 });
