@@ -88,3 +88,27 @@ export function createEngineView(
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return { ...flat, ...namespaces } as unknown as Engine;
 }
+
+/** The Engine's views by the consumer they are for. */
+export type EngineViews = {
+  /** An agent run's grant (ADR 0041). */
+  agentRuns: Engine;
+  /** The console's server functions. */
+  console: Engine;
+  /** The T3 adapter's writes for a console action. */
+  t3: Engine;
+  /** The `/trpc` handler: a paired CLI or MCP server. */
+  trpc: Engine;
+};
+
+/**
+ * The one place that says which actor each consumer writes as (ADR 0045, "An
+ * event reaches a recipient unless they caused it"): the console and the T3
+ * adapter are the operator; `/trpc` and agent runs are `other`. One view per
+ * actor, shared by its consumers.
+ */
+export function createEngineViews(engine: Engine, marks: MutationMarks): EngineViews {
+  const operator = createEngineView(engine, 'operator', marks);
+  const other = createEngineView(engine, 'other', marks);
+  return { agentRuns: other, console: operator, t3: operator, trpc: other };
+}

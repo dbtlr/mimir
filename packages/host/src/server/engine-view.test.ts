@@ -5,7 +5,7 @@ import type { Engine } from '@mimir/contract';
 import { createInitiative, createPhase, createProject, createTask, LocalEngine } from '@mimir/core';
 import { createTestStore } from '@mimir/core/testing';
 
-import { createEngineView } from './engine-view';
+import { createEngineView, createEngineViews } from './engine-view';
 import type { ViewSchemas } from './engine-view';
 import { createNotifier } from './notifier';
 import type { Actor, MutationMarks } from './notifier';
@@ -102,6 +102,27 @@ describe('an Engine view', () => {
     expect(
       await bad.create({ key: 'MMR', name: 'x', type: 'project' }).catch((e: unknown) => e),
     ).toBe(refusal);
+  });
+});
+
+describe('the views by consumer', () => {
+  test.each([
+    ['console', 'operator'],
+    ['t3', 'operator'],
+    ['trpc', 'other'],
+    ['agentRuns', 'other'],
+  ] as const)('a write through the %s view is the %s actor', async (consumer, actor) => {
+    const { marks, told } = recorder();
+    const views = createEngineViews(fakeEngine({ create: async () => ({}) }), marks);
+    await views[consumer].create({ key: 'MMR', name: 'x', type: 'project' });
+    expect(told).toEqual([`began:${actor}`, `succeeded:${actor}`]);
+  });
+
+  test('each actor has one view, shared by its consumers', () => {
+    const views = createEngineViews(fakeEngine({}), recorder().marks);
+    expect(views.t3).toBe(views.console);
+    expect(views.agentRuns).toBe(views.trpc);
+    expect(views.console).not.toBe(views.trpc);
   });
 });
 
