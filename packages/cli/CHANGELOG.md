@@ -15,6 +15,39 @@ cuts them into a new release section at each release
 Sections before v0.26.0 follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 later sections group entries as Breaking Changes, Features, and Fixes.
 
+## v0.30.0 - 2026-11-18
+
+### Breaking Changes
+
+- Add optional `decide --detail "N: text"` (repeatable, also MCP `detail`) and aligned `option_details` on every decision read. Store and transfer schemas advance to 22 and 15.
+
+### Migration
+
+**Affected surface.** Engine `decide` inputs, decision read records, and store exports.
+
+**Why.** An option can carry context without changing its concise answer text.
+
+**Before and after.** Decision records gain required `option_details`, an aligned list of nonblank text or null. Engine `decide` accepts the list optionally. Exports carry null when no option has a detail.
+
+**Steps.** Add the aligned list to decision fixtures and consumers that construct records. Upgrade the store owner to apply migration 0022. Existing commands need no changes.
+
+**Validation.** Record a decision with `--detail "2: Context"`, then check that `get` pairs the detail with option 2 and that export/import preserves it.
+
+### Features
+
+- Add the decisions walkthrough to the console: open `?mode=decisions` on a delivery page, or on a project page for its decisions with no delivery, to answer each provisional decision on its own screen with the agent's reasoning, keep or change the answer with an optional note, check the answers, and send them together. Unsent answers are kept in the browser, and one Send wakes the delivery's T3 thread once when any answer overturns.
+
+- Add the operator notifier to the host: after writes it compares the needs-you set and logs one `needs_you_event` line for each record that enters the set, which is a stopped delivery, a task that needs answers or is blocked on the operator, or a group of provisional decisions (per delivery, or per project when they name none). An entry is withheld only when console writes alone are behind its check. No channel delivers events yet.
+
+- Open the decisions walkthrough from links: each project group in the Needs you popover and on the review page links, under its heading, to one walkthrough for each delivery with a decision waiting and one for decisions with no delivery, and a delivery page links to its own above its decisions. Close then returns you to the page you came from. The link back to the page shows the walkthrough's own page without stacking another history entry, and the link to the next set replaces the walkthrough instead of stacking another.
+
+- Show an option's detail under its text in the console decisions walkthrough: dim, line breaks kept, clamped to two lines (three at `md` and up) until the option is selected. Tapping anywhere on the option's row, its detail included, selects it. The detail stays out of the radio's name, which is the option's text and its flags, and `aria-describedby` carries the detail.
+- Fix the walkthrough's radio name for a flagged option, which ran the option's text into its flag; it now reads after a comma, as in "Remove, Agent recommends".
+
+### Fixes
+
+- Change the console sidebar so each finished initiative inside the "finished initiatives" fold starts collapsed to its own row. A toggle beside it shows its phases, and it opens on its own when the page you are on sits inside it.
+
 ## v0.29.0 - 2026-11-17
 
 ### Breaking Changes
