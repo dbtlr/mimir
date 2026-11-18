@@ -77,6 +77,12 @@ annotates every linked task
 work stays `needs_answers` or `block --on you`. The console’s review page groups stopped deliveries, provisional decisions,
 and tasks waiting on the operator under "Needs you".
 
+**Option detail**: An optional sentence or two of context an agent gives one
+option of a decision, for an answer its short text cannot carry alone. Most
+options have none
+([ADR 0043](decisions/0043-the-decision-record.md)).
+_Avoid_: option description, answer note
+
 **Decisions walkthrough**: The console flow that takes the operator through a
 set of provisional decisions, a delivery's or a project's decisions without a
 delivery, one decision per screen, and records the answers together with one

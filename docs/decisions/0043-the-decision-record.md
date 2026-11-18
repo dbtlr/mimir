@@ -338,3 +338,83 @@ decision refuses while its project is archived. `get KEY-qN` resolves
   page, which shows decision records in the needs-you set, settles how the
   two read side by side.
 - A project that never records a decision behaves exactly as before.
+
+## Refinement (2026-11-18, MMR-705): an option's detail
+
+An option's text is short so that it reads as an answer, in a radio row, a
+chip, or an overturn annotation. Some answers cannot be understood from
+their text alone. An agent may give any option a **detail**: a sentence or
+two of context the operator reads before answering. Most options carry
+none.
+
+### The record
+
+| Field            | Shape                                                                                                     |
+| ---------------- | --------------------------------------------------------------------------------------------------------- |
+| `option_details` | A list as long as `options`: entry N is option N's detail, or null when it has none. Stored on the decision row as a JSON array, or null when no option has a detail |
+
+- Every read returns `option_details` as a list as long as `options`, so a
+  reader pairs an option with its detail by position. A decision with no
+  details reads as a list of nulls. A null column, a list of nulls, and a
+  missing field all read the same.
+- A detail is non-blank text, stored as given. It has no length limit, as no
+  decision text has one. The skill steers its length.
+- The detail is fixed at `decide`, as the options are.
+- The field is additive. `options` keeps its shape, so a client older than
+  this refinement keeps working inside the version window and ignores the
+  field ([ADR 0038](0038-device-pairing-and-the-version-window.md)).
+  `MIN_CLIENT` does not rise.
+
+### `decide`
+
+```sh
+mimir decide "Store snapshots per task or per phase?" \
+  --option "Per task" --option "Per phase" \
+  --detail "2: Phase is the review unit in ADR 0042, so one snapshot covers a review." \
+  --recommend 2 --class architecture
+```
+
+- `--detail "N: text"` repeats. N is an option number, then a colon, then
+  the detail. The space after the colon is optional, and the detail is the
+  text after it as given.
+- `decide` refuses, and names the fix, when a value has no `N:` prefix, N is
+  not an option, N appears twice, or the text after the prefix is blank.
+- The Engine's `decide` takes `option_details` as an optional list as long
+  as `options`, each entry a non-blank text or null. It refuses a list of
+  another length or a blank entry. The CLI and MCP turn their `--detail`
+  values into that list. MCP takes the CLI's `detail` values, as every
+  command's tool takes its flags.
+
+### Reads
+
+- `get KEY-qN` and the `decisions` read carry `option_details` in JSON.
+- In text, a detail prints indented under its option in the _Options_ block,
+  with the same hanging indent as the option's text.
+- The overturn annotation keeps its form and names the option's text only.
+
+### Transfer
+
+- The store export carries `option_details` on each decision row, and its
+  schema version increments. An export of an older version reads every
+  decision as having no details.
+- **Import refuses, and doctor reports,** an `option_details` whose length
+  differs from `options`, or an entry that is blank text or not text.
+
+### The console
+
+The decisions walkthrough shows a detail under its option's text ([ADR 0019](0019-meridian-console-design-system.md),
+MMR-705 refinement). Decision rows, chips, the walkthrough's rail, and its
+check step show no details.
+
+### Why
+
+- **A list beside `options`, not options as objects.** Objects read more
+  cleanly, but changing `options` breaks every older client that renders a
+  decision. A parallel list is additive, and the read always fills it, so no
+  reader has to guess at a missing or short list.
+- **`N:` names the option.** Options are already named by number, as
+  `overturn --option N` does. A detail paired by position would need a
+  placeholder for each option without one, and a miscount would move a
+  detail to the wrong option without any error.
+- **No length limit.** No other decision text has one. The walkthrough
+  clamps a long detail, and the skill asks for a sentence or two.

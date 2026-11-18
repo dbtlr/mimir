@@ -1015,3 +1015,78 @@ function.
 - Attention violet marks the agent's answer and its flag, and the current
   step; the "Agent recommends" flag is dim ink. "Confirmed" takes the `done`
   green and "Overturned" the `in_progress` amber, the hue of work sent back.
+
+## Refinement (2026-11-18, MMR-704): opening the walkthrough
+
+The MMR-703 refinement defines the decisions walkthrough and its address.
+This refinement adds the controls that open it. The MMR-695 chips stay on
+every decision row, so a quick confirm stays one tap.
+
+### The entries
+
+An entry is a link that opens one set's walkthrough at its first decision.
+The set's first decision is the oldest one waiting, as the MMR-703
+refinement orders a set.
+
+- **In the Needs you popover and on the review page,** each project group
+  shows its entries directly under the project heading, before the rows. It
+  shows one entry for each delivery that has a provisional decision in the
+  group, then one for the group's decisions that name no delivery. The
+  entries follow the delivery's place in the group, by its first decision
+  row in the needs-you order, and the no-delivery entry comes last. A group
+  with no decision rows shows no entries.
+- **On the delivery page,** the _Needs you_ section shows one entry above
+  its decision rows when the delivery has a provisional decision.
+- Copy, with N counting the set's decision rows in the read the surface
+  shows:
+  - a delivery in a project group: `Review N decisions on KEY-dN`, or
+    `Review 1 decision on KEY-dN`;
+  - no delivery in a project group: `Review N decisions without a
+    delivery`, or `Review 1 decision without a delivery`;
+  - on the delivery page: `Review N decisions`, or `Review 1 decision`.
+- An entry targets `/p/KEY/dN?mode=decisions` for a delivery and
+  `/p/KEY?mode=decisions` for decisions without a delivery.
+- An entry is a text link in the attention hue, because the set is in the
+  needs-you set. On a phone, it takes the 44px touch target. Activating an
+  entry in the popover closes the popover, as its row links do.
+- The focus queue, a work page's needs-you group, and the T3 wake gain no
+  entry. A work page's delivery row links to the delivery page, which has
+  one. The wake goes to the agent after the operator has answered, so it
+  carries ids only, as the MMR-695 refinement defines it.
+
+### Close returns to the opener
+
+- An entry opens the walkthrough as a new history entry and marks it as
+  opened in-app, in the history entry's state.
+- Close on a walkthrough opened in-app goes back one history entry, so the
+  page the entry was on shows again, with its scroll. This holds the
+  MMR-703 rule that Back returns to the entry before the walkthrough, even
+  when the entry was on the walkthrough's own page. A plain replace would
+  leave two copies of that page in history, and the next Back would seem to
+  do nothing.
+- Close on a walkthrough opened any other way, by an address or by the done
+  screen's link to the next set, replaces the history entry with the page
+  without the mode, as the MMR-703 refinement defines.
+
+### The done screen
+
+The done screen's link to the next set reads _Review them_, or _Review it_
+when that set holds one decision.
+
+## Refinement (2026-11-18, MMR-705): an option's detail in the walkthrough
+
+ADR 0043's MMR-705 refinement lets an agent give an option a detail. The
+walkthrough shows it. No other surface does.
+
+- A detail sits under its option's text in the answers group, in a smaller,
+  dim type. The radio's accessible name stays the option's text alone. The
+  detail is tied to the radio with `aria-describedby`, so a screen reader
+  reads it after the name.
+- A detail clamps to two lines below the `md` breakpoint and to three at
+  `md` and up, ending in an ellipsis. The selected answer's detail shows in
+  full, so the operator reads all of what they pick.
+- An option without a detail reads exactly as it did before this
+  refinement.
+- The briefing line that names the taken and recommended options, the rail,
+  the check step, the done screen, and the decision rows and chips show no
+  details.
