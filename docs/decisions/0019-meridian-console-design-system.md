@@ -849,7 +849,8 @@ agent's briefing. The chips stay as MMR-695 defines them.
   oldest first. This departs from the needs-you order, newest first, on
   purpose: a walkthrough reads in the order the agent decided. A decision
   that joins the read later waits for the next opening, as in the focus
-  queue.
+  queue. An opening holds at most 100 decisions, the oldest, which is the
+  most one _Send_ takes; the rest wait for the next opening.
 - A decision that leaves the live read while the walkthrough is open,
   because it was answered or moved elsewhere, shows "This decision no longer
   waits on you" in place of its answers, and _Send_ leaves it out.
@@ -864,9 +865,11 @@ agent's briefing. The chips stay as MMR-695 defines them.
   walkthrough.
 - Its header shows the delivery's title and id, or "Decisions without a
   delivery" and the project key, then the progress as "N of M". Close is an
-  icon button named "Close the walkthrough". Close and the browser's Back
-  both leave the mode and return to the page. Both keep the answers chosen
-  so far (_Drafts_) and ask nothing.
+  icon button named "Close the walkthrough". Close leaves the mode and shows
+  the page; the browser's Back returns to the entry before the walkthrough,
+  which is the page when the walkthrough opened from it. Both keep the
+  answers chosen so far (_Drafts_) and ask nothing. Leaving while _Send_ is
+  writing does not stop the write; the next opening shows what landed.
 - The offline notice shows at the top of the layer, and toasts show above it.
 - The layer uses the console's tokens, so both themes apply.
 
@@ -950,8 +953,9 @@ delivery and "Answers recorded" for a project. Under it:
 - Each refused or failed answer, with its question and the reason. A
   decision that is still provisional appears in the next opening, with its
   draft; one answered elsewhere does not.
-- The next set waiting: the first decision row, in the review read's
-  needs-you order, whose set differs from this one. It reads
+- The next set waiting: the first decision in the review read's `queue`, the
+  needs-you order across projects that the focus queue uses, whose set
+  differs from this one. It reads
   `<delivery id> has N decisions for you`, or for a project's decisions
   without a delivery `<project key> has N decisions without a delivery`,
   with _Review them_, which opens that walkthrough. N counts that set's rows

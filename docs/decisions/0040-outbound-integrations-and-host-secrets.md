@@ -673,7 +673,11 @@ The console's decisions walkthrough ([ADR 0019](0019-meridian-console-design-sys
 MMR-703 refinement) collects answers to several provisional decisions and
 writes them with one _Send_. One _Send_ is one operator action, so it sends at
 most one message, under a new waking function. `confirm`, `overturn`, and
-every function of the MMR-679 refinement keep their behavior.
+every function of the MMR-679 refinement keep their behavior. Three of that
+refinement's statements about every waking function do not hold for
+`answerDecisions`, and this section replaces them for it: it takes no single
+Engine method's input, it answers `{ results, wake }` rather than
+`{ record, wake }`, and a refused Engine write does not throw.
 
 ### The function
 
@@ -697,8 +701,10 @@ answer outside the list ([ADR 0043](0043-the-decision-record.md)).
 - `attempt` breaks its grammar;
 - `delivery` is neither null nor a `KEY-dN`, or an answer's `id` is not a
   `KEY-qN`;
-- two answers name the same decision. Ids compare in canonical form, so
-  `MMR-q07` and `MMR-q7` are the same decision;
+- two answers name the same decision. `delivery` and the answer ids are
+  read in canonical form, so `MMR-q07` and `MMR-q7` are the same decision and
+  `MMR-d03` is `MMR-d3`. Every later check, the wake, and the answer use the
+  canonical form;
 - the answers name decisions in more than one project, or in a project other
   than the delivery's;
 - an answer breaks its shape: an unknown verdict, an `option` that is not a
@@ -755,16 +761,17 @@ The checks run in this order, and the first that fails ends the wake:
 - **Logs.** The wake logs `t3_wake` and `t3_wake_fault` as every wake does.
 - **A lost answer.** When the browser never receives the answer to a _Send_
   and sends again, the second _Send_ finds the decisions answered: every
-  answer reads `refused`, and the wake reads `skipped`, `no_overturn`. If the
-  first _Send_'s wake was also not delivered, the agent learns of its
-  overturns from its since read.
+  answer reads `refused`, and the wake skips at the first check that fails,
+  `no_overturn` when T3 is enabled and the set names a delivery. The first
+  _Send_'s `retry` is lost with its answer, so if its wake was not delivered
+  either, the agent learns of its overturns from its since read.
 
 ### The answer
 
 `answerDecisions` answers `{ results, wake }`. `results` holds one entry per
 answer, in input order: `{ id, outcome: 'confirmed' | 'overturned', record }`
 with the Engine's decision record, `{ id, outcome: 'refused', reason }`, or
-`{ id, outcome: 'failed' }`. A `reason` is the Engine's message or the
+`{ id, outcome: 'failed' }`, each with the decision's canonical id. A `reason` is the Engine's message or the
 membership reason, never text the operator typed. `wake` is a state of _The
 answer_'s table, with `skipped` gaining the reason `no_overturn`. The console
 shows the wake state as it does for every waking function.
