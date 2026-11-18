@@ -12,7 +12,9 @@ import { createAgentRunner, RUNNER_TIMING } from './agent-runner';
 import { agentStartupWarnings, createAgentConnection } from './agent-settings';
 import { syncClone } from './clones';
 import type { HostConfig } from './config';
+import { createEngineView } from './engine-view';
 import { gitCredentialsWarnings } from './git-credentials';
+import { createNotifier } from './notifier';
 import { createPairingHandlers } from './pairing';
 import { createT3Adapter } from './t3';
 import { t3StartupWarnings } from './t3-settings';
@@ -50,9 +52,29 @@ export async function openHost(
       },
     );
     // The host owns doctor; core only receives the per-project counts console.review shows.
-    const engine = new LocalEngine(built.store, {
+    const store = new LocalEngine(built.store, {
       findings: findingsProviderOf(built.doctor.facet),
     });
+    // Operator notifications (ADR 0045): one Engine, one view per caller. The
+    // console's server functions and the T3 adapter write as the operator;
+    // the /trpc handler and an agent run's grant write as `other`.
+    const notifier = createNotifier<ReturnType<typeof setTimeout>>({
+      channels: [], // No channel is registered yet; the log lines are the only output.
+      clearTimer: (handle) => clearTimeout(handle),
+      log,
+      now: Date.now,
+      reads: {
+        deliveryTitle: async (id) => (await store.getDelivery({ id })).title,
+        review: (input) => store.console.review(input),
+      },
+      setTimer: (run, ms) => {
+        const handle = setTimeout(run, ms);
+        handle.unref();
+        return handle;
+      },
+    });
+    const engine = createEngineView(store, 'operator', notifier.marks);
+    const otherEngine = createEngineView(store, 'other', notifier.marks);
     const pairing = createPairingHandlers({ log, tokens: built.tokens });
     // An optional integration's bad setting warns and degrades; it never refuses startup.
     for (const warning of [
@@ -74,7 +96,7 @@ export async function openHost(
     // The agent runtime (ADR 0041): host-internal, started only by host server code.
     const agent = createAgentRunner({
       connection: createAgentConnection(),
-      engine,
+      engine: otherEngine,
       gitCredentials: config.gitCredentials,
       log,
       query,
@@ -91,18 +113,23 @@ export async function openHost(
       settings: config.t3,
       version,
     });
+    // The first read of the set, before any request: it emits nothing and never refuses startup.
+    await notifier.boot();
     return {
       agent,
       // The agent runtime's console surface (MMR-633): the task card, Now, and Groom with agent.
       agentConsole: createAgentConsole({ agent, engine, log, runs: built.runs }),
-      close: built.close,
+      close: async () => {
+        notifier.close();
+        await built.close();
+      },
       // The record-health facet: a host concern, not an Engine method (ADR 0034).
       doctor: built.doctor.facet,
       engine,
       handlePairingPoll: pairing.poll,
       handlePairingRequest: pairing.request,
       handleT3Callback: t3.callback,
-      handleTrpc: createEngineHandler(engine, { verifyToken: built.tokens.verify, version }),
+      handleTrpc: createEngineHandler(otherEngine, { verifyToken: built.tokens.verify, version }),
       // The host's log line sink, for console functions that log beside the adapters.
       log,
       // Host-only run records (ADR 0041); never reached through the Engine or the wire.

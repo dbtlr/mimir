@@ -1,0 +1,1 @@
+- Add the operator notifier to the host: it compares the needs-you set after writes and logs a `needs_you_event` line for each stopped delivery, provisional decision, blocked task, or task that needs answers that an agent or paired client caused. No channel delivers it yet.
