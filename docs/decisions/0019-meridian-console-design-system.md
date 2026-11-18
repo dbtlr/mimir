@@ -1113,18 +1113,23 @@ walkthrough shows it. No other surface does.
 
 - A detail sits under its option's text in the answers group, in a smaller,
   dim type. Its line breaks show.
-- The detail stays out of the radio's label, so the radio's accessible name
-  does not gain it. It is tied to the radio with `aria-describedby`, so a
-  screen reader reads it after the name. A radio without a detail has no
-  `aria-describedby`. Tapping or clicking the detail selects its option, as
-  the option's text does.
+- The detail stays out of the radio's accessible name. The whole row stays
+  one label, so tapping anywhere on it, the detail included, selects its
+  option, as a row without a detail does. The radio takes its name from the
+  option's text and flags alone (`aria-labelledby`), and the detail is tied
+  to it with `aria-describedby`, so a screen reader reads the detail after
+  the name. A radio without a detail has no `aria-describedby`.
+- A flag beside an option reads after a comma in the radio's name:
+  "Remove, Agent recommends". This corrects the MMR-703 walkthrough, whose
+  name ran the option's text into its flag, and applies to every option,
+  with or without a detail.
 - A detail clamps to two lines below the `md` breakpoint and to three at
   `md` and up, ending in an ellipsis. The selected answer's detail shows in
   full, so the operator reads all of what they pick. Moving the selection
   reflows the rows. This is accepted, because selecting writes nothing and
   the operator can read any detail by selecting it.
-- An option without a detail reads exactly as it did before this
-  refinement.
+- An option without a detail reads as it did before this refinement,
+  apart from the comma before its flag.
 - The briefing line that names the taken and recommended options, the rail,
   the check step, the done screen, and the decision rows and chips show no
   details.
