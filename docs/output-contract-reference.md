@@ -579,10 +579,14 @@ project refuses. The set output shape is unchanged.
 ## Decisions
 
 `decide`, `confirm`, `overturn`, `update KEY-qN`, and `get KEY-qN` return the full
-decision record: id, project_key, seq, question, options, recommended, taken,
-class, why, delivery, lifecycle, overturn_option, outcome_note, created_at,
-updated_at, tasks, and history. Options retain input order; tasks read in task
-sequence order; history reads in insertion order. Each history row carries
+decision record: id, project_key, seq, question, options, option_details,
+recommended, taken, class, why, delivery, lifecycle, overturn_option,
+outcome_note, created_at, updated_at, tasks, and history. Options retain input
+order; tasks read in task sequence order; history reads in insertion order.
+`option_details` is a list aligned with `options`, as long as it: entry N is
+option N's detail, or null when that option has none, so a decision without
+details reads as a list of nulls. Records and table output print a detail only
+inside the Options block, under its option, never as a field line of its own. Each history row carries
 kind, from_value, to_value, reason, task, and at. Task `get` adds `decisions`, a
 list of id/lifecycle pairs in decision sequence order. Other task reads omit it.
 
