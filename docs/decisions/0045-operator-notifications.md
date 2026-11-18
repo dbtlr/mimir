@@ -339,14 +339,18 @@ secret `push.vapid`: the sealed JSON of the public key and the private
 scalar. The public key is always the raw 65-byte uncompressed point in
 unpadded base64url, the form a browser's `applicationServerKey` takes.
 
-**First use.** The pair is made the first time the channel needs it: the
-first status read, subscribe, or send. Within one host process, first use is
-single-flight: every caller awaits the same read, and at most one pair is
-made. The new row is written only if no row of that name exists (a
-host-secret write that inserts and never replaces), and the channel then
-reads the row back and uses whatever it holds. Two hosts that make a pair at
-once therefore both use the pair that was stored first. A loaded pair is kept
-in memory for the life of the process.
+**Every use reads the row.** Each status read, subscribe, send test, and
+delivery reads and opens `push.vapid` again; the channel keeps no copy
+between uses. A host therefore always signs with the key the store holds,
+including after another host reset it. The cost is one row read per use.
+
+**First use.** The pair is made when a use finds no row. The new row is
+written only if no row of that name exists (a host-secret write that inserts
+and never replaces), and the channel then reads the row back and uses
+whatever it holds. Two callers or two hosts that make a pair at once
+therefore both use the pair that was stored first. Within one host process,
+making a pair and resetting it (below) take turns: one runs at a time. A
+failed attempt is not remembered, so the next use tries again.
 
 A store error while reading or writing the key is a fault, never an absent
 row: it makes no pair.
@@ -354,16 +358,16 @@ row: it makes no pair.
 **An unusable row.** A row that fails to open (the secret key changed, or the
 row was altered) is logged as `host_secret_unopenable`, and a row that opens
 but does not hold a valid pair is logged as `host_secret_unreadable`, both
-without contents, as ADR 0040 says. Either way the channel is **key
-unusable**: it sends nothing, refuses subscribe, and writes nothing. It does
-not replace the key on its own, because the usual cause is a wrong secret key
-that the operator will restore, and replacing the key would strand every
-device.
+without contents, as ADR 0040 says. Each is logged once per process for
+each row content, not on every use. Either way the channel is **key
+unusable** while the row stays as it is. It does not replace the key on its
+own, because the usual cause is a wrong secret key that the operator will
+restore, and replacing the key would strand every device.
 
 **Reset.** The operator replaces the key with the reset server function
 (below), from the `key unusable` state or any time the channel is ready. It
-writes a new pair over the row, then deletes every subscription made for
-another key. Each row records the key it was made for (below), so a reset
+writes a new pair over the row, reads the row back, then deletes every
+subscription made for another key than the one it read. Each row records the key it was made for (below), so a reset
 interrupted between the two steps leaves rows that no send uses and that the
 next reset or a removal deletes. Each device subscribes again: the console
 compares its subscription's `applicationServerKey` with the served key when it
@@ -390,7 +394,7 @@ skip it in both directions.
 | `last_failure_at` | When the latest failed push to it happened; absent after a success        |
 | `last_failure`    | That failure: `HTTP <status>`, `timeout`, or `unreachable`                |
 
-The endpoint and the browser's keys are stored as given, not sealed. The
+The endpoint and the browser's keys are stored in the clear, not sealed. The
 browser's keys let the host encrypt to the browser, not decrypt, and the
 push services below accept a push only when it is signed with the VAPID key
 the endpoint was made for, whose private half is sealed.
@@ -410,18 +414,25 @@ work-state export gain nothing.
 The console calls six server functions, off the Engine. Each answers
 `unconfigured` or `misconfigured` when the channel is not ready, and then
 touches neither table. A store error is a host fault, as in every other
-console server function; a push service's failure is an answer.
+console server function; a push service's failure is an answer. Every
+function that takes an endpoint serializes it with the URL parser before it
+looks the row up.
+
+In the `key unusable` state, Status answers `key_unusable`, Subscribe and Send
+test refuse with `key_unusable`, List answers every row as made for another
+key, and Unsubscribe and Reset key work as usual.
 
 - **Status** answers `ready` with the public key and the console origin
   (`MIMIR_URL`), or `key_unusable`.
 - **Subscribe** takes the endpoint, the two browser keys, the
   `applicationServerKey` the browser subscribed with, and a label. It
   refuses, and writes nothing, when:
-  - the request's `Origin` is not the origin of `MIMIR_URL`
-    (`wrong_origin`), because a notification opens `MIMIR_URL` and a device
-    installed from another origin would open it outside the app;
-  - the channel is `key_unusable`, or the given server key is not the
-    current one (`stale_key`);
+  - the request's `Origin` header is missing, or its scheme, host, and port
+    are not those of `MIMIR_URL` (`wrong_origin`), because a notification
+    opens `MIMIR_URL` and a device installed from another origin would open
+    it outside the app. The header is compared, not the request URL, which
+    is `http:` behind a proxy that ends TLS;
+  - the given server key is not the current one (`stale_key`);
   - the endpoint is longer than 1024 characters, or is not an `https:` URL
     with no user, password, or fragment, on the default port, on one of the
     push hosts below (`endpoint_not_allowed`);
@@ -460,8 +471,9 @@ after the URL parser has lowercased and normalized it.
 
 ### Sending
 
-The channel's `deliver` reads the table and sends the event to every row made
-for the current key, all at once. It resolves when every send has an outcome
+The channel's `deliver` reads the key and the table and sends the event to
+every row made for the current key, all at once. In the `key unusable` state
+it sends nothing and resolves. It resolves when every send has an outcome
 and every row update has finished or failed. It rejects only when the table
 or the key cannot be read, which the notifier logs as
 `needs_you_channel_fault`.
@@ -546,9 +558,12 @@ A test push has the title `Mimir test notification`, the body
   row stays until one of the above.
 - When two deliveries to one row overlap, the later outcome to finish wins,
   so the row can show an older failure after a newer success until the next
-  push.
+  push. A push still in flight when its row is removed and subscribed again
+  with the same keys can likewise record its outcome on the new row.
 - Two hosts that serve one store, as during an overlapping deploy, each send
-  every event they find.
+  every event they find. Resets on both at the same moment can delete a
+  subscription made in between for the key that won; that device subscribes
+  again when the console next opens.
 - A host restored from a transfer document has no subscriptions.
 
 ### Considered and rejected
