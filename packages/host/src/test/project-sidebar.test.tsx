@@ -423,6 +423,20 @@ describe('sidebar outline', () => {
     expect(within(nav).getByText('initiative MMR-5')).toBeVisible();
   });
 
+  it('keeps each finished initiative shut inside the fold until its own toggle opens it', async () => {
+    await renderAt('/p/MMR');
+    const nav = await outline();
+    await within(nav).findByRole('link', { name: /initiative MMR-1/ });
+    await userEvent.click(within(nav).getByText('1 finished initiative'));
+    const toggle = within(nav).getByRole('button', { name: 'Phases of initiative MMR-5' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(within(nav).queryByRole('link', { name: /phase MMR-6/ })).toBeNull();
+
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(within(nav).getByRole('link', { name: /phase MMR-6/ })).toBeVisible();
+  });
+
   it('marks nothing as the page on the project’s own page', async () => {
     await renderAt('/p/MMR');
     const nav = await outline();
@@ -474,6 +488,10 @@ describe('sidebar outline', () => {
     const phase = await within(nav).findByRole('link', { name: /phase MMR-6/ });
     expect(phase).toBeVisible();
     expect(nav.querySelector('details')).toHaveAttribute('open');
+    expect(within(nav).getByRole('button', { name: 'Phases of initiative MMR-5' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
   });
 
   it('reopens a fold shut by hand when the next open record is inside it too', async () => {

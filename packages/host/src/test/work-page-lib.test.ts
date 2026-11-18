@@ -161,14 +161,36 @@ describe('buildOutline', () => {
     expect(tallies['MMR-12']).toStrictEqual({ kind: 'parked' });
   });
 
-  it('folds finished top-level initiatives, with their subtrees, apart from the live outline', () => {
-    const { finished } = buildOutline(tree);
+  it('folds finished top-level initiatives apart from the live outline, each with its own subtree', () => {
+    const { finished } = buildOutline(
+      tn('MMR', 'project', 'in_progress', [
+        tn('MMR-1', 'initiative', 'done', [
+          tn('MMR-2', 'phase', 'done', [tn('MMR-3', 'phase', 'done')]),
+          tn('MMR-4', 'phase', 'done'),
+        ]),
+        tn('MMR-5', 'initiative', 'ready'),
+        tn('MMR-6', 'initiative', 'abandoned', [tn('MMR-7', 'task', 'abandoned')]),
+      ]),
+    );
 
-    expect(finished.count).toBe(1);
-    expect(finished.entries.map((e) => [e.id, e.depth])).toStrictEqual([
-      ['MMR-8', 0],
-      ['MMR-9', 1],
+    expect(
+      finished.map((f) => [f.row.id, f.row.depth, f.inside.map((e) => [e.id, e.depth])]),
+    ).toStrictEqual([
+      [
+        'MMR-1',
+        0,
+        [
+          ['MMR-2', 1],
+          ['MMR-3', 2],
+          ['MMR-4', 1],
+        ],
+      ],
+      ['MMR-6', 0, []],
     ]);
+  });
+
+  it('holds no finished initiative open when no record is open', () => {
+    expect(buildOutline(tree).finished.map((f) => f.holdsOpen)).toStrictEqual([false]);
   });
 
   it('keeps a finished phase in place under a live initiative', () => {
@@ -185,14 +207,14 @@ describe('buildOutline', () => {
       ]),
     );
 
-    expect(outline.finished.entries[0]?.tally).toStrictEqual({ done: 1, kind: 'counts', total: 1 });
+    expect(outline.finished[0]?.row.tally).toStrictEqual({ done: 1, kind: 'counts', total: 1 });
   });
 
   it('is empty for a project that holds only tasks', () => {
     const outline = buildOutline(tn('MMR', 'project', 'ready', [tn('MMR-1', 'task', 'ready')]));
 
     expect(outline.entries).toStrictEqual([]);
-    expect(outline.finished).toStrictEqual({ count: 0, entries: [] });
+    expect(outline.finished).toStrictEqual([]);
   });
 });
 
@@ -244,15 +266,42 @@ describe('buildOutline marks the open record’s place', () => {
     });
   });
 
-  it('puts a task under a finished initiative in the fold', () => {
+  it('puts a task under a finished initiative in that initiative’s fold, held open', () => {
     const { entries, finished } = buildOutline(tree, 'MMR-7');
 
     expect(entries.some((e) => e.id === 'MMR-7')).toBe(false);
-    expect(finished.entries.map((e) => [e.id, e.mark])).toStrictEqual([
-      ['MMR-5', 'path'],
+    expect(finished).toHaveLength(1);
+    expect(finished[0]?.row.mark).toBe('path');
+    expect(finished[0]?.holdsOpen).toBe(true);
+    expect(finished[0]?.inside.map((e) => [e.id, e.mark])).toStrictEqual([
       ['MMR-6', 'path'],
       ['MMR-7', 'current'],
     ]);
+  });
+
+  it('holds a finished initiative open when it is the open record', () => {
+    expect(buildOutline(tree, 'MMR-5').finished[0]?.holdsOpen).toBe(true);
+  });
+
+  it('lists a task held directly by a finished initiative inside its fold', () => {
+    const { finished } = buildOutline(
+      tn('MMR', 'project', 'in_progress', [
+        tn('MMR-1', 'initiative', 'done', [
+          tn('MMR-2', 'phase', 'done'),
+          tn('MMR-3', 'task', 'done'),
+        ]),
+      ]),
+      'MMR-3',
+    );
+
+    expect(finished[0]?.inside.map((e) => [e.id, e.depth, e.mark])).toStrictEqual([
+      ['MMR-3', 1, 'current'],
+      ['MMR-2', 1, undefined],
+    ]);
+  });
+
+  it('keeps a finished initiative shut when the open record is outside it', () => {
+    expect(buildOutline(tree, 'MMR-2').finished[0]?.holdsOpen).toBe(false);
   });
 
   it('marks nothing for an id the tree does not hold', () => {
