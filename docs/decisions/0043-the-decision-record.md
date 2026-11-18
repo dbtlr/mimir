@@ -364,8 +364,10 @@ none.
 - A detail is non-blank text, stored as given. It has no length limit, as no
   decision text has one. The skill steers its length.
 - The detail is fixed at `decide`, as the options are.
-- **A damaged stored list refuses,** as damaged options do. A stored value
-  that is not null and not a list as long as `options`, each entry null or
+- **A damaged stored list refuses,** as damaged options do. A stored JSON
+  null reads as a SQL null does, because neither backend's driver can tell
+  them apart on every path. Any other stored value that is not a list as
+  long as `options`, each entry null or
   non-blank text and at least one entry text, makes every read and write
   of the decision refuse and point to `mimir doctor`. No read pads, cuts, or drops a damaged list.
 - The field is additive. `options` keeps its shape, so a client older than
@@ -379,7 +381,7 @@ none.
 mimir decide "Store snapshots per task or per phase?" \
   --option "Per task" --option "Per phase" \
   --detail "2: Phase is the review unit in ADR 0042, so one snapshot covers a review." \
-  --recommend 2 --class architecture
+  --recommend 2 --class architecture -p MMR
 ```
 
 - `--detail "N: text"` repeats. A value matches `^([1-9][0-9]*):[ \t]*(.*)$`,

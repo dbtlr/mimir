@@ -382,7 +382,7 @@ The host's `/health` reports `schema` as the schema version it expects. A schema
 
 `mimir store export <file>` writes the whole store as one JSON document, and `mimir store import <file>` reads it. It is the **portable form** of the store: backend-neutral, so it moves facts between SQLite and PostgreSQL, and it is the backup for either ([ADR 0030](decisions/0030-postgres-store-backend-shared-store-bridge.md) Decision 4, [ADR 0032](decisions/0032-sqlite-local-tier-shared-sql-store.md) Decisions 5 and 6). A store from a Norn vault enters the same way: export it with mimir v0.20, then import the document (see [Moving from a Norn vault](guides/store-transfer.md#moving-from-a-norn-vault)).
 
-The document carries every **stored fact** and nothing derived. Its top level holds `schema_version` (the document's own version, separate from the database schema version: `15` since option details; import also reads `1` through `14`, defaulting each task to `not_groomed`, each blocked task's owner by its `upstream`, each project to unpinned, each project's remote to none, absent worker identity to none, and absent deliveries to none with a zero delivery counter, absent decisions to none with a zero decision counter, absent checklist items to none, absent delivery findings to none, absent delivery follow-ups to none, and no `delivery` on any scratchpad or artifact, and refuses any other), `exported_at` (the only field a re-export may differ in, except that a done or abandoned task carrying a hold imports unheld, at any document version), and these collections:
+The document carries every **stored fact** and nothing derived. Its top level holds `schema_version` (the document's own version, separate from the database schema version: `15` since option details; import also reads `1` through `14`, defaulting each task to `not_groomed`, each blocked task's owner by its `upstream`, each project to unpinned, each project's remote to none, absent worker identity to none, and absent deliveries to none with a zero delivery counter, absent decisions to none with a zero decision counter, absent checklist items to none, absent delivery findings to none, absent delivery follow-ups to none, and no `delivery` on any scratchpad or artifact, and refuses any other), `exported_at` (the only field a re-export may differ in, except that a done or abandoned task carrying a hold imports unheld, at any document version, and a decision whose `option_details` key is missing re-exports it as null), and these collections:
 
 | Collection     | Holds                                                                                     |
 | -------------- | ----------------------------------------------------------------------------------------- |
@@ -439,7 +439,7 @@ and outcome_note, and creation/update instants. Migration 0022 adds nullable
 JSON `option_details`: null when no option has context, otherwise a list as long
 as `options`, with nonblank text or null at each position and at least one
 detail. Reads expand a stored null to an aligned list of nulls. Transfer schema
-15 carries the stored form; a missing key imports as null at every version.
+15 carries the stored form; a missing key, or JSON null, imports as null at every version.
 Import refuses and doctor reports malformed or all-null stored lists.
 
 `decision_task` owns unique decision/task pairs. `decision_history` records

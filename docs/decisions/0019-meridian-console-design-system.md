@@ -1089,8 +1089,10 @@ for every other opening.
     page without the mode.
 
   Either way, Back from that page returns to where the operator was before
-  the walkthrough, does not reopen it, and never meets a second copy of the
-  page.
+  the walkthrough and does not reopen it. It meets no second copy of the
+  page unless the operator typed the walkthrough's address while already on
+  its page, an unmarked opening the console cannot tell apart from a deep
+  link. That case keeps the MMR-703 behavior and is accepted.
 - The done screen's link to the next set replaces the walkthrough's history
   entry with the next set's walkthrough, and carries the walkthrough's mark,
   with its opener, over to it, or no mark when it had none. This revises
