@@ -73,12 +73,15 @@ export function isBlankCustom(selection: Selection): boolean {
   return selection.choice === 'custom' && selection.answer.trim() === '';
 }
 
-/** An option's detail (1-based option number), or null when it has none. */
+/**
+ * An option's detail (1-based option number), or null when it has none. A view
+ * restored from a cache written before details existed has no list at all.
+ */
 export function optionDetail(
-  decision: Pick<WalkDecision, 'option_details'>,
+  decision: Partial<Pick<WalkDecision, 'option_details'>>,
   number: number,
 ): string | null {
-  return decision.option_details[number - 1] ?? null;
+  return decision.option_details?.[number - 1] ?? null;
 }
 
 /** The answer's text: the chosen option's, or the operator's own words. */
