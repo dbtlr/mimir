@@ -421,7 +421,7 @@ test('the done screen lists refused and failed answers with reasons, the rework,
   expect(refused).toHaveTextContent('Question 2?MMR-q2 is already confirmed');
   expect(refused).toHaveTextContent('Question 3?');
   expect(layer).toHaveTextContent('MMR-d4 has 1 decision for you');
-  expect(within(layer).getByRole('link', { name: 'Review them' })).toHaveAttribute(
+  expect(within(layer).getByRole('link', { name: 'Review it' })).toHaveAttribute(
     'href',
     '/p/MMR/d4?mode=decisions',
   );
