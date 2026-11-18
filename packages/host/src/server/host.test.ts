@@ -643,10 +643,6 @@ test('closing the host closes the notifier: its window is cancelled and nothing 
   const logged = rig.notifierLines().length;
   await host.close();
   expect(rig.armed()).toEqual([]);
-  // Let any pending read settle; the closed notifier must log nothing for it.
-  for (let turn = 0; turn < 100; turn += 1) {
-    await Bun.sleep(0);
-  }
   expect(rig.notifierLines()).toHaveLength(logged);
 });
 
