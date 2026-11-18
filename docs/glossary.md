@@ -77,6 +77,12 @@ annotates every linked task
 work stays `needs_answers` or `block --on you`. The console’s review page groups stopped deliveries, provisional decisions,
 and tasks waiting on the operator under "Needs you".
 
+**Decisions walkthrough**: The console flow that takes the operator through a
+set of provisional decisions, a delivery's or a project's decisions without a
+delivery, one decision per screen, and records the answers together with one
+Send.
+_Avoid_: decision wizard, answer flow
+
 **Checklist item**: A small, numbered item on a task that is added, then
 checked or dropped with a reason. Checked and dropped are final, and items
 gate nothing ([ADR 0044](decisions/0044-checklist-items.md)).

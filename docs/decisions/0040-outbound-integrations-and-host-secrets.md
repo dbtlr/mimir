@@ -679,67 +679,95 @@ every function of the MMR-679 refinement keep their behavior.
 
 `answerDecisions` takes:
 
-| Field      | Shape                                                                                              |
-| ---------- | -------------------------------------------------------------------------------------------------- |
-| `attempt`  | The browser's id for this _Send_, with the grammar of _The send_                                    |
+| Field      | Shape                                                                                                             |
+| ---------- | ----------------------------------------------------------------------------------------------------------------- |
+| `attempt`  | The browser's id for this _Send_, with the grammar of _The send_                                                   |
 | `delivery` | The delivery whose decisions the walkthrough shows (`KEY-dN`), or null for a project's decisions with no delivery |
-| `answers`  | One to 100 answers, each naming a different decision in one project                                |
+| `answers`  | One to 100 answers, each naming a different decision                                                              |
 
 Each answer is `{ id, verdict: 'confirm', note? }` or
-`{ id, verdict: 'overturn', option?, note? }`, with the inputs of the Engine's
-`confirm` and `overturn` ([ADR 0043](0043-the-decision-record.md)). An input
-that breaks this shape, names a decision twice, mixes projects, or names a
-delivery in another project refuses before anything is written, as an Engine
-input error does.
+`{ id, verdict: 'overturn', option?, note? }`. A confirm's note is its
+outcome note. An overturn with `option` chooses another listed option, and
+its note explains it; an overturn with a note and no option records an
+answer outside the list ([ADR 0043](0043-the-decision-record.md)).
 
-The function then works through the answers in the order given:
+**Input checks.** Before anything is written, the call refuses with a
+`validation` error, as an Engine input error does, when:
 
-1. It reads the decision through the Engine. A decision that names a
-   delivery other than `delivery`, or names one when `delivery` is null,
-   gets the outcome `refused` with the reason that it is not in this
+- `attempt` breaks its grammar;
+- `delivery` is neither null nor a `KEY-dN`, or an answer's `id` is not a
+  `KEY-qN`;
+- two answers name the same decision. Ids compare in canonical form, so
+  `MMR-q07` and `MMR-q7` are the same decision;
+- the answers name decisions in more than one project, or in a project other
+  than the delivery's;
+- an answer breaks its shape: an unknown verdict, an `option` that is not a
+  positive integer, or a non-string `note`. Whether an overturn has an option
+  or a non-blank note is the Engine's check, per answer.
+
+**The answers.** The function then works through the answers in the order
+given. For each one:
+
+1. It reads the decision through the Engine. A refused read, such as
+   `not_found`, gives the outcome `refused` with the Engine's message. A
+   decision that names a delivery other than `delivery`, or names one when
+   `delivery` is null, gives `refused` with the reason that it is not in this
    walkthrough, and nothing is written for it. This keeps the wake on the
-   thread that built on the answers.
-2. It calls `confirm` or `overturn`. A refusal from the Engine, such as a
-   decision already confirmed elsewhere, gets the outcome `refused` with the
-   Engine's message, and the function moves on to the next answer.
-3. Any other error gets the outcome `failed`, logs `decision_answer_fault`
-   with the decision id, and the function moves on.
+   thread that built on the answers. The read and the write are separate
+   transactions, so a decision moved to another delivery between them is
+   still answered; the wake then reaches the thread the walkthrough named.
+2. It calls `confirm` or `overturn`. An Engine refusal, a `MimirError` with
+   the code `not_found`, `validation`, or `conflict`, gives `refused` with the
+   Engine's message, and the function moves on. A decision already confirmed
+   or overturned elsewhere is refused here, by the Engine.
+3. Any other error, a `MimirError` with the code `invariant` included, gives
+   the outcome `failed`, logs `decision_answer_fault` with the decision id,
+   and the function moves on.
 
 Each answer is its own Engine write, as it is from the chips, so a refusal
-never undoes or blocks another answer. Once the input passes, the function
-never throws.
+never undoes or blocks another answer. Once the input checks pass, the
+function never throws.
 
 ### The wake
 
-After the last answer, the function wakes the delivery's thread once, when
-two things hold: `delivery` is not null, and at least one answer's outcome is
-`overturned`. Otherwise the wake reads `skipped`, with the reason
-`no_delivery` when `delivery` is null and the new reason `no_overturn` when
-nothing was overturned. A batch of confirms wakes nothing, as a single
-confirm does.
+After the last answer, the function wakes the delivery's thread at most once.
+The checks run in this order, and the first that fails ends the wake:
 
-- **Action and phrase.** The action is `answerDecisions`, and its phrase is
+1. The T3 feature is enabled; otherwise `skipped`, `unconfigured`.
+2. `delivery` is not null; otherwise `skipped`, `no_delivery`.
+3. At least one answer's outcome is `overturned`; otherwise `skipped`, the
+   new reason `no_overturn`. A _Send_ of confirms wakes nothing, as a single
+   confirm does.
+4. Checks 3 to 5 of _Who receives it_, on the delivery read after the
+   writes: `no_thread`, `misconfigured`, `disconnected`.
+
+- **Action and phrase.** The action is `answerDecisions`, named for the
+  console function, because no single Engine method backs it. Its phrase is
   `answered decisions on delivery <d>`. The phrase is fixed and carries only
   the delivery's id; the since read shows which decisions moved and how.
-- **Since.** `<since>` is the host's clock read just before the first Engine
-  write, minus one millisecond, so the since read shows every answer of the
-  _Send_.
-- **Who receives it.** The checks of _Who receives it_ run on `delivery`, in
-  their order, after the writes. A `skipped` answer for `no_overturn` reads
-  nothing from T3 and the host secret, as every skip does.
-- **Retry.** `retry` is `{ delivery, action: 'answerDecisions', decision: null, attempt, since }`.
-  `wakeT3` accepts `answerDecisions` with a null `decision` and reads
+- **Since.** `<since>` is the host's clock read just before the first
+  answer's read, minus one millisecond, so the since read shows every answer
+  of the _Send_.
+- **Retry.** `retry` is
+  `{ delivery, action: 'answerDecisions', decision: null, attempt, since }`.
+  `wakeT3` accepts `answerDecisions` with a null `decision`, and reads
   `invalid`, naming `decision`, when one is given.
 - **Logs.** The wake logs `t3_wake` and `t3_wake_fault` as every wake does.
+- **A lost answer.** When the browser never receives the answer to a _Send_
+  and sends again, the second _Send_ finds the decisions answered: every
+  answer reads `refused`, and the wake reads `skipped`, `no_overturn`. If the
+  first _Send_'s wake was also not delivered, the agent learns of its
+  overturns from its since read.
 
 ### The answer
 
 `answerDecisions` answers `{ results, wake }`. `results` holds one entry per
 answer, in input order: `{ id, outcome: 'confirmed' | 'overturned', record }`
 with the Engine's decision record, `{ id, outcome: 'refused', reason }`, or
-`{ id, outcome: 'failed' }`. `wake` is a state of _The answer_'s table, with
-`skipped` gaining the reason `no_overturn`. The console shows the wake state
-as it does for every waking function.
+`{ id, outcome: 'failed' }`. A `reason` is the Engine's message or the
+membership reason, never text the operator typed. `wake` is a state of _The
+answer_'s table, with `skipped` gaining the reason `no_overturn`. The console
+shows the wake state as it does for every waking function.
 
 ### Considered and rejected
 
