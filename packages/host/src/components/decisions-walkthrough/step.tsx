@@ -73,63 +73,41 @@ function Answers({
           const number = index + 1;
           const picked = selection.choice === number;
           const detail = optionDetail(decision, number);
-          const optionText = (
-            <span
-              className={`flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-0.5 text-[15.5px] leading-[1.45] wrap-anywhere ${picked ? 'text-ink-bright' : 'text-ink'}`}
-            >
-              <span>{text}</span>
-              <Flags decision={decision} number={number} />
-            </span>
-          );
-          if (detail === null) {
-            return (
-              <label key={number} className={ROW_CLASS}>
-                <input
-                  type="radio"
-                  name={group}
-                  className={RADIO_CLASS}
-                  checked={picked}
-                  disabled={disabled}
-                  onChange={() => onChange({ choice: number })}
-                />
-                {optionText}
-              </label>
-            );
-          }
-          // The detail stays out of the label so the radio's name does not gain it;
-          // aria-describedby reads it after the name, and a click on it selects the option.
-          const radioId = `${group}-${String(number)}`;
-          const detailId = `${radioId}-detail`;
+          // The whole row is the label, so a tap anywhere on it, the detail included,
+          // selects the option. The radio's name comes from the text and flags alone;
+          // the detail describes it instead.
+          const textId = `${group}-${String(number)}`;
+          const detailId = `${textId}-detail`;
           return (
-            <div key={number} className={ROW_CLASS}>
+            <label key={number} className={ROW_CLASS}>
               <input
-                id={radioId}
                 type="radio"
                 name={group}
                 className={RADIO_CLASS}
-                aria-describedby={detailId}
+                aria-labelledby={textId}
+                aria-describedby={detail === null ? undefined : detailId}
                 checked={picked}
                 disabled={disabled}
                 onChange={() => onChange({ choice: number })}
               />
-              <div className="flex min-w-0 flex-col gap-1">
-                <label htmlFor={radioId} className="cursor-pointer">
-                  {optionText}
-                </label>
-                {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- the radio is the keyboard path; this click only mirrors the label */}
-                <p
-                  id={detailId}
-                  className={`text-meta leading-[1.45] whitespace-pre-line text-ink-dim wrap-anywhere ${picked ? '' : 'line-clamp-2 md:line-clamp-3'}`}
-                  onClick={() => {
-                    if (!disabled) {
-                      onChange({ choice: number });
-                    }
-                  }}
+              <span className="flex min-w-0 flex-col gap-1">
+                <span
+                  id={textId}
+                  className={`flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-0.5 text-[15.5px] leading-[1.45] wrap-anywhere ${picked ? 'text-ink-bright' : 'text-ink'}`}
                 >
-                  {detail}
-                </p>
-              </div>
-            </div>
+                  <span>{text}</span>
+                  <Flags decision={decision} number={number} />
+                </span>
+                {detail !== null && (
+                  <span
+                    id={detailId}
+                    className={`text-meta leading-[1.45] whitespace-pre-line text-ink-dim wrap-anywhere ${picked ? '' : 'line-clamp-2 md:line-clamp-3'}`}
+                  >
+                    {detail}
+                  </span>
+                )}
+              </span>
+            </label>
           );
         })}
         <label className={ROW_CLASS}>

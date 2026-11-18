@@ -895,6 +895,23 @@ test('clicking the detail selects its option; the clamp lifts when selected', as
   expect(detail).not.toHaveClass('md:line-clamp-3');
 });
 
+test('clicking a detail while a Send writes leaves the selection alone', async () => {
+  const gate = Promise.withResolvers<Awaited<ReturnType<typeof answerDecisions>>>();
+  vi.mocked(answerDecisions).mockReturnValue(gate.promise);
+  vi.mocked(deliveryPage).mockResolvedValue(page([withDetail()[0]!]));
+  const { layer } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  fireEvent.click(button(layer, 'Confirm and send (MMR-q1)'));
+  await waitFor(() => {
+    expect(button(layer, 'Confirm and send (MMR-q1)')).toBeDisabled();
+  });
+  fireEvent.click(within(layer).getByText(/First line/));
+  expect(within(layer).getByRole('radio', { name: /^Keep/ })).toBeChecked();
+  expect(within(layer).getByRole('radio', { name: /^Remove/ })).not.toBeChecked();
+  gate.resolve({ results: [recorded('MMR-q1', 'confirmed')], wake: { state: 'sent' } });
+  await heading(layer, 'Answers sent');
+});
+
 test('details show nowhere but the answers: not the briefing, rail, or check step', async () => {
   vi.mocked(deliveryPage).mockResolvedValue(page(withDetail()));
   const { layer } = await openDelivery();
