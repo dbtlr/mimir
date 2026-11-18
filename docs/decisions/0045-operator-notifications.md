@@ -187,10 +187,9 @@ the count a channel last showed can be too high.
 - Text is plain. Runs of whitespace collapse to one space. A title is at most
   100 characters and a body at most 240; a longer text is cut so that it ends
   in an ellipsis inside that limit.
-- `?mode=decisions` is reserved for the decisions walkthrough (MMR-703), a
-  console page that walks the provisional decisions of one delivery, or of one
-  project when they name no delivery. Until that page exists the console
-  ignores the mode and shows the record's page, which lists the decisions.
+- `?mode=decisions` opens the decisions walkthrough over the delivery's page,
+  or over the project's page for decisions that name no delivery
+  ([ADR 0019](0019-meridian-console-design-system.md), MMR-703 refinement).
 
 ### Channels
 
