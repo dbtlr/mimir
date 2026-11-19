@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -358,6 +358,35 @@ describe('Turn on', () => {
     });
   });
 
+  it('asks for permission before it waits for the load’s heal, so the click keeps its user activation', async () => {
+    const browser = dropped();
+    stubViewport('phone');
+    servePush({ devices: [mine] });
+    const serve = vi.mocked(subscribePush).getMockImplementation();
+    const sending = Promise.withResolvers<void>();
+    const answered = Promise.withResolvers<void>();
+    vi.mocked(subscribePush).mockImplementationOnce(async (call) => {
+      const answer = await serve?.(call);
+      sending.resolve();
+      await answered.promise;
+      return answer ?? { state: 'subscribed' };
+    });
+    await mount(browser);
+    await act(async () => {
+      await sending.promise;
+    });
+    const prompt = vi.spyOn(browser, 'requestPermission');
+    try {
+      await userEvent.click(await screen.findByRole('button', { name: 'Turn on' }));
+      await settle();
+      // The heal is still held, and the prompt has already been asked.
+      expect(prompt).toHaveBeenCalledOnce();
+    } finally {
+      answered.resolve();
+      await settle();
+    }
+  });
+
   it('on a stale key, rereads the status and subscribes again with the new key', async () => {
     const { browser, world } = await open('phone');
     vi.mocked(subscribePush).mockImplementationOnce(async () => {
@@ -539,6 +568,59 @@ describe('on this device', () => {
     expect(browser.record).toBeNull();
     expect(browser.held).toBeNull();
     expect(world.devices).toStrictEqual([]);
+  });
+
+  it('Turn off gives up on a running heal at HEAL_WAIT_MS, not before', async () => {
+    const browser = onBrowser();
+    const held: ((subscription: BrowserSubscription | null) => void)[] = [];
+    vi.spyOn(browser, 'subscription')
+      .mockResolvedValueOnce(SUBSCRIPTION)
+      .mockImplementation(async () => {
+        const { promise, resolve } = Promise.withResolvers<BrowserSubscription | null>();
+        held.push(resolve);
+        return promise;
+      });
+    await open('phone', { browser, world: { devices: [mine] } });
+    await waitFor(() => {
+      expect(held.length).toBeGreaterThanOrEqual(2);
+    });
+    const turnOff = await screen.findByRole('button', { name: 'Turn off' });
+    vi.useFakeTimers();
+    try {
+      await act(async () => {
+        fireEvent.click(turnOff);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(HEAL_WAIT_MS - 1);
+      });
+      expect(unsubscribePush).not.toHaveBeenCalled();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1);
+      });
+      expect(unsubscribePush).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+      await act(async () => {
+        for (const resolve of held) {
+          resolve(null);
+        }
+      });
+      await settle();
+    }
+  });
+
+  it('Turn off compares the record’s endpoint with the clicked one as the host stores them', async () => {
+    const browser = onBrowser();
+    // The same endpoint, spelled with its default port.
+    browser.record = {
+      endpoint: 'https://push.example:443/this',
+      serverKey: SERVED_KEY,
+      state: 'on',
+    };
+    await open('phone', { browser, world: { devices: [mine] } });
+    await userEvent.click(await screen.findByRole('button', { name: 'Turn off' }));
+    await expect(screen.findByRole('button', { name: 'Turn on' })).resolves.toBeInTheDocument();
+    expect(unsubscribePush).toHaveBeenCalledOnce();
   });
 
   it('Send test notification shows the answer under the group', async () => {
