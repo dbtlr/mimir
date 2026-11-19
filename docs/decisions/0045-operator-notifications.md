@@ -716,8 +716,8 @@ Turn on runs from the click itself, so the permission prompt has the user's
 activation. When permission ends granted, the console subscribes through the
 service worker with the served public key, sends the endpoint, the two keys,
 that key, and the label, and writes its record. Between the prompt and the
-subscribe it waits for a heal that is running (see below), so the two never
-subscribe at once. A `stale_key` answer refetches the status and tries once
+subscribe it waits for a heal that is running (see below), at most 10 seconds.
+When that heal finishes within the wait, the two never subscribe at once. A `stale_key` answer refetches the status and tries once
 more. Any refusal or failure, including a permission
 prompt that throws or a service worker that has not started within 10 seconds,
 clears the record and unsubscribes the browser side, so the browser and the
@@ -726,7 +726,8 @@ browser. The page says why in one sentence, and Turn on is offered again. A
 `wrong_origin` refusal links to the console address from the status.
 
 Turn off first waits for a heal that is running, so a heal that read the
-record before the click cannot turn notifications back on after it; if that
+record before the click cannot turn notifications back on after it, provided
+the heal finishes within the 10 second wait; if that
 heal sent a new endpoint, Turn off removes it from the host too. Then it
 clears the record, unsubscribes the browser, and removes the endpoint from the
 host. The record goes first because it is what the healer acts on: if a later
@@ -823,8 +824,11 @@ row.
 Reset push key is a quiet button under the list when the status is `ready`,
 and the one action when it is `key unusable`. Both ask first, saying that every
 device stops receiving notifications until its console is opened again. After a
-reset this browser subscribes again at once with the key the reset answered;
-each other device does when its console opens. The page first waits for a
+reset this browser subscribes again at once with the key the reset answered,
+when the reset's key differs from what the browser or its record holds; each
+other device does when its console opens. A record kept before the key was
+stored, in a browser that does not report its key, is judged by its row, which
+the reset deleted, and ends Off. The page first waits for a
 running heal, at most 10 seconds; a heal still running then is left to finish,
 and this browser heals on its next load. Otherwise the page rereads the
 status and the list and heals with the reset's key, even when the reread
@@ -846,6 +850,19 @@ for a reload, not that the reset failed.
 - A cleanup step that fails can leave a dead row, which goes when its push
   service answers 404 or 410 or when the operator removes it, or a
   subscription in the browser that no push reaches.
+- A heal whose host answer arrives after the 10 second wait and succeeds can
+  undo a Turn off made meanwhile.
+- A status or list read already in flight when Reset is tapped can leave this
+  browser Off until Turn on, and a stale `key_unusable` answer skips the
+  after-reset heal.
+- A status read that never answers keeps Reset's button busy until the page
+  reloads.
+- A browser that does not report its key and gets a new endpoint, with Turn on
+  tapped during a heal, can leave one dead row.
+- A record kept before the key was stored, in a browser that does not report
+  its key, is judged by its row after a reset and ends Off.
+
+Seed MMR-s80 proposes serializing this browser's push actions to close these.
 
 ### Considered and rejected
 
