@@ -11,8 +11,10 @@ import { connectivity } from '../lib/connectivity';
 import { nodeIdOf } from '../lib/record-url';
 import { useMediaQuery } from '../lib/use-media-query';
 import { useRowFocusHandoff } from '../lib/use-row-focus-handoff';
+import { ENTRY_ATTRIBUTE, NEEDS_YOU_ENTRY } from '../lib/walkthrough-mark';
 import { deliveryRoute, nodeRoute } from '../router';
 import { NeedsYouGroups, PROJECT_LINK } from './decision-groups';
+import { EntrySurfaceName } from './decisions-entry';
 import { actionButtonVariants } from './ui/action-button';
 import { iconButtonClass } from './ui/icon-button';
 import { CloseIcon } from './ui/icons';
@@ -100,12 +102,15 @@ function NeedsYouPanel({
           {report.needsYou.length === 0 ? (
             <p className="text-xs text-ink-dim">Nothing needs you.</p>
           ) : (
-            <NeedsYouGroups
-              groups={report.needsYou}
-              offline={offline}
-              handoff={handoff}
-              currentId={currentId}
-            />
+            // Its entries are gone once the panel closes, so the trigger stands in for them.
+            <EntrySurfaceName.Provider value={NEEDS_YOU_ENTRY}>
+              <NeedsYouGroups
+                groups={report.needsYou}
+                offline={offline}
+                handoff={handoff}
+                currentId={currentId}
+              />
+            </EntrySurfaceName.Provider>
           )}
         </div>
       </section>
@@ -187,6 +192,8 @@ export function AttentionAlert() {
   }
   const label = `${String(count)} ${count === 1 ? 'needs' : 'need'} you`;
   const words = count === 1 ? 'needs you' : 'need you';
+  // The trigger takes focus back from a walkthrough a panel entry opened (MMR-714).
+  const returnTarget = { [ENTRY_ATTRIBUTE]: NEEDS_YOU_ENTRY };
   const panel = (close?: ReactNode) => (
     <NeedsYouPanel
       report={report}
@@ -202,7 +209,7 @@ export function AttentionAlert() {
   if (desktop) {
     return (
       <PopoverRoot open={open} onOpenChange={setOpen}>
-        <PopoverTrigger aria-label={label} className={PILL}>
+        <PopoverTrigger aria-label={label} className={PILL} {...returnTarget}>
           <PillFace count={count} words={words} />
         </PopoverTrigger>
         <PopoverContent aria-label="Needs you">{panel()}</PopoverContent>
@@ -216,6 +223,7 @@ export function AttentionAlert() {
         aria-label={label}
         aria-haspopup="dialog"
         aria-expanded={open}
+        {...returnTarget}
         onClick={() => {
           setOpen(true);
         }}

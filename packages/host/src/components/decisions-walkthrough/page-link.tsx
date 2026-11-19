@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router';
 import type { MouseEvent } from 'react';
 
 import { deliveryLink, deliveryPath } from '../../lib/record-url';
-import { linkBackAction, useHistoryBack, useOpenerMark } from '../../lib/walkthrough-mark';
+import { linkBackAction, useBackToOpener, useOpenerMark } from '../../lib/walkthrough-mark';
 import type { WalkScope } from './model';
 
 /** A click the browser would open in the same tab: the primary button with no modifier. */
@@ -17,13 +17,17 @@ function isPlainClick(event: MouseEvent): boolean {
  * history never holds a second copy of the page (MMR-704 refinement).
  */
 export function PageLink({ scope, className }: { scope: WalkScope; className?: string }) {
-  const opener = useOpenerMark();
-  const back = useHistoryBack();
+  const mark = useOpenerMark();
+  const back = useBackToOpener();
   const pagePath = scope.kind === 'delivery' ? deliveryPath(scope.id) : `/p/${scope.key}`;
   const onClick = (event: MouseEvent) => {
-    if (linkBackAction(opener, pagePath) === 'back' && isPlainClick(event)) {
+    if (
+      mark !== undefined &&
+      linkBackAction(mark.opener, pagePath) === 'back' &&
+      isPlainClick(event)
+    ) {
       event.preventDefault();
-      back();
+      back(mark);
     }
   };
   return scope.kind === 'delivery' ? (

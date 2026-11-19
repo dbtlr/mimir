@@ -15,6 +15,7 @@ import { isSettingsPath, sidebarContextOf } from '../lib/project-sidebar';
 import { useMediaQuery } from '../lib/use-media-query';
 import { useTheme } from '../lib/use-theme';
 import { useToastPosition } from '../lib/use-toast-position';
+import { useOpenerFocus } from '../lib/walkthrough-mark';
 
 /**
  * Tailwind's `lg`: from here up the project sidebar sits beside the page; below
@@ -69,6 +70,7 @@ export function Shell() {
 
 function ShellContent() {
   const { theme, toggle } = useTheme();
+  useOpenerFocus();
   const toastPosition = useToastPosition();
   const desktop = useMediaQuery(DESKTOP);
   useRememberCurrentProject();

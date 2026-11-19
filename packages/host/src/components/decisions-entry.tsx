@@ -1,9 +1,10 @@
 import { Link } from '@tanstack/react-router';
+import { createContext, useContext } from 'react';
 
 import type { ReviewReport } from '../api/view-queries';
 import { cn } from '../lib/cn';
 import { deliveryLink } from '../lib/record-url';
-import { markState, useOpenerPath } from '../lib/walkthrough-mark';
+import { ENTRY_ATTRIBUTE, markState, useOpenerPath } from '../lib/walkthrough-mark';
 
 type NeedsYouRows = ReviewReport['needsYou'][number]['rows'];
 
@@ -55,9 +56,22 @@ export function groupEntryLabel(entry: GroupEntry): string {
   );
 }
 
+/** The entry name of a set's entry on a page: what focus returns to (ADR 0019, MMR-714 refinement). */
+export function entryName(set: EntrySet): string {
+  return set.kind === 'delivery' ? `delivery:${set.id}` : `project:${set.key}`;
+}
+
+/**
+ * The entry name every entry inside a surface takes instead of its set's,
+ * for a surface that is gone when the walkthrough closes: the Needs you
+ * popover names its trigger.
+ */
+export const EntrySurfaceName = createContext<string | undefined>(undefined);
+
 /**
  * A link that opens a set's walkthrough as a new history entry, marked with
- * the page it was on so Close and the link back return there.
+ * the page it was on and the entry's name, so Close and the link back return
+ * there and focus the entry again.
  */
 export function DecisionsEntry({
   set,
@@ -68,14 +82,17 @@ export function DecisionsEntry({
   children: string;
   className?: string;
 }) {
-  const state = markState(useOpenerPath());
+  const entry = useContext(EntrySurfaceName) ?? entryName(set);
+  const state = markState({ entry, opener: useOpenerPath() });
   const classes = cn(ENTRY_CLASS, className);
+  const named = { [ENTRY_ATTRIBUTE]: entry };
   return set.kind === 'delivery' ? (
     <Link
       {...deliveryLink(set.id)}
       search={{ mode: 'decisions' }}
       state={state}
       className={classes}
+      {...named}
     >
       {children}
     </Link>
@@ -86,6 +103,7 @@ export function DecisionsEntry({
       search={{ mode: 'decisions' }}
       state={state}
       className={classes}
+      {...named}
     >
       {children}
     </Link>

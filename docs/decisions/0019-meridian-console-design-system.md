@@ -1104,6 +1104,31 @@ for every other opening.
 - Scroll is not restored. The console restores no scroll position on any
   navigation, and this refinement adds none.
 
+### Focus after leaving (MMR-714)
+
+This adds focus to the rule above. On a page the walkthrough leaves by
+going back, the opener page shows again, but its elements are new, so the
+browser had nowhere to return focus to.
+
+- The mark also names the entry that opened the walkthrough: its set, a
+  delivery or a project's decisions without a delivery. Every entry inside
+  the Needs you popover carries one name instead, the popover's trigger,
+  because the popover is closed when the walkthrough closes. The done
+  screen's link to the next set carries the name over with the opener.
+- When Close or the link back goes back one history entry, focus lands,
+  once the opener page shows, on the entry with that name. For an entry
+  that was in the popover, it lands on the Needs you trigger.
+- When the named element is gone, focus lands on the page's main region.
+  This happens when the operator answered the whole set, so its entry no
+  longer shows, or when nothing needs the operator any more, so the trigger
+  no longer shows either.
+- A walkthrough so marked does not hand focus back itself on close, so
+  focus is placed once.
+- The browser's own Back is unchanged. A walkthrough without a mark is
+  unchanged: Close replaces its history entry and moves no focus to the
+  page. A mark written before this refinement names no entry, so focus
+  lands on the main region.
+
 ### The done screen
 
 This revises the MMR-703 refinement's link copy. The done screen's link to

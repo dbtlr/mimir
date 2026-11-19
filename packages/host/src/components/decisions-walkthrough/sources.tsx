@@ -5,7 +5,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { treeQuery } from '../../api/shell-queries';
 import { deliveryPageQuery, workQuery } from '../../api/view-queries';
 import { connectivity } from '../../lib/connectivity';
-import { closeAction, useHistoryBack, useOpenerMark } from '../../lib/walkthrough-mark';
+import { useBackToOpener, useOpenerMark } from '../../lib/walkthrough-mark';
 import { DecisionsWalkthrough } from './walkthrough';
 import type { WalkRead } from './walkthrough';
 
@@ -24,15 +24,16 @@ function treeTitles(root: EngineTree | undefined): Map<string, string> {
 
 /**
  * Closing leaves the mode. A walkthrough an entry opened goes back one
- * history entry; any other replaces its entry with the page without the mode.
+ * history entry and focuses that entry; any other replaces its entry with
+ * the page without the mode.
  */
 function useLeaveMode() {
   const navigate = useNavigate();
-  const back = useHistoryBack();
-  const opener = useOpenerMark();
+  const back = useBackToOpener();
+  const mark = useOpenerMark();
   return () => {
-    if (closeAction(opener) === 'back') {
-      back();
+    if (mark !== undefined) {
+      back(mark);
     } else {
       void navigate({ replace: true, search: {}, to: '.' });
     }
