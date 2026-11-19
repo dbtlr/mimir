@@ -12,10 +12,12 @@ import type { PushNotificationOptions } from '../lib/push-notification';
 
 type WaitEvent = { waitUntil: (promise: Promise<unknown>) => void };
 
-type WindowClient = {
+type FocusableClient = { focus: () => Promise<unknown> };
+
+type WindowClient = FocusableClient & {
   url: string;
-  navigate: (url: string) => Promise<unknown>;
-  focus: () => Promise<unknown>;
+  /** Resolves to the client for the navigated document, or null when it left the origin. */
+  navigate: (url: string) => Promise<FocusableClient | null>;
 };
 
 /** The slice of `ServiceWorkerGlobalScope` the handlers use. */
@@ -63,15 +65,18 @@ async function openTarget(scope: PushScope, target: string): Promise<void> {
   }
   // A window the worker does not control refuses `navigate`, so the target
   // opens in a new window instead.
+  let navigated: FocusableClient | null;
   try {
-    await existing.navigate(target);
+    navigated = await existing.navigate(target);
   } catch {
     await scope.clients.openWindow(target);
     return;
   }
-  // Chromium may refuse focus without a gesture; the navigation stands.
+  // Focus the navigated document's client: the old one belongs to the
+  // replaced document. Chromium may refuse focus without a gesture; the
+  // navigation stands.
   try {
-    await existing.focus();
+    await navigated?.focus();
   } catch {
     // refused
   }

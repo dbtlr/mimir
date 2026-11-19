@@ -9,7 +9,7 @@ type Handler = (event: never) => void;
 
 type FakeWindow = {
   url: string;
-  navigate: () => Promise<unknown>;
+  navigate: () => Promise<{ focus: () => Promise<unknown> } | null>;
   focus: () => Promise<unknown>;
   /** A window the worker does not control, which `matchAll` lists only on request. */
   uncontrolled?: boolean;
@@ -131,11 +131,17 @@ function clickEvent(navigate: unknown) {
 }
 
 describe('notificationclick handler', () => {
-  it('navigates then focuses an open console window', async () => {
+  it('navigates an open console window, then focuses the client the navigation resolves to', async () => {
     const order: string[] = [];
+    // navigate() resolves to a new client for the navigated document; the old
+    // one belongs to the replaced document, so focusing it can reject.
+    const navigated = { focus: async () => void order.push('focus'), url: `${ORIGIN}/p/MMR` };
     const win = {
-      focus: async () => void order.push('focus'),
-      navigate: async () => void order.push('navigate'),
+      focus: async () => void order.push('focus the old client'),
+      navigate: async () => {
+        order.push('navigate');
+        return navigated;
+      },
       url: `${ORIGIN}/`,
     };
     const navigate = vi.spyOn(win, 'navigate');
@@ -150,7 +156,7 @@ describe('notificationclick handler', () => {
   });
 
   it('reuses a console window the worker does not control yet', async () => {
-    const navigate = vi.fn(async () => {});
+    const navigate = vi.fn(async () => null);
     const { handlers, openWindow } = scope([
       { focus: async () => {}, navigate, uncontrolled: true, url: `${ORIGIN}/` },
     ]);
@@ -162,19 +168,17 @@ describe('notificationclick handler', () => {
   });
 
   it('keeps the navigation when focus is refused', async () => {
-    const navigate = vi.fn(async () => {});
-    const win = {
-      focus: async () => {
-        throw new Error('no gesture');
-      },
-      navigate,
-      url: `${ORIGIN}/`,
-    };
+    const refusingFocus = vi.fn(async () => {
+      throw new Error('no gesture');
+    });
+    const navigate = vi.fn(async () => ({ focus: refusingFocus }));
+    const win = { focus: async () => {}, navigate, url: `${ORIGIN}/` };
     const { handlers } = scope([win]);
     const { event, done } = clickEvent(`${ORIGIN}/p/MMR`);
     handlers.get('notificationclick')?.(event as never);
     await expect(done()).resolves.toBeDefined();
     expect(navigate).toHaveBeenCalledOnce();
+    expect(refusingFocus).toHaveBeenCalledOnce();
   });
 
   it('opens a window, and leaves the old one unfocused, when the open one refuses to navigate', async () => {
@@ -196,7 +200,7 @@ describe('notificationclick handler', () => {
 
   it('opens a window when none is open, and never a cross-origin target', async () => {
     const { handlers, openWindow } = scope([
-      { focus: async () => {}, navigate: async () => {}, url: 'https://other.example/' },
+      { focus: async () => {}, navigate: async () => null, url: 'https://other.example/' },
     ]);
     const { event, done } = clickEvent('https://evil.example/');
     handlers.get('notificationclick')?.(event as never);
