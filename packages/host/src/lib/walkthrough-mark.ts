@@ -65,8 +65,9 @@ export function linkBackAction(opener: string | undefined, pagePath: string): 'b
  * The one focus request a going-back leaves for the opener page: module
  * state, because the walkthrough that sets it unmounts before the page it
  * asks for shows. One console runs one router, so there is one request at most.
+ * It holds the opener's path, so a back that lands anywhere else drops it.
  */
-let pendingFocus: { entry: string | undefined } | undefined;
+let pendingFocus: Mark | undefined;
 
 /** The current history entry's mark, if the walkthrough was opened in-app. */
 export function useOpenerMark(): Mark | undefined {
@@ -82,7 +83,7 @@ export function useOpenerPath(): string {
 export function useBackToOpener(): (mark: Mark) => void {
   const router = useRouter();
   return (mark) => {
-    pendingFocus = { entry: mark.entry };
+    pendingFocus = mark;
     router.history.back();
   };
 }
@@ -103,19 +104,23 @@ function focusReturnTarget(entry: string | undefined): void {
 /**
  * Carries out a focus request once the router has shown the page it went
  * back to. Mounted once, in the shell: its effect runs after the page's own
- * elements are in the document.
+ * elements are in the document. The next page shown takes the request
+ * either way; only the opener acts on it, so a back cut short by Forward,
+ * or one that lands elsewhere, moves no focus then or later.
  */
 export function useOpenerFocus(): void {
-  const resolved = useRouterState({ select: (s) => s.resolvedLocation?.href });
+  const resolved = useRouterState({ select: (s) => s.resolvedLocation });
+  const href = resolved?.href;
+  const pathname = resolved?.pathname;
   useEffect(() => {
     // Nothing has shown yet; a request waits for the page it asks for.
-    if (resolved === undefined) {
+    if (href === undefined) {
       return;
     }
     const request = pendingFocus;
     pendingFocus = undefined;
-    if (request !== undefined) {
+    if (request !== undefined && request.opener === pathname) {
       focusReturnTarget(request.entry);
     }
-  }, [resolved]);
+  }, [href, pathname]);
 }

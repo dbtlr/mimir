@@ -1,6 +1,6 @@
 import type { ConsoleOutput } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { answerDecisions } from '../api/fns/deliveries';
@@ -469,4 +469,27 @@ test('a mark that names no control gives focus to the page’s main, even one no
     expect(screen.getByRole('main')).toHaveFocus();
   });
   expect(router.state.location.pathname).toBe('/p/MMR/tasks');
+});
+
+test('a back that lands somewhere other than the opener drops its focus request', async () => {
+  vi.mocked(deliveryPage).mockResolvedValue(page([decision(3, 'MMR-d3')]));
+  const { router } = await renderShell('/p/MMR/tasks', client());
+  await screen.findByRole('main');
+  // The mark names `/`, but the history entry before the walkthrough is the tasks page.
+  router.history.push('/p/MMR/d3?mode=decisions', {
+    walkthroughEntry: 'delivery:MMR-d3',
+    walkthroughOpener: '/',
+  });
+  await close(await screen.findByRole('dialog'));
+  await waitFor(() => {
+    expect(router.state.resolvedLocation?.pathname).toBe('/p/MMR/tasks');
+  });
+  // Flush the render's effects, where a focus move would happen, before asserting none came.
+  await act(async () => {});
+  expect(screen.getByRole('main')).not.toHaveFocus();
+  // Nor does the request wait for a later page: going to the opener now moves no focus either.
+  await router.navigate({ to: '/' });
+  await screen.findByRole('link', { name: 'Review 1 decision on MMR-d3' });
+  await act(async () => {});
+  expect(screen.getByRole('link', { name: 'Review 1 decision on MMR-d3' })).not.toHaveFocus();
 });
