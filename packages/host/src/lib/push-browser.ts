@@ -68,7 +68,14 @@ export type PushBrowserEnvironment = {
   }>;
   /** Throws or returns undefined where storage is blocked. */
   storage: () => Pick<Storage, 'getItem' | 'removeItem' | 'setItem'> | undefined;
+  /** Resolves after `ms`; how long the adapter waits for the service worker. */
+  after: (ms: number) => Promise<void>;
 };
+
+/** How long a read waits for the service worker before it answers that there is no subscription. */
+export const READ_READY_TIMEOUT_MS = 5000;
+/** How long a subscribe waits for the service worker before it fails. */
+export const SUBSCRIBE_READY_TIMEOUT_MS = 10_000;
 
 /** Where the record lives in this browser's storage. */
 export const RECORD_KEY = 'mimir.push.thisDevice';
@@ -117,8 +124,20 @@ export function createPushBrowser(environment: PushBrowserEnvironment): PushBrow
       return undefined;
     }
   };
-  const current = async () => {
-    const { pushManager } = await environment.ready();
+  /**
+   * The push manager and its subscription, or undefined when the service
+   * worker has not started within `limit`: an unregistered or broken worker
+   * leaves `ready` pending forever.
+   */
+  const current = async (limit: number) => {
+    const registration = await Promise.race([
+      environment.ready(),
+      environment.after(limit).then(() => undefined),
+    ]);
+    if (registration === undefined) {
+      return undefined;
+    }
+    const { pushManager } = registration;
     return { pushManager, subscription: await pushManager.getSubscription() };
   };
   return {
@@ -144,7 +163,11 @@ export function createPushBrowser(environment: PushBrowserEnvironment): PushBrow
       };
     },
     async subscribe(publicKey) {
-      const { pushManager, subscription: existing } = await current();
+      const held = await current(SUBSCRIBE_READY_TIMEOUT_MS);
+      if (held === undefined) {
+        throw new Error('The service worker did not start in time.');
+      }
+      const { pushManager, subscription: existing } = held;
       if (existing !== null && describe(existing).applicationServerKey !== publicKey) {
         // A browser refuses to subscribe with a new key while one is held.
         await existing.unsubscribe();
@@ -159,15 +182,14 @@ export function createPushBrowser(environment: PushBrowserEnvironment): PushBrow
       if (!environment.pushSupported()) {
         return null;
       }
-      const { subscription } = await current();
+      const subscription = (await current(READ_READY_TIMEOUT_MS))?.subscription ?? null;
       return subscription === null ? null : describe(subscription);
     },
     async unsubscribe() {
       if (!environment.pushSupported()) {
         return;
       }
-      const { subscription } = await current();
-      await subscription?.unsubscribe();
+      await (await current(READ_READY_TIMEOUT_MS))?.subscription?.unsubscribe();
     },
     writeRecord(record) {
       try {
@@ -190,6 +212,12 @@ const browserSupportsPush = () =>
 export function createBrowserPushBrowser(): PushBrowser {
   const supported = browserSupportsPush;
   return createPushBrowser({
+    after: async (ms) =>
+      // A timer has no promise form in the browser, and Promise.withResolvers is newer than Web Push on iOS.
+      // oxlint-disable-next-line promise/avoid-new
+      new Promise((resolve) => {
+        setTimeout(resolve, ms);
+      }),
     maxTouchPoints: navigator.maxTouchPoints,
     permission: () => (supported() ? Notification.permission : 'unsupported'),
     pushSupported: supported,

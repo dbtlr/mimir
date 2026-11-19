@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { decodeBase64Url, encodeBase64Url } from '../lib/base64url';
-import { createPushBrowser, RECORD_KEY } from '../lib/push-browser';
+import {
+  createPushBrowser,
+  READ_READY_TIMEOUT_MS,
+  RECORD_KEY,
+  SUBSCRIBE_READY_TIMEOUT_MS,
+} from '../lib/push-browser';
 import type { PushBrowserEnvironment } from '../lib/push-browser';
 
 /** A push manager holding at most one subscription, made for the key it was given. */
@@ -31,6 +36,7 @@ function world(held: { endpoint: string; key: string } | null) {
   );
   const store = new Map<string, string>();
   const environment: PushBrowserEnvironment = {
+    after: async () => Promise.withResolvers<void>().promise,
     maxTouchPoints: 0,
     permission: () => 'granted',
     pushSupported: () => true,
@@ -51,6 +57,18 @@ function world(held: { endpoint: string; key: string } | null) {
     userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/130.0.0.0 Safari/537.36',
   };
   return { environment, store, subscribe, unsubscribe };
+}
+
+/** An adapter whose service worker never starts, and whose waits end at once. */
+function stuck() {
+  const { environment } = world({ endpoint: 'https://push.example/old', key: KEY_A });
+  const after = vi.fn(async () => {});
+  const browser = createPushBrowser({
+    ...environment,
+    after,
+    ready: async () => Promise.withResolvers<never>().promise,
+  });
+  return { after, browser };
 }
 
 const KEY_A = encodeBase64Url(new Uint8Array([10, 11, 12]));
@@ -99,5 +117,20 @@ describe('createPushBrowser', () => {
     expect(() => {
       blocked.writeRecord({ state: 'removed' });
     }).not.toThrow();
+  });
+
+  describe('when the service worker never starts', () => {
+    it('reads no subscription after the read limit, and unsubscribing does nothing', async () => {
+      const { after, browser } = stuck();
+      await expect(browser.subscription()).resolves.toBeNull();
+      await expect(browser.unsubscribe()).resolves.toBeUndefined();
+      expect(after).toHaveBeenCalledWith(READ_READY_TIMEOUT_MS);
+    });
+
+    it('fails a subscribe after the subscribe limit', async () => {
+      const { after, browser } = stuck();
+      await expect(browser.subscribe(KEY_B)).rejects.toThrow('service worker');
+      expect(after).toHaveBeenCalledWith(SUBSCRIBE_READY_TIMEOUT_MS);
+    });
   });
 });
