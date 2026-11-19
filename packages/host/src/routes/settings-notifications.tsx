@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import type { PushDevice } from '../api/fns/push';
 import { pushDevicesQuery, pushStatusQuery } from '../api/push-queries';
@@ -214,11 +214,9 @@ export function NotificationsPage() {
   const [resetOpen, setResetOpen] = useState(false);
   const [resetRefusal, setResetRefusal] = useState<string | undefined>();
   // A reread may change which row is this browser's, so a row's open sheet closes rather than act on a stale match.
-  useEffect(() => {
-    if (subscriptionPending) {
-      setOpened(undefined);
-    }
-  }, [subscriptionPending]);
+  if (subscriptionPending && opened !== undefined) {
+    setOpened(undefined);
+  }
 
   const caption = stateCaption(state, identity);
 
