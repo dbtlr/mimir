@@ -4,7 +4,7 @@ import { createContext, useContext } from 'react';
 import type { ReviewReport } from '../api/view-queries';
 import { cn } from '../lib/cn';
 import { deliveryLink } from '../lib/record-url';
-import { ENTRY_ATTRIBUTE, markState, useOpenerPath } from '../lib/walkthrough-mark';
+import { RETURN_TARGET_ATTRIBUTE, markState, useOpenerPath } from '../lib/walkthrough-mark';
 
 type NeedsYouRows = ReviewReport['needsYou'][number]['rows'];
 
@@ -56,22 +56,22 @@ export function groupEntryLabel(entry: GroupEntry): string {
   );
 }
 
-/** The entry name of a set's entry on a page: what focus returns to (ADR 0019, MMR-714 refinement). */
+/** The name of a set's entry on a page, which focus returns to (ADR 0019, MMR-714 refinement). */
 export function entryName(set: EntrySet): string {
   return set.kind === 'delivery' ? `delivery:${set.id}` : `project:${set.key}`;
 }
 
 /**
- * The entry name every entry inside a surface takes instead of its set's,
- * for a surface that is gone when the walkthrough closes: the Needs you
- * popover names its trigger.
+ * The name every entry inside a surface records instead of its set's, for a
+ * surface that is gone when the walkthrough closes: the Needs you popover
+ * records its alert. Such an entry is not itself a return target.
  */
 export const EntrySurfaceName = createContext<string | undefined>(undefined);
 
 /**
  * A link that opens a set's walkthrough as a new history entry, marked with
- * the page it was on and the entry's name, so Close and the link back return
- * there and focus the entry again.
+ * the page it was on and the control that takes focus back, so Close and the
+ * link back return there and focus it again.
  */
 export function DecisionsEntry({
   set,
@@ -82,10 +82,12 @@ export function DecisionsEntry({
   children: string;
   className?: string;
 }) {
-  const entry = useContext(EntrySurfaceName) ?? entryName(set);
-  const state = markState({ entry, opener: useOpenerPath() });
+  const surface = useContext(EntrySurfaceName);
+  const own = entryName(set);
+  const state = markState({ entry: surface ?? own, opener: useOpenerPath() });
   const classes = cn(ENTRY_CLASS, className);
-  const named = { [ENTRY_ATTRIBUTE]: entry };
+  // An entry in a surface hands focus to the surface's control, so it is no target itself.
+  const named = surface === undefined ? { [RETURN_TARGET_ATTRIBUTE]: own } : {};
   return set.kind === 'delivery' ? (
     <Link
       {...deliveryLink(set.id)}

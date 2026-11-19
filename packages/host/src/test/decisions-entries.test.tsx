@@ -441,10 +441,32 @@ test('the link back gives focus to the page when the answered set’s entry is g
   });
 });
 
-test('Close on an unmarked walkthrough moves no focus to the page', async () => {
+test('on a phone, Close returns focus to the Needs you alert when the sheet’s entry opened the walkthrough', async () => {
+  stubViewport('phone');
   vi.mocked(deliveryPage).mockResolvedValue(page([decision(3, 'MMR-d3')]));
-  await renderShell('/p/MMR/d3?mode=decisions', client());
+  await renderShell('/p/MMR/d3', client());
+  fireEvent.click(await screen.findByRole('button', { name: '4 need you' }));
+  const sheet = await screen.findByRole('dialog', { name: 'Needs you' });
+  fireEvent.click(within(sheet).getByRole('link', { name: 'Review 1 decision on MMR-d3' }));
+  await waitFor(() => {
+    expect(screen.queryByRole('dialog', { name: 'Needs you' })).toBeNull();
+  });
   await close(await screen.findByRole('dialog'));
-  expect(screen.getByRole('main')).not.toHaveFocus();
-  expect(screen.getByRole('link', { name: 'Review 1 decision' })).not.toHaveFocus();
+  await waitFor(() => {
+    expect(screen.getByRole('button', { name: '4 need you' })).toHaveFocus();
+  });
+});
+
+test('a mark that names no control gives focus to the page’s main, even one not marked focusable', async () => {
+  vi.mocked(deliveryPage).mockResolvedValue(page([decision(3, 'MMR-d3')]));
+  const { router } = await renderShell('/p/MMR/tasks', client());
+  const main = await screen.findByRole('main');
+  expect(main).not.toHaveAttribute('tabindex');
+  // The mark a release before MMR-714 wrote: an opener and no named control.
+  router.history.push('/p/MMR/d3?mode=decisions', { walkthroughOpener: '/p/MMR/tasks' });
+  await close(await screen.findByRole('dialog'));
+  await waitFor(() => {
+    expect(screen.getByRole('main')).toHaveFocus();
+  });
+  expect(router.state.location.pathname).toBe('/p/MMR/tasks');
 });

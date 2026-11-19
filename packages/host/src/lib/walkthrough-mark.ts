@@ -1,27 +1,33 @@
 import { useRouter, useRouterState } from '@tanstack/react-router';
 import { useEffect } from 'react';
 
+import { focusMain } from './focus-main';
+
 /*
  * The in-app mark (ADR 0019, MMR-704 refinement: Leaving a walkthrough an
  * entry opened). An entry pushes the walkthrough with a mark in its history
- * entry's state: the path of the page the entry was on, the opener, and which
- * entry it was (MMR-714 refinement). History state survives a reload. Pure
- * helpers decide where Close and the link back go; the hooks read the mark
- * from the router and act on those decisions.
+ * entry's state: the path of the page the entry was on, the opener, and the
+ * name of the control that takes focus back (MMR-714 refinement). History
+ * state survives a reload. A marked walkthrough's Close goes back; the link
+ * back goes back when `linkBackAction` says so. Going back leaves a one-time
+ * focus request, which the shell carries out once the opener page shows.
  */
 
 const OPENER_KEY = 'walkthroughOpener';
 const ENTRY_KEY = 'walkthroughEntry';
 
-/** The attribute that names an entry on the page, so focus can find it again after going back. */
-export const ENTRY_ATTRIBUTE = 'data-walkthrough-entry';
+/**
+ * The attribute that names a control focus returns to after a walkthrough:
+ * an entry on a page, or the Needs you alert for the entries in its popover.
+ */
+export const RETURN_TARGET_ATTRIBUTE = 'data-walkthrough-return';
 
-/** The entry name of every entry in the Needs you popover: its trigger takes focus back, as the popover is closed. */
+/** The name every entry in the Needs you popover records: the alert takes focus back, as the popover is closed. */
 export const NEEDS_YOU_ENTRY = 'needs-you';
 
 /**
  * Where a walkthrough was opened: the opener's path, and the name of the
- * entry. A mark written before entries were named carries no entry.
+ * control that takes focus back. A mark written before MMR-714 names none.
  */
 export type Mark = { opener: string; entry: string | undefined };
 
@@ -58,21 +64,9 @@ export function linkBackAction(opener: string | undefined, pagePath: string): 'b
 /*
  * The one focus request a going-back leaves for the opener page: module
  * state, because the walkthrough that sets it unmounts before the page it
- * asks shows. One console runs one router, so there is one request at most.
+ * asks for shows. One console runs one router, so there is one request at most.
  */
 let pendingFocus: { entry: string | undefined } | undefined;
-
-/** Ask the next page the router shows to focus the entry named `entry`, or the page when it is gone. */
-export function requestOpenerFocus(entry: string | undefined): void {
-  pendingFocus = { entry };
-}
-
-/** The pending focus request, removed as it is taken. */
-export function takeOpenerFocus(): { entry: string | undefined } | undefined {
-  const request = pendingFocus;
-  pendingFocus = undefined;
-  return request;
-}
 
 /** The current history entry's mark, if the walkthrough was opened in-app. */
 export function useOpenerMark(): Mark | undefined {
@@ -84,22 +78,26 @@ export function useOpenerPath(): string {
   return useRouterState({ select: (s) => s.location.pathname });
 }
 
-/** Go back one history entry to the opener, asking it to focus the entry that opened the walkthrough. */
+/** Go back one history entry to the opener, asking it to focus the control the mark names. */
 export function useBackToOpener(): (mark: Mark) => void {
   const router = useRouter();
   return (mark) => {
-    requestOpenerFocus(mark.entry);
+    pendingFocus = { entry: mark.entry };
     router.history.back();
   };
 }
 
-/** The element a focus request lands on: the named entry when it is on the page, else the page's main region. */
-function focusTarget(entry: string | undefined): HTMLElement | null {
+/** Focus the control named `entry` when it is on the page, else the page's main region. */
+function focusReturnTarget(entry: string | undefined): void {
   const named =
     entry === undefined
       ? null
-      : document.querySelector(`[${ENTRY_ATTRIBUTE}="${CSS.escape(entry)}"]`);
-  return named instanceof HTMLElement ? named : document.querySelector('main');
+      : document.querySelector(`[${RETURN_TARGET_ATTRIBUTE}="${CSS.escape(entry)}"]`);
+  if (named instanceof HTMLElement) {
+    named.focus();
+  } else {
+    focusMain();
+  }
 }
 
 /**
@@ -114,9 +112,10 @@ export function useOpenerFocus(): void {
     if (resolved === undefined) {
       return;
     }
-    const request = takeOpenerFocus();
+    const request = pendingFocus;
+    pendingFocus = undefined;
     if (request !== undefined) {
-      focusTarget(request.entry)?.focus();
+      focusReturnTarget(request.entry);
     }
   }, [resolved]);
 }

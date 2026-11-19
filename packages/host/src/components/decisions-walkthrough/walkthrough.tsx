@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useAnswerDecisions } from '../../api/delivery-mutations';
 import type { Connectivity } from '../../lib/connectivity';
 import { readDraft, pruneDrafts, removeDraft, writeDraft } from '../../lib/decision-drafts';
-import { useOpenerMark } from '../../lib/walkthrough-mark';
 import { OfflineBanner } from '../offline-banner';
 import { iconButtonClass } from '../ui/icon-button';
 import { CloseIcon } from '../ui/icons';
@@ -112,7 +111,6 @@ export function DecisionsWalkthrough({
   // Set before `mutate`, since the controls only disable after TanStack re-renders.
   const inFlight = useRef(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const marked = useOpenerMark() !== undefined;
   const set = scopeSet(scope);
   const writing = send.isPending;
 
@@ -304,8 +302,6 @@ export function DecisionsWalkthrough({
       <Dialog.Portal>
         <Dialog.Popup
           initialFocus={() => headingRef.current}
-          // A walkthrough an entry opened hands focus back to that entry on the opener page (MMR-714).
-          finalFocus={marked ? false : undefined}
           className="fixed inset-0 z-50 flex flex-col bg-well-900 text-ink outline-none"
         >
           <OfflineBanner {...read.conn} />

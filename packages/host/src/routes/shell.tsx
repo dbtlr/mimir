@@ -11,6 +11,7 @@ import { SeedCaptureProvider } from '../components/seed-capture';
 import { TopBarMore } from '../components/top-bar-more';
 import { VersionFooter } from '../components/version-footer';
 import { useCurrentProjectKey, useRememberCurrentProject } from '../lib/current-project';
+import { focusMain } from '../lib/focus-main';
 import { isSettingsPath, sidebarContextOf } from '../lib/project-sidebar';
 import { useMediaQuery } from '../lib/use-media-query';
 import { useTheme } from '../lib/use-theme';
@@ -37,14 +38,7 @@ function SkipLink() {
       href="#main"
       onClick={(event) => {
         event.preventDefault();
-        const main = document.querySelector('main');
-        if (main !== null) {
-          // Pages mark their main focusable; one that does not still takes focus.
-          if (!main.hasAttribute('tabindex')) {
-            main.tabIndex = -1;
-          }
-          main.focus();
-        }
+        focusMain();
       }}
       className="sr-only focus-visible:not-sr-only focus-visible:absolute focus-visible:top-2 focus-visible:left-2 focus-visible:z-50 focus-visible:rounded focus-visible:bg-well-850 focus-visible:px-3 focus-visible:py-1.5 focus-visible:text-meta focus-visible:text-ink-bright focus-visible:inset-ring focus-visible:inset-ring-accent"
     >

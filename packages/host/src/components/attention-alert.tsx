@@ -11,7 +11,7 @@ import { connectivity } from '../lib/connectivity';
 import { nodeIdOf } from '../lib/record-url';
 import { useMediaQuery } from '../lib/use-media-query';
 import { useRowFocusHandoff } from '../lib/use-row-focus-handoff';
-import { ENTRY_ATTRIBUTE, NEEDS_YOU_ENTRY } from '../lib/walkthrough-mark';
+import { NEEDS_YOU_ENTRY, RETURN_TARGET_ATTRIBUTE } from '../lib/walkthrough-mark';
 import { deliveryRoute, nodeRoute } from '../router';
 import { NeedsYouGroups, PROJECT_LINK } from './decision-groups';
 import { EntrySurfaceName } from './decisions-entry';
@@ -102,7 +102,7 @@ function NeedsYouPanel({
           {report.needsYou.length === 0 ? (
             <p className="text-xs text-ink-dim">Nothing needs you.</p>
           ) : (
-            // Its entries are gone once the panel closes, so the trigger stands in for them.
+            // Its entries are gone once the panel closes, so the alert takes focus back for them.
             <EntrySurfaceName.Provider value={NEEDS_YOU_ENTRY}>
               <NeedsYouGroups
                 groups={report.needsYou}
@@ -193,7 +193,7 @@ export function AttentionAlert() {
   const label = `${String(count)} ${count === 1 ? 'needs' : 'need'} you`;
   const words = count === 1 ? 'needs you' : 'need you';
   // The trigger takes focus back from a walkthrough a panel entry opened (MMR-714).
-  const returnTarget = { [ENTRY_ATTRIBUTE]: NEEDS_YOU_ENTRY };
+  const returnTarget = { [RETURN_TARGET_ATTRIBUTE]: NEEDS_YOU_ENTRY };
   const panel = (close?: ReactNode) => (
     <NeedsYouPanel
       report={report}

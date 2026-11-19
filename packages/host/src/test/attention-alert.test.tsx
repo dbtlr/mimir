@@ -137,41 +137,6 @@ async function openAlert(name: string) {
   return screen.findByRole('dialog', { name: 'Needs you' });
 }
 
-/** One provisional decision on MMR-d3, the needs-you set a decisions entry opens. */
-function oneDecision(): ReviewReport {
-  const stamp = new Date('2026-11-16T12:00:00Z');
-  const rows: ReviewReport['needsYou'][number]['rows'] = [
-    {
-      decision: {
-        class: 'product',
-        created_at: stamp,
-        delivery: 'MMR-d3',
-        id: 'MMR-q1',
-        lifecycle: 'provisional',
-        option_details: [null, null],
-        options: ['Keep', 'Remove'],
-        outcome_note: null,
-        overturn_option: null,
-        project_key: 'MMR',
-        question: 'Keep it?',
-        recommended: 1,
-        seq: 1,
-        taken: 1,
-        tasks: [],
-        updated_at: stamp,
-        why: null,
-      },
-      kind: 'decision' as const,
-      workBuiltOnIt: false,
-    },
-  ];
-  return engineReview({
-    needsYou: [{ project: MMR, rows }],
-    projects: [stripRow(MMR, { needsYou: 1 })],
-    queue: [{ id: 'MMR-q1', kind: 'decision' }],
-  });
-}
-
 describe('the attention alert trigger', () => {
   it('is a button named for the count of needsYou, not a link', async () => {
     await renderAt('/p/MMR/tasks', twoProjects());
@@ -263,7 +228,40 @@ describe('the Needs you popover', () => {
   });
 
   it('closes when a decisions entry opens the walkthrough, marked with the page it was on', async () => {
-    const { testRouter } = await renderAt('/p/MMR/tasks', oneDecision());
+    const stamp = new Date('2026-11-16T12:00:00Z');
+    const rows: ReviewReport['needsYou'][number]['rows'] = [
+      {
+        decision: {
+          class: 'product',
+          created_at: stamp,
+          delivery: 'MMR-d3',
+          id: 'MMR-q1',
+          lifecycle: 'provisional',
+          option_details: [null, null],
+          options: ['Keep', 'Remove'],
+          outcome_note: null,
+          overturn_option: null,
+          project_key: 'MMR',
+          question: 'Keep it?',
+          recommended: 1,
+          seq: 1,
+          taken: 1,
+          tasks: [],
+          updated_at: stamp,
+          why: null,
+        },
+        kind: 'decision' as const,
+        workBuiltOnIt: false,
+      },
+    ];
+    const { testRouter } = await renderAt(
+      '/p/MMR/tasks',
+      engineReview({
+        needsYou: [{ project: MMR, rows }],
+        projects: [stripRow(MMR, { needsYou: 1 })],
+        queue: [{ id: 'MMR-q1', kind: 'decision' }],
+      }),
+    );
     const panel = await openAlert('1 needs you');
 
     await userEvent.click(within(panel).getByRole('link', { name: 'Review 1 decision on MMR-d3' }));
