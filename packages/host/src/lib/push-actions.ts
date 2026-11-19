@@ -84,11 +84,15 @@ export async function turnOn(
   }
 }
 
-/** Turn notifications off for this browser: drop its subscription here, then on the host. */
+/**
+ * Turn notifications off for this browser: forget that it turned them on,
+ * then drop its subscription here and on the host. The record goes first, so
+ * a failed step after it never lets the healer turn notifications back on.
+ */
 export async function turnOff(browser: PushBrowser, endpoint: string): Promise<void> {
+  browser.writeRecord(null);
   await browser.unsubscribe();
   await unsubscribePush({ data: { endpoint } });
-  browser.writeRecord(null);
 }
 
 export const removeBrowser = async (endpoint: string) => unsubscribePush({ data: { endpoint } });

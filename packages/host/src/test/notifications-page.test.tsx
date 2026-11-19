@@ -279,6 +279,17 @@ describe('on this device', () => {
     expect(browser.record).toBeNull();
   });
 
+  it('Turn off forgets the record even when the host call fails, so the healer cannot turn it back on', async () => {
+    const browser = onBrowser();
+    vi.mocked(unsubscribePush).mockRejectedValueOnce(new Error('host down'));
+    await open('phone', { browser, world: { devices: [mine] } });
+    await userEvent.click(await screen.findByRole('button', { name: 'Turn off' }));
+    await waitFor(() => {
+      expect(unsubscribePush).toHaveBeenCalled();
+    });
+    expect(browser.record).toBeNull();
+  });
+
   it('Send test notification shows the answer under the group', async () => {
     await open('phone', { browser: onBrowser(), world: { devices: [mine] } });
     await userEvent.click(await screen.findByRole('button', { name: 'Send test notification' }));
