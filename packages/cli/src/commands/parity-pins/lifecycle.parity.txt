@@ -1903,11 +1903,11 @@ exit 0
 ~ nodes[MMR-4].hold: "none" -> "blocked"
 
 ### block argv: MMR-3 --on nobody
-exit 1
+exit 2
 --- stdout
 --- failure
 | {
-|   "code": "validation",
+|   "code": "usage",
 |   "hints": [
 |     "block on takes one of: you, others"
 |   ],
@@ -1917,11 +1917,11 @@ exit 1
 unchanged
 
 ### block argv: MMR-3 --on nobody -f json
-exit 1
+exit 2
 --- stdout
 --- failure
 | {
-|   "code": "validation",
+|   "code": "usage",
 |   "hints": [
 |     "block on takes one of: you, others"
 |   ],

@@ -110,9 +110,10 @@ test('an unknown verb, subcommand, or undeclared flag is a problem', async () =>
     '`mimir done KEY-9 --priority p1`',
     '`mimir list --direction "x"`',
     '`mimir create <type> "x" --parnet KEY`',
+    '`mimir block KEY-9 --on me "x"`',
   ].join('\n');
   const problems = await Promise.all(extractInvocations('doc.md', md).map(invocationProblems));
-  expect(problems).toHaveLength(8);
+  expect(problems).toHaveLength(9);
   for (const found of problems) {
     expect(found.length).toBeGreaterThan(0);
   }

@@ -313,3 +313,19 @@ test('unarchive refuses words after -- rather than dropping them', async () => {
   expect(run.exitCode).toBe(2);
   expect(run.stderr).toContain('unexpected argument: x');
 });
+
+test('block refuses an --on value outside its choice as a usage error that opens no store', async () => {
+  let opened = false;
+  const app = createApp({
+    git: boundClone(undefined),
+    store: () => {
+      opened = true;
+      return Promise.resolve(board.store);
+    },
+  });
+  const run = await runArgv(app, ['block', 'MMR-3', '--on', 'me', 'x']);
+  expect(run.exitCode).toBe(2);
+  expect(run.stderr).toContain('invalid on: me');
+  expect(run.stderr).toContain('block on takes one of: you, others');
+  expect(opened).toBe(false);
+});
