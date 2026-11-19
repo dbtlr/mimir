@@ -1005,7 +1005,7 @@ describe('healing when the console opens', () => {
   };
 
   it.each(
-    (['wrong_origin', 'too_many_devices', 'endpoint_not_allowed', 'invalid_keys'] as const).flatMap(
+    (['wrong_origin', 'endpoint_not_allowed', 'invalid_keys'] as const).flatMap(
       (refusal) => (['resubscribe', 'adopt'] as const).map((kind) => [refusal, kind] as const),
     ),
   )('turns this browser off when the host refuses it (%s, %s)', async (refusal, kind) => {
@@ -1021,6 +1021,8 @@ describe('healing when the console opens', () => {
     ['unconfigured', { state: 'unconfigured' }],
     ['misconfigured', { problem: 'unset', setting: 'MIMIR_URL', state: 'misconfigured' }],
     ['key_unusable', { state: 'key_unusable' }],
+    // A full host is not this browser's doing; the next load tries again.
+    ['too_many_devices', { state: 'too_many_devices' }],
   ] as const)(
     'leaves the opt-in and the subscription when the host answers %s',
     async (_name, answer) => {

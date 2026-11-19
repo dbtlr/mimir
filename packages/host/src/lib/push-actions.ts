@@ -65,12 +65,13 @@ const onRecord = ({ made, status }: Sent) =>
 
 /**
  * Refusals a heal answers by turning this browser off: the browser itself
- * causes them and trying again on the next load cannot fix them.
+ * causes them and trying again on the next load cannot fix them. A full host
+ * (`too_many_devices`) is not one: a device removed elsewhere frees a place,
+ * so the heal keeps the opt-in and the next load tries again.
  */
 const FINAL_REFUSALS: ReadonlySet<PushSubscribeResult['state']> = new Set([
   'endpoint_not_allowed',
   'invalid_keys',
-  'too_many_devices',
   'wrong_origin',
 ]);
 
