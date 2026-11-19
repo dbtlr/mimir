@@ -1240,8 +1240,8 @@ describe('healing when the console opens', () => {
   };
 
   it.each(
-    (['wrong_origin', 'endpoint_not_allowed', 'invalid_keys'] as const).flatMap(
-      (refusal) => (['resubscribe', 'adopt'] as const).map((kind) => [refusal, kind] as const),
+    (['wrong_origin', 'endpoint_not_allowed', 'invalid_keys'] as const).flatMap((refusal) =>
+      (['resubscribe', 'adopt'] as const).map((kind) => [refusal, kind] as const),
     ),
   )('turns this browser off when the host refuses it (%s, %s)', async (refusal, kind) => {
     const world = servePush({ devices: [], subscribe: { state: refusal } });
