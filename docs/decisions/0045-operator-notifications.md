@@ -643,8 +643,10 @@ prompt update flow, and its per-tab adoption stay Workbox's.
 
 The open console sets the badge to the size of the needs-you set after each
 successful read of that set in the current session, and clears it at zero. It
-never sets the badge from a cached read restored at start, so a count shown
-offline is the last push's, not an older read's. The count the console shows
+does not set the badge from a cached read restored at start, so a count shown
+offline is the last push's, not an older read's. A read counts when its data
+is newer than the moment the console started; a device clock moved back since
+the cached read can let that read count until the next one lands. The count the console shows
 in _Needs you_ and the `needs_you` a push carries come from the same set, so a
 read corrects a badge that a push left too high.
 

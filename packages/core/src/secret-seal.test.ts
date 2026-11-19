@@ -76,6 +76,39 @@ describe('parseSecretKey', () => {
     }
   });
 
+  test('an object parseSecretKey did not make neither seals nor opens', () => {
+    const sealed = sealSecret(keyOf(KEY_BYTES), 'n', 'value');
+    const label = Object.freeze({ toJSON: () => '[secret key]', toString: () => '[secret key]' });
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the forgery under test.
+    const forged = label as unknown as SecretKey;
+    expect(() => sealSecret(forged, 'n', 'value')).toThrow(
+      new TypeError('not a secret key from parseSecretKey'),
+    );
+    expect(openSecret(forged, 'n', sealed)).toBeUndefined();
+  });
+
+  test('a key parsed by one copy of this module seals and opens with another copy', async () => {
+    // The host's launcher and its server are separate bundles, each with its own
+    // copy. A query on the specifier makes Bun load this file a second time.
+    const specifier = './secret-seal.ts?copy=second';
+    const second: {
+      openSecret: typeof openSecret;
+      parseSecretKey: typeof parseSecretKey;
+      sealSecret: typeof sealSecret;
+    } = await import(specifier);
+    expect(second.parseSecretKey).not.toBe(parseSecretKey);
+    const first = keyOf(KEY_BYTES);
+    const sealed = second.sealSecret(first, 'n', 'value');
+    expect(openSecret(first, 'n', sealed)).toBe('value');
+    expect(second.openSecret(first, 't3.oauth', KNOWN_SEALED)).toBe('{"accessToken":"kat"}');
+    const other = second.parseSecretKey(KEY_BYTES.toString('base64'));
+    expect(other).toBeDefined();
+    if (other !== undefined) {
+      expect(openSecret(other, 'n', sealSecret(other, 'n', 'back'))).toBe('back');
+      expect(second.openSecret(other, 'n', sealed)).toBe('value');
+    }
+  });
+
   test('a parsed key never prints its bytes', () => {
     const key = keyOf(KEY_BYTES);
     const hex = KEY_BYTES.toString('hex');

@@ -1,0 +1,1 @@
+- **Fix a host started by its launcher refusing its own secret key** (MMR-710). On a host started with `bun scripts/start.ts` or from the container image, every seal or open of a host secret failed: the Web Push channel could not make its VAPID key, so no push was sent, and T3 could not save or read its sign-in. A key the launcher reads now works everywhere in the host.
