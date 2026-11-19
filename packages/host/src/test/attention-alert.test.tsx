@@ -270,7 +270,10 @@ describe('the Needs you popover', () => {
       expect(screen.queryByRole('dialog', { name: 'Needs you' })).toBeNull();
     });
     expect(testRouter.state.location.search).toEqual({ mode: 'decisions' });
-    expect(readMark(testRouter.state.location.state)).toBe('/p/MMR/tasks');
+    expect(readMark(testRouter.state.location.state)).toStrictEqual({
+      entry: 'needs-you',
+      opener: '/p/MMR/tasks',
+    });
   });
 
   it('closes on a link to the page already showing', async () => {

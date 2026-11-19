@@ -1,6 +1,6 @@
 import type { ConsoleOutput } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { answerDecisions } from '../api/fns/deliveries';
@@ -13,8 +13,9 @@ import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
 import { engineTask } from './node-fixtures';
 import { serveNodes } from './node-fns';
-import { renderRoute } from './router';
+import { renderRoute, renderShell } from './router';
 import { serveShell } from './shell-fns';
+import { stubViewport } from './viewport';
 import { engineReview, engineWork, needsYouRow, stripRow } from './views-fixtures';
 import { serveViews } from './views-fns';
 
@@ -187,7 +188,10 @@ test('an entry pushes the walkthrough marked with the page it was on', async () 
   fireEvent.click(await screen.findByRole('link', { name: 'Review 1 decision on MMR-d3' }));
   await screen.findByRole('dialog');
   expect(router.state.location.pathname).toBe('/p/MMR/d3');
-  expect(readMark(router.state.location.state)).toBe('/');
+  expect(readMark(router.state.location.state)).toStrictEqual({
+    entry: 'delivery:MMR-d3',
+    opener: '/',
+  });
 });
 
 /** Open MMR-d3's one decision from `path`'s entry or address and send its answer; returns the done layer. */
@@ -264,7 +268,10 @@ test('the next-set link replaces the entry and carries the mark over', async () 
     expect(router.state.location.pathname).toBe('/p/MMR/d4');
   });
   expect(router.history).toHaveLength(length);
-  expect(readMark(router.state.location.state)).toBe('/');
+  expect(readMark(router.state.location.state)).toStrictEqual({
+    entry: 'delivery:MMR-d3',
+    opener: '/',
+  });
 });
 
 test('the next-set link carries no mark when the walkthrough had none', async () => {
@@ -344,5 +351,145 @@ test('the next-set link to a project walkthrough replaces the entry and carries 
   });
   expect(router.state.location.search).toHaveProperty('mode', 'decisions');
   expect(router.history).toHaveLength(length);
-  expect(readMark(router.state.location.state)).toBe('/');
+  expect(readMark(router.state.location.state)).toStrictEqual({
+    entry: 'delivery:MMR-d3',
+    opener: '/',
+  });
+});
+
+/** Focus after leaving a walkthrough an entry opened (ADR 0019, MMR-714 refinement). */
+
+/** Render the whole console at `path`, so its shell carries focus back, and open the walkthrough from `entry`. */
+async function openInShell(path: string, entry: string) {
+  const view = await renderShell(path, client());
+  fireEvent.click(await screen.findByRole('link', { name: entry }));
+  return { ...view, layer: await screen.findByRole('dialog') };
+}
+
+/** Close the walkthrough and wait for it to leave. */
+async function close(layer: HTMLElement) {
+  fireEvent.click(await within(layer).findByRole('button', { name: 'Close the walkthrough' }));
+  await waitFor(() => {
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+}
+
+test('Close returns focus to the review page entry that opened the walkthrough', async () => {
+  vi.mocked(deliveryPage).mockResolvedValue(page([decision(3, 'MMR-d3')]));
+  const { layer } = await openInShell('/', 'Review 1 decision on MMR-d3');
+  await close(layer);
+  await waitFor(() => {
+    expect(screen.getByRole('link', { name: 'Review 1 decision on MMR-d3' })).toHaveFocus();
+  });
+});
+
+test('Close returns focus to a no-delivery entry, not to a delivery one in the same group', async () => {
+  serveViews({
+    projects: { MMR: engineWork({ needsYou: [row(decision(2, null))] }) },
+    review: report(),
+  });
+  const { layer } = await openInShell('/', 'Review 1 decision without a delivery');
+  await close(layer);
+  await waitFor(() => {
+    expect(
+      screen.getByRole('link', { name: 'Review 1 decision without a delivery' }),
+    ).toHaveFocus();
+  });
+});
+
+test('Close returns focus to the delivery page entry that opened the walkthrough', async () => {
+  vi.mocked(deliveryPage).mockResolvedValue(page([decision(3, 'MMR-d3')]));
+  const { layer } = await openInShell('/p/MMR/d3', 'Review 1 decision');
+  await close(layer);
+  await waitFor(() => {
+    expect(screen.getByRole('link', { name: 'Review 1 decision' })).toHaveFocus();
+  });
+});
+
+test('Close returns focus to the Needs you trigger when a popover entry opened the walkthrough', async () => {
+  stubViewport('desktop');
+  vi.mocked(deliveryPage).mockResolvedValue(page([decision(3, 'MMR-d3')]));
+  await renderShell('/p/MMR/d3', client());
+  fireEvent.click(await screen.findByRole('button', { name: '4 need you' }));
+  const panel = await screen.findByRole('dialog', { name: 'Needs you' });
+  fireEvent.click(within(panel).getByRole('link', { name: 'Review 1 decision on MMR-d3' }));
+  await close(await screen.findByRole('dialog'));
+  await waitFor(() => {
+    expect(screen.getByRole('button', { name: '4 need you' })).toHaveFocus();
+  });
+  expect(screen.queryByRole('dialog', { name: 'Needs you' })).toBeNull();
+});
+
+test('the link back gives focus to the page when the answered set’s entry is gone', async () => {
+  // The first read shows the decision; the read after the answer has none left provisional.
+  vi.mocked(deliveryPage)
+    .mockResolvedValueOnce(page([decision(3, 'MMR-d3')]))
+    .mockResolvedValue(page([decision(3, 'MMR-d3', { lifecycle: 'confirmed' })]));
+  vi.mocked(answerDecisions).mockResolvedValue({
+    results: [{ id: 'MMR-q3', outcome: 'confirmed', record: decision(3, 'MMR-d3') }],
+    wake: { state: 'sent' },
+  });
+  const { layer } = await openInShell('/p/MMR/d3', 'Review 1 decision');
+  fireEvent.click(await within(layer).findByRole('button', { name: 'Confirm and send (MMR-q3)' }));
+  fireEvent.click(await within(layer).findByRole('link', { name: 'Back to MMR-d3' }));
+  await waitFor(() => {
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+  expect(screen.queryByRole('link', { name: 'Review 1 decision' })).toBeNull();
+  await waitFor(() => {
+    expect(screen.getByRole('main')).toHaveFocus();
+  });
+});
+
+test('on a phone, Close returns focus to the Needs you alert when the sheet’s entry opened the walkthrough', async () => {
+  stubViewport('phone');
+  vi.mocked(deliveryPage).mockResolvedValue(page([decision(3, 'MMR-d3')]));
+  await renderShell('/p/MMR/d3', client());
+  fireEvent.click(await screen.findByRole('button', { name: '4 need you' }));
+  const sheet = await screen.findByRole('dialog', { name: 'Needs you' });
+  fireEvent.click(within(sheet).getByRole('link', { name: 'Review 1 decision on MMR-d3' }));
+  await waitFor(() => {
+    expect(screen.queryByRole('dialog', { name: 'Needs you' })).toBeNull();
+  });
+  await close(await screen.findByRole('dialog'));
+  await waitFor(() => {
+    expect(screen.getByRole('button', { name: '4 need you' })).toHaveFocus();
+  });
+});
+
+test('a mark that names no control gives focus to the page’s main, even one not marked focusable', async () => {
+  vi.mocked(deliveryPage).mockResolvedValue(page([decision(3, 'MMR-d3')]));
+  const { router } = await renderShell('/p/MMR/tasks', client());
+  const main = await screen.findByRole('main');
+  expect(main).not.toHaveAttribute('tabindex');
+  // The mark a release before MMR-714 wrote: an opener and no named control.
+  router.history.push('/p/MMR/d3?mode=decisions', { walkthroughOpener: '/p/MMR/tasks' });
+  await close(await screen.findByRole('dialog'));
+  await waitFor(() => {
+    expect(screen.getByRole('main')).toHaveFocus();
+  });
+  expect(router.state.location.pathname).toBe('/p/MMR/tasks');
+});
+
+test('a back that lands somewhere other than the opener drops its focus request', async () => {
+  vi.mocked(deliveryPage).mockResolvedValue(page([decision(3, 'MMR-d3')]));
+  const { router } = await renderShell('/p/MMR/tasks', client());
+  await screen.findByRole('main');
+  // The mark names `/`, but the history entry before the walkthrough is the tasks page.
+  router.history.push('/p/MMR/d3?mode=decisions', {
+    walkthroughEntry: 'delivery:MMR-d3',
+    walkthroughOpener: '/',
+  });
+  await close(await screen.findByRole('dialog'));
+  await waitFor(() => {
+    expect(router.state.resolvedLocation?.pathname).toBe('/p/MMR/tasks');
+  });
+  // Flush the render's effects, where a focus move would happen, before asserting none came.
+  await act(async () => {});
+  expect(screen.getByRole('main')).not.toHaveFocus();
+  // Nor does the request wait for a later page: going to the opener now moves no focus either.
+  await router.navigate({ to: '/' });
+  await screen.findByRole('link', { name: 'Review 1 decision on MMR-d3' });
+  await act(async () => {});
+  expect(screen.getByRole('link', { name: 'Review 1 decision on MMR-d3' })).not.toHaveFocus();
 });
