@@ -24,7 +24,7 @@ export type {
  * browser sends names an operation. The query policy lives in t3-queries.ts.
  */
 
-/** The Devices page's T3 read: unconfigured, misconfigured, disconnected, unreachable, or connected. */
+/** The Connections page's T3 read: unconfigured, misconfigured, disconnected, unreachable, or connected. */
 export const t3Status = createServerFn({ method: 'GET' }).handler(async () =>
   (await t3Integration()).status(requestOrigin()),
 );

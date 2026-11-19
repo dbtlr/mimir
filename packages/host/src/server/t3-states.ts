@@ -1,6 +1,6 @@
 /*
  * The T3 Code integration's tagged states (ADR 0040), shared by the console
- * server and the Devices page: types, and the plain constant lists they are
+ * server and the Connections page: types, and the plain constant lists they are
  * built from. The console's server-function module and the browser both read
  * this file, so it imports nothing.
  */
@@ -29,7 +29,7 @@ export type T3Unavailable =
   | { state: 'disconnected'; reason: T3Disconnection }
   | { state: 'unreachable' };
 
-/** The Devices page's read: the configured server's label and the token's expiry. */
+/** The Connections page's read: the configured server's label and the token's expiry. */
 export type T3Status = T3Unavailable | { state: 'connected'; label: string; expiresAt: string };
 
 /** What Connect T3 answers: the authorization URL to send the browser to, or why it cannot. */
@@ -92,7 +92,7 @@ export type T3Catalog =
   | T3Unavailable
   | { state: 'connected'; expiresAt: string; noRemote: boolean; systems: T3System[] };
 
-/** Where the OAuth callback sends the browser: `/devices?t3=<reason>`. */
+/** Where the OAuth callback sends the browser: `/settings/connections?t3=<reason>`. */
 export const T3_CALLBACK_REASONS = [
   'connected',
   'denied',

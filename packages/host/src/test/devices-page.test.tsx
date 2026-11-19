@@ -49,7 +49,7 @@ describe('devices page (MMR-585)', () => {
       ],
       pending: [{ device: 'drews-macbook', ...filedAgo(1) }],
     });
-    await renderRoute(consoleRoutes, '/devices');
+    await renderRoute(consoleRoutes, '/settings/devices');
 
     await expect(screen.findByText('clients paired with this host')).resolves.toBeDefined();
     const waiting = await screen.findByRole('region', { name: 'Waiting' });
@@ -66,7 +66,7 @@ describe('devices page (MMR-585)', () => {
 
   it('says so when nothing waits and nothing is paired', async () => {
     serveDevices();
-    await renderRoute(consoleRoutes, '/devices');
+    await renderRoute(consoleRoutes, '/settings/devices');
 
     await expect(screen.findByText('No devices are waiting.')).resolves.toBeDefined();
     expect(screen.getByText('No devices are paired.')).toBeDefined();
@@ -76,7 +76,7 @@ describe('devices page (MMR-585)', () => {
     serveDevices({
       paired: [{ created_at: '2026-09-30T15:00:00.000Z', device: 'valhalla', last_used_at: null }],
     });
-    await renderRoute(consoleRoutes, '/devices');
+    await renderRoute(consoleRoutes, '/settings/devices');
 
     const row = (await screen.findByText('valhalla')).closest('li');
     expect(row).not.toBeNull();
@@ -107,7 +107,7 @@ describe('devices page (MMR-585)', () => {
       world.paired = [];
       return { requests: 0, tokens: 1 };
     });
-    await renderRoute(consoleRoutes, '/devices');
+    await renderRoute(consoleRoutes, '/settings/devices');
 
     await userEvent.click(await screen.findByRole('button', { name: 'Unpair' }));
     await userEvent.click(screen.getByRole('button', { name: 'Unpair valhalla' }));
@@ -121,7 +121,7 @@ describe('devices page (MMR-585)', () => {
       paired: [{ created_at: '2026-09-30T15:00:00.000Z', device: 'valhalla', last_used_at: null }],
     });
     vi.mocked(unpairDevice).mockRejectedValueOnce(new Error('the request did not complete'));
-    await renderRoute(consoleRoutes, '/devices');
+    await renderRoute(consoleRoutes, '/settings/devices');
 
     await userEvent.click(await screen.findByRole('button', { name: 'Unpair' }));
     await userEvent.click(screen.getByRole('button', { name: 'Unpair valhalla' }));
@@ -137,7 +137,7 @@ describe('devices page (MMR-585)', () => {
     failDeviceReads();
     await renderRoute(
       consoleRoutes,
-      '/devices',
+      '/settings/devices',
       new QueryClient({ defaultOptions: { queries: { retry: false } } }),
     );
 

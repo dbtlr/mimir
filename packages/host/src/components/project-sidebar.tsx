@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useLinkProps, useRouterState } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 
+import { pendingPairingsQuery } from '../api/device-queries';
 import { nodeQuery } from '../api/node-queries';
 import { treeQuery } from '../api/shell-queries';
 import { cn } from '../lib/cn';
@@ -26,7 +27,8 @@ import { Skeleton } from './ui/skeleton';
  * outline, which marks the open record's place. Outside a project (`/`,
  * `/doctor`) its context is All projects (MMR-505): a header reading so, Work,
  * which is `/`, and the Projects section of pinned projects (MMR-562,
- * MMR-567). From `lg` up it sits beside the page; below that it
+ * MMR-567). On Settings' pages and `/pair` it lists Settings' pages instead
+ * (MMR-733). From `lg` up it sits beside the page; below that it
  * folds into a drawer behind a top-bar button, because a record page's own
  * rail needs the width a tablet has.
  */
@@ -358,39 +360,7 @@ function ProjectBody({ projectKey, onNavigate }: { projectKey: string; onNavigat
   );
 }
 
-/**
- * Devices is `/devices`, and `/pair`, which approves a request, belongs to it:
- * the link is the page on `/devices` and the current section on `/pair`.
- */
-function DevicesLink({ onNavigate }: { onNavigate?: () => void }) {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const linkProps = useLinkProps({
-    activeOptions: { exact: true, includeSearch: false },
-    onClick: onNavigate,
-    to: '/devices',
-  });
-  let current: 'page' | 'true' | undefined;
-  if (pathname === '/devices') {
-    current = 'page';
-  } else if (pathname === '/pair') {
-    current = 'true';
-  }
-  return (
-    <a
-      {...linkProps}
-      aria-current={current}
-      className={cn(ROW, 'py-1.5 text-meta max-lg:py-2.5', SECTION_CURRENT)}
-    >
-      Devices
-    </a>
-  );
-}
-
-/**
- * The All projects sidebar content: Work, which is `/`, Devices, which is
- * `/devices` (MMR-585), then the Projects section (MMR-562). The router marks
- * Work the page on `/` (and not on `/doctor`).
- */
+/** The All projects sidebar content: Work, which is `/`, then the Projects section (MMR-562). */
 function AllProjectsBody({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <>
@@ -402,15 +372,107 @@ function AllProjectsBody({ onNavigate }: { onNavigate?: () => void }) {
       >
         Work
       </Link>
-      <DevicesLink onNavigate={onNavigate} />
       <SidebarProjects onNavigate={onNavigate} />
+    </>
+  );
+}
+
+type SettingsTo =
+  | '/settings/appearance'
+  | '/settings/devices'
+  | '/settings/connections'
+  | '/settings/about';
+
+/**
+ * A Settings page's link. The current page takes the selection treatment. On
+ * `/pair`, which approves a request, Devices is the current section
+ * (`aria-current="true"`), as a project's section is on one of its records.
+ * `count` is a number that needs the operator, in the attention color.
+ */
+function SettingsLink({
+  to,
+  label,
+  count,
+  onNavigate,
+}: {
+  to: SettingsTo;
+  label: string;
+  count?: number;
+  onNavigate?: () => void;
+}) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const linkProps = useLinkProps({
+    activeOptions: { exact: true, includeSearch: false },
+    onClick: onNavigate,
+    to,
+  });
+  let current: 'page' | 'true' | undefined;
+  if (pathname === to) {
+    current = 'page';
+  } else if (to === '/settings/devices' && pathname === '/pair') {
+    current = 'true';
+  }
+  return (
+    <a
+      {...linkProps}
+      aria-current={current}
+      className={cn(ROW, 'py-1.5 text-meta max-lg:py-2.5', SECTION_CURRENT)}
+    >
+      {label}
+      {count !== undefined && count > 0 && (
+        <span className="ml-auto font-semibold text-attention-foreground">{count}</span>
+      )}
+    </a>
+  );
+}
+
+function SettingsGroupHeading({ children }: { children: string }) {
+  return <p className="microlabel mt-3 mb-1 px-2 text-ink-faint">{children}</p>;
+}
+
+/**
+ * The Settings sidebar content (MMR-733): the way back to work, then the pages
+ * in "This device" and "Host", with the pairing requests waiting beside Devices.
+ */
+function SettingsBody({ onNavigate }: { onNavigate?: () => void }) {
+  const waiting = useQuery(pendingPairingsQuery).data?.length;
+  return (
+    <>
+      <Link
+        to="/"
+        onClick={onNavigate}
+        className={cn(ROW, 'py-1.5 text-meta max-lg:py-2.5 text-ink-dim')}
+      >
+        ← Back to work
+      </Link>
+      <SettingsGroupHeading>This device</SettingsGroupHeading>
+      <SettingsLink to="/settings/appearance" label="Appearance" onNavigate={onNavigate} />
+      <SettingsGroupHeading>Host</SettingsGroupHeading>
+      <SettingsLink
+        to="/settings/devices"
+        label="Devices"
+        count={waiting}
+        onNavigate={onNavigate}
+      />
+      <SettingsLink to="/settings/connections" label="Connections" onNavigate={onNavigate} />
+      <SettingsLink to="/settings/about" label="About" onNavigate={onNavigate} />
     </>
   );
 }
 
 /** What the sidebar's landmarks and drawer are called: the context they frame. */
 function landmarkLabel(context: SidebarContext): string {
-  return context.kind === 'all' ? 'All projects' : 'Project';
+  switch (context.kind) {
+    case 'all': {
+      return 'All projects';
+    }
+    case 'settings': {
+      return 'Settings';
+    }
+    default: {
+      return 'Project';
+    }
+  }
 }
 
 /** The sidebar's content for its context: the switcher header, then the context's sections. */
@@ -423,14 +485,16 @@ function SidebarBody({
 }) {
   return (
     <nav aria-label={landmarkLabel(context)} className="flex flex-col gap-0.5">
-      <div className="mb-2">
-        <ProjectPicker context={context} onNavigate={onNavigate} />
-      </div>
-      {context.kind === 'project' ? (
-        <ProjectBody projectKey={context.key} onNavigate={onNavigate} />
-      ) : (
-        <AllProjectsBody onNavigate={onNavigate} />
+      {context.kind !== 'settings' && (
+        <div className="mb-2">
+          <ProjectPicker context={context} onNavigate={onNavigate} />
+        </div>
       )}
+      {context.kind === 'project' && (
+        <ProjectBody projectKey={context.key} onNavigate={onNavigate} />
+      )}
+      {context.kind === 'all' && <AllProjectsBody onNavigate={onNavigate} />}
+      {context.kind === 'settings' && <SettingsBody onNavigate={onNavigate} />}
     </nav>
   );
 }

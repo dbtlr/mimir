@@ -80,7 +80,7 @@ function ConfirmCard({
         <ActionButton variant="destructiveOutline" disabled={busy} onClick={onDeny}>
           Deny
         </ActionButton>
-        <Link to="/devices" className="ml-auto text-xs text-ink-dim hover:text-ink-bright">
+        <Link to="/settings/devices" className="ml-auto text-xs text-ink-dim hover:text-ink-bright">
           Manage devices →
         </Link>
       </div>
@@ -101,7 +101,7 @@ function OutcomeCard({ outcome }: { outcome: Outcome }) {
           ? `Approved ${outcome.device}. It finishes pairing on its next poll, so check the terminal.`
           : `Denied ${outcome.device}.`}
       </p>
-      <Link to="/devices" className="text-xs text-ink-dim hover:text-ink-bright">
+      <Link to="/settings/devices" className="text-xs text-ink-dim hover:text-ink-bright">
         Manage devices →
       </Link>
     </div>

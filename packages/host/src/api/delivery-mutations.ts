@@ -29,7 +29,7 @@ import { t3OriginQuery, useConnectT3 } from './t3-queries';
  * shared read keys.
  */
 
-/** The wake's toasts, wired to the console: Retry, Reconnect T3, and the Devices page. */
+/** The wake's toasts, wired to the console: Retry, Reconnect T3, and the Connections page. */
 function useWakeAnnouncer() {
   const { data } = useQuery(t3OriginQuery);
   const navigate = useNavigate();
@@ -49,8 +49,8 @@ function useWakeAnnouncer() {
   });
   function announce(wake: T3WakeState) {
     announceWake(wake, {
-      openDevices: () => {
-        void navigate({ to: '/devices' });
+      openConnections: () => {
+        void navigate({ to: '/settings/connections' });
       },
       origin: data?.origin ?? null,
       reconnect: () => {

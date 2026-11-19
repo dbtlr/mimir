@@ -789,3 +789,13 @@ shows the wake state as it does for every waking function.
   start or steer the agent's turn three times for one operator action.
 - **Waking for confirms with notes.** A confirm changes nothing the agent
   built on; the agent reads a confirm's note through its since read.
+
+## Refinement (2026-11-19, MMR-733): the callback lands on Connections
+
+The T3 Code card and the Connect and Reconnect controls moved from the Devices
+page to `/settings/connections` (ADR 0013, MMR-733). The callback now redirects
+to `/settings/connections?t3=<outcome>` for every outcome: `connected` and each
+refusal reason listed above. The page still shows the outcome once and then
+drops it from the URL. With T3 unconfigured the page says that no connections
+are set up on this host. The misconfigured launch control and the wake toast
+link to Connections instead of Devices.

@@ -110,7 +110,8 @@ function needsYou(key: string, count: number): ReviewReport['projects'][number] 
 }
 
 const topBar = () => screen.getAllByRole('banner')[0] as HTMLElement;
-const sidebar = () => screen.findByRole('navigation', { name: /^(All projects|Project)$/ });
+const sidebar = () =>
+  screen.findByRole('navigation', { name: /^(All projects|Project|Settings)$/ });
 const outline = async () => within(await sidebar()).findByRole('navigation', { name: 'Outline' });
 const allHeader = (nav: HTMLElement) => within(nav).getByRole('button', { name: /^All projects/ });
 const SECTIONS = ['Work', 'Tasks', 'Seeds', 'Artifacts'];
@@ -226,7 +227,7 @@ describe('sidebar names the current project', () => {
 });
 
 describe('sidebar on All projects (MMR-505)', () => {
-  it.each(['/', '/devices'])(
+  it.each(['/'])(
     'reads All projects on %s, whatever project was last visited, with Work and the Projects section only',
     async (path) => {
       serve([MMR, NRN]);
@@ -238,6 +239,7 @@ describe('sidebar on All projects (MMR-505)', () => {
       expect(screen.getByRole('complementary', { name: 'All projects' })).toBeInTheDocument();
       expect(screen.queryByRole('navigation', { name: 'Project' })).toBeNull();
       expect(within(nav).getByRole('link', { name: 'Work' })).toBeInTheDocument();
+      expect(within(nav).queryByRole('link', { name: 'Devices' })).toBeNull();
       await expect(
         within(nav).findByRole('region', { name: 'Projects' }),
       ).resolves.toBeInTheDocument();
@@ -262,18 +264,6 @@ describe('sidebar on All projects (MMR-505)', () => {
     expect(work).toHaveAttribute('href', '/');
     expect(work).not.toHaveAttribute('aria-current');
   });
-
-  it.each(['/devices', '/pair'])(
-    'links Devices to /devices and marks it current on %s (MMR-585)',
-    async (path) => {
-      await renderAt(path);
-      const nav = await sidebar();
-      const devices = within(nav).getByRole('link', { name: 'Devices' });
-      expect(devices).toHaveAttribute('href', '/devices');
-      expect(devices).toHaveAttribute('aria-current');
-      expect(within(nav).getByRole('link', { name: 'Work' })).not.toHaveAttribute('aria-current');
-    },
-  );
 
   it('returns to the project context on a project page', async () => {
     serve([MMR, NRN]);
@@ -728,7 +718,7 @@ describe('sidebar breakpoint', () => {
 });
 
 describe('top bar', () => {
-  it('keeps the brand, the jump palette, Needs you, and the theme toggle', async () => {
+  it('keeps the brand, the jump palette, Needs you, and the More menu', async () => {
     vi.mocked(review).mockResolvedValue(engineReview({ queue: [{ id: 'MMR-52', kind: 'task' }] }));
     await renderAt('/p/MMR/tasks');
     await sidebar();
@@ -736,17 +726,29 @@ describe('top bar', () => {
     expect(within(bar).getByRole('link', { name: 'Mimir' })).toHaveAttribute('href', '/');
     expect(within(bar).getByRole('button', { name: 'Jump to…' })).toBeInTheDocument();
     await expect(within(bar).findByRole('button', { name: /need/i })).resolves.toBeInTheDocument();
-    expect(within(bar).getByRole('button', { name: /theme/i })).toBeInTheDocument();
+    expect(within(bar).getByRole('button', { name: 'More' })).toBeInTheDocument();
+    expect(within(bar).queryByRole('button', { name: /theme/i })).toBeNull();
   });
 
-  it('carries no section links, project picker, or overflow menu', async () => {
+  it('holds Settings and the theme switch in More at desktop width (MMR-733)', async () => {
+    await renderAt('/p/MMR/tasks');
+    await sidebar();
+    await userEvent.click(within(topBar()).getByRole('button', { name: 'More' }));
+    const items = (await screen.findAllByRole('menuitem')).map((item) => item.textContent);
+    expect(items).toStrictEqual(['Settings', 'Switch to light theme']);
+    expect(screen.getByRole('menuitem', { name: 'Settings' })).toHaveAttribute('href', '/settings');
+    expect(screen.getByRole('separator')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Switch to light theme' }));
+    expect(document.documentElement.dataset.theme).toBe('light');
+  });
+
+  it('carries no section links or project picker', async () => {
     await renderAt('/p/MMR/tasks');
     await sidebar();
     const bar = topBar();
     for (const name of SECTIONS) {
       expect(within(bar).queryByRole('link', { name })).toBeNull();
     }
-    expect(within(bar).queryByRole('button', { name: 'More' })).toBeNull();
     expect(within(bar).queryByRole('button', { name: /MMR/ })).toBeNull();
     expect(within(bar).queryByRole('button', { name: 'Open project menu' })).toBeNull();
   });
@@ -757,7 +759,7 @@ describe('top bar on a phone (MMR-715)', () => {
     stubViewport('phone');
   });
 
-  it('keeps the menu, Jump to, and Needs you, and folds the theme toggle into More', async () => {
+  it('keeps the menu, Jump to, and Needs you, and keeps the theme switch in More', async () => {
     vi.mocked(review).mockResolvedValue(engineReview({ queue: [{ id: 'MMR-52', kind: 'task' }] }));
     await renderAt('/p/MMR/tasks');
     await screen.findByRole('button', { name: 'Open project menu' });
@@ -888,5 +890,94 @@ describe('sidebar on a desktop', () => {
     await renderAt('/p/MMR');
     await sidebar();
     expect(screen.queryByRole('button', { name: 'Open project menu' })).toBeNull();
+  });
+});
+
+const settingsNav = () => screen.findByRole('navigation', { name: 'Settings' });
+
+describe('Settings sidebar (MMR-733)', () => {
+  const SETTINGS_LINKS = ['Appearance', 'Devices', 'Connections', 'About'];
+  const current = (nav: HTMLElement) =>
+    SETTINGS_LINKS.filter(
+      (name) =>
+        within(nav)
+          .getByRole('link', { name: new RegExp(`^${name}`) })
+          .getAttribute('aria-current') !== null,
+    );
+
+  it('lists the pages under their groups, with a way back to work and no project picker', async () => {
+    await renderAt('/settings');
+    const nav = await settingsNav();
+    expect(screen.getByRole('complementary', { name: 'Settings' })).toBeInTheDocument();
+    expect(within(nav).getByRole('link', { name: '← Back to work' })).toHaveAttribute('href', '/');
+    expect(within(nav).getByText('This device')).toBeInTheDocument();
+    expect(within(nav).getByText('Host')).toBeInTheDocument();
+    expect(
+      SETTINGS_LINKS.map((name) =>
+        within(nav)
+          .getByRole('link', { name: new RegExp(`^${name}`) })
+          .getAttribute('href'),
+      ),
+    ).toStrictEqual([
+      '/settings/appearance',
+      '/settings/devices',
+      '/settings/connections',
+      '/settings/about',
+    ]);
+    expect(within(nav).queryByRole('button')).toBeNull();
+    expect(current(nav)).toStrictEqual([]);
+  });
+
+  it('marks the open page with the selection treatment', async () => {
+    await renderAt('/settings/connections');
+    const nav = await settingsNav();
+    expect(current(nav)).toStrictEqual(['Connections']);
+    const link = within(nav).getByRole('link', { name: 'Connections' });
+    expect(link).toHaveAttribute('aria-current', 'page');
+    expect(link.className).toContain('aria-[current]:bg-accent/10');
+  });
+
+  it('marks Devices as the current section on /pair', async () => {
+    await renderAt('/pair');
+    const nav = await settingsNav();
+    expect(within(nav).getByRole('link', { name: 'Devices' })).toHaveAttribute(
+      'aria-current',
+      'true',
+    );
+    expect(current(nav)).toStrictEqual(['Devices']);
+  });
+
+  it('shows the waiting pairing requests beside Devices', async () => {
+    serveDevices({
+      pending: [
+        {
+          created_at: '2026-09-30T15:00:00.000Z',
+          device: 'build-box',
+          expires_at: '2099-01-01T00:00:00.000Z',
+        },
+      ],
+    });
+    await renderAt('/settings/about');
+    const nav = await settingsNav();
+    const devices = await within(nav).findByRole('link', { name: 'Devices1' });
+    expect(within(devices).getByText('1')).toHaveClass('text-attention-foreground');
+  });
+
+  it('is the drawer on a phone, with the same content', async () => {
+    stubViewport('phone');
+    await renderAt('/settings/appearance');
+    await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
+    const drawer = await screen.findByRole('dialog', { name: 'Settings' });
+    expect(within(drawer).getByRole('link', { name: 'Appearance' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(within(drawer).getByRole('link', { name: '← Back to work' })).toBeInTheDocument();
+  });
+
+  it('frames Settings with no project to frame', async () => {
+    serve([]);
+    await renderAt('/settings');
+    await expect(settingsNav()).resolves.toBeInTheDocument();
   });
 });

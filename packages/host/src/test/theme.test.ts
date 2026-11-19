@@ -1,6 +1,15 @@
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
-import { apply, resolve, setTheme, storedChoice, systemTheme } from '../lib/theme';
+import {
+  apply,
+  clearTheme,
+  resolve,
+  setTheme,
+  storedChoice,
+  subscribeTheme,
+  systemTheme,
+  themeChoice,
+} from '../lib/theme';
 import { WELL_950 } from '../lib/theme-colors';
 
 /** Stub `matchMedia` so the prefers-color-scheme query resolves deterministically. */
@@ -69,5 +78,35 @@ describe('theme resolution (MMR-74)', () => {
     apply('dark');
     expect(document.documentElement.dataset.theme).toBe('dark');
     expect(localStorage.getItem('mimir-theme')).toBeNull();
+  });
+});
+
+describe('returning to the system theme (MMR-733)', () => {
+  it('clearTheme forgets the pick and applies the OS theme', () => {
+    mockOS(true);
+    setTheme('dark');
+    expect(themeChoice()).toBe('dark');
+
+    clearTheme();
+
+    expect(localStorage.getItem('mimir-theme')).toBeNull();
+    expect(themeChoice()).toBe('system');
+    expect(resolve()).toBe('light');
+    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe(
+      WELL_950.light,
+    );
+  });
+
+  it('tells subscribers about a pick and about clearing it', () => {
+    mockOS(false);
+    const listener = vi.fn();
+    const unsubscribe = subscribeTheme(listener);
+    setTheme('light');
+    clearTheme();
+    expect(listener).toHaveBeenCalledTimes(2);
+    unsubscribe();
+    setTheme('dark');
+    expect(listener).toHaveBeenCalledTimes(2);
   });
 });

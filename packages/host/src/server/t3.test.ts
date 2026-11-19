@@ -144,7 +144,7 @@ async function connected(h: ReturnType<typeof harness>) {
   }
   const response = await h.adapter.callback(new Request(h.stub.approve(started.url)));
   expectCallbackRedirect(response);
-  expect(response.headers.get('location')).toBe('/devices?t3=connected');
+  expect(response.headers.get('location')).toBe('/settings/connections?t3=connected');
   return started.url;
 }
 
@@ -178,7 +178,7 @@ describe('settings gate the feature', () => {
     expect(await h.adapter.catalog('MMR')).toEqual({ state: 'unconfigured' });
     expect(await h.adapter.connect(CONSOLE)).toEqual({ state: 'unconfigured' });
     expect(await callbackReason(h, `${CONSOLE}/auth/t3/callback?state=x`)).toBe(
-      '/devices?t3=misconfigured',
+      '/settings/connections?t3=misconfigured',
     );
     expect(h.stub.requests).toEqual([]);
   });
@@ -333,29 +333,31 @@ describe('the callback', () => {
       return started.url;
     };
     expect(await callbackReason(h, h.stub.approve(await start(), { state: 'unknown' }))).toBe(
-      '/devices?t3=stale',
+      '/settings/connections?t3=stale',
     );
-    expect(await callbackReason(h, `${CONSOLE}/auth/t3/callback`)).toBe('/devices?t3=stale');
+    expect(await callbackReason(h, `${CONSOLE}/auth/t3/callback`)).toBe(
+      '/settings/connections?t3=stale',
+    );
     expect(
       await callbackReason(h, h.stub.approve(await start(), { iss: 'https://evil.example' })),
-    ).toBe('/devices?t3=issuer');
+    ).toBe('/settings/connections?t3=issuer');
     expect(await callbackReason(h, h.stub.approve(await start(), { iss: '' }))).toBe(
-      '/devices?t3=issuer',
+      '/settings/connections?t3=issuer',
     );
     expect(
       await callbackReason(h, h.stub.approve(await start(), { code: '', error: 'access_denied' })),
-    ).toBe('/devices?t3=denied');
+    ).toBe('/settings/connections?t3=denied');
     expect(await callbackReason(h, h.stub.approve(await start(), { code: 'forged' }))).toBe(
-      '/devices?t3=failed',
+      '/settings/connections?t3=failed',
     );
     // A used state is stale the second time, even after a refusal consumed it.
     const used = h.stub.approve(await start(), { code: 'forged' });
-    expect(await callbackReason(h, used)).toBe('/devices?t3=failed');
-    expect(await callbackReason(h, used)).toBe('/devices?t3=stale');
+    expect(await callbackReason(h, used)).toBe('/settings/connections?t3=failed');
+    expect(await callbackReason(h, used)).toBe('/settings/connections?t3=stale');
     // Expired after ten minutes.
     const late = h.stub.approve(await start());
     h.clock.now += 10 * 60 * 1000;
-    expect(await callbackReason(h, late)).toBe('/devices?t3=stale');
+    expect(await callbackReason(h, late)).toBe('/settings/connections?t3=stale');
     expect(h.secrets.writes).toBe(0);
   });
 
@@ -365,7 +367,9 @@ describe('the callback', () => {
     if (started.state !== 'authorize') {
       throw new Error('expected an authorization URL');
     }
-    expect(await callbackReason(h, h.stub.approve(started.url))).toBe('/devices?t3=read_only');
+    expect(await callbackReason(h, h.stub.approve(started.url))).toBe(
+      '/settings/connections?t3=read_only',
+    );
     expect(h.secrets.writes).toBe(0);
   });
 
@@ -375,13 +379,15 @@ describe('the callback', () => {
     if (started.state !== 'authorize') {
       throw new Error('expected an authorization URL');
     }
-    expect(await callbackReason(h, h.stub.approve(started.url))).toBe('/devices?t3=failed');
+    expect(await callbackReason(h, h.stub.approve(started.url))).toBe(
+      '/settings/connections?t3=failed',
+    );
     expect(h.secrets.writes).toBe(0);
   });
 
   test('a grant whose type is not Bearer answers failed and writes nothing', async () => {
     const h = harness({ stub: { tokenType: 'mac' } });
-    expect(await approvedReason(h)).toBe('/devices?t3=failed');
+    expect(await approvedReason(h)).toBe('/settings/connections?t3=failed');
     expect(h.secrets.writes).toBe(0);
   });
 
@@ -389,11 +395,11 @@ describe('the callback', () => {
     const TEN_YEARS = 10 * 365 * 24 * 60 * 60;
     for (const expiresIn of [1.5, '3600', TEN_YEARS + 1]) {
       const h = harness({ stub: { expiresIn } });
-      expect(await approvedReason(h)).toBe('/devices?t3=failed');
+      expect(await approvedReason(h)).toBe('/settings/connections?t3=failed');
       expect(h.secrets.writes).toBe(0);
     }
     const longest = harness({ stub: { expiresIn: TEN_YEARS } });
-    expect(await approvedReason(longest)).toBe('/devices?t3=connected');
+    expect(await approvedReason(longest)).toBe('/settings/connections?t3=connected');
     expect(await longest.adapter.status(CONSOLE)).toMatchObject({ state: 'connected' });
   });
 
@@ -401,7 +407,7 @@ describe('the callback', () => {
     // A key parseSecretKey never made: sealing it throws.
     const forged = { toJSON: () => 'x', toString: () => 'x' } as unknown as SecretKey;
     const h = harness({ settings: { ...ready, key: forged } });
-    expect(await approvedReason(h)).toBe('/devices?t3=failed');
+    expect(await approvedReason(h)).toBe('/settings/connections?t3=failed');
     expect(h.secrets.writes).toBe(0);
     const faults = h.logs
       .map((line) => JSON.parse(line) as Record<string, unknown>)
@@ -419,8 +425,12 @@ describe('the callback', () => {
         urls.push(started.url);
       }
     }
-    expect(await callbackReason(h, h.stub.approve(urls[0] ?? ''))).toBe('/devices?t3=stale');
-    expect(await callbackReason(h, h.stub.approve(urls[1] ?? ''))).toBe('/devices?t3=connected');
+    expect(await callbackReason(h, h.stub.approve(urls[0] ?? ''))).toBe(
+      '/settings/connections?t3=stale',
+    );
+    expect(await callbackReason(h, h.stub.approve(urls[1] ?? ''))).toBe(
+      '/settings/connections?t3=connected',
+    );
   });
 });
 

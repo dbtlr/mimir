@@ -1,19 +1,25 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useSyncExternalStore } from 'react';
 
-import { apply, resolve, setTheme, storedChoice, systemTheme } from './theme';
-import type { Theme } from './theme';
+import { apply, clearTheme, resolve, setTheme, subscribeTheme, themeChoice } from './theme';
+import type { Theme, ThemeChoice } from './theme';
 
 /**
- * The live theme + a toggle. Seeded from {@link resolve} (which the inline
- * `index.html` script already applied, so this matches the painted state).
- * While the user has made no explicit pick, follow OS changes; once they pick,
- * {@link setTheme} records it and the OS listener goes quiet.
+ * The live theme, the stored choice, and the ways to change them. Seeded from
+ * {@link resolve} (which the inline `index.html` script already applied, so
+ * this matches the painted state). While no pick is stored the theme follows
+ * OS changes; a pick is recorded by {@link setTheme}, and `system` clears it.
  *
- * Single owner: the Shell holds this and feeds both the toggle and the sonner
- * Toaster, so there's one source of truth rather than divergent hook copies.
+ * Every caller reads the one store in `theme.ts`, so the shell's Toaster, the
+ * "…" menu's switch, and the Appearance page stay in step.
  */
-export function useTheme(): { theme: Theme; toggle: () => void } {
-  const [theme, setThemeState] = useState<Theme>(resolve);
+export function useTheme(): {
+  theme: Theme;
+  choice: ThemeChoice;
+  toggle: () => void;
+  choose: (choice: ThemeChoice) => void;
+} {
+  const theme = useSyncExternalStore(subscribeTheme, resolve, resolve);
+  const choice = useSyncExternalStore(subscribeTheme, themeChoice, themeChoice);
 
   // Keep the document (incl. <meta name=theme-color>) in sync. The inline
   // index.html script set data-theme pre-paint but not the meta color, so the
@@ -22,28 +28,17 @@ export function useTheme(): { theme: Theme; toggle: () => void } {
     apply(theme);
   }, [theme]);
 
-  useEffect(() => {
-    const mq = globalThis.matchMedia('(prefers-color-scheme: light)');
-    const onChange = () => {
-      if (storedChoice() === null) {
-        const next = systemTheme();
-        apply(next);
-        setThemeState(next);
-      }
-    };
-    mq.addEventListener('change', onChange);
-    return () => {
-      mq.removeEventListener('change', onChange);
-    };
-  }, []);
-
   const toggle = useCallback(() => {
-    setThemeState((prev) => {
-      const next: Theme = prev === 'dark' ? 'light' : 'dark';
-      setTheme(next);
-      return next;
-    });
+    setTheme(resolve() === 'dark' ? 'light' : 'dark');
   }, []);
 
-  return { theme, toggle };
+  const choose = useCallback((next: ThemeChoice) => {
+    if (next === 'system') {
+      clearTheme();
+    } else {
+      setTheme(next);
+    }
+  }, []);
+
+  return { choice, choose, theme, toggle };
 }

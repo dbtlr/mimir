@@ -104,8 +104,8 @@ function LaunchOnT3({
         >
           Launch in T3…
         </ActionButton>
-        <Link to="/devices" className="text-xs text-accent-foreground hover:underline">
-          Devices
+        <Link to="/settings/connections" className="text-xs text-accent-foreground hover:underline">
+          Connections
         </Link>
       </span>
     );

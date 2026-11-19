@@ -13,7 +13,7 @@ import { useInvalidateOnWrite } from './mutations';
  * (UNPERSISTED_QUERY_KEY_ROOTS in queries.ts holds `t3`).
  */
 
-/** The Devices page's T3 state; a failure of T3 is a state, not an error. */
+/** The Connections page's T3 state; a failure of T3 is a state, not an error. */
 export const t3StatusQuery = queryOptions({
   queryFn: () => t3Status(),
   queryKey: ['t3', 'status'],

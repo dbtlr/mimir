@@ -289,7 +289,7 @@ test('a host with T3 misconfigured boots, warns by setting name, and reports the
       new Request('http://localhost:64647/auth/t3/callback?state=x&code=y'),
     );
     expect(callback.status).toBe(303);
-    expect(callback.headers.get('location')).toBe('/devices?t3=misconfigured');
+    expect(callback.headers.get('location')).toBe('/settings/connections?t3=misconfigured');
     const database = new Database(join(root, SQLITE_FILE), { readonly: true });
     try {
       expect(database.query('select name from host_secrets').all()).toEqual([]);

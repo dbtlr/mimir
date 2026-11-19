@@ -64,7 +64,7 @@ describe('pair page (MMR-585)', () => {
     expect(screen.getByRole('button', { name: 'Deny' })).toBeDefined();
     expect(screen.getByRole('link', { name: /Manage devices/ })).toHaveAttribute(
       'href',
-      '/devices',
+      '/settings/devices',
     );
     expect(screen.queryByText(/already paired/)).toBeNull();
   });
@@ -114,7 +114,10 @@ describe('pair page (MMR-585)', () => {
     });
     expect(screen.getByText(/^Approved drews-macbook/)).toBe(approved);
     expect(screen.queryByText('No waiting request has this code.')).toBeNull();
-    expect(screen.getByRole('link', { name: /devices/i })).toHaveAttribute('href', '/devices');
+    expect(screen.getByRole('link', { name: /devices/i })).toHaveAttribute(
+      'href',
+      '/settings/devices',
+    );
     expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
   });
 

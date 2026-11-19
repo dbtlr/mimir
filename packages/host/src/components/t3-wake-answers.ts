@@ -9,10 +9,10 @@ export type WakeAnnouncement = {
   origin: string | null;
   /** Resend the wake through `wakeT3` with a state's `retry`. */
   retry: (input: T3WakeInput) => void;
-  /** Start Connect T3, as Reconnect T3 does on the Devices page. */
+  /** Start Connect T3, as Reconnect T3 does on the Connections page. */
   reconnect: () => void;
-  /** Go to the Devices page, where T3's settings are shown. */
-  openDevices: () => void;
+  /** Go to the Connections page, where T3's settings are shown. */
+  openConnections: () => void;
 };
 
 /** The words for the field a Retry's `invalid` names. */
@@ -52,7 +52,7 @@ export function announceWake(wake: T3WakeState, context: WakeAnnouncement): void
     }
     case 'misconfigured': {
       toast.warning(`${NOT_TOLD}: T3 is not set up correctly.`, {
-        action: { label: 'Devices', onClick: context.openDevices },
+        action: { label: 'Connections', onClick: context.openConnections },
       });
       return;
     }

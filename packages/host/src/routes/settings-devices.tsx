@@ -7,21 +7,19 @@ import { useUnpairDevice } from '../api/device-mutations';
 import { pairedDevicesQuery, pendingPairingsQuery } from '../api/device-queries';
 import type { PairedDevice } from '../api/fns/devices';
 import { OfflineBanner } from '../components/offline-banner';
-import { T3Card } from '../components/t3-card';
+import { SettingsPage } from '../components/settings-page';
 import { actionButtonVariants, ActionButton } from '../components/ui/action-button';
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { absoluteTime, ago, calendarDate, until } from '../lib/time';
-import { devicesRoute } from '../router';
 
 /**
- * `/devices` — the clients that wait to pair with this host and the ones
- * paired with it (ADR 0038, MMR-585). Waiting requests are read-only here: a
- * request's code is stored hashed, so the operator decides on `/pair` with the
- * code the device shows. Unpairing asks first, in the row, because the device
- * loses access the moment it is confirmed. With T3 Code configured, its card
- * holds Connect T3 (ADR 0040) and shows the callback's `?t3=` outcome once.
+ * `/settings/devices` — the clients that wait to pair with this host and the
+ * ones paired with it (ADR 0038, MMR-585, MMR-733). Waiting requests are
+ * read-only here: a request's code is stored hashed, so the operator decides on
+ * `/pair` with the code the device shows. Unpairing asks first, in the row,
+ * because the device loses access the moment it is confirmed.
  */
 
 /** A titled card holding a list or its empty line. */
@@ -147,30 +145,19 @@ export function DevicesPage() {
   const pending = useQuery(pendingPairingsQuery);
   const paired = useQuery(pairedDevicesQuery);
   const conn = connectivity([pending, paired]);
-  // The T3 callback's outcome shows once: kept here, then dropped from the URL.
-  const { t3 } = devicesRoute.useSearch();
-  const navigate = devicesRoute.useNavigate();
-  const [t3Outcome] = useState(t3);
-  useEffect(() => {
-    if (t3 !== undefined) {
-      void navigate({ replace: true, search: {} });
-    }
-  }, [navigate, t3]);
 
   return (
     <>
       <OfflineBanner {...conn} />
-      <main className="mx-auto flex w-full max-w-[960px] min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto p-5">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">Devices</h1>
-          <span className="font-mono text-[11.5px] text-ink-faint">
-            clients paired with this host
-          </span>
-          <Link to="/pair" className={cn(actionButtonVariants({ variant: 'outline' }), 'ml-auto')}>
+      <SettingsPage
+        title="Devices"
+        subtitle="clients paired with this host"
+        actions={
+          <Link to="/pair" className={actionButtonVariants({ variant: 'outline' })}>
             Enter a code
           </Link>
-        </div>
-
+        }
+      >
         <ListCard
           title="Waiting"
           empty="No devices are waiting."
@@ -193,9 +180,7 @@ export function DevicesPage() {
             <PairedRow key={device.device} device={device} />
           ))}
         />
-
-        <T3Card outcome={t3Outcome} />
-      </main>
+      </SettingsPage>
     </>
   );
 }
