@@ -933,6 +933,58 @@ describe('Reset push key', () => {
     }
   });
 
+  it('leaves this browser to the next load when a heal starts during its reads and outlasts the wait', async () => {
+    await open('phone', { world: { devices: [other] } });
+    const list = Promise.withResolvers<void>();
+    const serveList = vi.mocked(pushDevices).getMockImplementation();
+    // The page's list read after the reset is held; meanwhile another heal starts and its send is held.
+    vi.mocked(pushDevices).mockImplementationOnce(async (...args) => {
+      await list.promise;
+      return (await serveList?.(...args)) ?? { devices: [], state: 'listed' };
+    });
+    const sending = Promise.withResolvers<void>();
+    const answer = Promise.withResolvers<{ state: 'unconfigured' }>();
+    vi.mocked(subscribePush).mockImplementationOnce(async () => {
+      sending.resolve();
+      return answer.promise;
+    });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      await confirmReset();
+      await waitFor(() => {
+        expect(pushDevices).toHaveBeenCalledTimes(2);
+      });
+      const heal = healThisBrowser(
+        dropped(),
+        READY,
+        { devices: [mine], state: 'listed' },
+        readStatus,
+      );
+      await act(async () => {
+        await sending.promise;
+      });
+      await act(async () => {
+        list.resolve();
+      });
+      await userEvent.click(await screen.findByRole('button', { name: 'Reset push key…' }));
+      const sheet = await screen.findByRole('dialog', { name: 'Reset the push key?' });
+      expect(within(sheet).getByRole('button', { name: 'Reset' })).toBeDisabled();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(HEAL_WAIT_MS);
+      });
+      await waitFor(() => {
+        expect(within(sheet).getByRole('button', { name: 'Reset' })).toBeEnabled();
+      });
+      answer.resolve({ state: 'unconfigured' });
+      await heal;
+    } finally {
+      vi.useRealTimers();
+      list.resolve();
+      answer.resolve({ state: 'unconfigured' });
+      await settle();
+    }
+  });
+
   it('says the key was reset when only the reread after it fails', async () => {
     const { world } = await open('phone', { world: { devices: [other] } });
     vi.mocked(resetPushKey).mockImplementationOnce(async () => {

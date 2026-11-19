@@ -255,8 +255,9 @@ export function NotificationsPage() {
   /**
    * Subscribe this browser again with `publicKey`, the key the reset answered;
    * the others do when their console opens. A heal already running finishes
-   * first, so this one reads what it left; one that outlasts the bounded wait,
-   * or a status that is no longer ready, leaves this browser to the next load.
+   * first, so this one reads what it left, and again after the reads, for a
+   * heal that started during them; one that outlasts the bounded wait, or a
+   * status that is no longer ready, leaves this browser to the next load.
    */
   const healAfterReset = async (publicKey: string) => {
     try {
@@ -267,7 +268,8 @@ export function NotificationsPage() {
         client.fetchQuery({ ...pushStatusQuery, staleTime: 0 }),
         client.fetchQuery({ ...pushDevicesQuery, staleTime: 0 }),
       ]);
-      if (fresh.state !== 'ready') {
+      // A heal can start while the reads run; wait for it again, so this one never joins it with an older key.
+      if (fresh.state !== 'ready' || !(await healSettled())) {
         return;
       }
       // A status read that started before the reset can answer the old key; the reset's is newer.
