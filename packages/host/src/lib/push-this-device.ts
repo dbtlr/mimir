@@ -1,5 +1,6 @@
 import type { PushDevice, PushDeviceList, PushStatus } from '../api/fns/push';
 import type { BrowserSnapshot, BrowserSubscription, ThisDeviceRecord } from './push-browser';
+import { sameEndpoint } from './push-endpoint';
 import { isIos } from './push-identity';
 import type { BrowserIdentity } from './push-identity';
 
@@ -80,7 +81,9 @@ export function deriveThisDevice(input: DeriveInput): ThisDeviceState {
   const device =
     subscription === null
       ? undefined
-      : devices.devices.find((candidate) => candidate.endpoint === subscription.endpoint);
+      : devices.devices.find((candidate) =>
+          sameEndpoint(candidate.endpoint, subscription.endpoint),
+        );
   return device === undefined ? { kind: 'off' } : { device, kind: 'on' };
 }
 

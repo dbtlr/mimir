@@ -1,5 +1,6 @@
 import type { PushDeviceList, PushStatus } from '../api/fns/push';
 import type { BrowserSubscription, PushPermission, ThisDeviceRecord } from './push-browser';
+import { sameEndpoint } from './push-endpoint';
 
 /*
  * Healing this browser's subscription when the console opens (ADR 0045,
@@ -44,7 +45,9 @@ export function healApplies(input: {
 
 /**
  * The one thing to do. A removal never re-subscribes: a Remove from another
- * device must stick until the operator turns notifications on here again.
+ * device must stick until the operator turns notifications on here again. A
+ * browser that does not say which key it subscribed with is judged by its
+ * row's `currentKey`. Endpoints compare as the host stores them.
  */
 export function decideHeal(input: HealInput): HealAction {
   const { status, devices, record, subscription } = input;
@@ -59,13 +62,20 @@ export function decideHeal(input: HealInput): HealAction {
   if (subscription === null) {
     return { kind: 'resubscribe', reason: 'dropped' };
   }
-  if (subscription.applicationServerKey !== status.publicKey) {
+  const keyKnown = subscription.applicationServerKey !== null;
+  if (keyKnown && subscription.applicationServerKey !== status.publicKey) {
     return { kind: 'resubscribe', reason: 'key_changed' };
   }
-  if (subscription.endpoint !== record.endpoint) {
+  if (!sameEndpoint(subscription.endpoint, record.endpoint)) {
     return { kind: 'adopt', staleEndpoint: record.endpoint };
   }
-  return devices.devices.some((device) => device.endpoint === subscription.endpoint)
-    ? { kind: 'none' }
-    : { kind: 'mark_removed' };
+  const row = devices.devices.find((device) =>
+    sameEndpoint(device.endpoint, subscription.endpoint),
+  );
+  if (row === undefined) {
+    return { kind: 'mark_removed' };
+  }
+  return !keyKnown && !row.currentKey
+    ? { kind: 'resubscribe', reason: 'key_changed' }
+    : { kind: 'none' };
 }

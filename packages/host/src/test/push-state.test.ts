@@ -77,6 +77,17 @@ describe('deriveThisDevice', () => {
     expect(notificationsValue(state)).toBe(value);
   });
 
+  it('matches this browser to its row by the endpoint the host stores', () => {
+    const raw = { ...SUBSCRIPTION, endpoint: 'https://PUSH.example/this' };
+    expect(
+      derive({
+        browser: { identity: chrome, permission: 'granted', pushSupported: true },
+        devices: { devices: [mine], state: 'listed' },
+        subscription: raw,
+      }).kind,
+    ).toBe('on');
+  });
+
   it('puts the host before the browser, and the browser before the record', () => {
     const blocked = { identity: iphone, permission: 'denied', pushSupported: false } as const;
     expect(
@@ -188,6 +199,35 @@ describe('decideHeal', () => {
       'case 3: the host no longer lists it',
       { devices: { devices: [], state: 'listed' } },
       { kind: 'mark_removed' },
+    ],
+    [
+      'an unknown subscription key on a current-key row',
+      { subscription: { ...SUBSCRIPTION, applicationServerKey: null } },
+      { kind: 'none' },
+    ],
+    [
+      'an unknown subscription key on an old-key row',
+      {
+        devices: { devices: [{ ...mine, currentKey: false }], state: 'listed' },
+        subscription: { ...SUBSCRIPTION, applicationServerKey: null },
+      },
+      { kind: 'resubscribe', reason: 'key_changed' },
+    ],
+    [
+      'an unknown subscription key with no row',
+      {
+        devices: { devices: [], state: 'listed' },
+        subscription: { ...SUBSCRIPTION, applicationServerKey: null },
+      },
+      { kind: 'mark_removed' },
+    ],
+    [
+      'an endpoint spelled differently from the host’s and the record’s',
+      {
+        record: { endpoint: 'https://Push.Example/this', state: 'on' },
+        subscription: { ...SUBSCRIPTION, endpoint: 'https://PUSH.example/this' },
+      },
+      { kind: 'none' },
     ],
     ['no record', { record: null }, { kind: 'none' }],
     ['a removed record', { record: { state: 'removed' } }, { kind: 'none' }],
