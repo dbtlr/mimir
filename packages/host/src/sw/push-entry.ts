@@ -16,6 +16,6 @@ function isPushScope(scope: unknown): scope is PushScope {
 
 const scope: unknown = globalThis;
 if (!isPushScope(scope)) {
-  throw new Error('sw-push.js must run in the console service worker');
+  throw new Error('the push handlers must run in the console service worker');
 }
 registerPushHandlers(scope);

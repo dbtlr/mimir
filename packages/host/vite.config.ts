@@ -6,35 +6,20 @@ import tailwindcss from '@tailwindcss/vite';
 import { tanstackStart } from '@tanstack/react-start/plugin/vite';
 import react from '@vitejs/plugin-react';
 import { nitro } from 'nitro/vite';
-import { build as viteBuild, searchForWorkspaceRoot } from 'vite';
+import { searchForWorkspaceRoot } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+import { buildPushWorker } from './scripts/push-worker.ts';
 import { WELL_900, WELL_950 } from './src/lib/theme-colors.ts';
 
-const PUSH_WORKER_FILE = 'sw-push.js';
+const HOST_ROOT = fileURLToPath(new URL('.', import.meta.url));
 
 /**
- * Compile the worker's push handlers to one classic script in the public
- * output, for the generated worker to import. It runs before Workbox so the
- * precache lists the file.
+ * The push handlers' script (MMR-710), named for its content. buildApp sets
+ * it before Workbox runs, and the plugin's integration hook hands it to the
+ * resolved Workbox options, which the plugin builds before any file exists.
  */
-async function buildPushWorker(): Promise<void> {
-  await viteBuild({
-    build: {
-      emptyOutDir: false,
-      lib: {
-        entry: fileURLToPath(new URL('src/sw/push-entry.ts', import.meta.url)),
-        fileName: () => PUSH_WORKER_FILE,
-        formats: ['iife'],
-        name: 'MimirPushWorker',
-      },
-      outDir: '.output/public',
-      sourcemap: false,
-    },
-    configFile: false,
-    publicDir: false,
-  });
-}
+let pushWorkerFile: string | undefined;
 
 /**
  * The PWA layer is app-shell only — precache the shell so the installed app
@@ -45,6 +30,16 @@ async function buildPushWorker(): Promise<void> {
 // oxlint-disable-next-line new-cap
 const pwaPlugins = VitePWA({
   injectRegister: null,
+  integration: {
+    beforeBuildServiceWorker(options) {
+      if (pushWorkerFile === undefined) {
+        throw new Error('the push worker must build before the service worker');
+      }
+      // importScripts is not a navigation, so navigateFallback never touches
+      // it, and the precache lists the file, so an update installs it.
+      options.workbox.importScripts = [pushWorkerFile];
+    },
+  },
   manifest: {
     background_color: WELL_900.dark,
     description: 'Operator console — work state across every project',
@@ -68,10 +63,6 @@ const pwaPlugins = VitePWA({
     // Keep these explicit: brace expansion is dependency-sensitive and a
     // failed expansion silently reduced the cache to includeAssets only.
     globPatterns: ['**/*.css', '**/*.html', '**/*.js', '**/*.woff2'],
-    // The push and notificationclick handlers (MMR-710), compiled to the
-    // public root by buildPushWorker. importScripts is not a navigation, so
-    // navigateFallback never touches it, and the precache keeps it versioned.
-    importScripts: [PUSH_WORKER_FILE],
     // Server routes (the /api tombstone included) are never the app shell.
     navigateFallback: '/_shell.html',
     navigateFallbackDenylist: [/^\/(api|auth|trpc|_serverFn|health)([/?]|$)/],
@@ -120,7 +111,7 @@ export default defineConfig({
     {
       buildApp: {
         async handler(builder) {
-          await buildPushWorker();
+          pushWorkerFile = await buildPushWorker({ root: HOST_ROOT });
           await pwaPlugins[0]?.api?.generateSW();
           // Nitro indexes public files while bundling. Refresh that index after
           // Start's shell and Workbox's worker have been written.

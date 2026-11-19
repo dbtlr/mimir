@@ -173,8 +173,11 @@ export function AttentionAlert() {
 
   const report = review.data;
   const count = report?.queue.length ?? 0;
-  // The installed app's icon carries the same count as the pill (MMR-710).
-  useAppBadge(report?.queue.length);
+  // The installed app's icon carries the same count as the pill (MMR-710),
+  // from this session's reads only: a persisted report may predate a push
+  // that has since moved the icon.
+  const freshRead = review.isFetchedAfterMount && review.status === 'success';
+  useAppBadge(freshRead ? { count, readAt: review.dataUpdatedAt } : undefined);
   if (report === undefined || (count === 0 && !open)) {
     return null;
   }

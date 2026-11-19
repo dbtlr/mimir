@@ -1,9 +1,11 @@
+import { applyAppBadge } from '../lib/badge';
+import type { BadgeTarget } from '../lib/badge';
 import { clickTarget, mapPush } from '../lib/push-notification';
 import type { PushNotificationOptions } from '../lib/push-notification';
 
 /*
  * The service worker's push and notificationclick handlers (ADR 0045, MMR-710).
- * The generated Workbox worker imports this file's build (`sw-push.js`), so
+ * The generated Workbox worker imports this file's build (`sw-push-<hash>.js`), so
  * the precache and update flow stay Workbox's. The scope is a narrow
  * structural type so the handlers run under test without a worker.
  */
@@ -27,10 +29,7 @@ export type PushScope = {
     openWindow: (url: string) => Promise<unknown>;
   };
   location: { origin: string };
-  navigator: {
-    setAppBadge?: (count?: number) => Promise<void>;
-    clearAppBadge?: () => Promise<void>;
-  };
+  navigator: BadgeTarget;
   registration: {
     showNotification: (title: string, options: PushNotificationOptions) => Promise<void>;
   };
@@ -38,19 +37,6 @@ export type PushScope = {
 
 type PushEvent = WaitEvent & { data: { text: () => string } | null };
 type ClickEvent = WaitEvent & { notification: { close: () => void; data: unknown } };
-
-/** Set or clear the icon badge; a missing API or a refusal never blocks the notification. */
-async function applyBadge(scope: PushScope, count: number): Promise<void> {
-  try {
-    if (count === 0) {
-      await scope.navigator.clearAppBadge?.();
-    } else {
-      await scope.navigator.setAppBadge?.(count);
-    }
-  } catch {
-    // the badge is a courtesy
-  }
-}
 
 async function showPush(scope: PushScope, event: PushEvent): Promise<void> {
   let text: string | undefined;
@@ -61,8 +47,9 @@ async function showPush(scope: PushScope, event: PushEvent): Promise<void> {
   }
   const { appBadge, options, title } = mapPush(text, scope.location.origin);
   await scope.registration.showNotification(title, options);
+  // A missing Badging API or a refusal never blocks the notification.
   if (appBadge !== undefined) {
-    await applyBadge(scope, appBadge);
+    await applyAppBadge(scope.navigator, appBadge);
   }
 }
 

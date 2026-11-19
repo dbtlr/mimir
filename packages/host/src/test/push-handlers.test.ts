@@ -7,9 +7,15 @@ const ORIGIN = 'https://mimir.example.test';
 
 type Handler = (event: never) => void;
 
-function scope(
-  windows: { url: string; navigate: () => Promise<unknown>; focus: () => Promise<unknown> }[] = [],
-) {
+type FakeWindow = {
+  url: string;
+  navigate: () => Promise<unknown>;
+  focus: () => Promise<unknown>;
+  /** A window the worker does not control, which `matchAll` lists only on request. */
+  uncontrolled?: boolean;
+};
+
+function scope(windows: FakeWindow[] = []) {
   const handlers = new Map<string, Handler>();
   const showNotification = vi.fn(async () => {});
   const openWindow = vi.fn(async () => null);
@@ -17,7 +23,11 @@ function scope(
     addEventListener: (type: string, handler: Handler) => {
       handlers.set(type, handler);
     },
-    clients: { matchAll: async () => windows, openWindow },
+    clients: {
+      matchAll: async ({ includeUncontrolled }) =>
+        windows.filter((win) => includeUncontrolled || win.uncontrolled !== true),
+      openWindow,
+    },
     location: { origin: ORIGIN },
     navigator: {},
     registration: { showNotification },
@@ -62,6 +72,42 @@ describe('push handler', () => {
     expect(showNotification).toHaveBeenCalledOnce();
   });
 
+  it('sets the badge only after the notification shows', async () => {
+    const order: string[] = [];
+    const { fake, handlers, showNotification } = scope();
+    // The notification resolves a tick late, so a badge that does not wait for it lands first.
+    showNotification.mockImplementation(async () => {
+      await Promise.resolve();
+      order.push('show');
+    });
+    fake.navigator = { setAppBadge: async () => void order.push('badge') };
+    const { event, done } = pushEvent(
+      JSON.stringify({ app_badge: 2, notification: { tag: 'a:b', title: 'Hi' } }),
+    );
+    handlers.get('push')?.(event as never);
+    await done();
+    expect(order).toEqual(['show', 'badge']);
+  });
+
+  it('shows the generic notification when the push data cannot be read', async () => {
+    const { handlers, showNotification } = scope();
+    const waits: Promise<unknown>[] = [];
+    const event = {
+      data: {
+        text: () => {
+          throw new TypeError('not text');
+        },
+      },
+      waitUntil: (promise: Promise<unknown>) => waits.push(promise),
+    };
+    handlers.get('push')?.(event as never);
+    await Promise.all(waits);
+    expect(showNotification).toHaveBeenCalledWith(
+      'Mimir',
+      expect.objectContaining({ body: 'Something needs you.', tag: 'mimir' }),
+    );
+  });
+
   it('shows a generic notification for an empty push', async () => {
     const { handlers, showNotification } = scope();
     const { event, done } = pushEvent(undefined);
@@ -100,6 +146,18 @@ describe('notificationclick handler', () => {
     expect(close).toHaveBeenCalled();
     expect(navigate).toHaveBeenCalledWith(`${ORIGIN}/p/MMR`);
     expect(order).toEqual(['navigate', 'focus']);
+    expect(openWindow).not.toHaveBeenCalled();
+  });
+
+  it('reuses a console window the worker does not control yet', async () => {
+    const navigate = vi.fn(async () => {});
+    const { handlers, openWindow } = scope([
+      { focus: async () => {}, navigate, uncontrolled: true, url: `${ORIGIN}/` },
+    ]);
+    const { event, done } = clickEvent(`${ORIGIN}/p/MMR`);
+    handlers.get('notificationclick')?.(event as never);
+    await done();
+    expect(navigate).toHaveBeenCalledWith(`${ORIGIN}/p/MMR`);
     expect(openWindow).not.toHaveBeenCalled();
   });
 

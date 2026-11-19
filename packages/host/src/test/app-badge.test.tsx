@@ -1,65 +1,79 @@
 import { renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { syncAppBadge, useAppBadge } from '../lib/app-badge';
+import { useAppBadge } from '../lib/app-badge';
+import { applyAppBadge } from '../lib/badge';
+import type { BadgeTarget } from '../lib/badge';
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
-
-function stubBadge(overrides: Record<string, unknown> = {}) {
+function badgeTarget(overrides: Partial<BadgeTarget> = {}) {
   const setAppBadge = vi.fn(async () => {});
   const clearAppBadge = vi.fn(async () => {});
-  vi.stubGlobal('navigator', { clearAppBadge, setAppBadge, ...overrides });
-  return { clearAppBadge, setAppBadge };
+  return { clearAppBadge, setAppBadge, target: { clearAppBadge, setAppBadge, ...overrides } };
 }
 
-describe('syncAppBadge', () => {
+describe('applyAppBadge', () => {
   it('sets the badge to the count', async () => {
-    const { clearAppBadge, setAppBadge } = stubBadge();
-    await syncAppBadge(4);
+    const { clearAppBadge, setAppBadge, target } = badgeTarget();
+    await applyAppBadge(target, 4);
     expect(setAppBadge).toHaveBeenCalledWith(4);
     expect(clearAppBadge).not.toHaveBeenCalled();
   });
 
   it('clears the badge at zero', async () => {
-    const { clearAppBadge, setAppBadge } = stubBadge();
-    await syncAppBadge(0);
+    const { clearAppBadge, setAppBadge, target } = badgeTarget();
+    await applyAppBadge(target, 0);
     expect(clearAppBadge).toHaveBeenCalledOnce();
     expect(setAppBadge).not.toHaveBeenCalled();
   });
 
   it('does nothing in a browser without the Badging API', async () => {
-    vi.stubGlobal('navigator', {});
-    await expect(syncAppBadge(2)).resolves.toBeUndefined();
+    await expect(applyAppBadge({}, 2)).resolves.toBeUndefined();
   });
 
   it('swallows a rejection', async () => {
-    stubBadge({ setAppBadge: vi.fn().mockRejectedValue(new Error('denied')) });
-    await expect(syncAppBadge(2)).resolves.toBeUndefined();
+    const { target } = badgeTarget({ setAppBadge: vi.fn().mockRejectedValue(new Error('denied')) });
+    await expect(applyAppBadge(target, 2)).resolves.toBeUndefined();
   });
 
   it('swallows a synchronous throw', async () => {
-    stubBadge({
+    const { target } = badgeTarget({
       setAppBadge: () => {
         throw new Error('nope');
       },
     });
-    await expect(syncAppBadge(2)).resolves.toBeUndefined();
+    await expect(applyAppBadge(target, 2)).resolves.toBeUndefined();
   });
 });
 
 describe('useAppBadge', () => {
-  it('syncs when the count is known and again when it changes', () => {
-    const { clearAppBadge, setAppBadge } = stubBadge();
-    const { rerender } = renderHook(({ count }) => useAppBadge(count), {
-      initialProps: { count: undefined as number | undefined },
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('syncs on each read, including a second read with the same count', () => {
+    const { clearAppBadge, setAppBadge, target } = badgeTarget();
+    vi.stubGlobal('navigator', target);
+    const { rerender } = renderHook(({ read }) => useAppBadge(read), {
+      initialProps: { read: undefined as { count: number; readAt: number } | undefined },
     });
     expect(setAppBadge).not.toHaveBeenCalled();
     expect(clearAppBadge).not.toHaveBeenCalled();
-    rerender({ count: 2 });
+    rerender({ read: { count: 2, readAt: 1 } });
     expect(setAppBadge).toHaveBeenCalledWith(2);
-    rerender({ count: 0 });
+    // A push raised the icon meanwhile; the next read of the same count puts it back.
+    rerender({ read: { count: 2, readAt: 2 } });
+    expect(setAppBadge).toHaveBeenCalledTimes(2);
+    rerender({ read: { count: 0, readAt: 3 } });
     expect(clearAppBadge).toHaveBeenCalledOnce();
+  });
+
+  it('does not sync again when the same read renders twice', () => {
+    const { setAppBadge, target } = badgeTarget();
+    vi.stubGlobal('navigator', target);
+    const { rerender } = renderHook(({ read }) => useAppBadge(read), {
+      initialProps: { read: { count: 2, readAt: 1 } },
+    });
+    rerender({ read: { count: 2, readAt: 1 } });
+    expect(setAppBadge).toHaveBeenCalledOnce();
   });
 });

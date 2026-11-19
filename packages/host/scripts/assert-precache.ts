@@ -5,6 +5,47 @@ import { resolve } from 'node:path';
 
 export const PRECACHE_ASSERTION = 'complete app-shell coverage';
 
+/**
+ * The files the worker names in `importScripts("…")` calls. The loader's own
+ * `importScripts(l)` takes a variable and names no file, so only string
+ * literals count.
+ */
+function importedScripts(worker: string): string[] {
+  return [...worker.matchAll(/importScripts\(((?:"[^"]*",?)+)\)/g)].flatMap((call) =>
+    [...(call[1] ?? '').matchAll(/"([^"]*)"/g)].map((name) =>
+      (name[1] ?? '').replace(/^\.?\//, ''),
+    ),
+  );
+}
+
+/**
+ * A script the worker imports must ship with it: present in the output, a
+ * JavaScript file, and precached, so an update installs it with the worker.
+ * A worker whose import fails never installs (MMR-710).
+ */
+async function assertImportedScripts(dist: string, worker: string, urls: string[]): Promise<void> {
+  const scripts = importedScripts(worker);
+  // Without it the console shows no push on a browser that hands pushes to the worker.
+  if (!scripts.some((script) => /^sw-push-[\w-]+\.js$/.test(script))) {
+    throw new Error('service worker imports no push handlers script');
+  }
+  for (const script of scripts) {
+    if (!script.endsWith('.js')) {
+      throw new Error(`imported script is not JavaScript: ${script}`);
+    }
+    try {
+      if (!(await stat(resolve(dist, script))).isFile()) {
+        throw new Error('not a file');
+      }
+    } catch {
+      throw new Error(`imported script is missing from the output: ${script}`);
+    }
+    if (!urls.includes(script)) {
+      throw new Error(`imported script is not precached: ${script}`);
+    }
+  }
+}
+
 export async function assertPrecache(dist: string): Promise<string[]> {
   const workerPath = resolve(dist, 'sw.js');
   const worker = await readFile(workerPath, 'utf8');
@@ -50,6 +91,7 @@ export async function assertPrecache(dist: string): Promise<string[]> {
   } catch {
     throw new Error('generated Workbox runtime is missing');
   }
+  await assertImportedScripts(dist, worker, urls);
   const emitted = await readdir(dist, { recursive: true });
   const appAssets = emitted.filter(
     (path) => path.startsWith('assets/') && /\.(css|html|js|woff2)$/.test(path),

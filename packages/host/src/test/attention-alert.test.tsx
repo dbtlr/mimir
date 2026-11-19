@@ -1,9 +1,11 @@
+import { QueryClient } from '@tanstack/react-query';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { groom } from '../api/fns/nodes';
 import { review } from '../api/fns/views';
+import { reviewQuery } from '../api/view-queries';
 import type { NeedsYouTask, ReviewReport } from '../api/view-queries';
 import { readMark } from '../lib/walkthrough-mark';
 import { serveBrowse } from './browse-fns';
@@ -444,5 +446,73 @@ describe('the Needs you sheet on a phone', () => {
       expect(screen.queryByRole('dialog')).toBeNull();
     });
     expect(trigger).toHaveFocus();
+  });
+});
+
+describe('the app icon badge (MMR-710)', () => {
+  const setAppBadge = vi.fn(async () => {});
+  const clearAppBadge = vi.fn(async () => {});
+
+  beforeEach(() => {
+    // jsdom has no Badging API; give its navigator one for the test.
+    Object.defineProperty(navigator, 'setAppBadge', { configurable: true, value: setAppBadge });
+    Object.defineProperty(navigator, 'clearAppBadge', { configurable: true, value: clearAppBadge });
+  });
+
+  afterEach(() => {
+    Reflect.deleteProperty(navigator, 'setAppBadge');
+    Reflect.deleteProperty(navigator, 'clearAppBadge');
+  });
+
+  it('sets the badge to the needs-you count after the read lands', async () => {
+    await renderAt('/p/MMR/tasks', twoProjects());
+    await waitFor(() => {
+      expect(setAppBadge).toHaveBeenCalledWith(3);
+    });
+    expect(clearAppBadge).not.toHaveBeenCalled();
+  });
+
+  it('clears the badge when nothing needs you', async () => {
+    await renderAt('/p/MMR/tasks', twoProjects({}));
+    await waitFor(() => {
+      expect(clearAppBadge).toHaveBeenCalledOnce();
+    });
+    expect(setAppBadge).not.toHaveBeenCalled();
+  });
+
+  it('leaves the badge alone on a cached report until this session’s read lands', async () => {
+    serve(() => twoProjects());
+    // A review read the test answers when it chooses.
+    const read = Promise.withResolvers<ReviewReport>();
+    vi.mocked(review).mockImplementation(async () => read.promise);
+    const client = new QueryClient();
+    // A persisted report from an earlier session, which a push may since have outdated.
+    client.setQueryData(reviewQuery().queryKey, twoProjects({ lm: [loomQuestion] }));
+    await renderShell('/p/MMR/tasks', client);
+    await screen.findByRole('button', { name: '1 needs you' });
+    await waitFor(() => {
+      expect(review).toHaveBeenCalled();
+    });
+    expect(setAppBadge).not.toHaveBeenCalled();
+    expect(clearAppBadge).not.toHaveBeenCalled();
+
+    read.resolve(twoProjects());
+    await waitFor(() => {
+      expect(setAppBadge).toHaveBeenCalledWith(3);
+    });
+    expect(setAppBadge).toHaveBeenCalledOnce();
+  });
+
+  it('sets the badge again on a later read of the same count', async () => {
+    const { client } = await renderAt('/p/MMR/tasks', twoProjects());
+    await waitFor(() => {
+      expect(setAppBadge).toHaveBeenCalledOnce();
+    });
+    // A push raised the icon meanwhile; the next read puts it back to the console's count.
+    await client.invalidateQueries({ queryKey: reviewQuery().queryKey });
+    await waitFor(() => {
+      expect(setAppBadge).toHaveBeenCalledTimes(2);
+    });
+    expect(setAppBadge).toHaveBeenLastCalledWith(3);
   });
 });

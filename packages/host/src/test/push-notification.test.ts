@@ -85,6 +85,17 @@ describe('mapPush', () => {
     expect(mapPush(payload({ app_badge: given }), ORIGIN).appBadge).toBe(expected);
   });
 
+  it.each([
+    ['a missing tag', undefined],
+    ['an empty tag', ''],
+    ['a non-string tag', 7],
+  ])('gives a titled notification with %s the generic tag', (_label, tag) => {
+    const mapped = mapPush(payload({ notification: { tag, title: 'Hello' } }), ORIGIN);
+    expect(mapped.title).toBe('Hello');
+    // Chrome throws on renotify without a tag.
+    expect(mapped.options.tag).toBe('mimir');
+  });
+
   it('ignores a badge nested inside the notification', () => {
     const mapped = mapPush(
       JSON.stringify({

@@ -1,34 +1,21 @@
 import { useEffect } from 'react';
 
-/** The Badging API, which not every browser has; lib.dom does not type it everywhere. */
-type BadgeNavigator = {
-  clearAppBadge?: () => Promise<void>;
-  setAppBadge?: (count?: number) => Promise<void>;
-};
+import { applyAppBadge } from './badge';
+
+/** One successful read of the needs-you count; `readAt` tells two reads of one count apart. */
+export type BadgeRead = { count: number; readAt: number };
 
 /**
- * Show `count` on the installed app's icon, clearing it at zero. A browser
- * without the Badging API, or one that refuses, is not an error: the badge is
- * a courtesy, so this never throws.
+ * Keep the app icon badge at the needs-you count. Each new read syncs it, even
+ * at an unchanged count, because a push may have moved the icon in between;
+ * `undefined` (no read yet) leaves the icon alone.
  */
-export async function syncAppBadge(count: number): Promise<void> {
-  const target: BadgeNavigator = navigator;
-  try {
-    if (count === 0) {
-      await target.clearAppBadge?.();
-    } else {
-      await target.setAppBadge?.(count);
-    }
-  } catch {
-    // unsupported or refused: nothing to do
-  }
-}
-
-/** Keep the app icon badge at the needs-you count; `undefined` (not yet read) leaves it alone. */
-export function useAppBadge(count: number | undefined): void {
+export function useAppBadge(read: BadgeRead | undefined): void {
+  const count = read?.count;
+  const readAt = read?.readAt;
   useEffect(() => {
-    if (count !== undefined) {
-      void syncAppBadge(count);
+    if (count !== undefined && readAt !== undefined) {
+      void applyAppBadge(navigator, count);
     }
-  }, [count]);
+  }, [count, readAt]);
 }
