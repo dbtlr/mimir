@@ -334,12 +334,13 @@ describe('Turn on', () => {
       await answered.promise;
       return answer ?? { state: 'subscribed' };
     });
-    await mount(browser);
-    await act(async () => {
-      await sending.promise;
-    });
     const subscribe = vi.spyOn(browser, 'subscribe');
     try {
+      await mount(browser);
+      await act(async () => {
+        await sending.promise;
+      });
+      subscribe.mockClear();
       await userEvent.click(await screen.findByRole('button', { name: 'Turn on' }));
       await settle();
       expect(subscribe).not.toHaveBeenCalled();
@@ -371,12 +372,12 @@ describe('Turn on', () => {
       await answered.promise;
       return answer ?? { state: 'subscribed' };
     });
-    await mount(browser);
-    await act(async () => {
-      await sending.promise;
-    });
     const prompt = vi.spyOn(browser, 'requestPermission');
     try {
+      await mount(browser);
+      await act(async () => {
+        await sending.promise;
+      });
       await userEvent.click(await screen.findByRole('button', { name: 'Turn on' }));
       await settle();
       // The heal is still held, and the prompt has already been asked.
@@ -1336,7 +1337,7 @@ describe('healing when the console opens', () => {
       endpoint: SUBSCRIPTION.endpoint,
       getKey: () => new Uint8Array([1, 2, 3]).buffer,
       options: { applicationServerKey: new Uint8Array([10, 11, 12]).buffer },
-      unsubscribe: async () => true,
+      unsubscribe: vi.fn(async () => true),
     };
     const browser = createPushBrowser({
       // Reads give up at once; a subscribe waits for the worker.
@@ -1367,6 +1368,7 @@ describe('healing when the console opens', () => {
     await heal;
     await settle();
     expect(subscribe).not.toHaveBeenCalled();
+    expect(held.unsubscribe).not.toHaveBeenCalled();
     expect(subscribePush).not.toHaveBeenCalled();
     expect(browser.readRecord()).toStrictEqual(record);
   });
