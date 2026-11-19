@@ -715,18 +715,22 @@ with more than one touch point is an iPad.
 Turn on runs from the click itself, so the permission prompt has the user's
 activation. When permission ends granted, the console subscribes through the
 service worker with the served public key, sends the endpoint, the two keys,
-that key, and the label, and writes its record. A `stale_key` answer refetches
-the status and tries once more. Any refusal or failure, including a permission
+that key, and the label, and writes its record. Between the prompt and the
+subscribe it waits for a heal that is running (see below), so the two never
+subscribe at once. A `stale_key` answer refetches the status and tries once
+more. Any refusal or failure, including a permission
 prompt that throws or a service worker that has not started within 10 seconds,
 clears the record and unsubscribes the browser side, so the browser and the
 host agree and an earlier turn on or removal no longer speaks for this
 browser. The page says why in one sentence, and Turn on is offered again. A
 `wrong_origin` refusal links to the console address from the status.
 
-Turn off clears the record first, then unsubscribes the browser and removes
-the endpoint from the host. The record goes first because it is what the
-healer acts on: if a later step fails, the next console load must not
-subscribe this browser again. The host's row is removed even when the
+Turn off first waits for a heal that is running, so a heal that read the
+record before the click cannot turn notifications back on after it; if that
+heal sent a new endpoint, Turn off removes it from the host too. Then it
+clears the record, unsubscribes the browser, and removes the endpoint from the
+host. The record goes first because it is what the healer acts on: if a later
+step fails, the next console load must not subscribe this browser again. The host's row is removed even when the
 browser's unsubscribe fails, so no device lists a browser the operator turned
 off; the page then says that this browser couldn't be turned off.
 
@@ -790,13 +794,17 @@ The host's answer to the subscription a heal sends decides what follows:
   to.
 - `stale_key`: another device reset the key during the heal. The console
   rereads the status, subscribes with the fresh key, and sends once more, as
-  Turn on does. If that also fails, it leaves the record as it was.
+  Turn on does. If the retry is refused for one of the reasons above, it turns
+  the browser off; otherwise it leaves the record as it was.
 - `unconfigured`, `misconfigured`, or `key_unusable`, or a thrown failure: the
   console leaves the record and the browser's subscription as they are, so
   the next load adopts the subscription or subscribes again.
 
 Every failure is silent. One heal runs at a time: a second request while one
-runs, such as the page's after a reset, joins it.
+runs joins it. Turn on, Turn off, and the page's heal after a reset wait for a
+running heal instead, at most 10 seconds each, so a heal whose host call never
+answers cannot hold the page busy. After the wait, Turn on and Turn off act as
+they would have; the page's heal after a reset is described below.
 
 ### Every subscribed browser
 
@@ -815,10 +823,29 @@ row.
 Reset push key is a quiet button under the list when the status is `ready`,
 and the one action when it is `key unusable`. Both ask first, saying that every
 device stops receiving notifications until its console is opened again. After a
-reset this browser subscribes again at once, after any heal already running
-finishes; each other device does when its console opens. If the reset
-succeeds but the page cannot read the new status afterward, the page says the
-key was reset and asks for a reload, not that the reset failed.
+reset this browser subscribes again at once with the key the reset answered;
+each other device does when its console opens. The page first waits for a
+running heal, at most 10 seconds; a heal still running then is left to finish,
+and this browser heals on its next load. Otherwise the page rereads the
+status and the list and heals with the reset's key, even when the reread
+answers an older key: a status read that started before the reset can still
+answer the old one, and the reset is newer. A reread that is not `ready`
+leaves this browser to its next load. If the reset succeeds but the page
+cannot read the new status afterward, the page says the key was reset and asks
+for a reload, not that the reset failed.
+
+### Known limits of the control
+
+- A browser that another device removed, and that has also lost its own
+  subscription, is subscribed again on its next load. The console cannot tell
+  it from a browser whose push service dropped its subscription, which is the
+  case healing exists for.
+- A Reset on another device that lands between this load's status read and
+  its device-list read can leave this browser Off until the operator turns it
+  on again.
+- A cleanup step that fails can leave a dead row, which goes when its push
+  service answers 404 or 410 or when the operator removes it, or a
+  subscription in the browser that no push reaches.
 
 ### Considered and rejected
 
