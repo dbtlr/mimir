@@ -4,11 +4,13 @@ import type { ReactNode } from 'react';
 
 import { pairedDevicesQuery, pendingPairingsQuery } from '../api/device-queries';
 import { t3StatusQuery } from '../api/t3-queries';
-import { SettingsPage } from '../components/settings-page';
+import { SETTINGS_CARD, SettingsGroup, SettingsPage } from '../components/settings-page';
 import { BUILD_VERSION } from '../lib/build-version';
 import { cn } from '../lib/cn';
+import { notificationsValue } from '../lib/push-this-device';
 import { connectionValue, devicesValue, THEME_CHOICE_LABEL, versionLabel } from '../lib/settings';
 import { useTheme } from '../lib/use-theme';
+import { useThisDevice } from '../lib/use-this-device';
 
 /**
  * `/settings` — the index (ADR 0013, MMR-733): one row per settings page, in
@@ -19,12 +21,9 @@ import { useTheme } from '../lib/use-theme';
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section aria-label={title} className="flex flex-col gap-1.5">
-      <h2 className="microlabel px-1 text-ink-faint">{title}</h2>
-      <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-well-850">
-        {children}
-      </ul>
-    </section>
+    <SettingsGroup title={title}>
+      <ul className={SETTINGS_CARD}>{children}</ul>
+    </SettingsGroup>
   );
 }
 
@@ -34,7 +33,12 @@ function Row({
   value,
   tone,
 }: {
-  to: '/settings/appearance' | '/settings/devices' | '/settings/connections' | '/settings/about';
+  to:
+    | '/settings/notifications'
+    | '/settings/appearance'
+    | '/settings/devices'
+    | '/settings/connections'
+    | '/settings/about';
   name: string;
   value: string;
   tone?: 'attention' | 'ok';
@@ -73,9 +77,11 @@ export function SettingsIndexPage() {
     waiting: pending.data?.length ?? 0,
   });
   const connection = connectionValue(t3.data);
+  const notifications = notificationsValue(useThisDevice().state);
   return (
     <SettingsPage title="Settings" back={false}>
       <Group title="This device">
+        <Row to="/settings/notifications" name="Notifications" value={notifications} />
         <Row to="/settings/appearance" name="Appearance" value={THEME_CHOICE_LABEL[choice]} />
       </Group>
       <Group title="Host">

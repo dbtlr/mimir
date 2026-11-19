@@ -521,7 +521,9 @@ state. The red marks the consequence of the click, and the label names it.
 - Unpair and its confirm (`/devices`), Deny (`/pair`), the agent card's Stop, the stop icon
   on a work page's Now row, and the confirm's **Stop run** (MMR-635) use the
   variant. They no longer carry their
-  own copies of the classes.
+  own copies of the classes. Settings › Notifications' **Remove this browser**
+  (MMR-711) uses it in a phone's action sheet; in a desktop menu the item
+  wears the same hairline and label, from the classes the variant exports.
 - **Considered and rejected.** A red-filled confirm button, the common
   pattern elsewhere: it is a status hue filling a button, which §1 rules
   out. A neutral outline for destructive actions: the hairline is the only

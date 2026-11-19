@@ -41,3 +41,17 @@ export function SettingsPage({
     </main>
   );
 }
+
+/** The rounded card a group's rows sit in. */
+export const SETTINGS_CARD =
+  'divide-y divide-line overflow-hidden rounded-xl border border-line bg-well-850';
+
+/** A titled group of a Settings page: the microlabel, then its card and any lines under it. */
+export function SettingsGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section aria-label={title} className="flex flex-col gap-1.5">
+      <h2 className="microlabel px-1 text-ink-faint">{title}</h2>
+      {children}
+    </section>
+  );
+}

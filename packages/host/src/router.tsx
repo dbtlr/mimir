@@ -339,6 +339,16 @@ export const settingsRoute = createRoute({
   path: '/settings',
 });
 
+/** `/settings/notifications` — this browser's Web Push control and every subscribed browser (MMR-711). */
+export const notificationsRoute = createRoute({
+  component: lazyRouteComponent(
+    warmable(async () => import('./routes/settings-notifications')),
+    'NotificationsPage',
+  ),
+  getParentRoute: () => rootRoute,
+  path: '/settings/notifications',
+});
+
 /** `/settings/appearance` — Light, Dark, or Match system. */
 export const appearanceRoute = createRoute({
   component: lazyRouteComponent(
@@ -533,6 +543,7 @@ export const consoleRoutes = [
   doctorRoute,
   pairRoute,
   settingsRoute,
+  notificationsRoute,
   appearanceRoute,
   devicesRoute,
   connectionsRoute,

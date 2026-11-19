@@ -812,12 +812,14 @@ manifest's `background_color` stays `well-900`, the page ground.
 ## Refinement (2026-11-19, MMR-733): Settings is a console section
 
 The console has one Settings area. `/settings` is an index, and its pages are
-`/settings/appearance`, `/settings/devices`, `/settings/connections`, and
-`/settings/about`. `/pair` stays where it is, because `mimir pair` prints its
+`/settings/notifications`, `/settings/appearance`, `/settings/devices`,
+`/settings/connections`, and `/settings/about`. `/pair` stays where it is, because `mimir pair` prints its
 URL (ADR 0038).
 
-- **The index** has two groups of rows. _This device_ holds Appearance, which
-  shows the stored choice (Light, Dark, or Match system). _Host_ holds Devices
+- **The index** has two groups of rows. _This device_ holds Notifications
+  first, which shows how this browser stands (ADR 0045's MMR-711 refinement
+  describes the page), then Appearance, which shows the stored choice (Light,
+  Dark, or Match system). _Host_ holds Devices
   (pairing requests waiting, in the attention color, else the paired count),
   Connections (the T3 state in a word or two), and About (the console
   version). Every row links to its page. On a desktop the index fills the main
@@ -832,7 +834,7 @@ URL (ADR 0038).
   versions, the update check when the console runs installed, and a link to
   Record health, which stays at `/doctor`.
 - **The sidebar has a third context.** On `/settings`, its pages, and `/pair`
-  it shows "← Back to work", then _This device_ (Appearance) and _Host_
+  it shows "← Back to work", then _This device_ (Notifications, Appearance) and _Host_
   (Devices with the waiting count, Connections, About). The current page takes
   the selection treatment, and on `/pair` Devices is the current section. The
   context shows with no project too. Below `lg` the same content is the drawer.

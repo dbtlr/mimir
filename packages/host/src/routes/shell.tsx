@@ -5,6 +5,7 @@ import { AttentionAlert } from '../components/attention-alert';
 import { BrandMark } from '../components/brand-mark';
 import { JumpPalette } from '../components/jump-palette';
 import { ProjectDrawer, ProjectSidebar } from '../components/project-sidebar';
+import { PushHealer } from '../components/push-healer';
 import { PwaUpdateBanner } from '../components/pwa-update-banner';
 import { PwaUpdateProvider } from '../components/pwa-update-provider';
 import { SeedCaptureProvider } from '../components/seed-capture';
@@ -23,7 +24,7 @@ import { useOpenerFocus } from '../lib/walkthrough-mark';
  * it, a drawer. Between `md` and `lg` a record page's own 300px rail would
  * leave the content about 160px beside a 256px sidebar.
  */
-const DESKTOP = '(min-width: 1024px)';
+export const DESKTOP = '(min-width: 1024px)';
 
 /** The sidebar's width plus a gutter, so a desktop toast clears it. */
 const TOAST_OFFSET_PAST_SIDEBAR = { left: 'calc(16rem + 24px)' };
@@ -78,6 +79,7 @@ function ShellContent() {
   const sidebarShown = context !== undefined && desktop;
   return (
     <SeedCaptureProvider>
+      <PushHealer />
       <div className="flex h-dvh flex-col overflow-hidden">
         <SkipLink />
         {/* Solid well-950, the top bar's own ground, which the browser chrome

@@ -493,8 +493,7 @@ again.
 ## Turn on Web Push notifications
 
 The host can send a notification to each browser that subscribed to it when
-something needs you. The console's control for subscribing a device comes in a
-later release; until then, the settings below prepare the host. A push carries the record's title and a short text, and
+something needs you. A push carries the record's title and a short text, and
 opening it opens the record in the console. The host signs each push with a
 key that it stores in the store, encrypted under the secret key.
 
@@ -511,17 +510,26 @@ Set these variables on the host, then restart it:
 - `MIMIR_SECRET_KEY_FILE` or `MIMIR_SECRET_KEY`, as for
   [T3 Code](#connect-t3-code). Both integrations use the same key.
 
-Subscribing a device arrives with the console control; until then, no device
-can subscribe.
+Then open the console in each browser and go to Settings › Notifications. Turn
+on subscribes that browser; Send test notification checks that it arrives. The
+page lists every subscribed browser. Each other browser can be tested or
+removed, and one subscribed under an old key can only be removed. On an
+iPhone or iPad, open the console from the Home Screen first. Open the console
+at the address `MIMIR_URL` names: the host refuses a subscription from any
+other.
 
 When a setting is missing or wrong, the host still starts. It logs one
 warning for each problem, naming the setting but never its value, and sends
 no notification until you fix the setting and restart.
 
 Changing the secret key makes the stored signing key unreadable. The host
-then sends nothing until you restore the old secret key. Resetting the signing
-key also arrives with the console control; a reset removes every device's
-subscription, and each device must subscribe again.
+then sends nothing until you restore the old secret key. If the old value is
+lost, use Reset push key on the Notifications page. A reset replaces the
+signing key, so every device stops receiving notifications until its console is
+opened again, and each browser then subscribes again by itself. A browser that
+does not report its subscription's key, and that turned notifications on
+before the console stored that key, can stay Off after its console is
+reopened; tap Turn on there.
 
 ## Clone private repositories
 

@@ -378,6 +378,7 @@ function AllProjectsBody({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 type SettingsTo =
+  | '/settings/notifications'
   | '/settings/appearance'
   | '/settings/devices'
   | '/settings/connections'
@@ -451,6 +452,7 @@ function SettingsBody({ onNavigate }: { onNavigate?: () => void }) {
         ← Back to work
       </Link>
       <SettingsGroupHeading>This device</SettingsGroupHeading>
+      <SettingsLink to="/settings/notifications" label="Notifications" onNavigate={onNavigate} />
       <SettingsLink to="/settings/appearance" label="Appearance" onNavigate={onNavigate} />
       <SettingsGroupHeading>Host</SettingsGroupHeading>
       <SettingsLink

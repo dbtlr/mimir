@@ -1,6 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { t3Status } from '../api/fns/t3';
@@ -9,8 +10,10 @@ import { fetchHealth } from '../api/health';
 import { PwaUpdateProvider } from '../components/pwa-update-provider';
 import { BUILD_VERSION } from '../lib/build-version';
 import { versionLabel } from '../lib/settings';
+import { PushBrowserContext } from '../lib/use-push-browser';
 import { consoleRoutes } from '../router';
 import { serveDevices } from './devices-fns';
+import { device as pushDevice, fakeBrowser, servePush, SERVED_KEY, SUBSCRIPTION } from './push-fns';
 import { renderRoute } from './router';
 import { serveT3 } from './t3-fns';
 import { serveViews } from './views-fns';
@@ -19,6 +22,7 @@ vi.mock('../api/fns/shell');
 vi.mock('../api/fns/views');
 vi.mock('../api/fns/devices');
 vi.mock('../api/fns/t3');
+vi.mock('../api/fns/push');
 vi.mock('../api/health');
 
 /*
@@ -44,6 +48,7 @@ beforeEach(() => {
   serveViews();
   serveDevices();
   serveT3();
+  servePush();
 });
 
 afterEach(() => {
@@ -70,7 +75,7 @@ describe('the Settings index', () => {
       within(device)
         .getAllByRole('link')
         .map((l) => l.getAttribute('href')),
-    ).toStrictEqual(['/settings/appearance']);
+    ).toStrictEqual(['/settings/notifications', '/settings/appearance']);
     const host = screen.getByRole('region', { name: 'Host' });
     expect(
       within(host)
@@ -133,6 +138,31 @@ describe('the Settings index', () => {
     });
     expect(about).toHaveTextContent(`About${versionLabel(BUILD_VERSION)}`);
     expect(about).not.toHaveTextContent('9.9.9');
+  });
+
+  it("shows this browser's notification state on the Notifications row", async () => {
+    await renderRoute(consoleRoutes, '/settings');
+    await waitFor(async () => {
+      await expect(row('/settings/notifications')).resolves.toHaveTextContent(
+        'NotificationsUnavailable',
+      );
+    });
+  });
+
+  it('shows On for a browser that turned notifications on', async () => {
+    servePush({ devices: [pushDevice({ endpoint: SUBSCRIPTION.endpoint })] });
+    const browser = fakeBrowser({
+      held: SUBSCRIPTION,
+      permission: 'granted',
+      record: { endpoint: SUBSCRIPTION.endpoint, serverKey: SERVED_KEY, state: 'on' },
+    });
+    function Provide({ children }: { children: ReactNode }) {
+      return <PushBrowserContext.Provider value={browser}>{children}</PushBrowserContext.Provider>;
+    }
+    await renderRoute(consoleRoutes, '/settings', new QueryClient(), Provide);
+    await waitFor(async () => {
+      await expect(row('/settings/notifications')).resolves.toHaveTextContent('NotificationsOn');
+    });
   });
 
   it('shows the stored theme choice, not the resolved theme', async () => {

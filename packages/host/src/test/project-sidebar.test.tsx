@@ -17,6 +17,7 @@ import { serveBrowse } from './browse-fns';
 import { serveDevices } from './devices-fns';
 import { engineNode, engineProject, engineTree } from './engine-fixtures';
 import { serveNodes } from './node-fns';
+import { servePush } from './push-fns';
 import { renderShell } from './router';
 import { serveShell } from './shell-fns';
 import { serveT3 } from './t3-fns';
@@ -30,6 +31,7 @@ vi.mock('../api/fns/browse');
 vi.mock('../api/fns/views');
 vi.mock('../api/fns/devices');
 vi.mock('../api/fns/t3');
+vi.mock('../api/fns/push');
 
 /*
  * The shell's project sidebar (ADR 0013, MMR-492 refinement): the current
@@ -151,6 +153,7 @@ beforeEach(() => {
   serveBrowse();
   serveDevices();
   serveT3();
+  servePush();
   serveViews();
   localStorage.clear();
   stubViewport('desktop');
@@ -894,7 +897,7 @@ describe('sidebar on a desktop', () => {
 const settingsNav = () => screen.findByRole('navigation', { name: 'Settings' });
 
 describe('Settings sidebar (MMR-733)', () => {
-  const SETTINGS_LINKS = ['Appearance', 'Devices', 'Connections', 'About'];
+  const SETTINGS_LINKS = ['Notifications', 'Appearance', 'Devices', 'Connections', 'About'];
   const current = (nav: HTMLElement) =>
     SETTINGS_LINKS.filter(
       (name) =>
@@ -917,6 +920,7 @@ describe('Settings sidebar (MMR-733)', () => {
           .getAttribute('href'),
       ),
     ).toStrictEqual([
+      '/settings/notifications',
       '/settings/appearance',
       '/settings/devices',
       '/settings/connections',
