@@ -658,3 +658,115 @@ read corrects a badge that a push left too high.
 - **A fixed script name.** The browser may fetch an imported script from its
   HTTP cache when the worker updates, so the new worker could run the old
   handlers for hours after a deploy.
+
+## Refinement (2026-11-19, MMR-711): the console's Notifications control
+
+The console subscribes a browser to the Web Push channel from one page,
+Settings › Notifications (`/settings/notifications`). It sits first in the
+"This device" group of Settings, above Appearance, in the index, the phone
+drawer, and the desktop sidebar, because it acts on the browser the operator
+holds. The index row shows how this browser stands: On, Off, Blocked, Add to
+Home Screen, or Unavailable.
+
+### This browser's states
+
+The page derives one state from the host's status, the browser's abilities and
+permission, the browser's own subscription, the host's device list, and a local
+record. The host's states win over the browser's, and the browser's win over
+the record's.
+
+1. **Not set up**, **set up wrong**, and **key unusable** (Unavailable). The
+   page says what the host needs: the setting and the kind of problem, never a
+   value. In `key unusable` it also offers Reset push key.
+2. **Add to Home Screen**, **unsupported**, and **blocked**. An iPhone or iPad
+   outside the Home Screen app gets the three steps. A browser without service
+   workers, a push manager, or Notification is unsupported. A denied
+   permission shows how to undo it for the platform and browser.
+3. **Removed**, **off**, and **on**. Removed means this browser's record says
+   another device removed it, or its push service stopped accepting it. On
+   means the browser holds a subscription whose endpoint is in the host's
+   list. Off is everything else, including a granted permission with no
+   subscription the host knows.
+
+Turn on is a button in Removed and Off. Turn off and Send test notification
+are in On. Where this browser cannot act, no button shows. The sentence under
+the group carries the state, the last delivery or the last failure, and the
+answer to each action, in a polite live region.
+
+### Labels
+
+The label is generated from the browser and never typed: `<Platform> ·
+<Browser>`, such as `Mac · Chrome` or `iPhone · Safari`, at most 60
+characters. An iPhone or iPad running the Home Screen app reads `<Platform> ·
+Home Screen app`, and an installed app elsewhere reads `<Platform> · <Browser>
+app`. iPadOS asks for desktop sites and reports a Mac, so a Mac user agent
+with more than one touch point is an iPad.
+
+### Turn on and Turn off
+
+Turn on runs from the click itself, so the permission prompt has the user's
+activation. When permission ends granted, the console subscribes through the
+service worker with the served public key, sends the endpoint, the two keys,
+that key, and the label, and writes its record. A `stale_key` answer refetches
+the status and tries once more. Any refusal unsubscribes the browser side, so
+the browser and the host agree, and the page says why in one sentence. A
+`wrong_origin` refusal links to the console address from the status. Turn off
+unsubscribes the browser, removes the endpoint from the host, and clears the
+record.
+
+### The local record
+
+Each browser keeps one small record in its own storage: `on` with the endpoint
+after a successful turn on, or `removed`. Turn off clears it, and the next
+successful turn on replaces it. Storage that is blocked or unreadable is no
+record. The record is what lets the console tell a device that never turned
+notifications on from one that did and lost its row.
+
+### Healing when the console opens
+
+The console compares what the browser holds with what the host serves once per
+console load, from the shell, so no page has to be open. It acts only when the
+status is `ready`, the browser supports push, permission is granted, and the
+record is `on`. It makes one decision:
+
+- **The key changed.** The browser's `applicationServerKey` differs from the
+  served public key: the host reset its key. The console unsubscribes, subscribes
+  with the served key, and sends the new subscription under the same label.
+- **The browser replaced or dropped it.** With no subscription, the console
+  subscribes again. With an endpoint other than the record's, it sends the new
+  subscription and removes the record's old endpoint from the host.
+- **The host removed it.** The endpoint and key match the record, but the
+  host's list lacks the endpoint. The console unsubscribes the browser and
+  writes `removed`. It never subscribes again here: a Remove from another
+  device must stick until the operator turns notifications on again.
+
+Any failure is silent and changes no record, so the next load tries again.
+
+### Every subscribed browser
+
+The page lists every row the host holds, newest first, with its label and a
+meta line: This device, delivered or failed with the failure, and Old key when
+the row was made for another key. This browser's row has no actions. Another
+row opens its actions: on a phone a bottom sheet titled with the label, on a
+desktop a menu. Send test notification and Remove this browser are on every
+other row; an old-key row offers only Remove, because a test to it can only
+refuse. A test's answer shows in its row.
+
+### Reset push key
+
+Reset push key is a quiet button under the list when the status is `ready`,
+and the one action when it is `key unusable`. Both ask first, saying that every
+device stops receiving notifications until its console is opened again. After a
+reset this browser subscribes again at once; each other device does when its
+console opens.
+
+### Considered and rejected
+
+- **A switch.** Turning on needs a permission prompt that can end denied or
+  refused, so a switch would sit in a state it did not hold. A button names
+  the action and the sentence names the result.
+- **Typed labels.** A label the operator types drifts from what the device is,
+  and nothing reads it but the operator. A generated one needs no input and
+  says the same on every load.
+- **Subscribing again when the host's list lacks the endpoint.** It would undo
+  a Remove from another device the next time this browser's console opened.
