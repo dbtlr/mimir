@@ -13,7 +13,7 @@ import { versionLabel } from '../lib/settings';
 import { PushBrowserContext } from '../lib/use-push-browser';
 import { consoleRoutes } from '../router';
 import { serveDevices } from './devices-fns';
-import { device as pushDevice, fakeBrowser, servePush, SUBSCRIPTION } from './push-fns';
+import { device as pushDevice, fakeBrowser, servePush, SERVED_KEY, SUBSCRIPTION } from './push-fns';
 import { renderRoute } from './router';
 import { serveT3 } from './t3-fns';
 import { serveViews } from './views-fns';
@@ -154,7 +154,7 @@ describe('the Settings index', () => {
     const browser = fakeBrowser({
       held: SUBSCRIPTION,
       permission: 'granted',
-      record: { endpoint: SUBSCRIPTION.endpoint, state: 'on' },
+      record: { endpoint: SUBSCRIPTION.endpoint, serverKey: SERVED_KEY, state: 'on' },
     });
     function Provide({ children }: { children: ReactNode }) {
       return <PushBrowserContext.Provider value={browser}>{children}</PushBrowserContext.Provider>;

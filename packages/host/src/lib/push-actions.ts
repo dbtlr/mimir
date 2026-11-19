@@ -35,23 +35,44 @@ async function send(browser: PushBrowser, status: Ready, made: BrowserSubscripti
   });
 }
 
-/** Subscribe in the browser and send it; a stale key refetches the status and tries once more. */
-async function subscribeAndSend(
+type Sent = { answer: PushSubscribeResult; status: Ready; made: BrowserSubscription };
+
+/**
+ * Send `made` to the host. A stale key means the host's key changed since
+ * `status` was read: reread it, subscribe with the fresh key, and send once
+ * more.
+ */
+async function sendOrRetry(
   browser: PushBrowser,
   status: Ready,
   readStatus: () => Promise<PushStatus>,
-  retry = true,
-): Promise<{ answer: PushSubscribeResult; status: Ready; made: BrowserSubscription }> {
-  const made = await browser.subscribe(status.publicKey);
+  made: BrowserSubscription,
+): Promise<Sent> {
   const answer = await send(browser, status, made);
-  if (answer.state === 'stale_key' && retry) {
+  if (answer.state === 'stale_key') {
     const fresh = await readStatus();
     if (fresh.state === 'ready') {
-      return subscribeAndSend(browser, fresh, readStatus, false);
+      const again = await browser.subscribe(fresh.publicKey);
+      return { answer: await send(browser, fresh, again), made: again, status: fresh };
     }
   }
   return { answer, made, status };
 }
+
+/** The record of a turn on the host accepted: the endpoint and the key it was made for. */
+const onRecord = ({ made, status }: Sent) =>
+  ({ endpoint: made.endpoint, serverKey: status.publicKey, state: 'on' }) as const;
+
+/**
+ * Refusals a heal answers by turning this browser off: the browser itself
+ * causes them and trying again on the next load cannot fix them.
+ */
+const FINAL_REFUSALS: ReadonlySet<PushSubscribeResult['state']> = new Set([
+  'endpoint_not_allowed',
+  'invalid_keys',
+  'too_many_devices',
+  'wrong_origin',
+]);
 
 /** Forget this browser's turn on and drop its subscription; the record goes first, so a failed drop still leaves it off. */
 async function forget(browser: PushBrowser): Promise<void> {
@@ -76,9 +97,15 @@ export async function turnOn(
     if (permission !== 'granted') {
       return { kind: 'not_granted', permission };
     }
-    const { answer, made, status: used } = await subscribeAndSend(browser, status, readStatus);
+    const sent = await sendOrRetry(
+      browser,
+      status,
+      readStatus,
+      await browser.subscribe(status.publicKey),
+    );
+    const { answer, status: used } = sent;
     if (answer.state === 'subscribed') {
-      browser.writeRecord({ endpoint: made.endpoint, state: 'on' });
+      browser.writeRecord(onRecord(sent));
       return { kind: 'subscribed' };
     }
     await forget(browser).catch(() => {});
@@ -119,14 +146,17 @@ export const testBrowser = async (endpoint: string) => sendTestPush({ data: { en
 export const resetKey = async () => resetPushKey();
 
 /**
- * Carry out a heal action. A thrown failure changes no record, so the next
- * load tries again. A subscription the host refuses is dropped here and the
- * record cleared, so this browser reads Off rather than holding a
- * subscription nothing sends to.
+ * Carry out a heal action. A refusal this browser causes and a retry cannot
+ * fix (`FINAL_REFUSALS`) drops the subscription here and clears the record,
+ * so this browser reads Off rather than holding a subscription nothing sends
+ * to. A stale key rereads the status and tries once more with the fresh key.
+ * Any other answer, and a thrown failure, changes no record and keeps the
+ * subscription, so the next load adopts or subscribes again.
  */
 export async function applyHeal(
   browser: PushBrowser,
   status: Ready,
+  readStatus: () => Promise<PushStatus>,
   action: HealAction,
   staleEndpoint: string | undefined,
 ): Promise<void> {
@@ -148,14 +178,17 @@ export async function applyHeal(
       if (made === null) {
         return;
       }
-      const answer = await send(browser, status, made);
-      if (answer.state !== 'subscribed') {
+      const sent = await sendOrRetry(browser, status, readStatus, made);
+      if (FINAL_REFUSALS.has(sent.answer.state)) {
         await forget(browser);
         return;
       }
-      browser.writeRecord({ endpoint: made.endpoint, state: 'on' });
+      if (sent.answer.state !== 'subscribed') {
+        return;
+      }
+      browser.writeRecord(onRecord(sent));
       const old = action.kind === 'adopt' ? action.staleEndpoint : staleEndpoint;
-      if (old !== undefined && !sameEndpoint(old, made.endpoint)) {
+      if (old !== undefined && !sameEndpoint(old, sent.made.endpoint)) {
         await unsubscribePush({ data: { endpoint: old } });
       }
       return;
@@ -170,8 +203,17 @@ export async function applyHeal(
 /** The heal running now, which a second caller joins. */
 let healing: Promise<void> | undefined;
 
-/** Decide and apply in one go, silently: any failure leaves the record as it was. */
-async function heal(browser: PushBrowser, status: Ready, devices: PushDeviceList): Promise<void> {
+/**
+ * Decide and apply in one go, silently: any failure leaves the record as it
+ * was. A subscription read that timed out throws, so an unknown subscription
+ * is never taken for a dropped one.
+ */
+async function heal(
+  browser: PushBrowser,
+  status: Ready,
+  devices: PushDeviceList,
+  readStatus: () => Promise<PushStatus>,
+): Promise<void> {
   try {
     const snapshot = browser.snapshot();
     const record = browser.readRecord();
@@ -183,28 +225,35 @@ async function heal(browser: PushBrowser, status: Ready, devices: PushDeviceList
       status,
       subscription: await browser.subscription(),
     });
-    await applyHeal(browser, status, action, record?.state === 'on' ? record.endpoint : undefined);
+    await applyHeal(
+      browser,
+      status,
+      readStatus,
+      action,
+      record?.state === 'on' ? record.endpoint : undefined,
+    );
   } catch (error) {
     console.warn('Could not heal this browser’s push subscription', error);
   }
 }
 
 /**
- * Heal this browser against the host's status and list. A call while a heal
- * runs joins it rather than starting another, so two callers never subscribe
- * in parallel.
+ * Heal this browser against the host's status and list; `readStatus` rereads
+ * the status after a stale key. A call while a heal runs joins it rather than
+ * starting another, so two callers never subscribe in parallel.
  */
 export async function healThisBrowser(
   browser: PushBrowser,
   status: PushStatus,
   devices: PushDeviceList,
+  readStatus: () => Promise<PushStatus>,
 ): Promise<void> {
   if (status.state !== 'ready') {
     return;
   }
   const run = async () => {
     try {
-      await heal(browser, status, devices);
+      await heal(browser, status, devices, readStatus);
     } finally {
       healing = undefined;
     }

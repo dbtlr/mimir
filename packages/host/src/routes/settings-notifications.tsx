@@ -261,7 +261,9 @@ export function NotificationsPage() {
         client.fetchQuery({ ...pushStatusQuery, staleTime: 0 }),
         client.fetchQuery({ ...pushDevicesQuery, staleTime: 0 }),
       ]);
-      await healThisBrowser(browser, fresh, listed);
+      await healThisBrowser(browser, fresh, listed, async () =>
+        client.fetchQuery({ ...pushStatusQuery, staleTime: 0 }),
+      );
     } catch {
       setNotice({
         text: "The push key was reset, but this page couldn't reload. Reload it to see where this browser stands.",

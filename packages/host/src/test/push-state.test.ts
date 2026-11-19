@@ -5,7 +5,7 @@ import type { HealInput } from '../lib/push-heal';
 import { deviceMeta, stateCaption } from '../lib/push-text';
 import { deriveThisDevice, notificationsValue } from '../lib/push-this-device';
 import type { DeriveInput, ThisDeviceState } from '../lib/push-this-device';
-import { device, READY, SUBSCRIPTION } from './push-fns';
+import { device, READY, SERVED_KEY, SUBSCRIPTION } from './push-fns';
 
 const chrome = { browser: 'Chrome', installed: false, platform: 'Mac' } as const;
 const iphone = { browser: 'Safari', installed: false, platform: 'iPhone' } as const;
@@ -173,7 +173,7 @@ describe('decideHeal', () => {
     devices: { devices: [mine], state: 'listed' },
     permission: 'granted',
     pushSupported: true,
-    record: { endpoint: SUBSCRIPTION.endpoint, state: 'on' },
+    record: { endpoint: SUBSCRIPTION.endpoint, serverKey: SERVED_KEY, state: 'on' },
     status: READY,
     subscription: SUBSCRIPTION,
   };
@@ -192,7 +192,7 @@ describe('decideHeal', () => {
     ],
     [
       'case 2b: the browser replaced it',
-      { record: { endpoint: OLD, state: 'on' } },
+      { record: { endpoint: OLD, serverKey: SERVED_KEY, state: 'on' } },
       { kind: 'adopt', staleEndpoint: OLD },
     ],
     [
@@ -222,9 +222,44 @@ describe('decideHeal', () => {
       { kind: 'mark_removed' },
     ],
     [
+      'an unknown subscription key whose record names another key, with no row',
+      {
+        devices: { devices: [], state: 'listed' },
+        record: { endpoint: SUBSCRIPTION.endpoint, serverKey: 'BOld', state: 'on' },
+        subscription: { ...SUBSCRIPTION, applicationServerKey: null },
+      },
+      { kind: 'resubscribe', reason: 'key_changed' },
+    ],
+    [
+      'an unknown subscription key whose record names another key, on a current-key row',
+      {
+        record: { endpoint: SUBSCRIPTION.endpoint, serverKey: 'BOld', state: 'on' },
+        subscription: { ...SUBSCRIPTION, applicationServerKey: null },
+      },
+      { kind: 'resubscribe', reason: 'key_changed' },
+    ],
+    [
+      'an unknown subscription key and a record without its key, on an old-key row',
+      {
+        devices: { devices: [{ ...mine, currentKey: false }], state: 'listed' },
+        record: { endpoint: SUBSCRIPTION.endpoint, serverKey: null, state: 'on' },
+        subscription: { ...SUBSCRIPTION, applicationServerKey: null },
+      },
+      { kind: 'resubscribe', reason: 'key_changed' },
+    ],
+    [
+      'an unknown subscription key and a record without its key, with no row',
+      {
+        devices: { devices: [], state: 'listed' },
+        record: { endpoint: SUBSCRIPTION.endpoint, serverKey: null, state: 'on' },
+        subscription: { ...SUBSCRIPTION, applicationServerKey: null },
+      },
+      { kind: 'mark_removed' },
+    ],
+    [
       'an endpoint spelled differently from the host’s and the record’s',
       {
-        record: { endpoint: 'https://Push.Example/this', state: 'on' },
+        record: { endpoint: 'https://Push.Example/this', serverKey: SERVED_KEY, state: 'on' },
         subscription: { ...SUBSCRIPTION, endpoint: 'https://PUSH.example/this' },
       },
       { kind: 'none' },

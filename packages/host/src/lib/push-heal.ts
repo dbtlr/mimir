@@ -24,7 +24,7 @@ export type HealInput = {
   pushSupported: boolean;
   permission: PushPermission;
   record: ThisDeviceRecord | null;
-  /** The browser's own subscription now. */
+  /** The browser's own subscription now; the caller does not decide when it could not read it. */
   subscription: BrowserSubscription | null;
 };
 
@@ -46,8 +46,9 @@ export function healApplies(input: {
 /**
  * The one thing to do. A removal never re-subscribes: a Remove from another
  * device must stick until the operator turns notifications on here again. A
- * browser that does not say which key it subscribed with is judged by its
- * row's `currentKey`. Endpoints compare as the host stores them.
+ * browser that does not say which key it subscribed with is judged by the key
+ * its record kept, then by its row's `currentKey`. Endpoints compare as the
+ * host stores them.
  */
 export function decideHeal(input: HealInput): HealAction {
   const { status, devices, record, subscription } = input;
@@ -63,7 +64,9 @@ export function decideHeal(input: HealInput): HealAction {
     return { kind: 'resubscribe', reason: 'dropped' };
   }
   const keyKnown = subscription.applicationServerKey !== null;
-  if (keyKnown && subscription.applicationServerKey !== status.publicKey) {
+  // A browser that does not say its key subscribed with the key its record kept, if any.
+  const subscribedWith = subscription.applicationServerKey ?? record.serverKey;
+  if (subscribedWith !== null && subscribedWith !== status.publicKey) {
     return { kind: 'resubscribe', reason: 'key_changed' };
   }
   if (!sameEndpoint(subscription.endpoint, record.endpoint)) {

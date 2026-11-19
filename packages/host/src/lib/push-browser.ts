@@ -21,8 +21,15 @@ export type BrowserSubscription = {
   auth: string;
 };
 
-/** What this browser last did, kept in its own storage; absent storage is no record. */
-export type ThisDeviceRecord = { state: 'on'; endpoint: string } | { state: 'removed' };
+/**
+ * What this browser last did, kept in its own storage; absent storage is no
+ * record. A turn on keeps the key it subscribed with, so a browser that does
+ * not say its subscription's key can still tell a key reset. `serverKey` is
+ * null only for a record written before the key was kept.
+ */
+export type ThisDeviceRecord =
+  | { state: 'on'; endpoint: string; serverKey: string | null }
+  | { state: 'removed' };
 
 /** What the page can read of this browser without asking it anything. */
 export type BrowserSnapshot = {
@@ -36,6 +43,7 @@ export type PushBrowser = {
   snapshot: () => BrowserSnapshot;
   /** Asks for permission; call it first in a click, so the prompt is user-activated. */
   requestPermission: () => Promise<PushPermission>;
+  /** Rejects with `PushReadTimeoutError` when the service worker does not start in time: whether there is a subscription is then unknown. */
   subscription: () => Promise<BrowserSubscription | null>;
   /** Subscribes with the served key, replacing a subscription made for another key. */
   subscribe: (publicKey: string) => Promise<BrowserSubscription>;
@@ -72,10 +80,18 @@ export type PushBrowserEnvironment = {
   after: (ms: number) => Promise<void>;
 };
 
-/** How long a read waits for the service worker before it answers that there is no subscription. */
+/** How long a read waits for the service worker before it gives up. */
 export const READ_READY_TIMEOUT_MS = 5000;
 /** How long a subscribe waits for the service worker before it fails. */
 export const SUBSCRIBE_READY_TIMEOUT_MS = 10_000;
+
+/** A read that gave up waiting for the service worker: the subscription is unknown, not absent. */
+export class PushReadTimeoutError extends Error {
+  constructor() {
+    super('The service worker did not start in time to read the subscription.');
+    this.name = 'PushReadTimeoutError';
+  }
+}
 
 /** Where the record lives in this browser's storage. */
 export const RECORD_KEY = 'mimir.push.thisDevice';
@@ -107,7 +123,9 @@ function parseRecord(text: string | null): ThisDeviceRecord | null {
       return { state: 'removed' };
     }
     if (value.state === 'on' && 'endpoint' in value && typeof value.endpoint === 'string') {
-      return { endpoint: value.endpoint, state: 'on' };
+      const serverKey =
+        'serverKey' in value && typeof value.serverKey === 'string' ? value.serverKey : null;
+      return { endpoint: value.endpoint, serverKey, state: 'on' };
     }
   } catch {
     // A record that does not parse is no record.
@@ -182,8 +200,11 @@ export function createPushBrowser(environment: PushBrowserEnvironment): PushBrow
       if (!environment.pushSupported()) {
         return null;
       }
-      const subscription = (await current(READ_READY_TIMEOUT_MS))?.subscription ?? null;
-      return subscription === null ? null : describe(subscription);
+      const held = await current(READ_READY_TIMEOUT_MS);
+      if (held === undefined) {
+        throw new PushReadTimeoutError();
+      }
+      return held.subscription === null ? null : describe(held.subscription);
     },
     async unsubscribe() {
       if (!environment.pushSupported()) {

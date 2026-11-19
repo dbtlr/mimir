@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
 import { pushDevicesQuery, pushStatusQuery } from '../api/push-queries';
@@ -16,6 +16,7 @@ import { usePushBrowser } from '../lib/use-push-browser';
  */
 export function PushHealer() {
   const browser = usePushBrowser();
+  const client = useQueryClient();
   const [wanted] = useState(() => {
     const snapshot = browser.snapshot();
     return (
@@ -43,10 +44,12 @@ export function PushHealer() {
     }
     latched.current = true;
     const heal = async () => {
-      await healThisBrowser(browser, served, listed);
+      await healThisBrowser(browser, served, listed, async () =>
+        client.fetchQuery({ ...pushStatusQuery, staleTime: 0 }),
+      );
       await refetch();
     };
     void heal();
-  }, [browser, listed, refetch, served, wanted]);
+  }, [browser, client, listed, refetch, served, wanted]);
   return null;
 }

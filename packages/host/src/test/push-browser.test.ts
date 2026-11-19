@@ -1,12 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { decodeBase64Url, encodeBase64Url } from '../lib/base64url';
-import {
-  createPushBrowser,
-  READ_READY_TIMEOUT_MS,
-  RECORD_KEY,
-  SUBSCRIBE_READY_TIMEOUT_MS,
-} from '../lib/push-browser';
+import { createPushBrowser, PushReadTimeoutError, RECORD_KEY } from '../lib/push-browser';
 import type { PushBrowserEnvironment } from '../lib/push-browser';
 
 /** A push manager holding at most one subscription, made for the key it was given. */
@@ -62,7 +57,7 @@ function world(held: { endpoint: string; key: string } | null) {
 /** An adapter whose service worker never starts, and whose waits end at once. */
 function stuck() {
   const { environment } = world({ endpoint: 'https://push.example/old', key: KEY_A });
-  const after = vi.fn(async () => {});
+  const after = vi.fn<(ms: number) => Promise<void>>(async () => {});
   const browser = createPushBrowser({
     ...environment,
     after,
@@ -101,10 +96,13 @@ describe('createPushBrowser', () => {
   it('keeps the record in storage and treats a bad or blocked store as no record', () => {
     const { environment, store } = world(null);
     const browser = createPushBrowser(environment);
-    browser.writeRecord({ endpoint: 'e', state: 'on' });
-    expect(browser.readRecord()).toStrictEqual({ endpoint: 'e', state: 'on' });
+    browser.writeRecord({ endpoint: 'e', serverKey: 'k', state: 'on' });
+    expect(browser.readRecord()).toStrictEqual({ endpoint: 'e', serverKey: 'k', state: 'on' });
     browser.writeRecord(null);
     expect(store.has(RECORD_KEY)).toBe(false);
+    // A record from before the key was kept still reads, with no key.
+    store.set(RECORD_KEY, JSON.stringify({ endpoint: 'e', state: 'on' }));
+    expect(browser.readRecord()).toStrictEqual({ endpoint: 'e', serverKey: null, state: 'on' });
     store.set(RECORD_KEY, '{nope');
     expect(browser.readRecord()).toBeNull();
     const blocked = createPushBrowser({
@@ -120,17 +118,22 @@ describe('createPushBrowser', () => {
   });
 
   describe('when the service worker never starts', () => {
-    it('reads no subscription after the read limit, and unsubscribing does nothing', async () => {
+    it('answers a read after 5 s with a timeout, not with no subscription', async () => {
       const { after, browser } = stuck();
-      await expect(browser.subscription()).resolves.toBeNull();
-      await expect(browser.unsubscribe()).resolves.toBeUndefined();
-      expect(after).toHaveBeenCalledWith(READ_READY_TIMEOUT_MS);
+      await expect(browser.subscription()).rejects.toBeInstanceOf(PushReadTimeoutError);
+      expect(after.mock.calls).toStrictEqual([[5000]]);
     });
 
-    it('fails a subscribe after the subscribe limit', async () => {
+    it('does nothing on unsubscribe after 5 s', async () => {
+      const { after, browser } = stuck();
+      await expect(browser.unsubscribe()).resolves.toBeUndefined();
+      expect(after.mock.calls).toStrictEqual([[5000]]);
+    });
+
+    it('fails a subscribe after 10 s', async () => {
       const { after, browser } = stuck();
       await expect(browser.subscribe(KEY_B)).rejects.toThrow('service worker');
-      expect(after).toHaveBeenCalledWith(SUBSCRIBE_READY_TIMEOUT_MS);
+      expect(after.mock.calls).toStrictEqual([[10_000]]);
     });
   });
 });

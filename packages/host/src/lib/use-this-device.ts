@@ -29,7 +29,7 @@ export function useThisDevice() {
       try {
         held = await browser.subscription();
       } catch {
-        // A browser that cannot say holds none for the page's purposes.
+        // A browser that cannot say, or whose service worker has not started, holds none for the page's purposes.
       }
       if (live) {
         setSubscription(held);

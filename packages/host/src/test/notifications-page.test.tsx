@@ -60,6 +60,9 @@ const oldKey = device({
 });
 const mine = device({ endpoint: SUBSCRIPTION.endpoint, label: 'Mac · Chrome' });
 
+/** The host's status, reread as the healer and Turn on reread it. */
+const readStatus = async () => pushStatus();
+
 /** Re-renders the provider, as a navigation re-renders the shell; set by each render. */
 let rerenderShell: () => void = () => {};
 
@@ -130,12 +133,19 @@ const controlButtons = () =>
     .filter((text) => CONTROL.has(text))
     .toSorted();
 
+/** A browser that turned notifications on and has since dropped its subscription. */
+const dropped = () =>
+  fakeBrowser({
+    permission: 'granted',
+    record: { endpoint: SUBSCRIPTION.endpoint, serverKey: SERVED_KEY, state: 'on' },
+  });
+
 /** A browser that has turned notifications on. */
 const onBrowser = () =>
   fakeBrowser({
     held: SUBSCRIPTION,
     permission: 'granted',
-    record: { endpoint: SUBSCRIPTION.endpoint, state: 'on' },
+    record: { endpoint: SUBSCRIPTION.endpoint, serverKey: SERVED_KEY, state: 'on' },
   });
 
 beforeEach(() => {
@@ -289,7 +299,7 @@ describe('Turn on', () => {
         serverKey: SERVED_KEY,
       },
     });
-    expect(browser.record).toStrictEqual({ endpoint, state: 'on' });
+    expect(browser.record).toStrictEqual({ endpoint, serverKey: SERVED_KEY, state: 'on' });
   });
 
   it('on a stale key, rereads the status and subscribes again with the new key', async () => {
@@ -305,7 +315,11 @@ describe('Turn on', () => {
       data: expect.objectContaining({ serverKey: 'BFreshKey' }),
     });
     expect(browser.held?.applicationServerKey).toBe('BFreshKey');
-    expect(browser.record).toStrictEqual({ endpoint: browser.held?.endpoint, state: 'on' });
+    expect(browser.record).toStrictEqual({
+      endpoint: browser.held?.endpoint,
+      serverKey: 'BFreshKey',
+      state: 'on',
+    });
   });
 
   it('shows a link to the console address on a wrong origin, and leaves the browser unsubscribed', async () => {
@@ -322,7 +336,7 @@ describe('Turn on', () => {
     const { browser } = await open('phone', {
       browser: fakeBrowser({
         permission: 'granted',
-        record: { endpoint: 'https://push.example/gone', state: 'on' },
+        record: { endpoint: 'https://push.example/gone', serverKey: SERVED_KEY, state: 'on' },
       }),
       world: { subscribe: { state: 'too_many_devices' } },
     });
@@ -389,7 +403,11 @@ describe('Turn on', () => {
       rerenderShell();
     });
     await settle();
-    expect(browser.record).toStrictEqual({ endpoint: browser.held?.endpoint, state: 'on' });
+    expect(browser.record).toStrictEqual({
+      endpoint: browser.held?.endpoint,
+      serverKey: SERVED_KEY,
+      state: 'on',
+    });
     expect(unsubscribePush).not.toHaveBeenCalled();
   });
 });
@@ -464,7 +482,7 @@ describe('subscribed browsers', () => {
     const browser = fakeBrowser({
       held: { ...SUBSCRIPTION, endpoint: 'https://PUSH.example/this' },
       permission: 'granted',
-      record: { endpoint: 'https://PUSH.example/this', state: 'on' },
+      record: { endpoint: 'https://PUSH.example/this', serverKey: SERVED_KEY, state: 'on' },
     });
     await open('phone', { browser, world: { devices: [mine] } });
     const list = await screen.findByRole('region', { name: 'Subscribed browsers · 1' });
@@ -556,7 +574,7 @@ describe('Reset push key', () => {
     const browser = fakeBrowser({
       held: { ...SUBSCRIPTION, applicationServerKey: 'BLostKey' },
       permission: 'granted',
-      record: { endpoint: SUBSCRIPTION.endpoint, state: 'on' },
+      record: { endpoint: SUBSCRIPTION.endpoint, serverKey: SERVED_KEY, state: 'on' },
     });
     await open('phone', {
       browser,
@@ -571,7 +589,11 @@ describe('Reset push key', () => {
     await settle();
     expect(subscribePush).toHaveBeenCalledOnce();
     expect(browser.held?.applicationServerKey).toBe('BNewKey');
-    expect(browser.record).toStrictEqual({ endpoint: browser.held?.endpoint, state: 'on' });
+    expect(browser.record).toStrictEqual({
+      endpoint: browser.held?.endpoint,
+      serverKey: 'BNewKey',
+      state: 'on',
+    });
     expect(unsubscribePush).toHaveBeenCalledWith({ data: { endpoint: SUBSCRIPTION.endpoint } });
   });
 
@@ -604,6 +626,9 @@ async function mountHealer(
   return served;
 }
 
+/** The host's list in `world`, as the healer reads it. */
+const listed = (world: PushWorld) => ({ devices: world.devices, state: 'listed' }) as const;
+
 describe('healing when the console opens', () => {
   it('asks the host nothing for a browser that never turned notifications on', async () => {
     await mountHealer(fakeBrowser({ permission: 'granted' }), { devices: [] });
@@ -615,14 +640,18 @@ describe('healing when the console opens', () => {
     const browser = fakeBrowser({
       held: { ...SUBSCRIPTION, applicationServerKey: 'BOldKey' },
       permission: 'granted',
-      record: { endpoint: SUBSCRIPTION.endpoint, state: 'on' },
+      record: { endpoint: SUBSCRIPTION.endpoint, serverKey: SERVED_KEY, state: 'on' },
     });
     await mountHealer(browser, { devices: [{ ...mine, currentKey: false }] });
     await waitFor(() => {
       expect(unsubscribePush).toHaveBeenCalledWith({ data: { endpoint: SUBSCRIPTION.endpoint } });
     });
     expect(browser.held?.applicationServerKey).toBe(SERVED_KEY);
-    expect(browser.record).toStrictEqual({ endpoint: browser.held?.endpoint, state: 'on' });
+    expect(browser.record).toStrictEqual({
+      endpoint: browser.held?.endpoint,
+      serverKey: SERVED_KEY,
+      state: 'on',
+    });
     expect(subscribePush).toHaveBeenCalledWith({
       data: expect.objectContaining({ label: 'Mac · Chrome', serverKey: SERVED_KEY }),
     });
@@ -638,12 +667,16 @@ describe('healing when the console opens', () => {
     const browser = fakeBrowser({
       held: { ...SUBSCRIPTION, applicationServerKey: 'BOldKey' },
       permission: 'granted',
-      record: { endpoint: SUBSCRIPTION.endpoint, state: 'on' },
+      record: { endpoint: SUBSCRIPTION.endpoint, serverKey: SERVED_KEY, state: 'on' },
     });
     const before = [{ ...mine, currentKey: false }];
     await mountHealer(browser, { devices: before }, client);
     await waitFor(() => {
-      expect(browser.record).toStrictEqual({ endpoint: browser.held?.endpoint, state: 'on' });
+      expect(browser.record).toStrictEqual({
+        endpoint: browser.held?.endpoint,
+        serverKey: SERVED_KEY,
+        state: 'on',
+      });
     });
     await settle();
     // A list read that started before the heal answers with the list from before it.
@@ -652,7 +685,11 @@ describe('healing when the console opens', () => {
       await client.invalidateQueries({ queryKey: pushDevicesQuery.queryKey });
     });
     await settle();
-    expect(browser.record).toStrictEqual({ endpoint: browser.held?.endpoint, state: 'on' });
+    expect(browser.record).toStrictEqual({
+      endpoint: browser.held?.endpoint,
+      serverKey: SERVED_KEY,
+      state: 'on',
+    });
     expect(subscribePush).toHaveBeenCalledOnce();
   });
 
@@ -661,7 +698,7 @@ describe('healing when the console opens', () => {
     const browser = fakeBrowser({
       held: SUBSCRIPTION,
       permission: 'granted',
-      record: { endpoint: stale, state: 'on' },
+      record: { endpoint: stale, serverKey: SERVED_KEY, state: 'on' },
     });
     await mountHealer(browser, { devices: [device({ endpoint: stale })] });
     await waitFor(() => {
@@ -670,7 +707,11 @@ describe('healing when the console opens', () => {
     expect(subscribePush).toHaveBeenCalledWith({
       data: expect.objectContaining({ endpoint: SUBSCRIPTION.endpoint }),
     });
-    expect(browser.record).toStrictEqual({ endpoint: SUBSCRIPTION.endpoint, state: 'on' });
+    expect(browser.record).toStrictEqual({
+      endpoint: SUBSCRIPTION.endpoint,
+      serverKey: SERVED_KEY,
+      state: 'on',
+    });
   });
 
   it('stays off when the host no longer lists it', async () => {
@@ -683,19 +724,215 @@ describe('healing when the console opens', () => {
     expect(subscribePush).not.toHaveBeenCalled();
   });
 
-  it.each(['wrong_origin', 'too_many_devices'] as const)(
-    'turns this browser off when the host refuses its new subscription (%s)',
-    async (refusal) => {
-      const world = servePush({ devices: [], subscribe: { state: refusal } });
-      const browser = fakeBrowser({
+  /** A browser whose heal subscribes again (its key changed) or adopts the subscription it replaced. */
+  const healing = {
+    adopt: () =>
+      fakeBrowser({
+        held: SUBSCRIPTION,
+        permission: 'granted',
+        record: { endpoint: 'https://push.example/replaced', serverKey: SERVED_KEY, state: 'on' },
+      }),
+    resubscribe: () =>
+      fakeBrowser({
         held: { ...SUBSCRIPTION, applicationServerKey: 'BOldKey' },
         permission: 'granted',
-        record: { endpoint: SUBSCRIPTION.endpoint, state: 'on' },
-      });
-      await healThisBrowser(browser, READY, { devices: world.devices, state: 'listed' });
+        record: { endpoint: SUBSCRIPTION.endpoint, serverKey: 'BOldKey', state: 'on' },
+      }),
+  };
+
+  it.each(
+    (['wrong_origin', 'too_many_devices', 'endpoint_not_allowed', 'invalid_keys'] as const).flatMap(
+      (refusal) => (['resubscribe', 'adopt'] as const).map((kind) => [refusal, kind] as const),
+    ),
+  )('turns this browser off when the host refuses it (%s, %s)', async (refusal, kind) => {
+    const world = servePush({ devices: [], subscribe: { state: refusal } });
+    const browser = healing[kind]();
+    await healThisBrowser(browser, READY, listed(world), readStatus);
+    expect(subscribePush).toHaveBeenCalledOnce();
+    expect(browser.held).toBeNull();
+    expect(browser.record).toBeNull();
+  });
+
+  it.each([
+    ['unconfigured', { state: 'unconfigured' }],
+    ['misconfigured', { problem: 'unset', setting: 'MIMIR_URL', state: 'misconfigured' }],
+    ['key_unusable', { state: 'key_unusable' }],
+  ] as const)(
+    'leaves the opt-in and the subscription when the host answers %s',
+    async (_name, answer) => {
+      const world = servePush({ devices: [], subscribe: answer });
+      const browser = healing.resubscribe();
+      const record = browser.record;
+      await healThisBrowser(browser, READY, listed(world), readStatus);
       expect(subscribePush).toHaveBeenCalledOnce();
-      expect(browser.held).toBeNull();
-      expect(browser.record).toBeNull();
+      expect(browser.record).toStrictEqual(record);
+      expect(browser.held?.applicationServerKey).toBe(SERVED_KEY);
     },
   );
+
+  it('leaves the opt-in and the subscription when the send throws', async () => {
+    const world = servePush({ devices: [] });
+    vi.mocked(subscribePush).mockRejectedValueOnce(new Error('offline'));
+    const browser = healing.resubscribe();
+    const record = browser.record;
+    await healThisBrowser(browser, READY, listed(world), readStatus);
+    expect(browser.record).toStrictEqual(record);
+    expect(browser.held).not.toBeNull();
+  });
+
+  it('on a stale key mid-heal, rereads the status and ends on the fresh key', async () => {
+    const browser = dropped();
+    const world = await mountHealer(browser, { devices: [mine] });
+    // Another device resets the key while this heal sends; the reset deletes the old rows.
+    vi.mocked(subscribePush).mockImplementationOnce(async () => {
+      world.status = readyWith('BNewKey');
+      world.devices = [];
+      return { state: 'stale_key' };
+    });
+    await waitFor(() => {
+      expect(browser.record).toStrictEqual({
+        endpoint: browser.held?.endpoint,
+        serverKey: 'BNewKey',
+        state: 'on',
+      });
+    });
+    expect(browser.held?.applicationServerKey).toBe('BNewKey');
+    expect(world.devices.map(({ endpoint }) => endpoint)).toStrictEqual([browser.held?.endpoint]);
+  });
+
+  it('leaves the opt-in when the stale key persists after the reread', async () => {
+    const world = servePush({ devices: [], subscribe: { state: 'stale_key' } });
+    const browser = healing.resubscribe();
+    const record = browser.record;
+    await healThisBrowser(browser, READY, listed(world), readStatus);
+    expect(subscribePush).toHaveBeenCalledTimes(2);
+    expect(browser.record).toStrictEqual(record);
+  });
+
+  it('subscribes again a browser that does not say its key, when Reset deleted its row', async () => {
+    const browser = fakeBrowser({
+      held: { ...SUBSCRIPTION, applicationServerKey: null },
+      permission: 'granted',
+      record: { endpoint: SUBSCRIPTION.endpoint, serverKey: SERVED_KEY, state: 'on' },
+    });
+    const world = await mountHealer(browser, { devices: [], status: readyWith('BNewKey') });
+    await waitFor(() => {
+      expect(browser.record).toStrictEqual({
+        endpoint: browser.held?.endpoint,
+        serverKey: 'BNewKey',
+        state: 'on',
+      });
+    });
+    expect(subscribePush).toHaveBeenCalledWith({
+      data: expect.objectContaining({ serverKey: 'BNewKey' }),
+    });
+    expect(world.devices.map(({ endpoint }) => endpoint)).toStrictEqual([browser.held?.endpoint]);
+  });
+
+  it('does nothing when the subscription read times out, even if the worker starts later', async () => {
+    const started = Promise.withResolvers<void>();
+    const subscribe = vi.fn();
+    const held = {
+      endpoint: SUBSCRIPTION.endpoint,
+      getKey: () => new Uint8Array([1, 2, 3]).buffer,
+      options: { applicationServerKey: new Uint8Array([10, 11, 12]).buffer },
+      unsubscribe: async () => true,
+    };
+    const browser = createPushBrowser({
+      // Reads give up at once; a subscribe waits for the worker.
+      after: async (ms) => {
+        if (ms > 5000) {
+          await Promise.withResolvers<void>().promise;
+        }
+      },
+      maxTouchPoints: 0,
+      permission: () => 'granted',
+      pushSupported: () => true,
+      ready: async () => {
+        await started.promise;
+        return { pushManager: { getSubscription: async () => held, subscribe } };
+      },
+      requestPermission: async () => 'granted',
+      standalone: () => false,
+      storage: () => localStorage,
+      userAgent: '',
+    });
+    const record = { endpoint: SUBSCRIPTION.endpoint, serverKey: 'CgsM', state: 'on' } as const;
+    browser.writeRecord(record);
+    // Another device removed this browser: the host lists no row for it.
+    const world = servePush({ devices: [], status: readyWith('CgsM') });
+    const heal = healThisBrowser(browser, world.status, listed(world), readStatus);
+    await settle();
+    started.resolve();
+    await heal;
+    await settle();
+    expect(subscribe).not.toHaveBeenCalled();
+    expect(subscribePush).not.toHaveBeenCalled();
+    expect(browser.readRecord()).toStrictEqual(record);
+  });
+
+  it('joins a heal already running, so the browser subscribes once', async () => {
+    const browser = dropped();
+    const subscribe = vi.spyOn(browser, 'subscribe');
+    const world = servePush({ devices: [mine] });
+    await Promise.all([
+      healThisBrowser(browser, READY, listed(world), readStatus),
+      healThisBrowser(browser, READY, listed(world), readStatus),
+    ]);
+    expect(subscribe).toHaveBeenCalledOnce();
+    expect(subscribePush).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the new row when the record spells the old endpoint differently', async () => {
+    const browser = fakeBrowser({
+      permission: 'granted',
+      record: { endpoint: 'https://PUSH.example:443/this', serverKey: SERVED_KEY, state: 'on' },
+    });
+    browser.subscribe = async () => SUBSCRIPTION;
+    const world = servePush({ devices: [mine] });
+    await healThisBrowser(browser, READY, listed(world), readStatus);
+    expect(world.devices.map(({ endpoint }) => endpoint)).toStrictEqual([mine.endpoint]);
+    expect(unsubscribePush).not.toHaveBeenCalled();
+  });
+
+  it('ends on the new key when Reset lands while the load’s heal is sending', async () => {
+    const browser = dropped();
+    stubViewport('phone');
+    const world = servePush({ devices: [mine] });
+    const serve = vi.mocked(subscribePush).getMockImplementation();
+    const sending = Promise.withResolvers<void>();
+    const answered = Promise.withResolvers<void>();
+    // The host takes the load's subscription, then its answer is held until after the reset.
+    vi.mocked(subscribePush).mockImplementationOnce(async (call) => {
+      const answer = await serve?.(call);
+      sending.resolve();
+      await answered.promise;
+      return answer ?? { state: 'subscribed' };
+    });
+    // The reset deletes every row made for the old key.
+    vi.mocked(resetPushKey).mockImplementationOnce(async () => {
+      world.status = readyWith('BNewKey');
+      world.devices = [];
+      return { publicKey: 'BNewKey', state: 'reset' };
+    });
+    await mount(browser);
+    await act(async () => {
+      await sending.promise;
+    });
+    await confirmReset();
+    await waitFor(() => {
+      expect(resetPushKey).toHaveBeenCalledOnce();
+    });
+    answered.resolve();
+    await waitFor(() => {
+      expect(browser.held?.applicationServerKey).toBe('BNewKey');
+    });
+    await settle();
+    expect(browser.record).toStrictEqual({
+      endpoint: browser.held?.endpoint,
+      serverKey: 'BNewKey',
+      state: 'on',
+    });
+    expect(world.devices.map(({ endpoint }) => endpoint)).toStrictEqual([browser.held?.endpoint]);
+  });
 });
