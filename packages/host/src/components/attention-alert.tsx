@@ -5,6 +5,7 @@ import type { MouseEvent, ReactNode } from 'react';
 
 import { needsYouId, reviewQuery } from '../api/view-queries';
 import type { ReviewReport } from '../api/view-queries';
+import { useAppBadge } from '../lib/app-badge';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { nodeIdOf } from '../lib/record-url';
@@ -161,6 +162,8 @@ export function AttentionAlert() {
   const [open, setOpen] = useState(false);
   const [seenHref, setSeenHref] = useState(href);
   const [seenDesktop, setSeenDesktop] = useState(desktop);
+  // When this console mounted: the badge takes only reads that land after it.
+  const [mountedAt] = useState(() => Date.now());
   // Navigating closes the panel: the operator has moved on to what they chose.
   // So does crossing the breakpoint, which swaps the popover for the sheet and
   // would remount the list, losing a row's open dialog and what is typed in it.
@@ -172,6 +175,13 @@ export function AttentionAlert() {
 
   const report = review.data;
   const count = report?.queue.length ?? 0;
+  // The installed app's icon carries the same count as the pill (MMR-710),
+  // from this session's reads only: a persisted report may predate a push
+  // that has since moved the icon. The persister restores after mount, so
+  // only data read since mount counts, not isFetchedAfterMount; a failed
+  // refetch keeps the last read's time and so never re-syncs.
+  const freshRead = review.dataUpdatedAt >= mountedAt;
+  useAppBadge(freshRead ? { count, readAt: review.dataUpdatedAt } : undefined);
   if (report === undefined || (count === 0 && !open)) {
     return null;
   }

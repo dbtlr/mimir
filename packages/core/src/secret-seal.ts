@@ -28,7 +28,68 @@ export type SecretKey = {
   toJSON: () => string;
 };
 
-const keyBytes = new WeakMap<SecretKey, Buffer>();
+/** Where every copy of this module in the process finds the one key registry. */
+export const KEY_REGISTRY: unique symbol = Symbol.for('mimir.secretKeyBytes');
+
+// The WeakMap methods as this module loaded them, called directly on the
+// registry, so a registry's own properties are never looked up.
+// oxlint-disable-next-line typescript/unbound-method -- always called through Reflect.apply with a registry.
+const weakMapGet = WeakMap.prototype.get;
+// oxlint-disable-next-line typescript/unbound-method -- always called through Reflect.apply with a registry.
+const weakMapHas = WeakMap.prototype.has;
+// oxlint-disable-next-line typescript/unbound-method -- always called through Reflect.apply with a registry.
+const weakMapSet = WeakMap.prototype.set;
+
+function isOwnWeakMap(value: unknown): value is WeakMap<SecretKey, Buffer> {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  if (Object.getPrototypeOf(value) !== WeakMap.prototype || Reflect.ownKeys(value).length > 0) {
+    return false;
+  }
+  try {
+    // Throws for anything without a WeakMap's internal slot, a Proxy included.
+    Reflect.apply(weakMapHas, value, [{}]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Each parsed key's bytes, by key. The registry lives on globalThis because
+ * one process can load this module more than once: the host's launcher and
+ * its server are separate bundles, each with its own copy, and a key the
+ * launcher parses must seal and open in the server. It is a WeakMap, so it
+ * cannot be listed: reading a key's bytes takes the key itself. It is a
+ * non-enumerable, fixed property, so it cannot be replaced once set. A
+ * registry this module did not make the same way (not a fixed own property
+ * holding a plain WeakMap with nothing added to it, so not a Map, a getter,
+ * an inherited value, a subclass, or a Proxy) is refused rather than handed
+ * key bytes. That is hygiene, not a boundary: code in the process can still
+ * add entries to the registry, and code that runs before this module already
+ * owns the process.
+ */
+export function keyRegistryIn(scope: object): WeakMap<SecretKey, Buffer> {
+  const descriptor = Object.getOwnPropertyDescriptor(scope, KEY_REGISTRY);
+  if (descriptor === undefined && !(KEY_REGISTRY in scope)) {
+    const created = new WeakMap<SecretKey, Buffer>();
+    Object.defineProperty(scope, KEY_REGISTRY, { value: created });
+    return created;
+  }
+  const value: unknown = descriptor?.value;
+  if (
+    descriptor === undefined ||
+    descriptor.writable !== false ||
+    descriptor.configurable !== false ||
+    !isOwnWeakMap(value)
+  ) {
+    throw new TypeError("the secret key registry is not this module's");
+  }
+  return value;
+}
+
+const keyBytes = keyRegistryIn(globalThis);
 
 /**
  * Read a secret key strictly: trim surrounding whitespace, then require 43
@@ -48,7 +109,7 @@ export function parseSecretKey(text: string): SecretKey | undefined {
   const label = Object.freeze({ toJSON: () => KEY_LABEL, toString: () => KEY_LABEL });
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand exists only at compile time; this is the one place a key is made.
   const key = label as unknown as SecretKey;
-  keyBytes.set(key, bytes);
+  Reflect.apply(weakMapSet, keyBytes, [key, bytes]);
   return key;
 }
 
@@ -83,7 +144,7 @@ export function openSecret(key: SecretKey, name: string, sealed: string): string
   }
   const nonce = decodeSegment(parts[1]);
   const body = decodeSegment(parts[2]);
-  const bytes = keyBytes.get(key);
+  const bytes: Buffer | undefined = Reflect.apply(weakMapGet, keyBytes, [key]);
   if (
     bytes === undefined ||
     nonce?.length !== NONCE_LENGTH ||
@@ -107,7 +168,7 @@ export function openSecret(key: SecretKey, name: string, sealed: string): string
 }
 
 function bytesOf(key: SecretKey): Buffer {
-  const bytes = keyBytes.get(key);
+  const bytes: Buffer | undefined = Reflect.apply(weakMapGet, keyBytes, [key]);
   if (bytes === undefined) {
     throw new TypeError('not a secret key from parseSecretKey');
   }

@@ -8,6 +8,8 @@ import { tmpdir } from 'node:os';
 import { dirname, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { VERSION } from '@mimir/cli/src/version.ts';
+import { MIN_CLIENT } from '@mimir/contract';
 import type { EngineInput } from '@mimir/contract';
 import { RemoteEngine } from '@mimir/wire/client';
 
@@ -16,6 +18,13 @@ import { runHostCli } from '../scripts/host-cli';
 import { pairFixtureDevice } from '../scripts/pairing-client';
 
 const HOST_ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), '..');
+
+/**
+ * The two builds' versions, prereleases of the source build's own version so
+ * they stay inside the host's version window (ADR 0038) as the cycle moves.
+ */
+export const BUILD_A_VERSION = `${VERSION}.1`;
+export const BUILD_B_VERSION = `${VERSION}.2`;
 
 /** The project the fixture's host holds, so a cached read has something to show. */
 export const FIXTURE_PROJECT = { key: 'PWA', name: 'Offline-ready operator project' };
@@ -114,7 +123,7 @@ export class PwaFixture {
     this.buildA = buildA;
     this.buildB = buildB;
     this.root = buildA;
-    this.healthVersion = '0.26.0-next.1';
+    this.healthVersion = BUILD_A_VERSION;
     this.server = createServer(async (request, response) => {
       try {
         await this.respond(request, response);
@@ -132,8 +141,8 @@ export class PwaFixture {
     const hostA = resolvePath(temporaryRoot, 'host-a');
     let fixture: PwaFixture | undefined;
     try {
-      await build(buildA, '0.26.0-next.1', hostA);
-      await build(buildB, '0.26.0-next.2');
+      await build(buildA, BUILD_A_VERSION, hostA);
+      await build(buildB, BUILD_B_VERSION);
       fixture = new PwaFixture(temporaryRoot, buildA, buildB);
       await fixture.startHost(hostA);
       await fixture.start();
@@ -163,7 +172,7 @@ export class PwaFixture {
 
   useBuildB(): void {
     this.root = this.buildB;
-    this.healthVersion = '0.26.0-next.2';
+    this.healthVersion = BUILD_B_VERSION;
   }
 
   /** Start build A's host over a scratch store and file the fixture project. */
@@ -211,7 +220,8 @@ export class PwaFixture {
     const engine = new RemoteEngine({
       headers: { authorization: `Bearer ${this.token}` },
       url: `${this.hostOrigin}/trpc`,
-      version: '0.26.0-next.1',
+      // The fixture's own client, not a console build: it must sit inside the host's window.
+      version: VERSION,
     });
     const created = await engine.create(input);
     return { id: created.id };
@@ -301,7 +311,7 @@ export class PwaFixture {
       response.end(
         this.hostOnline
           ? JSON.stringify({
-              minClient: '0.26.0-next',
+              minClient: MIN_CLIENT,
               schema: 10,
               status: 'ok',
               version: this.healthVersion,

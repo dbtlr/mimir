@@ -14,7 +14,7 @@
     "build:ui": "bun run --cwd packages/host build",
     "dev:ui": "bun run --cwd packages/host dev",
     "check": "vp check",
-    "test": "bun test --parallel=3 --timings=test-timings.json packages/cli packages/core packages/helpers packages/sandbox packages/wire packages/host/src/server packages/host/src/admin",
+    "test": "bun test --parallel=3 --timings=test-timings.json packages/cli packages/core packages/helpers packages/sandbox packages/wire packages/host/src/server packages/host/src/admin packages/host/scripts/push-worker.test.ts",
     "test:budget": "bun packages/cli/scripts/test-budget.ts",
     "pins:update": "bun packages/cli/scripts/update-pins.ts",
     "test:native": "bun test packages/core/src/store-sqlite/sqlite.test.ts packages/core/src/installation packages/core/src/sandbox-authority.test.ts packages/core/src/config.test.ts packages/core/src/credentials.test.ts packages/core/src/doctor/config-permissions.test.ts packages/core/src/env.test.ts packages/core/src/git-port.test.ts packages/helpers/src/time.test.ts packages/sandbox/src/host.test.ts",
@@ -25,7 +25,7 @@
     "sandbox": "bun packages/sandbox/src/main.ts",
     "test:postgres": "bun run sandbox test",
     "test:sandbox": "bun run build && MIMIR_SANDBOX_LIFECYCLE_TEST=1 bun test packages/sandbox/src/cli-installer.integration.test.ts packages/sandbox/src/mcp-binding.integration.test.ts",
-    "test:host": "bun test packages/host/scripts/build.integration.test.ts packages/host/scripts/dev.integration.test.ts packages/host/scripts/container.integration.test.ts packages/host/scripts/migration.integration.test.ts"
+    "test:host": "bun test packages/host/scripts/build.integration.test.ts packages/host/scripts/secret-key.integration.test.ts packages/host/scripts/dev.integration.test.ts packages/host/scripts/container.integration.test.ts packages/host/scripts/migration.integration.test.ts"
   },
   "dependencies": {
     "vite": "^8.3.5"

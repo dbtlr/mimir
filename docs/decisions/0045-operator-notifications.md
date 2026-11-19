@@ -597,3 +597,64 @@ A test push has the title `Mimir test notification`, the body
   event or a test push already gives.
 - **Refusing to start when the setting is misconfigured.** ADR 0040 keeps an
   integration's problem from stopping the host.
+
+## Refinement (2026-11-19, MMR-710): the console shows a push and opens its record
+
+On iOS the browser shows a declarative push and opens its `navigate` address
+itself, without the service worker. Every other browser hands the push to the
+console's service worker, which decides what the operator sees and where a
+tap goes.
+
+### The worker's script
+
+The handlers are one script that the generated Workbox worker imports with
+`importScripts`. Its name carries a hash of its content, so a deploy that
+changes the handlers changes the name, and an installed console never runs an
+earlier build's handlers from the HTTP cache. The precache lists the script,
+and the build's precache assertion refuses a worker that imports no push
+script, or a script the output does not hold. The app-shell worker of
+[ADR 0013](0013-ui-embedded-spa.md) is otherwise unchanged: the precache, the
+prompt update flow, and its per-tab adoption stay Workbox's.
+
+### A push
+
+- Every push shows a notification. A push whose data is missing, is not JSON,
+  or has no `notification` with a title shows a generic notification titled
+  `Mimir` that opens the console's root.
+- A notification shows the payload's title, body, tag, `lang`, and `dir`,
+  with the console's icon. It always has a tag (the generic tag `mimir` when
+  the payload gives none) and `renotify`, so a browser that replaces by tag
+  still alerts.
+- `app_badge` sets the icon badge when it is a non-negative integer at the
+  top level, and 0 clears it. A browser without the Badging API, or one that
+  refuses, still shows the notification.
+
+### A tap
+
+- A tap closes the notification and opens the payload's `navigate` address
+  only when that address is absolute and on the worker's own origin. Any
+  other address opens the console's root.
+- When a console window is open, the worker navigates it to the address,
+  then focuses it. A refused focus leaves the navigation in place. When no
+  console window is open, or the open one refuses to navigate (a window the
+  worker does not control), the worker opens a new window at the address.
+
+### The badge from the console
+
+The open console sets the badge to the size of the needs-you set after each
+successful read of that set in the current session, and clears it at zero. It
+does not set the badge from a cached read restored at start, so a count shown
+offline is the last push's, not an older read's. A read counts when its data
+is newer than the moment the console started; a device clock moved back since
+the cached read can let that read count until the next one lands. The count the console shows
+in _Needs you_ and the `needs_you` a push carries come from the same set, so a
+read corrects a badge that a push left too high.
+
+### Considered and rejected
+
+- **Showing the notification from the payload alone, without a fallback.** A
+  push the worker cannot read would arrive silently; a generic notification
+  tells the operator something needs them and opens the console.
+- **A fixed script name.** The browser may fetch an imported script from its
+  HTTP cache when the worker updates, so the new worker could run the old
+  handlers for hours after a deploy.

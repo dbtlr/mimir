@@ -9,7 +9,17 @@ import { nitro } from 'nitro/vite';
 import { searchForWorkspaceRoot } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+import { buildPushWorker } from './scripts/push-worker.ts';
 import { WELL_900, WELL_950 } from './src/lib/theme-colors.ts';
+
+const HOST_ROOT = fileURLToPath(new URL('.', import.meta.url));
+
+/**
+ * The push handlers' script (MMR-710), named for its content. buildApp sets
+ * it before Workbox runs, and the plugin's integration hook hands it to the
+ * resolved Workbox options, which the plugin builds before any file exists.
+ */
+let pushWorkerFile: string | undefined;
 
 /**
  * The PWA layer is app-shell only — precache the shell so the installed app
@@ -20,6 +30,16 @@ import { WELL_900, WELL_950 } from './src/lib/theme-colors.ts';
 // oxlint-disable-next-line new-cap
 const pwaPlugins = VitePWA({
   injectRegister: null,
+  integration: {
+    beforeBuildServiceWorker(options) {
+      if (pushWorkerFile === undefined) {
+        throw new Error('the push worker must build before the service worker');
+      }
+      // importScripts is not a navigation, so navigateFallback never touches
+      // it, and the precache lists the file, so an update installs it.
+      options.workbox.importScripts = [pushWorkerFile];
+    },
+  },
   manifest: {
     background_color: WELL_900.dark,
     description: 'Operator console — work state across every project',
@@ -91,6 +111,7 @@ export default defineConfig({
     {
       buildApp: {
         async handler(builder) {
+          pushWorkerFile = await buildPushWorker({ root: HOST_ROOT });
           await pwaPlugins[0]?.api?.generateSW();
           // Nitro indexes public files while bundling. Refresh that index after
           // Start's shell and Workbox's worker have been written.

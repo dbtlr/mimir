@@ -1,8 +1,8 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, spyOn, test } from 'bun:test';
 import { createCipheriv, randomBytes } from 'node:crypto';
 import { inspect } from 'node:util';
 
-import { openSecret, parseSecretKey, sealSecret } from './secret-seal';
+import { KEY_REGISTRY, keyRegistryIn, openSecret, parseSecretKey, sealSecret } from './secret-seal';
 import type { SecretKey } from './secret-seal';
 
 const KEY_BYTES = Buffer.from(Array.from({ length: 32 }, (_, index) => index * 8 + 3));
@@ -73,6 +73,94 @@ describe('parseSecretKey', () => {
       '   ',
     ]) {
       expect(parseSecretKey(text)).toBeUndefined();
+    }
+  });
+
+  test('an object parseSecretKey did not make neither seals nor opens', () => {
+    const sealed = sealSecret(keyOf(KEY_BYTES), 'n', 'value');
+    const label = Object.freeze({ toJSON: () => '[secret key]', toString: () => '[secret key]' });
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the forgery under test.
+    const forged = label as unknown as SecretKey;
+    expect(() => sealSecret(forged, 'n', 'value')).toThrow(
+      new TypeError('not a secret key from parseSecretKey'),
+    );
+    expect(openSecret(forged, 'n', sealed)).toBeUndefined();
+  });
+
+  test('a key parsed by one copy of this module seals and opens with another copy', async () => {
+    // The host's launcher and its server are separate bundles, each with its own
+    // copy. A query on the specifier makes Bun load this file a second time.
+    const specifier = './secret-seal.ts?copy=second';
+    const second: {
+      openSecret: typeof openSecret;
+      parseSecretKey: typeof parseSecretKey;
+      sealSecret: typeof sealSecret;
+    } = await import(specifier);
+    expect(second.parseSecretKey).not.toBe(parseSecretKey);
+    const first = keyOf(KEY_BYTES);
+    const sealed = second.sealSecret(first, 'n', 'value');
+    expect(openSecret(first, 'n', sealed)).toBe('value');
+    expect(second.openSecret(first, 't3.oauth', KNOWN_SEALED)).toBe('{"accessToken":"kat"}');
+    const other = second.parseSecretKey(KEY_BYTES.toString('base64'));
+    expect(other).toBeDefined();
+    if (other !== undefined) {
+      expect(openSecret(other, 'n', sealSecret(other, 'n', 'back'))).toBe('back');
+      expect(second.openSecret(other, 'n', sealed)).toBe('value');
+    }
+  });
+
+  test('the shared registry is a fixed, non-enumerable WeakMap that cannot be read without a key', () => {
+    // Every copy of this module must find the same registry, so the key is the registered symbol.
+    expect(KEY_REGISTRY === Symbol.for('mimir.secretKeyBytes')).toBe(true);
+    keyOf(KEY_BYTES);
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, KEY_REGISTRY);
+    expect(descriptor).toMatchObject({ configurable: false, enumerable: false, writable: false });
+    expect(descriptor?.value).toBeInstanceOf(WeakMap);
+    expect(Symbol.iterator in Object(descriptor?.value)).toBe(false);
+  });
+
+  test('a registry is adopted only when it is an own WeakMap value', () => {
+    const own = new WeakMap<SecretKey, Buffer>();
+    const reused = Object.defineProperty({}, KEY_REGISTRY, { value: own });
+    expect(keyRegistryIn(reused)).toBe(own);
+
+    const fresh = {};
+    const created = keyRegistryIn(fresh);
+    expect(created).toBeInstanceOf(WeakMap);
+    expect(Object.getOwnPropertyDescriptor(fresh, KEY_REGISTRY)?.value).toBe(created);
+
+    class Sub extends WeakMap<SecretKey, Buffer> {}
+    const ownSet = new WeakMap<SecretKey, Buffer>();
+    Object.defineProperty(ownSet, 'set', { value: () => ownSet });
+    const planted = [
+      Object.defineProperty({}, KEY_REGISTRY, { value: new Map() }),
+      Object.defineProperty({}, KEY_REGISTRY, { get: () => own }),
+      Object.create(Object.defineProperty({}, KEY_REGISTRY, { value: own })),
+      Object.defineProperty({}, KEY_REGISTRY, { value: new Sub() }),
+      Object.defineProperty({}, KEY_REGISTRY, { value: new Proxy(new WeakMap(), {}) }),
+      Object.defineProperty({}, KEY_REGISTRY, { value: ownSet }),
+      Object.defineProperty({}, KEY_REGISTRY, { value: new WeakMap(), writable: true }),
+      Object.defineProperty({}, KEY_REGISTRY, { configurable: true, value: new WeakMap() }),
+    ];
+    for (const scope of planted) {
+      expect(() => keyRegistryIn(scope)).toThrow(
+        new TypeError("the secret key registry is not this module's"),
+      );
+    }
+  });
+
+  test('the registry is written and read with the WeakMap methods this module loaded with', () => {
+    // Code that patches WeakMap.prototype after this module loads never sees key bytes.
+    const setSpy = spyOn(WeakMap.prototype, 'set');
+    const getSpy = spyOn(WeakMap.prototype, 'get');
+    try {
+      const key = keyOf(KEY_BYTES);
+      expect(openSecret(key, 'n', sealSecret(key, 'n', 'value'))).toBe('value');
+      expect(setSpy).not.toHaveBeenCalled();
+      expect(getSpy).not.toHaveBeenCalled();
+    } finally {
+      setSpy.mockRestore();
+      getSpy.mockRestore();
     }
   });
 

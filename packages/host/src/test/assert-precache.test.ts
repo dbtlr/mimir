@@ -33,6 +33,12 @@ describe('precache assertion (MMR-369)', () => {
   });
 });
 
+/** The push handlers' script, as the generated worker imports it. */
+const IMPORTED = 'sw-push-abc123.js';
+
+// The loader's own `importScripts(l)` takes a variable, which names no file.
+const LOADER = 'self.define=(i)=>{importScripts(l)};';
+
 async function completeShell(): Promise<string> {
   const root = await mkdtemp(resolve(tmpdir(), 'mimir-precache-test-'));
   temporaryRoots.push(root);
@@ -46,15 +52,76 @@ async function completeShell(): Promise<string> {
     'manifest.webmanifest',
     'icons/mimir.svg',
     'icons/mimir-maskable.svg',
+    IMPORTED,
   ];
   await Promise.all(urls.map((url) => writeFile(resolve(root, url), 'asset')));
   await writeFile(resolve(root, 'workbox-test.js'), 'define([]);');
   await writeFile(
     resolve(root, 'sw.js'),
-    `define(["./workbox-test"],()=>{});precacheAndRoute([${urls.map((url) => `{url:"${url}",revision:"1"}`).join(',')}],{});${String.raw`createHandlerBoundToURL("/_shell.html");denylist:[/^\/(api|trpc|_serverFn|health)([/?]|$)/]`}`,
+    `${LOADER}define(["./workbox-test"],()=>{importScripts("${IMPORTED}");precacheAndRoute([${urls.map((url) => `{url:"${url}",revision:"1"}`).join(',')}],{});${String.raw`createHandlerBoundToURL("/_shell.html");denylist:[/^\/(api|trpc|_serverFn|health)([/?]|$)/]`}});`,
   );
   return root;
 }
+
+/** Rewrite the complete shell's worker. */
+async function editWorker(root: string, edit: (worker: string) => string): Promise<void> {
+  const path = resolve(root, 'sw.js');
+  await writeFile(path, edit(await readFile(path, 'utf8')));
+}
+
+describe('scripts the service worker imports (MMR-710)', () => {
+  it('rejects a worker that imports no push handlers script', async () => {
+    const root = await completeShell();
+    await editWorker(root, (worker) => worker.replace(`importScripts("${IMPORTED}");`, ''));
+    await expect(assertPrecache(root)).rejects.toThrow(
+      'service worker imports no push handlers script',
+    );
+  });
+
+  it.each([`importScripts('bad.js')`, `importScripts( "bad.js" )`, `importScripts(\`bad.js\`)`])(
+    'reads every literal import, whatever its quotes or spacing: %s',
+    async (call) => {
+      const root = await completeShell();
+      await editWorker(root, (worker) =>
+        worker.replace('precacheAndRoute(', `${call};precacheAndRoute(`),
+      );
+      await expect(assertPrecache(root)).rejects.toThrow(
+        'imported script is missing from the output: bad.js',
+      );
+    },
+  );
+
+  it('rejects an imported script absent from the output', async () => {
+    const root = await completeShell();
+    await editWorker(root, (worker) =>
+      worker.replace(`importScripts("${IMPORTED}")`, 'importScripts("sw-push-gone.js")'),
+    );
+    await expect(assertPrecache(root)).rejects.toThrow(
+      'imported script is missing from the output: sw-push-gone.js',
+    );
+  });
+
+  it('rejects an imported script the precache does not list', async () => {
+    const root = await completeShell();
+    await editWorker(root, (worker) => worker.replace(`,{url:"${IMPORTED}",revision:"1"}`, ''));
+    await expect(assertPrecache(root)).rejects.toThrow(
+      `imported script is not precached: ${IMPORTED}`,
+    );
+  });
+
+  it('rejects an imported file that is not JavaScript', async () => {
+    const root = await completeShell();
+    await writeFile(resolve(root, 'sw-push.txt'), 'text');
+    await editWorker(root, (worker) =>
+      worker
+        .replace(`importScripts("${IMPORTED}")`, `importScripts("${IMPORTED}","sw-push.txt")`)
+        .replace('precacheAndRoute([', 'precacheAndRoute([{url:"sw-push.txt",revision:"1"},'),
+    );
+    await expect(assertPrecache(root)).rejects.toThrow(
+      'imported script is not JavaScript: sw-push.txt',
+    );
+  });
+});
 
 test('rejects a manifest that omits an emitted application chunk', async () => {
   const root = await completeShell();
@@ -68,7 +135,8 @@ test('accepts the complete final public shell and its emitted files', async () =
   const root = await completeShell();
   const urls = await assertPrecache(root);
   expect(urls).toContain('_shell.html');
-  expect(urls).toHaveLength(7);
+  expect(urls).toContain(IMPORTED);
+  expect(urls).toHaveLength(8);
 });
 
 test('rejects a precached file absent from the final public output', async () => {
