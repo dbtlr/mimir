@@ -1,54 +1,42 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import type { ReactNode } from 'react';
 
 import type { PushDevice } from '../api/fns/push';
-import { pushDevicesQuery, pushStatusQuery, PUSH_QUERY_ROOT } from '../api/push-queries';
-import { SettingsPage } from '../components/settings-page';
-import { ActionButton } from '../components/ui/action-button';
+import { pushDevicesQuery, pushStatusQuery } from '../api/push-queries';
+import { SETTINGS_CARD, SettingsGroup, SettingsPage } from '../components/settings-page';
+import { ActionButton, DESTRUCTIVE_OUTLINE } from '../components/ui/action-button';
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../components/ui/menu';
 import { Sheet, SheetClose, SheetContent, SheetTitle } from '../components/ui/sheet';
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/cn';
 import {
+  healSettled,
   healThisBrowser,
   removeBrowser,
   resetKey,
   testBrowser,
-  turnOff,
-  turnOn,
 } from '../lib/push-actions';
+import { sameEndpoint } from '../lib/push-endpoint';
 import { deviceLabel } from '../lib/push-identity';
 import { deviceMeta, resetRefusalText, stateCaption, testResultText } from '../lib/push-text';
 import { canTurnOn } from '../lib/push-this-device';
 import { useMediaQuery } from '../lib/use-media-query';
-import { useThisDevice } from '../lib/use-this-device';
+import { usePushControl } from '../lib/use-push-control';
+import { DESKTOP } from './shell';
 
 /**
  * `/settings/notifications` — this browser's Web Push control and every
  * subscribed browser (ADR 0045, MMR-711). The row for this browser holds Turn
  * on or Turn off; its sentence, and the answer to each action, sit under the
  * group. Another browser's row opens its actions: a sheet on a phone, a menu
- * on a desktop.
+ * on a desktop, from Tailwind's `lg`, where Settings shows its sidebar. Turn
+ * on and Turn off live in `usePushControl`; the page places their answers.
  */
 
-/** Tailwind's `lg`, where Settings shows its sidebar: from here a row's actions are a menu. */
-const DESKTOP = '(min-width: 1024px)';
-
-const CARD = 'divide-y divide-line overflow-hidden rounded-xl border border-line bg-well-850';
 const TEXT_BUTTON =
   'inline-flex min-h-11 items-center rounded px-1 text-meta text-ink-dim hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent';
 const SHEET_ACTION =
   'flex min-h-11 w-full items-center rounded-lg px-3 text-left text-body text-ink-bright hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent';
-
-function Group({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section aria-label={title} className="flex flex-col gap-1.5">
-      <h2 className="microlabel px-1 text-ink-faint">{title}</h2>
-      {children}
-    </section>
-  );
-}
 
 function RowText({ label, meta, oldKey }: { label: string; meta: string; oldKey?: boolean }) {
   return (
@@ -67,8 +55,6 @@ function RowText({ label, meta, oldKey }: { label: string; meta: string; oldKey?
     </span>
   );
 }
-
-type Notice = { text: string; link?: string };
 
 /** A confirmation sheet for resetting the push key. */
 function ResetSheet({
@@ -156,15 +142,15 @@ function RowSheet({
                 Send test notification
               </button>
             )}
-            <button
-              type="button"
-              className={cn(SHEET_ACTION, 'text-status-blocked-foreground')}
+            <ActionButton
+              variant="destructiveOutline"
+              className="min-h-11 w-full justify-start"
               onClick={() => {
                 onRemove(device);
               }}
             >
               Remove this browser
-            </button>
+            </ActionButton>
             <SheetClose className={cn(SHEET_ACTION, 'text-ink-dim')}>Cancel</SheetClose>
           </>
         )}
@@ -202,6 +188,10 @@ function RowMenu({
           </MenuItem>
         )}
         <MenuItem
+          className={cn(
+            DESTRUCTIVE_OUTLINE,
+            'data-[highlighted]:bg-line/50 data-[highlighted]:text-status-blocked-foreground',
+          )}
           onClick={() => {
             onRemove(device);
           }}
@@ -216,55 +206,15 @@ function RowMenu({
 export function NotificationsPage() {
   const client = useQueryClient();
   const desktop = useMediaQuery(DESKTOP);
-  const { browser, devices, identity, refresh, state, status, subscription } = useThisDevice();
-  const [notice, setNotice] = useState<Notice | undefined>();
-  const [busy, setBusy] = useState(false);
+  const control = usePushControl();
+  const { browser, busy, devices, identity, notice, reload, setNotice, state, status } = control;
+  const { subscription, whileBusy } = control;
   const [rowNotes, setRowNotes] = useState<Record<string, string>>({});
   const [opened, setOpened] = useState<PushDevice | undefined>();
   const [resetOpen, setResetOpen] = useState(false);
   const [resetRefusal, setResetRefusal] = useState<string | undefined>();
 
-  const reload = async () => {
-    await client.invalidateQueries({ queryKey: PUSH_QUERY_ROOT });
-    refresh();
-  };
   const caption = stateCaption(state, identity);
-
-  const onTurnOn = async () => {
-    if (status?.state !== 'ready') {
-      return;
-    }
-    setBusy(true);
-    setNotice(undefined);
-    // Started from the click itself: the permission prompt needs the user's activation.
-    const outcome = await turnOn(browser, status, async () =>
-      client.fetchQuery({ ...pushStatusQuery, staleTime: 0 }),
-    );
-    if (outcome.kind === 'refused') {
-      setNotice({ link: outcome.link, text: outcome.message });
-    } else if (outcome.kind === 'failed') {
-      setNotice({ text: outcome.message });
-    } else if (outcome.kind === 'not_granted' && outcome.permission !== 'denied') {
-      setNotice({ text: 'Notifications were not turned on. Turn on again to be asked.' });
-    }
-    setBusy(false);
-    await reload();
-  };
-
-  const onTurnOff = async () => {
-    if (state.kind !== 'on') {
-      return;
-    }
-    setBusy(true);
-    setNotice(undefined);
-    try {
-      await turnOff(browser, state.device.endpoint);
-    } catch {
-      setNotice({ text: "This browser couldn't be turned off. Try again." });
-    }
-    setBusy(false);
-    await reload();
-  };
 
   const runTest = async (endpoint: string): Promise<string> => {
     let text: string;
@@ -302,27 +252,39 @@ export function NotificationsPage() {
     await reload();
   };
 
-  const onReset = async () => {
-    setBusy(true);
-    setResetRefusal(undefined);
+  /** Subscribe this browser again with the new key; the others do when their console opens. */
+  const healAfterReset = async () => {
     try {
-      const refusal = resetRefusalText(await resetKey());
-      if (refusal === undefined) {
-        setResetOpen(false);
-        // This browser subscribes again now; the others do when their console opens.
-        const [fresh, listed] = await Promise.all([
-          client.fetchQuery({ ...pushStatusQuery, staleTime: 0 }),
-          client.fetchQuery({ ...pushDevicesQuery, staleTime: 0 }),
-        ]);
-        await healThisBrowser(browser, fresh, listed);
-      } else {
-        setResetRefusal(refusal);
-      }
+      // A heal already running finishes first, so this one reads what it left.
+      await healSettled();
+      const [fresh, listed] = await Promise.all([
+        client.fetchQuery({ ...pushStatusQuery, staleTime: 0 }),
+        client.fetchQuery({ ...pushDevicesQuery, staleTime: 0 }),
+      ]);
+      await healThisBrowser(browser, fresh, listed);
     } catch {
-      setResetRefusal("The push key couldn't be reset. Try again.");
+      setNotice({
+        text: "The push key was reset, but this page couldn't reload. Reload it to see where this browser stands.",
+      });
     }
-    setBusy(false);
-    await reload();
+  };
+
+  const onReset = async () => {
+    setResetRefusal(undefined);
+    await whileBusy(async () => {
+      let refusal: string | undefined;
+      try {
+        refusal = resetRefusalText(await resetKey());
+      } catch {
+        refusal = "The push key couldn't be reset. Try again.";
+      }
+      if (refusal !== undefined) {
+        setResetRefusal(refusal);
+        return;
+      }
+      setResetOpen(false);
+      await healAfterReset();
+    });
   };
 
   const showReset = status?.state === 'ready' || status?.state === 'key_unusable';
@@ -333,17 +295,21 @@ export function NotificationsPage() {
 
   return (
     <SettingsPage title="Notifications">
-      <Group title="This device">
-        <ul className={CARD}>
+      <SettingsGroup title="This device">
+        <ul className={SETTINGS_CARD}>
           <li className="flex min-h-14 items-center gap-3 px-4 py-2.5">
             <RowText label="Notifications" meta={label} />
             {canTurnOn(state) && (
-              <ActionButton disabled={busy} onClick={() => void onTurnOn()}>
+              <ActionButton disabled={busy} onClick={() => void control.turnOn()}>
                 Turn on
               </ActionButton>
             )}
             {state.kind === 'on' && (
-              <ActionButton variant="outline" disabled={busy} onClick={() => void onTurnOff()}>
+              <ActionButton
+                variant="outline"
+                disabled={busy}
+                onClick={() => void control.turnOff()}
+              >
                 Turn off
               </ActionButton>
             )}
@@ -396,16 +362,17 @@ export function NotificationsPage() {
             </ActionButton>
           </div>
         )}
-      </Group>
+      </SettingsGroup>
 
       {listed !== undefined && (
-        <Group title={`Subscribed browsers · ${String(listed.length)}`}>
+        <SettingsGroup title={`Subscribed browsers · ${String(listed.length)}`}>
           {listed.length === 0 ? (
             <p className="px-1 text-xs text-ink-dim">No browser is subscribed.</p>
           ) : (
-            <ul className={CARD}>
+            <ul className={SETTINGS_CARD}>
               {listed.map((device) => {
-                const mine = device.endpoint === heldEndpoint;
+                const mine =
+                  heldEndpoint !== undefined && sameEndpoint(device.endpoint, heldEndpoint);
                 const meta = deviceMeta(device, { thisDevice: mine });
                 const rowNote = rowNotes[device.endpoint];
                 const text = (
@@ -457,7 +424,7 @@ export function NotificationsPage() {
               })}
             </ul>
           )}
-        </Group>
+        </SettingsGroup>
       )}
       {listed === undefined && status?.state === 'ready' && <Skeleton className="h-14" />}
 

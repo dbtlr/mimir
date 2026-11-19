@@ -31,11 +31,14 @@ import type {
 export const SERVED_KEY = 'BServedKeyAAAA';
 export const CONSOLE_ORIGIN = 'https://mimir.example';
 
-export const READY: PushStatus = {
+/** The host's status when it serves `publicKey`. */
+export const readyWith = (publicKey: string): Extract<PushStatus, { state: 'ready' }> => ({
   consoleOrigin: CONSOLE_ORIGIN,
-  publicKey: SERVED_KEY,
+  publicKey,
   state: 'ready',
-};
+});
+
+export const READY: PushStatus = readyWith(SERVED_KEY);
 
 export type PushWorld = {
   status: PushStatus;
@@ -67,22 +70,31 @@ export function servePush(world: Partial<PushWorld> = {}): PushWorld {
     devices: state.devices,
     state: 'listed',
   }));
-  // A subscribe the host accepts adds the device, as in production.
+  // A subscribe the host accepts adds the device under its normalized endpoint, as in production.
   vi.mocked(subscribePush).mockImplementation(async ({ data }) => {
     if (state.subscribe.state === 'subscribed') {
+      const endpoint = new URL(data.endpoint).href;
       state.devices = [
-        device({ endpoint: data.endpoint, label: data.label }),
-        ...state.devices.filter((candidate) => candidate.endpoint !== data.endpoint),
+        device({ endpoint, label: data.label }),
+        ...state.devices.filter((candidate) => candidate.endpoint !== endpoint),
       ];
     }
     return state.subscribe;
   });
   vi.mocked(unsubscribePush).mockImplementation(async ({ data }) => {
-    state.devices = state.devices.filter((candidate) => candidate.endpoint !== data.endpoint);
+    const endpoint = new URL(data.endpoint).href;
+    state.devices = state.devices.filter((candidate) => candidate.endpoint !== endpoint);
     return { state: 'unsubscribed' };
   });
   vi.mocked(sendTestPush).mockImplementation(async () => state.sendTest);
-  vi.mocked(resetPushKey).mockImplementation(async () => state.reset);
+  // A reset serves the new key and leaves every row on the old one, as in production.
+  vi.mocked(resetPushKey).mockImplementation(async () => {
+    if (state.reset.state === 'reset') {
+      state.status = readyWith(state.reset.publicKey);
+      state.devices = state.devices.map((row) => ({ ...row, currentKey: false }));
+    }
+    return state.reset;
+  });
   return state;
 }
 
@@ -106,12 +118,13 @@ export const SUBSCRIPTION: BrowserSubscription = {
   p256dh: 'p256-1',
 };
 
-/** A browser adapter whose state a test sets and reads directly. */
+/** A browser adapter whose state a test sets and reads directly. Each subscribe gets a new endpoint, as a push service gives. */
 export function fakeBrowser(
   start: Partial<Pick<FakeBrowser, 'held' | 'permission' | 'record'>> & {
     snapshot?: Partial<BrowserSnapshot>;
   } = {},
 ): FakeBrowser {
+  let made = 0;
   const fake: FakeBrowser = {
     held: start.held ?? null,
     permission: start.permission ?? 'default',
@@ -129,7 +142,12 @@ export function fakeBrowser(
       ...start.snapshot,
     }),
     async subscribe(publicKey) {
-      fake.held = { ...SUBSCRIPTION, applicationServerKey: publicKey };
+      made += 1;
+      fake.held = {
+        ...SUBSCRIPTION,
+        applicationServerKey: publicKey,
+        endpoint: `https://push.example/made-${String(made)}`,
+      };
       return fake.held;
     },
     async subscription() {
