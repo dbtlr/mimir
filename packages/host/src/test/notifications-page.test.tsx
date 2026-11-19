@@ -724,6 +724,27 @@ describe('subscribed browsers', () => {
     expect(within(list).getAllByRole('button')).toHaveLength(2);
   });
 
+  it('offers Retry when the list fails to load, and shows it once a retry succeeds', async () => {
+    stubViewport('phone');
+    servePush({ devices: [other] });
+    const serveList = vi.mocked(pushDevices).getMockImplementation();
+    vi.mocked(pushDevices).mockRejectedValueOnce(new Error('offline'));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    await renderRoute(consoleRoutes, '/settings/notifications', client, withBrowser(fakeBrowser()));
+    await expect(
+      screen.findByText("The subscribed browsers couldn't be loaded."),
+    ).resolves.toBeInTheDocument();
+    vi.mocked(pushDevices).mockImplementation(async (...args) => {
+      const answer = await serveList?.(...args);
+      return answer ?? { devices: [], state: 'listed' };
+    });
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await expect(
+      screen.findByRole('region', { name: 'Subscribed browsers · 1' }),
+    ).resolves.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+  });
+
   it('knows this browser’s row when the browser spells its endpoint differently', async () => {
     const browser = fakeBrowser({
       held: { ...SUBSCRIPTION, endpoint: 'https://PUSH.example/this' },

@@ -9,7 +9,8 @@ import { usePushBrowser } from './use-push-browser';
 /**
  * This browser's notification state (ADR 0045, MMR-711), live: the host's
  * status and device list, and what the browser holds. `refresh` rereads the
- * browser after an action changed it.
+ * browser after an action changed it; `retryDevices` rereads a list that
+ * failed to load.
  */
 export function useThisDevice() {
   const browser = usePushBrowser();
@@ -50,11 +51,18 @@ export function useThisDevice() {
     status: status.data,
     subscription,
   });
+  const { refetch: refetchDevices } = devices;
+  const retryDevices = useCallback(() => {
+    void refetchDevices();
+  }, [refetchDevices]);
   return {
     browser,
     devices: devices.data,
+    /** The device list failed to load, holds nothing to show, and is not reading again. */
+    devicesFailed: devices.isError && !devices.isFetching && devices.data === undefined,
     identity: snapshot.identity,
     refresh,
+    retryDevices,
     state,
     status: status.data,
     subscription,

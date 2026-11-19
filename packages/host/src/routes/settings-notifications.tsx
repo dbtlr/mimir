@@ -208,7 +208,7 @@ export function NotificationsPage() {
   const desktop = useMediaQuery(DESKTOP);
   const control = usePushControl();
   const { browser, busy, devices, identity, notice, reload, setNotice, state, status } = control;
-  const { subscription, whileBusy } = control;
+  const { devicesFailed, retryDevices, subscription, whileBusy } = control;
   const [rowNotes, setRowNotes] = useState<Record<string, string>>({});
   const [opened, setOpened] = useState<PushDevice | undefined>();
   const [resetOpen, setResetOpen] = useState(false);
@@ -444,7 +444,17 @@ export function NotificationsPage() {
           )}
         </SettingsGroup>
       )}
-      {listed === undefined && status?.state === 'ready' && <Skeleton className="h-14" />}
+      {listed === undefined && status?.state === 'ready' && !devicesFailed && (
+        <Skeleton className="h-14" />
+      )}
+      {listed === undefined && status?.state === 'ready' && devicesFailed && (
+        <div className="flex items-center gap-3 px-1 text-xs text-ink-dim">
+          <p>The subscribed browsers couldn't be loaded.</p>
+          <ActionButton size="sm" variant="outline" onClick={retryDevices}>
+            Retry
+          </ActionButton>
+        </div>
+      )}
 
       {showReset && state.kind !== 'key_unusable' && (
         <div>
