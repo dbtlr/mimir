@@ -1,3 +1,4 @@
+import { QueryClient } from '@tanstack/react-query';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -43,6 +44,29 @@ describe('the Connections page and its T3 Code card (ADR 0040, MMR-733)', () => 
     await waitFor(() => {
       expect(router.state.location.search).toEqual({});
     });
+  });
+
+  it('keeps a callback outcome when T3 is unconfigured', async () => {
+    serveT3({ state: 'unconfigured' });
+    const { router } = await renderRoute(consoleRoutes, '/settings/connections?t3=misconfigured');
+    await expect(screen.findByRole('status')).resolves.toHaveTextContent('T3 is not set up.');
+    expect(screen.getByText('No connections are set up on this host.')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(router.state.location.search).toEqual({});
+    });
+    expect(screen.getByRole('status')).toHaveTextContent('T3 is not set up.');
+  });
+
+  it('keeps a callback outcome and goes offline when the host cannot be read', async () => {
+    vi.mocked(t3Status).mockRejectedValue(new Error('unreachable'));
+    await renderRoute(
+      consoleRoutes,
+      '/settings/connections?t3=connected',
+      new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+    );
+    await expect(screen.findByText(/Offline — last synced/)).resolves.toBeInTheDocument();
+    expect(screen.getByText('Connected.')).toBeInTheDocument();
+    expect(screen.queryByText('No connections are set up on this host.')).toBeNull();
   });
 
   it.each<[string, T3Status, string, string | undefined]>([

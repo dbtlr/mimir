@@ -420,7 +420,12 @@ function SettingsLink({
     >
       {label}
       {count !== undefined && count > 0 && (
-        <span className="ml-auto font-semibold text-attention-foreground">{count}</span>
+        <>
+          <span aria-hidden className="ml-auto font-semibold text-attention-foreground">
+            {count}
+          </span>
+          <span className="sr-only">, {count} waiting</span>
+        </>
       )}
     </a>
   );
@@ -527,7 +532,10 @@ export function ProjectDrawer({ context }: { context: SidebarContext }) {
   }
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
-      <Dialog.Trigger aria-label="Open project menu" className={iconButtonClass}>
+      <Dialog.Trigger
+        aria-label={context.kind === 'settings' ? 'Open settings menu' : 'Open project menu'}
+        className={iconButtonClass}
+      >
         <MenuIcon />
       </Dialog.Trigger>
       <Dialog.Portal>

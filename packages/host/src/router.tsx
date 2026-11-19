@@ -388,14 +388,24 @@ export const aboutRoute = createRoute({
   path: '/settings/about',
 });
 
-/** `/devices` moved into Settings (MMR-733); an old link lands on `/settings/devices`, query kept. */
+/**
+ * `/devices` moved into Settings (MMR-733). An old link lands on
+ * `/settings/devices`, query kept; one carrying a T3 outcome (`t3`) lands on
+ * `/settings/connections`, which is where that outcome is shown.
+ */
 export const legacyDevicesRoute = createRoute({
-  beforeLoad: () => {
+  beforeLoad: ({ search }) => {
+    const t3 = T3_CALLBACK_REASONS.find((known) => known === search.t3);
+    if (t3 !== undefined) {
+      // oxlint-disable-next-line typescript/only-throw-error -- the router's redirect contract
+      throw redirect({ replace: true, search: { t3 }, to: '/settings/connections' });
+    }
     // oxlint-disable-next-line typescript/only-throw-error -- the router's redirect contract
     throw redirect({ replace: true, search: true, to: '/settings/devices' });
   },
   getParentRoute: () => rootRoute,
   path: '/devices',
+  validateSearch: (search: Record<string, unknown>): Record<string, unknown> => search,
 });
 
 export type SeedsSearch = {

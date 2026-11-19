@@ -3,7 +3,6 @@ import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 
 import { pairedDevicesQuery, pendingPairingsQuery } from '../api/device-queries';
-import { healthQuery } from '../api/shell-queries';
 import { t3StatusQuery } from '../api/t3-queries';
 import { SettingsPage } from '../components/settings-page';
 import { BUILD_VERSION } from '../lib/build-version';
@@ -69,7 +68,6 @@ export function SettingsIndexPage() {
   const pending = useQuery(pendingPairingsQuery);
   const paired = useQuery(pairedDevicesQuery);
   const t3 = useQuery(t3StatusQuery);
-  const health = useQuery(healthQuery);
   const devices = devicesValue({
     paired: paired.data?.length ?? 0,
     waiting: pending.data?.length ?? 0,
@@ -93,11 +91,7 @@ export function SettingsIndexPage() {
           value={connection}
           tone={t3.data?.state === 'connected' ? 'ok' : undefined}
         />
-        <Row
-          to="/settings/about"
-          name="About"
-          value={versionLabel(health.data?.version ?? BUILD_VERSION)}
-        />
+        <Row to="/settings/about" name="About" value={versionLabel(BUILD_VERSION)} />
       </Group>
     </SettingsPage>
   );

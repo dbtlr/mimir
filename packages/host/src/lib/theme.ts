@@ -25,14 +25,43 @@ export function systemTheme(): Theme {
   return globalThis.matchMedia(LIGHT_QUERY).matches ? 'light' : 'dark';
 }
 
+/**
+ * The pick held in memory when storage refused a write (private mode, storage
+ * disabled): it holds for this session so the menu, the Toaster, and Appearance
+ * stay in step, it just does not persist. `undefined` while storage works.
+ */
+let sessionChoice: { pick: Theme | null } | undefined;
+
 /** The remembered explicit pick, or null when the user has never chosen. */
 export function storedChoice(): Theme | null {
+  if (sessionChoice !== undefined) {
+    return sessionChoice.pick;
+  }
   try {
     const v = localStorage.getItem(STORAGE_KEY);
     return v === 'light' || v === 'dark' ? v : null;
   } catch {
     return null;
   }
+}
+
+/** Write (or remove, with null) the pick; false when storage refused. */
+function persist(pick: Theme | null): boolean {
+  try {
+    if (pick === null) {
+      localStorage.removeItem(STORAGE_KEY);
+    } else {
+      localStorage.setItem(STORAGE_KEY, pick);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Keep a pick that storage could not hold for the session; a write that lands ends that. */
+function remember(pick: Theme | null): void {
+  sessionChoice = persist(pick) ? undefined : { pick };
 }
 
 /** The stored choice as Appearance reads it: the pick, or `system` when none is stored. */
@@ -80,24 +109,16 @@ function notify(): void {
   }
 }
 
-/** Record an explicit pick (so it outlives reloads) and apply it. */
+/** Record an explicit pick (so it outlives reloads where storage allows) and apply it. */
 export function setTheme(theme: Theme): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, theme);
-  } catch {
-    // private mode / storage disabled — the pick just won't persist
-  }
+  remember(theme);
   apply(theme);
   notify();
 }
 
 /** Forget the pick: the console follows the OS again, from now on and across reloads. */
 export function clearTheme(): void {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // storage disabled — nothing was stored to forget
-  }
+  remember(null);
   apply(systemTheme());
   notify();
 }

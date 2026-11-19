@@ -110,3 +110,69 @@ describe('returning to the system theme (MMR-733)', () => {
     expect(listener).toHaveBeenCalledTimes(2);
   });
 });
+
+/** A matchMedia stub whose OS preference can flip, firing the `change` listeners as a browser does. */
+function controllableOS(prefersLight: boolean) {
+  let light = prefersLight;
+  const listeners = new Set<() => void>();
+  vi.stubGlobal('matchMedia', (q: string) => ({
+    addEventListener: (_type: string, l: () => void) => listeners.add(l),
+    get matches() {
+      return q.includes('light') ? light : !light;
+    },
+    media: q,
+    removeEventListener: (_type: string, l: () => void) => listeners.delete(l),
+  }));
+  return (next: boolean) => {
+    light = next;
+    for (const l of listeners) {
+      l();
+    }
+  };
+}
+
+describe('following the OS (MMR-733)', () => {
+  it('follows an OS change while no pick is stored, and stops after a pick', () => {
+    const flip = controllableOS(false);
+    const listener = vi.fn();
+    const unsubscribe = subscribeTheme(listener);
+
+    flip(true);
+    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    setTheme('dark');
+    listener.mockClear();
+    flip(false);
+    flip(true);
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(listener).not.toHaveBeenCalled();
+    unsubscribe();
+  });
+});
+
+const refuse = () => {
+  throw new Error('storage disabled');
+};
+
+describe('storage that refuses writes (MMR-733)', () => {
+  it('holds a pick, and a return to the system theme, for the session', () => {
+    mockOS(true);
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(refuse);
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(refuse);
+    try {
+      setTheme('dark');
+      expect(resolve()).toBe('dark');
+      expect(themeChoice()).toBe('dark');
+      expect(document.documentElement.dataset.theme).toBe('dark');
+
+      clearTheme();
+      expect(themeChoice()).toBe('system');
+      expect(resolve()).toBe('light');
+    } finally {
+      vi.restoreAllMocks();
+      // A write that lands ends the session hold, so later tests read storage again.
+      clearTheme();
+    }
+  });
+});

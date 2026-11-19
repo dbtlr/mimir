@@ -1,11 +1,14 @@
 import { QueryClient } from '@tanstack/react-query';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { t3Status } from '../api/fns/t3';
 import type { T3Status } from '../api/fns/t3';
+import { fetchHealth } from '../api/health';
 import { PwaUpdateProvider } from '../components/pwa-update-provider';
+import { BUILD_VERSION } from '../lib/build-version';
+import { versionLabel } from '../lib/settings';
 import { consoleRoutes } from '../router';
 import { serveDevices } from './devices-fns';
 import { renderRoute } from './router';
@@ -16,6 +19,7 @@ vi.mock('../api/fns/shell');
 vi.mock('../api/fns/views');
 vi.mock('../api/fns/devices');
 vi.mock('../api/fns/t3');
+vi.mock('../api/health');
 
 /*
  * The Settings area (ADR 0013, MMR-733): the index's row values, the old
@@ -73,7 +77,6 @@ describe('the Settings index', () => {
         .getAllByRole('link')
         .map((l) => l.getAttribute('href')),
     ).toStrictEqual(['/settings/devices', '/settings/connections', '/settings/about']);
-    expect(screen.queryByRole('link', { name: /Notifications/ })).toBeNull();
     expect(screen.queryByRole('link', { name: '← Settings' })).toBeNull();
   });
 
@@ -115,6 +118,23 @@ describe('the Settings index', () => {
     });
   });
 
+  it("shows the console's own version on About, not the host's", async () => {
+    vi.mocked(fetchHealth).mockResolvedValue({
+      minClient: '0.0.0',
+      schema: 1,
+      status: 'ok',
+      version: '9.9.9',
+    });
+    await renderRoute(consoleRoutes, '/settings');
+    const about = await row('/settings/about');
+    // Let any host read settle: the row must not switch to the host's version.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(about).toHaveTextContent(`About${versionLabel(BUILD_VERSION)}`);
+    expect(about).not.toHaveTextContent('9.9.9');
+  });
+
   it('shows the stored theme choice, not the resolved theme', async () => {
     await renderRoute(consoleRoutes, '/settings');
     await waitFor(async () => {
@@ -140,6 +160,12 @@ describe('/devices (MMR-733)', () => {
     await screen.findByRole('heading', { level: 1, name: 'Devices' });
     expect(router.state.location.pathname).toBe('/settings/devices');
     expect(router.state.location.search).toEqual({ from: 'bookmark' });
+  });
+
+  it('sends an old link carrying a T3 outcome to Connections, where it is shown', async () => {
+    serveT3({ reason: 'none', state: 'disconnected' });
+    await renderRoute(consoleRoutes, '/devices?t3=denied');
+    await expect(screen.findByRole('status')).resolves.toHaveTextContent('You declined on T3.');
   });
 
   it('puts a back link to Settings above the title of a sub-page', async () => {

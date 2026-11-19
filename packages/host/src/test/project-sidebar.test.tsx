@@ -239,7 +239,6 @@ describe('sidebar on All projects (MMR-505)', () => {
       expect(screen.getByRole('complementary', { name: 'All projects' })).toBeInTheDocument();
       expect(screen.queryByRole('navigation', { name: 'Project' })).toBeNull();
       expect(within(nav).getByRole('link', { name: 'Work' })).toBeInTheDocument();
-      expect(within(nav).queryByRole('link', { name: 'Devices' })).toBeNull();
       await expect(
         within(nav).findByRole('region', { name: 'Projects' }),
       ).resolves.toBeInTheDocument();
@@ -727,7 +726,6 @@ describe('top bar', () => {
     expect(within(bar).getByRole('button', { name: 'Jump to…' })).toBeInTheDocument();
     await expect(within(bar).findByRole('button', { name: /need/i })).resolves.toBeInTheDocument();
     expect(within(bar).getByRole('button', { name: 'More' })).toBeInTheDocument();
-    expect(within(bar).queryByRole('button', { name: /theme/i })).toBeNull();
   });
 
   it('holds Settings and the theme switch in More at desktop width (MMR-733)', async () => {
@@ -959,14 +957,14 @@ describe('Settings sidebar (MMR-733)', () => {
     });
     await renderAt('/settings/about');
     const nav = await settingsNav();
-    const devices = await within(nav).findByRole('link', { name: 'Devices1' });
+    const devices = await within(nav).findByRole('link', { name: 'Devices, 1 waiting' });
     expect(within(devices).getByText('1')).toHaveClass('text-attention-foreground');
   });
 
   it('is the drawer on a phone, with the same content', async () => {
     stubViewport('phone');
     await renderAt('/settings/appearance');
-    await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Open settings menu' }));
     const drawer = await screen.findByRole('dialog', { name: 'Settings' });
     expect(within(drawer).getByRole('link', { name: 'Appearance' })).toHaveAttribute(
       'aria-current',
