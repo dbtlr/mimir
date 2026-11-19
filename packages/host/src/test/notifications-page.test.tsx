@@ -988,6 +988,47 @@ describe('healing when the console opens', () => {
     expect(subscribePush).not.toHaveBeenCalled();
   });
 
+  it('subscribes again with the new key when a reset elsewhere deleted its row between the status and list reads', async () => {
+    const browser = onBrowser();
+    // The heal read the old key, then a list from after another device's reset.
+    const world = servePush({ devices: [], status: readyWith('BNewKey') });
+    await healThisBrowser(browser, READY, listed(world), readStatus);
+    expect(browser.held?.applicationServerKey).toBe('BNewKey');
+    expect(browser.record).toStrictEqual({
+      endpoint: browser.held?.endpoint,
+      serverKey: 'BNewKey',
+      state: 'on',
+    });
+    expect(world.devices.map(({ endpoint }) => endpoint)).toStrictEqual([browser.held?.endpoint]);
+  });
+
+  it.each([
+    [
+      'fails',
+      () => {
+        vi.mocked(pushStatus).mockRejectedValue(new Error('offline'));
+      },
+    ],
+    [
+      'is not ready',
+      (world: PushWorld) => {
+        world.status = { state: 'key_unusable' };
+      },
+    ],
+  ])(
+    'leaves a browser whose row is gone as it was when the status reread %s',
+    async (_name, reread) => {
+      const browser = onBrowser();
+      const record = browser.record;
+      const world = servePush({ devices: [] });
+      reread(world);
+      await healThisBrowser(browser, READY, listed(world), readStatus);
+      expect(browser.record).toStrictEqual(record);
+      expect(browser.held).toStrictEqual(SUBSCRIPTION);
+      expect(subscribePush).not.toHaveBeenCalled();
+    },
+  );
+
   /** A browser whose heal subscribes again (its key changed) or adopts the subscription it replaced. */
   const healing = {
     adopt: () =>

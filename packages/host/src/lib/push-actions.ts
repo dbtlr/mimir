@@ -158,7 +158,10 @@ export const testBrowser = async (endpoint: string) => sendTestPush({ data: { en
 export const resetKey = async () => resetPushKey();
 
 /**
- * Carry out a heal action. A refusal this browser causes and a retry cannot
+ * Carry out a heal action. Before it marks this browser removed it rereads
+ * the status: a key other than the one the decision read means a reset deleted
+ * the row, so it subscribes again with that key instead; a reread that fails or
+ * is not ready does nothing this load. A refusal this browser causes and a retry cannot
  * fix (`FINAL_REFUSALS`) drops the subscription here and clears the record,
  * so this browser reads Off rather than holding a subscription nothing sends
  * to. A stale key rereads the status and tries once more with the fresh key.
@@ -177,6 +180,21 @@ export async function applyHeal(
       return;
     }
     case 'mark_removed': {
+      // A reset elsewhere between the status read and the list read also deletes the row; the key tells them apart.
+      const fresh = await readStatus();
+      if (fresh.state !== 'ready') {
+        return;
+      }
+      if (fresh.publicKey !== status.publicKey) {
+        await applyHeal(
+          browser,
+          fresh,
+          readStatus,
+          { kind: 'resubscribe', reason: 'key_changed' },
+          staleEndpoint,
+        );
+        return;
+      }
       await browser.unsubscribe();
       browser.writeRecord({ state: 'removed' });
       return;
