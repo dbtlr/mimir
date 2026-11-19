@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { createCipheriv, randomBytes } from 'node:crypto';
 import { inspect } from 'node:util';
 
-import { openSecret, parseSecretKey, sealSecret } from './secret-seal';
+import { KEY_REGISTRY, keyRegistryIn, openSecret, parseSecretKey, sealSecret } from './secret-seal';
 import type { SecretKey } from './secret-seal';
 
 const KEY_BYTES = Buffer.from(Array.from({ length: 32 }, (_, index) => index * 8 + 3));
@@ -106,6 +106,36 @@ describe('parseSecretKey', () => {
     if (other !== undefined) {
       expect(openSecret(other, 'n', sealSecret(other, 'n', 'back'))).toBe('back');
       expect(second.openSecret(other, 'n', sealed)).toBe('value');
+    }
+  });
+
+  test('the shared registry is a fixed, unlisted WeakMap that cannot be read without a key', () => {
+    keyOf(KEY_BYTES);
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, KEY_REGISTRY);
+    expect(descriptor).toMatchObject({ configurable: false, enumerable: false, writable: false });
+    expect(descriptor?.value).toBeInstanceOf(WeakMap);
+    expect(Symbol.iterator in Object(descriptor?.value)).toBe(false);
+  });
+
+  test('a registry is adopted only when it is an own WeakMap value', () => {
+    const own = new WeakMap<SecretKey, Buffer>();
+    const reused = Object.defineProperty({}, KEY_REGISTRY, { value: own });
+    expect(keyRegistryIn(reused)).toBe(own);
+
+    const fresh = {};
+    const created = keyRegistryIn(fresh);
+    expect(created).toBeInstanceOf(WeakMap);
+    expect(Object.getOwnPropertyDescriptor(fresh, KEY_REGISTRY)?.value).toBe(created);
+
+    const planted = [
+      Object.defineProperty({}, KEY_REGISTRY, { value: new Map() }),
+      Object.defineProperty({}, KEY_REGISTRY, { get: () => own }),
+      Object.create(Object.defineProperty({}, KEY_REGISTRY, { value: own })),
+    ];
+    for (const scope of planted) {
+      expect(() => keyRegistryIn(scope)).toThrow(
+        new TypeError("the secret key registry is not this module's"),
+      );
     }
   });
 

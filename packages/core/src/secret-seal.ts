@@ -29,29 +29,37 @@ export type SecretKey = {
 };
 
 /** Where every copy of this module in the process finds the one key registry. */
-const KEY_REGISTRY: unique symbol = Symbol.for('mimir.secretKeyBytes');
+export const KEY_REGISTRY: unique symbol = Symbol.for('mimir.secretKeyBytes');
 
 /**
  * Each parsed key's bytes, by key. The registry lives on globalThis because
  * one process can load this module more than once: the host's launcher and
  * its server are separate bundles, each with its own copy, and a key the
  * launcher parses must seal and open in the server. Only parseSecretKey adds
- * to it, so an object it did not make still has no bytes.
+ * to it, so an object it did not make still has no bytes. It is a WeakMap, so
+ * nothing can list the keys or their bytes without holding a key, and it is
+ * an unlisted property that cannot be replaced once set. A registry that is
+ * not a plain WeakMap held directly by the scope (a Map, a getter, or one
+ * inherited from a prototype) is refused rather than handed key bytes. That
+ * is hygiene, not a boundary: code that runs before this module already owns
+ * the process.
  */
-function sharedKeyBytes(): WeakMap<SecretKey, Buffer> {
-  const scope: typeof globalThis & { readonly [KEY_REGISTRY]?: WeakMap<SecretKey, Buffer> } =
-    globalThis;
-  const existing = scope[KEY_REGISTRY];
-  if (existing !== undefined) {
-    return existing;
+export function keyRegistryIn(scope: object): WeakMap<SecretKey, Buffer> {
+  const descriptor = Object.getOwnPropertyDescriptor(scope, KEY_REGISTRY);
+  if (descriptor === undefined && !(KEY_REGISTRY in scope)) {
+    const created = new WeakMap<SecretKey, Buffer>();
+    Object.defineProperty(scope, KEY_REGISTRY, { value: created });
+    return created;
   }
-  const created = new WeakMap<SecretKey, Buffer>();
-  // Not enumerable, and never replaced once set.
-  Object.defineProperty(globalThis, KEY_REGISTRY, { value: created });
-  return created;
+  const value: unknown = descriptor?.value;
+  if (!(value instanceof WeakMap) || Object.getPrototypeOf(value) !== WeakMap.prototype) {
+    throw new TypeError("the secret key registry is not this module's");
+  }
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- only this module's copies write it, with these types.
+  return value as WeakMap<SecretKey, Buffer>;
 }
 
-const keyBytes = sharedKeyBytes();
+const keyBytes = keyRegistryIn(globalThis);
 
 /**
  * Read a secret key strictly: trim surrounding whitespace, then require 43
