@@ -1154,8 +1154,8 @@ and focus fell to the document. This refinement places it.
 - When Close or the link back goes back one history entry, focus lands on
   the named control once the opener page shows. When the back lands on any
   other page, because Forward cut it short or the history before the
-  walkthrough is not the opener, focus does not move, then or on a later
-  navigation.
+  walkthrough is not the opener, focus does not move, and the request is
+  dropped.
 - When the named control is gone, focus lands on the page's main region,
   made focusable if the page has not marked it so, as the skip link does.
   The entry is gone when the operator answered its whole set. The alert is
