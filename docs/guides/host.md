@@ -526,7 +526,10 @@ Changing the secret key makes the stored signing key unreadable. The host
 then sends nothing until you restore the old secret key. If the old value is
 lost, use Reset push key on the Notifications page. A reset replaces the
 signing key, so every device stops receiving notifications until its console is
-opened again, and each browser then subscribes again by itself.
+opened again, and each browser then subscribes again by itself. A browser that
+does not report its subscription's key, and that turned notifications on
+before the console stored that key, can stay Off after its console is
+reopened; tap Turn on there.
 
 ## Clone private repositories
 
