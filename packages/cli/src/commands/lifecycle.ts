@@ -241,6 +241,22 @@ function engineArgs(call: Invocation): UniformArgs {
 }
 
 /**
+ * Refuse a choice value outside the verb's declared vocabulary as a usage error,
+ * before the store opens, as every other enum flag is. The words match the
+ * Engine's own refusal (`parseOpChoice`), which still guards the other transports.
+ */
+function refuseUnknownChoice(verb: UniformVerb, op: OpFact, value: string | undefined): void {
+  const { choice } = op;
+  if (choice === undefined || value === undefined || choice.values.includes(value)) {
+    return;
+  }
+  throw new MimirUsageError(
+    `invalid ${choice.name}: ${value}`,
+    `${verb} ${choice.name} takes one of: ${choice.values.join(', ')}`,
+  );
+}
+
+/**
  * Refuse a subject that cannot be the verb's, in the words the old CLI used. The
  * Engine takes canonical ids, so what the token names is decided here by its
  * grammar: a project key on a task verb, a seed on a verb that takes none, an
@@ -377,6 +393,7 @@ async function runVerb(ports: Ports, call: Invocation): Promise<LifecycleEcho> {
       throw new MimirError('validation', `${call.verb} requires a nonblank ${key}`);
     }
   }
+  refuseUnknownChoice(call.verb, op, call.on);
   refuseWrongSubject(ports, op, call.id);
   const engine = await ports.engine();
   const forSeed = op.seeds === true && ports.grammar.idKind(call.id) === 'seed';
