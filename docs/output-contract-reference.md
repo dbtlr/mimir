@@ -453,7 +453,7 @@ Errors flow through the same selection→format pipeline as success, but **strea
 
 ## Resolved (Phase 3)
 
-The former build-time TBDs are settled and implemented (merged 2026-06-05; mimir-build-roadmap Phase 3): the **error envelope** + stream discipline (§Error rendering), the **exit-code taxonomy** (§Exit codes), and the **per-verb argument shapes** (§Verb surface). The intent verb list is the verbs in the Write contract. The CLI `--json` _input_ form was declined (YAGNI) — MCP is the structured-input path; the CLI takes flags/positionals (with stdin for `annotate`/`attach` content only). Known minor debt carried forward: an empty/blank required flag token (e.g. `--on ""`) resolves to `not_found`/exit 1 rather than `usage`/exit 2.
+The former build-time TBDs are settled and implemented (merged 2026-06-05; mimir-build-roadmap Phase 3): the **error envelope** + stream discipline (§Error rendering), the **exit-code taxonomy** (§Exit codes), and the **per-verb argument shapes** (§Verb surface). The intent verb list is the verbs in the Write contract. The CLI `--json` _input_ form was declined (YAGNI) — MCP is the structured-input path; the CLI takes flags/positionals (with stdin for `annotate`/`attach` content only). Known minor debt carried forward: an empty/blank required flag token may still resolve to `not_found`/exit 1 rather than `usage`/exit 2; `--on ""` on `block` and `depend` is already a usage error.
 
 - **Per-format worked examples** for each command.
 
