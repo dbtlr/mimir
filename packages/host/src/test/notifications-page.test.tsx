@@ -724,6 +724,34 @@ describe('subscribed browsers', () => {
     expect(within(list).getAllByRole('button')).toHaveLength(2);
   });
 
+  it('offers no row actions until this browser’s subscription read settles', async () => {
+    const browser = onBrowser();
+    const waiting: (() => void)[] = [];
+    let released = false;
+    vi.spyOn(browser, 'subscription').mockImplementation(async () => {
+      if (!released) {
+        const { promise, resolve } = Promise.withResolvers<void>();
+        waiting.push(resolve);
+        await promise;
+      }
+      return SUBSCRIPTION;
+    });
+    await open('phone', { browser, world });
+    const list = await screen.findByRole('region', { name: 'Subscribed browsers · 3' });
+    await settle();
+    expect(within(list).queryAllByRole('button')).toHaveLength(0);
+    await act(async () => {
+      released = true;
+      for (const resolve of waiting) {
+        resolve();
+      }
+    });
+    await waitFor(() => {
+      expect(within(list).getAllByRole('button')).toHaveLength(2);
+    });
+    expect(within(list).queryByRole('button', { name: /^Mac · Chrome/ })).not.toBeInTheDocument();
+  });
+
   it('offers Retry when the list fails to load, and shows it once a retry succeeds', async () => {
     stubViewport('phone');
     servePush({ devices: [other] });

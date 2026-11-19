@@ -208,7 +208,7 @@ export function NotificationsPage() {
   const desktop = useMediaQuery(DESKTOP);
   const control = usePushControl();
   const { browser, busy, devices, identity, notice, reload, setNotice, state, status } = control;
-  const { devicesFailed, retryDevices, subscription, whileBusy } = control;
+  const { devicesFailed, retryDevices, subscription, subscriptionPending, whileBusy } = control;
   const [rowNotes, setRowNotes] = useState<Record<string, string>>({});
   const [opened, setOpened] = useState<PushDevice | undefined>();
   const [resetOpen, setResetOpen] = useState(false);
@@ -403,7 +403,8 @@ export function NotificationsPage() {
                     {rowNote}
                   </p>
                 );
-                if (mine) {
+                // Until the browser's read settles, any row may be this browser's: none offers actions.
+                if (mine || subscriptionPending) {
                   return (
                     <li key={device.endpoint}>
                       <div className="flex min-h-14 items-center gap-3 px-4 py-2.5">{text}</div>

@@ -10,22 +10,26 @@ import { usePushBrowser } from './use-push-browser';
  * This browser's notification state (ADR 0045, MMR-711), live: the host's
  * status and device list, and what the browser holds. `refresh` rereads the
  * browser after an action changed it; `retryDevices` rereads a list that
- * failed to load.
+ * failed to load. `subscriptionPending` holds until the newest read of the
+ * browser's subscription settles.
  */
 export function useThisDevice() {
   const browser = usePushBrowser();
   const status = useQuery(pushStatusQuery);
   const devices = useQuery(pushDevicesQuery);
-  const [subscription, setSubscription] = useState<BrowserSubscription | null | undefined>();
   const [revision, setRevision] = useState(0);
+  // A new device list may follow a heal that replaced the subscription.
+  const listedAt = devices.dataUpdatedAt;
+  /** Which read the subscription answers: a newer one is in flight until they match. */
+  const readKey = `${String(revision)}:${String(listedAt)}`;
+  const [read, setRead] = useState<{ key: string; subscription: BrowserSubscription | null }>();
+  const subscription = read?.subscription;
   const refresh = useCallback(() => {
     setRevision((count) => count + 1);
   }, []);
-  // A new device list may follow a heal that replaced the subscription.
-  const listedAt = devices.dataUpdatedAt;
   useEffect(() => {
     let live = true;
-    const read = async () => {
+    const load = async () => {
       let held: BrowserSubscription | null = null;
       try {
         held = await browser.subscription();
@@ -33,16 +37,14 @@ export function useThisDevice() {
         // A browser that cannot say, or whose service worker has not started, holds none for the page's purposes.
       }
       if (live) {
-        setSubscription(held);
+        setRead({ key: readKey, subscription: held });
       }
     };
-    void read();
+    void load();
     return () => {
       live = false;
     };
-    // `revision` and `listedAt` are not read: each says the browser may have changed.
-    // oxlint-disable-next-line react/exhaustive-effect-dependencies
-  }, [browser, revision, listedAt]);
+  }, [browser, readKey]);
   const snapshot = browser.snapshot();
   const state = deriveThisDevice({
     browser: snapshot,
@@ -66,5 +68,7 @@ export function useThisDevice() {
     state,
     status: status.data,
     subscription,
+    /** The browser's subscription is being read, first or again after a change: who is who in the list is not settled. */
+    subscriptionPending: read?.key !== readKey,
   };
 }
