@@ -11,8 +11,10 @@ export const PRECACHE_ASSERTION = 'complete app-shell coverage';
  * literals count.
  */
 function importedScripts(worker: string): string[] {
-  return [...worker.matchAll(/importScripts\(((?:"[^"]*",?)+)\)/g)].flatMap((call) =>
-    [...(call[1] ?? '').matchAll(/"([^"]*)"/g)].map((name) =>
+  const literal = `${String.raw`\s*(?:"[^"]*"|'[^']*'|`}\`[^\`]*\`${String.raw`)\s*`}`;
+  const call = new RegExp(String.raw`importScripts\(((?:${literal},?)+)\)`, 'g');
+  return [...worker.matchAll(call)].flatMap((found) =>
+    [...(found[1] ?? '').matchAll(/["'`]([^"'`]*)["'`]/g)].map((name) =>
       (name[1] ?? '').replace(/^\.?\//, ''),
     ),
   );

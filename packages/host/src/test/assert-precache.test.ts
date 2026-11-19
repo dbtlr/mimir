@@ -78,6 +78,19 @@ describe('scripts the service worker imports (MMR-710)', () => {
     );
   });
 
+  it.each([`importScripts('bad.js')`, `importScripts( "bad.js" )`, `importScripts(\`bad.js\`)`])(
+    'reads every literal import, whatever its quotes or spacing: %s',
+    async (call) => {
+      const root = await completeShell();
+      await editWorker(root, (worker) =>
+        worker.replace('precacheAndRoute(', `${call};precacheAndRoute(`),
+      );
+      await expect(assertPrecache(root)).rejects.toThrow(
+        'imported script is missing from the output: bad.js',
+      );
+    },
+  );
+
   it('rejects an imported script absent from the output', async () => {
     const root = await completeShell();
     await editWorker(root, (worker) =>

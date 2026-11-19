@@ -39,6 +39,19 @@ describe('the worker reads the host’s push payload', () => {
     expect(mapped.appBadge).toBe(4);
   });
 
+  test('the worker reads the language and direction from the fields the host writes', () => {
+    // The host writes en/ltr, the worker's own defaults, so equal values prove
+    // nothing. The host must write both fields, and the worker must read other
+    // values from them rather than fall back to its defaults.
+    const payload = eventPayload(event, CONSOLE);
+    expect(payload.notification).toMatchObject({ dir: 'ltr', lang: 'en' });
+    const other = { ...payload, notification: { ...payload.notification, dir: 'rtl', lang: 'he' } };
+    expect(mapPush(JSON.stringify(other), CONSOLE).options).toMatchObject({
+      dir: 'rtl',
+      lang: 'he',
+    });
+  });
+
   test('an event push with nothing left needing you clears the badge', () => {
     const mapped = mapPush(pushed(eventPayload({ ...event, needs_you: 0 }, CONSOLE)), CONSOLE);
     expect(mapped.appBadge).toBe(0);
