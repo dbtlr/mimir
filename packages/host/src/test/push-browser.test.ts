@@ -93,6 +93,12 @@ describe('createPushBrowser', () => {
     });
   });
 
+  it('treats an unsubscribe with no subscription held as done', async () => {
+    const { environment, unsubscribe } = world(null);
+    await expect(createPushBrowser(environment).unsubscribe()).resolves.toBeUndefined();
+    expect(unsubscribe).not.toHaveBeenCalled();
+  });
+
   it('keeps the record in storage and treats a bad or blocked store as no record', () => {
     const { environment, store } = world(null);
     const browser = createPushBrowser(environment);
@@ -124,9 +130,9 @@ describe('createPushBrowser', () => {
       expect(after.mock.calls).toStrictEqual([[5000]]);
     });
 
-    it('does nothing on unsubscribe after 5 s', async () => {
+    it('fails an unsubscribe after 5 s, since the subscription may still be held', async () => {
       const { after, browser } = stuck();
-      await expect(browser.unsubscribe()).resolves.toBeUndefined();
+      await expect(browser.unsubscribe()).rejects.toBeInstanceOf(PushReadTimeoutError);
       expect(after.mock.calls).toStrictEqual([[5000]]);
     });
 

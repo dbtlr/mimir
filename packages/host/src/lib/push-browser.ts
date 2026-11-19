@@ -47,7 +47,7 @@ export type PushBrowser = {
   subscription: () => Promise<BrowserSubscription | null>;
   /** Subscribes with the served key, replacing a subscription made for another key. */
   subscribe: (publicKey: string) => Promise<BrowserSubscription>;
-  /** Drops this browser's subscription; none is not an error. */
+  /** Drops this browser's subscription; none is not an error. Rejects with `PushReadTimeoutError` when the service worker does not start in time, since a subscription may still be held. */
   unsubscribe: () => Promise<void>;
   readRecord: () => ThisDeviceRecord | null;
   /** `null` clears the record. */
@@ -210,7 +210,11 @@ export function createPushBrowser(environment: PushBrowserEnvironment): PushBrow
       if (!environment.pushSupported()) {
         return;
       }
-      await (await current(READ_READY_TIMEOUT_MS))?.subscription?.unsubscribe();
+      const held = await current(READ_READY_TIMEOUT_MS);
+      if (held === undefined) {
+        throw new PushReadTimeoutError();
+      }
+      await held.subscription?.unsubscribe();
     },
     writeRecord(record) {
       try {
