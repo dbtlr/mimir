@@ -3,7 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { decideHeal } from '../lib/push-heal';
 import type { HealInput } from '../lib/push-heal';
 import { deviceMeta, stateCaption } from '../lib/push-text';
-import { deriveThisDevice, notificationsValue } from '../lib/push-this-device';
+import {
+  couldSuggestTurningOn,
+  deriveThisDevice,
+  notificationsValue,
+  suggestsTurningOn,
+} from '../lib/push-this-device';
 import type { DeriveInput, ThisDeviceState } from '../lib/push-this-device';
 import { device, READY, SERVED_KEY, SUBSCRIPTION } from './push-fns';
 
@@ -103,6 +108,61 @@ describe('deriveThisDevice', () => {
         record: { state: 'removed' },
       }).kind,
     ).toBe('denied');
+  });
+});
+
+describe('suggestsTurningOn (MMR-734)', () => {
+  const snapshotOf = (overrides: Partial<DeriveInput>) => ({
+    identity: chrome,
+    permission: 'default' as const,
+    pushSupported: true,
+    ...overrides.browser,
+  });
+
+  it.each<[string, Partial<DeriveInput>, boolean]>([
+    ['off and never asked', {}, true],
+    ['still loading', { status: undefined }, false],
+    ['host not set up', { status: { state: 'unconfigured' } }, false],
+    ['key unusable', { status: { state: 'key_unusable' } }, false],
+    [
+      'iPhone outside the Home Screen',
+      { browser: { identity: iphone, permission: 'default', pushSupported: false } },
+      false,
+    ],
+    [
+      'permission denied',
+      { browser: { identity: chrome, permission: 'denied', pushSupported: true } },
+      false,
+    ],
+    [
+      'asked before and off',
+      { browser: { identity: chrome, permission: 'granted', pushSupported: true } },
+      false,
+    ],
+    ['removed from another device', { record: { state: 'removed' } }, false],
+    [
+      'already on',
+      {
+        browser: { identity: chrome, permission: 'granted', pushSupported: true },
+        devices: { devices: [mine], state: 'listed' },
+        subscription: SUBSCRIPTION,
+      },
+      false,
+    ],
+  ])('%s', (_name, overrides, expected) => {
+    expect(suggestsTurningOn(derive(overrides), snapshotOf(overrides))).toBe(expected);
+  });
+
+  it('needs nothing from the host to rule out a browser that cannot or has asked', () => {
+    expect(couldSuggestTurningOn(snapshotOf({}))).toBe(true);
+    for (const permission of ['granted', 'denied'] as const) {
+      expect(couldSuggestTurningOn({ identity: chrome, permission, pushSupported: true })).toBe(
+        false,
+      );
+    }
+    expect(
+      couldSuggestTurningOn({ identity: iphone, permission: 'default', pushSupported: false }),
+    ).toBe(false);
   });
 });
 

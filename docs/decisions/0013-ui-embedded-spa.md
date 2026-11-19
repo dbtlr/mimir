@@ -846,3 +846,10 @@ URL (ADR 0038).
   console runs installed. The update-ready dot stays on the "…" button. The
   wide top bar no longer carries the update and theme icons that the MMR-715
   refinement above kept from `md` up.
+
+## Refinement (2026-11-19, MMR-734): Home may carry a one-time suggestion card
+
+Home (`/`) may show one card above Needs you that suggests turning on
+notifications, under the rules of ADR 0045's MMR-734 refinement. Once this
+browser answers it, it never shows again. A rebuilt Home keeps it in the same
+place.

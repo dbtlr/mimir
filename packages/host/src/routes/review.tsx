@@ -11,6 +11,7 @@ import { NeedsYouGroups } from '../components/decision-groups';
 import { FocusQueue } from '../components/focus-queue';
 import { NewProjectSheet } from '../components/new-project-sheet';
 import { OfflineBanner } from '../components/offline-banner';
+import { PushSuggestion } from '../components/push-suggestion';
 import { RecordLayout, RecordPending } from '../components/record-layout';
 import { ReviewRail } from '../components/review-rail';
 import { ActionButton, actionButtonVariants } from '../components/ui/action-button';
@@ -29,7 +30,8 @@ import { reviewRoute } from '../router';
  * grouped by project), Now, and Shipped, in the work page's row style; the rail
  * holds the project health strip and what can wait for a spare minute. One read
  * (`console.review`) feeds all of it, and the top-bar alert reads the same entry,
- * so their counts never disagree.
+ * so their counts never disagree. Above Needs you, a browser that could take
+ * notifications sees a one-time card suggesting them (MMR-734).
  *
  * Rows act in place (MMR-479): a task that needs answers carries the work page's answer, a
  * runnable task its Start, and a listed seed its triage verbs. When an
@@ -219,6 +221,7 @@ export function ReviewPage() {
         railLabel={RAIL_LABEL}
         className={cn(conn.offline && 'offline-demoted')}
       >
+        <PushSuggestion offline={conn.offline} />
         <NeedsYouSection report={report} offline={conn.offline} />
         <NowSection rows={report.now} />
         <ShippedSection rows={report.shipped} />

@@ -121,3 +121,19 @@ export function notificationsValue(state: ThisDeviceState): string {
 /** Whether the state offers this browser a Turn on button. */
 export const canTurnOn = (state: ThisDeviceState): boolean =>
   state.kind === 'off' || state.kind === 'removed';
+
+/**
+ * Whether Home could suggest turning notifications on, from the browser alone:
+ * it can receive Web Push and has never asked for permission. A browser that
+ * fails this asks the host nothing for the card (MMR-734).
+ */
+export const couldSuggestTurningOn = (browser: BrowserSnapshot): boolean =>
+  browser.pushSupported && browser.permission === 'default';
+
+/**
+ * Whether Home suggests turning notifications on (ADR 0045, MMR-734): only
+ * when Turn on would work right away from a tap. The host's channel is ready,
+ * this browser is off and was not removed elsewhere, and it has never asked.
+ */
+export const suggestsTurningOn = (state: ThisDeviceState, browser: BrowserSnapshot): boolean =>
+  couldSuggestTurningOn(browser) && state.kind === 'off';
