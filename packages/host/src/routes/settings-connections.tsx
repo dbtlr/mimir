@@ -43,7 +43,7 @@ export function ConnectionsPage() {
         {state === 'unconfigured' && (
           <p className="text-xs text-ink-dim">No connections are set up on this host.</p>
         )}
-        {status.isError && (
+        {status.isError && status.data === undefined && (
           <p className="text-xs text-ink-dim">The host did not answer, so T3 Code is unknown.</p>
         )}
         <T3Card outcome={t3Outcome} />

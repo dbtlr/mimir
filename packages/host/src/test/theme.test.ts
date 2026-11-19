@@ -132,7 +132,7 @@ function controllableOS(prefersLight: boolean) {
 }
 
 describe('following the OS (MMR-733)', () => {
-  it('follows an OS change while no pick is stored, and stops after a pick', () => {
+  it('follows an OS change while no pick is stored, stops after a pick, and follows again after Match system', () => {
     const flip = controllableOS(false);
     const listener = vi.fn();
     const unsubscribe = subscribeTheme(listener);
@@ -147,6 +147,14 @@ describe('following the OS (MMR-733)', () => {
     flip(true);
     expect(document.documentElement.dataset.theme).toBe('dark');
     expect(listener).not.toHaveBeenCalled();
+
+    clearTheme();
+    listener.mockClear();
+    flip(false);
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    flip(true);
+    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(listener).toHaveBeenCalled();
     unsubscribe();
   });
 });

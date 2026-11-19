@@ -69,6 +69,22 @@ describe('the Connections page and its T3 Code card (ADR 0040, MMR-733)', () => 
     expect(screen.queryByText('No connections are set up on this host.')).toBeNull();
   });
 
+  it('keeps the last known card, without an unknown-state line, when a refetch fails', async () => {
+    serveT3({
+      expiresAt: new Date(Date.now() + 29 * DAY + 60_000).toISOString(),
+      label: 'Valhalla',
+      state: 'connected',
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    await renderRoute(consoleRoutes, '/settings/connections', client);
+    const region = await card();
+    vi.mocked(t3Status).mockRejectedValue(new Error('unreachable'));
+    await client.refetchQueries();
+    await expect(screen.findByText(/Offline — last synced/)).resolves.toBeInTheDocument();
+    expect(within(region).getByText('Connected to Valhalla. Expires in 4w.')).toBeInTheDocument();
+    expect(screen.queryByText('The host did not answer, so T3 Code is unknown.')).toBeNull();
+  });
+
   it.each<[string, T3Status, string, string | undefined]>([
     [
       'connected',
