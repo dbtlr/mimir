@@ -688,6 +688,12 @@ the record's.
    list. Off is everything else, including a granted permission with no
    subscription the host knows.
 
+The host stores each endpoint as its parsed URL's `href`, so the console
+compares a browser's endpoint with a row, or with the record, after the same
+normalization; an endpoint that does not parse compares as written. A service
+worker that has not started within 5 seconds counts as holding no
+subscription, so the page reads Off and offers Turn on instead of waiting.
+
 Turn on is a button in Removed and Off. Turn off and Send test notification
 are in On. Where this browser cannot act, no button shows. The sentence under
 the group carries the state, the last delivery or the last failure, and the
@@ -696,7 +702,7 @@ answer to each action, in a polite live region.
 ### Labels
 
 The label is generated from the browser and never typed: `<Platform> ·
-<Browser>`, such as `Mac · Chrome` or `iPhone · Safari`, at most 60
+<Browser>`, such as `Mac · Chrome` or `iPhone · Home Screen app`, at most 60
 characters. An iPhone or iPad running the Home Screen app reads `<Platform> ·
 Home Screen app`, and an installed app elsewhere reads `<Platform> · <Browser>
 app`. iPadOS asks for desktop sites and reports a Mac, so a Mac user agent
@@ -708,16 +714,25 @@ Turn on runs from the click itself, so the permission prompt has the user's
 activation. When permission ends granted, the console subscribes through the
 service worker with the served public key, sends the endpoint, the two keys,
 that key, and the label, and writes its record. A `stale_key` answer refetches
-the status and tries once more. Any refusal unsubscribes the browser side, so
-the browser and the host agree, and the page says why in one sentence. A
-`wrong_origin` refusal links to the console address from the status. Turn off
-unsubscribes the browser, removes the endpoint from the host, and clears the
-record.
+the status and tries once more. Any refusal or failure, including a permission
+prompt that throws or a service worker that has not started within 10 seconds,
+clears the record and unsubscribes the browser side, so the browser and the
+host agree and an earlier turn on or removal no longer speaks for this
+browser. The page says why in one sentence, and Turn on is offered again. A
+`wrong_origin` refusal links to the console address from the status.
+
+Turn off clears the record first, then unsubscribes the browser and removes
+the endpoint from the host. The record goes first because it is what the
+healer acts on: if a later step fails, the next console load must not
+subscribe this browser again. The host's row is removed even when the
+browser's unsubscribe fails, so no device lists a browser the operator turned
+off; the page then says that this browser couldn't be turned off.
 
 ### The local record
 
 Each browser keeps one small record in its own storage: `on` with the endpoint
-after a successful turn on, or `removed`. Turn off clears it, and the next
+after a successful turn on, or `removed`. Turn off clears it, as does a turn on
+the host refuses or that fails, and a heal the host refuses. The next
 successful turn on replaces it. Storage that is blocked or unreadable is no
 record. The record is what lets the console tell a device that never turned
 notifications on from one that did and lost its row.
@@ -725,22 +740,37 @@ notifications on from one that did and lost its row.
 ### Healing when the console opens
 
 The console compares what the browser holds with what the host serves once per
-console load, from the shell, so no page has to be open. It acts only when the
-status is `ready`, the browser supports push, permission is granted, and the
-record is `on`. It makes one decision:
+console load, from the shell, so no page has to be open. When the console
+loads, the shell reads the browser once: unless it supports push, permission
+is granted, and the record is `on`, there is nothing to heal, and the shell
+asks the host nothing for the rest of the load. Otherwise it evaluates the
+first time the status and the device list have both loaded, reading the record
+once for that evaluation, and never again in the same load, whether or not it
+healed. A record written later in the load, such as by a Turn on, or a device
+list that a read started before the heal returns after it, therefore cannot
+start a second heal against a stale list. The heal acts only when the status
+is `ready`. It makes one decision:
 
 - **The key changed.** The browser's `applicationServerKey` differs from the
-  served public key: the host reset its key. The console unsubscribes, subscribes
-  with the served key, and sends the new subscription under the same label.
+  served public key: the host reset its key. The console unsubscribes,
+  subscribes with the served key, sends the new subscription under a label
+  generated again from the browser, and removes the old endpoint from the
+  host. A browser that does not report its `applicationServerKey` is judged
+  by the host's row for its endpoint: a row on the current key needs nothing,
+  a row on an old key counts as a changed key, and no row is a removal.
 - **The browser replaced or dropped it.** With no subscription, the console
   subscribes again. With an endpoint other than the record's, it sends the new
-  subscription and removes the record's old endpoint from the host.
+  subscription. Either way it removes the record's old endpoint from the host.
 - **The host removed it.** The endpoint and key match the record, but the
   host's list lacks the endpoint. The console unsubscribes the browser and
   writes `removed`. It never subscribes again here: a Remove from another
   device must stick until the operator turns notifications on again.
 
-Any failure is silent and changes no record, so the next load tries again.
+When the host refuses a subscription the heal sends, the console unsubscribes
+the browser and clears the record, so the page reads Off with Turn on rather
+than holding a subscription that nothing sends to. Any other failure is silent
+and changes no record, so the next load tries again. One heal runs at a time:
+a second request while one runs, such as the page's after a reset, joins it.
 
 ### Every subscribed browser
 
@@ -750,15 +780,19 @@ the row was made for another key. This browser's row has no actions. Another
 row opens its actions: on a phone a bottom sheet titled with the label, on a
 desktop a menu. Send test notification and Remove this browser are on every
 other row; an old-key row offers only Remove, because a test to it can only
-refuse. A test's answer shows in its row.
+refuse. Remove wears the destructive red hairline and label in the sheet and
+in the menu (ADR 0019, MMR-635 refinement). A test's answer shows in its
+row.
 
 ### Reset push key
 
 Reset push key is a quiet button under the list when the status is `ready`,
 and the one action when it is `key unusable`. Both ask first, saying that every
 device stops receiving notifications until its console is opened again. After a
-reset this browser subscribes again at once; each other device does when its
-console opens.
+reset this browser subscribes again at once, after any heal already running
+finishes; each other device does when its console opens. If the reset
+succeeds but the page cannot read the new status afterward, the page says the
+key was reset and asks for a reload, not that the reset failed.
 
 ### Considered and rejected
 
