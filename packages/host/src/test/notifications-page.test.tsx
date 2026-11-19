@@ -387,6 +387,51 @@ describe('Turn on', () => {
     }
   });
 
+  it('changes nothing while the load’s heal outlasts HEAL_WAIT_MS, and says so', async () => {
+    const browser = dropped();
+    stubViewport('phone');
+    servePush({ devices: [mine] });
+    const serve = vi.mocked(subscribePush).getMockImplementation();
+    const sending = Promise.withResolvers<void>();
+    const answered = Promise.withResolvers<void>();
+    vi.mocked(subscribePush).mockImplementationOnce(async (call) => {
+      const answer = await serve?.(call);
+      sending.resolve();
+      await answered.promise;
+      return answer ?? { state: 'subscribed' };
+    });
+    const record = browser.record;
+    try {
+      await mount(browser);
+      await act(async () => {
+        await sending.promise;
+      });
+      const turnOn = await screen.findByRole('button', { name: 'Turn on' });
+      const subscribe = vi.spyOn(browser, 'subscribe');
+      const prompt = vi.spyOn(browser, 'requestPermission');
+      vi.useFakeTimers();
+      try {
+        await act(async () => {
+          fireEvent.click(turnOn);
+        });
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(HEAL_WAIT_MS);
+        });
+        expect(thisDevice()).toHaveTextContent(
+          "Another update to this browser's notifications is still running. Try again in a moment.",
+        );
+      } finally {
+        vi.useRealTimers();
+      }
+      expect(prompt).toHaveBeenCalledOnce();
+      expect(subscribe).not.toHaveBeenCalled();
+      expect(browser.record).toStrictEqual(record);
+    } finally {
+      answered.resolve();
+      await settle();
+    }
+  });
+
   it('on a stale key, rereads the status and subscribes again with the new key', async () => {
     const { browser, world } = await open('phone');
     vi.mocked(subscribePush).mockImplementationOnce(async () => {
@@ -570,43 +615,70 @@ describe('on this device', () => {
     expect(world.devices).toStrictEqual([]);
   });
 
-  it('Turn off gives up on a running heal at HEAL_WAIT_MS, not before', async () => {
-    const browser = onBrowser();
-    const held: ((subscription: BrowserSubscription | null) => void)[] = [];
-    vi.spyOn(browser, 'subscription')
-      .mockResolvedValueOnce(SUBSCRIPTION)
-      .mockImplementation(async () => {
-        const { promise, resolve } = Promise.withResolvers<BrowserSubscription | null>();
-        held.push(resolve);
-        return promise;
-      });
-    await open('phone', { browser, world: { devices: [mine] } });
-    await waitFor(() => {
-      expect(held.length).toBeGreaterThanOrEqual(2);
+  it('Turn off changes nothing while a heal outlasts HEAL_WAIT_MS, says so, and leaves the heal’s result', async () => {
+    // The page reads a subscription on an old key; the heal subscribes again and its send is held.
+    const browser = fakeBrowser({
+      held: { ...SUBSCRIPTION, applicationServerKey: 'BOldKey' },
+      permission: 'granted',
+      record: { endpoint: SUBSCRIPTION.endpoint, serverKey: 'BOldKey', state: 'on' },
     });
-    const turnOff = await screen.findByRole('button', { name: 'Turn off' });
-    vi.useFakeTimers();
+    vi.spyOn(browser, 'subscription').mockResolvedValue({
+      ...SUBSCRIPTION,
+      applicationServerKey: 'BOldKey',
+    });
+    stubViewport('phone');
+    const world = servePush({ devices: [{ ...mine, currentKey: false }] });
+    const serve = vi.mocked(subscribePush).getMockImplementation();
+    const sending = Promise.withResolvers<void>();
+    const answered = Promise.withResolvers<void>();
+    vi.mocked(subscribePush).mockImplementationOnce(async (call) => {
+      const answer = await serve?.(call);
+      sending.resolve();
+      await answered.promise;
+      return answer ?? { state: 'subscribed' };
+    });
+    const record = browser.record;
     try {
+      await mount(browser);
       await act(async () => {
-        fireEvent.click(turnOff);
+        await sending.promise;
       });
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(HEAL_WAIT_MS - 1);
-      });
+      const turnOff = await screen.findByRole('button', { name: 'Turn off' });
+      const unsubscribe = vi.spyOn(browser, 'unsubscribe');
+      vi.useFakeTimers();
+      try {
+        await act(async () => {
+          fireEvent.click(turnOff);
+        });
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(HEAL_WAIT_MS - 1);
+        });
+        expect(thisDevice()).not.toHaveTextContent('still running');
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(1);
+        });
+        expect(thisDevice()).toHaveTextContent(
+          "Another update to this browser's notifications is still running. Try again in a moment.",
+        );
+      } finally {
+        vi.useRealTimers();
+      }
+      expect(unsubscribe).not.toHaveBeenCalled();
       expect(unsubscribePush).not.toHaveBeenCalled();
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(1);
-      });
-      expect(unsubscribePush).toHaveBeenCalledOnce();
+      expect(browser.record).toStrictEqual(record);
     } finally {
-      vi.useRealTimers();
-      await act(async () => {
-        for (const resolve of held) {
-          resolve(null);
-        }
-      });
-      await settle();
+      answered.resolve();
     }
+    await waitFor(() => {
+      expect(browser.record).toStrictEqual({
+        endpoint: 'https://push.example/made-1',
+        serverKey: SERVED_KEY,
+        state: 'on',
+      });
+    });
+    expect(world.devices.map(({ endpoint }) => endpoint)).toStrictEqual([
+      'https://push.example/made-1',
+    ]);
   });
 
   it('Turn off compares the record’s endpoint with the clicked one as the host stores them', async () => {

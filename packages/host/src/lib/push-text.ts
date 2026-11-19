@@ -23,6 +23,10 @@ export type Caption = { text: string; steps: string[] };
 export const KEY_UNUSABLE_TEXT =
   "Notifications are paused on every device. This host can't open its push key, usually because MIMIR_SECRET_KEY changed. Restore the previous value and restart the host. If the previous value is lost, reset the push key; each device subscribes again the next time its console opens.";
 
+/** What Turn on and Turn off answer when a heal of this browser is still running after their wait. */
+export const HEAL_RUNNING_TEXT =
+  "Another update to this browser's notifications is still running. Try again in a moment.";
+
 /** Where to undo a block, by platform and browser. */
 export function deniedHelp(identity: BrowserIdentity): string {
   const { platform, browser } = identity;

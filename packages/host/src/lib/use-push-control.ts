@@ -18,7 +18,8 @@ export function turnOnNotice(outcome: TurnOnOutcome): PushNotice | undefined {
     case 'refused': {
       return { link: outcome.link, text: outcome.message };
     }
-    case 'failed': {
+    case 'failed':
+    case 'busy': {
       return { text: outcome.message };
     }
     case 'not_granted': {
@@ -85,7 +86,10 @@ export function usePushControl() {
     const { endpoint } = state.device;
     await whileBusy(async () => {
       try {
-        await turnOff(browser, endpoint);
+        const outcome = await turnOff(browser, endpoint);
+        if (outcome.kind === 'busy') {
+          setNotice({ text: outcome.message });
+        }
       } catch {
         setNotice({ text: "This browser couldn't be turned off. Try again." });
       }
