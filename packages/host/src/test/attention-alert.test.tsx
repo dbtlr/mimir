@@ -1,4 +1,4 @@
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient, dehydrate, hydrate } from '@tanstack/react-query';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -487,7 +487,9 @@ describe('the app icon badge (MMR-710)', () => {
     vi.mocked(review).mockImplementation(async () => read.promise);
     const client = new QueryClient();
     // A persisted report from an earlier session, which a push may since have outdated.
-    client.setQueryData(reviewQuery().queryKey, twoProjects({ lm: [loomQuestion] }));
+    client.setQueryData(reviewQuery().queryKey, twoProjects({ lm: [loomQuestion] }), {
+      updatedAt: Date.now() - 86_400_000,
+    });
     await renderShell('/p/MMR/tasks', client);
     await screen.findByRole('button', { name: '1 needs you' });
     await waitFor(() => {
@@ -501,6 +503,52 @@ describe('the app icon badge (MMR-710)', () => {
       expect(setAppBadge).toHaveBeenCalledWith(3);
     });
     expect(setAppBadge).toHaveBeenCalledOnce();
+  });
+
+  it('leaves the badge alone when the persisted cache is restored after mount', async () => {
+    serve(() => twoProjects());
+    const read = Promise.withResolvers<ReviewReport>();
+    vi.mocked(review).mockImplementation(async () => read.promise);
+    const client = new QueryClient();
+    await renderShell('/p/MMR/tasks', client);
+    await waitFor(() => {
+      expect(review).toHaveBeenCalled();
+    });
+    // The persister restores after the shell mounts, through hydrate: an
+    // earlier session's report, read a day ago.
+    const earlier = new QueryClient();
+    earlier.setQueryData(reviewQuery().queryKey, twoProjects({ lm: [loomQuestion] }), {
+      updatedAt: Date.now() - 86_400_000,
+    });
+    hydrate(client, dehydrate(earlier));
+    await screen.findByRole('button', { name: '1 needs you' });
+    expect(setAppBadge).not.toHaveBeenCalled();
+    expect(clearAppBadge).not.toHaveBeenCalled();
+
+    read.resolve(twoProjects());
+    await waitFor(() => {
+      expect(setAppBadge).toHaveBeenCalledWith(3);
+    });
+    expect(setAppBadge).toHaveBeenCalledOnce();
+  });
+
+  it('leaves the badge alone on a cached report whose refetch fails', async () => {
+    serve(() => twoProjects());
+    vi.mocked(review).mockImplementation(async () => {
+      throw new Error('host unreachable');
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(reviewQuery().queryKey, twoProjects({ lm: [loomQuestion] }), {
+      updatedAt: Date.now() - 86_400_000,
+    });
+    await renderShell('/p/MMR/tasks', client);
+    await screen.findByRole('button', { name: '1 needs you' });
+    await waitFor(() => {
+      expect(client.getQueryState(reviewQuery().queryKey)?.fetchStatus).toBe('idle');
+    });
+    expect(review).toHaveBeenCalled();
+    expect(setAppBadge).not.toHaveBeenCalled();
+    expect(clearAppBadge).not.toHaveBeenCalled();
   });
 
   it('sets the badge again on a later read of the same count', async () => {
