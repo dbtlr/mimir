@@ -139,6 +139,22 @@ describe('createPushBrowser', () => {
     expect(blocked.suggestionAnswered()).toBe(false);
     expect(() => {
       blocked.answerSuggestion();
+    }).not.toThrow(); // A store that opens but refuses each read and write, as Safari's private mode or a full quota does.
+    const refusing = createPushBrowser({
+      ...environment,
+      storage: () => ({
+        getItem: () => {
+          throw new Error('denied');
+        },
+        removeItem: () => {},
+        setItem: () => {
+          throw new Error('quota');
+        },
+      }),
+    });
+    expect(refusing.suggestionAnswered()).toBe(false);
+    expect(() => {
+      refusing.answerSuggestion();
     }).not.toThrow();
   });
 
