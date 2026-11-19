@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, spyOn, test } from 'bun:test';
 import { createCipheriv, randomBytes } from 'node:crypto';
 import { inspect } from 'node:util';
 
@@ -109,7 +109,9 @@ describe('parseSecretKey', () => {
     }
   });
 
-  test('the shared registry is a fixed, unlisted WeakMap that cannot be read without a key', () => {
+  test('the shared registry is a fixed, non-enumerable WeakMap that cannot be read without a key', () => {
+    // Every copy of this module must find the same registry, so the key is the registered symbol.
+    expect(KEY_REGISTRY === Symbol.for('mimir.secretKeyBytes')).toBe(true);
     keyOf(KEY_BYTES);
     const descriptor = Object.getOwnPropertyDescriptor(globalThis, KEY_REGISTRY);
     expect(descriptor).toMatchObject({ configurable: false, enumerable: false, writable: false });
@@ -127,15 +129,38 @@ describe('parseSecretKey', () => {
     expect(created).toBeInstanceOf(WeakMap);
     expect(Object.getOwnPropertyDescriptor(fresh, KEY_REGISTRY)?.value).toBe(created);
 
+    class Sub extends WeakMap<SecretKey, Buffer> {}
+    const ownSet = new WeakMap<SecretKey, Buffer>();
+    Object.defineProperty(ownSet, 'set', { value: () => ownSet });
     const planted = [
       Object.defineProperty({}, KEY_REGISTRY, { value: new Map() }),
       Object.defineProperty({}, KEY_REGISTRY, { get: () => own }),
       Object.create(Object.defineProperty({}, KEY_REGISTRY, { value: own })),
+      Object.defineProperty({}, KEY_REGISTRY, { value: new Sub() }),
+      Object.defineProperty({}, KEY_REGISTRY, { value: new Proxy(new WeakMap(), {}) }),
+      Object.defineProperty({}, KEY_REGISTRY, { value: ownSet }),
+      Object.defineProperty({}, KEY_REGISTRY, { value: new WeakMap(), writable: true }),
+      Object.defineProperty({}, KEY_REGISTRY, { configurable: true, value: new WeakMap() }),
     ];
     for (const scope of planted) {
       expect(() => keyRegistryIn(scope)).toThrow(
         new TypeError("the secret key registry is not this module's"),
       );
+    }
+  });
+
+  test('the registry is written and read with the WeakMap methods this module loaded with', () => {
+    // Code that patches WeakMap.prototype after this module loads never sees key bytes.
+    const setSpy = spyOn(WeakMap.prototype, 'set');
+    const getSpy = spyOn(WeakMap.prototype, 'get');
+    try {
+      const key = keyOf(KEY_BYTES);
+      expect(openSecret(key, 'n', sealSecret(key, 'n', 'value'))).toBe('value');
+      expect(setSpy).not.toHaveBeenCalled();
+      expect(getSpy).not.toHaveBeenCalled();
+    } finally {
+      setSpy.mockRestore();
+      getSpy.mockRestore();
     }
   });
 
