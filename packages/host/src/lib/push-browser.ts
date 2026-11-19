@@ -5,7 +5,8 @@ import type { BrowserIdentity } from './push-identity';
 /*
  * The one browser-facing adapter for this browser's Web Push subscription
  * (ADR 0045, MMR-711): the user agent, Notification permission, the push
- * manager, and the small local record of what this browser last did. Every
+ * manager, the small local record of what this browser last did, and whether
+ * it answered Home's notifications suggestion (MMR-734). Every
  * navigator, Notification, PushManager, and localStorage call is here, with
  * the environment injected, so the page and the healer run against a fake.
  */
@@ -52,6 +53,10 @@ export type PushBrowser = {
   readRecord: () => ThisDeviceRecord | null;
   /** `null` clears the record. */
   writeRecord: (record: ThisDeviceRecord | null) => void;
+  /** Whether this browser answered the review page's notifications suggestion; a blocked store reads as unanswered. */
+  suggestionAnswered: () => boolean;
+  /** Retires the suggestion in this browser; a blocked store keeps nothing, so it may show again. */
+  answerSuggestion: () => void;
 };
 
 type SubscriptionLike = Pick<PushSubscription, 'endpoint' | 'getKey' | 'unsubscribe'> & {
@@ -95,6 +100,9 @@ export class PushReadTimeoutError extends Error {
 
 /** Where the record lives in this browser's storage. */
 export const RECORD_KEY = 'mimir.push.thisDevice';
+
+/** Where this browser keeps its answer to the notifications suggestion. */
+export const SUGGESTION_KEY = 'mimir.push.suggestionAnswered';
 
 function describe(subscription: SubscriptionLike): BrowserSubscription {
   const key = (name: 'auth' | 'p256dh') => {
@@ -159,6 +167,13 @@ export function createPushBrowser(environment: PushBrowserEnvironment): PushBrow
     return { pushManager, subscription: await pushManager.getSubscription() };
   };
   return {
+    answerSuggestion() {
+      try {
+        store()?.setItem(SUGGESTION_KEY, new Date().toISOString());
+      } catch {
+        // Blocked storage keeps no answer; the suggestion may show again, which is the safe miss.
+      }
+    },
     readRecord() {
       try {
         return parseRecord(store()?.getItem(RECORD_KEY) ?? null);
@@ -205,6 +220,13 @@ export function createPushBrowser(environment: PushBrowserEnvironment): PushBrow
         throw new PushReadTimeoutError();
       }
       return held.subscription === null ? null : describe(held.subscription);
+    },
+    suggestionAnswered() {
+      try {
+        return (store()?.getItem(SUGGESTION_KEY) ?? null) !== null;
+      } catch {
+        return false;
+      }
     },
     async unsubscribe() {
       if (!environment.pushSupported()) {

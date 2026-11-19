@@ -5,6 +5,7 @@ import type { PushDevice } from '../api/fns/push';
 import { pushDevicesQuery, pushStatusQuery } from '../api/push-queries';
 import { SETTINGS_CARD, SettingsGroup, SettingsPage } from '../components/settings-page';
 import { ActionButton, DESTRUCTIVE_OUTLINE } from '../components/ui/action-button';
+import { ConfirmCard } from '../components/ui/confirm-card';
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../components/ui/menu';
 import { Sheet, SheetClose, SheetContent, SheetTitle } from '../components/ui/sheet';
 import { Skeleton } from '../components/ui/skeleton';
@@ -72,26 +73,28 @@ function ResetSheet({
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="gap-3 p-4">
-        <SheetTitle className="text-sm font-semibold text-ink-bright">
-          Reset the push key?
-        </SheetTitle>
-        <p className="text-xs text-ink-dim">
+      <SheetContent side="bottom" className="p-4">
+        <ConfirmCard
+          surface="bare"
+          title="Reset the push key?"
+          titleAs={SheetTitle}
+          notice={refusal}
+          cancel={{
+            label: 'Cancel',
+            onClick: () => {
+              onOpenChange(false);
+            },
+          }}
+          confirm={{
+            disabled: pending,
+            label: 'Reset',
+            onClick: onConfirm,
+            variant: 'destructiveOutline',
+          }}
+        >
           Every device stops receiving notifications until its console is opened again, and then
           subscribes again.
-        </p>
-        {refusal !== undefined && <p className="text-xs text-attention-foreground">{refusal}</p>}
-        <div className="flex justify-end gap-2">
-          <SheetClose render={<ActionButton size="sm" variant="outline" />}>Cancel</SheetClose>
-          <ActionButton
-            size="sm"
-            variant="destructiveOutline"
-            disabled={pending}
-            onClick={onConfirm}
-          >
-            Reset
-          </ActionButton>
-        </div>
+        </ConfirmCard>
       </SheetContent>
     </Sheet>
   );

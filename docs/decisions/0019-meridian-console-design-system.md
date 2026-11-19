@@ -1170,3 +1170,27 @@ and focus fell to the document. This refinement places it.
   request, so it never moves focus to the main region.
 - A walkthrough without a mark is unchanged: Close replaces its history
   entry and leaves focus to the dialog.
+
+## Refinement (2026-11-19, MMR-734): one shape for a yes-or-no ask
+
+A yes-or-no ask uses `ConfirmCard` (`components/ui/confirm-card.tsx`): a
+title, a sentence or two on what the choice means, an optional answer line, and
+a confirm beside its way out, the way out first.
+
+- **Two surfaces.** `bare` is the body of a Sheet, Dialog, or Popover, whose
+  title component names the dialog. `card` stands on a page as a region named
+  by its title. A confirm of an action stays a modal dialog, as above, so it
+  uses `bare`. `card` is only for a suggestion the page offers, such as the
+  review page's notifications card, never for confirming a destructive
+  action.
+- **Buttons.** The confirm defaults to the solid action and the way out to an
+  outline. A destructive confirm passes the destructive outline. A card on a
+  page that already has its one solid button passes an outline confirm.
+- **The answer line** is bright ink at medium weight, in a polite live region.
+  It never takes the attention violet, which stays with the needs-you set.
+- **Density** follows the surface: `default` on a card, `sm` in a sheet or
+  dialog footer.
+
+The push key reset sheet uses it. Moving the stop-run dialog and the inline
+Unpair confirm onto it waits on a set of input patterns chosen by the kind of
+input (MMR-736).
