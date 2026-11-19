@@ -920,8 +920,9 @@ page's wording and a link to Settings › Notifications, until Close or until
 the review page is left. Storage that cannot be read counts as unanswered, so
 the card can show again rather than never. An iPhone in Safari outside the
 Home Screen app gets no card: Settings › Notifications explains that step.
-Turn on and Not now are disabled while the console is offline. When an answer
-removes the card, focus moves to the page's `<main>`.
+Turn on and Not now are disabled while the console is offline. While Turn on
+runs, focus stays on the card; Close takes focus when it appears. When an
+answer removes the card, focus moves to the page's `<main>`.
 
 The card is the console's `ConfirmCard` (ADR 0019's MMR-734 refinement). Its
 Turn on is an outline, because the page's one solid button belongs to Needs

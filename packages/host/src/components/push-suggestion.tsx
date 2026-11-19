@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { focusMain } from '../lib/focus-main';
 import { couldSuggestTurningOn, suggestsTurningOn } from '../lib/push-this-device';
@@ -36,6 +36,7 @@ export function PushSuggestion({ offline }: { offline: boolean }) {
 function PushSuggestionCard({ offline }: { offline: boolean }) {
   const control = usePushControl();
   const [answer, setAnswer] = useState<Answer>('open');
+  const frame = useRef<HTMLElement>(null);
   const { busy, notice } = control;
   const answered = answer !== 'open';
   const gone = answer === 'gone' || (answer === 'turning_on' && !busy && notice === undefined);
@@ -57,6 +58,7 @@ function PushSuggestionCard({ offline }: { offline: boolean }) {
     }
     return (
       <ConfirmCard
+        ref={frame}
         title={TITLE}
         // Needs you leads the page, so the suggestion takes no solid button (ADR 0019 §1).
         confirm={{
@@ -67,6 +69,8 @@ function PushSuggestionCard({ offline }: { offline: boolean }) {
             // Called from the click itself: the permission prompt needs the user's activation.
             // Turn on records the answer in this browser.
             void control.turnOn();
+            // The buttons leave while it runs: keep focus in the card.
+            frame.current?.focus();
           },
           variant: 'outline',
         }}
@@ -88,6 +92,7 @@ function PushSuggestionCard({ offline }: { offline: boolean }) {
   // Turning on: the card stays while it runs, and afterwards only to say why it did not work.
   return (
     <ConfirmCard
+      ref={frame}
       title={TITLE}
       notice={
         notice !== undefined && (
@@ -104,7 +109,7 @@ function PushSuggestionCard({ offline }: { offline: boolean }) {
               )}
             </span>
             <Link to="/settings/notifications" className="text-accent underline">
-              Open Settings › Notifications
+              Turn on in Settings › Notifications
             </Link>
           </p>
         )
@@ -113,6 +118,7 @@ function PushSuggestionCard({ offline }: { offline: boolean }) {
         busy
           ? undefined
           : {
+              autoFocus: true,
               label: 'Close',
               onClick: () => {
                 setAnswer('gone');

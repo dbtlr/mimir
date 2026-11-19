@@ -19,6 +19,7 @@ import { PushHealer } from '../components/push-healer';
 import { HEAL_WAIT_MS, healThisBrowser } from '../lib/push-actions';
 import { createPushBrowser } from '../lib/push-browser';
 import type { BrowserSubscription, PushBrowser } from '../lib/push-browser';
+import { resetRefusalText } from '../lib/push-text';
 import { PushBrowserContext } from '../lib/use-push-browser';
 import { consoleRoutes } from '../router';
 import {
@@ -892,6 +893,18 @@ describe('Reset push key', () => {
     expect(sheet).toHaveTextContent('Every device stops receiving notifications');
     await userEvent.click(within(sheet).getByRole('button', { name: 'Cancel' }));
     expect(resetPushKey).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Reset the push key?' })).toBeNull();
+    });
+  });
+
+  it('keeps the sheet open with the reason when the host refuses', async () => {
+    await open('phone', { world: { devices: [other], reset: { state: 'unconfigured' } } });
+    await confirmReset();
+    const sheet = await screen.findByRole('dialog', { name: 'Reset the push key?' });
+    await waitFor(() => {
+      expect(sheet).toHaveTextContent(resetRefusalText({ state: 'unconfigured' }) ?? '');
+    });
   });
 
   it('resets once confirmed', async () => {

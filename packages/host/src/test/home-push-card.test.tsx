@@ -9,7 +9,7 @@ import type { PushStatus } from '../api/fns/push';
 import type { PushBrowser } from '../lib/push-browser';
 import { PushBrowserContext } from '../lib/use-push-browser';
 import { consoleRoutes } from '../router';
-import { fakeBrowser, IPHONE, servePush } from './push-fns';
+import { CONSOLE_ORIGIN, fakeBrowser, IPHONE, servePush } from './push-fns';
 import type { FakeBrowser } from './push-fns';
 import { renderRoute } from './router';
 import { failShellReads, serveShell } from './shell-fns';
@@ -164,7 +164,7 @@ describe('the notifications card on Home (MMR-734)', () => {
     const shown = await screen.findByRole('region', { name: CARD });
     await within(shown).findByText(/Notifications were not turned on/);
     expect(
-      within(shown).getByRole('link', { name: 'Open Settings › Notifications' }),
+      within(shown).getByRole('link', { name: 'Turn on in Settings › Notifications' }),
     ).toHaveAttribute('href', '/settings/notifications');
     expect(within(shown).queryByRole('button', { name: 'Turn on' })).toBeNull();
 
@@ -203,6 +203,36 @@ describe('the notifications card on Home (MMR-734)', () => {
     expect(document.activeElement).toBe(screen.getByRole('main'));
   });
 
+  it('stays up with no way out while Turn on runs, keeping focus in the card', async () => {
+    const browser = fakeBrowser();
+    await openHome(browser);
+    const pending = Promise.withResolvers<{ state: 'subscribed' }>();
+    vi.mocked(subscribePush).mockReturnValue(pending.promise);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Turn on' }));
+    const shown = await screen.findByRole('region', { name: CARD });
+    await within(shown).findByText('Turning notifications on…');
+    expect(within(shown).queryByRole('button')).toBeNull();
+    expect(shown.contains(document.activeElement)).toBe(true);
+
+    vi.mocked(subscribePush).mockRejectedValue(new Error('unreachable'));
+    pending.reject(new Error('unreachable'));
+    const close = await within(shown).findByRole('button', { name: 'Close' });
+    expect(document.activeElement).toBe(close);
+  });
+
+  it('shows the address a wrong-origin refusal names', async () => {
+    const browser = fakeBrowser();
+    const { world } = await openHome(browser);
+    world.subscribe = { state: 'wrong_origin' };
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Turn on' }));
+    const shown = await screen.findByRole('region', { name: CARD });
+    await expect(
+      within(shown).findByRole('link', { name: CONSOLE_ORIGIN }),
+    ).resolves.toHaveAttribute('href', CONSOLE_ORIGIN);
+  });
+
   it('shows why Turn on failed', async () => {
     const browser = fakeBrowser();
     await openHome(browser);
@@ -212,7 +242,7 @@ describe('the notifications card on Home (MMR-734)', () => {
     const shown = await screen.findByRole('region', { name: CARD });
     await within(shown).findByText("This browser couldn't turn notifications on. Try again.");
     expect(
-      within(shown).getByRole('link', { name: 'Open Settings › Notifications' }),
+      within(shown).getByRole('link', { name: 'Turn on in Settings › Notifications' }),
     ).toBeDefined();
   });
 

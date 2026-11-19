@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import type { ElementType, ReactNode } from 'react';
+import type { ElementType, ReactNode, Ref } from 'react';
 
 import { cn } from '../../lib/cn';
 import { ActionButton } from './action-button';
@@ -13,6 +13,8 @@ export type ConfirmCardAction = {
   disabled?: boolean;
   /** The button's look; the confirm defaults to the solid action, the cancel to the outline. */
   variant?: ActionButtonProps['variant'];
+  /** Take focus when the button appears, as a way out that replaces the button just pressed. */
+  autoFocus?: boolean;
 };
 
 export type ConfirmCardProps = {
@@ -38,11 +40,13 @@ export type ConfirmCardProps = {
   /** Button density; defaults to `default` on a card and `sm` in a sheet or dialog footer. */
   size?: ActionButtonProps['size'];
   className?: string;
+  /** The `card` frame, which can take focus (tabIndex -1) while its buttons are gone. */
+  ref?: Ref<HTMLElement>;
 };
 
 /** One action's button, in its own look or the card's default for its place. */
 function ActionOf({
-  action: { disabled, label, onClick, variant },
+  action: { autoFocus, disabled, label, onClick, variant },
   look,
   size,
 }: {
@@ -51,7 +55,14 @@ function ActionOf({
   size: ActionButtonProps['size'];
 }) {
   return (
-    <ActionButton size={size} variant={variant ?? look} disabled={disabled} onClick={onClick}>
+    <ActionButton
+      size={size}
+      variant={variant ?? look}
+      disabled={disabled}
+      // oxlint-disable-next-line jsx-a11y/no-autofocus -- a way out that replaces the pressed button keeps focus in the card
+      autoFocus={autoFocus}
+      onClick={onClick}
+    >
       {label}
     </ActionButton>
   );
@@ -75,21 +86,13 @@ export function ConfirmCard({
   surface = 'card',
   size,
   className,
+  ref,
 }: ConfirmCardProps) {
   const titleId = useId();
   const standalone = surface === 'card';
   const density = size ?? (standalone ? 'default' : 'sm');
-  const Frame = standalone ? 'section' : 'div';
-  return (
-    <Frame
-      aria-labelledby={standalone ? titleId : undefined}
-      className={cn(
-        'flex flex-col gap-3',
-        standalone && cardVariants(),
-        standalone && 'p-4',
-        className,
-      )}
-    >
+  const body = (
+    <>
       <Title id={titleId} className="text-sm font-semibold text-ink-bright">
         {title}
       </Title>
@@ -103,6 +106,19 @@ export function ConfirmCard({
           {confirm !== undefined && <ActionOf action={confirm} size={density} look="action" />}
         </div>
       )}
-    </Frame>
+    </>
+  );
+  if (!standalone) {
+    return <div className={cn('flex flex-col gap-3', className)}>{body}</div>;
+  }
+  return (
+    <section
+      ref={ref}
+      tabIndex={-1}
+      aria-labelledby={titleId}
+      className={cn('flex flex-col gap-3 p-4', cardVariants(), className)}
+    >
+      {body}
+    </section>
   );
 }
