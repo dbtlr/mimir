@@ -87,11 +87,12 @@ export function servePush(world: Partial<PushWorld> = {}): PushWorld {
     return { state: 'unsubscribed' };
   });
   vi.mocked(sendTestPush).mockImplementation(async () => state.sendTest);
-  // A reset serves the new key and leaves every row on the old one, as in production.
+  // A reset serves the new key and deletes every row made for another key, as in
+  // production; the new key is fresh, so that is every row.
   vi.mocked(resetPushKey).mockImplementation(async () => {
     if (state.reset.state === 'reset') {
       state.status = readyWith(state.reset.publicKey);
-      state.devices = state.devices.map((row) => ({ ...row, currentKey: false }));
+      state.devices = [];
     }
     return state.reset;
   });
