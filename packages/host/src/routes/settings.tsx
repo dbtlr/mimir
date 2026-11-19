@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 import { pairedDevicesQuery, pendingPairingsQuery } from '../api/device-queries';
 import { t3StatusQuery } from '../api/t3-queries';
-import { SettingsPage } from '../components/settings-page';
+import { SETTINGS_CARD, SettingsGroup, SettingsPage } from '../components/settings-page';
 import { BUILD_VERSION } from '../lib/build-version';
 import { cn } from '../lib/cn';
 import { notificationsValue } from '../lib/push-this-device';
@@ -21,12 +21,9 @@ import { useThisDevice } from '../lib/use-this-device';
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section aria-label={title} className="flex flex-col gap-1.5">
-      <h2 className="microlabel px-1 text-ink-faint">{title}</h2>
-      <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-well-850">
-        {children}
-      </ul>
-    </section>
+    <SettingsGroup title={title}>
+      <ul className={SETTINGS_CARD}>{children}</ul>
+    </SettingsGroup>
   );
 }
 

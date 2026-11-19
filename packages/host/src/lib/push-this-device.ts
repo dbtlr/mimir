@@ -2,7 +2,6 @@ import type { PushDevice, PushDeviceList, PushStatus } from '../api/fns/push';
 import type { BrowserSnapshot, BrowserSubscription, ThisDeviceRecord } from './push-browser';
 import { sameEndpoint } from './push-endpoint';
 import { isIos } from './push-identity';
-import type { BrowserIdentity } from './push-identity';
 
 /*
  * The states of this browser's notification control (ADR 0045, MMR-711),
@@ -122,7 +121,3 @@ export function notificationsValue(state: ThisDeviceState): string {
 /** Whether the state offers this browser a Turn on button. */
 export const canTurnOn = (state: ThisDeviceState): boolean =>
   state.kind === 'off' || state.kind === 'removed';
-
-/** Whether this browser is a desktop one, which only notifies while it is running. */
-export const isDesktop = (identity: BrowserIdentity): boolean =>
-  identity.platform !== 'iPhone' && identity.platform !== 'iPad' && identity.platform !== 'Android';

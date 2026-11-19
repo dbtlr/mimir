@@ -5,8 +5,8 @@ import type {
   PushStatus,
   PushSubscribeResult,
 } from '../api/fns/push';
+import { isDesktop } from './push-identity';
 import type { BrowserIdentity } from './push-identity';
-import { isDesktop } from './push-this-device';
 import type { ThisDeviceState } from './push-this-device';
 import { ago } from './time';
 

@@ -13,6 +13,13 @@ import { cn } from '../../lib/cn';
  * risky action (Unpair, Deny, Stop), since a status hue never fills a button (ADR 0019 §1). Solid fills carry `text-well-950`, which flips near-black in dark
  * and near-white in light so the label stays legible on either theme's fill.
  */
+/**
+ * The red hairline and label of a control that ends or removes something (ADR
+ * 0019, MMR-635), on a neutral hover. A menu item that removes wears it too.
+ */
+export const DESTRUCTIVE_OUTLINE =
+  'inset-ring inset-ring-status-blocked/35 text-status-blocked-foreground hover:bg-line/50';
+
 export const actionButtonVariants = cva(
   'inline-flex items-center justify-center gap-1.5 font-semibold whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40',
   {
@@ -29,8 +36,7 @@ export const actionButtonVariants = cva(
         attention: 'bg-attention-solid text-well-950 hover:bg-attention-solid/90',
         attentionOutline:
           'inset-ring inset-ring-attention/45 text-attention-foreground hover:bg-attention/10',
-        destructiveOutline:
-          'inset-ring inset-ring-status-blocked/35 text-status-blocked-foreground hover:bg-line/50',
+        destructiveOutline: DESTRUCTIVE_OUTLINE,
         outline:
           'inset-ring inset-ring-line-bright text-ink hover:bg-line/50 hover:text-ink-bright',
       },

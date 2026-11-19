@@ -24,7 +24,7 @@ import { useOpenerFocus } from '../lib/walkthrough-mark';
  * it, a drawer. Between `md` and `lg` a record page's own 300px rail would
  * leave the content about 160px beside a 256px sidebar.
  */
-const DESKTOP = '(min-width: 1024px)';
+export const DESKTOP = '(min-width: 1024px)';
 
 /** The sidebar's width plus a gutter, so a desktop toast clears it. */
 const TOAST_OFFSET_PAST_SIDEBAR = { left: 'calc(16rem + 24px)' };

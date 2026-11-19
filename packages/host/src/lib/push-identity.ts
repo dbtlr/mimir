@@ -101,6 +101,10 @@ export function isIos(platform: Platform | null): platform is 'iPad' | 'iPhone' 
   return platform === 'iPhone' || platform === 'iPad';
 }
 
+/** Whether this browser is a desktop one, which only notifies while it is running. */
+export const isDesktop = (identity: BrowserIdentity): boolean =>
+  !isIos(identity.platform) && identity.platform !== 'Android';
+
 /** The generated label a subscription carries, at most 60 characters. */
 export function deviceLabel(identity: BrowserIdentity): string {
   const { platform, browser, installed } = identity;
