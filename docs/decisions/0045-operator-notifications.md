@@ -690,9 +690,11 @@ the record's.
 
 The host stores each endpoint as its parsed URL's `href`, so the console
 compares a browser's endpoint with a row, or with the record, after the same
-normalization; an endpoint that does not parse compares as written. A service
-worker that has not started within 5 seconds counts as holding no
-subscription, so the page reads Off and offers Turn on instead of waiting.
+normalization; an endpoint that does not parse compares as written. A read of
+the browser's subscription waits at most 5 seconds for the service worker; a
+read that runs out of time answers that the subscription is unknown, not that
+there is none. The page shows such a browser as Off and offers Turn on instead
+of waiting; the healer does nothing with it (see below).
 
 Turn on is a button in Removed and Off. Turn off and Send test notification
 are in On. Where this browser cannot act, no button shows. The sentence under
@@ -731,9 +733,11 @@ off; the page then says that this browser couldn't be turned off.
 ### The local record
 
 Each browser keeps one small record in its own storage: `on` with the endpoint
-after a successful turn on, or `removed`. Turn off clears it, as does a turn on
-the host refuses or that fails, and a heal the host refuses. The next
-successful turn on replaces it. Storage that is blocked or unreadable is no
+and the public key it subscribed with, written by a successful turn on or heal,
+or `removed`. Turn off clears it, as does a turn on the host refuses or that
+fails, and a heal the host refuses for a reason this browser causes (see
+below). The next successful turn on replaces it. A record from before the key
+was kept reads as `on` with no key. Storage that is blocked or unreadable is no
 record. The record is what lets the console tell a device that never turned
 notifications on from one that did and lost its row.
 
@@ -756,8 +760,11 @@ is `ready`. It makes one decision:
   subscribes with the served key, sends the new subscription under a label
   generated again from the browser, and removes the old endpoint from the
   host. A browser that does not report its `applicationServerKey` is judged
-  by the host's row for its endpoint: a row on the current key needs nothing,
-  a row on an old key counts as a changed key, and no row is a removal.
+  first by the key its record kept: a key other than the served one counts as
+  a changed key, so a reset that deleted its row subscribes it again. When the
+  record's key is the served one, or the record has none, the host's row for
+  its endpoint decides: a row on the current key needs nothing, a row on an
+  old key counts as a changed key, and no row is a removal.
 - **The browser replaced or dropped it.** With no subscription, the console
   subscribes again. With an endpoint other than the record's, it sends the new
   subscription. Either way it removes the record's old endpoint from the host.
@@ -766,11 +773,30 @@ is `ready`. It makes one decision:
   writes `removed`. It never subscribes again here: a Remove from another
   device must stick until the operator turns notifications on again.
 
-When the host refuses a subscription the heal sends, the console unsubscribes
-the browser and clears the record, so the page reads Off with Turn on rather
-than holding a subscription that nothing sends to. Any other failure is silent
-and changes no record, so the next load tries again. One heal runs at a time:
-a second request while one runs, such as the page's after a reset, joins it.
+The heal acts only on a subscription it could read. When the read runs out of
+time waiting for the service worker, the heal does nothing in that load, even
+if the worker starts later: taking an unknown subscription for a dropped one
+would subscribe again a browser another device removed.
+
+The host's answer to the subscription a heal sends decides what follows:
+
+- `subscribed`: the console writes the record with the new endpoint and the
+  key it used, and removes the old endpoint from the host when it differs
+  after normalization.
+- `wrong_origin`, `too_many_devices`, `endpoint_not_allowed`, or
+  `invalid_keys`: this browser causes the refusal and trying again cannot fix
+  it. The console unsubscribes the browser and clears the record, so the page
+  reads Off with Turn on rather than holding a subscription that nothing sends
+  to.
+- `stale_key`: another device reset the key during the heal. The console
+  rereads the status, subscribes with the fresh key, and sends once more, as
+  Turn on does. If that also fails, it leaves the record as it was.
+- `unconfigured`, `misconfigured`, or `key_unusable`, or a thrown failure: the
+  console leaves the record and the browser's subscription as they are, so
+  the next load adopts the subscription or subscribes again.
+
+Every failure is silent. One heal runs at a time: a second request while one
+runs, such as the page's after a reset, joins it.
 
 ### Every subscribed browser
 

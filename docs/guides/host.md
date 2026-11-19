@@ -512,7 +512,8 @@ Set these variables on the host, then restart it:
 
 Then open the console in each browser and go to Settings › Notifications. Turn
 on subscribes that browser; Send test notification checks that it arrives. The
-page lists every subscribed browser, and each can be tested or removed. On an
+page lists every subscribed browser. Each other browser can be tested or
+removed, and one subscribed under an old key can only be removed. On an
 iPhone or iPad, open the console from the Home Screen first. Open the console
 at the address `MIMIR_URL` names: the host refuses a subscription from any
 other.
