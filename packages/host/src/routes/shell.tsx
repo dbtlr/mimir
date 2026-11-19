@@ -5,15 +5,13 @@ import { AttentionAlert } from '../components/attention-alert';
 import { BrandMark } from '../components/brand-mark';
 import { JumpPalette } from '../components/jump-palette';
 import { ProjectDrawer, ProjectSidebar } from '../components/project-sidebar';
-import { PwaRefreshAction } from '../components/pwa-refresh-action';
 import { PwaUpdateBanner } from '../components/pwa-update-banner';
 import { PwaUpdateProvider } from '../components/pwa-update-provider';
 import { SeedCaptureProvider } from '../components/seed-capture';
-import { ThemeToggle } from '../components/theme-toggle';
 import { TopBarMore } from '../components/top-bar-more';
 import { VersionFooter } from '../components/version-footer';
 import { useCurrentProjectKey, useRememberCurrentProject } from '../lib/current-project';
-import { sidebarContextOf } from '../lib/project-sidebar';
+import { isSettingsPath, sidebarContextOf } from '../lib/project-sidebar';
 import { useMediaQuery } from '../lib/use-media-query';
 import { useTheme } from '../lib/use-theme';
 import { useToastPosition } from '../lib/use-toast-position';
@@ -24,12 +22,6 @@ import { useToastPosition } from '../lib/use-toast-position';
  * leave the content about 160px beside a 256px sidebar.
  */
 const DESKTOP = '(min-width: 1024px)';
-
-/**
- * Tailwind's `md`: below it the top bar is a phone's, and folds its rare
- * controls into More so the rest keep the 44px touch target (MMR-715).
- */
-const WIDE = '(min-width: 768px)';
 
 /** The sidebar's width plus a gutter, so a desktop toast clears it. */
 const TOAST_OFFSET_PAST_SIDEBAR = { left: 'calc(16rem + 24px)' };
@@ -62,9 +54,10 @@ function SkipLink() {
 
 /**
  * The app shell (ADR 0013, MMR-492 refinement): a slim top bar (brand, jump
- * palette, Needs you, theme toggle), the sidebar (the page's project, or All
- * projects outside one), and the routed surface. On a phone the update action
- * and the theme toggle sit in the top bar's More menu (MMR-715).
+ * palette, Needs you, the "…" menu), the sidebar (the page's project, Settings
+ * on its pages, or All projects outside both), and the routed surface. At every
+ * width Settings, the theme switch, and the update action sit in the "…" menu
+ * (MMR-715, MMR-733).
  */
 export function Shell() {
   return (
@@ -78,14 +71,14 @@ function ShellContent() {
   const { theme, toggle } = useTheme();
   const toastPosition = useToastPosition();
   const desktop = useMediaQuery(DESKTOP);
-  const wide = useMediaQuery(WIDE);
   useRememberCurrentProject();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   // With no project there is nothing to frame: the review page at / handles
   // creating the first one. The remembered project only decides that a project
   // exists; the sidebar's context comes from the page (MMR-505).
   const framed = useCurrentProjectKey() !== undefined;
-  const context = framed ? sidebarContextOf(pathname) : undefined;
+  // Settings is framed with no project too: pairing a device comes first.
+  const context = framed || isSettingsPath(pathname) ? sidebarContextOf(pathname) : undefined;
   const sidebarShown = context !== undefined && desktop;
   return (
     <SeedCaptureProvider>
@@ -107,14 +100,7 @@ function ShellContent() {
           <div className="ml-auto flex items-center gap-1">
             <JumpPalette />
             <AttentionAlert />
-            {wide ? (
-              <>
-                <PwaRefreshAction />
-                <ThemeToggle theme={theme} onToggle={toggle} />
-              </>
-            ) : (
-              <TopBarMore theme={theme} onToggleTheme={toggle} />
-            )}
+            <TopBarMore theme={theme} onToggleTheme={toggle} />
           </div>
         </header>
         <div className="flex min-h-0 flex-1">

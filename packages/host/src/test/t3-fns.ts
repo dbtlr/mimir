@@ -5,7 +5,7 @@ import type { T3Catalog, T3ConnectResult, T3LaunchResult, T3Status } from '../ap
 
 /*
  * The T3 server functions served from one state (ADR 0040). A test file that
- * renders the Devices page mocks the module first — `vi.mock('../api/fns/t3')`
+ * renders the Connections page mocks the module first — `vi.mock('../api/fns/t3')`
  * — then calls `serveT3`. Connect answers `connect`, by default an
  * authorization URL.
  */

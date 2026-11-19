@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { cn } from '../lib/cn';
 import { usePwaUpdate } from './pwa-update-provider';
-import { iconButtonClass } from './ui/icon-button';
-import { RefreshIcon } from './ui/icons';
 
 const STANDALONE_QUERY = '(display-mode: standalone)';
 
@@ -20,7 +17,7 @@ function useStandalone(): boolean {
   return standalone;
 }
 
-/** The manual refresh's state, shared by the top-bar button and the phone's More menu. */
+/** The manual refresh's state, shared by the top bar's "…" menu and the About page. */
 export type PwaRefresh = {
   /** False outside the installed console: there is nothing to offer. */
   shown: boolean;
@@ -62,30 +59,5 @@ export function UpdateReadyDot() {
       aria-hidden
       className="absolute top-1.5 right-1.5 size-2 rounded-full bg-action ring-2 ring-well-950"
     />
-  );
-}
-
-/** Compact manual discovery/refresh affordance for the installed console. */
-export function PwaRefreshAction() {
-  const refresh = usePwaRefresh();
-  if (!refresh.shown) {
-    return null;
-  }
-  return (
-    <button
-      type="button"
-      aria-label={refresh.label}
-      title={refresh.label}
-      disabled={refresh.disabled}
-      onClick={refresh.handleRefresh}
-      className={cn(
-        iconButtonClass,
-        refresh.ready &&
-          'bg-action/15 text-action inset-ring inset-ring-action/30 hover:bg-action/20 hover:text-action',
-      )}
-    >
-      <RefreshIcon className={cn(refresh.checking && 'animate-spin')} />
-      {refresh.ready && <UpdateReadyDot />}
-    </button>
   );
 }

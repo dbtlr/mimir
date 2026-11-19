@@ -46,3 +46,7 @@ export function MenuItem({ className, ...props }: ComponentProps<typeof Menu.Ite
     />
   );
 }
+
+export function MenuSeparator({ className, ...props }: ComponentProps<typeof Menu.Separator>) {
+  return <Menu.Separator className={cn('my-1 h-px bg-line', className)} {...props} />;
+}

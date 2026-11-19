@@ -808,3 +808,39 @@ the translucent bar it replaces let the status bar fade into the page. The
 browser chrome color (`theme-color` and the manifest's `theme_color`) is
 `well-950` too, so the status bar and the top bar read as one band. The
 manifest's `background_color` stays `well-900`, the page ground.
+
+## Refinement (2026-11-19, MMR-733): Settings is a console section
+
+The console has one Settings area. `/settings` is an index, and its pages are
+`/settings/appearance`, `/settings/devices`, `/settings/connections`, and
+`/settings/about`. `/pair` stays where it is, because `mimir pair` prints its
+URL (ADR 0038).
+
+- **The index** has two groups of rows. _This device_ holds Appearance, which
+  shows the stored choice (Light, Dark, or Match system). _Host_ holds Devices
+  (pairing requests waiting, in the attention color, else the paired count),
+  Connections (the T3 state in a word or two), and About (the console
+  version). Every row links to its page. On a desktop the index fills the main
+  column beside the sidebar.
+- **Each page** is one column no wider than 900px. Where the sidebar is not
+  beside the page (below `lg`), it opens with a "← Settings" link, then its
+  title. Devices holds the waiting and paired lists with the inline unpair
+  confirmation. Connections holds the T3 Code card and shows the callback's
+  `?t3=` outcome once; with T3 unconfigured it says that no connections are set
+  up. Appearance is a three-way choice, and Match system clears the stored pick
+  so the console follows the OS again. About shows the host and console
+  versions, the update check when the console runs installed, and a link to
+  Record health, which stays at `/doctor`.
+- **The sidebar has a third context.** On `/settings`, its pages, and `/pair`
+  it shows "← Back to work", then _This device_ (Appearance) and _Host_
+  (Devices with the waiting count, Connections, About). The current page takes
+  the selection treatment, and on `/pair` Devices is the current section. The
+  context shows with no project too. Below `lg` the same content is the drawer.
+- **Devices leaves the All projects sidebar.** It lists Work and the Projects
+  section only. `/devices` redirects to `/settings/devices`, keeping its
+  search.
+- **The "…" menu is the only top-bar control at every width.** It holds
+  Settings, a separator, the theme switch, and the update check when the
+  console runs installed. The update-ready dot stays on the "…" button. The
+  wide top bar no longer carries the update and theme icons that the MMR-715
+  refinement above kept from `md` up.

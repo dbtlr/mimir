@@ -120,8 +120,9 @@ project. On `/` and `/doctor`, which belong to no project, it frames All
 projects: the header reads **All projects** with a violet count of the
 decisions waiting across every project, and only **Work** sits under it, which
 is `/`. Choose a project in the switcher to get its outline, Tasks, Seeds, and
-Artifacts back. With no projects, there is no sidebar; the review page offers
-**New project**.
+Artifacts back. With no projects, there is no sidebar on the work pages; the
+review page offers **New project**. [Settings](#settings) pages and `/pair`
+have a sidebar either way.
 
 - **The header** names the project by key and title. When other projects have
   decisions waiting, it adds "N elsewhere" in violet. Choose it to open the
@@ -161,7 +162,38 @@ opens it. Choosing a section or record closes it. Escape or a tap outside
 also closes it and returns focus to the button.
 
 The top bar holds the Mimir brand (a link to the review page), the jump
-palette, **Needs you**, and the theme toggle.
+palette, **Needs you**, and the **…** menu. At every width, the **…** menu holds
+**Settings**, then the theme switch, then the update check when the console
+runs installed. A waiting update puts a dot on the **…** button.
+
+## Settings
+
+**Settings**, at `/settings`, is the console's one settings area. Open it from
+the **…** menu. It lists its pages in two groups, each row showing its current
+value:
+
+- **This device** holds **Appearance** (Light, Dark, or Match system). Match
+  system clears the stored pick, so the console follows the operating system
+  again. The choice is stored in this browser.
+- **Host** holds **Devices** (the pairing requests waiting, else the number
+  paired), **Connections** (the T3 Code state), and **About** (the console
+  version).
+
+On these pages and on `/pair`, the sidebar lists the same pages, with **← Back
+to work** at the top. The page you are on is marked. On `/pair` it marks
+**Devices**. On a phone the sidebar is the drawer, and each page opens with a
+**← Settings** link.
+
+- **Devices** (`/settings/devices`) lists the requests waiting to pair and the
+  paired devices, with a confirmed **Unpair**. Approve a request on `/pair` with
+  the code the device shows. The old `/devices` address opens this page.
+- **Connections** (`/settings/connections`) holds the T3 Code connection:
+  its state and **Connect T3** or **Reconnect T3**. T3's sign-in returns here
+  and reports its outcome once. With T3 not set up, the page says that no
+  connections are set up on this host.
+- **About** (`/settings/about`) shows the host and console versions, the update
+  check when the console runs installed, and a link to Record health at
+  `/doctor`.
 
 ## Browse a project's records
 

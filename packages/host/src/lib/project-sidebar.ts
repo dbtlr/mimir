@@ -11,12 +11,16 @@ import { nodeIdOf } from './record-url';
 export type SidebarSection = 'work' | 'tasks' | 'seeds' | 'artifacts';
 
 /**
- * What the sidebar frames (MMR-505): a project, on its own `/p/KEY/…` pages, or
- * All projects everywhere else (`/`, `/doctor`). The remembered project does
+ * What the sidebar frames (MMR-505): a project, on its own `/p/KEY/…` pages,
+ * Settings on `/settings`, its pages, and `/pair` (MMR-733), or All projects
+ * everywhere else (`/`, `/doctor`). The remembered project does
  * not set it; that only steers the bare `/tasks`, `/seeds`, `/artifacts`
  * redirects.
  */
-export type SidebarContext = { kind: 'all' } | { kind: 'project'; key: string };
+export type SidebarContext =
+  | { kind: 'all' }
+  | { kind: 'project'; key: string }
+  | { kind: 'settings' };
 
 const PROJECT_PATH = /^\/p\/([^/]+)(?:\/([^/]+))?\/?$/;
 const SEED_SUFFIX = /^s\d+$/;
@@ -83,8 +87,16 @@ export function openRecordId(pathname: string): string | undefined {
   return segments?.segment === undefined ? undefined : nodeIdOf(segments.key, segments.segment);
 }
 
-/** The sidebar's context for a page: its project on a project page, else All projects. */
+/** `/pair` approves a pairing request, so it belongs to Settings' Devices. */
+export function isSettingsPath(pathname: string): boolean {
+  return pathname === '/settings' || pathname.startsWith('/settings/') || pathname === '/pair';
+}
+
+/** The sidebar's context for a page: its project on a project page, Settings on its pages, else All projects. */
 export function sidebarContextOf(pathname: string): SidebarContext {
+  if (isSettingsPath(pathname)) {
+    return { kind: 'settings' };
+  }
   const key = projectSegments(pathname)?.key;
   return key === undefined ? { kind: 'all' } : { key, kind: 'project' };
 }

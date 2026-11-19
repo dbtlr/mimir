@@ -1,3 +1,4 @@
+import { QueryClient } from '@tanstack/react-query';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -6,14 +7,12 @@ import { connectT3, t3Status } from '../api/fns/t3';
 import type { T3Status } from '../api/fns/t3';
 import { leaveFor } from '../lib/leave-for';
 import { consoleRoutes } from '../router';
-import { serveDevices } from './devices-fns';
 import { renderRoute } from './router';
 import { serveT3, T3_AUTHORIZE_URL } from './t3-fns';
 import { serveViews } from './views-fns';
 
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/views');
-vi.mock('../api/fns/devices');
 vi.mock('../api/fns/t3');
 vi.mock('../lib/leave-for');
 vi.mock('sonner', () => ({ Toaster: () => null, toast: { error: vi.fn(), success: vi.fn() } }));
@@ -24,7 +23,6 @@ const HINT =
 
 beforeEach(() => {
   serveViews();
-  serveDevices();
 });
 
 afterEach(() => {
@@ -35,18 +33,56 @@ async function card() {
   return screen.findByRole('region', { name: 'T3 Code' });
 }
 
-describe('the T3 Code card (ADR 0040)', () => {
-  it('is absent while T3 is unconfigured', async () => {
+describe('the Connections page and its T3 Code card (ADR 0040, MMR-733)', () => {
+  it('says no connections are set up while T3 is unconfigured', async () => {
     serveT3({ state: 'unconfigured' });
-    const { router } = await renderRoute(consoleRoutes, '/devices?t3=connected');
-    await screen.findByRole('region', { name: 'Paired' });
-    await waitFor(() => {
-      expect(t3Status).toHaveBeenCalled();
-    });
+    const { router } = await renderRoute(consoleRoutes, '/settings/connections?t3=connected');
+    await expect(
+      screen.findByText('No connections are set up on this host.'),
+    ).resolves.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'T3 Code' })).toBeNull();
     await waitFor(() => {
       expect(router.state.location.search).toEqual({});
     });
+  });
+
+  it('keeps a callback outcome when T3 is unconfigured', async () => {
+    serveT3({ state: 'unconfigured' });
+    const { router } = await renderRoute(consoleRoutes, '/settings/connections?t3=misconfigured');
+    await expect(screen.findByRole('status')).resolves.toHaveTextContent('T3 is not set up.');
+    expect(screen.getByText('No connections are set up on this host.')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(router.state.location.search).toEqual({});
+    });
+    expect(screen.getByRole('status')).toHaveTextContent('T3 is not set up.');
+  });
+
+  it('keeps a callback outcome and goes offline when the host cannot be read', async () => {
+    vi.mocked(t3Status).mockRejectedValue(new Error('unreachable'));
+    await renderRoute(
+      consoleRoutes,
+      '/settings/connections?t3=connected',
+      new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+    );
+    await expect(screen.findByText(/Offline — last synced/)).resolves.toBeInTheDocument();
+    expect(screen.getByText('Connected.')).toBeInTheDocument();
+    expect(screen.queryByText('No connections are set up on this host.')).toBeNull();
+  });
+
+  it('keeps the last known card, without an unknown-state line, when a refetch fails', async () => {
+    serveT3({
+      expiresAt: new Date(Date.now() + 29 * DAY + 60_000).toISOString(),
+      label: 'Valhalla',
+      state: 'connected',
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    await renderRoute(consoleRoutes, '/settings/connections', client);
+    const region = await card();
+    vi.mocked(t3Status).mockRejectedValue(new Error('unreachable'));
+    await client.refetchQueries();
+    await expect(screen.findByText(/Offline — last synced/)).resolves.toBeInTheDocument();
+    expect(within(region).getByText('Connected to Valhalla. Expires in 4w.')).toBeInTheDocument();
+    expect(screen.queryByText('The host did not answer, so T3 Code is unknown.')).toBeNull();
   });
 
   it.each<[string, T3Status, string, string | undefined]>([
@@ -82,7 +118,7 @@ describe('the T3 Code card (ADR 0040)', () => {
     ['unreachable', { state: 'unreachable' }, 'T3 did not answer.', undefined],
   ])('words the %s state', async (_name, status, text, button) => {
     serveT3(status);
-    await renderRoute(consoleRoutes, '/devices');
+    await renderRoute(consoleRoutes, '/settings/connections');
     const region = await card();
     expect(within(region).getByText(text)).toBeInTheDocument();
     const buttons = within(region)
@@ -94,7 +130,7 @@ describe('the T3 Code card (ADR 0040)', () => {
 
   it('sends the browser to the authorization URL Connect answers', async () => {
     serveT3({ reason: 'none', state: 'disconnected' });
-    await renderRoute(consoleRoutes, '/devices');
+    await renderRoute(consoleRoutes, '/settings/connections');
     await userEvent.click(within(await card()).getByRole('button', { name: 'Connect T3' }));
     await waitFor(() => {
       expect(leaveFor).toHaveBeenCalledWith(T3_AUTHORIZE_URL);
@@ -104,7 +140,7 @@ describe('the T3 Code card (ADR 0040)', () => {
 
   it('shows a refused Connect in the card and stays on the page', async () => {
     serveT3({ reason: 'expired', state: 'disconnected' }, { state: 'unreachable' });
-    await renderRoute(consoleRoutes, '/devices');
+    await renderRoute(consoleRoutes, '/settings/connections');
     const region = await card();
     await userEvent.click(within(region).getByRole('button', { name: 'Reconnect T3' }));
     await expect(within(region).findByRole('alert')).resolves.toHaveTextContent(
@@ -119,7 +155,7 @@ describe('the T3 Code card (ADR 0040)', () => {
   // T3_OUTCOME_TEXT words every outcome; one outcome proves the card shows it once.
   it('shows the connected outcome once, then drops it from the URL', async () => {
     serveT3({ reason: 'none', state: 'disconnected' });
-    const { router } = await renderRoute(consoleRoutes, '/devices?t3=connected');
+    const { router } = await renderRoute(consoleRoutes, '/settings/connections?t3=connected');
     const region = await card();
     expect(within(region).getByRole('status')).toHaveTextContent('Connected.');
     await waitFor(() => {
@@ -131,7 +167,7 @@ describe('the T3 Code card (ADR 0040)', () => {
 
   it('ignores an unknown outcome', async () => {
     serveT3({ reason: 'none', state: 'disconnected' });
-    await renderRoute(consoleRoutes, '/devices?t3=<script>');
+    await renderRoute(consoleRoutes, '/settings/connections?t3=<script>');
     const region = await card();
     expect(within(region).queryByRole('status')).toBeNull();
     expect(within(region).queryByText('<script>')).toBeNull();

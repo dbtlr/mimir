@@ -30,6 +30,9 @@ import { StatusDot } from './status-dot';
 import { SearchIcon } from './ui/icons';
 import { PopoverContent, PopoverRoot, PopoverTrigger } from './ui/popover';
 
+/** The picker heads the project and All projects contexts; Settings has none. */
+type WorkContext = Exclude<SidebarContext, { kind: 'settings' }>;
+
 const NewProjectSheet = lazySheet(
   async () => (await import('./new-project-sheet')).NewProjectSheet,
 );
@@ -53,7 +56,7 @@ export function ProjectPicker({
   context,
   onNavigate,
 }: {
-  context: SidebarContext;
+  context: WorkContext;
   /** Called when a pick moves the page, so a drawer can close behind it. */
   onNavigate?: () => void;
 }) {
@@ -217,7 +220,7 @@ function SwitcherPanel({
   onPick,
   onNew,
 }: {
-  context: SidebarContext;
+  context: WorkContext;
   needsYou: ReadonlyMap<string, number>;
   /** The needs-you count across every project. */
   everywhere: number;

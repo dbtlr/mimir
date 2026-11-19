@@ -42,7 +42,7 @@ import type {
 import { parseWakeInput, sinceBefore, wakeMessage } from './t3-wake';
 
 /*
- * The T3 Code adapter (ADR 0040): Connect, its callback, the Devices page's
+ * The T3 Code adapter (ADR 0040): Connect, its callback, the Connections page's
  * status, one project's launch catalog, a task's launch, and the Open in T3
  * origin. It reaches work state only through the Engine and its credential
  * only through the host-secret store, and it re-reads T3 on every call
@@ -524,7 +524,7 @@ export function createT3Adapter(options: T3AdapterOptions) {
     return new Response(null, {
       headers: {
         'cache-control': 'no-store',
-        location: `/devices?t3=${reason}`,
+        location: `/settings/connections?t3=${reason}`,
         'referrer-policy': 'no-referrer',
       },
       status: 303,
@@ -817,7 +817,7 @@ export function createT3Adapter(options: T3AdapterOptions) {
     /**
      * `GET /auth/t3/callback`: consume the pending authorization `state`
      * names, check `iss`, exchange the code, and seal the grant as
-     * `t3.oauth`. Every outcome redirects to `/devices?t3=<reason>`; only
+     * `t3.oauth`. Every outcome redirects to `/settings/connections?t3=<reason>`; only
      * `connected` writes.
      */
     callback: async (request: Request): Promise<Response> => {
@@ -923,7 +923,7 @@ export function createT3Adapter(options: T3AdapterOptions) {
       origin: settings.enabled && settings.url !== undefined ? settings.url : null,
     }),
 
-    /** The Devices page's read: the configured server's label and the token's expiry. */
+    /** The Connections page's read: the configured server's label and the token's expiry. */
     status: async (requestOrigin: string): Promise<T3Status> => {
       const setup = ready();
       if ('state' in setup) {

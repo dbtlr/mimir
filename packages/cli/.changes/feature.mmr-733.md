@@ -1,0 +1,1 @@
+- Add a Settings area to the console, opened from the "…" menu at every width. Appearance, Devices, Connections, and About are its pages. Devices and the T3 Code connection moved into it, so `/devices` now opens `/settings/devices`, and the T3 sign-in returns to `/settings/connections`. Appearance can follow the system theme again with Match system.

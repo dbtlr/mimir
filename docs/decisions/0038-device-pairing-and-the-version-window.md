@@ -497,3 +497,12 @@ meets a value it does not know. CLIs through v0.28 failed on `staged`, so
 MMR-675 raised `MIN_CLIENT` to `0.29.0-next`. From that version the CLI renders
 an unknown status word with a fallback style. Before treating a new value as
 safe, check every other closed vocabulary a client reads.
+
+## Refinement (2026-11-19, MMR-733): the Devices list is in Settings
+
+The list of waiting requests and paired devices moved from `/devices` to
+`/settings/devices` (ADR 0013, MMR-733), with the inline unpair confirmation
+unchanged. `/devices` redirects there and keeps its search. `/pair` stays at its
+path and keeps its `?code=` parameter, so the URL `mimir pair` prints still
+works. On `/pair` the Settings sidebar shows Devices as the current section,
+and the page's "Manage devices" links go to `/settings/devices`.

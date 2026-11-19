@@ -26,7 +26,7 @@ type ToastOptions = {
 
 function announce(wake: T3WakeState, origin: string | null = ORIGIN) {
   const context = {
-    openDevices: vi.fn(),
+    openConnections: vi.fn(),
     origin,
     reconnect: vi.fn(),
     retry: vi.fn(),
@@ -78,7 +78,7 @@ describe('announceWake (ADR 0040, the wake)', () => {
     expect(context.reconnect).toHaveBeenCalledOnce();
   });
 
-  it('misconfigured: links to Devices', () => {
+  it('misconfigured: links to Connections', () => {
     const context = announce({
       problem: 'missing',
       setting: 'MIMIR_SECRET_KEY',
@@ -86,9 +86,9 @@ describe('announceWake (ADR 0040, the wake)', () => {
     });
     const { message, options } = warned();
     expect(message).toBe('Saved. The T3 thread was not told: T3 is not set up correctly.');
-    expect(options?.action?.label).toBe('Devices');
+    expect(options?.action?.label).toBe('Connections');
     options?.action?.onClick();
-    expect(context.openDevices).toHaveBeenCalledOnce();
+    expect(context.openConnections).toHaveBeenCalledOnce();
   });
 
   it('refused: names full access, opens the refused thread, and offers Reconnect T3', () => {

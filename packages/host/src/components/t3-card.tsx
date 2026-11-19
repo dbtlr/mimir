@@ -7,13 +7,13 @@ import { until } from '../lib/time';
 import { ActionButton } from './ui/action-button';
 
 /*
- * The Devices page's T3 Code card (ADR 0040): the connection's state and the
+ * The Connections page's T3 Code card (ADR 0040): the connection's state and the
  * Connect and Reconnect controls. It is absent while T3 is unconfigured. The
  * card words every state and callback outcome itself and never shows text
  * from T3.
  */
 
-/** How the card words each callback outcome from `/devices?t3=<reason>`. */
+/** How the card words each callback outcome from `/settings/connections?t3=<reason>`. */
 export const T3_OUTCOME_TEXT: Record<T3CallbackReason, string> = {
   connected: 'Connected.',
   denied: 'You declined on T3.',

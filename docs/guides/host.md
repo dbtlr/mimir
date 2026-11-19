@@ -450,7 +450,7 @@ The console approves and unpairs devices without a shell on the host.
    warns that approving replaces its token. After approval, the device finishes
    pairing on its next poll.
 
-`/devices` lists the requests that are waiting and the devices that are paired,
+`/settings/devices` lists the requests that are waiting and the devices that are paired,
 with when each was last used. A request's code is stored hashed, so the list
 cannot show it. Decide on `/pair` with the code the device displays. Select
 **Unpair** on a paired device and confirm to revoke its token at once. The
@@ -479,11 +479,11 @@ stored in the store, encrypted under a secret key that you keep outside it.
    - `MIMIR_URL`, as an HTTPS origin, unless you open the console only on
      loopback. T3 returns the browser only to an HTTPS or loopback address.
 
-3. Open `/devices` in the console. The **T3 Code** card shows the connection's
+3. Open **Settings**, then **Connections** (`/settings/connections`), in the console. The **T3 Code** card shows the connection's
    state. When a setting is wrong, the card names it.
 4. Select **Connect T3**. On T3's screen, approve the connection and pick full
    access if threads that Mimir launches should run without approval prompts.
-   T3 returns you to `/devices`, which reports the outcome.
+   T3 returns you to `/settings/connections`, which reports the outcome.
 
 A connection lasts 30 days. When it expires, or T3 stops accepting it, the
 card says so: select **Reconnect T3** and approve again. Changing the secret

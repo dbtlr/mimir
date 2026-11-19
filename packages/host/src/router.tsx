@@ -329,23 +329,83 @@ export const pairRoute = createRoute({
   }),
 });
 
-export type DevicesSearch = {
+/** `/settings` — the index of the console's settings pages (MMR-733). */
+export const settingsRoute = createRoute({
+  component: lazyRouteComponent(
+    warmable(async () => import('./routes/settings')),
+    'SettingsIndexPage',
+  ),
+  getParentRoute: () => rootRoute,
+  path: '/settings',
+});
+
+/** `/settings/appearance` — Light, Dark, or Match system. */
+export const appearanceRoute = createRoute({
+  component: lazyRouteComponent(
+    warmable(async () => import('./routes/settings-appearance')),
+    'AppearancePage',
+  ),
+  getParentRoute: () => rootRoute,
+  path: '/settings/appearance',
+});
+
+/** `/settings/devices` — the requests waiting on the operator and the paired devices (MMR-585). */
+export const devicesRoute = createRoute({
+  component: lazyRouteComponent(
+    warmable(async () => import('./routes/settings-devices')),
+    'DevicesPage',
+  ),
+  getParentRoute: () => rootRoute,
+  path: '/settings/devices',
+});
+
+export type ConnectionsSearch = {
   /** The T3 Connect outcome the callback redirected with (ADR 0040); unknown values are dropped. */
   t3?: T3CallbackReason;
 };
 
-/** `/devices` — the requests waiting on the operator and the paired devices (MMR-585). */
-export const devicesRoute = createRoute({
+/** `/settings/connections` — the T3 Code connection, and where its callback lands. */
+export const connectionsRoute = createRoute({
   component: lazyRouteComponent(
-    warmable(async () => import('./routes/devices')),
-    'DevicesPage',
+    warmable(async () => import('./routes/settings-connections')),
+    'ConnectionsPage',
   ),
   getParentRoute: () => rootRoute,
-  path: '/devices',
+  path: '/settings/connections',
   // Named even when absent: the router keeps a raw parameter a validator leaves out.
-  validateSearch: (search: Record<string, unknown>): DevicesSearch => ({
+  validateSearch: (search: Record<string, unknown>): ConnectionsSearch => ({
     t3: T3_CALLBACK_REASONS.find((known) => known === search.t3),
   }),
+});
+
+/** `/settings/about` — host and console versions, the update check, and a way to Record health. */
+export const aboutRoute = createRoute({
+  component: lazyRouteComponent(
+    warmable(async () => import('./routes/settings-about')),
+    'AboutPage',
+  ),
+  getParentRoute: () => rootRoute,
+  path: '/settings/about',
+});
+
+/**
+ * `/devices` moved into Settings (MMR-733). An old link lands on
+ * `/settings/devices`, query kept; one carrying a T3 outcome (`t3`) lands on
+ * `/settings/connections`, which is where that outcome is shown.
+ */
+export const legacyDevicesRoute = createRoute({
+  beforeLoad: ({ search }) => {
+    const t3 = T3_CALLBACK_REASONS.find((known) => known === search.t3);
+    if (t3 !== undefined) {
+      // oxlint-disable-next-line typescript/only-throw-error -- the router's redirect contract
+      throw redirect({ replace: true, search: { t3 }, to: '/settings/connections' });
+    }
+    // oxlint-disable-next-line typescript/only-throw-error -- the router's redirect contract
+    throw redirect({ replace: true, search: true, to: '/settings/devices' });
+  },
+  getParentRoute: () => rootRoute,
+  path: '/devices',
+  validateSearch: (search: Record<string, unknown>): Record<string, unknown> => search,
 });
 
 export type SeedsSearch = {
@@ -472,7 +532,12 @@ export const consoleRoutes = [
   legacyTasksRoute,
   doctorRoute,
   pairRoute,
+  settingsRoute,
+  appearanceRoute,
   devicesRoute,
+  connectionsRoute,
+  aboutRoute,
+  legacyDevicesRoute,
   ...devRoutes,
   notFoundRoute,
 ] as const;

@@ -94,11 +94,11 @@ describe('the launch control (ADR 0040)', () => {
     await expect(screen.findByRole('button', { name: 'Launch in T3…' })).resolves.toBeDisabled();
   });
 
-  it('names the setting and links to Devices when misconfigured', async () => {
+  it('names the setting and links to Connections when misconfigured', async () => {
     await show({ problem: 'not HTTPS', setting: 'MIMIR_URL', state: 'misconfigured' });
-    await expect(screen.findByRole('link', { name: 'Devices' })).resolves.toHaveAttribute(
+    await expect(screen.findByRole('link', { name: 'Connections' })).resolves.toHaveAttribute(
       'href',
-      '/devices',
+      '/settings/connections',
     );
     const button = screen.getByRole('button', { name: /Launch in T3/ });
     expect(button).toBeDisabled();
