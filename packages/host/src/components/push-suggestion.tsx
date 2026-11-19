@@ -53,7 +53,11 @@ function PushSuggestionCard({ offline }: { offline: boolean }) {
   }
 
   if (answer === 'open') {
-    if (!suggestsTurningOn(control.state, control.browser.snapshot())) {
+    // Read the answer again: another tab may have answered while the host's status loaded.
+    if (
+      control.browser.suggestionAnswered() ||
+      !suggestsTurningOn(control.state, control.browser.snapshot())
+    ) {
       return null;
     }
     return (

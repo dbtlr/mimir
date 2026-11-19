@@ -129,6 +129,21 @@ describe('the notifications card on Home (MMR-734)', () => {
     expect(pushStatus).not.toHaveBeenCalled();
   });
 
+  it('stays away when another tab answers it before the host replies', async () => {
+    const browser = fakeBrowser();
+    stubViewport('desktop');
+    servePush();
+    const reply = Promise.withResolvers<PushStatus>();
+    vi.mocked(pushStatus).mockReturnValue(reply.promise);
+    await renderRoute(consoleRoutes, '/', new QueryClient(), provide(browser));
+    await screen.findByRole('heading', { level: 1, name: /needs you/i });
+
+    browser.answerSuggestion();
+    reply.resolve({ consoleOrigin: CONSOLE_ORIGIN, publicKey: 'BKey', state: 'ready' });
+    await settle();
+    expect(card()).toBeNull();
+  });
+
   it('Not now retires the card in this browser', async () => {
     const browser = fakeBrowser();
     const { view } = await openHome(browser);

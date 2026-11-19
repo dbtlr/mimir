@@ -1194,4 +1194,3 @@ a confirm beside its way out, the way out first.
 The push key reset sheet uses it. Moving the stop-run dialog and the inline
 Unpair confirm onto it waits on a set of input patterns chosen by the kind of
 input (MMR-736).
-
