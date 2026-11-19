@@ -166,7 +166,9 @@ export const resetKey = async () => resetPushKey();
  * so this browser reads Off rather than holding a subscription nothing sends
  * to. A stale key rereads the status and tries once more with the fresh key.
  * Any other answer, and a thrown failure, changes no record and keeps the
- * subscription, so the next load adopts or subscribes again.
+ * subscription, so the next load adopts or subscribes again. On `subscribed`
+ * the record's old endpoint leaves the host before the record names the new
+ * one; a removal that fails leaves the record as it was.
  */
 export async function applyHeal(
   browser: PushBrowser,
@@ -216,11 +218,12 @@ export async function applyHeal(
       if (sent.answer.state !== 'subscribed') {
         return;
       }
-      browser.writeRecord(onRecord(sent));
+      // The old endpoint goes first: until it does, the record keeps naming it, so the next load adopts and removes it again.
       const old = action.kind === 'adopt' ? action.staleEndpoint : staleEndpoint;
       if (old !== undefined && !sameEndpoint(old, sent.made.endpoint)) {
         await unsubscribePush({ data: { endpoint: old } });
       }
+      browser.writeRecord(onRecord(sent));
       return;
     }
     default: {

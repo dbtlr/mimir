@@ -978,6 +978,26 @@ describe('healing when the console opens', () => {
     });
   });
 
+  it('keeps the old endpoint in the record until the host removes it, and removes it on the next heal', async () => {
+    const stale = 'https://push.example/replaced';
+    const browser = fakeBrowser({
+      held: SUBSCRIPTION,
+      permission: 'granted',
+      record: { endpoint: stale, serverKey: SERVED_KEY, state: 'on' },
+    });
+    const world = servePush({ devices: [device({ endpoint: stale })] });
+    vi.mocked(unsubscribePush).mockRejectedValueOnce(new Error('offline'));
+    await healThisBrowser(browser, READY, listed(world), readStatus);
+    expect(browser.record).toStrictEqual({ endpoint: stale, serverKey: SERVED_KEY, state: 'on' });
+    await healThisBrowser(browser, READY, listed(world), readStatus);
+    expect(world.devices.map(({ endpoint }) => endpoint)).toStrictEqual([SUBSCRIPTION.endpoint]);
+    expect(browser.record).toStrictEqual({
+      endpoint: SUBSCRIPTION.endpoint,
+      serverKey: SERVED_KEY,
+      state: 'on',
+    });
+  });
+
   it('stays off when the host no longer lists it', async () => {
     const browser = onBrowser();
     await mountHealer(browser, { devices: [] });
