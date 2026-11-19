@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 
-import { precacheUrls } from './pwa-fixture';
+import { BUILD_B_VERSION, precacheUrls } from './pwa-fixture';
 import { test } from './pwa-worker';
 
 test.describe.configure({ mode: 'serial' });
@@ -41,7 +41,7 @@ test('two builds defer updates per tab and preserve offline operation', async ({
   await pageB.getByRole('button', { name: 'Refresh now' }).click();
   await expect(pageB.getByTestId('console-version')).toHaveAttribute(
     'title',
-    /console 0\.26\.0-next\.2/,
+    new RegExp(`console ${BUILD_B_VERSION.replaceAll('.', String.raw`\.`)}`),
   );
   await test.step('the deferred tab preserves input and adopts build B explicitly', async () => {
     await expect(title).toHaveValue('Unsaved operator work');
@@ -54,7 +54,7 @@ test('two builds defer updates per tab and preserve offline operation', async ({
     await pageA.getByRole('button', { name: 'Refresh now' }).click();
     await expect(pageA.getByTestId('console-version')).toHaveAttribute(
       'title',
-      /console 0\.26\.0-next\.2/,
+      new RegExp(`console ${BUILD_B_VERSION.replaceAll('.', String.raw`\.`)}`),
     );
   });
 
@@ -110,7 +110,7 @@ test('two builds defer updates per tab and preserve offline operation', async ({
     await pageA.reload();
     const mismatch = pageA.getByRole('button', { name: 'refresh console' });
     await expect(mismatch).toBeVisible();
-    fixture.setHealthVersion('0.26.0-next.2');
+    fixture.setHealthVersion(BUILD_B_VERSION);
     await mismatch.click();
     await expect(pageA.getByRole('button', { name: 'refresh console' })).toHaveCount(0);
   });

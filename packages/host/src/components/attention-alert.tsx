@@ -5,6 +5,7 @@ import type { MouseEvent, ReactNode } from 'react';
 
 import { needsYouId, reviewQuery } from '../api/view-queries';
 import type { ReviewReport } from '../api/view-queries';
+import { useAppBadge } from '../lib/app-badge';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { nodeIdOf } from '../lib/record-url';
@@ -172,6 +173,8 @@ export function AttentionAlert() {
 
   const report = review.data;
   const count = report?.queue.length ?? 0;
+  // The installed app's icon carries the same count as the pill (MMR-710).
+  useAppBadge(report?.queue.length);
   if (report === undefined || (count === 0 && !open)) {
     return null;
   }

@@ -6,10 +6,35 @@ import tailwindcss from '@tailwindcss/vite';
 import { tanstackStart } from '@tanstack/react-start/plugin/vite';
 import react from '@vitejs/plugin-react';
 import { nitro } from 'nitro/vite';
-import { searchForWorkspaceRoot } from 'vite';
+import { build as viteBuild, searchForWorkspaceRoot } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 import { WELL_900, WELL_950 } from './src/lib/theme-colors.ts';
+
+const PUSH_WORKER_FILE = 'sw-push.js';
+
+/**
+ * Compile the worker's push handlers to one classic script in the public
+ * output, for the generated worker to import. It runs before Workbox so the
+ * precache lists the file.
+ */
+async function buildPushWorker(): Promise<void> {
+  await viteBuild({
+    build: {
+      emptyOutDir: false,
+      lib: {
+        entry: fileURLToPath(new URL('src/sw/push-entry.ts', import.meta.url)),
+        fileName: () => PUSH_WORKER_FILE,
+        formats: ['iife'],
+        name: 'MimirPushWorker',
+      },
+      outDir: '.output/public',
+      sourcemap: false,
+    },
+    configFile: false,
+    publicDir: false,
+  });
+}
 
 /**
  * The PWA layer is app-shell only — precache the shell so the installed app
@@ -43,6 +68,10 @@ const pwaPlugins = VitePWA({
     // Keep these explicit: brace expansion is dependency-sensitive and a
     // failed expansion silently reduced the cache to includeAssets only.
     globPatterns: ['**/*.css', '**/*.html', '**/*.js', '**/*.woff2'],
+    // The push and notificationclick handlers (MMR-710), compiled to the
+    // public root by buildPushWorker. importScripts is not a navigation, so
+    // navigateFallback never touches it, and the precache keeps it versioned.
+    importScripts: [PUSH_WORKER_FILE],
     // Server routes (the /api tombstone included) are never the app shell.
     navigateFallback: '/_shell.html',
     navigateFallbackDenylist: [/^\/(api|auth|trpc|_serverFn|health)([/?]|$)/],
@@ -91,6 +120,7 @@ export default defineConfig({
     {
       buildApp: {
         async handler(builder) {
+          await buildPushWorker();
           await pwaPlugins[0]?.api?.generateSW();
           // Nitro indexes public files while bundling. Refresh that index after
           // Start's shell and Workbox's worker have been written.
