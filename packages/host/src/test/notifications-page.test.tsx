@@ -13,11 +13,12 @@ import {
   subscribePush,
   unsubscribePush,
 } from '../api/fns/push';
-import { pushDevicesQuery } from '../api/push-queries';
+import type { PushStatus } from '../api/fns/push';
+import { pushDevicesQuery, pushStatusQuery } from '../api/push-queries';
 import { PushHealer } from '../components/push-healer';
-import { healThisBrowser } from '../lib/push-actions';
+import { HEAL_WAIT_MS, healThisBrowser } from '../lib/push-actions';
 import { createPushBrowser } from '../lib/push-browser';
-import type { PushBrowser } from '../lib/push-browser';
+import type { BrowserSubscription, PushBrowser } from '../lib/push-browser';
 import { PushBrowserContext } from '../lib/use-push-browser';
 import { consoleRoutes } from '../router';
 import {
@@ -302,6 +303,61 @@ describe('Turn on', () => {
     expect(browser.record).toStrictEqual({ endpoint, serverKey: SERVED_KEY, state: 'on' });
   });
 
+  it('keeps the key it subscribed with when the browser does not say it', async () => {
+    const browser = fakeBrowser();
+    const subscribe = browser.subscribe;
+    browser.subscribe = async (publicKey) => {
+      browser.held = { ...(await subscribe(publicKey)), applicationServerKey: null };
+      return browser.held;
+    };
+    await open('phone', { browser });
+    await userEvent.click(await screen.findByRole('button', { name: 'Turn on' }));
+    await expect(screen.findByRole('button', { name: 'Turn off' })).resolves.toBeInTheDocument();
+    expect(browser.record).toStrictEqual({
+      endpoint: browser.held?.endpoint,
+      serverKey: SERVED_KEY,
+      state: 'on',
+    });
+  });
+
+  it('waits for the load’s heal, so the two never subscribe at once', async () => {
+    const browser = dropped();
+    stubViewport('phone');
+    servePush({ devices: [mine] });
+    const serve = vi.mocked(subscribePush).getMockImplementation();
+    const sending = Promise.withResolvers<void>();
+    const answered = Promise.withResolvers<void>();
+    // The host takes the load's subscription; its answer is held until Turn on is clicked.
+    vi.mocked(subscribePush).mockImplementationOnce(async (call) => {
+      const answer = await serve?.(call);
+      sending.resolve();
+      await answered.promise;
+      return answer ?? { state: 'subscribed' };
+    });
+    await mount(browser);
+    await act(async () => {
+      await sending.promise;
+    });
+    const subscribe = vi.spyOn(browser, 'subscribe');
+    try {
+      await userEvent.click(await screen.findByRole('button', { name: 'Turn on' }));
+      await settle();
+      expect(subscribe).not.toHaveBeenCalled();
+    } finally {
+      answered.resolve();
+    }
+    await waitFor(() => {
+      expect(subscribe).toHaveBeenCalledOnce();
+    });
+    await settle();
+    expect(subscribePush).toHaveBeenCalledTimes(2);
+    expect(browser.record).toStrictEqual({
+      endpoint: browser.held?.endpoint,
+      serverKey: SERVED_KEY,
+      state: 'on',
+    });
+  });
+
   it('on a stale key, rereads the status and subscribes again with the new key', async () => {
     const { browser, world } = await open('phone');
     vi.mocked(subscribePush).mockImplementationOnce(async () => {
@@ -447,6 +503,42 @@ describe('on this device', () => {
     expect(unsubscribePush).toHaveBeenCalledWith({ data: { endpoint: SUBSCRIPTION.endpoint } });
     expect(world.devices).toStrictEqual([]);
     expect(browser.record).toBeNull();
+  });
+
+  it('Turn off waits for the load’s heal, so a heal that read the record first cannot turn it back on', async () => {
+    const browser = onBrowser();
+    const held: ((subscription: BrowserSubscription | null) => void)[] = [];
+    // The page's first read answers; each later one, the heal's among them, waits for the test.
+    vi.spyOn(browser, 'subscription')
+      .mockResolvedValueOnce(SUBSCRIPTION)
+      .mockImplementation(async () => {
+        const { promise, resolve } = Promise.withResolvers<BrowserSubscription | null>();
+        held.push(resolve);
+        return promise;
+      });
+    const { world } = await open('phone', { browser, world: { devices: [mine] } });
+    /** The push service dropped the subscription meanwhile, so the heal subscribes again. */
+    const release = async () =>
+      act(async () => {
+        for (const resolve of held) {
+          resolve(null);
+        }
+      });
+    try {
+      await waitFor(() => {
+        expect(held.length).toBeGreaterThanOrEqual(2);
+      });
+      await userEvent.click(await screen.findByRole('button', { name: 'Turn off' }));
+    } finally {
+      await release();
+    }
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Turn on' })).toBeEnabled();
+    });
+    await settle();
+    expect(browser.record).toBeNull();
+    expect(browser.held).toBeNull();
+    expect(world.devices).toStrictEqual([]);
   });
 
   it('Send test notification shows the answer under the group', async () => {
@@ -595,6 +687,96 @@ describe('Reset push key', () => {
       state: 'on',
     });
     expect(unsubscribePush).toHaveBeenCalledWith({ data: { endpoint: SUBSCRIPTION.endpoint } });
+  });
+
+  it('heals with the reset’s key when a status read that started before it answers the old key', async () => {
+    const client = new QueryClient();
+    const browser = onBrowser();
+    stubViewport('phone');
+    const world = servePush({ devices: [mine] });
+    await renderRoute(consoleRoutes, '/settings/notifications', client, withBrowser(browser));
+    await screen.findByRole('button', { name: 'Turn off' });
+    await settle();
+    const earlier = Promise.withResolvers<PushStatus>();
+    vi.mocked(pushStatus).mockImplementationOnce(async () => earlier.promise);
+    act(() => {
+      void client.refetchQueries({ queryKey: pushStatusQuery.queryKey });
+    });
+    await confirmReset();
+    await waitFor(() => {
+      expect(resetPushKey).toHaveBeenCalledOnce();
+    });
+    await act(async () => {
+      earlier.resolve(READY);
+    });
+    await waitFor(() => {
+      expect(browser.held?.applicationServerKey).toBe('BNewKey');
+    });
+    await settle();
+    expect(browser.record).toStrictEqual({
+      endpoint: browser.held?.endpoint,
+      serverKey: 'BNewKey',
+      state: 'on',
+    });
+    expect(world.devices.map(({ endpoint }) => endpoint)).toStrictEqual([browser.held?.endpoint]);
+  });
+
+  it('leaves this browser to the next load when the status after the reset is not ready', async () => {
+    const browser = onBrowser();
+    const { world } = await open('phone', { browser, world: { devices: [mine] } });
+    await screen.findByRole('button', { name: 'Turn off' });
+    await settle();
+    const record = browser.record;
+    vi.mocked(resetPushKey).mockImplementationOnce(async () => {
+      world.devices = [];
+      world.status = { state: 'key_unusable' };
+      return { publicKey: 'BNewKey', state: 'reset' };
+    });
+    await confirmReset();
+    await waitFor(() => {
+      expect(resetPushKey).toHaveBeenCalledOnce();
+    });
+    await settle();
+    expect(subscribePush).not.toHaveBeenCalled();
+    expect(browser.record).toStrictEqual(record);
+    expect(browser.held).toStrictEqual(SUBSCRIPTION);
+  });
+
+  it('finishes when an earlier heal never settles, after waiting for it a bounded time', async () => {
+    const browser = dropped();
+    stubViewport('phone');
+    servePush({ devices: [mine] });
+    const sending = Promise.withResolvers<void>();
+    const answer = Promise.withResolvers<{ state: 'unconfigured' }>();
+    // The load's heal sends, and the host does not answer within the test.
+    vi.mocked(subscribePush).mockImplementationOnce(async () => {
+      sending.resolve();
+      return answer.promise;
+    });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      await mount(browser);
+      await act(async () => {
+        await sending.promise;
+      });
+      await confirmReset();
+      await waitFor(() => {
+        expect(resetPushKey).toHaveBeenCalledOnce();
+      });
+      await userEvent.click(await screen.findByRole('button', { name: 'Reset push key…' }));
+      const sheet = await screen.findByRole('dialog', { name: 'Reset the push key?' });
+      expect(within(sheet).getByRole('button', { name: 'Reset' })).toBeDisabled();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(HEAL_WAIT_MS);
+      });
+      await waitFor(() => {
+        expect(within(sheet).getByRole('button', { name: 'Reset' })).toBeEnabled();
+      });
+    } finally {
+      vi.useRealTimers();
+      answer.resolve({ state: 'unconfigured' });
+      await settle();
+    }
   });
 
   it('says the key was reset when only the reread after it fails', async () => {

@@ -252,16 +252,26 @@ export function NotificationsPage() {
     await reload();
   };
 
-  /** Subscribe this browser again with the new key; the others do when their console opens. */
-  const healAfterReset = async () => {
+  /**
+   * Subscribe this browser again with `publicKey`, the key the reset answered;
+   * the others do when their console opens. A heal already running finishes
+   * first, so this one reads what it left; one that outlasts the bounded wait,
+   * or a status that is no longer ready, leaves this browser to the next load.
+   */
+  const healAfterReset = async (publicKey: string) => {
     try {
-      // A heal already running finishes first, so this one reads what it left.
-      await healSettled();
+      if (!(await healSettled())) {
+        return;
+      }
       const [fresh, listed] = await Promise.all([
         client.fetchQuery({ ...pushStatusQuery, staleTime: 0 }),
         client.fetchQuery({ ...pushDevicesQuery, staleTime: 0 }),
       ]);
-      await healThisBrowser(browser, fresh, listed, async () =>
+      if (fresh.state !== 'ready') {
+        return;
+      }
+      // A status read that started before the reset can answer the old key; the reset's is newer.
+      await healThisBrowser(browser, { ...fresh, publicKey }, listed, async () =>
         client.fetchQuery({ ...pushStatusQuery, staleTime: 0 }),
       );
     } catch {
@@ -274,18 +284,22 @@ export function NotificationsPage() {
   const onReset = async () => {
     setResetRefusal(undefined);
     await whileBusy(async () => {
-      let refusal: string | undefined;
+      let answer: Awaited<ReturnType<typeof resetKey>> | undefined;
       try {
-        refusal = resetRefusalText(await resetKey());
+        answer = await resetKey();
       } catch {
-        refusal = "The push key couldn't be reset. Try again.";
+        // Said below.
       }
-      if (refusal !== undefined) {
-        setResetRefusal(refusal);
+      if (answer?.state !== 'reset') {
+        setResetRefusal(
+          answer === undefined
+            ? "The push key couldn't be reset. Try again."
+            : resetRefusalText(answer),
+        );
         return;
       }
       setResetOpen(false);
-      await healAfterReset();
+      await healAfterReset(answer.publicKey);
     });
   };
 

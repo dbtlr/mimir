@@ -82,10 +82,12 @@ async function forget(browser: PushBrowser): Promise<void> {
 
 /**
  * Turn notifications on for this browser. Called from the click itself, so the
- * permission prompt is user-activated: nothing is awaited before it. A refusal
- * or a failure, including a prompt that throws, clears the record and drops the
- * browser-side subscription, so the browser and the host agree and an earlier
- * turn on or removal no longer speaks for this browser.
+ * permission prompt is user-activated: nothing is awaited before it. After it,
+ * a heal that is running finishes first (`healSettled`), so the two never
+ * subscribe at once. A refusal or a failure, including a prompt that throws,
+ * clears the record and drops the browser-side subscription, so the browser and
+ * the host agree and an earlier turn on or removal no longer speaks for this
+ * browser.
  */
 export async function turnOn(
   browser: PushBrowser,
@@ -97,6 +99,7 @@ export async function turnOn(
     if (permission !== 'granted') {
       return { kind: 'not_granted', permission };
     }
+    await healSettled();
     const sent = await sendOrRetry(
       browser,
       status,
@@ -122,12 +125,17 @@ export async function turnOn(
 
 /**
  * Turn notifications off for this browser: forget that it turned them on,
- * then drop its subscription here and on the host. The record goes first, so
- * a failed step after it never lets the healer turn notifications back on. The
- * host's row goes even when the browser's unsubscribe fails, so no device lists
- * a browser the operator turned off; that failure is then thrown.
+ * then drop its subscription here and on the host. A heal that is running
+ * finishes first (`healSettled`), so it cannot turn notifications back on after
+ * this; the endpoint it sent, if it replaced `endpoint`, goes too. The record
+ * goes first, so a failed step after it never lets the healer turn
+ * notifications back on. The host's rows go even when the browser's
+ * unsubscribe fails, so no device lists a browser the operator turned off; that
+ * failure is then thrown.
  */
 export async function turnOff(browser: PushBrowser, endpoint: string): Promise<void> {
+  await healSettled();
+  const record = browser.readRecord();
   browser.writeRecord(null);
   let browserFailure: { error: unknown } | undefined;
   try {
@@ -136,6 +144,9 @@ export async function turnOff(browser: PushBrowser, endpoint: string): Promise<v
     browserFailure = { error };
   }
   await unsubscribePush({ data: { endpoint } });
+  if (record?.state === 'on' && !sameEndpoint(record.endpoint, endpoint)) {
+    await unsubscribePush({ data: { endpoint: record.endpoint } });
+  }
   if (browserFailure !== undefined) {
     throw browserFailure.error;
   }
@@ -262,7 +273,31 @@ export async function healThisBrowser(
   return healing;
 }
 
-/** Wait for a heal that is running, if any, so a caller reads the state it leaves. */
-export async function healSettled(): Promise<void> {
-  await healing;
+/** How long Turn on, Turn off, and the page's heal after a reset wait for a heal that is running. */
+export const HEAL_WAIT_MS = 10_000;
+
+/**
+ * Wait for a heal that is running, if any, so a caller reads the state it
+ * leaves; at most `HEAL_WAIT_MS`, so a heal whose host call never answers
+ * cannot hold a caller forever. Answers whether that heal finished: false
+ * when the wait ran out and it is still running.
+ */
+export async function healSettled(): Promise<boolean> {
+  const running = healing;
+  if (running === undefined) {
+    return true;
+  }
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  // A timer has no promise form in the browser, and Promise.withResolvers is newer than Web Push on iOS.
+  // oxlint-disable-next-line promise/avoid-new
+  const timedOut = new Promise<false>((resolve) => {
+    timer = setTimeout(() => {
+      resolve(false);
+    }, HEAL_WAIT_MS);
+  });
+  try {
+    return await Promise.race([running.then(() => true), timedOut]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
