@@ -1,33 +1,34 @@
 import { Link } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import { answerSuggestion, suggestionAnswered } from '../lib/push-suggestion';
+import { focusMain } from '../lib/focus-main';
 import { couldSuggestTurningOn, suggestsTurningOn } from '../lib/push-this-device';
 import { usePushBrowser } from '../lib/use-push-browser';
 import { usePushControl } from '../lib/use-push-control';
 import { ConfirmCard } from './ui/confirm-card';
 
 /*
- * Home's one-time card suggesting notifications (ADR 0045, MMR-734). It shows
- * only when Turn on would work right away from a tap, and Turn on or Not now
- * retires it in this browser for good. Settings › Notifications stays the
- * place for every other state.
+ * The review page's one-time card suggesting notifications (ADR 0045,
+ * MMR-734). It shows only when Turn on would work right away from a tap, and
+ * Turn on or Not now retires it in this browser for good. Settings ›
+ * Notifications stays the place for every other state.
  */
 
 const TITLE = 'Get notified when something needs you';
 
-/** How far this load got with the card: unanswered, turned on, or put away. */
+/** How far this mount got with the card: unanswered, turned on, or put away. */
 type Answer = 'open' | 'turning_on' | 'gone';
 
 /**
- * The card, when this browser could take it. Whether it could is read once at
- * mount from the browser alone, so a browser that cannot asks the host nothing,
- * and an answer given in this load keeps the card up to show its outcome.
+ * The card, when this browser could take it. Whether it could is read at
+ * mount from the browser alone, so a browser that cannot asks the host
+ * nothing, and an answer given while the page is open keeps the card up to
+ * show its outcome.
  */
 export function PushSuggestion({ offline }: { offline: boolean }) {
   const browser = usePushBrowser();
   const [eligible] = useState(
-    () => couldSuggestTurningOn(browser.snapshot()) && !suggestionAnswered(),
+    () => couldSuggestTurningOn(browser.snapshot()) && !browser.suggestionAnswered(),
   );
   return eligible ? <PushSuggestionCard offline={offline} /> : null;
 }
@@ -35,8 +36,18 @@ export function PushSuggestion({ offline }: { offline: boolean }) {
 function PushSuggestionCard({ offline }: { offline: boolean }) {
   const control = usePushControl();
   const [answer, setAnswer] = useState<Answer>('open');
+  const { busy, notice } = control;
+  const answered = answer !== 'open';
+  const gone = answer === 'gone' || (answer === 'turning_on' && !busy && notice === undefined);
 
-  if (answer === 'gone') {
+  // An answer that removes the card takes the focused button with it: hand focus to the page.
+  useEffect(() => {
+    if (answered && gone && document.activeElement === document.body) {
+      focusMain();
+    }
+  }, [answered, gone]);
+
+  if (gone) {
     return null;
   }
 
@@ -47,22 +58,23 @@ function PushSuggestionCard({ offline }: { offline: boolean }) {
     return (
       <ConfirmCard
         title={TITLE}
-        size="default"
+        // Needs you leads the page, so the suggestion takes no solid button (ADR 0019 §1).
         confirm={{
           disabled: offline,
           label: 'Turn on',
           onClick: () => {
-            answerSuggestion();
             setAnswer('turning_on');
             // Called from the click itself: the permission prompt needs the user's activation.
+            // Turn on records the answer in this browser.
             void control.turnOn();
           },
+          variant: 'outline',
         }}
         cancel={{
           disabled: offline,
           label: 'Not now',
           onClick: () => {
-            answerSuggestion();
+            control.browser.answerSuggestion();
             setAnswer('gone');
           },
         }}
@@ -74,14 +86,9 @@ function PushSuggestionCard({ offline }: { offline: boolean }) {
   }
 
   // Turning on: the card stays while it runs, and afterwards only to say why it did not work.
-  const { busy, notice } = control;
-  if (!busy && notice === undefined) {
-    return null;
-  }
   return (
     <ConfirmCard
       title={TITLE}
-      size="default"
       notice={
         notice !== undefined && (
           <p className="flex flex-col gap-1">

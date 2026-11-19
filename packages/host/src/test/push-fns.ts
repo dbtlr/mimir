@@ -110,6 +110,8 @@ export type FakeBrowser = PushBrowser & {
   permission: BrowserSnapshot['permission'];
   /** What the next permission prompt answers. */
   promptAnswer: BrowserSnapshot['permission'];
+  /** Whether the notifications suggestion was answered. */
+  answered: boolean;
 };
 
 export const SUBSCRIPTION: BrowserSubscription = {
@@ -127,6 +129,10 @@ export function fakeBrowser(
 ): FakeBrowser {
   let made = 0;
   const fake: FakeBrowser = {
+    answerSuggestion() {
+      fake.answered = true;
+    },
+    answered: false,
     held: start.held ?? null,
     permission: start.permission ?? 'default',
     promptAnswer: 'granted',
@@ -154,6 +160,7 @@ export function fakeBrowser(
     async subscription() {
       return fake.held;
     },
+    suggestionAnswered: () => fake.answered,
     async unsubscribe() {
       fake.held = null;
     },

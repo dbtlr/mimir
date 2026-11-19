@@ -895,29 +895,34 @@ Seed MMR-s80 proposes serializing this browser's push actions to close these.
 - **Subscribing again when the host's list lacks the endpoint.** It would undo
   a Remove from another device the next time this browser's console opened.
 
-## Refinement (2026-11-19, MMR-734): a one-time card on Home suggests notifications
+## Refinement (2026-11-19, MMR-734): a one-time card on the review page suggests notifications
 
-Home (`/`) shows one card above Needs you, "Get notified when something needs
-you", with Turn on and Not now. It suggests only what works from a tap, so it
-shows only when all of these hold:
+The review page (`/`) shows one card above Needs you, "Get notified when
+something needs you", with Turn on and Not now. It suggests only what works
+from a tap, so it shows only when all of these hold:
 
-- The browser can receive Web Push and has never asked for permission
-  (`Notification.permission` is `default`). The console reads this from the
-  browser alone, so a browser that fails it asks the host nothing for the card.
+- The browser can receive Web Push and its permission is still `default`. The
+  console reads this from the browser alone, so a browser that fails it asks
+  the host nothing for the card.
 - The host's channel is ready, and this browser's state (the MMR-711
   refinement) is Off. A browser that another device removed stays off and
   gets no card.
-- This browser has not answered the card before.
+- This browser has not answered the card.
 
-Turn on and Not now each record the answer in the browser's local storage, and
-the card never shows again in that browser. Turn on runs the Notifications
-page's Turn on. While it runs, the card stays. If the browser ends on, or
-permission ends denied, the card leaves. Any other outcome stays on the card
-with the page's wording and a link to Settings › Notifications, until Close or
-the next load. Storage that cannot be read counts as unanswered, so the card
-can show again rather than never. An iPhone in Safari outside the Home Screen
-app gets no card: Settings › Notifications explains that step. The card's
-buttons are disabled while the console is offline.
+Not now, and a Turn on from any surface (the card or Settings ›
+Notifications), record the answer in the browser's local storage through the
+push adapter, and the card never shows again in that browser. A Turn on whose
+prompt was dismissed leaves permission at `default`, so the recorded answer is
+what keeps the card away. Turn on on the card runs the Notifications page's
+Turn on. While it runs, the card stays. If the browser ends on, or permission
+ends denied, the card leaves. Any other outcome stays on the card with the
+page's wording and a link to Settings › Notifications, until Close or until
+the review page is left. Storage that cannot be read counts as unanswered, so
+the card can show again rather than never. An iPhone in Safari outside the
+Home Screen app gets no card: Settings › Notifications explains that step.
+Turn on and Not now are disabled while the console is offline. When an answer
+removes the card, focus moves to the page's `<main>`.
 
-The card is the console's `ConfirmCard` (`components/ui/confirm-card.tsx`), the
-same yes-or-no shape the push key reset sheet uses.
+The card is the console's `ConfirmCard` (ADR 0019's MMR-734 refinement). Its
+Turn on is an outline, because the page's one solid button belongs to Needs
+you.

@@ -123,6 +123,25 @@ describe('createPushBrowser', () => {
     }).not.toThrow();
   });
 
+  it('remembers an answer to the notifications suggestion, and reads a blocked store as unanswered', () => {
+    const { environment } = world(null);
+    const browser = createPushBrowser(environment);
+    expect(browser.suggestionAnswered()).toBe(false);
+    browser.answerSuggestion();
+    expect(browser.suggestionAnswered()).toBe(true);
+    expect(createPushBrowser(environment).suggestionAnswered()).toBe(true);
+    const blocked = createPushBrowser({
+      ...environment,
+      storage: () => {
+        throw new Error('blocked');
+      },
+    });
+    expect(blocked.suggestionAnswered()).toBe(false);
+    expect(() => {
+      blocked.answerSuggestion();
+    }).not.toThrow();
+  });
+
   describe('when the service worker never starts', () => {
     it('answers a read after 5 s with a timeout, not with no subscription', async () => {
       const { after, browser } = stuck();

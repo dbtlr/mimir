@@ -70,6 +70,8 @@ export function usePushControl() {
       return;
     }
     const ready = status;
+    // Asking from any surface answers the review page's suggestion (MMR-734).
+    browser.answerSuggestion();
     // Started from the click itself: the permission prompt needs the user's activation.
     await whileBusy(async () => {
       const outcome = await turnOn(browser, ready, async () =>

@@ -35,7 +35,7 @@ export type ConfirmCardProps = {
    * inside a Sheet, Dialog, or Popover, which supplies the frame and the name.
    */
   surface?: 'card' | 'bare';
-  /** Button density: `sm` in a sheet or dialog footer, `default` on a page. */
+  /** Button density; defaults to `default` on a card and `sm` in a sheet or dialog footer. */
   size?: ActionButtonProps['size'];
   className?: string;
 };
@@ -58,10 +58,12 @@ function ActionOf({
 }
 
 /**
- * A yes-or-no ask (ADR 0019, MMR-734): a title, what the choice means, an
- * optional answer line, and a confirm beside its way out. One shape for a
- * suggestion on a page and for a confirmation in a sheet, dialog, or popover,
- * so a new ask picks a surface rather than a new layout.
+ * A yes-or-no ask (ADR 0019's MMR-734 refinement): a title, what the choice
+ * means, an optional answer line, and a confirm beside its way out. One shape
+ * for a suggestion on a page and for a confirmation in a sheet, dialog, or
+ * popover, so a new ask picks a surface rather than a new layout. A confirm of
+ * an action stays a modal, so it uses the `bare` surface; `card` is for a
+ * suggestion the page offers, never for confirming a destructive action.
  */
 export function ConfirmCard({
   title,
@@ -71,11 +73,12 @@ export function ConfirmCard({
   confirm,
   cancel,
   surface = 'card',
-  size = 'sm',
+  size,
   className,
 }: ConfirmCardProps) {
   const titleId = useId();
   const standalone = surface === 'card';
+  const density = size ?? (standalone ? 'default' : 'sm');
   const Frame = standalone ? 'section' : 'div';
   return (
     <Frame
@@ -91,13 +94,13 @@ export function ConfirmCard({
         {title}
       </Title>
       {children !== undefined && <div className="text-xs text-ink-dim">{children}</div>}
-      <div aria-live="polite" className="text-xs text-attention-foreground empty:hidden">
+      <div aria-live="polite" className="text-xs font-medium text-ink-bright empty:hidden">
         {notice}
       </div>
       {(confirm !== undefined || cancel !== undefined) && (
         <div className="flex flex-wrap justify-end gap-2">
-          {cancel !== undefined && <ActionOf action={cancel} size={size} look="outline" />}
-          {confirm !== undefined && <ActionOf action={confirm} size={size} look="action" />}
+          {cancel !== undefined && <ActionOf action={cancel} size={density} look="outline" />}
+          {confirm !== undefined && <ActionOf action={confirm} size={density} look="action" />}
         </div>
       )}
     </Frame>

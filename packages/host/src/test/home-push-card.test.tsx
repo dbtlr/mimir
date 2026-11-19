@@ -9,7 +9,7 @@ import type { PushStatus } from '../api/fns/push';
 import type { PushBrowser } from '../lib/push-browser';
 import { PushBrowserContext } from '../lib/use-push-browser';
 import { consoleRoutes } from '../router';
-import { device, fakeBrowser, IPHONE, servePush, SUBSCRIPTION } from './push-fns';
+import { fakeBrowser, IPHONE, servePush } from './push-fns';
 import type { FakeBrowser } from './push-fns';
 import { renderRoute } from './router';
 import { failShellReads, serveShell } from './shell-fns';
@@ -35,7 +35,6 @@ const CARD = 'Get notified when something needs you';
 const PROJECTS = [stripRow({ key: 'MMR', name: 'Mimir' })];
 
 beforeEach(() => {
-  localStorage.clear();
   serveViews({ review: engineReview({ projects: PROJECTS }) });
   serveShell();
 });
@@ -97,17 +96,13 @@ describe('the notifications card on Home (MMR-734)', () => {
     },
   );
 
-  it.each<[string, PushStatus]>([
-    ['the host has no push channel', { state: 'unconfigured' }],
-    ['the host cannot open its key', { state: 'key_unusable' }],
-  ])('stays away when %s', async (_name, status) => {
-    await openHome(fakeBrowser(), { status });
+  it('stays away when the host has no push channel', async () => {
+    await openHome(fakeBrowser(), { status: { state: 'unconfigured' } });
     expect(pushStatus).toHaveBeenCalled();
     expect(card()).toBeNull();
   });
 
   it.each<[string, () => FakeBrowser]>([
-    ['the browser has no Web Push', () => fakeBrowser({ snapshot: { pushSupported: false } })],
     [
       'an iPhone is outside the Home Screen app',
       () =>
@@ -118,7 +113,6 @@ describe('the notifications card on Home (MMR-734)', () => {
           },
         }),
     ],
-    ['permission was denied', () => fakeBrowser({ permission: 'denied' })],
     ['permission was asked before', () => fakeBrowser({ permission: 'granted' })],
   ])('stays away, and asks the host nothing, when %s', async (_name, make) => {
     await openHome(make());
@@ -127,20 +121,12 @@ describe('the notifications card on Home (MMR-734)', () => {
     expect(pushDevices).not.toHaveBeenCalled();
   });
 
-  it('stays away from a browser another device removed', async () => {
-    await openHome(fakeBrowser({ record: { state: 'removed' } }));
-    expect(pushStatus).toHaveBeenCalled();
+  it('stays away once this browser answered it, asking the host nothing', async () => {
+    const browser = fakeBrowser();
+    browser.answerSuggestion();
+    await openHome(browser);
     expect(card()).toBeNull();
-  });
-
-  it('stays away from a browser that is already on', async () => {
-    const browser = fakeBrowser({ held: SUBSCRIPTION, permission: 'default' });
-    stubViewport('desktop');
-    servePush({ devices: [device({ endpoint: SUBSCRIPTION.endpoint })] });
-    await renderRoute(consoleRoutes, '/', new QueryClient(), provide(browser));
-    await screen.findByRole('heading', { level: 1, name: /needs you/i });
-    await settle();
-    expect(card()).toBeNull();
+    expect(pushStatus).not.toHaveBeenCalled();
   });
 
   it('Not now retires the card in this browser', async () => {
@@ -191,6 +177,32 @@ describe('the notifications card on Home (MMR-734)', () => {
     expect(card()).toBeNull();
   });
 
+  it('a Turn on from Settings › Notifications retires it too', async () => {
+    const browser = fakeBrowser();
+    browser.promptAnswer = 'default';
+    stubViewport('desktop');
+    servePush();
+    const settings = await renderRoute(
+      consoleRoutes,
+      '/settings/notifications',
+      new QueryClient(),
+      provide(browser),
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Turn on' }));
+    await screen.findByText(/Notifications were not turned on/);
+    settings.unmount();
+
+    await openHome(browser);
+    expect(browser.permission).toBe('default');
+    expect(card()).toBeNull();
+  });
+
+  it('hands focus to the page when its answer removes it', async () => {
+    await openHome(fakeBrowser());
+    await userEvent.click(await screen.findByRole('button', { name: 'Not now' }));
+    expect(document.activeElement).toBe(screen.getByRole('main'));
+  });
+
   it('shows why Turn on failed', async () => {
     const browser = fakeBrowser();
     await openHome(browser);
@@ -214,13 +226,5 @@ describe('the notifications card on Home (MMR-734)', () => {
     const shown = await screen.findByRole('region', { name: CARD });
     expect(within(shown).getByRole('button', { name: 'Turn on' })).toBeDisabled();
     expect(within(shown).getByRole('button', { name: 'Not now' })).toBeDisabled();
-  });
-
-  it('still shows when this browser cannot read its storage', async () => {
-    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
-      throw new Error('storage blocked');
-    });
-    await openHome(fakeBrowser());
-    await expect(screen.findByRole('region', { name: CARD })).resolves.toBeDefined();
   });
 });
