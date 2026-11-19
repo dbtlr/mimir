@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import type { PushDevice } from '../api/fns/push';
 import { pushDevicesQuery, pushStatusQuery } from '../api/push-queries';
@@ -213,6 +213,12 @@ export function NotificationsPage() {
   const [opened, setOpened] = useState<PushDevice | undefined>();
   const [resetOpen, setResetOpen] = useState(false);
   const [resetRefusal, setResetRefusal] = useState<string | undefined>();
+  // A reread may change which row is this browser's, so a row's open sheet closes rather than act on a stale match.
+  useEffect(() => {
+    if (subscriptionPending) {
+      setOpened(undefined);
+    }
+  }, [subscriptionPending]);
 
   const caption = stateCaption(state, identity);
 
@@ -308,7 +314,8 @@ export function NotificationsPage() {
   const showReset = status?.state === 'ready' || status?.state === 'key_unusable';
   const listed =
     status?.state === 'ready' && devices?.state === 'listed' ? devices.devices : undefined;
-  const heldEndpoint = subscription?.endpoint;
+  // A pending reread may answer another endpoint: until it settles, no row is this browser's.
+  const heldEndpoint = subscriptionPending ? undefined : subscription?.endpoint;
   const label = deviceLabel(identity);
 
   return (

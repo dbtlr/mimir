@@ -753,6 +753,42 @@ describe('subscribed browsers', () => {
     expect(within(list).queryByRole('button', { name: /^Mac · Chrome/ })).not.toBeInTheDocument();
   });
 
+  it('closes an open row sheet and marks no row as this browser while a reread is pending', async () => {
+    stubViewport('phone');
+    servePush(world);
+    const browser = onBrowser();
+    const client = new QueryClient();
+    await renderRoute(consoleRoutes, '/settings/notifications', client, withBrowser(browser));
+    const list = await screen.findByRole('region', { name: 'Subscribed browsers · 3' });
+    await userEvent.click(await screen.findByRole('button', { name: /^Android · Chrome/ }));
+    await expect(
+      screen.findByRole('dialog', { name: 'Android · Chrome' }),
+    ).resolves.toBeInTheDocument();
+    const waiting: (() => void)[] = [];
+    vi.spyOn(browser, 'subscription').mockImplementation(async () => {
+      const { promise, resolve } = Promise.withResolvers<void>();
+      waiting.push(resolve);
+      await promise;
+      return SUBSCRIPTION;
+    });
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: pushDevicesQuery.queryKey });
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Android · Chrome' })).not.toBeInTheDocument();
+    });
+    expect(list).not.toHaveTextContent('This device');
+    await act(async () => {
+      for (const resolve of waiting) {
+        resolve();
+      }
+    });
+    await waitFor(() => {
+      expect(list).toHaveTextContent('This device');
+    });
+    expect(screen.queryByRole('dialog', { name: 'Android · Chrome' })).not.toBeInTheDocument();
+  });
+
   it('offers Retry when the list fails to load, and shows it once a retry succeeds', async () => {
     stubViewport('phone');
     servePush({ devices: [other] });
