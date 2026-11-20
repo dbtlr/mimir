@@ -195,6 +195,19 @@ body {
   }
 }
 
+/*
+ * A Select's sheet viewport (UI SDK) mounts in place, beside its trigger, once
+ * the trigger takes focus, and becomes a top-layer popover only when it first
+ * opens. Until then it is an empty block in the field's column, where the
+ * column's gap would add 8 under the field (DESIGN.md, A form), so it sits out
+ * of flow. Once it is a popover the UA hides it while closed.
+ */
+@layer base {
+  [data-slot='select-viewport']:not([popover]) {
+    position: absolute;
+  }
+}
+
 /* offline: the whole surface is last-known data — demote it, loudly */
 .offline-demoted {
   filter: saturate(0.35) brightness(0.82);
