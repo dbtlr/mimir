@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import type { ReactNode, RefObject } from 'react';
+import { useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { ActionButton } from '../ui/action-button';
 import type { ActionButtonProps } from '../ui/action-button';
@@ -14,9 +14,9 @@ import {
 } from '../ui/dialog';
 import { Field, FieldLabel } from '../ui/field';
 import { Textarea } from '../ui/textarea';
-import { HELD, useCommitGate } from './commit-gate';
 import { useFinalFocus } from './opener';
 import type { FinalFocus } from './opener';
+import { useOpening } from './opening';
 
 function defaultPlaceholder(required: boolean): string {
   return required
@@ -27,7 +27,10 @@ function defaultPlaceholder(required: boolean): string {
 /** One answer a Reason dialog offers. */
 export type ReasonCommit = {
   label: string;
-  /** Runs with the trimmed text. A promise holds the dialog open until it settles. */
+  /**
+   * Runs with the trimmed text. A promise holds the dialog open until it
+   * settles. It must not reopen this dialog before it returns.
+   */
   onCommit: (text: string) => void | Promise<void>;
   /** A destructive commit passes `destructiveOutline`; the default is the solid action. */
   variant?: ActionButtonProps['variant'];
@@ -93,23 +96,8 @@ export function Reason({
   pending = false,
   finalFocus,
 }: ReasonProps) {
-  const [running, setRunning] = useState(false);
-  const busy = running || pending;
   const returnTo = useFinalFocus(open, finalFocus);
-  // Counts openings, so a commit that settles after a close and reopen is ignored.
-  const opening = useRef(0);
-  const [wasOpen, setWasOpen] = useState(open);
-  if (open !== wasOpen) {
-    setWasOpen(open);
-    if (open) {
-      setRunning(false);
-    }
-  }
-  useEffect(() => {
-    if (open) {
-      opening.current += 1;
-    }
-  }, [open]);
+  const { busy, commit, key } = useOpening(open, pending);
   return (
     <Dialog
       open={open}
@@ -127,6 +115,9 @@ export function Reason({
       <DialogBackdrop />
       <DialogContent finalFocus={returnTo}>
         <ReasonBody
+          // Each opening remounts the body, so it starts with an empty box even when the dialog
+          // reopens during its exit transition, before the body unmounted.
+          key={key}
           title={title}
           description={description}
           lead={lead}
@@ -137,8 +128,7 @@ export function Reason({
           commitDisabled={commitDisabled}
           closeOnCommit={closeOnCommit}
           busy={busy}
-          opening={opening}
-          onRunning={setRunning}
+          commit={commit}
           onClose={onClose}
         >
           {children}
@@ -148,7 +138,7 @@ export function Reason({
   );
 }
 
-/** The dialog's content, mounted only while open so each opening starts with an empty box. */
+/** The dialog's content, remounted with each opening so it starts with an empty box. */
 function ReasonBody({
   title,
   description,
@@ -161,8 +151,7 @@ function ReasonBody({
   commitDisabled,
   closeOnCommit,
   busy,
-  opening,
-  onRunning,
+  commit,
   onClose,
 }: Pick<ReasonProps, 'title' | 'description' | 'lead' | 'label' | 'placeholder' | 'children'> & {
   required: boolean;
@@ -170,67 +159,11 @@ function ReasonBody({
   commitDisabled: boolean;
   closeOnCommit: boolean;
   busy: boolean;
-  opening: RefObject<number>;
-  onRunning: (running: boolean) => void;
+  commit: ReturnType<typeof useOpening>['commit'];
   onClose: () => void;
 }) {
   const [text, setText] = useState('');
   const trimmed = text.trim();
-  // Closed synchronously on the first click, so a second one in the same task is held.
-  const gate = useCommitGate();
-  const buttons = useRef<(HTMLButtonElement | null)[]>([]);
-  // A failed commit disables while it runs, which drops focus to the page; it takes focus back
-  // once enabled again, so a keyboard or screen-reader user stays in the dialog.
-  // Each refusal is a new object, so the same commit refused twice is refocused twice.
-  const [refused, setRefused] = useState<{ index: number } | null>(null);
-  const refocused = useRef<{ index: number } | null>(null);
-  useEffect(() => {
-    if (refused !== null && refused !== refocused.current && !busy) {
-      refocused.current = refused;
-      buttons.current[refused.index]?.focus();
-    }
-  }, [refused, busy]);
-
-  /**
-   * A commit that returns nothing has handed its work on, so the dialog closes
-   * in the same tick. One that returns a promise holds the dialog until it settles.
-   */
-  async function commit(index: number, { onCommit }: ReasonCommit) {
-    let result: void | Promise<void> | typeof HELD;
-    try {
-      result = gate.run(() => onCommit(trimmed));
-    } catch {
-      setRefused({ index });
-      return;
-    }
-    if (result === HELD) {
-      return;
-    }
-    if (!(result instanceof Promise)) {
-      if (closeOnCommit) {
-        onClose();
-      }
-      return;
-    }
-    const started = opening.current;
-    onRunning(true);
-    try {
-      await result;
-      if (closeOnCommit && started === opening.current) {
-        onClose();
-      }
-    } catch {
-      // The caller's mutation reports the refusal; keep the text for another attempt.
-      if (started === opening.current) {
-        setRefused({ index });
-      }
-    } finally {
-      if (started === opening.current) {
-        onRunning(false);
-      }
-    }
-  }
-
   return (
     <>
       <DialogTitle>{title}</DialogTitle>
@@ -251,17 +184,24 @@ function ReasonBody({
         <DialogClose disabled={busy} render={<ActionButton size="sm" variant="outline" />}>
           Cancel
         </DialogClose>
-        {commits.map((entry, index) => (
+        {commits.map((entry) => (
           <ActionButton
             key={entry.label}
-            ref={(node) => {
-              buttons.current[index] = node;
-            }}
             size="sm"
             variant={entry.variant}
             aria-busy={busy}
             disabled={busy || commitDisabled || (required && trimmed === '')}
-            onClick={() => void commit(index, entry)}
+            onClick={(event) =>
+              void commit(
+                event.currentTarget,
+                () => entry.onCommit(trimmed),
+                () => {
+                  if (closeOnCommit) {
+                    onClose();
+                  }
+                },
+              )
+            }
           >
             {entry.label}
           </ActionButton>

@@ -1,7 +1,9 @@
-import { useCallback, useMemo, useRef } from 'react';
-
 /** What `run` returns when the gate is closed and the work did not run. */
 export const HELD = Symbol('held');
+
+export type CommitGate = {
+  run: <T>(work: () => T) => T | typeof HELD;
+};
 
 /** Runs `release` once `result` settles, however it settles; the caller handles the rejection. */
 async function settle(result: Promise<unknown>, release: () => void): Promise<void> {
@@ -15,46 +17,37 @@ async function settle(result: Promise<unknown>, release: () => void): Promise<vo
 }
 
 /**
- * A synchronous gate for one commit at a time, shared by Destructive confirm
- * and Reason. React state (`busy`) lags a click, so two clicks in one browser
- * task would both pass it; this flag closes on the first. It reopens when a
- * returned promise settles, or, for a commit that returns nothing, once the
- * render that reflects the caller's own pending or closed state has run (a
- * microtask later). A synchronous throw reopens it and rethrows. `reset` reopens it for a
- * new opening of the dialog, whatever a commit from the last one is doing.
+ * A synchronous gate for one commit at a time, one per opening of a dialog
+ * (see `useOpening`). React state (`busy`) lags a click, so two clicks in one
+ * browser task would both pass it; this flag closes on the first. It reopens
+ * when a returned promise settles, or, for a commit that returns nothing, once
+ * the render that reflects the caller's own pending or closed state has run (a
+ * microtask later). A synchronous throw reopens it and rethrows.
  */
-export function useCommitGate() {
-  const held = useRef(false);
-  // Bumped by `reset`, so a settle from before it cannot reopen a gate that a newer commit holds.
-  const generation = useRef(0);
-  const reset = useCallback(() => {
-    generation.current += 1;
-    held.current = false;
-  }, []);
-  const run = useCallback(<T>(work: () => T): T | typeof HELD => {
-    if (held.current) {
-      return HELD;
-    }
-    held.current = true;
-    let result: T;
-    try {
-      result = work();
-    } catch (error) {
-      held.current = false;
-      throw error;
-    }
-    const opened = generation.current;
-    const release = () => {
-      if (opened === generation.current) {
-        held.current = false;
+export function createCommitGate(): CommitGate {
+  let held = false;
+  const release = () => {
+    held = false;
+  };
+  return {
+    run<T>(work: () => T): T | typeof HELD {
+      if (held) {
+        return HELD;
       }
-    };
-    if (result instanceof Promise) {
-      void settle(result, release);
-    } else {
-      queueMicrotask(release);
-    }
-    return result;
-  }, []);
-  return useMemo(() => ({ reset, run }), [reset, run]);
+      held = true;
+      let result: T;
+      try {
+        result = work();
+      } catch (error) {
+        held = false;
+        throw error;
+      }
+      if (result instanceof Promise) {
+        void settle(result, release);
+      } else {
+        queueMicrotask(release);
+      }
+      return result;
+    },
+  };
 }

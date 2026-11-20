@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import {
@@ -9,9 +9,9 @@ import {
   AlertDialogTitle,
 } from '../ui/alert-dialog';
 import { ConfirmCard } from '../ui/confirm-card';
-import { HELD, useCommitGate } from './commit-gate';
 import { useFinalFocus } from './opener';
 import type { FinalFocus } from './opener';
+import { useOpening } from './opening';
 
 export type DestructiveConfirmProps = {
   open: boolean;
@@ -25,7 +25,8 @@ export type DestructiveConfirmProps = {
   /**
    * Runs the action. Return a promise to have the dialog hold itself open while
    * it runs, close when it resolves, and stay open when it rejects. Return
-   * nothing to close the dialog yourself, as a mutation's callback does.
+   * nothing to close the dialog yourself, as a mutation's callback does. It
+   * must not reopen this dialog before it returns.
    */
   onConfirm: () => void | Promise<void>;
   /** The call is in flight (for a caller that closes itself): the commit disables and Escape holds. */
@@ -59,69 +60,9 @@ export function DestructiveConfirm({
   answer,
   finalFocus,
 }: DestructiveConfirmProps) {
-  const [running, setRunning] = useState(false);
-  const busy = running || pending;
   const returnTo = useFinalFocus(open, finalFocus);
-  const gate = useCommitGate();
-  // Counts openings, so a commit that settles after the dialog was closed and reopened is ignored.
-  const opening = useRef(0);
+  const { busy, commit } = useOpening(open, pending);
   const commitButton = useRef<HTMLButtonElement | null>(null);
-  // The commit and Cancel both disable while a call runs, so a browser drops focus off the
-  // dialog's buttons. A failed call leaves the dialog open; the commit takes focus back.
-  const wasBusy = useRef(false);
-  // Each opening starts clear: a commit that never settled must not lock the next one. The state
-  // resets while rendering the opening; the refs reset in an effect declared before the focus one.
-  const [wasOpen, setWasOpen] = useState(open);
-  if (open !== wasOpen) {
-    setWasOpen(open);
-    if (open) {
-      setRunning(false);
-    }
-  }
-  useEffect(() => {
-    if (open) {
-      opening.current += 1;
-      gate.reset();
-      wasBusy.current = false;
-    }
-  }, [open, gate]);
-  useEffect(() => {
-    const settled = wasBusy.current && !busy;
-    wasBusy.current = busy;
-    if (settled && open && answer === undefined) {
-      commitButton.current?.focus();
-    }
-  }, [busy, open, answer]);
-  async function commit() {
-    if (busy) {
-      return;
-    }
-    let result: void | Promise<void> | typeof HELD;
-    try {
-      result = gate.run(onConfirm);
-    } catch {
-      // A throw before the call started is a failure like a rejection: the dialog stays.
-      commitButton.current?.focus();
-      return;
-    }
-    if (result === HELD || !(result instanceof Promise)) {
-      return;
-    }
-    const started = opening.current;
-    setRunning(true);
-    try {
-      await result;
-      if (started === opening.current) {
-        onClose();
-      }
-    } catch {
-      // The caller's call reports the failure; the dialog stays for another attempt.
-    } finally {
-      if (started === opening.current) {
-        setRunning(false);
-      }
-    }
-  }
   return (
     <AlertDialog
       open={open}
@@ -145,15 +86,30 @@ export function DestructiveConfirm({
           notice={notice}
           cancel={
             answer === undefined
-              ? { disabled: busy, key: 'cancel', label: cancelLabel, onClick: onClose }
-              : { autoFocus: true, key: 'close', label: 'Close', onClick: onClose }
+              ? {
+                  disabled: busy,
+                  key: 'cancel',
+                  label: cancelLabel,
+                  onClick: onClose,
+                }
+              : {
+                  autoFocus: true,
+                  key: 'close',
+                  label: 'Close',
+                  onClick: onClose,
+                }
           }
           confirm={
             answer === undefined
               ? {
                   disabled: busy,
                   label: commitLabel,
-                  onClick: commit,
+                  onClick: () =>
+                    void commit(commitButton.current, onConfirm, (how) => {
+                      if (how === 'resolved') {
+                        onClose();
+                      }
+                    }),
                   ref: commitButton,
                   variant: 'destructiveOutline',
                 }

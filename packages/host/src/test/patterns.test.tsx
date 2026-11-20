@@ -88,7 +88,9 @@ describe('DestructiveConfirm', () => {
     const onConfirm = vi.fn();
     render(<ConfirmHarness onConfirm={onConfirm} />);
     await userEvent.click(screen.getByRole('button', { name: 'Open' }));
-    const dialog = await screen.findByRole('alertdialog', { name: 'Remove it?' });
+    const dialog = await screen.findByRole('alertdialog', {
+      name: 'Remove it?',
+    });
     expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
     expect(dialog).toHaveTextContent('It cannot be undone.');
     await userEvent.keyboard('{Escape}');
@@ -223,7 +225,9 @@ describe('Reason', () => {
     render(<ReasonHarness commits={[{ label: 'Park', onCommit }]} />);
     await userEvent.click(screen.getByRole('button', { name: 'Open' }));
     await userEvent.click(
-      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Park' }),
+      within(await screen.findByRole('dialog')).getByRole('button', {
+        name: 'Park',
+      }),
     );
     expect(onCommit).toHaveBeenLastCalledWith('');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
@@ -248,8 +252,12 @@ describe('Reason', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: 'Open' }));
     const dialog = await screen.findByRole('dialog');
-    const first = within(dialog).getByRole('button', { name: 'Confirm with note' });
-    const second = within(dialog).getByRole('button', { name: 'Answer with note' });
+    const first = within(dialog).getByRole('button', {
+      name: 'Confirm with note',
+    });
+    const second = within(dialog).getByRole('button', {
+      name: 'Answer with note',
+    });
     expect(first).toBeDisabled();
     expect(second).toBeDisabled();
     await userEvent.type(within(dialog).getByRole('textbox'), '   ');
@@ -263,7 +271,13 @@ describe('Reason', () => {
   it('styles a destructive commit with the red hairline', async () => {
     render(
       <ReasonHarness
-        commits={[{ label: 'Abandon', onCommit: vi.fn(), variant: 'destructiveOutline' }]}
+        commits={[
+          {
+            label: 'Abandon',
+            onCommit: vi.fn(),
+            variant: 'destructiveOutline',
+          },
+        ]}
       />,
     );
     await userEvent.click(screen.getByRole('button', { name: 'Open' }));
@@ -409,6 +423,177 @@ describe('reopening a dialog whose commit never settled', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+});
+
+/** Two calls a test settles by hand, handed out in order: the first opening's, then the reopened one's. */
+function inOrder() {
+  const calls = [deferred(), deferred(), deferred()];
+  let next = 0;
+  const work = vi.fn(() => {
+    const call = calls[next];
+    next += 1;
+    return call?.promise;
+  });
+  return { calls, work };
+}
+
+/** Settles `call` inside act, so the render it causes lands before the next assertion. */
+async function settleCall(call: PromiseWithResolvers<void>, how: 'resolve' | 'reject') {
+  await act(async () => {
+    if (how === 'resolve') {
+      call.resolve();
+    } else {
+      call.reject(new Error('refused'));
+    }
+    await call.promise.catch(() => undefined);
+  });
+}
+
+/**
+ * Opens the dialog, starts a commit that does not settle, closes the dialog from outside, and
+ * opens it again; returns the reopened dialog once its commit is enabled.
+ */
+async function holdCloseReopen(role: 'alertdialog' | 'dialog', commitName: string) {
+  fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+  const first = await screen.findByRole(role);
+  fireEvent.click(within(first).getByRole('button', { name: commitName }));
+  fireEvent.click(screen.getByRole('button', { name: 'Force close' }));
+  await waitFor(() => expect(screen.queryByRole(role)).toBeNull());
+  fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+  const dialog = await screen.findByRole(role);
+  await waitFor(() =>
+    expect(within(dialog).getByRole('button', { name: commitName })).toBeEnabled(),
+  );
+  return dialog;
+}
+
+function renderReopenableConfirm(onConfirm: () => Promise<void> | undefined, onClose = vi.fn()) {
+  render(
+    <Reopenable>
+      {(open, close) => (
+        <DestructiveConfirm
+          open={open}
+          onClose={() => {
+            onClose();
+            close();
+          }}
+          title="Remove it?"
+          commitLabel="Remove"
+          onConfirm={onConfirm}
+        >
+          It cannot be undone.
+        </DestructiveConfirm>
+      )}
+    </Reopenable>,
+  );
+}
+
+function renderReopenableReason(onCommit: () => Promise<void> | undefined, onClose = vi.fn()) {
+  render(
+    <Reopenable>
+      {(open, close) => (
+        <Reason
+          open={open}
+          onClose={() => {
+            onClose();
+            close();
+          }}
+          title="Park it"
+          commits={[{ label: 'Park', onCommit }]}
+        />
+      )}
+    </Reopenable>,
+  );
+}
+
+describe.each([
+  ['DestructiveConfirm', 'alertdialog', 'Remove', renderReopenableConfirm],
+  ['Reason', 'dialog', 'Park', renderReopenableReason],
+] as const)('%s reopened while its first commit never settled', (_name, role, commitName, show) => {
+  it("runs the commit on the reopened dialog, and closes on that commit's own settle", async () => {
+    const { calls, work } = inOrder();
+    const onClose = vi.fn();
+    show(work, onClose);
+    const dialog = await holdCloseReopen(role, commitName);
+    onClose.mockClear();
+    fireEvent.click(within(dialog).getByRole('button', { name: commitName }));
+    expect(work).toHaveBeenCalledTimes(2);
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    // The first opening's call settles first: the reopened dialog stays, still busy.
+    await settleCall(calls[0]!, 'resolve');
+    expect(screen.getByRole(role)).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    expect(onClose).not.toHaveBeenCalled();
+    await settleCall(calls[1]!, 'resolve');
+    await waitFor(() => expect(screen.queryByRole(role)).toBeNull());
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("stays usable when the reopened dialog's commit is refused", async () => {
+    const { calls, work } = inOrder();
+    show(work);
+    const dialog = await holdCloseReopen(role, commitName);
+    const commit = within(dialog).getByRole('button', { name: commitName });
+    await userEvent.click(commit);
+    expect(work).toHaveBeenCalledTimes(2);
+    // A browser drops focus when the focused button disables; jsdom keeps it.
+    commit.blur();
+    const refocus = vi.spyOn(commit, 'focus');
+    await settleCall(calls[1]!, 'reject');
+    await waitFor(() => expect(commit).toBeEnabled());
+    expect(refocus).toHaveBeenCalled();
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeEnabled();
+    fireEvent.click(commit);
+    expect(work).toHaveBeenCalledTimes(3);
+  });
+});
+
+/**
+ * The grooming answer's shape: a commit that returns nothing and starts the
+ * caller's own call, which the caller reports through `pending`. "Refuse",
+ * outside the dialog, ends the call.
+ */
+function CallerPendingReason() {
+  const [pending, setPending] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setPending(false)}>
+        Refuse
+      </button>
+      <Reason
+        open
+        onClose={() => undefined}
+        title="Answer"
+        closeOnCommit={false}
+        pending={pending}
+        commits={[{ label: 'Answer', onCommit: () => setPending(true) }]}
+      />
+    </>
+  );
+}
+
+/** Commits, then refuses the call once the browser dropped focus. */
+async function refuseCallerPending() {
+  render(<CallerPendingReason />);
+  const dialog = await screen.findByRole('dialog');
+  const commit = within(dialog).getByRole('button', { name: 'Answer' });
+  await userEvent.click(commit);
+  expect(commit).toBeDisabled();
+  // A browser drops focus when the focused button disables; jsdom keeps it.
+  commit.blur();
+  const refocus = vi.spyOn(commit, 'focus');
+  // A dispatched click, which moves no focus; the modal dialog hides the button from roles.
+  fireEvent.click(screen.getByText('Refuse'));
+  await waitFor(() => expect(commit).toBeEnabled());
+  return { commit, refocus };
+}
+
+describe('Reason with a caller-managed pending call', () => {
+  it('returns focus to the commit when the call is refused', async () => {
+    const { commit, refocus } = await refuseCallerPending();
+    await waitFor(() => expect(refocus).toHaveBeenCalled());
+    expect(commit).toHaveFocus();
   });
 });
 
