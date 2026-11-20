@@ -214,24 +214,25 @@ stay put while the body scrolls. Nothing below a form's commit row scrolls.
 - **When content is scrolled above the fold,** the pinned header gains a
   hairline shadow (`0 1px 0` plus a 4px soft drop: black 35% and 45% in
   dark, `#17242f` at 6% and 10% in light) that disappears at the top.
-- **A resting scroll keeps the body's padding at both bars.** At any resting
-  position (the end of a scroll, a restored scroll, a still), the first
-  visible label sits at least the body's top padding below the header
-  hairline (24 on a phone, 32 on desktop), and nothing above that label
-  shows: no control without its label, no sliver of a field. The last
-  visible block clears the footer hairline by at least the body's bottom
-  padding (32 on a phone, 40 on desktop), measured from a choice row's
-  whole tap row (44 or 36), not its text. Neither bar ever cuts a field, a
-  group heading, or a choice row.
+- **A resting scroll keeps a field gap at both bars.** At any resting
+  position after the body has scrolled (the end of a scroll, a restored
+  scroll, a still), the first visible label sits at least 24 below the
+  header hairline at every width, which is the field gap, and nothing above
+  that label shows: no control without its label, no sliver of a field. The
+  body's own top padding (24 on a phone, 32 on desktop) applies only before
+  it scrolls. The last visible block clears the footer hairline by at least
+  the body's bottom padding (32 on a phone, 40 on desktop), measured from a
+  choice row's whole tap row (44 or 36), not its text. Neither bar ever cuts
+  a field, a group heading, or a choice row.
 - **When whole fields cannot fit between the bars, add bottom scroll room;
   never cut a field.** If the natural end of the scroll would leave a field
   part-hidden under the header, the body grows its bottom padding until the
-  end lands on a clean rest. On a phone the 24 field gap equals the top
-  clearance, so the end can rest between any two fields (Launch in T3:
-  Reasoning effort 24 below the header, 50 of room added, Plan first's row
-  71 above the footer). On desktop the 32 clearance is wider than the 24
-  field gap, so a clean rest falls only where a group starts: Launch in T3
-  ends with the Advanced hairline 32 below the header and 267 of room added.
+  end lands on a clean rest. Because the resting clearance equals the field
+  gap, the end can rest between any two fields at every width, so the added
+  room stays small. Example: Launch in T3 with Advanced open rests with
+  Reasoning effort 24 below the header. A 32 desktop clearance was tried in
+  MMR-743's mocks: the end could rest only where a group started, which left
+  a stranded group hairline and about 300 of empty room.
 - **Initial focus goes to the first field** (System in Launch in T3, Seed in
   File a seed, Title in New project), not to a later control.
 
