@@ -107,11 +107,15 @@ All existing (`styles.css`). Rules:
 - **Text that carries information is `ink-dim` or brighter**: 4.5:1 or better
   on every well in both themes. `ink-faint` and `ink-ghost` never carry it
   (MMR-718).
-- **A form field has no placeholder.** A prompt for what to write ("What is
-  this project for?") is help text under the control, 13/20 `ink-dim`
-  (6.6:1 dark, 5.5:1 light on `well-850`), so it stays visible once the
-  field holds a value. **Proposed**: today Description's prompt is a
-  placeholder in `ink-faint`, 2.7:1 dark and 2.2:1 light. Outside a form,
+- **A form field has no placeholder, and help text is only for a surprising
+  input.** A field gets a help line only when it behaves in a way its label
+  doesn't say, or needs a specific format: the seed's "First line is the
+  title. Shift+Enter for a body line.", or the Key's "It can't change
+  later". A prompt for what to write ("What is this project for?") gets
+  neither a placeholder nor a help line; the label carries the field. Help
+  is 13/20 `ink-dim` (6.6:1 dark, 5.5:1 light on `well-850`). **Proposed**:
+  today Description's prompt is a placeholder in `ink-faint`, 2.7:1 dark
+  and 2.2:1 light. Outside a form,
   where a placeholder remains (a search box), it is `ink-dim`: 7.2:1 dark,
   5.2:1 light on `well-950`.
 - **A disabled commit is a quiet button, not a faded one.** Fill `well-800`,
