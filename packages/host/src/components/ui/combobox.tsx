@@ -60,7 +60,7 @@ export function ComboboxTrigger({
     <SdkComboboxTrigger
       aria-label="Show options"
       className={mergeClassName(
-        'group/trigger absolute top-1/2 right-1 flex size-9 -translate-y-1/2 items-center justify-center rounded text-ink-dim outline-none hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent data-[disabled]:opacity-50',
+        'group/trigger absolute top-1/2 right-1 flex size-9 -translate-y-1/2 items-center justify-center rounded text-ink-dim outline-none hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent data-[disabled]:opacity-50',
         className,
       )}
       {...props}

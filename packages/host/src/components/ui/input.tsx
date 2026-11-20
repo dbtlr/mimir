@@ -17,7 +17,7 @@ import { mergeClassName } from './class-name';
  * form a placeholder remains only in a search box, in ink-dim.
  */
 export const CONTROL_EDGE_CLASS =
-  'rounded-md border border-ink-faint bg-well-950 text-[15px] leading-[22px] text-ink-bright outline-none transition-colors hover:border-ink-dim focus-visible:border-accent focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:outline-accent';
+  'rounded-md border border-ink-faint bg-well-950 text-[15px] leading-[22px] text-ink-bright outline-none transition-colors hover:border-ink-dim focus-visible:border-accent focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:outline-solid focus-visible:outline-accent';
 
 export const TEXT_FIELD_CLASS = `w-full px-3 ${CONTROL_EDGE_CLASS} placeholder:text-ink-dim aria-[invalid=true]:border-status-blocked data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 data-[readonly]:text-ink-dim`;
 

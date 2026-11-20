@@ -1,11 +1,8 @@
-import { fileURLToPath } from 'node:url';
-
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import tailwindcss from '@tailwindcss/vite';
-import react from '@vitejs/plugin-react';
-import { createServer } from 'vite';
-import type { ViteDevServer } from 'vite';
+
+import { serveHarness } from './form-sheet/serve';
+import type { Harness } from './form-sheet/serve';
 
 /*
  * The Form sheet's body in real layout (DESIGN.md, Sheets): a focused control
@@ -15,9 +12,6 @@ import type { ViteDevServer } from 'vite';
  * forms in Chromium, served from `e2e/form-sheet`.
  */
 
-const HARNESS = fileURLToPath(new URL('form-sheet', import.meta.url));
-const WORKSPACE_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
-
 /**
  * The least a resting scroll keeps between the header and the first block it
  * shows: the field gap (24), or 20 when that block follows a group heading
@@ -25,28 +19,14 @@ const WORKSPACE_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
  */
 const TIGHTEST_GAP = 20;
 
-let server: ViteDevServer;
-let origin: string;
+let harness: Harness;
 
 test.beforeAll(async () => {
-  server = await createServer({
-    configFile: false,
-    logLevel: 'error',
-    plugins: [react(), tailwindcss()],
-    root: HARNESS,
-    // The harness imports the console's sources and the workspace's packages.
-    server: { fs: { allow: [WORKSPACE_ROOT] }, host: '127.0.0.1' },
-  });
-  await server.listen(0);
-  const address = server.httpServer?.address();
-  if (address === null || address === undefined || typeof address === 'string') {
-    throw new Error('the harness server has no port');
-  }
-  origin = `http://127.0.0.1:${String(address.port)}/`;
+  harness = await serveHarness();
 });
 
 test.afterAll(async () => {
-  await server.close();
+  await harness.close();
 });
 
 type Placement = {
@@ -87,7 +67,7 @@ function placement(page: Page): Promise<Placement> {
 
 /** Opens a form at a viewport, with Advanced unfolded when it has one. */
 async function openForm(page: Page, form: string) {
-  await page.goto(`${origin}?form=${form}`);
+  await page.goto(`${harness.origin}?form=${form}`);
   await page.locator('[data-slot=form-sheet-body]').waitFor();
   // Let the drawer's entry finish, so the body has its resting size.
   await page.waitForTimeout(400);
