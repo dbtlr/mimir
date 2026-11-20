@@ -438,6 +438,13 @@ describe('stopping a run', () => {
     });
   });
 
+  it('moves focus to Close when a refused stop replaces the question with its answer', async () => {
+    const dialog = await openDialog({ state: 'ending' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Stop run' }));
+    await screen.findByText('The run is already finishing on its own.');
+    expect(within(dialog).getByRole('button', { name: 'Close' })).toHaveFocus();
+  });
+
   it('refreshes the card whatever the answer', async () => {
     const dialog = await openDialog({ state: 'unknown' });
     expect(groomCard).toHaveBeenCalledTimes(1);

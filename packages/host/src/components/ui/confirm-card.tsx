@@ -15,6 +15,13 @@ export type ConfirmCardAction = {
   variant?: ActionButtonProps['variant'];
   /** Take focus when the button appears, as a way out that replaces the button just pressed. */
   autoFocus?: boolean;
+  /**
+   * Distinguishes this button from the one it replaces in the same slot, so a
+   * swapped-in button mounts afresh (and `autoFocus` fires) instead of reusing a node.
+   */
+  key?: string;
+  /** The button element, for a caller that returns focus to it. */
+  ref?: Ref<HTMLButtonElement>;
 };
 
 export type ConfirmCardProps = {
@@ -46,7 +53,7 @@ export type ConfirmCardProps = {
 
 /** One action's button, in its own look or the card's default for its place. */
 function ActionOf({
-  action: { autoFocus, disabled, label, onClick, variant },
+  action: { autoFocus, disabled, label, onClick, ref, variant },
   look,
   size,
 }: {
@@ -61,6 +68,7 @@ function ActionOf({
       disabled={disabled}
       // oxlint-disable-next-line jsx-a11y/no-autofocus -- a way out that replaces the pressed button keeps focus in the card
       autoFocus={autoFocus}
+      ref={ref}
       onClick={onClick}
     >
       {label}
@@ -102,8 +110,12 @@ export function ConfirmCard({
       </div>
       {(confirm !== undefined || cancel !== undefined) && (
         <div className="flex flex-wrap justify-end gap-2">
-          {cancel !== undefined && <ActionOf action={cancel} size={density} look="outline" />}
-          {confirm !== undefined && <ActionOf action={confirm} size={density} look="action" />}
+          {cancel !== undefined && (
+            <ActionOf key={cancel.key} action={cancel} size={density} look="outline" />
+          )}
+          {confirm !== undefined && (
+            <ActionOf key={confirm.key} action={confirm} size={density} look="action" />
+          )}
         </div>
       )}
     </>

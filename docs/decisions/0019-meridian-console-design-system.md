@@ -1349,6 +1349,8 @@ It also changes these accepted passages:
   sheet and menu are the Action menu pattern.
 - **The MMR-703 refinement's "The answers are a native radio group".** They
   are UI SDK's Radio, which keeps the arrow keys moving the selection.
+- **ADR 0038's inline Unpair confirm.** _Unpair_ on the devices page now asks
+  through Destructive confirm, and _Deny_ on `/pair` gains one.
 - **The MMR-492 _Needs you_ popover and phone sheet** stay until the Needs you
   page (MMR-723) replaces them. They take no new pattern.
 

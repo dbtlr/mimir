@@ -195,4 +195,37 @@ describe('pair page (MMR-585)', () => {
     expect(denyPairing).not.toHaveBeenCalled();
     expect(deny).toHaveFocus();
   });
+
+  it('shows no deny dialog after a deny when the code is cleared or edited', async () => {
+    serveDevices({ codes: { [CODE]: waiting('drews-macbook') } });
+    await renderRoute(consoleRoutes, `/pair?code=${CODE}`);
+    await denyAndConfirm();
+    await screen.findByText('Denied drews-macbook.');
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+
+    const box = screen.getByRole('textbox', { name: 'Pairing code' });
+    await userEvent.clear(box);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    await userEvent.type(box, 'ABCD');
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
+  it('never denies a second device unless Deny is pressed and confirmed again', async () => {
+    const other = 'ZZZZ-9999';
+    serveDevices({
+      codes: { [CODE]: waiting('drews-macbook'), [other]: waiting('other-laptop') },
+    });
+    await renderRoute(consoleRoutes, `/pair?code=${CODE}`);
+    await denyAndConfirm();
+    await screen.findByText('Denied drews-macbook.');
+    expect(denyPairing).toHaveBeenCalledTimes(1);
+
+    const box = screen.getByRole('textbox', { name: 'Pairing code' });
+    await userEvent.clear(box);
+    await userEvent.type(box, other);
+    await expect(screen.findByText('Approve other-laptop?')).resolves.toBeDefined();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(denyPairing).toHaveBeenCalledTimes(1);
+    expect(denyPairing).not.toHaveBeenCalledWith({ data: { code: other } });
+  });
 });

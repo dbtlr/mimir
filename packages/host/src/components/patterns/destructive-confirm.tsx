@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import {
@@ -9,6 +9,7 @@ import {
   AlertDialogTitle,
 } from '../ui/alert-dialog';
 import { ConfirmCard } from '../ui/confirm-card';
+import { HELD, useCommitGate } from './commit-gate';
 import { useFinalFocus } from './opener';
 import type { FinalFocus } from './opener';
 
@@ -61,12 +62,31 @@ export function DestructiveConfirm({
   const [running, setRunning] = useState(false);
   const busy = running || pending;
   const returnTo = useFinalFocus(open, finalFocus);
+  const gate = useCommitGate();
+  const commitButton = useRef<HTMLButtonElement | null>(null);
+  // The commit and Cancel both disable while a call runs, so a browser drops focus off the
+  // dialog's buttons. A failed call leaves the dialog open; the commit takes focus back.
+  const wasBusy = useRef(false);
+  useEffect(() => {
+    const settled = wasBusy.current && !busy;
+    wasBusy.current = busy;
+    if (settled && open && answer === undefined) {
+      commitButton.current?.focus();
+    }
+  }, [busy, open, answer]);
   async function commit() {
     if (busy) {
       return;
     }
-    const result = onConfirm();
-    if (!(result instanceof Promise)) {
+    let result: void | Promise<void> | typeof HELD;
+    try {
+      result = gate(onConfirm);
+    } catch {
+      // A throw before the call started is a failure like a rejection: the dialog stays.
+      commitButton.current?.focus();
+      return;
+    }
+    if (result === HELD || !(result instanceof Promise)) {
       return;
     }
     setRunning(true);
@@ -102,8 +122,8 @@ export function DestructiveConfirm({
           notice={notice}
           cancel={
             answer === undefined
-              ? { disabled: busy, label: cancelLabel, onClick: onClose }
-              : { autoFocus: true, label: 'Close', onClick: onClose }
+              ? { disabled: busy, key: 'cancel', label: cancelLabel, onClick: onClose }
+              : { autoFocus: true, key: 'close', label: 'Close', onClick: onClose }
           }
           confirm={
             answer === undefined
@@ -111,6 +131,7 @@ export function DestructiveConfirm({
                   disabled: busy,
                   label: commitLabel,
                   onClick: commit,
+                  ref: commitButton,
                   variant: 'destructiveOutline',
                 }
               : undefined

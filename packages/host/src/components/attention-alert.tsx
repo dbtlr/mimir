@@ -197,6 +197,14 @@ export function AttentionAlert() {
   const words = count === 1 ? 'needs you' : 'need you';
   // The trigger takes focus back from a walkthrough a panel entry opened (MMR-714).
   const returnTarget = { [RETURN_TARGET_ATTRIBUTE]: NEEDS_YOU_ENTRY };
+  // A row's Reason or confirm dialog is not part of the popover's or sheet's tree, so
+  // focus moving into it, or its Escape, reads as leaving. The panel stays until it closes.
+  const holdForNestedDialog = (next: boolean) => {
+    if (!next && document.querySelector(OPEN_DIALOG) !== null) {
+      return;
+    }
+    setOpen(next);
+  };
   const panel = (close?: ReactNode) => (
     <NeedsYouPanel
       report={report}
@@ -211,17 +219,7 @@ export function AttentionAlert() {
 
   if (desktop) {
     return (
-      <PopoverRoot
-        open={open}
-        onOpenChange={(next) => {
-          // A row's Reason or confirm dialog is not part of this popover's tree, so
-          // focus moving into it reads as leaving. The panel stays until it closes.
-          if (!next && document.querySelector(OPEN_DIALOG) !== null) {
-            return;
-          }
-          setOpen(next);
-        }}
-      >
+      <PopoverRoot open={open} onOpenChange={holdForNestedDialog}>
         <PopoverTrigger aria-label={label} className={PILL} {...returnTarget}>
           <PillFace count={count} words={words} />
         </PopoverTrigger>
@@ -244,7 +242,7 @@ export function AttentionAlert() {
       >
         <PillFace count={count} words={words} />
       </button>
-      <Sheet open={open} onOpenChange={setOpen}>
+      <Sheet open={open} onOpenChange={holdForNestedDialog}>
         <SheetContent side="bottom" aria-label="Needs you" aria-describedby={undefined}>
           {panel(
             <SheetClose aria-label="Close" className={cn(iconButtonClass, '-mr-2 ml-auto')}>

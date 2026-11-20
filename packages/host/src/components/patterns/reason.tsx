@@ -14,6 +14,7 @@ import {
 } from '../ui/dialog';
 import { Field, FieldLabel } from '../ui/field';
 import { Textarea } from '../ui/textarea';
+import { HELD, useCommitGate } from './commit-gate';
 import { useFinalFocus } from './opener';
 import type { FinalFocus } from './opener';
 
@@ -48,7 +49,11 @@ export type ReasonProps = {
   required?: boolean;
   /** One commit, or two where the dialog offers two answers. */
   commits: ReasonCommit[];
-  /** Further controls under the text box; they decide `commitDisabled`. */
+  /**
+   * Further controls under the text box; they decide `commitDisabled`.
+   * Transitional: a Choice pattern only. The grooming answer's radios move to
+   * the Choice pattern (UI SDK Radio) with MMR-731; a feature passes no raw inputs.
+   */
   children?: ReactNode;
   /** Disables every commit for a reason beyond the text, such as offline or a missing choice. */
   commitDisabled?: boolean;
@@ -154,8 +159,8 @@ function ReasonBody({
 }) {
   const [text, setText] = useState('');
   const trimmed = text.trim();
-  // Set before the call, so a second click lands on a closed gate, not a stale button.
-  const committing = useRef(false);
+  // Closed synchronously on the first click, so a second one in the same task is held.
+  const gate = useCommitGate();
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
   // A failed commit disables while it runs, which drops focus to the page; it takes focus back
   // once enabled again, so a keyboard or screen-reader user stays in the dialog.
@@ -173,20 +178,17 @@ function ReasonBody({
    * in the same tick. One that returns a promise holds the dialog until it settles.
    */
   async function commit(index: number, { onCommit }: ReasonCommit) {
-    if (committing.current) {
-      return;
-    }
-    committing.current = true;
-    let result: void | Promise<void>;
+    let result: void | Promise<void> | typeof HELD;
     try {
-      result = onCommit(trimmed);
+      result = gate(() => onCommit(trimmed));
     } catch {
-      committing.current = false;
       setRefused(index);
       return;
     }
+    if (result === HELD) {
+      return;
+    }
     if (!(result instanceof Promise)) {
-      committing.current = false;
       if (closeOnCommit) {
         onClose();
       }
@@ -202,7 +204,6 @@ function ReasonBody({
       // The caller's mutation reports the refusal; keep the text for another attempt.
       setRefused(index);
     } finally {
-      committing.current = false;
       onRunning(false);
     }
   }

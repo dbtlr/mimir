@@ -139,7 +139,6 @@ Object.defineProperty(Element.prototype, 'scrollIntoView', {
 // animations and popover support that jsdom lacks (the ui-sdk skill's
 // testing reference lists these stubs). With none running, a closing overlay
 // unmounts at once, and the stubs change nothing about what a test observes.
-// oxlint-disable-next-line vitest/require-hook
 // Base UI, still on some asks, takes a `getAnimations` method as a sign that
 // an exit animation may run and waits a tick before it hands focus back, so
 // only UI SDK's elements (the ones with a `data-slot`) get the stub.

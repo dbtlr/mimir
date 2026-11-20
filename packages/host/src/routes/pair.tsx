@@ -7,8 +7,6 @@ import { pairingLookupQuery } from '../api/device-queries';
 import { OfflineBanner } from '../components/offline-banner';
 import { DestructiveConfirm } from '../components/patterns/destructive-confirm';
 import { ActionButton } from '../components/ui/action-button';
-import { Field, FieldLabel } from '../components/ui/field';
-import { Input } from '../components/ui/input';
 import { Skeleton } from '../components/ui/skeleton';
 import { connectivity } from '../lib/connectivity';
 import { ago, until } from '../lib/time';
@@ -117,7 +115,8 @@ export function PairPage() {
   const [typed, setTyped] = useState(formatTyped(initial ?? ''));
   const approve = useApprovePairing();
   const deny = useDenyPairing();
-  const [denying, setDenying] = useState(false);
+  // The code the Deny confirm was opened for; it binds the confirm to that one request.
+  const [denyingCode, setDenyingCode] = useState<string | undefined>();
   const code = typed.length === CODE_LENGTH + 1 ? typed : undefined;
   const lookup = useQuery({ ...pairingLookupQuery(code ?? ''), enabled: code !== undefined });
   const conn = connectivity(code === undefined ? [] : [lookup]);
@@ -137,22 +136,21 @@ export function PairPage() {
       <main className="mx-auto flex w-full max-w-[560px] min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5">
         <div className="flex flex-col gap-3">
           <h1 className="microlabel text-ink-faint">Pair a device</h1>
-          <Field>
-            <FieldLabel className="sr-only">Pairing code</FieldLabel>
-            <Input
-              value={typed}
-              placeholder="XXXX-XXXX"
-              autoComplete="off"
-              autoCapitalize="characters"
-              spellCheck={false}
-              onChange={(event) => {
-                const next = formatTyped(event.target.value);
-                setTyped(next);
-                void navigate({ replace: true, search: { code: next === '' ? undefined : next } });
-              }}
-              className="h-auto rounded-lg px-3.5 py-3 font-mono text-xl tracking-[0.18em]"
-            />
-          </Field>
+          <input
+            aria-label="Pairing code"
+            value={typed}
+            placeholder="XXXX-XXXX"
+            autoComplete="off"
+            autoCapitalize="characters"
+            spellCheck={false}
+            onChange={(event) => {
+              const next = formatTyped(event.target.value);
+              setTyped(next);
+              setDenyingCode(undefined);
+              void navigate({ replace: true, search: { code: next === '' ? undefined : next } });
+            }}
+            className="w-full rounded-lg border border-line-bright bg-well-950 px-3.5 py-3 font-mono text-xl tracking-[0.18em] text-ink-bright placeholder:text-ink-ghost focus-visible:outline-2 focus-visible:outline-accent"
+          />
         </div>
 
         {code === undefined && (
@@ -188,23 +186,27 @@ export function PairPage() {
                   approve.mutate(code);
                 }}
                 onDeny={() => {
-                  setDenying(true);
+                  setDenyingCode(code);
                 }}
               />
             )}
         </div>
       </main>
       <DestructiveConfirm
-        open={denying && decided === undefined}
+        open={code !== undefined && denyingCode === code && decided === undefined}
         onClose={() => {
-          setDenying(false);
+          setDenyingCode(undefined);
         }}
         title={`Deny ${request?.device ?? 'this device'}?`}
         commitLabel="Deny"
         pending={deny.isPending}
         onConfirm={() => {
           if (code !== undefined) {
-            deny.mutate(code);
+            deny.mutate(code, {
+              onSettled: () => {
+                setDenyingCode(undefined);
+              },
+            });
           }
         }}
       >
