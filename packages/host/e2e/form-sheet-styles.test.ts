@@ -13,6 +13,9 @@ import type { Harness } from './form-sheet/serve';
 /** Longer than a control's color transition (150ms). */
 const TRANSITION = 300;
 
+/** Longer than a bottom sheet's slide in or out. */
+const SHEET_MOTION = 600;
+
 let harness: Harness;
 
 test.beforeAll(async () => {
@@ -124,5 +127,41 @@ test('a focused Select on a phone keeps the 24 field gap below it', async ({ bro
     };
   });
   expect(gap).toEqual({ focused: true, gap: 24 });
+  await context.close();
+});
+
+test('a phone’s model list blurs its scrim and opens with the tick alone on the chosen row', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    hasTouch: true,
+    isMobile: true,
+    viewport: { height: 844, width: 390 },
+  });
+  const page = await context.newPage();
+  await openForm(page, 't3');
+  // Opened, closed, and opened again: the second opening once highlighted the chosen row.
+  const model = page.getByRole('combobox', { name: 'Model' });
+  await model.tap();
+  await page.waitForTimeout(SHEET_MOTION);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(SHEET_MOTION);
+  await model.click();
+  await page.waitForTimeout(SHEET_MOTION);
+  const chosen = page.getByRole('option', { name: 'Claude Opus' });
+  await expect(chosen).toBeVisible();
+  await page.waitForTimeout(TRANSITION);
+  const sheet = await page.evaluate(() => {
+    const open = [...document.querySelectorAll('[data-slot=select-viewport]')].find((viewport) =>
+      viewport.matches(':popover-open'),
+    );
+    const row = open?.querySelector('[data-slot=select-item][data-selected]');
+    return {
+      blur: open === undefined ? null : getComputedStyle(open, '::backdrop').backdropFilter,
+      row: row === null || row === undefined ? null : getComputedStyle(row).backgroundColor,
+    };
+  });
+  expect(sheet).toEqual({ blur: 'blur(2px)', row: 'rgba(0, 0, 0, 0)' });
+  await expect(chosen).toHaveAttribute('aria-selected', 'true');
   await context.close();
 });

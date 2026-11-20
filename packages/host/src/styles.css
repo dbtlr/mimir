@@ -206,6 +206,11 @@ body {
   [data-slot='select-viewport']:not([popover]) {
     position: absolute;
   }
+
+  /* The bottom list's scrim blurs as the overlay scrim does (`OVERLAY_BACKDROP_CLASS`). */
+  [data-slot='select-viewport']::backdrop {
+    backdrop-filter: blur(2px);
+  }
 }
 
 /* offline: the whole surface is last-known data — demote it, loudly */

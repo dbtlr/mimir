@@ -136,7 +136,11 @@ export function SelectGroupLabel({
   );
 }
 
-/** One choice: 36 tall on a desktop, 44 on a phone; the chosen row carries a check. */
+/**
+ * One choice: 36 tall on a desktop, 44 on a phone; the chosen row carries a
+ * check. In a phone's bottom list a pointer never highlights a row, so the list
+ * opens with the tick alone marking the chosen one.
+ */
 export function SelectItem({
   className,
   children,
@@ -147,6 +151,9 @@ export function SelectItem({
       className={mergeClassName(
         'flex min-h-9 cursor-default items-center justify-between gap-3 rounded-md px-3 text-[15px] leading-[22px] text-ink outline-none select-none group-data-[presentation=sheet]/select:min-h-11',
         'data-[highlighted]:bg-line data-[highlighted]:text-ink-bright data-[selected]:text-ink-bright',
+        // A phone's bottom list opened by a tap marks the chosen row with its tick alone; the
+        // highlight is for the keyboard there, and a press shows as the row is held.
+        'group-data-[presentation=sheet]/select:group-data-[modality=pointer]/select:data-[highlighted]:bg-transparent group-data-[presentation=sheet]/select:active:bg-line',
         'data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40',
         className,
       )}
