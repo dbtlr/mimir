@@ -71,6 +71,21 @@ describe('projectSettingsButton', () => {
     expect(screen.getByLabelText(/description/i)).toHaveValue('');
   });
 
+  it('a cancelled edit is gone when the form opens again', async () => {
+    stubViewport('desktop');
+    wrap(<ProjectSettingsButton project={baseProject} />);
+    fireEvent.click(screen.getByRole('button', { name: /project settings/i }));
+    fireEvent.change(screen.getByLabelText(/title/i), { target: { value: 'Renamed' } });
+    fireEvent.change(screen.getByLabelText(/description/i), { target: { value: 'Edited' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await vi.waitFor(() => {
+      expect(screen.queryByLabelText(/title/i)).not.toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /project settings/i }));
+    expect(screen.getByLabelText(/title/i)).toHaveValue('My Project');
+    expect(screen.getByLabelText(/description/i)).toHaveValue('A handy description');
+  });
+
   it('save button disabled when the title is cleared', () => {
     wrap(<ProjectSettingsButton project={baseProject} />);
     fireEvent.click(screen.getByRole('button', { name: /project settings/i }));
@@ -239,6 +254,21 @@ describe('projectSettings lifecycle (MMR-230)', () => {
     expect(follows(description, archiveButton)).toBe(true);
     expect(follows(archiveButton, cancel)).toBe(true);
     expect(follows(cancel, save)).toBe(true);
+  });
+
+  it('holds Archive while a Save is in flight, so the two never race', async () => {
+    vi.mocked(updateProject).mockReturnValue(new Promise(() => undefined));
+    wrap(<ProjectSettingsButton project={baseProject} />);
+    openSheet();
+    fireEvent.change(screen.getByLabelText(/title/i), { target: { value: 'Renamed' } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+    await vi.waitFor(() => {
+      expect(updateProject).toHaveBeenCalledOnce();
+    });
+    const archiveButton = screen.getByRole('button', { name: 'Archive project' });
+    expect(archiveButton).toBeDisabled();
+    fireEvent.click(archiveButton);
+    expect(archive).not.toHaveBeenCalled();
   });
 
   it('the archive button disables at 40% when offline', () => {

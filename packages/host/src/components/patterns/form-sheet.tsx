@@ -1,4 +1,12 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import type { ComponentProps, ReactNode, RefObject } from 'react';
 
 import { cn } from '../../lib/cn';
@@ -293,6 +301,18 @@ function FormBody({
   );
 }
 
+/** Whether the sheet's commit, or the caller's own call, is in flight, for a control in its body. */
+const FormSheetBusy = createContext(false);
+
+/**
+ * True while the Form sheet around the caller holds: its commit runs, or the
+ * caller reports its own call pending. A body control that acts on its own
+ * (Archive) disables with it, so it cannot run while a Save is in flight.
+ */
+export function useFormSheetBusy(): boolean {
+  return useContext(FormSheetBusy);
+}
+
 export type FormSheetProps = {
   open: boolean;
   /** Called when the operator backs out, or after the commit returns or resolves. */
@@ -424,7 +444,7 @@ export function FormSheet({
             </button>
           </header>
           <FormBody body={body} onScrolled={setScrolled}>
-            {children}
+            <FormSheetBusy.Provider value={busy}>{children}</FormSheetBusy.Provider>
           </FormBody>
           <div
             data-slot="form-sheet-footer"

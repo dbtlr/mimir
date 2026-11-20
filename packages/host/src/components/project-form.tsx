@@ -10,6 +10,7 @@ import {
   FormSheet,
   FormTextArea,
   FormTextInput,
+  useFormSheetBusy,
 } from './patterns/form-sheet';
 import { ActionButton } from './ui/action-button';
 
@@ -167,10 +168,13 @@ function KeyHelp({ projectKey }: { projectKey: string }) {
 /**
  * Lifecycle (20b): last in the body, in DOM order as on screen. Archive is a
  * neutral outline, since nothing is destroyed; the explanation describes it,
- * so a screen reader hears the no-confirm consequences before pressing it.
+ * so a screen reader hears the no-confirm consequences before pressing it. It
+ * disables while the sheet holds a Save, as the sheet holds Save while it archives.
  */
 function Lifecycle({ onArchive, disabled }: { onArchive: () => void; disabled: boolean }) {
   const explanationId = useId();
+  // A Save in flight holds Archive, so the two never race.
+  const saving = useFormSheetBusy();
   return (
     <FormGroup
       title="Lifecycle"
@@ -181,7 +185,7 @@ function Lifecycle({ onArchive, disabled }: { onArchive: () => void; disabled: b
         size="form"
         variant="formOutline"
         aria-describedby={explanationId}
-        disabled={disabled}
+        disabled={disabled || saving}
         onClick={onArchive}
         className="-mt-1 self-start"
       >
