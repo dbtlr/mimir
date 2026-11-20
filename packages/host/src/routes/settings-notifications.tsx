@@ -274,8 +274,10 @@ function RemoveConfirm({
   );
 }
 
-// The list scrolls on a short screen, so every switch stays reachable above Done.
-const KINDS_BLOCK = 'min-h-0 overflow-y-auto rounded-lg border border-line bg-well-850';
+// Hairline-separated rows on the sheet itself, never a card inside it (ADR 0019, MMR-743),
+// their text on the sheet's own edge. The list scrolls on a short screen, so every switch
+// stays reachable above Done.
+const KINDS_BLOCK = 'min-h-0 overflow-y-auto [&_label]:px-0';
 
 /** The row that opened another browser's switches, for Done to return focus to. */
 const rowOpener = (endpoint: string) =>

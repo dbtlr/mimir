@@ -537,6 +537,16 @@ describe('another browser’s kinds', () => {
     });
   });
 
+  it('lists the switches as hairline-separated rows on the sheet, never a card inside it', async () => {
+    await open('desktop', { world: { devices: [mine, other] } });
+    const kinds = await openKinds('desktop', 'Android · Chrome');
+    const list = within(kinds).getByRole('list');
+    expect(list).toHaveClass('divide-y', 'divide-line');
+    for (const card of ['rounded-lg', 'border', 'bg-well-850']) {
+      expect(list).not.toHaveClass(card);
+    }
+  });
+
   it('on a desktop, Done returns focus to the row’s menu', async () => {
     await open('desktop', { world: { devices: [mine, other] } });
     const kinds = await openKinds('desktop', 'Android · Chrome');

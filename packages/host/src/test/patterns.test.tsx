@@ -12,6 +12,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { ContentSheet, ContentSheetClose } from '../components/patterns/content-sheet';
 import { DestructiveConfirm } from '../components/patterns/destructive-confirm';
 import { useFinalFocus } from '../components/patterns/opener';
 import { Reason } from '../components/patterns/reason';
@@ -772,5 +773,50 @@ describe('useFinalFocus', () => {
       }),
     ).toBeNull();
     opener.remove();
+  });
+});
+
+describe('ContentSheet', () => {
+  it('closes on its one Done by default', async () => {
+    const onClose = vi.fn();
+    render(
+      <ContentSheet open onClose={onClose} title="Android · Chrome">
+        <p>Its switches</p>
+      </ContentSheet>,
+    );
+    const sheet = await screen.findByRole('dialog', { name: 'Android · Chrome' });
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Done' }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('takes a title with its key in mono, and the caller’s own footer actions', async () => {
+    const onClose = vi.fn();
+    const onOpen = vi.fn();
+    render(
+      <ContentSheet
+        open
+        onClose={onClose}
+        title={
+          <>
+            <span className="font-mono">MMR-743</span> Form sheet pattern
+          </>
+        }
+        actions={
+          <>
+            <ActionButton onClick={onOpen}>Open record</ActionButton>
+            <ContentSheetClose>Close</ContentSheetClose>
+          </>
+        }
+      >
+        <p>The record’s preview</p>
+      </ContentSheet>,
+    );
+    const sheet = await screen.findByRole('dialog', { name: 'MMR-743 Form sheet pattern' });
+    expect(within(sheet).queryByRole('button', { name: 'Done' })).toBeNull();
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Open record' }));
+    expect(onOpen).toHaveBeenCalledOnce();
+    expect(onClose).not.toHaveBeenCalled();
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Close' }));
+    expect(onClose).toHaveBeenCalledOnce();
   });
 });
