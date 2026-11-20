@@ -8,8 +8,8 @@ import {
 } from '@ui-sdk/react/toast';
 import type { ComponentProps } from 'react';
 
-import { cn } from '../../lib/cn';
 import { ActionButton } from './action-button';
+import { mergeClassName } from './class-name';
 
 /*
  * The Toast primitive (ADR 0046): the Notice pattern's surface, replacing
@@ -69,7 +69,12 @@ export function ToastStack({
   ...props
 }: Omit<ComponentProps<typeof SdkToastRegion>, 'children'>) {
   return (
-    <SdkToastRegion side={side} align={align} className={cn(REGION_CLASS, className)} {...props}>
+    <SdkToastRegion
+      side={side}
+      align={align}
+      className={mergeClassName(REGION_CLASS, className)}
+      {...props}
+    >
       {() => <ToastBody />}
     </SdkToastRegion>
   );

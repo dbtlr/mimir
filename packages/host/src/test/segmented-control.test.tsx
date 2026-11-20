@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { Field } from '../components/ui/field';
 import { SegmentedControl } from '../components/ui/segmented-control';
 
 const OPTIONS = [
@@ -82,5 +83,21 @@ describe('SegmentedControl keyboard', () => {
     await user.keyboard('{ArrowLeft}{ArrowLeft}');
     expect(onChange).toHaveBeenLastCalledWith('task');
     expect(screen.getByRole('radio', { name: 'Task' })).toHaveFocus();
+  });
+});
+
+describe('SegmentedControl in a disabled Field', () => {
+  it('Home and End change nothing', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <Field disabled>
+        <SegmentedControl ariaLabel="Kind" options={OPTIONS} value="bug" onChange={onChange} />
+      </Field>,
+    );
+    screen.getByRole('radio', { name: 'Bug' }).focus();
+    await user.keyboard('{End}');
+    await user.keyboard('{Home}');
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

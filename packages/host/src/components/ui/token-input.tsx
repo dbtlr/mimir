@@ -72,6 +72,56 @@ export function tagEdits(value: TokenInputValue, flush: boolean): TagEdit[] {
   return edits;
 }
 
+/**
+ * The chips of `after` that repeat another chip in any case, except the repeats
+ * `before` already held (a defaultValue shows stored data as it is). The first
+ * of a spelling stays. A pasted chip's trailing space goes with it. Edits run
+ * right to left.
+ */
+export function pastedDuplicateEdits(before: TokenInputValue, after: TokenInputValue): TagEdit[] {
+  const allowed = new Map<string, number>();
+  for (const tag of tagsOf(before)) {
+    const key = tag.toLowerCase();
+    allowed.set(key, (allowed.get(key) ?? 0) + 1);
+  }
+  const seen = new Map<string, number>();
+  const edits: TagEdit[] = [];
+  let offset = 0;
+  after.forEach((part, index) => {
+    if (!isToken(part)) {
+      offset += part.length;
+      return;
+    }
+    const key = part.value.toLowerCase();
+    const count = (seen.get(key) ?? 0) + 1;
+    seen.set(key, count);
+    if (count > Math.max(1, allowed.get(key) ?? 0)) {
+      const next = after[index + 1];
+      const end = offset + (typeof next === 'string' && next.startsWith(' ') ? 2 : 1);
+      edits.unshift({ at: { end, start: offset }, content: [] });
+    }
+    offset += 1;
+  });
+  return edits;
+}
+
+/** `after` with the chips `pastedDuplicateEdits` would remove already gone. */
+export function withoutPastedDuplicates(
+  before: TokenInputValue,
+  after: TokenInputValue,
+): TokenInputValue {
+  const doomed = new Set<number>();
+  const edits = pastedDuplicateEdits(before, after);
+  let offset = 0;
+  after.forEach((part, index) => {
+    if (isToken(part) && edits.some((edit) => edit.at.start === offset)) {
+      doomed.add(index);
+    }
+    offset += isToken(part) ? 1 : part.length;
+  });
+  return after.filter((_, index) => !doomed.has(index));
+}
+
 /** The chip look Token Input and the multiple Combobox share: the Badge look. */
 export const CHIP_CLASS =
   'mx-0.5 inline-flex items-center gap-1 rounded-sm bg-well-800 py-px pr-0.5 pl-1.5 align-middle text-tag font-medium whitespace-nowrap text-ink inset-ring inset-ring-line data-[selected]:inset-ring-accent md:text-micro';
@@ -133,6 +183,7 @@ export function TokenInput({
   const [controller] = useState(createTokenInputController);
   const [initial] = useState(() => defaultValue.flatMap((tag) => [tagToken(tag), ' ']));
   const reported = useRef(defaultValue);
+  const held = useRef<TokenInputValue>(initial);
   // UI SDK's insert keeps the caret where the edit leaves it.
   const commit = (flush: boolean) => {
     for (const edit of tagEdits(controller.getValue(), flush)) {
@@ -146,11 +197,23 @@ export function TokenInput({
       disabled={disabled}
       name={name}
       onValueChange={(next, details) => {
-        const tags = tagsOf(next);
+        // A paste or drop may not add a tag the input already holds, in any case.
+        const dropsDuplicates = details.reason === 'paste' || details.reason === 'drop';
+        const prior = held.current;
+        held.current = next;
+        const edits = dropsDuplicates ? pastedDuplicateEdits(prior, next) : [];
+        const tags = tagsOf(dropsDuplicates ? withoutPastedDuplicates(prior, next) : next);
         const before = reported.current;
         if (tags.length !== before.length || tags.some((tag, at) => tag !== before[at])) {
           reported.current = tags;
           onValueChange?.(tags);
+        }
+        if (edits.length > 0) {
+          queueMicrotask(() => {
+            for (const edit of edits) {
+              controller.insert(edit.content, { at: edit.at });
+            }
+          });
         }
         // A typed comma becomes a chip once UI SDK has applied the keystroke;
         // undo and redo are left as they are, so undoing a chip restores its text.

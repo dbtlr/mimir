@@ -6,7 +6,7 @@ import {
 } from '@ui-sdk/react/alert-dialog';
 import type { ComponentProps } from 'react';
 
-import { cn } from '../../lib/cn';
+import { mergeClassName } from './class-name';
 import {
   OVERLAY_BACKDROP_CLASS,
   OVERLAY_DESCRIPTION_CLASS,
@@ -30,7 +30,12 @@ export function AlertDialogBackdrop({
   className,
   ...props
 }: ComponentProps<typeof SdkAlertDialogBackdrop>) {
-  return <SdkAlertDialogBackdrop className={cn(OVERLAY_BACKDROP_CLASS, className)} {...props} />;
+  return (
+    <SdkAlertDialogBackdrop
+      className={mergeClassName(OVERLAY_BACKDROP_CLASS, className)}
+      {...props}
+    />
+  );
 }
 
 export function AlertDialogContent({
@@ -39,7 +44,7 @@ export function AlertDialogContent({
 }: ComponentProps<typeof SdkAlertDialogContent>) {
   return (
     <SdkAlertDialogContent
-      className={cn(OVERLAY_PANEL_CLASS, 'w-[min(92vw,380px)]', className)}
+      className={mergeClassName(OVERLAY_PANEL_CLASS, 'w-[min(92vw,380px)]', className)}
       {...props}
     />
   );
@@ -49,7 +54,9 @@ export function AlertDialogTitle({
   className,
   ...props
 }: ComponentProps<typeof SdkAlertDialogTitle>) {
-  return <SdkAlertDialogTitle className={cn(OVERLAY_TITLE_CLASS, className)} {...props} />;
+  return (
+    <SdkAlertDialogTitle className={mergeClassName(OVERLAY_TITLE_CLASS, className)} {...props} />
+  );
 }
 
 export function AlertDialogDescription({
@@ -57,6 +64,9 @@ export function AlertDialogDescription({
   ...props
 }: ComponentProps<typeof SdkAlertDialogDescription>) {
   return (
-    <SdkAlertDialogDescription className={cn(OVERLAY_DESCRIPTION_CLASS, className)} {...props} />
+    <SdkAlertDialogDescription
+      className={mergeClassName(OVERLAY_DESCRIPTION_CLASS, className)}
+      {...props}
+    />
   );
 }

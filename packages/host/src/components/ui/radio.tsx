@@ -1,7 +1,7 @@
 import { Radio as SdkRadio, RadioIndicator } from '@ui-sdk/react/radio';
 import type { ComponentProps } from 'react';
 
-import { cn } from '../../lib/cn';
+import { mergeClassName } from './class-name';
 
 /*
  * The Radio primitive (ADR 0046): UI SDK's radio group in the Meridian look.
@@ -15,7 +15,7 @@ export { RadioGroup } from '@ui-sdk/react/radio';
 export function Radio({ className, ...props }: ComponentProps<typeof SdkRadio>) {
   return (
     <SdkRadio
-      className={cn(
+      className={mergeClassName(
         'inline-flex size-4 shrink-0 items-center justify-center rounded-full border-2 border-ink-dim bg-well-900 transition-colors',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         'data-[checked]:border-accent data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40',

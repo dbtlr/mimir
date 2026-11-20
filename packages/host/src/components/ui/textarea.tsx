@@ -1,7 +1,7 @@
 import { Textarea as SdkTextarea } from '@ui-sdk/react/textarea';
 import type { ComponentProps } from 'react';
 
-import { cn } from '../../lib/cn';
+import { mergeClassName } from './class-name';
 import { TEXT_FIELD_CLASS } from './input';
 
 /*
@@ -22,7 +22,7 @@ export function Textarea({ className, grow = false, ...props }: TextareaProps) {
       autoResize={grow}
       rows={grow ? 1 : undefined}
       {...props}
-      className={cn(
+      className={mergeClassName(
         TEXT_FIELD_CLASS,
         'py-2.5 leading-[22px]',
         grow ? 'max-h-[110px] min-h-11 resize-none overflow-y-auto' : 'min-h-20 resize-y',

@@ -13,7 +13,9 @@ only headless library ([ADR 0046](../../docs/decisions/0046-console-primitives-o
   ship.
 - UI SDK is pinned to one exact version in `package.json`. An upgrade is its
   own change, confined to `src/components/ui`, and refreshes the committed
-  skill at `skills/ui-sdk/` from `node_modules/@ui-sdk/core/skills/ui-sdk`.
+  skill by replacing `skills/ui-sdk/` with `node_modules/@ui-sdk/core/skills/ui-sdk`
+  (`rm -rf skills/ui-sdk && cp -R packages/host/node_modules/@ui-sdk/core/skills/ui-sdk skills/`
+  from the repository root), so a file the package dropped goes too.
 
 ## Three layers
 

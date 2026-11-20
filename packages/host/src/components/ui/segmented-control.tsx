@@ -50,7 +50,9 @@ function handleKeyDownCapture<T extends string>(
     e.stopPropagation();
     return;
   }
-  if (e.key !== 'Home' && e.key !== 'End') {
+  // A disabled control (its own, or one a containing Field passes down)
+  // changes nothing; UI SDK marks the root `data-disabled` either way.
+  if ((e.key !== 'Home' && e.key !== 'End') || e.currentTarget.hasAttribute('data-disabled')) {
     return;
   }
   const index = e.key === 'Home' ? 0 : options.length - 1;

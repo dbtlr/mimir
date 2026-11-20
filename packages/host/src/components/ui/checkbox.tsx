@@ -1,7 +1,7 @@
 import { Checkbox as SdkCheckbox, CheckboxIndicator } from '@ui-sdk/react/checkbox';
 import type { ComponentProps } from 'react';
 
-import { cn } from '../../lib/cn';
+import { mergeClassName } from './class-name';
 
 /*
  * The Checkbox primitive (ADR 0046): UI SDK's checkbox in the Meridian look.
@@ -27,7 +27,7 @@ const ICON_PROPS = {
 export function Checkbox({ className, ...props }: ComponentProps<typeof SdkCheckbox>) {
   return (
     <SdkCheckbox
-      className={cn(
+      className={mergeClassName(
         'inline-flex size-4 shrink-0 items-center justify-center rounded-sm border-2 border-ink-dim bg-well-900 text-action-foreground transition-colors',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         'data-[checked]:border-accent data-[checked]:bg-accent data-[indeterminate]:border-accent data-[indeterminate]:bg-accent',

@@ -1,7 +1,7 @@
 import { Switch as SdkSwitch, SwitchThumb } from '@ui-sdk/react/switch';
 import type { ComponentProps } from 'react';
 
-import { cn } from '../../lib/cn';
+import { mergeClassName } from './class-name';
 
 /*
  * The Switch primitive (ADR 0046): UI SDK's switch in the look ADR 0019's
@@ -13,7 +13,7 @@ import { cn } from '../../lib/cn';
 export function Switch({ className, ...props }: ComponentProps<typeof SdkSwitch>) {
   return (
     <SdkSwitch
-      className={cn(
+      className={mergeClassName(
         'relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full bg-ink-faint p-[3px] transition-colors outline-none',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         'data-[checked]:bg-accent data-[disabled]:cursor-default data-[disabled]:opacity-60',

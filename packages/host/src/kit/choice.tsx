@@ -3,7 +3,13 @@ import { useState } from 'react';
 import { Checkbox } from '../components/ui/checkbox';
 import { Radio, RadioGroup } from '../components/ui/radio';
 import { SegmentedControl } from '../components/ui/segmented-control';
-import { Select, SelectContent, SelectItem, SelectTrigger } from '../components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectSeparator,
+  SelectTrigger,
+} from '../components/ui/select';
 import { Switch } from '../components/ui/switch';
 import { Sample, Section } from './section';
 
@@ -101,7 +107,13 @@ export function ChoiceKit() {
           <Select items={STATUSES} defaultValue="in-progress">
             <SelectTrigger aria-label="Status" />
             <SelectContent>
-              {STATUSES.map((status) => (
+              {STATUSES.slice(0, 3).map((status) => (
+                <SelectItem key={status.value} value={status.value} disabled={status.disabled}>
+                  {status.label}
+                </SelectItem>
+              ))}
+              <SelectSeparator />
+              {STATUSES.slice(3).map((status) => (
                 <SelectItem key={status.value} value={status.value} disabled={status.disabled}>
                   {status.label}
                 </SelectItem>

@@ -15,7 +15,7 @@ import {
 import type { ComboboxItemProps } from '@ui-sdk/react/combobox';
 import type { ComponentProps, ReactNode } from 'react';
 
-import { cn } from '../../lib/cn';
+import { mergeClassName } from './class-name';
 import { FIELD_LABEL_CLASS } from './field';
 import { TEXT_FIELD_CLASS } from './input';
 import {
@@ -38,14 +38,14 @@ import { CHIP_CLASS, CHIP_REMOVE_CLASS, ChipRemoveIcon } from './token-input';
 export { Combobox, ComboboxGroup, ComboboxSeparator, ComboboxValue } from '@ui-sdk/react/combobox';
 
 export function ComboboxLabel({ className, ...props }: ComponentProps<typeof SdkComboboxLabel>) {
-  return <SdkComboboxLabel className={cn(FIELD_LABEL_CLASS, className)} {...props} />;
+  return <SdkComboboxLabel className={mergeClassName(FIELD_LABEL_CLASS, className)} {...props} />;
 }
 
 /** The filter box; it shows the chosen record once one is picked. */
 export function ComboboxInput({ className, ...props }: ComponentProps<typeof SdkComboboxInput>) {
   return (
     <SdkComboboxInput
-      className={cn(TEXT_FIELD_CLASS, 'min-h-11 min-w-0 py-2.5 pr-10', className)}
+      className={mergeClassName(TEXT_FIELD_CLASS, 'min-h-11 min-w-0 py-2.5 pr-10', className)}
       {...props}
     />
   );
@@ -59,7 +59,7 @@ export function ComboboxTrigger({
   return (
     <SdkComboboxTrigger
       aria-label="Show options"
-      className={cn(
+      className={mergeClassName(
         'group/trigger absolute top-1/2 right-1 flex size-9 -translate-y-1/2 items-center justify-center rounded text-ink-dim outline-none hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent data-[disabled]:opacity-50',
         className,
       )}
@@ -89,7 +89,7 @@ export function ComboboxContent({
   return (
     <SdkComboboxContent
       sideOffset={6}
-      className={cn(
+      className={mergeClassName(
         'z-50 flex max-h-[min(320px,var(--available-height))] w-(--anchor-width) flex-col overflow-y-auto rounded-lg border border-line-bright bg-well-900 p-1.5 text-ink shadow-2xl outline-none transition-opacity duration-100 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0',
         className,
       )}
@@ -99,7 +99,7 @@ export function ComboboxContent({
 }
 
 export function ComboboxList({ className, ...props }: ComponentProps<typeof SdkComboboxList>) {
-  return <SdkComboboxList className={cn('flex flex-col', className)} {...props} />;
+  return <SdkComboboxList className={mergeClassName('flex flex-col', className)} {...props} />;
 }
 
 /** A record row; the check at its end appears while it is the chosen record. */
@@ -110,7 +110,7 @@ export function ComboboxItem<T = string>({
 }: ComboboxItemProps<T> &
   Omit<ComponentProps<'div'>, keyof ComboboxItemProps<T> | 'children'> & { children?: ReactNode }) {
   return (
-    <SdkComboboxItem<T> className={cn(PICKER_ROW_CLASS, className)} {...props}>
+    <SdkComboboxItem<T> className={mergeClassName(PICKER_ROW_CLASS, className)} {...props}>
       {children}
       <SdkComboboxItemIndicator className={PICKER_CHECK_CLASS}>
         <PickerCheck />
@@ -123,7 +123,12 @@ export function ComboboxGroupLabel({
   className,
   ...props
 }: ComponentProps<typeof SdkComboboxGroupLabel>) {
-  return <SdkComboboxGroupLabel className={cn(PICKER_GROUP_LABEL_CLASS, className)} {...props} />;
+  return (
+    <SdkComboboxGroupLabel
+      className={mergeClassName(PICKER_GROUP_LABEL_CLASS, className)}
+      {...props}
+    />
+  );
 }
 
 export function ComboboxEmpty({
@@ -132,7 +137,7 @@ export function ComboboxEmpty({
   ...props
 }: ComponentProps<typeof SdkComboboxEmpty>) {
   return (
-    <SdkComboboxEmpty className={cn(PICKER_EMPTY_CLASS, className)} {...props}>
+    <SdkComboboxEmpty className={mergeClassName(PICKER_EMPTY_CLASS, className)} {...props}>
       {children}
     </SdkComboboxEmpty>
   );
@@ -146,7 +151,7 @@ export function ComboboxEmpty({
 export function ComboboxChips({ className, ...props }: ComponentProps<typeof SdkComboboxChips>) {
   return (
     <SdkComboboxChips
-      className={cn(
+      className={mergeClassName(
         TEXT_FIELD_CLASS,
         'flex min-h-11 flex-wrap items-center gap-y-1 py-1.5 pr-10 focus-within:border-accent has-[[aria-invalid=true]]:border-status-blocked',
         className,
@@ -163,7 +168,7 @@ export function ComboboxChipsInput({
 }: ComponentProps<typeof SdkComboboxInput>) {
   return (
     <SdkComboboxInput
-      className={cn(
+      className={mergeClassName(
         'min-w-24 flex-1 bg-transparent py-1 text-[15px] text-ink-bright outline-none placeholder:text-ink-ghost data-[disabled]:cursor-not-allowed',
         className,
       )}
@@ -174,7 +179,7 @@ export function ComboboxChipsInput({
 
 /** A chosen record, in the chip look Token Input uses. */
 export function ComboboxChip({ className, ...props }: ComponentProps<typeof SdkComboboxChip>) {
-  return <SdkComboboxChip className={cn(CHIP_CLASS, className)} {...props} />;
+  return <SdkComboboxChip className={mergeClassName(CHIP_CLASS, className)} {...props} />;
 }
 
 /** The chip's remove button; pass an `aria-label` naming the record. */
@@ -183,7 +188,7 @@ export function ComboboxChipRemove({
   ...props
 }: Omit<ComponentProps<typeof SdkComboboxChipRemove>, 'children'>) {
   return (
-    <SdkComboboxChipRemove className={cn(CHIP_REMOVE_CLASS, className)} {...props}>
+    <SdkComboboxChipRemove className={mergeClassName(CHIP_REMOVE_CLASS, className)} {...props}>
       <ChipRemoveIcon />
     </SdkComboboxChipRemove>
   );

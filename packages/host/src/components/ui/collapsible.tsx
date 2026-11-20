@@ -4,7 +4,7 @@ import {
 } from '@ui-sdk/react/collapsible';
 import type { ComponentProps, ReactNode } from 'react';
 
-import { cn } from '../../lib/cn';
+import { mergeClassName } from './class-name';
 
 /*
  * The Collapsible primitive (ADR 0046): UI SDK's disclosure behavior in the
@@ -40,7 +40,7 @@ export function CollapsibleTrigger({
 }: Omit<ComponentProps<typeof SdkCollapsibleTrigger>, 'children'> & { children?: ReactNode }) {
   return (
     <SdkCollapsibleTrigger
-      className={cn(
+      className={mergeClassName(
         'group flex w-full cursor-pointer items-center gap-2 rounded-md py-2 text-left text-sm font-semibold text-ink-bright transition-colors outline-none hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent data-[disabled]:cursor-not-allowed data-[disabled]:text-ink-faint',
         className,
       )}
@@ -59,7 +59,7 @@ export function CollapsiblePanel({
 }: ComponentProps<typeof SdkCollapsiblePanel>) {
   return (
     <SdkCollapsiblePanel
-      className={cn(
+      className={mergeClassName(
         'h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-150 ease-out data-[ending-style]:h-0 data-[starting-style]:h-0',
         className,
       )}

@@ -11,8 +11,8 @@ import {
 } from '@ui-sdk/react/menu';
 import type { ComponentProps, ReactNode } from 'react';
 
-import { cn } from '../../lib/cn';
-import { SEPARATOR_CLASS } from './separator';
+import { mergeClassName } from './class-name';
+import { LIST_DIVIDER_CLASS } from './separator';
 
 /*
  * The Menu primitive (ADR 0046): the desktop Action menu, a list of commands
@@ -41,24 +41,24 @@ export function MenuContent({
     <SdkMenuContent
       align={align}
       sideOffset={sideOffset}
-      className={cn(PANEL_CLASS, className)}
+      className={mergeClassName(PANEL_CLASS, className)}
       {...props}
     />
   );
 }
 
 export function MenuItem({ className, ...props }: ComponentProps<typeof SdkMenuItem>) {
-  return <SdkMenuItem className={cn(MENU_ITEM_CLASS, className)} {...props} />;
+  return <SdkMenuItem className={mergeClassName(MENU_ITEM_CLASS, className)} {...props} />;
 }
 
 export function MenuSeparator({ className, ...props }: ComponentProps<typeof SdkMenuSeparator>) {
-  return <SdkMenuSeparator className={cn(SEPARATOR_CLASS, 'my-1', className)} {...props} />;
+  return <SdkMenuSeparator className={mergeClassName(LIST_DIVIDER_CLASS, className)} {...props} />;
 }
 
 export function MenuGroupLabel({ className, ...props }: ComponentProps<typeof SdkMenuGroupLabel>) {
   return (
     <SdkMenuGroupLabel
-      className={cn('microlabel px-2 py-1 text-ink-faint', className)}
+      className={mergeClassName('microlabel px-2 py-1 text-ink-faint', className)}
       {...props}
     />
   );
@@ -72,7 +72,11 @@ export function MenuSubTrigger({
 }: Omit<ComponentProps<typeof SdkMenuSubTrigger>, 'children'> & { children?: ReactNode }) {
   return (
     <SdkMenuSubTrigger
-      className={cn(MENU_ITEM_CLASS, 'justify-between data-[open]:bg-line-bright', className)}
+      className={mergeClassName(
+        MENU_ITEM_CLASS,
+        'justify-between data-[open]:bg-line-bright',
+        className,
+      )}
       {...props}
     >
       <span className="flex min-w-0 flex-1 items-center gap-2">{children}</span>
@@ -93,7 +97,7 @@ export function MenuSubTrigger({
 }
 
 export function MenuSubContent({ className, ...props }: ComponentProps<typeof SdkMenuSubContent>) {
-  return <SdkMenuSubContent className={cn(PANEL_CLASS, className)} {...props} />;
+  return <SdkMenuSubContent className={mergeClassName(PANEL_CLASS, className)} {...props} />;
 }
 
 /** A fixed slot at the row's start so labels align whether or not the row is checked. */
@@ -126,7 +130,7 @@ export function MenuRadioItem({
   ...props
 }: Omit<ComponentProps<typeof SdkMenuRadioItem>, 'children'> & { children?: ReactNode }) {
   return (
-    <SdkMenuRadioItem className={cn(MENU_ITEM_CLASS, className)} {...props}>
+    <SdkMenuRadioItem className={mergeClassName(MENU_ITEM_CLASS, className)} {...props}>
       <MenuCheck />
       {children}
     </SdkMenuRadioItem>
@@ -140,7 +144,7 @@ export function MenuCheckboxItem({
   ...props
 }: Omit<ComponentProps<typeof SdkMenuCheckboxItem>, 'children'> & { children?: ReactNode }) {
   return (
-    <SdkMenuCheckboxItem className={cn(MENU_ITEM_CLASS, className)} {...props}>
+    <SdkMenuCheckboxItem className={mergeClassName(MENU_ITEM_CLASS, className)} {...props}>
       <MenuCheck />
       {children}
     </SdkMenuCheckboxItem>

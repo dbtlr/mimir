@@ -9,7 +9,8 @@ import { fileURLToPath } from 'node:url';
  * `@ui-sdk/core` ships at the pinned version (ADR 0046), so agents read
  * guidance matched to the installed code. An upgrade that leaves the copy
  * behind fails here; refresh it with
- * `cp -R packages/host/node_modules/@ui-sdk/core/skills/ui-sdk skills/`.
+ * `rm -rf skills/ui-sdk && cp -R packages/host/node_modules/@ui-sdk/core/skills/ui-sdk skills/`,
+ * which replaces the copy so a file the package dropped goes too.
  */
 const COMMITTED = fileURLToPath(new URL('../../../skills/ui-sdk', import.meta.url));
 const INSTALLED = fileURLToPath(

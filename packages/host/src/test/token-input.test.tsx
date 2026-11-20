@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { tagEdits } from '../components/ui/token-input';
+import {
+  pastedDuplicateEdits,
+  tagEdits,
+  tagsOf,
+  withoutPastedDuplicates,
+} from '../components/ui/token-input';
 
 const tag = (value: string) => ({ label: value, type: 'tag', value });
 
@@ -43,5 +48,30 @@ describe('tagEdits', () => {
   it('drops blank words and leaves the spaces between chips alone', () => {
     expect(tagEdits([tag('ui'), ' ', tag('new'), ' '], true)).toEqual([]);
     expect(tagEdits([tag('ui'), ' ,'], false)).toEqual([{ at: { end: 3, start: 2 }, content: [] }]);
+  });
+});
+
+describe('pastedDuplicateEdits', () => {
+  const bug = tag('Bug');
+
+  it('removes a pasted chip that repeats one already there, ignoring case', () => {
+    const before = [bug, ' '];
+    const after = [bug, ' ', tag('bug'), ' '];
+    expect(pastedDuplicateEdits(before, after)).toEqual([
+      { at: { end: 4, start: 2 }, content: [] },
+    ]);
+    expect(tagsOf(withoutPastedDuplicates(before, after))).toEqual(['Bug']);
+  });
+
+  it('keeps the first of two identical chips pasted together', () => {
+    const after = [bug, ' ', bug, ' '];
+    expect(tagsOf(withoutPastedDuplicates([], after))).toEqual(['Bug']);
+  });
+
+  it('keeps duplicates the value already held before the paste', () => {
+    const before = [bug, ' ', bug, ' '];
+    const after = [...before, tag('ui'), ' '];
+    expect(pastedDuplicateEdits(before, after)).toEqual([]);
+    expect(tagsOf(withoutPastedDuplicates(before, after))).toEqual(['Bug', 'Bug', 'ui']);
   });
 });

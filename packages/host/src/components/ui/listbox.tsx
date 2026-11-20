@@ -8,6 +8,7 @@ import type { ListboxItemProps, ListboxProps } from '@ui-sdk/react/listbox';
 import type { ComponentProps, ReactNode } from 'react';
 
 import { cn } from '../../lib/cn';
+import { mergeClassName } from './class-name';
 
 /*
  * The Listbox primitive (ADR 0046): a standalone, selectable list in the
@@ -65,7 +66,7 @@ export function PickerRecord({ id, title }: { id: string; title: string }) {
 export function Listbox<T = string>({ className, ...props }: ListboxProps<T>) {
   return (
     <SdkListbox
-      className={cn(
+      className={mergeClassName(
         'flex flex-col rounded-lg border border-line bg-well-900 p-1.5 outline-none focus-visible:border-accent',
         className,
       )}
@@ -82,7 +83,7 @@ export function ListboxItem<T = string>({
 }: ListboxItemProps<T> &
   Omit<ComponentProps<'div'>, keyof ListboxItemProps<T> | 'children'> & { children?: ReactNode }) {
   return (
-    <SdkListboxItem<T> className={cn(PICKER_ROW_CLASS, className)} {...props}>
+    <SdkListboxItem<T> className={mergeClassName(PICKER_ROW_CLASS, className)} {...props}>
       {children}
       <SdkListboxItemIndicator className={PICKER_CHECK_CLASS}>
         <PickerCheck />
@@ -95,5 +96,10 @@ export function ListboxGroupLabel({
   className,
   ...props
 }: ComponentProps<typeof SdkListboxGroupLabel>) {
-  return <SdkListboxGroupLabel className={cn(PICKER_GROUP_LABEL_CLASS, className)} {...props} />;
+  return (
+    <SdkListboxGroupLabel
+      className={mergeClassName(PICKER_GROUP_LABEL_CLASS, className)}
+      {...props}
+    />
+  );
 }

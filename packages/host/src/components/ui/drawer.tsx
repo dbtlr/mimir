@@ -9,6 +9,7 @@ import type { ComponentProps } from 'react';
 
 import { cn } from '../../lib/cn';
 import { useMediaQuery } from '../../lib/use-media-query';
+import { mergeClassName } from './class-name';
 import { OVERLAY_BACKDROP_CLASS, OVERLAY_DESCRIPTION_CLASS, OVERLAY_TITLE_CLASS } from './dialog';
 
 /*
@@ -37,7 +38,9 @@ export function Drawer({ side, ...props }: ComponentProps<typeof SdkDrawer>) {
 }
 
 export function DrawerBackdrop({ className, ...props }: ComponentProps<typeof SdkDrawerBackdrop>) {
-  return <SdkDrawerBackdrop className={cn(OVERLAY_BACKDROP_CLASS, className)} {...props} />;
+  return (
+    <SdkDrawerBackdrop className={mergeClassName(OVERLAY_BACKDROP_CLASS, className)} {...props} />
+  );
 }
 
 /*
@@ -75,7 +78,7 @@ export function DrawerContent({
 }: ComponentProps<typeof SdkDrawerContent> & { size?: keyof typeof SIZE_CLASS }) {
   return (
     <SdkDrawerContent
-      className={cn(PANEL_CLASS, SIZE_CLASS[size], className)}
+      className={mergeClassName(PANEL_CLASS, SIZE_CLASS[size], className)}
       data-size={size}
       {...props}
     >
@@ -90,14 +93,19 @@ export function DrawerContent({
 }
 
 export function DrawerTitle({ className, ...props }: ComponentProps<typeof SdkDrawerTitle>) {
-  return <SdkDrawerTitle className={cn(OVERLAY_TITLE_CLASS, className)} {...props} />;
+  return <SdkDrawerTitle className={mergeClassName(OVERLAY_TITLE_CLASS, className)} {...props} />;
 }
 
 export function DrawerDescription({
   className,
   ...props
 }: ComponentProps<typeof SdkDrawerDescription>) {
-  return <SdkDrawerDescription className={cn(OVERLAY_DESCRIPTION_CLASS, className)} {...props} />;
+  return (
+    <SdkDrawerDescription
+      className={mergeClassName(OVERLAY_DESCRIPTION_CLASS, className)}
+      {...props}
+    />
+  );
 }
 
 /** The row of answers at the foot of a Drawer, pinned down when the body is short. */

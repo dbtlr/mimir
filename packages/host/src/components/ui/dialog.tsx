@@ -7,6 +7,7 @@ import {
 import type { ComponentProps } from 'react';
 
 import { cn } from '../../lib/cn';
+import { mergeClassName } from './class-name';
 
 /*
  * The Dialog primitive (ADR 0046): UI SDK's dialog behavior (focus trap,
@@ -31,7 +32,9 @@ export const OVERLAY_PANEL_CLASS =
   'fixed top-1/2 left-1/2 z-50 flex max-h-[min(88dvh,var(--visual-viewport-height,100dvh))] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 overflow-y-auto rounded-lg border border-line bg-well-900 p-4 text-ink shadow-2xl outline-none transition-[opacity,scale] duration-150 ease-out data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0';
 
 export function DialogBackdrop({ className, ...props }: ComponentProps<typeof SdkDialogBackdrop>) {
-  return <SdkDialogBackdrop className={cn(OVERLAY_BACKDROP_CLASS, className)} {...props} />;
+  return (
+    <SdkDialogBackdrop className={mergeClassName(OVERLAY_BACKDROP_CLASS, className)} {...props} />
+  );
 }
 
 const SIZE_CLASS = {
@@ -47,7 +50,7 @@ export function DialogContent({
 }: ComponentProps<typeof SdkDialogContent> & { size?: keyof typeof SIZE_CLASS }) {
   return (
     <SdkDialogContent
-      className={cn(OVERLAY_PANEL_CLASS, SIZE_CLASS[size], className)}
+      className={mergeClassName(OVERLAY_PANEL_CLASS, SIZE_CLASS[size], className)}
       data-size={size}
       {...props}
     />
@@ -58,14 +61,19 @@ export const OVERLAY_TITLE_CLASS = 'text-sm font-semibold text-ink-bright';
 export const OVERLAY_DESCRIPTION_CLASS = 'text-meta text-ink-dim';
 
 export function DialogTitle({ className, ...props }: ComponentProps<typeof SdkDialogTitle>) {
-  return <SdkDialogTitle className={cn(OVERLAY_TITLE_CLASS, className)} {...props} />;
+  return <SdkDialogTitle className={mergeClassName(OVERLAY_TITLE_CLASS, className)} {...props} />;
 }
 
 export function DialogDescription({
   className,
   ...props
 }: ComponentProps<typeof SdkDialogDescription>) {
-  return <SdkDialogDescription className={cn(OVERLAY_DESCRIPTION_CLASS, className)} {...props} />;
+  return (
+    <SdkDialogDescription
+      className={mergeClassName(OVERLAY_DESCRIPTION_CLASS, className)}
+      {...props}
+    />
+  );
 }
 
 /** The row of answers at the foot of a Dialog or Alert Dialog, commit last. */

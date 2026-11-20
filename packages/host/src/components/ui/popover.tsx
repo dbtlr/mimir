@@ -5,7 +5,7 @@ import {
 } from '@ui-sdk/react/popover';
 import type { ComponentProps } from 'react';
 
-import { cn } from '../../lib/cn';
+import { mergeClassName } from './class-name';
 
 /*
  * The Popover primitive (ADR 0046): a non-modal panel anchored to its trigger,
@@ -27,7 +27,7 @@ export function PopoverContent({
     <SdkPopoverContent
       align={align}
       sideOffset={sideOffset}
-      className={cn(
+      className={mergeClassName(
         'z-50 flex max-h-[min(70dvh,640px)] w-[min(440px,calc(100vw-2rem))] origin-(--transform-origin) flex-col overflow-y-auto rounded-lg border border-line-bright bg-well-900 text-ink shadow-2xl outline-none transition-[opacity,scale] duration-150 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0',
         className,
       )}
@@ -39,7 +39,7 @@ export function PopoverContent({
 export function PopoverTitle({ className, ...props }: ComponentProps<typeof SdkPopoverTitle>) {
   return (
     <SdkPopoverTitle
-      className={cn('text-sm font-semibold text-ink-bright', className)}
+      className={mergeClassName('text-sm font-semibold text-ink-bright', className)}
       {...props}
     />
   );
@@ -49,5 +49,10 @@ export function PopoverDescription({
   className,
   ...props
 }: ComponentProps<typeof SdkPopoverDescription>) {
-  return <SdkPopoverDescription className={cn('text-meta text-ink-dim', className)} {...props} />;
+  return (
+    <SdkPopoverDescription
+      className={mergeClassName('text-meta text-ink-dim', className)}
+      {...props}
+    />
+  );
 }

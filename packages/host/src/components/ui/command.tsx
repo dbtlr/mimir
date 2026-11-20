@@ -10,6 +10,7 @@ import {
 import type { ComponentProps } from 'react';
 
 import { cn } from '../../lib/cn';
+import { mergeClassName } from './class-name';
 import { PICKER_EMPTY_CLASS, PICKER_GROUP_LABEL_CLASS, PICKER_ROW_CLASS } from './listbox';
 
 /*
@@ -21,7 +22,7 @@ import { PICKER_EMPTY_CLASS, PICKER_GROUP_LABEL_CLASS, PICKER_ROW_CLASS } from '
 export { CommandGroup, CommandSeparator } from '@ui-sdk/react/command';
 
 export function Command({ className, ...props }: ComponentProps<typeof SdkCommand>) {
-  return <SdkCommand className={cn('flex min-h-0 flex-col', className)} {...props} />;
+  return <SdkCommand className={mergeClassName('flex min-h-0 flex-col', className)} {...props} />;
 }
 
 /** The search box: a search glyph, then the field, ruled off from the results. */
@@ -42,7 +43,7 @@ export function CommandInput({ className, ...props }: ComponentProps<typeof SdkC
         <path d="m20 20-3.5-3.5" />
       </svg>
       <SdkCommandInput
-        className={cn(
+        className={mergeClassName(
           'min-w-0 flex-1 bg-transparent text-base text-ink-bright outline-none placeholder:text-ink-faint',
           className,
         )}
@@ -55,7 +56,7 @@ export function CommandInput({ className, ...props }: ComponentProps<typeof SdkC
 export function CommandList({ className, ...props }: ComponentProps<typeof SdkCommandList>) {
   return (
     <SdkCommandList
-      className={cn('min-h-0 flex-1 overflow-y-auto px-2 py-1.5', className)}
+      className={mergeClassName('min-h-0 flex-1 overflow-y-auto px-2 py-1.5', className)}
       {...props}
     />
   );
@@ -65,11 +66,16 @@ export function CommandGroupLabel({
   className,
   ...props
 }: ComponentProps<typeof SdkCommandGroupLabel>) {
-  return <SdkCommandGroupLabel className={cn(PICKER_GROUP_LABEL_CLASS, className)} {...props} />;
+  return (
+    <SdkCommandGroupLabel
+      className={mergeClassName(PICKER_GROUP_LABEL_CLASS, className)}
+      {...props}
+    />
+  );
 }
 
 export function CommandItem({ className, ...props }: ComponentProps<typeof SdkCommandItem>) {
-  return <SdkCommandItem className={cn(PICKER_ROW_CLASS, className)} {...props} />;
+  return <SdkCommandItem className={mergeClassName(PICKER_ROW_CLASS, className)} {...props} />;
 }
 
 export function CommandEmpty({
@@ -78,7 +84,7 @@ export function CommandEmpty({
   ...props
 }: ComponentProps<typeof SdkCommandEmpty>) {
   return (
-    <SdkCommandEmpty className={cn(PICKER_EMPTY_CLASS, 'px-4', className)} {...props}>
+    <SdkCommandEmpty className={mergeClassName(PICKER_EMPTY_CLASS, 'px-4', className)} {...props}>
       {children}
     </SdkCommandEmpty>
   );
@@ -91,7 +97,7 @@ export function CommandShortcut({
 }: ComponentProps<typeof SdkCommandShortcut>) {
   return (
     <SdkCommandShortcut
-      className={cn('ml-auto shrink-0 font-mono text-micro text-ink-faint', className)}
+      className={mergeClassName('ml-auto shrink-0 font-mono text-micro text-ink-faint', className)}
       {...props}
     />
   );
