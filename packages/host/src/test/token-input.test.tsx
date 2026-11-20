@@ -68,6 +68,15 @@ describe('pastedDuplicateEdits', () => {
     expect(tagsOf(withoutPastedDuplicates([], after))).toEqual(['Bug']);
   });
 
+  it('keeps the chip already there when a case variant is pasted before it', () => {
+    const before = [bug, ' '];
+    const after = [tag('bug'), ' ', bug, ' '];
+    expect(pastedDuplicateEdits(before, after)).toEqual([
+      { at: { end: 2, start: 0 }, content: [] },
+    ]);
+    expect(tagsOf(withoutPastedDuplicates(before, after))).toEqual(['Bug']);
+  });
+
   it('keeps duplicates the value already held before the paste', () => {
     const before = [bug, ' ', bug, ' '];
     const after = [...before, tag('ui'), ' '];

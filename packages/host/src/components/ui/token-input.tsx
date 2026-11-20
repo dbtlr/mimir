@@ -73,18 +73,32 @@ export function tagEdits(value: TokenInputValue, flush: boolean): TagEdit[] {
 }
 
 /**
- * The chips of `after` that repeat another chip in any case, except the repeats
- * `before` already held (a defaultValue shows stored data as it is). The first
- * of a spelling stays. A pasted chip's trailing space goes with it. Edits run
- * right to left.
+ * The new chips of `after` that repeat a tag in any case. Chips `before`
+ * already held always stay, repeats included (a defaultValue shows stored data
+ * as it is), wherever the paste lands; among new chips the first spelling
+ * stays. A removed chip's trailing space goes with it. Edits run right to left.
  */
 export function pastedDuplicateEdits(before: TokenInputValue, after: TokenInputValue): TagEdit[] {
-  const allowed = new Map<string, number>();
+  const held = new Map<string, number>();
   for (const tag of tagsOf(before)) {
-    const key = tag.toLowerCase();
-    allowed.set(key, (allowed.get(key) ?? 0) + 1);
+    held.set(tag, (held.get(tag) ?? 0) + 1);
   }
-  const seen = new Map<string, number>();
+  const isNew = after.map((part) => {
+    if (!isToken(part)) {
+      return false;
+    }
+    const left = held.get(part.value) ?? 0;
+    if (left > 0) {
+      held.set(part.value, left - 1);
+      return false;
+    }
+    return true;
+  });
+  const kept = new Set(
+    after.flatMap((part, index) =>
+      isToken(part) && !isNew[index] ? [part.value.toLowerCase()] : [],
+    ),
+  );
   const edits: TagEdit[] = [];
   let offset = 0;
   after.forEach((part, index) => {
@@ -92,13 +106,15 @@ export function pastedDuplicateEdits(before: TokenInputValue, after: TokenInputV
       offset += part.length;
       return;
     }
-    const key = part.value.toLowerCase();
-    const count = (seen.get(key) ?? 0) + 1;
-    seen.set(key, count);
-    if (count > Math.max(1, allowed.get(key) ?? 0)) {
-      const next = after[index + 1];
-      const end = offset + (typeof next === 'string' && next.startsWith(' ') ? 2 : 1);
-      edits.unshift({ at: { end, start: offset }, content: [] });
+    if (isNew[index]) {
+      const key = part.value.toLowerCase();
+      if (kept.has(key)) {
+        const next = after[index + 1];
+        const end = offset + (typeof next === 'string' && next.startsWith(' ') ? 2 : 1);
+        edits.unshift({ at: { end, start: offset }, content: [] });
+      } else {
+        kept.add(key);
+      }
     }
     offset += 1;
   });
