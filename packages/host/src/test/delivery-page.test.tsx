@@ -3,6 +3,7 @@
 import type { ConsoleOutput } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
 import { screen, within, waitFor, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
@@ -424,7 +425,7 @@ test.each(['Confirm with note', 'Answer with note'])(
     expect(commit).toHaveClass('inset-ring-line-bright');
     expect(commit).toBeDisabled();
     fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: '  Use neither  ' } });
-    fireEvent.click(commit);
+    await userEvent.click(commit);
     await waitFor(() => expect(fn).toHaveBeenCalledTimes(1));
     const attempt = expect.any(String);
     expect(fn).toHaveBeenCalledWith({
@@ -497,7 +498,7 @@ test.each(['Pause', 'Abandon'])(
     fireEvent.change(within(dialog).getByRole('textbox'), {
       target: { value: '  Wait for access  ' },
     });
-    fireEvent.click(commit);
+    await userEvent.click(commit);
     await waitFor(() =>
       expect(fn).toHaveBeenCalledExactlyOnceWith({
         data: { attempt: expect.any(String), id: 'MMR-d3', reason: 'Wait for access' },

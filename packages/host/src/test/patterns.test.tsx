@@ -199,6 +199,40 @@ describe('DestructiveConfirm', () => {
     expect(commit).toHaveFocus();
   });
 
+  it('restores dropped focus once the refused confirm is enabled again', async () => {
+    const call = deferred();
+    const confirm = (commitDisabled: boolean) => (
+      <DestructiveConfirm
+        open
+        commitDisabled={commitDisabled}
+        onClose={() => undefined}
+        title="Remove it?"
+        commitLabel="Remove"
+        onConfirm={() => call.promise}
+      >
+        It cannot be undone.
+      </DestructiveConfirm>
+    );
+    const { rerender } = render(confirm(false));
+    const dialog = await screen.findByRole('alertdialog');
+    const commit = within(dialog).getByRole('button', { name: 'Remove' });
+    await userEvent.click(commit);
+    expect(commit).toBeDisabled();
+    rerender(confirm(true));
+    // jsdom keeps focus on a button that becomes disabled.
+    commit.blur();
+    const refocus = vi.spyOn(commit, 'focus');
+    await settleCall(call, 'reject');
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeEnabled();
+    expect(commit).toBeDisabled();
+    expect(refocus).not.toHaveBeenCalled();
+
+    rerender(confirm(false));
+    expect(commit).toBeEnabled();
+    expect(refocus).toHaveBeenCalledOnce();
+    expect(commit).toHaveFocus();
+  });
+
   it('shows an answer in place of the question, with one Close that takes focus', async () => {
     render(<Answered />);
     const dialog = await screen.findByRole('alertdialog');
@@ -671,6 +705,8 @@ async function refuseReasonOffline() {
   );
   const { rerender } = render(reason(true, false));
   const dialog = await screen.findByRole('dialog');
+  const text = within(dialog).getByRole('textbox');
+  await userEvent.type(text, 'wait');
   const commit = within(dialog).getByRole('button', { name: 'Park' });
   await userEvent.click(commit);
   expect(onCommit).toHaveBeenCalledOnce();
@@ -682,7 +718,7 @@ async function refuseReasonOffline() {
   await settleCall(call, 'reject');
   expect(commit).toHaveAttribute('aria-busy', 'false');
   expect(commit).toBeDisabled();
-  return { commit, reason, refocus, rerender };
+  return { commit, onCommit, reason, refocus, rerender, text };
 }
 
 describe('Reason refusals while offline', () => {
@@ -703,6 +739,18 @@ describe('Reason refusals while offline', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     rerender(reason(false, false));
     expect(refocus).not.toHaveBeenCalled();
+  });
+
+  it('keeps focus on the reason being edited when the connection returns', async () => {
+    const { onCommit, reason, rerender, text } = await refuseReasonOffline();
+    await userEvent.type(text, ' for');
+    expect(text).toHaveValue('wait for');
+    rerender(reason(true, false));
+    expect(text).toHaveFocus();
+
+    await userEvent.keyboard(' access');
+    expect(text).toHaveValue('wait for access');
+    expect(onCommit).toHaveBeenCalledExactlyOnceWith('wait');
   });
 });
 

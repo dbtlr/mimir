@@ -16,6 +16,16 @@ function createOpening(id: number): Opening {
   return { gate: createCommitGate(), id };
 }
 
+function restoreCommitFocus(button: HTMLButtonElement | null) {
+  if (button?.isConnected !== true) {
+    return;
+  }
+  const { activeElement, body } = button.ownerDocument;
+  if (activeElement === null || activeElement === body || activeElement === button) {
+    button.focus();
+  }
+}
+
 /**
  * The commit state of a dialog, scoped to one opening, shared by Destructive
  * confirm and Reason. Each time `open` turns true the dialog starts a new
@@ -24,11 +34,11 @@ function createOpening(id: number): Opening {
  *
  * `busy` is true while this opening's commit promise runs, or while the caller
  * says its own call is `pending`. When a busy period ends with the dialog open
- * (a refusal, however the caller reports it), focus returns to the commit that
- * ran, since a browser drops focus when the focused commit disables. If
- * `commitDisabled` still holds the button disabled, focus waits until it is
- * enabled in the same opening. Closing discards the request. `key` names the
- * opening, for content that must remount with each one.
+ * (a refusal, however the caller reports it), restore focus dropped when the
+ * pressed commit disabled. If `commitDisabled` still holds the button disabled,
+ * restoration waits until it is enabled in the same opening. Closing or finding
+ * focus on another control when the button enables discards the request. `key`
+ * names the opening, for content that must remount with each one.
  */
 export function useOpening(open: boolean, pending: boolean, commitDisabled = false) {
   // The opening advances while rendering the one where `open` turns true, so the render that
@@ -73,16 +83,14 @@ export function useOpening(open: boolean, pending: boolean, commitDisabled = fal
       return;
     }
     refocusIn.current = null;
-    if (pressed?.isConnected === true) {
-      pressed.focus();
-    }
+    restoreCommitFocus(pressed);
   }, [busy, commitDisabled, open, opening]);
 
   /**
    * Runs `work` from the `button` that was pressed, once at a time per opening.
    * `onCommitted` runs when it returns nothing or its promise resolves while
    * this opening is current. A throw or a rejection leaves the dialog open,
-   * with focus back on `button`; the caller's call reports the failure.
+   * and restores dropped focus to `button`. The caller's call reports the failure.
    */
   async function commit(
     button: HTMLButtonElement | null,
@@ -94,7 +102,7 @@ export function useOpening(open: boolean, pending: boolean, commitDisabled = fal
     try {
       result = mine.gate.run(work);
     } catch {
-      button?.focus();
+      restoreCommitFocus(button);
       return;
     }
     if (result === HELD) {

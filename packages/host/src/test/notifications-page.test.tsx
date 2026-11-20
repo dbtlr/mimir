@@ -954,6 +954,26 @@ describe('Reset push key', () => {
     });
   });
 
+  it('holds Cancel and Escape while Reset is pending', async () => {
+    await open('phone', { world: { devices: [other] } });
+    const reset = Promise.withResolvers<Awaited<ReturnType<typeof resetPushKey>>>();
+    vi.mocked(resetPushKey).mockReturnValueOnce(reset.promise);
+    try {
+      await confirmReset();
+      const dialog = await screen.findByRole('alertdialog', { name: 'Reset the push key?' });
+      expect(resetPushKey).toHaveBeenCalledOnce();
+      expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled();
+      await userEvent.keyboard('{Escape}');
+      expect(dialog).toBeInTheDocument();
+    } finally {
+      await act(async () => {
+        reset.resolve({ state: 'unconfigured' });
+        await reset.promise;
+      });
+      await settle();
+    }
+  });
+
   it('from an unusable key, resets and subscribes this browser once with the new key', async () => {
     const browser = fakeBrowser({
       held: { ...SUBSCRIPTION, applicationServerKey: 'BLostKey' },
