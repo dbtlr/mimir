@@ -28,6 +28,9 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from '../components/ui/drawer';
+import { Field, FieldLabel } from '../components/ui/field';
+import { Input } from '../components/ui/input';
+import { Textarea } from '../components/ui/textarea';
 import { Sample, Section } from './section';
 
 /** Dialog, Alert Dialog, and Drawer: the console's three overlay surfaces. */
@@ -40,9 +43,6 @@ export function OverlaysKit() {
     </>
   );
 }
-
-const FIELD_CLASS =
-  'w-full rounded-md border border-line-bright bg-well-850 px-2.5 py-1.5 text-sm text-ink placeholder:text-ink-faint focus-visible:outline-2 focus-visible:outline-accent';
 
 function DialogKit() {
   return (
@@ -148,14 +148,14 @@ function DrawerKit() {
           <DrawerContent size="form">
             <DrawerTitle>Block MMR-219</DrawerTitle>
             <DrawerDescription>Say what it is waiting on.</DrawerDescription>
-            <label className="flex flex-col gap-1 text-meta text-ink-dim">
-              Blocked by
-              <input className={FIELD_CLASS} defaultValue="MMR-221" />
-            </label>
-            <label className="flex flex-col gap-1 text-meta text-ink-dim">
-              Reason
-              <input className={FIELD_CLASS} placeholder="What has to land first?" />
-            </label>
+            <Field>
+              <FieldLabel>Blocked by</FieldLabel>
+              <Input defaultValue="MMR-221" />
+            </Field>
+            <Field>
+              <FieldLabel>Reason</FieldLabel>
+              <Textarea grow placeholder="What has to land first?" />
+            </Field>
             <DrawerFooter>
               <DrawerClose render={<ActionButton size="sm" variant="outline" />}>
                 Cancel

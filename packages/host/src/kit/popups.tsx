@@ -7,6 +7,8 @@ import {
   MenuGroup,
   MenuGroupLabel,
   MenuItem,
+  MenuRadioGroup,
+  MenuRadioItem,
   MenuSeparator,
   MenuSub,
   MenuSubContent,
@@ -77,6 +79,13 @@ export function PopupsKit() {
                   <MenuItem value="phase-2">Phase 2</MenuItem>
                 </MenuSubContent>
               </MenuSub>
+              <MenuSeparator />
+              <MenuRadioGroup name="theme" defaultValue="system">
+                <MenuGroupLabel>Theme</MenuGroupLabel>
+                <MenuRadioItem value="light">Light</MenuRadioItem>
+                <MenuRadioItem value="dark">Dark</MenuRadioItem>
+                <MenuRadioItem value="system">Match system</MenuRadioItem>
+              </MenuRadioGroup>
               <MenuSeparator />
               <MenuItem value="abandon" destructive>
                 Abandon

@@ -3,6 +3,10 @@ import { useState } from 'react';
 import { ActionButton } from '../components/ui/action-button';
 import {
   Combobox,
+  ComboboxChip,
+  ComboboxChipRemove,
+  ComboboxChips,
+  ComboboxChipsInput,
   ComboboxContent,
   ComboboxEmpty,
   ComboboxInput,
@@ -10,6 +14,7 @@ import {
   ComboboxLabel,
   ComboboxList,
   ComboboxTrigger,
+  ComboboxValue,
 } from '../components/ui/combobox';
 import {
   Command,
@@ -92,6 +97,42 @@ function TaskCombobox({
   );
 }
 
+function DependsOnCombobox() {
+  return (
+    <Combobox multiple defaultValue={['MMR-736', 'MMR-740']} itemToLabel={(id) => id}>
+      <div className={FIELD}>
+        <ComboboxLabel>Depends on</ComboboxLabel>
+        <div className="relative">
+          <ComboboxChips>
+            <ComboboxValue>
+              {(state) =>
+                (Array.isArray(state.value) ? state.value : []).map((id: string, index) => (
+                  <ComboboxChip key={id} value={id}>
+                    {state.labels[index]}
+                    <ComboboxChipRemove aria-label={`Remove ${state.labels[index]}`} />
+                  </ComboboxChip>
+                ))
+              }
+            </ComboboxValue>
+            <ComboboxChipsInput placeholder="Add a task" />
+          </ComboboxChips>
+          <ComboboxTrigger aria-label="Show tasks" />
+        </div>
+      </div>
+      <ComboboxContent>
+        <ComboboxEmpty />
+        <ComboboxList>
+          {TASKS.map((task) => (
+            <ComboboxItem key={task.id} value={task.id} label={task.id} keywords={[task.title]}>
+              <PickerRecord id={task.id} title={task.title} />
+            </ComboboxItem>
+          ))}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
+  );
+}
+
 function JumpCommand({ onAction }: { onAction?: () => void }) {
   return (
     <Command onAction={onAction} autoHighlight>
@@ -154,6 +195,9 @@ export function PickersKit() {
           <div className="h-64 w-full">
             <TaskCombobox label="Parent task" defaultValue="MMR-219" defaultOpen />
           </div>
+        </Sample>
+        <Sample label="combobox · several (depends on)">
+          <DependsOnCombobox />
         </Sample>
         <Sample label="combobox · disabled">
           <TaskCombobox label="Parent task" defaultValue="MMR-219" disabled />

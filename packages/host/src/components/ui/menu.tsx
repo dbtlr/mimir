@@ -1,7 +1,10 @@
 import {
   MenuContent as SdkMenuContent,
   MenuGroupLabel as SdkMenuGroupLabel,
+  MenuCheckboxItem as SdkMenuCheckboxItem,
   MenuItem as SdkMenuItem,
+  MenuItemIndicator as SdkMenuItemIndicator,
+  MenuRadioItem as SdkMenuRadioItem,
   MenuSeparator as SdkMenuSeparator,
   MenuSubContent as SdkMenuSubContent,
   MenuSubTrigger as SdkMenuSubTrigger,
@@ -19,7 +22,7 @@ import { SEPARATOR_CLASS } from './separator';
  */
 
 /* Root, Trigger, Group, and Sub carry behavior only. */
-export { Menu, MenuGroup, MenuSub, MenuTrigger } from '@ui-sdk/react/menu';
+export { Menu, MenuGroup, MenuRadioGroup, MenuSub, MenuTrigger } from '@ui-sdk/react/menu';
 
 const PANEL_CLASS =
   'z-50 min-w-36 origin-(--transform-origin) rounded-md border border-line-bright bg-well-800 p-1 text-ink shadow-xl outline-none transition-[opacity,scale] duration-100 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0';
@@ -91,4 +94,55 @@ export function MenuSubTrigger({
 
 export function MenuSubContent({ className, ...props }: ComponentProps<typeof SdkMenuSubContent>) {
   return <SdkMenuSubContent className={cn(PANEL_CLASS, className)} {...props} />;
+}
+
+/** A fixed slot at the row's start so labels align whether or not the row is checked. */
+function MenuCheck() {
+  return (
+    <SdkMenuItemIndicator
+      keepMounted
+      className="inline-flex size-4 shrink-0 items-center justify-center data-[unchecked]:invisible"
+    >
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className="size-3.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="m5 12 5 5L20 7" />
+      </svg>
+    </SdkMenuItemIndicator>
+  );
+}
+
+/** One choice in a MenuRadioGroup; the check shows which is chosen (ADR 0019 Choice in an Action menu). */
+export function MenuRadioItem({
+  className,
+  children,
+  ...props
+}: Omit<ComponentProps<typeof SdkMenuRadioItem>, 'children'> & { children?: ReactNode }) {
+  return (
+    <SdkMenuRadioItem className={cn(MENU_ITEM_CLASS, className)} {...props}>
+      <MenuCheck />
+      {children}
+    </SdkMenuRadioItem>
+  );
+}
+
+/** A toggle row that stays open; the check shows it is on. */
+export function MenuCheckboxItem({
+  className,
+  children,
+  ...props
+}: Omit<ComponentProps<typeof SdkMenuCheckboxItem>, 'children'> & { children?: ReactNode }) {
+  return (
+    <SdkMenuCheckboxItem className={cn(MENU_ITEM_CLASS, className)} {...props}>
+      <MenuCheck />
+      {children}
+    </SdkMenuCheckboxItem>
+  );
 }

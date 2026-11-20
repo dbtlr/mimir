@@ -48,26 +48,38 @@ export function commitTags(value: TokenInputValue, flush: boolean): TokenInputVa
   return [...tags.map(tagToken), ...(draft === '' ? [] : [draft])];
 }
 
-/** A tag chip: the Badge look, with a remove button that draws its own x. */
+/** The chip look Token Input and the multiple Combobox share: the Badge look. */
+export const CHIP_CLASS =
+  'mx-0.5 inline-flex items-center gap-1 rounded-sm bg-well-800 py-px pr-0.5 pl-1.5 align-middle text-tag font-medium whitespace-nowrap text-ink inset-ring inset-ring-line data-[selected]:inset-ring-accent md:text-micro';
+
+/** The chip's remove button. */
+export const CHIP_REMOVE_CLASS =
+  'inline-flex size-4 cursor-pointer items-center justify-center rounded-sm text-ink-dim hover:bg-well-700 hover:text-ink-bright data-[disabled]:cursor-not-allowed';
+
+/** The x drawn in a chip's remove button (web.css, which would draw it, is not loaded). */
+export function ChipRemoveIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="size-3"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    >
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+
+/** A tag chip with a remove button. */
 function TagChip({ token }: { token: Token }) {
   return (
-    <TokenInputToken className="mx-0.5 inline-flex items-center gap-1 rounded-sm bg-well-800 py-px pr-0.5 pl-1.5 align-middle text-tag font-medium whitespace-nowrap text-ink inset-ring inset-ring-line data-[selected]:inset-ring-accent md:text-micro">
+    <TokenInputToken className={CHIP_CLASS}>
       {token.label}
-      <TokenInputTokenRemove
-        aria-label={`Remove ${token.label}`}
-        className="inline-flex size-4 cursor-pointer items-center justify-center rounded-sm text-ink-dim hover:bg-well-700 hover:text-ink-bright data-[disabled]:cursor-not-allowed"
-      >
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 24 24"
-          className="size-3"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        >
-          <path d="M6 6l12 12M18 6L6 18" />
-        </svg>
+      <TokenInputTokenRemove aria-label={`Remove ${token.label}`} className={CHIP_REMOVE_CLASS}>
+        <ChipRemoveIcon />
       </TokenInputTokenRemove>
     </TokenInputToken>
   );

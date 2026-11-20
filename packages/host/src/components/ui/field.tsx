@@ -20,11 +20,11 @@ export function Field({ className, ...props }: ComponentProps<typeof SdkField>) 
   return <SdkField className={cn('flex flex-col gap-1.5', className)} {...props} />;
 }
 
-/** Names the control. */
 /** A form value's label; picker labels (Combobox) wear it too, so every label reads alike. */
 export const FIELD_LABEL_CLASS =
   'text-xs font-medium text-ink-dim data-[disabled]:text-ink-faint data-[invalid]:text-status-blocked-foreground';
 
+/** Names the control. */
 export function FieldLabel({ className, ...props }: ComponentProps<typeof SdkFieldLabel>) {
   return <SdkFieldLabel className={cn(FIELD_LABEL_CLASS, className)} {...props} />;
 }

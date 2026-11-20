@@ -1,4 +1,7 @@
 import {
+  ComboboxChip as SdkComboboxChip,
+  ComboboxChipRemove as SdkComboboxChipRemove,
+  ComboboxChips as SdkComboboxChips,
   ComboboxContent as SdkComboboxContent,
   ComboboxEmpty as SdkComboboxEmpty,
   ComboboxGroupLabel as SdkComboboxGroupLabel,
@@ -14,6 +17,7 @@ import type { ComponentProps, ReactNode } from 'react';
 
 import { cn } from '../../lib/cn';
 import { FIELD_LABEL_CLASS } from './field';
+import { TEXT_FIELD_CLASS } from './input';
 import {
   PICKER_CHECK_CLASS,
   PICKER_EMPTY_CLASS,
@@ -21,6 +25,7 @@ import {
   PICKER_ROW_CLASS,
   PickerCheck,
 } from './listbox';
+import { CHIP_CLASS, CHIP_REMOVE_CLASS, ChipRemoveIcon } from './token-input';
 
 /*
  * The Combobox primitive (ADR 0046): an input that filters a popup list of
@@ -30,7 +35,7 @@ import {
  */
 
 /* Root and groups carry behavior only. */
-export { Combobox, ComboboxGroup, ComboboxSeparator } from '@ui-sdk/react/combobox';
+export { Combobox, ComboboxGroup, ComboboxSeparator, ComboboxValue } from '@ui-sdk/react/combobox';
 
 export function ComboboxLabel({ className, ...props }: ComponentProps<typeof SdkComboboxLabel>) {
   return <SdkComboboxLabel className={cn(FIELD_LABEL_CLASS, className)} {...props} />;
@@ -40,10 +45,7 @@ export function ComboboxLabel({ className, ...props }: ComponentProps<typeof Sdk
 export function ComboboxInput({ className, ...props }: ComponentProps<typeof SdkComboboxInput>) {
   return (
     <SdkComboboxInput
-      className={cn(
-        'min-h-11 w-full min-w-0 rounded-md border border-line-bright bg-well-950 py-2.5 pr-10 pl-3 text-[15px] text-ink-bright outline-none placeholder:text-ink-ghost focus-visible:border-accent data-[disabled]:opacity-50 data-[readonly]:text-ink-dim',
-        className,
-      )}
+      className={cn(TEXT_FIELD_CLASS, 'min-h-11 min-w-0 py-2.5 pr-10', className)}
       {...props}
     />
   );
@@ -133,5 +135,56 @@ export function ComboboxEmpty({
     <SdkComboboxEmpty className={cn(PICKER_EMPTY_CLASS, className)} {...props}>
       {children}
     </SdkComboboxEmpty>
+  );
+}
+
+/**
+ * The box that holds the chosen chips and the filter input of a `multiple`
+ * Combobox. It takes the text-box look, and its edge follows the input's focus
+ * and invalid state.
+ */
+export function ComboboxChips({ className, ...props }: ComponentProps<typeof SdkComboboxChips>) {
+  return (
+    <SdkComboboxChips
+      className={cn(
+        TEXT_FIELD_CLASS,
+        'flex min-h-11 flex-wrap items-center gap-y-1 py-1.5 pr-10 focus-within:border-accent has-[[aria-invalid=true]]:border-status-blocked',
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+/** The filter input inside ComboboxChips; the box draws the edge, so it has none. */
+export function ComboboxChipsInput({
+  className,
+  ...props
+}: ComponentProps<typeof SdkComboboxInput>) {
+  return (
+    <SdkComboboxInput
+      className={cn(
+        'min-w-24 flex-1 bg-transparent py-1 text-[15px] text-ink-bright outline-none placeholder:text-ink-ghost data-[disabled]:cursor-not-allowed',
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+/** A chosen record, in the chip look Token Input uses. */
+export function ComboboxChip({ className, ...props }: ComponentProps<typeof SdkComboboxChip>) {
+  return <SdkComboboxChip className={cn(CHIP_CLASS, className)} {...props} />;
+}
+
+/** The chip's remove button; pass an `aria-label` naming the record. */
+export function ComboboxChipRemove({
+  className,
+  ...props
+}: Omit<ComponentProps<typeof SdkComboboxChipRemove>, 'children'>) {
+  return (
+    <SdkComboboxChipRemove className={cn(CHIP_REMOVE_CLASS, className)} {...props}>
+      <ChipRemoveIcon />
+    </SdkComboboxChipRemove>
   );
 }

@@ -22,6 +22,7 @@ const PROBES = {
   primitive: { path: source(`components/ui/ui-sdk-probe-primitive-${pid}.tsx`), source: IMPORT },
   route: { path: source(`routes/ui-sdk-probe-route-${pid}.tsx`), source: IMPORT },
   serverFn: { path: source(`api/fns/ui-sdk-probe-fn-${pid}.ts`), source: IMPORT },
+  test: { path: source(`components/ui-sdk-probe-${pid}.test.ts`), source: IMPORT },
 };
 
 type Diagnostic = { filename: string; help?: string; message: string };
@@ -90,6 +91,10 @@ test('a route that imports UI SDK is refused', () => {
 
 test('a server function that imports UI SDK is refused', () => {
   expect(of(PROBES.serverFn.path)).toContain(REFUSAL);
+});
+
+test('a console test outside components/ui that imports UI SDK is refused', () => {
+  expect(of(PROBES.test.path)).toContain(REFUSAL);
 });
 
 test('a primitive in components/ui imports UI SDK cleanly', () => {
