@@ -1194,3 +1194,21 @@ a confirm beside its way out, the way out first.
 The push key reset sheet uses it. Moving the stop-run dialog and the inline
 Unpair confirm onto it waits on a set of input patterns chosen by the kind of
 input (MMR-736).
+
+## Refinement (2026-11-20, MMR-712): a setting that saves when flipped is a switch
+
+An on-or-off setting that takes effect the moment it changes, with nothing to
+confirm and no permission to ask, is a switch: Base UI's `Switch`, vendored
+as `components/ui/switch.tsx`, with its label as the row's text, 40 by 24
+pixels, accent when on, and a 44-pixel row on a phone. The row's label names
+the setting, and the switch is named by it.
+
+- **While it saves,** the switch shows its new position and is disabled. A
+  failure returns it to the saved position and says why in a polite line
+  under its group.
+- **Not for an action.** A choice whose outcome is not known until a prompt or
+  a call answers stays a button that names the action, as Turn on does (ADR
+  0045, MMR-711 refinement).
+
+The Notifications page's kinds use it first. The set of input patterns that
+MMR-736 chooses takes it in as the pattern for a setting that saves on change.

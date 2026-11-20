@@ -927,3 +927,121 @@ answer removes the card, focus moves to the page's `<main>`.
 The card is the console's `ConfirmCard` (ADR 0019's MMR-734 refinement). Its
 Turn on is an outline, because the page's one solid button belongs to Needs
 you.
+
+## Refinement (2026-11-20, MMR-712): each device chooses the kinds that notify it
+
+Every subscribed browser receives every kind of event until someone turns a
+kind off for it. A **muted kind** is an event `kind` (the event table above) that
+the host never pushes to that browser. The choice belongs to the
+subscription, so each browser has its own, and any browser listed on the
+Notifications page can change any row's choice.
+
+### The column
+
+`push_subscriptions` gains `muted_kinds`: text, not null, default `'[]'`, a
+JSON array of event kinds. Store schema 24 adds it on both dialects, so every
+row from before the step reads as muting nothing. The table stays outside the
+transfer, as above.
+
+- Storing what is muted, not what is wanted, means a kind added later notifies
+  every browser until someone mutes it, which is the default the phase chose.
+- The host writes only the four kinds, each at most once, in the event
+  table's order. A name it does not know, read from the column, is ignored, so
+  a kind that is retired later leaves no error behind.
+
+### The server functions
+
+- **Subscribe** takes an optional `muted`: the kinds to mute. A new row takes
+  the given kinds, or none. A row the table already holds keeps its own kinds
+  when `muted` is absent and takes the given kinds when it is present. Turn on
+  sends none; the heal sends the kinds this browser last knew (below).
+- **Set kinds**, a seventh function, takes an endpoint and `muted`, replaces
+  that row's muted kinds, and answers `saved`. An endpoint with no row answers
+  `not_found`. It answers `unconfigured` and `misconfigured` like the others
+  and works in the `key unusable` state, as Unsubscribe does.
+- **List** answers each row's `muted`, in the event table's order.
+
+In both inputs, `muted` is a list of the four kind names with no repeats, at
+most four long. Any other value is a validation error, never an answer.
+
+### Sending
+
+`deliver` skips a row whose muted kinds include the event's kind: nothing is
+built or sent for it, and its row is not touched. A `decisions` event is one
+kind however many decisions it carries. A test push ignores the choice, so a
+browser that mutes every kind still answers Send test. The badge each push
+carries (`app_badge`) still counts the whole needs-you set, so a browser that
+mutes a kind shows a count that includes it, the next time any push reaches
+it.
+
+### The local record keeps this browser's kinds
+
+A heal can replace this browser's row, and a key reset deletes it (the MMR-711
+refinement). So that the choice survives, the record's `on` state gains
+`muted`: the kinds this browser last knew for its own row. A record without
+it, written before this step, knows nothing about the choice.
+
+- **Written** by a set kinds call on this browser's own row that answers
+  `saved`, and by the heal (below) when the host's list holds a row for the
+  record's endpoint on the current key whose kinds differ from the record's.
+  So a choice made on another device reaches this browser's record the next
+  time its console opens.
+- **Sent** by the heal with every subscribe it makes, when the record carries
+  `muted`. So a browser whose key changed, or whose push service gave it a new
+  endpoint, keeps its choice. Turn on sends no `muted`.
+- **Dropped** with the record: Turn off clears it, so turning notifications
+  off and on again starts with every kind on.
+
+### The control
+
+This follows mock variant B of the MMR-711 page, with MMR-712's variant A picked
+on 2026-11-20.
+
+- **This browser.** In the On state, a group titled "Notify this device about"
+  sits under This device, with one switch for each kind, in the event table's
+  order: Stopped deliveries, Decisions to confirm, Tasks blocked on you, and
+  Tasks that need answers. A line under the group says that the badge still
+  counts everything that needs you. In every other state the group is absent.
+- **Another row.** Its sheet (phone) and its menu (desktop) gain "Choose what
+  notifies…" above Send test notification. On a phone it opens a second sheet
+  titled with the row's label; on a desktop, a dialog. Both hold the same four
+  switches and a Done that closes them. An old-key row does not offer it,
+  because no push reaches that row.
+- **A switch saves when it flips.** The switch shows its new position while the
+  call runs and is disabled until it answers. On `saved` it stays. On any
+  other answer, or a thrown failure, it returns to its last saved position and
+  a polite line under the switches says why: "The choice couldn't be saved."
+  for a failure, and "This browser is no longer subscribed." for `not_found`,
+  after which the list reloads.
+- **Every kind off** is allowed. The switches' group then says: "Every kind is
+  off. This browser stays subscribed and still takes a test notification."
+- **The row's meta line** adds the choice after its other parts: the kind's
+  short name and "off" when one kind is muted (Deliveries off, Decisions off,
+  Blocked tasks off, Answers off), "2 kinds off" or "3 kinds off", and "Every
+  kind off" when all four are. A row that mutes nothing adds nothing.
+
+Each switch is the console's switch (ADR 0019, the MMR-712 refinement).
+
+### Known limits of the choice
+
+- A choice made on another device after this browser's console last opened
+  is not in this browser's record. A key reset before this browser opens
+  again loses that choice, and the heal brings back the one the record holds.
+- Two devices changing one row's kinds at the same time: the later write wins,
+  each switch shows its own call's answer, and the list shows the stored
+  kinds after its next read.
+- A set kinds call that crosses a heal on the same browser can leave the
+  record holding the older kinds until the next console load corrects it from
+  the list.
+- The badge counts kinds the browser mutes, as above.
+
+### Considered and rejected
+
+- **Storing the wanted kinds.** A kind added later would start off on every
+  existing browser.
+- **A column per kind.** Each new kind would take a schema step.
+- **Keeping the choice only on the host.** A key reset deletes every row, and
+  a heal can replace a row's endpoint, so the choice would not survive either.
+- **Moving kinds over by endpoint in Subscribe** (the heal naming the old
+  endpoint). It covers a new endpoint but not a reset, which deletes the old
+  row first. The record covers both.
