@@ -22,7 +22,10 @@ vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 vi.mock('../api/fns/views');
 vi.mock('../api/fns/t3');
-vi.mock('sonner', () => ({ Toaster: () => null, toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('../components/patterns/notice', () => ({
+  NoticeHost: () => null,
+  toast: { error: vi.fn(), success: vi.fn() },
+}));
 
 const TREE = engineTree({ id: 'MMR', status: 'in_progress', title: 'Mimir', type: 'project' }, [
   engineTree({ id: 'MMR-1', status: 'ready', title: 'Initiative', type: 'initiative' }, [

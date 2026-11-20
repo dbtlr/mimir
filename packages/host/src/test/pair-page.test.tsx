@@ -12,7 +12,7 @@ vi.mock('../api/fns/shell');
 vi.mock('../api/fns/views');
 vi.mock('../api/fns/devices');
 const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn(), success: vi.fn() } }));
-vi.mock('sonner', () => ({ Toaster: () => null, toast }));
+vi.mock('../components/patterns/notice', () => ({ NoticeHost: () => null, toast }));
 
 const CODE = 'K7QM-2XRD';
 const MINUTE = 60_000;

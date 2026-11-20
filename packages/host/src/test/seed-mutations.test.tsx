@@ -10,7 +10,7 @@ import { serveBrowse } from './browse-fns';
 
 vi.mock('../api/fns/browse');
 const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn(), success: vi.fn() } }));
-vi.mock('sonner', () => ({ toast }));
+vi.mock('../components/patterns/notice', () => ({ toast }));
 
 beforeEach(() => {
   serveBrowse();

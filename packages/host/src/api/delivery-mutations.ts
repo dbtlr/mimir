@@ -1,8 +1,8 @@
 import type { EngineInput } from '@mimir/contract';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { toast } from 'sonner';
 
+import { toast } from '../components/patterns/notice';
 import { announceWake } from '../components/t3-wake-answers';
 import { newAttempt } from '../lib/t3-attempt';
 import {

@@ -10,7 +10,7 @@ import { DirectionPanel } from '../components/direction-line';
 
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
-vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
+vi.mock('../components/patterns/notice', () => ({ toast: { error: vi.fn() } }));
 
 function wrapper({ children }: { children: ReactNode }) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

@@ -1,8 +1,8 @@
 import { useEffect, useEffectEvent, useState } from 'react';
 import type { ComponentType } from 'react';
-import { toast } from 'sonner';
 
 import { warmable } from '../lib/chunk-warmup';
+import { toast } from './patterns/notice';
 
 /**
  * A sheet the shell mounts everywhere but opens rarely, kept out of the

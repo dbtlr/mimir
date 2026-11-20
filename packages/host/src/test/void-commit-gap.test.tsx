@@ -28,7 +28,7 @@ vi.mock('../api/fns/devices');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/views');
 const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn(), success: vi.fn() } }));
-vi.mock('sonner', () => ({ Toaster: () => null, toast }));
+vi.mock('../components/patterns/notice', () => ({ NoticeHost: () => null, toast }));
 
 beforeEach(() => {
   serveViews();

@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
 
+import { toast } from '../components/patterns/notice';
 import { approvePairing, denyPairing, unpairDevice } from './fns/devices';
 
 /*

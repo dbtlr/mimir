@@ -1103,6 +1103,8 @@ describe('a saved kind changes the listed row', () => {
     const release = holdDevices(world);
     await userEvent.click(screen.getByRole('button', { name: 'Actions for Android · Chrome' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Remove this browser' }));
+    const confirm = await screen.findByRole('alertdialog', { name: 'Remove Android · Chrome?' });
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Remove this browser' }));
     await waitFor(() => {
       expect(client.isFetching({ queryKey: pushDevicesQuery.queryKey })).toBe(1);
     });

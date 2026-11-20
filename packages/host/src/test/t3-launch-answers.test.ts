@@ -1,10 +1,10 @@
-import { toast } from 'sonner';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { T3LaunchInput, T3LaunchResult } from '../api/fns/t3';
+import { toast } from '../components/patterns/notice';
 import { announceLaunch } from '../components/t3-launch-answers';
 
-vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('../components/patterns/notice', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 const ORIGIN = 'https://t3.example';
 const LINK = 't3code://threads/env-1/thread-1';
@@ -20,11 +20,6 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-type ToastOptions = {
-  action?: { label: string; onClick: () => void };
-  cancel?: { label: string; onClick: () => void };
-};
-
 function announce(answer: T3LaunchResult) {
   const retry = vi.fn();
   announceLaunch(answer, input, { origin: ORIGIN, retry });
@@ -35,7 +30,7 @@ function announce(answer: T3LaunchResult) {
 function raised(fn: typeof toast.error | typeof toast.success) {
   expect(fn).toHaveBeenCalledOnce();
   const [message, options] = vi.mocked(fn).mock.calls[0] ?? [];
-  return { message, options: options as ToastOptions | undefined };
+  return { message, options };
 }
 
 describe('announceLaunch (ADR 0040, Launch)', () => {
@@ -110,7 +105,7 @@ describe('announceLaunch (ADR 0040, Launch)', () => {
       expect(toast.error).toHaveBeenCalledOnce();
       const [message, options] = vi.mocked(toast.error).mock.calls[0] ?? [];
       expect(message).toBe(words);
-      expect((options as ToastOptions | undefined)?.action?.label).toBe(actionLabel);
+      expect(options?.action?.label).toBe(actionLabel);
     },
   );
 

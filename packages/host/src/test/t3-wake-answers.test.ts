@@ -1,10 +1,12 @@
-import { toast } from 'sonner';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { T3WakeInput, T3WakeState } from '../api/fns/deliveries';
+import { toast } from '../components/patterns/notice';
 import { announceWake } from '../components/t3-wake-answers';
 
-vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), warning: vi.fn() } }));
+vi.mock('../components/patterns/notice', () => ({
+  toast: { error: vi.fn(), success: vi.fn(), warning: vi.fn() },
+}));
 
 const ORIGIN = 'https://t3.example';
 const RETRY: T3WakeInput = {
@@ -18,11 +20,6 @@ const RETRY: T3WakeInput = {
 afterEach(() => {
   vi.clearAllMocks();
 });
-
-type ToastOptions = {
-  action?: { label: string; onClick: () => void };
-  cancel?: { label: string; onClick: () => void };
-};
 
 function announce(wake: T3WakeState, origin: string | null = ORIGIN) {
   const context = {
@@ -39,7 +36,7 @@ function announce(wake: T3WakeState, origin: string | null = ORIGIN) {
 function warned() {
   expect(toast.warning).toHaveBeenCalledOnce();
   const [message, options] = vi.mocked(toast.warning).mock.calls[0] ?? [];
-  return { message, options: options as ToastOptions | undefined };
+  return { message, options };
 }
 
 describe('announceWake (ADR 0040, the wake)', () => {

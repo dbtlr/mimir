@@ -1,21 +1,25 @@
 import { QueryClient } from '@tanstack/react-query';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { connectT3, launchT3, t3Catalog, t3Origin } from '../api/fns/t3';
 import type { T3Catalog, T3LaunchResult } from '../api/fns/t3';
+import { toast } from '../components/patterns/notice';
 import { canLaunchOnT3, T3LaunchControl } from '../components/t3-launch-control';
 import { T3_ATTEMPT_PATTERN } from '../server/t3-states';
 import { engineTask } from './node-fixtures';
 import { renderInRouter } from './router';
 import { connectedCatalog, reachableSystem, unreachableSystem } from './t3-fixtures';
 import { serveT3Launch } from './t3-fns';
+import { stubViewport } from './viewport';
 
 vi.mock('../api/fns/t3');
 vi.mock('../lib/leave-for');
-vi.mock('sonner', () => ({ Toaster: () => null, toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('../components/patterns/notice', () => ({
+  NoticeHost: () => null,
+  toast: { error: vi.fn(), success: vi.fn() },
+}));
 
 const task = engineTask({ id: 'MMR-9', status: 'ready', title: 'Launch from the console' });
 const LAUNCHED: T3LaunchResult = {
@@ -36,10 +40,13 @@ const DEFAULT_INPUT = {
 
 beforeEach(() => {
   localStorage.clear();
+  // A desktop, so the caret opens as a menu; the phone sheet has its own test below.
+  stubViewport('desktop');
 });
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
 
 async function show(catalog: T3Catalog, launch?: T3LaunchResult, offline = false) {
@@ -182,6 +189,19 @@ describe('the split button', () => {
     expect(items[names.indexOf('Launch on asgard')]).not.toHaveAttribute('aria-disabled', 'true');
     // Choose settings… sits below the separator, after every system.
     expect(names.at(-1)).toBe('Choose settings…');
+  });
+
+  it('on a phone, the caret opens the same launches as a bottom sheet', async () => {
+    stubViewport('phone');
+    const peer = reachableSystem({ configured: false, environmentId: 'peer', label: 'asgard' });
+    await show(connectedCatalog([reachableSystem(), peer]));
+    await userEvent.click(await screen.findByRole('button', { name: 'Choose where to launch' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Launch in T3' });
+    expect(screen.queryByRole('menu')).toBeNull();
+    const rows = within(sheet)
+      .getAllByRole('button')
+      .map((row) => row.textContent);
+    expect(rows).toEqual(['Launch on Valhalla', 'Launch on asgard', 'Choose settings…', 'Cancel']);
   });
 
   it('launches a peer with that system’s defaults', async () => {

@@ -15,7 +15,7 @@ vi.mock('../api/fns/views');
 // The panel fires toast.success/error — stub both so the copy-outcome assertions
 // read the mock, not the DOM.
 const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn(), success: vi.fn() } }));
-vi.mock('sonner', () => ({ Toaster: () => null, toast }));
+vi.mock('../components/patterns/notice', () => ({ NoticeHost: () => null, toast }));
 
 beforeEach(() => {
   serveViews();

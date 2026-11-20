@@ -18,7 +18,7 @@ import { serveShell } from './shell-fns';
 
 vi.mock('../api/fns/shell');
 const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn() } }));
-vi.mock('sonner', () => ({ toast }));
+vi.mock('../components/patterns/notice', () => ({ toast }));
 
 /*
  * The shell's project writes (MMR-537), each through its Engine method's

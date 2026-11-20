@@ -197,6 +197,15 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.matchMedia !== 'funct
     }) as MediaQueryList;
 }
 
+// jsdom has no ResizeObserver; UI SDK's Drawer and Toast measure with one. A stub never reports a size.
+if (typeof globalThis.ResizeObserver !== 'function') {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
+
 // Keep test-environment costs out of the first test's waits (MMR-525).
 // beforeAll runs after the test file's imports.
 beforeAll(() => {

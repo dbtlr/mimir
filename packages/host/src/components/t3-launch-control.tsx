@@ -1,9 +1,7 @@
-import { Menu } from '@base-ui-components/react/menu';
 import type { EngineNode } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
-import { toast } from 'sonner';
 
 import type { T3Catalog, T3LaunchInput, T3System } from '../api/fns/t3';
 import { t3CatalogQuery, t3OriginQuery, useConnectT3, useLaunchT3 } from '../api/t3-queries';
@@ -17,10 +15,12 @@ import {
   rememberChoice,
 } from '../lib/t3-defaults';
 import type { LaunchChoice } from '../lib/t3-defaults';
+import { ActionMenu } from './patterns/action-menu';
+import type { ActionMenuEntry } from './patterns/action-menu';
+import { toast } from './patterns/notice';
 import { announceLaunch } from './t3-launch-answers';
 import { T3LaunchDialog } from './t3-launch-dialog';
 import { actionButtonVariants, ActionButton } from './ui/action-button';
-import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/legacy-menu';
 
 type ReachableSystem = Extract<T3System, { status: 'reachable' }>;
 type Connected = Extract<T3Catalog, { state: 'connected' }>;
@@ -214,45 +214,53 @@ function ConnectedLaunch({
         >
           {defaultLabel === undefined ? 'Launch in T3…' : `Launch on ${defaultLabel}`}
         </button>
-        <MenuRoot>
-          <MenuTrigger
-            disabled={disabled}
-            aria-label="Choose where to launch"
-            className={cn(
-              actionButtonVariants({ size: 'sm', variant: 'outline' }),
-              HALF,
-              'rounded-l-none px-2',
-            )}
-          >
-            <span aria-hidden>▾</span>
-          </MenuTrigger>
-          <MenuContent>
-            {catalog.systems.map((system) => (
-              <MenuItem
-                key={system.environmentId}
-                disabled={system.status !== 'reachable'}
-                onClick={() => {
-                  const choice = defaultsForSystem(system, remembered);
+        <ActionMenu
+          title="Launch in T3"
+          trigger={
+            <button
+              type="button"
+              disabled={disabled}
+              aria-label="Choose where to launch"
+              className={cn(
+                actionButtonVariants({ size: 'sm', variant: 'outline' }),
+                HALF,
+                'rounded-l-none px-2',
+              )}
+            >
+              <span aria-hidden>▾</span>
+            </button>
+          }
+          entries={[
+            ...catalog.systems.map((system): ActionMenuEntry => {
+              const choice = defaultsForSystem(system, remembered);
+              return {
+                disabled: system.status !== 'reachable',
+                key: system.environmentId,
+                kind: 'action',
+                label: `Launch on ${system.label}`,
+                // With no remembered choice the settings dialog opens, and it takes focus itself.
+                movesFocus: choice === null,
+                onSelect: () => {
                   if (choice === null) {
                     onSettings({ environmentId: system.environmentId });
                   } else {
                     onRun(choice);
                   }
-                }}
-              >
-                Launch on {system.label}
-              </MenuItem>
-            ))}
-            <Menu.Separator className="mx-0.5 my-1 h-px bg-line" />
-            <MenuItem
-              onClick={() => {
+                },
+              };
+            }),
+            { key: 'separator', kind: 'separator' },
+            {
+              key: 'settings',
+              kind: 'action',
+              label: 'Choose settings…',
+              movesFocus: true,
+              onSelect: () => {
                 onSettings({ environmentId: defaults?.environmentId });
-              }}
-            >
-              Choose settings…
-            </MenuItem>
-          </MenuContent>
-        </MenuRoot>
+              },
+            },
+          ]}
+        />
       </span>
       {settings !== null && (
         <T3LaunchDialog

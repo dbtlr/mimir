@@ -1,6 +1,5 @@
-import { toast } from 'sonner';
-
 import type { T3WakeField, T3WakeInput, T3WakeState } from '../api/fns/deliveries';
+import { toast } from './patterns/notice';
 import { openAction } from './t3-launch-answers';
 
 /** What a wake's toast offers: each action is the console's own flow, never a T3 operation. */

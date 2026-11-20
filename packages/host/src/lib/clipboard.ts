@@ -1,4 +1,4 @@
-import { toast } from 'sonner';
+import { toast } from '../components/patterns/notice';
 
 /**
  * Copy text and say whether it worked. The success toast waits for the

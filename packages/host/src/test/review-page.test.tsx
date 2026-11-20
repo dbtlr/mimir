@@ -35,7 +35,7 @@ vi.mock('../api/fns/browse');
 vi.mock('../api/fns/views');
 // The Engine's refusal toasts verbatim; read the mock, not a rendered Toaster.
 const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn(), success: vi.fn() } }));
-vi.mock('sonner', () => ({ Toaster: () => null, toast }));
+vi.mock('../components/patterns/notice', () => ({ NoticeHost: () => null, toast }));
 
 const NOW = Date.parse('2026-10-13T12:00:00.000Z');
 const hoursAgo = (h: number) => new Date(NOW - h * 60 * 60_000);

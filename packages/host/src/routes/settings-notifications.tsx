@@ -1,17 +1,23 @@
-import { Dialog } from '@base-ui-components/react/dialog';
 import { useQueryClient } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
-import type { RefObject } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { ReactElement, RefObject } from 'react';
 
 import type { PushDevice, PushDeviceList, PushEventKind } from '../api/fns/push';
 import { pushDevicesQuery, pushStatusQuery } from '../api/push-queries';
+import { ActionMenu } from '../components/patterns/action-menu';
+import type { ActionMenuEntry } from '../components/patterns/action-menu';
 import { DestructiveConfirm } from '../components/patterns/destructive-confirm';
 import { KindSwitches } from '../components/push-kind-switches';
 import type { KindSwitchesProps } from '../components/push-kind-switches';
 import { SETTINGS_CARD, SettingsGroup, SettingsPage } from '../components/settings-page';
-import { ActionButton, DESTRUCTIVE_OUTLINE } from '../components/ui/action-button';
-import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../components/ui/legacy-menu';
-import { Sheet, SheetClose, SheetContent, SheetTitle } from '../components/ui/sheet';
+import { ActionButton } from '../components/ui/action-button';
+import {
+  Drawer,
+  DrawerBackdrop,
+  DrawerClose,
+  DrawerContent,
+  DrawerTitle,
+} from '../components/ui/drawer';
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/cn';
 import { focusMain } from '../lib/focus-main';
@@ -54,8 +60,6 @@ import { DESKTOP } from './shell';
 
 const TEXT_BUTTON =
   'inline-flex min-h-11 items-center rounded px-1 text-meta text-ink-dim hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent';
-const SHEET_ACTION =
-  'flex min-h-11 w-full items-center rounded-lg px-3 text-left text-body text-ink-bright hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent';
 
 function RowText({ label, meta, oldKey }: { label: string; meta: string; oldKey?: boolean }) {
   return (
@@ -109,147 +113,146 @@ function ResetConfirm({
   );
 }
 
-/** A phone's sheet of actions for one other browser. */
-function RowSheet({
+/**
+ * The Action menu of one other browser (ADR 0019, MMR-736): a bottom sheet on
+ * a phone, headed by the row's label and meta, and an anchored menu on a
+ * desktop. `trigger` is the row on a phone and the ••• button on a desktop.
+ * Choose and Remove move focus on purpose: Choose opens the switches, and
+ * Remove asks first, and both send focus back to the row when they close.
+ */
+function RowActions({
   device,
-  opener,
-  onClose,
-  onChoose,
-  onTest,
-  onRemove,
-}: {
-  device: PushDevice | undefined;
-  /** The endpoint of the row that opened the sheet, set when it opens; it outlives the close. */
-  opener: RefObject<string | undefined>;
-  onClose: () => void;
-  onChoose: (device: PushDevice) => void;
-  onTest: (device: PushDevice) => void;
-  onRemove: (device: PushDevice) => void;
-}) {
-  const meta = device === undefined ? undefined : deviceMeta(device, { thisDevice: false });
-  // Focus returns to the row that opened the sheet, or to the page when that row is gone.
-  const finalFocus = () => {
-    const row = opener.current === undefined ? null : rowOpener(opener.current);
-    if (row === null) {
-      focusMain();
-      return false;
-    }
-    return row;
-  };
-  return (
-    <Sheet
-      open={device !== undefined}
-      onOpenChange={(open) => {
-        if (!open) {
-          onClose();
-        }
-      }}
-    >
-      <SheetContent
-        side="bottom"
-        className="gap-1 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
-        finalFocus={finalFocus}
-      >
-        {device !== undefined && meta !== undefined && (
-          <>
-            <div className="px-3 pb-2">
-              <SheetTitle className="text-body font-semibold text-ink-bright">
-                {device.label}
-              </SheetTitle>
-              <p className="text-meta text-ink-dim">{meta.text}</p>
-            </div>
-            {device.currentKey && (
-              <>
-                <button
-                  type="button"
-                  className={SHEET_ACTION}
-                  onClick={() => {
-                    onChoose(device);
-                  }}
-                >
-                  Choose what notifies…
-                </button>
-                <button
-                  type="button"
-                  className={SHEET_ACTION}
-                  onClick={() => {
-                    onTest(device);
-                  }}
-                >
-                  Send test notification
-                </button>
-              </>
-            )}
-            <ActionButton
-              variant="destructiveOutline"
-              className="min-h-11 w-full justify-start"
-              onClick={() => {
-                onRemove(device);
-              }}
-            >
-              Remove this browser
-            </ActionButton>
-            <SheetClose className={cn(SHEET_ACTION, 'text-ink-dim')}>Cancel</SheetClose>
-          </>
-        )}
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-/** The ••• menu of one other browser, on a desktop. */
-function RowMenu({
-  device,
+  trigger,
+  open,
+  onOpenChange,
   onChoose,
   onTest,
   onRemove,
 }: {
   device: PushDevice;
+  trigger: ReactElement;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onChoose: (device: PushDevice) => void;
   onTest: (device: PushDevice) => void;
   onRemove: (device: PushDevice) => void;
 }) {
+  const entries: ActionMenuEntry[] = [];
+  if (device.currentKey) {
+    entries.push(
+      {
+        key: 'choose',
+        kind: 'action',
+        label: 'Choose what notifies…',
+        movesFocus: true,
+        onSelect: () => {
+          onChoose(device);
+        },
+      },
+      {
+        key: 'test',
+        kind: 'action',
+        label: 'Send test notification',
+        // The rows redraw while the test runs, so the page returns focus to the row once they settle.
+        movesFocus: true,
+        onSelect: () => {
+          onTest(device);
+        },
+      },
+    );
+  }
+  entries.push({
+    destructive: true,
+    key: 'remove',
+    kind: 'action',
+    label: 'Remove this browser',
+    movesFocus: true,
+    onSelect: () => {
+      onRemove(device);
+    },
+  });
   return (
-    <MenuRoot>
-      <MenuTrigger
-        data-push-row={device.endpoint}
-        aria-label={`Actions for ${device.label}`}
-        className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-ink-dim hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
-      >
-        <span aria-hidden>•••</span>
-      </MenuTrigger>
-      <MenuContent>
-        {device.currentKey && (
-          <>
-            <MenuItem
-              onClick={() => {
-                onChoose(device);
-              }}
-            >
-              Choose what notifies…
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                onTest(device);
-              }}
-            >
-              Send test notification
-            </MenuItem>
-          </>
-        )}
-        <MenuItem
-          className={cn(
-            DESTRUCTIVE_OUTLINE,
-            'data-[highlighted]:bg-line/50 data-[highlighted]:text-status-blocked-foreground',
-          )}
-          onClick={() => {
-            onRemove(device);
-          }}
-        >
-          Remove this browser
-        </MenuItem>
-      </MenuContent>
-    </MenuRoot>
+    <ActionMenu
+      title={device.label}
+      description={deviceMeta(device, { thisDevice: false }).text}
+      trigger={trigger}
+      entries={entries}
+      finalFocus={afterRemoveFocus(device.endpoint)}
+      open={open}
+      onOpenChange={onOpenChange}
+    />
+  );
+}
+
+/** Move focus to the page's `<main>` and name it, for a `finalFocus` whose row is gone. */
+const focusPage = (): HTMLElement | null => {
+  focusMain();
+  return document.activeElement instanceof HTMLElement ? document.activeElement : null;
+};
+
+/**
+ * Give focus back to a row once the list has `settled` after an action, unless a press or key arrives
+ * first. Returns the request: the endpoint of the row to focus.
+ */
+function useFocusBackToRow(settled: boolean) {
+  const target = useRef<string | undefined>(undefined);
+  const stop = useRef<() => void>(() => undefined);
+  useEffect(() => {
+    if (settled && target.current !== undefined) {
+      rowOpener(target.current)?.focus();
+      stop.current();
+    }
+  });
+  return (endpoint: string) => {
+    stop.current();
+    target.current = endpoint;
+    const release = () => {
+      target.current = undefined;
+      document.removeEventListener('pointerdown', release, true);
+      document.removeEventListener('keydown', release, true);
+    };
+    document.addEventListener('pointerdown', release, true);
+    document.addEventListener('keydown', release, true);
+    stop.current = release;
+  };
+}
+
+/** Where focus goes when another browser's menu or its Remove confirm closes: its row, or the page once the row is gone. */
+const afterRemoveFocus = (endpoint: string) => () => {
+  const row = rowOpener(endpoint);
+  return row ?? focusPage();
+};
+
+/** The Destructive confirm for removing another browser (ADR 0019, rule 5): its subscription cannot be restored from here. */
+function RemoveConfirm({
+  device,
+  onClose,
+  onConfirm,
+}: {
+  device: PushDevice | undefined;
+  onClose: () => void;
+  onConfirm: (device: PushDevice) => Promise<void>;
+}) {
+  // The last device stays through the close, so the dialog keeps its text while it leaves.
+  const [shown, setShown] = useState(device);
+  if (device !== undefined && device !== shown) {
+    setShown(device);
+  }
+  return (
+    <DestructiveConfirm
+      open={device !== undefined}
+      onClose={onClose}
+      title={`Remove ${shown?.label ?? 'this browser'}?`}
+      commitLabel="Remove this browser"
+      finalFocus={shown === undefined ? undefined : afterRemoveFocus(shown.endpoint)}
+      onConfirm={async () => {
+        if (device !== undefined) {
+          await onConfirm(device);
+        }
+      }}
+    >
+      It stops receiving notifications from this console, and this cannot be undone from here.
+    </DestructiveConfirm>
   );
 }
 
@@ -289,16 +292,13 @@ function KindsSurface({
     // A row that is gone, or a list that is no longer shown, leaves the page itself to take focus.
     const row = last.gone ? null : rowOpener(last.endpoint);
     if (row === null) {
-      focusMain();
-      return false;
+      return focusPage();
     }
     return row;
   };
   const body = device !== undefined && (
     <>
-      <Dialog.Title className="text-body font-semibold text-ink-bright">
-        {device.label}
-      </Dialog.Title>
+      <DrawerTitle>{device.label}</DrawerTitle>
       <KindSwitches
         {...switches}
         device={device}
@@ -307,9 +307,9 @@ function KindsSurface({
         className={KINDS_BLOCK}
       />
       <div className="flex justify-end">
-        <Dialog.Close render={<ActionButton variant="outline" className="min-h-11 px-4" />}>
+        <DrawerClose render={<ActionButton variant="outline" className="min-h-11 px-4" />}>
           Done
-        </Dialog.Close>
+        </DrawerClose>
       </div>
     </>
   );
@@ -319,14 +319,12 @@ function KindsSurface({
     }
   };
   return (
-    <Sheet open={device !== undefined} onOpenChange={onOpenChange}>
-      <SheetContent
-        className="gap-2 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
-        finalFocus={finalFocus}
-      >
+    <Drawer open={device !== undefined} onOpenChange={onOpenChange}>
+      <DrawerBackdrop />
+      <DrawerContent className="gap-2" finalFocus={finalFocus}>
         {body}
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
   );
 }
 
@@ -358,7 +356,10 @@ export function NotificationsPage() {
   const [kindsOpening, setKindsOpening] = useState(0);
   // Read when the switches have closed, so it keeps the row they were for.
   const kindsOpener = useRef<KindsOpener | undefined>(undefined);
-  const rowSheetOpener = useRef<string | undefined>(undefined);
+  const [removing, setRemoving] = useState<PushDevice | undefined>();
+  // The list redraws around a Send test, which drops focus from the row, so focus goes back to it once
+  // the redraw settles, unless the operator has moved on by then.
+  const returnFocusToRow = useFocusBackToRow(!subscriptionPending);
   const [ownSaving, setOwnSaving] = useState(false);
   // A pending reread may answer another endpoint: until it settles, no row is this browser's.
   const heldEndpoint = subscriptionPending ? undefined : subscription?.endpoint;
@@ -450,10 +451,11 @@ export function NotificationsPage() {
   const onTestRow = async (device: PushDevice) => {
     setOpened(undefined);
     note(device.endpoint, 'Sending a test…');
-    note(device.endpoint, await runTest(device.endpoint));
+    const result = await runTest(device.endpoint);
+    returnFocusToRow(device.endpoint);
+    note(device.endpoint, result);
   };
   const onRemoveRow = async (device: PushDevice) => {
-    setOpened(undefined);
     try {
       await removeBrowser(device.endpoint);
     } catch {
@@ -639,34 +641,49 @@ export function NotificationsPage() {
                     </li>
                   );
                 }
+                const rowActions = (trigger: ReactElement) => (
+                  <RowActions
+                    device={device}
+                    trigger={trigger}
+                    open={opened?.endpoint === device.endpoint}
+                    onOpenChange={(next) => {
+                      setOpened(next ? device : undefined);
+                    }}
+                    onChoose={onChoose}
+                    onTest={(row) => void onTestRow(row)}
+                    onRemove={setRemoving}
+                  />
+                );
                 return (
                   <li key={device.endpoint}>
                     {desktop ? (
                       <div className="flex min-h-14 items-center gap-3 py-2.5 pr-3 pl-4">
                         {text}
-                        <RowMenu
-                          device={device}
-                          onChoose={onChoose}
-                          onTest={(row) => void onTestRow(row)}
-                          onRemove={(row) => void onRemoveRow(row)}
-                        />
+                        {rowActions(
+                          <button
+                            type="button"
+                            data-push-row={device.endpoint}
+                            aria-label={`Actions for ${device.label}`}
+                            className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-ink-dim hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
+                          >
+                            <span aria-hidden>•••</span>
+                          </button>,
+                        )}
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        data-push-row={device.endpoint}
-                        aria-label={`${device.label}, ${meta.text}`}
-                        className="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-well-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
-                        onClick={() => {
-                          rowSheetOpener.current = device.endpoint;
-                          setOpened(device);
-                        }}
-                      >
-                        {text}
-                        <span aria-hidden className="text-ink-faint">
-                          ›
-                        </span>
-                      </button>
+                      rowActions(
+                        <button
+                          type="button"
+                          data-push-row={device.endpoint}
+                          aria-label={`${device.label}, ${meta.text}`}
+                          className="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-well-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
+                        >
+                          {text}
+                          <span aria-hidden className="text-ink-faint">
+                            ›
+                          </span>
+                        </button>,
+                      )
                     )}
                     {noteLine}
                   </li>
@@ -703,19 +720,12 @@ export function NotificationsPage() {
         </div>
       )}
 
-      <RowSheet
-        opener={rowSheetOpener}
-        device={
-          desktop || opened === undefined
-            ? undefined
-            : (listed?.find((row) => row.endpoint === opened.endpoint) ?? opened)
-        }
+      <RemoveConfirm
+        device={removing}
         onClose={() => {
-          setOpened(undefined);
+          setRemoving(undefined);
         }}
-        onChoose={onChoose}
-        onTest={(row) => void onTestRow(row)}
-        onRemove={(row) => void onRemoveRow(row)}
+        onConfirm={onRemoveRow}
       />
       <KindsSurface
         device={

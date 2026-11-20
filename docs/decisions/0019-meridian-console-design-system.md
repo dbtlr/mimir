@@ -1369,9 +1369,8 @@ looks and behaves while it saves.
 - **While it saves,** the switch shows its new position and is disabled. A
   failure returns it to the saved position and says why in a polite line
   under its group.
-- **The primitive.** Until UI SDK's primitives are built (ADR 0046), the
-  Switch is Base UI's, vendored as `components/ui/switch.tsx`; it moves to UI
-  SDK's Switch with the other Base UI asks, as ADR 0046 says.
+- **The primitive.** The Switch is UI SDK's, styled in `components/ui/switch.tsx`
+  (ADR 0046), and the notification kinds use it.
 - **Not for an action.** A choice whose outcome is not known until a prompt or
   a call answers stays a button that names the action, as Turn on does (ADR
   0045's MMR-711 and MMR-736 refinements).

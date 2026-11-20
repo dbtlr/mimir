@@ -5,12 +5,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { createContext, useContext, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { toast } from 'sonner';
 
 import { useFileSeed } from '../api/seed-mutations';
 import { projectsQuery } from '../api/shell-queries';
 import { cn } from '../lib/cn';
 import { useHotkey } from '../lib/use-hotkey';
+import { toast } from './patterns/notice';
 import { ActionButton } from './ui/action-button';
 
 /** The global capture opener, provided by {@link SeedCaptureProvider}. */

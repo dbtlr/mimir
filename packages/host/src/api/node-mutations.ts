@@ -1,8 +1,8 @@
 import { PRIORITY_VALUES, SIZE_VALUES } from '@mimir/contract';
 import type { EngineInput, EngineNode, Grooming, Priority, Size } from '@mimir/contract';
 import { useMutation } from '@tanstack/react-query';
-import { toast } from 'sonner';
 
+import { toast } from '../components/patterns/notice';
 import type { TransitionVerb } from '../lib/transitions';
 import {
   abandon,

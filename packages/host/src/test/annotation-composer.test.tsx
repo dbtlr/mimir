@@ -8,7 +8,7 @@ import { AnnotationComposer } from '../components/annotation-composer';
 import { engineTask } from './node-fixtures';
 
 vi.mock('../api/fns/nodes');
-vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
+vi.mock('../components/patterns/notice', () => ({ toast: { error: vi.fn() } }));
 afterEach(() => vi.clearAllMocks());
 
 function wrap(ui: ReactNode) {

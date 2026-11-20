@@ -1,8 +1,7 @@
-import { toast } from 'sonner';
-
 import type { T3LaunchInput, T3LaunchResult } from '../api/fns/t3';
 import { t3ThreadLink } from '../lib/t3-link';
 import type { T3ThreadHandles } from '../lib/t3-link';
+import { toast } from './patterns/notice';
 
 /** Open an Open in T3 link in place: T3's app link hands off to the T3 app. */
 const openLink = (link: string) => () => {

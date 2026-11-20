@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { PwaUpdateBanner } from '../components/pwa-update-banner';
 import { PwaUpdateProvider } from '../components/pwa-update-provider';
 import { TopBarMore } from '../components/top-bar-more';
+import { DRAWER_DESKTOP_QUERY } from '../components/ui/drawer';
 import { createPwaUpdateController } from '../lib/pwa-update';
 import type { PwaUpdateEffects } from '../lib/pwa-update';
 import { renderInRouter } from './router';
@@ -30,7 +31,8 @@ function fixture() {
 function standalone() {
   vi.stubGlobal('matchMedia', (query: string) => ({
     addEventListener: vi.fn(),
-    matches: query === '(display-mode: standalone)',
+    // A desktop viewport, so More opens as a menu rather than a bottom sheet.
+    matches: query === '(display-mode: standalone)' || query === DRAWER_DESKTOP_QUERY,
     media: query,
     removeEventListener: vi.fn(),
   }));
@@ -131,7 +133,7 @@ describe('PWA update surfaces (MMR-369)', () => {
   it('leaves the update item out of More outside the installed console', async () => {
     vi.stubGlobal('matchMedia', (query: string) => ({
       addEventListener: vi.fn(),
-      matches: false,
+      matches: query === DRAWER_DESKTOP_QUERY,
       media: query,
       removeEventListener: vi.fn(),
     }));
@@ -140,16 +142,15 @@ describe('PWA update surfaces (MMR-369)', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
 
-    await expect(
-      screen.findByRole('menuitem', { name: 'Switch to light theme' }),
-    ).resolves.toBeVisible();
+    await expect(screen.findByRole('menuitemradio', { name: 'Light' })).resolves.toBeVisible();
     expect(screen.queryByRole('menuitem', { name: /refresh|update/i })).toBeNull();
   });
 
   it('keeps More open while a check runs, so its progress shows (MMR-715)', async () => {
     vi.stubGlobal('matchMedia', (query: string) => ({
       addEventListener: vi.fn(),
-      matches: query === '(display-mode: standalone)',
+      // A desktop viewport, so More opens as a menu rather than a bottom sheet.
+      matches: query === '(display-mode: standalone)' || query === DRAWER_DESKTOP_QUERY,
       media: query,
       removeEventListener: vi.fn(),
     }));

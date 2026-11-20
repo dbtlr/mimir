@@ -25,7 +25,7 @@ const { toast } = vi.hoisted(() => {
   >();
   return { toast: Object.assign(fn, { error: vi.fn() }) };
 });
-vi.mock('sonner', () => ({ toast }));
+vi.mock('../components/patterns/notice', () => ({ toast }));
 const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }));
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }));
 
@@ -144,20 +144,18 @@ describe('projectSettings lifecycle (MMR-230)', () => {
       ReactNode,
       { action: { label: string; onClick: () => void }; duration?: number },
     ];
-    render(<>{message}</>);
-    expect(screen.getByText(/Archived/)).toBeInTheDocument();
-    expect(screen.getByText('My Project')).toBeInTheDocument();
-    expect(opts.action.label).toBe('Unarchive');
+    expect(message).toBe('Archived My Project');
+    expect(opts.action.label).toBe('Undo');
     // The undo toast may be the nearest unarchive affordance at archive time
     // (the durable path is the archived project's page) — it must outlive
-    // sonner's ~4s default.
+    // the toast's five-second default.
     expect(opts.duration).toBe(10_000);
     expect(navigate).toHaveBeenCalledWith({ to: '/' });
     // The sheet closed — its fields are gone.
     expect(screen.queryByLabelText(/name/i)).not.toBeInTheDocument();
   });
 
-  it('the undo toast Unarchive unarchives the project', async () => {
+  it('the undo toast Undo unarchives the project', async () => {
     wrap(<ProjectSettingsButton project={baseProject} />);
     openSheet();
     fireEvent.click(screen.getByRole('button', { name: 'Archive project' }));

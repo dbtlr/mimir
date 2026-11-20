@@ -323,7 +323,11 @@ describe('switcher pinning', () => {
   it('unpins a pinned row and announces both changes politely', async () => {
     await renderAt('/p/NRN');
     await openSwitcher();
-    const live = screen.getByRole('status');
+    // The UI SDK toast announcer is a status region too; the picker's own is the other.
+    const live = screen
+      .getAllByRole('status')
+      .find((region) => !region.hasAttribute('data-ui-sdk-announcer'));
+    expect(live).toBeDefined();
     expect(live).toHaveAttribute('aria-live', 'polite');
     await userEvent.keyboard('{Alt>}p{/Alt}');
     expect(updateProject).toHaveBeenCalledWith(pinWrite('NRN', false));

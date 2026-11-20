@@ -15,7 +15,10 @@ vi.mock('../api/fns/shell');
 vi.mock('../api/fns/views');
 vi.mock('../api/fns/t3');
 vi.mock('../lib/leave-for');
-vi.mock('sonner', () => ({ Toaster: () => null, toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('../components/patterns/notice', () => ({
+  NoticeHost: () => null,
+  toast: { error: vi.fn(), success: vi.fn() },
+}));
 
 const DAY = 24 * 60 * 60 * 1000;
 const HINT =

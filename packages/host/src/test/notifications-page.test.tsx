@@ -858,10 +858,62 @@ describe('subscribed browsers', () => {
     await userEvent.click(await screen.findByRole('button', { name: /^Android · Chrome/ }));
     const sheet = await screen.findByRole('dialog', { name: 'Android · Chrome' });
     await userEvent.click(within(sheet).getByRole('button', { name: 'Remove this browser' }));
+    // Removing another browser asks first (ADR 0019, rule 5).
+    const confirm = await screen.findByRole('alertdialog', { name: 'Remove Android · Chrome?' });
+    expect(unsubscribePush).not.toHaveBeenCalled();
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Remove this browser' }));
     expect(unsubscribePush).toHaveBeenCalledWith({ data: { endpoint: other.endpoint } });
     await expect(
       screen.findByRole('region', { name: 'Subscribed browsers · 2' }),
     ).resolves.toBeInTheDocument();
+  });
+
+  it('on a phone, Cancel on the Remove confirm keeps the browser and returns focus to its row', async () => {
+    await open('phone', { browser: onBrowser(), world });
+    const row = await screen.findByRole('button', { name: /^Android · Chrome/ });
+    await userEvent.click(row);
+    const sheet = await screen.findByRole('dialog', { name: 'Android · Chrome' });
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Remove this browser' }));
+    const confirm = await screen.findByRole('alertdialog', { name: 'Remove Android · Chrome?' });
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+    });
+    expect(unsubscribePush).not.toHaveBeenCalled();
+    expect(row).toHaveFocus();
+  });
+
+  // MMR-s85: a phone's row sheet closing on an action left focus on <body>.
+  it('on a phone, Send test returns focus to the row, not the body', async () => {
+    await open('phone', { browser: onBrowser(), world });
+    const row = await screen.findByRole('button', { name: /^Android · Chrome/ });
+    await userEvent.click(row);
+    const sheet = await screen.findByRole('dialog', { name: 'Android · Chrome' });
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Send test notification' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(sendTestPush).toHaveBeenCalledWith({ data: { endpoint: other.endpoint } });
+    expect(document.body).not.toHaveFocus();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^Android · Chrome/ })).toHaveFocus();
+    });
+  });
+
+  it('on a phone, a confirmed Remove leaves focus on the page, not the body', async () => {
+    await open('phone', { browser: onBrowser(), world });
+    await userEvent.click(await screen.findByRole('button', { name: /^Android · Chrome/ }));
+    const sheet = await screen.findByRole('dialog', { name: 'Android · Chrome' });
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Remove this browser' }));
+    const confirm = await screen.findByRole('alertdialog', { name: 'Remove Android · Chrome?' });
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Remove this browser' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /^Android · Chrome/ })).toBeNull();
+    });
+    expect(document.body).not.toHaveFocus();
   });
 
   it('on a phone, an old-key row offers only Remove', async () => {
@@ -887,6 +939,9 @@ describe('subscribed browsers', () => {
     });
     await userEvent.click(screen.getByRole('button', { name: 'Actions for Android · Chrome' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Remove this browser' }));
+    const confirm = await screen.findByRole('alertdialog', { name: 'Remove Android · Chrome?' });
+    expect(unsubscribePush).not.toHaveBeenCalled();
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Remove this browser' }));
     expect(unsubscribePush).toHaveBeenCalledWith({ data: { endpoint: other.endpoint } });
   });
 });

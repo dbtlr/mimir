@@ -4,7 +4,7 @@ import { describe, expect, vi } from 'vitest';
 import { lazySheet } from '../components/lazy-sheet';
 
 const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn() } }));
-vi.mock('sonner', () => ({ toast }));
+vi.mock('../components/patterns/notice', () => ({ toast }));
 
 const noop = () => undefined;
 

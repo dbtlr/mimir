@@ -11,6 +11,7 @@ import { getNode } from '../api/fns/nodes';
 import { projects, tree } from '../api/fns/shell';
 import { review } from '../api/fns/views';
 import type { ReviewReport } from '../api/view-queries';
+import { toast as notice } from '../components/patterns/notice';
 import { subtreeOf } from '../lib/ancestry';
 import { rememberProject } from '../lib/current-project';
 import { serveBrowse } from './browse-fns';
@@ -705,6 +706,20 @@ describe('sidebar breakpoint', () => {
     expect(toaster.style.getPropertyValue('--offset-left')).toContain('16rem');
   });
 
+  it('moves the Notice toasts clear of the sidebar too', async () => {
+    await renderAt('/p/MMR');
+    await sidebar();
+    notice('Saved by a Notice');
+    const region = await waitFor(() => {
+      const el = screen
+        .getByText('Saved by a Notice')
+        .closest('[data-slot], section, div[class*="fixed"]');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+    expect(region.closest('[class*="lg:left-[calc(16rem"]')).not.toBeNull();
+  });
+
   it('leaves the toasts at the edge when there is no sidebar', async () => {
     serve([]);
     await renderAt('/');
@@ -736,11 +751,17 @@ describe('top bar', () => {
     await sidebar();
     await userEvent.click(within(topBar()).getByRole('button', { name: 'More' }));
     const items = (await screen.findAllByRole('menuitem')).map((item) => item.textContent);
-    expect(items).toStrictEqual(['Settings', 'Switch to light theme']);
+    expect(items).toStrictEqual(['Settings']);
+    const themes = screen.getAllByRole('menuitemradio').map((item) => item.textContent);
+    expect(themes).toStrictEqual(['Dark', 'Light']);
+    expect(screen.getByRole('menuitemradio', { name: 'Dark' })).toBeChecked();
     expect(screen.getByRole('menuitem', { name: 'Settings' })).toHaveAttribute('href', '/settings');
     expect(screen.getByRole('separator')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Switch to light theme' }));
+    await userEvent.click(screen.getByRole('menuitemradio', { name: 'Light' }));
     expect(document.documentElement.dataset.theme).toBe('light');
+    // The theme is a Choice: the menu stays open.
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.getByRole('menuitemradio', { name: 'Light' })).toBeChecked();
   });
 
   it('carries no section links or project picker', async () => {
@@ -770,9 +791,11 @@ describe('top bar on a phone (MMR-715)', () => {
     expect(within(bar).queryByRole('button', { name: /theme/i })).toBeNull();
 
     await userEvent.click(within(bar).getByRole('button', { name: 'More' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Switch to light theme' }));
+    // Below md More is a bottom sheet, and the theme is a radio row in it.
+    await userEvent.click(await screen.findByRole('radio', { name: 'Light' }));
 
     expect(document.documentElement.dataset.theme).toBe('light');
+    expect(screen.getByRole('dialog', { name: 'More' })).toBeInTheDocument();
   });
 });
 

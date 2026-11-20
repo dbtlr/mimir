@@ -25,7 +25,7 @@ beforeEach(() => {
 const { toast } = vi.hoisted(() => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
-vi.mock('sonner', () => ({ Toaster: () => null, toast }));
+vi.mock('../components/patterns/notice', () => ({ NoticeHost: () => null, toast }));
 
 afterEach(() => {
   vi.clearAllMocks();

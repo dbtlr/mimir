@@ -4,6 +4,7 @@ import { Toaster } from 'sonner';
 import { AttentionAlert } from '../components/attention-alert';
 import { BrandMark } from '../components/brand-mark';
 import { JumpPalette } from '../components/jump-palette';
+import { NoticeHost } from '../components/patterns/notice';
 import { ProjectDrawer, ProjectSidebar } from '../components/project-sidebar';
 import { PushHealer } from '../components/push-healer';
 import { PwaUpdateBanner } from '../components/pwa-update-banner';
@@ -115,6 +116,9 @@ function ShellContent() {
           announce. Mobile: top-center — sonner goes full-width at the bottom
           below 600px no matter the x-position, right over the bottom sheet's
           footer, so small viewports route toasts to the top instead. */}
+        {/* The Notice host shows every toast the console raises. Sonner stays mounted until
+          MMR-741 removes it, for the form sheets that MMR-743 has yet to move. */}
+        <NoticeHost offsetPastSidebar={sidebarShown} />
         <Toaster
           theme={theme}
           position={toastPosition}
