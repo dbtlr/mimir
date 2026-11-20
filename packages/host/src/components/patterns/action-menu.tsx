@@ -1,8 +1,9 @@
-import { cloneElement, useState } from 'react';
-import type { ComponentProps, ReactElement, ReactNode } from 'react';
+import { cloneElement, useId, useState } from 'react';
+import type { ComponentProps, MouseEvent, ReactElement, ReactNode } from 'react';
 
 import { cn } from '../../lib/cn';
 import { useMediaQuery } from '../../lib/use-media-query';
+import { DESTRUCTIVE_OUTLINE } from '../ui/action-button';
 import {
   Drawer,
   DRAWER_DESKTOP_QUERY,
@@ -25,6 +26,7 @@ import {
   MenuSeparator,
   MenuTrigger,
 } from '../ui/menu';
+import { Radio, RadioGroup } from '../ui/radio';
 import { Separator } from '../ui/separator';
 
 /*
@@ -33,12 +35,31 @@ import { Separator } from '../ui/separator';
  * radio items). From `md` up it is a menu anchored to its trigger; below `md`
  * it is a bottom Sheet with 44px rows and a Cancel row. The pattern makes that switch, so no
  * feature builds both. A plain action closes it; a radio item keeps it open.
- * Focus returns to the trigger on close, unless the action sets `movesFocus`
- * because it sends focus somewhere on purpose, such as a Destructive confirm.
+ * Focus returns to the trigger on close; an action that opens a confirm needs
+ * nothing more, as the confirm takes focus from the trigger and gives it back.
+ * A destructive action wears the MMR-635 red hairline in both shapes.
  */
 
+/**
+ * From this width up the Action menu is anchored to its trigger; below it, a
+ * bottom Sheet. A caller whose trigger changes shape with the width, such as a
+ * full-width row on a phone, switches at this query so the two agree.
+ */
+export const ACTION_MENU_ANCHORED_QUERY = DRAWER_DESKTOP_QUERY;
+
 /** What a custom row receives: the pattern's class, its press handler, and the label. */
-type RowProps = { className?: string; onClick?: () => void; children?: ReactNode };
+type RowProps = {
+  className?: string;
+  onClick?: (event: MouseEvent<HTMLElement>) => void;
+  children?: ReactNode;
+  'aria-disabled'?: boolean | 'true' | 'false';
+};
+
+/** The hairline row of an action that ends or removes something (ADR 0019, MMR-635). */
+const DESTRUCTIVE_ROW = cn(
+  DESTRUCTIVE_OUTLINE,
+  'data-[highlighted]:bg-line/50 data-[highlighted]:text-status-blocked-foreground',
+);
 
 export type ActionMenuAction = {
   kind: 'action';
@@ -51,9 +72,7 @@ export type ActionMenuAction = {
   destructive?: boolean;
   /** Stay open after the action runs, as an update check does. */
   keepOpen?: boolean;
-  /** The action moves focus itself (it opens a confirm): the menu does not return it. */
-  movesFocus?: boolean;
-  /** An element that is the row, such as a router `<Link>`; it receives the label. */
+  /** An element that is the row, such as a router `<Link>`; it receives the label, and keeps its own class and press handler. */
   render?: ReactElement<RowProps>;
   className?: string;
 };
@@ -99,23 +118,15 @@ export function ActionMenu({
   menuClassName,
   finalFocus: given,
 }: ActionMenuProps) {
-  const desktop = useMediaQuery(DRAWER_DESKTOP_QUERY);
+  const desktop = useMediaQuery(ACTION_MENU_ANCHORED_QUERY);
   const [own, setOwn] = useState(false);
-  // Set by an action that moves focus on purpose; cleared when the menu next opens.
-  const [movedFocus, setMovedFocus] = useState(false);
   const open = controlled ?? own;
   const setOpen = (next: boolean) => {
-    if (next) {
-      setMovedFocus(false);
-    }
     setOwn(next);
     onOpenChange?.(next);
   };
-  const finalFocus = movedFocus ? 'none' : (given ?? 'trigger');
+  const finalFocus = given ?? 'trigger';
   const choose = (action: ActionMenuAction) => {
-    if (action.movesFocus === true) {
-      setMovedFocus(true);
-    }
     action.onSelect?.();
     if (action.keepOpen !== true) {
       setOpen(false);
@@ -193,7 +204,13 @@ function MenuEntry({
       disabled={entry.disabled}
       destructive={entry.destructive}
       closeOnSelect={entry.keepOpen === true ? false : undefined}
-      className={entry.className}
+      className={cn(entry.destructive === true && DESTRUCTIVE_ROW, entry.className)}
+      onClick={(event) => {
+        // A disabled link row stays where it is.
+        if (entry.disabled === true) {
+          event.preventDefault();
+        }
+      }}
       onSelect={() => {
         // The menu closes itself on select, so `keepOpen` here only stops a second close report.
         onChoose({ ...entry, keepOpen: true });
@@ -216,47 +233,14 @@ function SheetEntry({
     return <Separator className="my-1" />;
   }
   if (entry.kind === 'choice') {
-    return (
-      <div role="radiogroup" aria-label={entry.label} className="flex flex-col">
-        <p className="microlabel px-2 py-1 text-ink-faint">{entry.label}</p>
-        {entry.options.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            role="radio"
-            aria-checked={option.value === entry.value}
-            className={cn(MENU_ITEM_CLASS, 'min-h-11')}
-            onClick={() => {
-              entry.onChange(option.value);
-            }}
-          >
-            <span
-              aria-hidden="true"
-              className={cn(
-                'inline-flex size-4 shrink-0 items-center justify-center',
-                option.value !== entry.value && 'invisible',
-              )}
-            >
-              ✓
-            </span>
-            {option.icon}
-            {option.label}
-          </button>
-        ))}
-      </div>
-    );
+    return <SheetChoice choice={entry} />;
   }
   const className = cn(
     MENU_ITEM_CLASS,
     'min-h-11',
-    entry.destructive === true && 'text-status-blocked-foreground',
+    entry.destructive === true && DESTRUCTIVE_ROW,
     entry.className,
   );
-  const onClick = () => {
-    if (entry.disabled !== true) {
-      onChoose(entry);
-    }
-  };
   const content = (
     <>
       {entry.icon}
@@ -264,12 +248,27 @@ function SheetEntry({
     </>
   );
   if (entry.render !== undefined) {
+    const own = entry.render.props;
     return cloneElement(entry.render, {
+      'aria-disabled': entry.disabled === true ? true : own['aria-disabled'],
       children: content,
-      className,
-      onClick,
+      className: cn(className, own.className),
+      onClick: (event: MouseEvent<HTMLElement>) => {
+        // A disabled link row stays where it is and runs nothing.
+        if (entry.disabled === true) {
+          event.preventDefault();
+          return;
+        }
+        own.onClick?.(event);
+        onChoose(entry);
+      },
     });
   }
+  const onClick = () => {
+    if (entry.disabled !== true) {
+      onChoose(entry);
+    }
+  };
   return (
     <button
       type="button"
@@ -280,5 +279,35 @@ function SheetEntry({
     >
       {content}
     </button>
+  );
+}
+
+/** The sheet's one Choice: a radio group, one tab stop whose arrow keys move the choice. It keeps the sheet open. */
+function SheetChoice({ choice }: { choice: ActionMenuChoice }) {
+  const labelId = useId();
+  return (
+    <div className="flex flex-col">
+      <p id={labelId} className="microlabel px-2 py-1 text-ink-faint">
+        {choice.label}
+      </p>
+      <RadioGroup
+        aria-labelledby={labelId}
+        value={choice.value}
+        onValueChange={(value) => {
+          if (typeof value === 'string') {
+            choice.onChange(value);
+          }
+        }}
+        className="flex flex-col"
+      >
+        {choice.options.map((option) => (
+          <label key={option.value} className={cn(MENU_ITEM_CLASS, 'min-h-11 cursor-pointer')}>
+            <Radio value={option.value} />
+            {option.icon}
+            {option.label}
+          </label>
+        ))}
+      </RadioGroup>
+    </div>
   );
 }

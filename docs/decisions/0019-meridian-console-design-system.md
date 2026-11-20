@@ -522,8 +522,9 @@ state. The red marks the consequence of the click, and the label names it.
   on a work page's Now row, and the confirm's **Stop run** (MMR-635) use the
   variant. They no longer carry their
   own copies of the classes. Settings › Notifications' **Remove this browser**
-  (MMR-711) uses it in a phone's action sheet; in a desktop menu the item
-  wears the same hairline and label, from the classes the variant exports.
+  (MMR-711) wears the same hairline and label in a phone's action sheet and
+  in a desktop menu, from the classes the variant exports, which the Action
+  menu pattern puts on every destructive action (MMR-736).
 - **Considered and rejected.** A red-filled confirm button, the common
   pattern elsewhere: it is a status hue filling a button, which §1 rules
   out. A neutral outline for destructive actions: the hairline is the only
@@ -1219,9 +1220,12 @@ What a surface holds decides which one is used:
 - **Popup**: a short list anchored to its button, either a menu or a
   picker's results.
 
-An **Action menu** opens in a Sheet below `md` (rows 44px tall) and as an
-anchored menu from `md` up. The pattern makes that switch, so no feature
-builds both shapes.
+An **Action menu** opens in a Sheet below `md` (rows 44px tall, ending in a
+Cancel row) and as an anchored menu from `md` up. The pattern makes that
+switch, so no feature builds both shapes. A feature whose trigger changes
+shape with the width, such as a row that is a full-width button on a phone,
+switches it at the same `md`. An action that ends or removes something wears
+the MMR-635 red hairline in both shapes.
 
 ### The patterns
 
@@ -1235,7 +1239,7 @@ builds both shapes.
 | Composer | text added in place, such as an annotation | inline | Textarea |
 | Action menu | a list of actions, including a record's More | Popup, or a Sheet below `md` | Menu, Drawer, Separator |
 | Suggestion | a one-time offer on a page | card | `ConfirmCard`'s `card` surface |
-| Notice | an outcome whose ask has closed, optionally with Undo or Retry; or a standing state | Toast; a banner for a standing state | Toast |
+| Notice | an outcome whose ask has closed, optionally with Undo or Retry, and one second action; or a standing state | Toast; a banner for a standing state | Toast |
 | Walkthrough | a guided series of answers | Dialog, whole console | Dialog, Radio, Textarea |
 
 Plain parts in `components/ui` that wrap no UI SDK behavior (`ActionButton`,

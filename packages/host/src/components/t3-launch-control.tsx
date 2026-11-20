@@ -238,8 +238,6 @@ function ConnectedLaunch({
                 key: system.environmentId,
                 kind: 'action',
                 label: `Launch on ${system.label}`,
-                // With no remembered choice the settings dialog opens, and it takes focus itself.
-                movesFocus: choice === null,
                 onSelect: () => {
                   if (choice === null) {
                     onSettings({ environmentId: system.environmentId });
@@ -254,7 +252,6 @@ function ConnectedLaunch({
               key: 'settings',
               kind: 'action',
               label: 'Choose settings…',
-              movesFocus: true,
               onSelect: () => {
                 onSettings({ environmentId: defaults?.environmentId });
               },

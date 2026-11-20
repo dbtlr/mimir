@@ -9,7 +9,7 @@ import {
   MenuSubContent as SdkMenuSubContent,
   MenuSubTrigger as SdkMenuSubTrigger,
 } from '@ui-sdk/react/menu';
-import type { ComponentProps, ReactNode } from 'react';
+import type { ComponentProps, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 
 import { mergeClassName } from './class-name';
 import { LIST_DIVIDER_CLASS } from './separator';
@@ -47,8 +47,60 @@ export function MenuContent({
   );
 }
 
-export function MenuItem({ className, ...props }: ComponentProps<typeof SdkMenuItem>) {
-  return <SdkMenuItem className={mergeClassName(MENU_ITEM_CLASS, className)} {...props} />;
+/**
+ * Stop the rest of the key that chose an item from reaching whatever took focus. The menu chooses on
+ * keydown, and an item's action may move focus at once, as opening a Destructive confirm does; the
+ * same key's keypress and keyup then reach the new focus, and Chromium presses a focused button on
+ * Enter's keypress and Space's keyup. Held until that key comes up, another key goes down, or the
+ * window loses focus.
+ */
+function holdKeyTail(chosen: ReactKeyboardEvent) {
+  const { key } = chosen;
+  if ((key !== 'Enter' && key !== ' ') || chosen.repeat) {
+    return;
+  }
+  const view = chosen.currentTarget.ownerDocument.defaultView;
+  if (view === null) {
+    return;
+  }
+  const release = () => {
+    view.removeEventListener('keypress', swallow, true);
+    view.removeEventListener('keyup', swallow, true);
+    view.removeEventListener('keydown', next, true);
+    view.removeEventListener('blur', release);
+  };
+  function swallow(event: KeyboardEvent) {
+    if (event.key !== key) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.type === 'keyup') {
+      release();
+    }
+  }
+  function next(event: KeyboardEvent) {
+    if (!event.repeat) {
+      release();
+    }
+  }
+  view.addEventListener('keypress', swallow, true);
+  view.addEventListener('keyup', swallow, true);
+  view.addEventListener('keydown', next, true);
+  view.addEventListener('blur', release);
+}
+
+export function MenuItem({ className, onKeyDown, ...props }: ComponentProps<typeof SdkMenuItem>) {
+  return (
+    <SdkMenuItem
+      className={mergeClassName(MENU_ITEM_CLASS, className)}
+      onKeyDown={(event) => {
+        holdKeyTail(event);
+        onKeyDown?.(event);
+      }}
+      {...props}
+    />
+  );
 }
 
 export function MenuSeparator({ className, ...props }: ComponentProps<typeof SdkMenuSeparator>) {

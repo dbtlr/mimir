@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 
+import { cn } from '../../lib/cn';
 import { toast as sdkToast, ToastStack } from '../ui/toast';
 
 /*
@@ -65,7 +66,19 @@ export const toast = Object.assign(
   },
 );
 
-/** Mount once near the app root: it shows every `toast`. */
+/**
+ * Mount once near the app root: it shows every `toast`. On a desktop they sit
+ * bottom-left, past the sidebar when it shows; on a phone, at the top (a
+ * bottom sheet's footer owns the bottom), below the top bar whose height an
+ * ancestor sets as `--top-bar-height`.
+ */
 export function NoticeHost({ offsetPastSidebar = false }: { offsetPastSidebar?: boolean }) {
-  return <ToastStack className={offsetPastSidebar ? 'lg:left-[calc(16rem+24px)]' : undefined} />;
+  return (
+    <ToastStack
+      className={cn(
+        'max-sm:top-[calc(var(--top-bar-height,0px)+0.5rem)]',
+        offsetPastSidebar && 'lg:left-[calc(16rem+24px)]',
+      )}
+    />
+  );
 }

@@ -9,7 +9,12 @@ afterEach(() => {
   act(() => {
     toast.dismiss();
   });
+  vi.useRealTimers();
 });
+
+/** Whether a toast titled `text` is on screen, not only in the live region's copy of it. */
+const shown = (text: string) =>
+  screen.queryAllByText(text).some((node) => node.closest('[data-slot="toast-title"]') !== null);
 
 describe('Notice toast', () => {
   it('shows a message and its kind helpers with the same call shape as Sonner', async () => {
@@ -87,5 +92,122 @@ describe('Notice second button', () => {
     await waitFor(() => {
       expect(screen.queryByText('Not told')).toBeNull();
     });
+  });
+});
+
+/** Whether a live region of `politeness` says `text`. */
+const said = (politeness: string, text: string) =>
+  [...document.querySelectorAll(`[aria-live="${politeness}"]`)].some((region) =>
+    region.textContent?.includes(text),
+  );
+
+describe('Notice timing and answers', () => {
+  it('an action that returns a promise keeps the toast, pending, until it settles, and runs once', async () => {
+    const { promise, resolve } = Promise.withResolvers<void>();
+    const onClick = vi.fn(async () => promise);
+    render(<NoticeHost />);
+    act(() => {
+      toast.error('Couldn’t save', { action: { label: 'Retry', onClick } });
+    });
+    const retry = await screen.findByRole('button', { name: 'Retry' });
+    await userEvent.click(retry);
+    await userEvent.click(retry);
+    expect(onClick).toHaveBeenCalledOnce();
+    expect(retry).toHaveAttribute('aria-busy', 'true');
+    expect(shown('Couldn’t save')).toBe(true);
+    await act(async () => {
+      resolve();
+      await promise;
+    });
+    await waitFor(() => {
+      expect(shown('Couldn’t save')).toBe(false);
+    });
+  });
+
+  it('holds for its duration, past the five-second default', async () => {
+    vi.useFakeTimers();
+    render(<NoticeHost />);
+    act(() => {
+      toast('Archived Mimir', { duration: 10_000 });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(7_000);
+    });
+    expect(shown('Archived Mimir')).toBe(true);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4_000);
+    });
+    expect(shown('Archived Mimir')).toBe(false);
+  });
+
+  it('closes after five seconds by default', async () => {
+    vi.useFakeTimers();
+    render(<NoticeHost />);
+    act(() => {
+      toast('Plain');
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4_000);
+    });
+    expect(shown('Plain')).toBe(true);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000);
+    });
+    expect(shown('Plain')).toBe(false);
+  });
+
+  it('announces an error at once and a success politely', async () => {
+    render(<NoticeHost />);
+    act(() => {
+      toast.error('It broke');
+      toast.success('Saved');
+    });
+    await waitFor(() => {
+      expect(said('assertive', 'It broke')).toBe(true);
+    });
+    await waitFor(() => {
+      expect(said('polite', 'Saved')).toBe(true);
+    });
+    expect(said('assertive', 'Saved')).toBe(false);
+  });
+
+  it('dismiss(id) closes only that toast', async () => {
+    render(<NoticeHost />);
+    let first = '';
+    act(() => {
+      first = toast('One');
+      toast('Two');
+    });
+    await screen.findAllByText('Two');
+    act(() => {
+      toast.dismiss(first);
+    });
+    await waitFor(() => {
+      expect(shown('One')).toBe(false);
+    });
+    expect(shown('Two')).toBe(true);
+  });
+
+  it('a toast raised before the host mounts shows once it mounts', async () => {
+    act(() => {
+      toast.success('Early');
+    });
+    render(<NoticeHost />);
+    await expect(screen.findByText('Early')).resolves.toBeInTheDocument();
+  });
+
+  it('a second button runs once and leaves the action unrun', async () => {
+    const action = vi.fn();
+    const cancel = vi.fn();
+    render(<NoticeHost />);
+    act(() => {
+      toast('Both', {
+        action: { label: 'Undo', onClick: action },
+        cancel: { label: 'Open thread', onClick: cancel },
+      });
+    });
+    await userEvent.click(await screen.findByRole('button', { name: 'Open thread' }));
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(action).not.toHaveBeenCalled();
   });
 });

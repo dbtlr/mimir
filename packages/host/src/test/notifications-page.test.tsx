@@ -16,6 +16,7 @@ import {
 import type { PushStatus } from '../api/fns/push';
 import { pushDevicesQuery, pushStatusQuery } from '../api/push-queries';
 import { PushHealer } from '../components/push-healer';
+import { DESTRUCTIVE_OUTLINE } from '../components/ui/action-button';
 import { HEAL_WAIT_MS, healThisBrowser } from '../lib/push-actions';
 import { createPushBrowser } from '../lib/push-browser';
 import type { BrowserSubscription, PushBrowser } from '../lib/push-browser';
@@ -857,7 +858,10 @@ describe('subscribed browsers', () => {
     await open('phone', { browser: onBrowser(), world });
     await userEvent.click(await screen.findByRole('button', { name: /^Android · Chrome/ }));
     const sheet = await screen.findByRole('dialog', { name: 'Android · Chrome' });
-    await userEvent.click(within(sheet).getByRole('button', { name: 'Remove this browser' }));
+    const remove = within(sheet).getByRole('button', { name: 'Remove this browser' });
+    // Remove wears the red hairline (ADR 0045; ADR 0019, MMR-635).
+    expect(remove).toHaveClass(...DESTRUCTIVE_OUTLINE.split(' '));
+    await userEvent.click(remove);
     // Removing another browser asks first (ADR 0019, rule 5).
     const confirm = await screen.findByRole('alertdialog', { name: 'Remove Android · Chrome?' });
     expect(unsubscribePush).not.toHaveBeenCalled();
@@ -886,6 +890,7 @@ describe('subscribed browsers', () => {
   // MMR-s85: a phone's row sheet closing on an action left focus on <body>.
   it('on a phone, Send test returns focus to the row, not the body', async () => {
     await open('phone', { browser: onBrowser(), world });
+
     const row = await screen.findByRole('button', { name: /^Android · Chrome/ });
     await userEvent.click(row);
     const sheet = await screen.findByRole('dialog', { name: 'Android · Chrome' });
@@ -916,6 +921,135 @@ describe('subscribed browsers', () => {
     expect(document.body).not.toHaveFocus();
   });
 
+  // The page's row shape and the Action menu's shape switch at one width (ADR 0019, MMR-736: `md`).
+  it('at a tablet width, a row has the ••• button and it opens the anchored menu', async () => {
+    await open('tablet', { browser: onBrowser(), world });
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Actions for Android · Chrome' }),
+    );
+    await expect(screen.findByRole('menu')).resolves.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('menuitem', { name: 'Remove this browser' })).toBeInTheDocument();
+  });
+
+  // MMR-s85 was a phone's sheet: on a desktop the menu returns focus to its button as usual, so focus
+  // never sits on <body> while the test is sent, where a key could strand it.
+  it('on a desktop, focus stays on the ••• button while a test is being sent', async () => {
+    await open('desktop', { browser: onBrowser(), world });
+    const { promise, resolve } = Promise.withResolvers<{ state: 'delivered' }>();
+    vi.mocked(sendTestPush).mockReturnValueOnce(promise);
+    const button = await screen.findByRole('button', { name: 'Actions for Android · Chrome' });
+    await userEvent.click(button);
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Send test notification' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('menu')).toBeNull();
+    });
+    await settle();
+    expect(sendTestPush).toHaveBeenCalledOnce();
+    expect(button).toHaveFocus();
+    await act(async () => {
+      resolve({ state: 'delivered' });
+      await promise;
+    });
+    await waitFor(() => {
+      expect(group('Subscribed browsers · 3')).toHaveTextContent('Test sent.');
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Actions for Android · Chrome' })).toHaveFocus();
+    });
+  });
+
+  it.each(['desktop', 'phone'] as const)(
+    'on a %s, Remove’s confirm closes and removes nothing when a reread finds the row is this browser’s',
+    async (width) => {
+      stubViewport(width);
+      const served = servePush(world);
+      const browser = onBrowser();
+      const client = new QueryClient();
+      await renderRoute(consoleRoutes, '/settings/notifications', client, withBrowser(browser));
+      await userEvent.click(
+        await screen.findByRole('button', {
+          name: width === 'desktop' ? 'Actions for Android · Chrome' : /^Android · Chrome/,
+        }),
+      );
+      await userEvent.click(
+        await screen.findByRole(width === 'desktop' ? 'menuitem' : 'button', {
+          name: 'Remove this browser',
+        }),
+      );
+      await screen.findByRole('alertdialog', { name: 'Remove Android · Chrome?' });
+      // This browser's subscription now answers the row's endpoint, so the row is this browser's.
+      vi.spyOn(browser, 'subscription').mockResolvedValue({
+        ...SUBSCRIPTION,
+        endpoint: other.endpoint,
+      });
+      served.devices = [...served.devices, device({ endpoint: 'https://push.example/new' })];
+      await act(async () => {
+        await client.invalidateQueries({ queryKey: pushDevicesQuery.queryKey });
+      });
+      await waitFor(() => {
+        expect(screen.queryByRole('alertdialog')).toBeNull();
+      });
+      await settle();
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+      expect(unsubscribePush).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['desktop', 'phone'] as const)(
+    'on a %s, a failed Remove keeps the row, says so, and returns focus to it',
+    async (width) => {
+      await open(width, { browser: onBrowser(), world });
+      vi.mocked(unsubscribePush).mockRejectedValueOnce(new Error('down'));
+      const name = width === 'desktop' ? 'Actions for Android · Chrome' : /^Android · Chrome/;
+      await userEvent.click(await screen.findByRole('button', { name }));
+      await userEvent.click(
+        await screen.findByRole(width === 'desktop' ? 'menuitem' : 'button', {
+          name: 'Remove this browser',
+        }),
+      );
+      const confirm = await screen.findByRole('alertdialog', { name: 'Remove Android · Chrome?' });
+      await userEvent.click(within(confirm).getByRole('button', { name: 'Remove this browser' }));
+      await expect(
+        screen.findByText("That browser couldn't be removed. Try again."),
+      ).resolves.toBeInTheDocument();
+      await settle();
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name })).toHaveFocus();
+      });
+    },
+  );
+
+  it('on a desktop, Cancel on the Remove confirm returns focus to the ••• button', async () => {
+    await open('desktop', { browser: onBrowser(), world });
+    const button = await screen.findByRole('button', { name: 'Actions for Android · Chrome' });
+    await userEvent.click(button);
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Remove this browser' }));
+    const confirm = await screen.findByRole('alertdialog', { name: 'Remove Android · Chrome?' });
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+    });
+    expect(unsubscribePush).not.toHaveBeenCalled();
+    expect(button).toHaveFocus();
+  });
+
+  it('on a phone, a Send test whose row is gone by its answer leaves focus on the page, not the body', async () => {
+    const served = (await open('phone', { browser: onBrowser(), world })).world;
+    vi.mocked(sendTestPush).mockImplementationOnce(async () => {
+      served.devices = served.devices.filter((row) => row.endpoint !== other.endpoint);
+      return { state: 'delivered' };
+    });
+    await userEvent.click(await screen.findByRole('button', { name: /^Android · Chrome/ }));
+    const sheet = await screen.findByRole('dialog', { name: 'Android · Chrome' });
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Send test notification' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /^Android · Chrome/ })).toBeNull();
+    });
+    await settle();
+    expect(document.body).not.toHaveFocus();
+  });
+
   it('on a phone, an old-key row offers only Remove', async () => {
     await open('phone', { browser: onBrowser(), world });
     await userEvent.click(await screen.findByRole('button', { name: /^Windows · Edge/ }));
@@ -938,7 +1072,9 @@ describe('subscribed browsers', () => {
       expect(group('Subscribed browsers · 3')).toHaveTextContent('Test sent.');
     });
     await userEvent.click(screen.getByRole('button', { name: 'Actions for Android · Chrome' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Remove this browser' }));
+    const remove = await screen.findByRole('menuitem', { name: 'Remove this browser' });
+    expect(remove).toHaveClass(...DESTRUCTIVE_OUTLINE.split(' '));
+    await userEvent.click(remove);
     const confirm = await screen.findByRole('alertdialog', { name: 'Remove Android · Chrome?' });
     expect(unsubscribePush).not.toHaveBeenCalled();
     await userEvent.click(within(confirm).getByRole('button', { name: 'Remove this browser' }));

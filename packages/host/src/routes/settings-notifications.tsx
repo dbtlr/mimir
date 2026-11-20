@@ -4,20 +4,14 @@ import type { ReactElement, RefObject } from 'react';
 
 import type { PushDevice, PushDeviceList, PushEventKind } from '../api/fns/push';
 import { pushDevicesQuery, pushStatusQuery } from '../api/push-queries';
-import { ActionMenu } from '../components/patterns/action-menu';
+import { ACTION_MENU_ANCHORED_QUERY, ActionMenu } from '../components/patterns/action-menu';
 import type { ActionMenuEntry } from '../components/patterns/action-menu';
 import { DestructiveConfirm } from '../components/patterns/destructive-confirm';
 import { KindSwitches } from '../components/push-kind-switches';
 import type { KindSwitchesProps } from '../components/push-kind-switches';
 import { SETTINGS_CARD, SettingsGroup, SettingsPage } from '../components/settings-page';
 import { ActionButton } from '../components/ui/action-button';
-import {
-  Drawer,
-  DrawerBackdrop,
-  DrawerClose,
-  DrawerContent,
-  DrawerTitle,
-} from '../components/ui/drawer';
+import { Sheet, SheetClose, SheetContent, SheetTitle } from '../components/ui/sheet';
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/cn';
 import { focusMain } from '../lib/focus-main';
@@ -44,17 +38,17 @@ import { canTurnOn } from '../lib/push-this-device';
 import { useMediaQuery } from '../lib/use-media-query';
 import { usePushControl } from '../lib/use-push-control';
 import { withKind } from '../server/push-states';
-import { DESKTOP } from './shell';
 
 /**
  * `/settings/notifications` — this browser's Web Push control and every
  * subscribed browser (ADR 0045, MMR-711). The row for this browser holds Turn
  * on or Turn off; its sentence, and the answer to each action, sit under the
  * group. While this browser is on, "Notify this device about" holds a switch
- * per event kind (ADR 0045, MMR-712). Another browser's row opens its actions:
- * a sheet on a phone, a menu on a desktop, from Tailwind's `lg`, where Settings
- * shows its sidebar; on a current-key row, "Choose what notifies…" opens that
- * row's switches in their own sheet or dialog. Turn on and Turn off live in
+ * per event kind (ADR 0045, MMR-712). Another browser's row opens its Action
+ * menu: below `md` the row is a full-width button and the menu a sheet; from
+ * `md` up the row has a ••• button and the menu is anchored to it, switching
+ * where the pattern does. On a current-key row, "Choose what notifies…" opens
+ * that row's switches in their own sheet. Turn on and Turn off live in
  * `usePushControl`; the page places their answers.
  */
 
@@ -117,8 +111,8 @@ function ResetConfirm({
  * The Action menu of one other browser (ADR 0019, MMR-736): a bottom sheet on
  * a phone, headed by the row's label and meta, and an anchored menu on a
  * desktop. `trigger` is the row on a phone and the ••• button on a desktop.
- * Choose and Remove move focus on purpose: Choose opens the switches, and
- * Remove asks first, and both send focus back to the row when they close.
+ * The menu returns focus to its trigger; Choose's switches and Remove's
+ * confirm take it from there and send it back to the row when they close.
  */
 function RowActions({
   device,
@@ -144,7 +138,6 @@ function RowActions({
         key: 'choose',
         kind: 'action',
         label: 'Choose what notifies…',
-        movesFocus: true,
         onSelect: () => {
           onChoose(device);
         },
@@ -153,8 +146,6 @@ function RowActions({
         key: 'test',
         kind: 'action',
         label: 'Send test notification',
-        // The rows redraw while the test runs, so the page returns focus to the row once they settle.
-        movesFocus: true,
         onSelect: () => {
           onTest(device);
         },
@@ -166,7 +157,6 @@ function RowActions({
     key: 'remove',
     kind: 'action',
     label: 'Remove this browser',
-    movesFocus: true,
     onSelect: () => {
       onRemove(device);
     },
@@ -190,16 +180,33 @@ const focusPage = (): HTMLElement | null => {
   return document.activeElement instanceof HTMLElement ? document.activeElement : null;
 };
 
+/** Whether a dialog, such as a confirm still closing, holds focus: it returns focus itself. */
+const focusInDialog = () =>
+  document.activeElement?.closest('[role="dialog"], [role="alertdialog"]') != null;
+
 /**
- * Give focus back to a row once the list has `settled` after an action, unless a press or key arrives
- * first. Returns the request: the endpoint of the row to focus.
+ * Give focus back to a row once the list has `settled` after an action, as a
+ * fallback. An action's reread redraws the rows and hides their triggers, so
+ * the trigger that held focus, or that a closing surface returned it to, is
+ * gone meanwhile, and focus falls to `<body>`, or UI SDK moves it to a nearby
+ * control. When the list settles, focus goes to the row, or the page when the
+ * row is gone, unless a dialog holds it. A press or key before then cancels
+ * it, so focus the operator moved stays. Request it once the reread has
+ * started. Returns the request: the endpoint of the row.
  */
 function useFocusBackToRow(settled: boolean) {
   const target = useRef<string | undefined>(undefined);
   const stop = useRef<() => void>(() => undefined);
   useEffect(() => {
     if (settled && target.current !== undefined) {
-      rowOpener(target.current)?.focus();
+      if (!focusInDialog()) {
+        const row = rowOpener(target.current);
+        if (row === null) {
+          focusMain();
+        } else {
+          row.focus();
+        }
+      }
       stop.current();
     }
   });
@@ -292,13 +299,14 @@ function KindsSurface({
     // A row that is gone, or a list that is no longer shown, leaves the page itself to take focus.
     const row = last.gone ? null : rowOpener(last.endpoint);
     if (row === null) {
-      return focusPage();
+      focusMain();
+      return false;
     }
     return row;
   };
   const body = device !== undefined && (
     <>
-      <DrawerTitle>{device.label}</DrawerTitle>
+      <SheetTitle className="text-body font-semibold text-ink-bright">{device.label}</SheetTitle>
       <KindSwitches
         {...switches}
         device={device}
@@ -307,9 +315,9 @@ function KindsSurface({
         className={KINDS_BLOCK}
       />
       <div className="flex justify-end">
-        <DrawerClose render={<ActionButton variant="outline" className="min-h-11 px-4" />}>
+        <SheetClose render={<ActionButton variant="outline" className="min-h-11 px-4" />}>
           Done
-        </DrawerClose>
+        </SheetClose>
       </div>
     </>
   );
@@ -319,12 +327,14 @@ function KindsSurface({
     }
   };
   return (
-    <Drawer open={device !== undefined} onOpenChange={onOpenChange}>
-      <DrawerBackdrop />
-      <DrawerContent className="gap-2" finalFocus={finalFocus}>
+    <Sheet open={device !== undefined} onOpenChange={onOpenChange}>
+      <SheetContent
+        className="gap-2 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+        finalFocus={finalFocus}
+      >
         {body}
-      </DrawerContent>
-    </Drawer>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -343,7 +353,8 @@ const withSavedKind =
 
 export function NotificationsPage() {
   const client = useQueryClient();
-  const desktop = useMediaQuery(DESKTOP);
+  // The row's shape follows the Action menu's: a ••• button where the menu is anchored, the row itself where it is a sheet.
+  const desktop = useMediaQuery(ACTION_MENU_ANCHORED_QUERY);
   const control = usePushControl();
   const { browser, busy, devices, identity, notice, reload, setNotice, state, status } = control;
   const { devicesFailed, retryDevices, subscription, subscriptionPending, whileBusy } = control;
@@ -357,8 +368,10 @@ export function NotificationsPage() {
   // Read when the switches have closed, so it keeps the row they were for.
   const kindsOpener = useRef<KindsOpener | undefined>(undefined);
   const [removing, setRemoving] = useState<PushDevice | undefined>();
-  // The list redraws around a Send test, which drops focus from the row, so focus goes back to it once
-  // the redraw settles, unless the operator has moved on by then.
+  // Set from Confirm until the Remove confirm closes: its own reread must not close it as stale.
+  const [removeRunning, setRemoveRunning] = useState(false);
+  // The list redraws after a Send test or a failed Remove, which can drop focus from the row, so focus
+  // goes back to it once the redraw settles, unless the operator has moved on by then.
   const returnFocusToRow = useFocusBackToRow(!subscriptionPending);
   const [ownSaving, setOwnSaving] = useState(false);
   // A pending reread may answer another endpoint: until it settles, no row is this browser's.
@@ -367,11 +380,14 @@ export function NotificationsPage() {
     heldEndpoint !== undefined && sameEndpoint(row.endpoint, heldEndpoint);
   // A reread may change which row is this browser's, so a row's open sheet closes rather than act on a stale
   // match; one whose row turned out to be this browser's closes too, as those surfaces are for other browsers.
-  if (
-    opened !== undefined &&
-    (subscriptionPending || isMine(opened) || status?.state !== 'ready')
-  ) {
+  const staleRow = (row: PushDevice) =>
+    subscriptionPending || isMine(row) || status?.state !== 'ready';
+  if (opened !== undefined && staleRow(opened)) {
     setOpened(undefined);
+  }
+  // The Remove confirm closes on the same reads, except while its own commit runs and rereads.
+  if (removing !== undefined && !removeRunning && staleRow(removing)) {
+    setRemoving(undefined);
   }
   // Another row's kinds are offered only while it is on the current key (ADR 0045, MMR-712), so they close
   // when a read shows it on an old key, or the host no longer serves a usable key.
@@ -456,12 +472,19 @@ export function NotificationsPage() {
     note(device.endpoint, result);
   };
   const onRemoveRow = async (device: PushDevice) => {
+    setRemoveRunning(true);
+    let failed = false;
     try {
       await removeBrowser(device.endpoint);
     } catch {
+      failed = true;
       note(device.endpoint, "That browser couldn't be removed. Try again.");
     }
     await reload();
+    // The row stays, but the reread hides its trigger as the confirm closes, so focus comes back to it.
+    if (failed) {
+      returnFocusToRow(device.endpoint);
+    }
   };
 
   /**
@@ -724,6 +747,7 @@ export function NotificationsPage() {
         device={removing}
         onClose={() => {
           setRemoving(undefined);
+          setRemoveRunning(false);
         }}
         onConfirm={onRemoveRow}
       />

@@ -3,8 +3,7 @@ import type { EngineNode, EngineTree } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { toast } from 'sonner';
-import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, onTestFinished, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
 import { getNode } from '../api/fns/nodes';
@@ -694,16 +693,41 @@ describe('sidebar breakpoint', () => {
     await expect(screen.findByRole('dialog', { name: 'Project' })).resolves.toBeInTheDocument();
   });
 
-  it('moves the desktop toasts clear of the sidebar', async () => {
+  // On a phone the toasts sit at the top (a bottom sheet's footer owns the bottom), under the top bar
+  // the shell measures, not over it.
+  it('puts the toasts under the top bar on a phone', async () => {
+    stubViewport('phone');
+    // jsdom lays nothing out, so every other element measures as it would anyway: zero.
+    const measured = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect');
+    measured.mockImplementation(function headerRect(this: HTMLElement) {
+      return this.tagName === 'HEADER' ? new DOMRect(0, 0, 390, 57) : new DOMRect();
+    });
+    onTestFinished(() => {
+      measured.mockRestore();
+    });
     await renderAt('/p/MMR');
-    await sidebar();
-    toast('Saved');
-    const toaster = await waitFor(() => {
-      const el = document.querySelector<HTMLElement>('[data-sonner-toaster]');
+    notice('Saved on a phone');
+    const region = await waitFor(() => {
+      const el = screen.getByText('Saved on a phone').closest('[class*="fixed"]');
       expect(el).not.toBeNull();
       return el as HTMLElement;
     });
-    expect(toaster.style.getPropertyValue('--offset-left')).toContain('16rem');
+    expect(region).toHaveClass('max-sm:top-[calc(var(--top-bar-height,0px)+0.5rem)]');
+    expect(region).not.toHaveClass('max-sm:top-4');
+    const shell = region.closest<HTMLElement>('[style*="--top-bar-height"]');
+    expect(shell?.style.getPropertyValue('--top-bar-height')).toBe('57px');
+  });
+
+  it('keeps the desktop toasts at the bottom left', async () => {
+    await renderAt('/p/MMR');
+    await sidebar();
+    notice('Saved on a desktop');
+    const region = await waitFor(() => {
+      const el = screen.getByText('Saved on a desktop').closest('[class*="fixed"]');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+    expect(region).toHaveClass('bottom-4', 'left-4');
   });
 
   it('moves the Notice toasts clear of the sidebar too', async () => {
@@ -724,13 +748,16 @@ describe('sidebar breakpoint', () => {
     serve([]);
     await renderAt('/');
     await screen.findByRole('link', { name: 'Mimir' });
-    toast('Saved');
-    const toaster = await waitFor(() => {
-      const el = document.querySelector<HTMLElement>('[data-sonner-toaster]');
+    notice('Saved by a Notice');
+    const region = await waitFor(() => {
+      const el = screen
+        .getByText('Saved by a Notice')
+        .closest('[data-slot], section, div[class*="fixed"]');
       expect(el).not.toBeNull();
       return el as HTMLElement;
     });
-    expect(toaster.style.getPropertyValue('--offset-left')).not.toContain('16rem');
+    expect(region.closest('[class*="fixed"]')).not.toBeNull();
+    expect(region.closest('[class*="lg:left-[calc(16rem"]')).toBeNull();
   });
 });
 

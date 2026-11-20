@@ -1,10 +1,11 @@
 import type { EngineNode } from '@mimir/contract';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
 import { archive, unarchive, updateProject } from '../api/fns/shell';
+import type { NoticeHost, toast as realToast } from '../components/patterns/notice';
 import { ProjectSettingsButton } from '../components/project-settings-button';
 import { serveShell } from './shell-fns';
 
@@ -35,6 +36,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.useRealTimers();
 });
 
 function wrap(ui: ReactNode) {
@@ -128,6 +130,10 @@ function openSheet() {
 const follows = (a: Element, b: Element) =>
   (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
 
+/** Whether a toast titled `text` is on screen, not only in the live region's copy of it. */
+const toastShown = (text: string) =>
+  screen.queryAllByText(text).some((node) => node.closest('[data-slot="toast-title"]') !== null);
+
 describe('projectSettings lifecycle (MMR-230)', () => {
   it('archiving archives the project with no confirm, closes, toasts undo, and returns to the review page', async () => {
     wrap(<ProjectSettingsButton project={baseProject} />);
@@ -153,6 +159,36 @@ describe('projectSettings lifecycle (MMR-230)', () => {
     expect(navigate).toHaveBeenCalledWith({ to: '/' });
     // The sheet closed — its fields are gone.
     expect(screen.queryByLabelText(/name/i)).not.toBeInTheDocument();
+  });
+
+  // The option alone is not enough: the Notice must keep the toast up for it.
+  it('the undo toast stays on screen for ten seconds, past the five-second default', async () => {
+    const notice = await vi.importActual<{
+      NoticeHost: typeof NoticeHost;
+      toast: typeof realToast;
+    }>('../components/patterns/notice');
+    toast.mockImplementation((message, opts) => {
+      notice.toast(message, opts);
+    });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    render(<notice.NoticeHost />);
+    wrap(<ProjectSettingsButton project={baseProject} />);
+    openSheet();
+    fireEvent.click(screen.getByRole('button', { name: 'Archive project' }));
+    await vi.waitFor(() => {
+      expect(toastShown('Archived My Project')).toBe(true);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(7_000);
+    });
+    expect(toastShown('Archived My Project')).toBe(true);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4_000);
+    });
+    expect(toastShown('Archived My Project')).toBe(false);
+    act(() => {
+      notice.toast.dismiss();
+    });
   });
 
   it('the undo toast Undo unarchives the project', async () => {

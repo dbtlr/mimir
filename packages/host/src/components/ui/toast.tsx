@@ -14,8 +14,8 @@ import { mergeClassName } from './class-name';
 /*
  * The Toast primitive (ADR 0046): the Notice pattern's surface, replacing
  * Sonner. `toast(...)` works from anywhere; one `ToastStack` is mounted once
- * near the app root (MMR-740 does the swap). Placement matches Sonner today:
- * bottom-left on desktop, top-centre below `sm`. The toasts stack newest first
+ * near the app root. It sits bottom-left on desktop and top-centre below
+ * `sm`, clear of a sheet's footer. The toasts stack newest first
  * and fan out while the pointer or focus is in the region: upward from the
  * bottom edge, and downward from the top edge on a phone (`--stack`).
  */
@@ -47,7 +47,6 @@ function ToastBody({
       />
       {cancel !== undefined && (
         <SdkToastClose
-          aria-label={typeof cancel.label === 'string' ? cancel.label : undefined}
           render={<ActionButton size="sm" variant="outline" />}
           action={cancel.onCancel}
           className="shrink-0"

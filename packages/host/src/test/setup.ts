@@ -209,15 +209,6 @@ if (typeof globalThis.ResizeObserver !== 'function') {
 // Keep test-environment costs out of the first test's waits (MMR-525).
 // beforeAll runs after the test file's imports.
 beforeAll(() => {
-  // sonner injects its toast stylesheet into <head> on import, and jsdom
-  // cascades every stylesheet on each getComputedStyle call, which role
-  // queries make per element. The sheet has no `display: none` or
-  // `visibility: hidden` rule, so no query result depends on it.
-  for (const style of document.head.querySelectorAll('style')) {
-    if (style.textContent.includes('[data-sonner-toaster]')) {
-      style.remove();
-    }
-  }
   // Each file's fresh jsdom parses its default stylesheet on the first
   // getComputedStyle, and each worker loads ICU data on the first
   // Intl.DateTimeFormat. Pay both here, once, instead of inside whichever
