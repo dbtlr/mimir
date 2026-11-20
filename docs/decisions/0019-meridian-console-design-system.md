@@ -1200,7 +1200,8 @@ input (MMR-736).
 An on-or-off setting that takes effect the moment it changes, with nothing to
 confirm and no permission to ask, is a switch: Base UI's `Switch`, vendored
 as `components/ui/switch.tsx`, with its label as the row's text, 40 by 24
-pixels, accent when on, and a 44-pixel row on a phone. The row's label names
+pixels, accent when on and faint ink when off (at least 3:1 against the
+card in both themes), and a 44-pixel row on a phone. The row's label names
 the setting, and the switch is named by it.
 
 - **While it saves,** the switch shows its new position and is disabled. A
