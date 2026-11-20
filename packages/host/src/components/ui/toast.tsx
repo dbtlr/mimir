@@ -8,6 +8,7 @@ import {
 } from '@ui-sdk/react/toast';
 import type { ComponentProps, ReactNode } from 'react';
 
+import { cn } from '../../lib/cn';
 import { ActionButton } from './action-button';
 import { mergeClassName } from './class-name';
 
@@ -32,12 +33,19 @@ const TOAST_CLASS =
 /** A toast's title, description, optional action and second button, with a close button. */
 function ToastBody({
   cancel,
+  wrapActions,
 }: {
   cancel?: { label: ReactNode; onCancel?: ComponentProps<typeof SdkToastClose>['action'] };
+  wrapActions: boolean;
 }) {
   return (
-    <SdkToast className={TOAST_CLASS}>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+    <SdkToast className={cn(TOAST_CLASS, wrapActions && 'max-sm:flex-wrap')}>
+      <div
+        className={cn(
+          'flex min-w-0 flex-1 flex-col gap-0.5',
+          wrapActions && 'max-sm:flex-[0_0_100%] max-sm:wrap-anywhere',
+        )}
+      >
         <SdkToastTitle className="text-sm font-semibold text-ink-bright" />
         <SdkToastDescription className="text-meta text-ink-dim" />
       </div>
@@ -56,7 +64,10 @@ function ToastBody({
       )}
       <SdkToastClose
         aria-label="Dismiss"
-        className="-m-1 inline-flex size-7 shrink-0 items-center justify-center rounded-md text-ink-dim transition-colors hover:bg-line/50 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
+        className={cn(
+          '-m-1 inline-flex size-7 shrink-0 items-center justify-center rounded-md text-ink-dim transition-colors hover:bg-line/50 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent',
+          wrapActions && 'max-sm:ml-auto',
+        )}
       >
         <svg
           aria-hidden="true"
@@ -88,7 +99,12 @@ export function ToastStack({
       className={mergeClassName(REGION_CLASS, className)}
       {...props}
     >
-      {(item) => <ToastBody cancel={item.cancel} />}
+      {(item) => (
+        <ToastBody
+          cancel={item.cancel}
+          wrapActions={item.action !== undefined && item.cancel !== undefined}
+        />
+      )}
     </SdkToastRegion>
   );
 }

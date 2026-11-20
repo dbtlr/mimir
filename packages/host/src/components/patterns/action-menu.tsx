@@ -60,11 +60,17 @@ export const CLOSING_ROW_ATTRIBUTE = 'data-closes-menu';
 /** What a custom row receives: the pattern's class, its press handler, and the label. */
 type RowProps = {
   className?: string;
+  href?: string;
   onClick?: (event: MouseEvent<HTMLElement>) => void;
   onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void;
   children?: ReactNode;
   'aria-disabled'?: boolean | 'true' | 'false';
 };
+
+const SHEET_ROW_CLASS = cn(
+  MENU_ITEM_CLASS,
+  'min-h-11 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent',
+);
 
 /** The hairline row of an action that ends or removes something (ADR 0019, MMR-635). */
 const DESTRUCTIVE_ROW = cn(
@@ -168,10 +174,7 @@ export function ActionMenu({
         {entries.map((entry) => (
           <SheetEntry key={entry.key} entry={entry} onChoose={choose} />
         ))}
-        <DrawerClose
-          render={<CancelRow />}
-          className={cn(MENU_ITEM_CLASS, 'min-h-11 text-ink-dim')}
-        >
+        <DrawerClose render={<CancelRow />} className={cn(SHEET_ROW_CLASS, 'text-ink-dim')}>
           Cancel
         </DrawerClose>
       </DrawerContent>
@@ -196,6 +199,18 @@ function CancelRow({ onKeyDown, ...props }: ComponentProps<'button'>) {
 /** The closing-row mark for an action that closes the menu when chosen. */
 const closingRow = (entry: ActionMenuAction) =>
   entry.disabled === true || entry.keepOpen === true ? {} : { [CLOSING_ROW_ATTRIBUTE]: '' };
+
+function customRow(entry: ActionMenuAction): ReactElement<RowProps> | undefined {
+  const row = entry.render;
+  if (row === undefined || entry.disabled !== true) {
+    return row;
+  }
+  // A component such as a router Link can generate an href from its other props.
+  if (typeof row.type !== 'string') {
+    return <span className={row.props.className} />;
+  }
+  return cloneElement(row, { href: undefined, onClick: undefined, onKeyDown: undefined });
+}
 
 function MenuEntry({
   entry,
@@ -224,12 +239,7 @@ function MenuEntry({
   }
   return (
     <MenuItem
-      // A disabled link row runs nothing, its own press handler included.
-      render={
-        entry.render !== undefined && entry.disabled === true
-          ? cloneElement(entry.render, { onClick: undefined })
-          : entry.render
-      }
+      render={customRow(entry)}
       disabled={entry.disabled}
       destructive={entry.destructive}
       closeOnSelect={entry.keepOpen === true ? false : undefined}
@@ -266,8 +276,7 @@ function SheetEntry({
     return <SheetChoice choice={entry} />;
   }
   const className = cn(
-    MENU_ITEM_CLASS,
-    'min-h-11',
+    SHEET_ROW_CLASS,
     entry.destructive === true && DESTRUCTIVE_ROW,
     entry.className,
   );
@@ -277,9 +286,10 @@ function SheetEntry({
       {entry.label}
     </>
   );
-  if (entry.render !== undefined) {
-    const own = entry.render.props;
-    return cloneElement(entry.render, {
+  const row = customRow(entry);
+  if (row !== undefined) {
+    const own = row.props;
+    return cloneElement(row, {
       ...closingRow(entry),
       'aria-disabled': entry.disabled === true ? true : own['aria-disabled'],
       children: content,
@@ -294,6 +304,9 @@ function SheetEntry({
         onChoose(entry);
       },
       onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+        if (entry.disabled === true) {
+          return;
+        }
         holdPressingEnter(event);
         own.onKeyDown?.(event);
       },

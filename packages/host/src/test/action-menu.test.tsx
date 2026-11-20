@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
@@ -7,6 +8,7 @@ import { ActionMenu } from '../components/patterns/action-menu';
 import type { ActionMenuEntry } from '../components/patterns/action-menu';
 import { DestructiveConfirm } from '../components/patterns/destructive-confirm';
 import { DESTRUCTIVE_OUTLINE } from '../components/ui/action-button';
+import { renderInRouter } from './router';
 import { stubViewport } from './viewport';
 
 /** Stub `matchMedia`: every query matches when `desktop` is true. */
@@ -67,6 +69,36 @@ describe('Action menu surface', () => {
     expect(screen.queryByRole('menu')).toBeNull();
     expect(sheet).toHaveAttribute('data-side', 'bottom');
     expect(screen.getByRole('button', { name: 'Do it' })).toHaveClass('min-h-11');
+  });
+
+  it('gives sheet actions, links, and Cancel a visible keyboard outline', async () => {
+    viewport(false);
+    render(
+      <Harness
+        entries={[
+          ...entries,
+          {
+            key: 'link',
+            kind: 'action',
+            label: 'Go',
+            // oxlint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label -- the pattern gives the row its label
+            render: <a href="#go" />,
+          },
+        ]}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'More' }));
+    for (const row of [
+      await screen.findByRole('button', { name: 'Do it' }),
+      screen.getByRole('link', { name: 'Go' }),
+      screen.getByRole('button', { name: 'Cancel' }),
+    ]) {
+      expect(row).toHaveClass(
+        'focus-visible:outline-2',
+        'focus-visible:outline-solid',
+        'focus-visible:outline-accent',
+      );
+    }
   });
 
   it('closes after a plain action and runs it', async () => {
@@ -324,7 +356,56 @@ describe.each([
     expect(own).not.toHaveBeenCalled();
     expect(chosen).not.toHaveBeenCalled();
     expect(link).toHaveAttribute('aria-disabled', 'true');
+    expect(link).not.toHaveAttribute('href');
   });
+
+  it('a disabled router link row has no navigation target', async () => {
+    viewport(desktop);
+    await renderInRouter(
+      <Harness
+        entries={[
+          {
+            disabled: true,
+            key: 'a',
+            kind: 'action',
+            label: 'Go',
+            render: <Link to="/settings" />,
+          },
+        ]}
+      />,
+    );
+    await open();
+    const row = screen.getByText('Go');
+    expect(row).toHaveAttribute('aria-disabled', 'true');
+    expect(row).not.toHaveAttribute('href');
+  });
+
+  it.each([true, false])(
+    'a custom row handles Enter only when enabled (disabled: %s)',
+    async (disabled) => {
+      viewport(desktop);
+      const onKeyDown = vi.fn();
+      render(
+        <Harness
+          entries={[
+            {
+              disabled,
+              key: 'a',
+              kind: 'action',
+              label: 'Go',
+              render: <button type="button" aria-label="Go" onKeyDown={onKeyDown} />,
+            },
+          ]}
+        />,
+      );
+      await open();
+      fireEvent.keyDown(screen.getByRole(itemRole(desktop), { name: 'Go' }), {
+        code: 'Enter',
+        key: 'Enter',
+      });
+      expect(onKeyDown).toHaveBeenCalledTimes(disabled ? 0 : 1);
+    },
+  );
 
   it('a link row keeps its own class and press handler beside the pattern’s', async () => {
     viewport(desktop);
@@ -349,6 +430,7 @@ describe.each([
     await open();
     const link = screen.getByText('Go').closest('a')!;
     expect(link).toHaveClass('caller-class', 'rounded-sm');
+    expect(link).toHaveAttribute('href', '#go');
     await userEvent.click(link);
     expect(own).toHaveBeenCalledOnce();
     expect(chosen).toHaveBeenCalledOnce();
@@ -389,39 +471,12 @@ function OpensConfirm({ onSelect }: { onSelect?: () => void }) {
   );
 }
 
-/**
- * Press `key` on the focused element as Chromium does: keydown there, then keypress, keyup, and the
- * button press each go to whatever holds focus by then. A button presses on Enter's keypress and on
- * Space's keyup, unless that event's default is prevented. jsdom and user-event send them all to the
- * first element, so they cannot show a keydown handler that moves focus.
- */
-/** The element that holds focus, or the body. */
 const at = () => document.activeElement ?? document.body;
 
 async function pressAsChromium(key: 'Enter' | ' ') {
-  const code = key === 'Enter' ? 'Enter' : 'Space';
-  const charCode = key === 'Enter' ? 13 : 32;
-  // Microtasks run between the events, as they do between a browser's event dispatches; timers do not.
-  await act(async () => {
-    fireEvent.keyDown(at(), { charCode, code, key });
-    await Promise.resolve();
-  });
-  await act(async () => {
-    const target = at();
-    const kept = fireEvent.keyPress(target, { charCode, code, key });
-    if (key === 'Enter' && kept && target instanceof HTMLButtonElement) {
-      target.click();
-    }
-    await Promise.resolve();
-  });
-  await act(async () => {
-    const target = at();
-    const kept = fireEvent.keyUp(target, { charCode, code, key });
-    if (key === ' ' && kept && target instanceof HTMLButtonElement) {
-      target.click();
-    }
-    await Promise.resolve();
-  });
+  await send('down', key);
+  await send('press', key);
+  await send('up', key);
 }
 
 describe.each([

@@ -748,10 +748,10 @@ describe('sidebar breakpoint', () => {
     serve([]);
     await renderAt('/');
     await screen.findByRole('link', { name: 'Mimir' });
-    notice('Saved by a Notice');
+    notice('Saved without a sidebar');
     const region = await waitFor(() => {
       const el = screen
-        .getByText('Saved by a Notice')
+        .getByText('Saved without a sidebar')
         .closest('[data-slot], section, div[class*="fixed"]');
       expect(el).not.toBeNull();
       return el as HTMLElement;

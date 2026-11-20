@@ -1,16 +1,17 @@
 import type { EngineNode } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { launchT3, t3Catalog, t3Origin } from '../api/fns/t3';
+import { annotationsQuery, nodeQuery } from '../api/node-queries';
 import { NowRow } from '../components/work-sections';
 import { consoleRoutes } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineTree } from './engine-fixtures';
 import { engineTask } from './node-fixtures';
-import { serveNodes } from './node-fns';
+import { failNotes, serveNodes } from './node-fns';
 import { renderInRouter, renderRoute } from './router';
 import { serveShell } from './shell-fns';
 import { connectedCatalog, reachableSystem } from './t3-fixtures';
@@ -63,11 +64,12 @@ async function openTask(
   node: EngineNode,
   origin: string | null = T3_ORIGIN,
   system = reachableSystem(),
+  client = quiet(),
 ) {
   serveShell({ trees: { MMR: TREE } });
   serveNodes({ nodes: [node], notes: { [node.id]: [] }, scratchpads: [] });
   serveT3Launch(connectedCatalog([system]), undefined, origin);
-  await renderRoute(consoleRoutes, '/p/MMR/7', quiet());
+  await renderRoute(consoleRoutes, '/p/MMR/7', client);
   return screen.findByRole('complementary', { name: 'Record details' });
 }
 
@@ -78,6 +80,77 @@ describe('Launch in T3 on the task page', () => {
       within(rail).findByRole('button', { name: 'Launch on Valhalla' }),
     ).resolves.toBeVisible();
     expect(within(rail).getByRole('button', { name: 'Start' })).toBeVisible();
+  });
+
+  it.each(['queued', 'in_progress'] as const)(
+    'closes open settings without launching when a refresh changes the task to %s',
+    async (status) => {
+      const client = quiet();
+      const node = engineTask({ id: 'MMR-7', parent: 'MMR-2', status: 'ready' });
+      localStorage.clear();
+      const rail = await openTask(node, T3_ORIGIN, twoProjects(), client);
+      await waitFor(() => {
+        expect(within(rail).getByRole('button', { name: 'Launch in T3…' })).toBeEnabled();
+      });
+      await userEvent.click(within(rail).getByRole('button', { name: 'Launch in T3…' }));
+      const settings = await screen.findByRole('dialog', { name: 'Launch MMR-7 in T3' });
+      await userEvent.selectOptions(
+        within(settings).getByRole('combobox', { name: 'Project' }),
+        'proj-2',
+      );
+      expect(within(settings).getByRole('button', { name: 'Launch' })).toBeEnabled();
+
+      const { queryKey } = nodeQuery(node.id);
+      await act(async () => {
+        client.setQueryData(queryKey, { ...node, status });
+      });
+      await waitFor(() => {
+        expect(settings).not.toBeInTheDocument();
+      });
+
+      await act(async () => {
+        client.setQueryData(queryKey, node);
+      });
+      await expect(
+        within(rail).findByRole('button', { name: 'Launch in T3…' }),
+      ).resolves.toBeVisible();
+      expect(screen.queryByRole('dialog', { name: 'Launch MMR-7 in T3' })).toBeNull();
+      expect(launchT3).not.toHaveBeenCalled();
+    },
+  );
+
+  it('an already-open settings dialog still submits when the record goes offline', async () => {
+    const client = quiet();
+    localStorage.clear();
+    const rail = await openTask(
+      engineTask({ id: 'MMR-7', parent: 'MMR-2', status: 'ready' }),
+      T3_ORIGIN,
+      twoProjects(),
+      client,
+    );
+    const trigger = () => within(rail).getByRole('button', { hidden: true, name: 'Launch in T3…' });
+    await waitFor(() => {
+      expect(trigger()).toBeEnabled();
+    });
+    await userEvent.click(trigger());
+    const settings = await screen.findByRole('dialog', { name: 'Launch MMR-7 in T3' });
+    await userEvent.selectOptions(
+      within(settings).getByRole('combobox', { name: 'Project' }),
+      'proj-2',
+    );
+    failNotes();
+    await act(async () => {
+      await client.refetchQueries({ queryKey: annotationsQuery('MMR-7').queryKey });
+    });
+    await waitFor(() => {
+      expect(trigger()).toBeDisabled();
+    });
+    const submit = within(settings).getByRole('button', { name: 'Launch' });
+    expect(submit).toBeEnabled();
+    await userEvent.click(submit);
+    await waitFor(() => {
+      expect(launchT3).toHaveBeenCalledOnce();
+    });
   });
 
   // UI SDK's sheets render in place, so the launch sheet sits inside the Actions chip's sheet, whose
@@ -116,6 +189,9 @@ describe('Launch in T3 on the task page', () => {
       });
       await waitFor(() => {
         expect(settings).toContainElement(document.activeElement as HTMLElement);
+      });
+      await waitFor(() => {
+        expect(actions).not.toBeInTheDocument();
       });
       // The dialog launches what it was opened for, though the control that opened it is gone.
       await userEvent.selectOptions(

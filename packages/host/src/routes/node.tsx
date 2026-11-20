@@ -81,6 +81,8 @@ export function NodePage() {
 /** A task's Edit, Move…, grooming setter, and the transition verbs it offers outside its verdict block. */
 function ActionsPanel({
   node,
+  actionVerbs,
+  launchEligible,
   offline,
   onEdit,
   onMove,
@@ -88,6 +90,8 @@ function ActionsPanel({
   onVerb,
 }: {
   node: EngineNode;
+  actionVerbs: VerbSpec[];
+  launchEligible: boolean;
   offline: boolean;
   onEdit: () => void;
   onMove: () => void;
@@ -108,14 +112,14 @@ function ActionsPanel({
             Set grooming…
           </ActionButton>
         )}
-        {recordVerbs(node).map((v) => (
+        {actionVerbs.map((v) => (
           <Fragment key={v.verb}>
             <ActionButton size="sm" variant="outline" disabled={offline} onClick={() => onVerb(v)}>
               {v.label}
               {v.needsReason && '…'}
             </ActionButton>
             {/* Launch in T3 sits beside Start, where the task can be queued. */}
-            {v.verb === 'start' && canLaunchOnT3(node) && (
+            {v.verb === 'start' && launchEligible && (
               <T3LaunchControl node={node} offline={offline} />
             )}
           </Fragment>
@@ -290,6 +294,8 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
   const blocking = data.deps?.blocking ?? [];
   const artifactCount = data.artifacts?.length ?? 0;
   const groomingState = visibleGrooming(data);
+  const actionVerbs = recordVerbs(data);
+  const launchEligible = canLaunchOnT3(data) && actionVerbs.some((v) => v.verb === 'start');
 
   // Edit, Move…, and the transitions step aside while the edit form is open: a
   // second Edit would re-snapshot the tag baseline under a form that kept the
@@ -298,6 +304,8 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
     edit.baseline === null ? (
       <ActionsPanel
         node={data}
+        actionVerbs={actionVerbs}
+        launchEligible={launchEligible}
         offline={offline}
         onEdit={() => edit.begin(data)}
         onMove={() => setMoving(true)}
@@ -380,7 +388,7 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
 
   return (
     // Launch in T3's settings dialog lives above the rail, so it outlives the phone's Actions sheet.
-    <T3LaunchSettingsHost>
+    <T3LaunchSettingsHost eligible={actions !== null && launchEligible}>
       <OfflineBanner {...conn} />
       <RecordLayout
         head={head}

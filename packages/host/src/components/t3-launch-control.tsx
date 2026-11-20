@@ -48,17 +48,26 @@ const OpenSettings = createContext<((request: SettingsRequest) => void) | null>(
  * and unmounts it, so a dialog the control held would close with it; one held
  * here outlives that sheet. A control with no host above it makes its own.
  */
-export function T3LaunchSettingsHost({ children }: { children: ReactNode }) {
+export function T3LaunchSettingsHost({
+  children,
+  eligible = true,
+}: {
+  children: ReactNode;
+  eligible?: boolean;
+}) {
   const [request, setRequest] = useState<(SettingsRequest & { id: number }) | null>(null);
   const requestId = useRef(0);
   const openSettings = useCallback((next: SettingsRequest) => {
     requestId.current += 1;
     setRequest({ ...next, id: requestId.current });
   }, []);
+  if (!eligible && request !== null) {
+    setRequest(null);
+  }
   return (
     <OpenSettings.Provider value={openSettings}>
       {children}
-      {request !== null && (
+      {eligible && request !== null && (
         <T3LaunchDialog
           key={request.id}
           taskId={request.taskId}

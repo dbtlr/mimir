@@ -83,6 +83,22 @@ describe('Notice banner', () => {
 });
 
 describe('Notice second button', () => {
+  it('gives the message its own row above wrapping actions on a phone', async () => {
+    render(<NoticeHost />);
+    act(() => {
+      toast.error('T3 opened a thread but could not finish the launch', {
+        action: { label: 'Retry', onClick: vi.fn() },
+        cancel: { label: 'Open in T3', onClick: vi.fn() },
+      });
+    });
+    const retry = await screen.findByRole('button', { name: 'Retry' });
+    const notice = retry.closest('[data-slot="toast"]');
+    expect(notice).toHaveClass('max-sm:flex-wrap');
+    expect(notice?.querySelector('[data-slot="toast-title"]')?.parentElement).toHaveClass(
+      'max-sm:flex-[0_0_100%]',
+    );
+  });
+
   it('runs a cancel button once and dismisses the toast', async () => {
     const onClick = vi.fn();
     render(<NoticeHost />);
