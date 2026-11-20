@@ -85,7 +85,8 @@ const cliNoTesting = {
  * breaks one directory and features build from patterns, not raw parts.
  */
 const noUiSdk = {
-  group: ['@ui-sdk/*', '@ui-sdk/**'],
+  // `**/@ui-sdk/**` also catches a relative path into node_modules.
+  group: ['@ui-sdk/*', '@ui-sdk/**', '**/@ui-sdk/**'],
   message:
     'Layer boundary: only packages/host/src/components/ui imports @ui-sdk/*; build from its primitives or a pattern (ADR 0046).',
 };

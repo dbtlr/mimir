@@ -23,6 +23,10 @@ const PROBES = {
   route: { path: source(`routes/ui-sdk-probe-route-${pid}.tsx`), source: IMPORT },
   serverFn: { path: source(`api/fns/ui-sdk-probe-fn-${pid}.ts`), source: IMPORT },
   test: { path: source(`components/ui-sdk-probe-${pid}.test.ts`), source: IMPORT },
+  vendored: {
+    path: source(`components/ui-sdk-probe-vendored-${pid}.tsx`),
+    source: "export { Dialog } from '../../node_modules/@ui-sdk/react/dist/dialog.js';\n",
+  },
 };
 
 type Diagnostic = { filename: string; help?: string; message: string };
@@ -95,6 +99,10 @@ test('a server function that imports UI SDK is refused', () => {
 
 test('a console test outside components/ui that imports UI SDK is refused', () => {
   expect(of(PROBES.test.path)).toContain(REFUSAL);
+});
+
+test('a relative path into node_modules/@ui-sdk is refused', () => {
+  expect(of(PROBES.vendored.path)).toContain(REFUSAL);
 });
 
 test('a primitive in components/ui imports UI SDK cleanly', () => {

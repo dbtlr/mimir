@@ -1,20 +1,22 @@
 import {
+  createTokenInputController,
   TokenInput as SdkTokenInput,
   TokenInputEditor,
   TokenInputToken,
   TokenInputTokenRemove,
 } from '@ui-sdk/react/token-input';
-import type { Token, TokenInputValue } from '@ui-sdk/react/token-input';
-import { useState } from 'react';
+import type { TextRange, Token, TokenInputValue } from '@ui-sdk/react/token-input';
+import { useRef, useState } from 'react';
 
 import { cn } from '../../lib/cn';
 import { TEXT_FIELD_CLASS } from './input';
 
 /*
  * The Token Input primitive (ADR 0046): a text box whose finished words become
- * chips. The task form's tags use it: type a word, press Enter or comma, and
- * it becomes a removable chip (ADR 0019, MMR-736). Its value is the list of
- * tag strings; a word still being typed is not part of it.
+ * chips. The task form's tags use it: type a word, then press comma or Enter or
+ * leave the box, and it becomes a removable chip (ADR 0019, MMR-736). Its value
+ * is the list of tag strings. Tags are labels, so "Bug" and "bug" are one tag,
+ * spelled as first entered.
  */
 
 const NO_TAGS: string[] = [];
@@ -29,23 +31,45 @@ export function tagsOf(value: TokenInputValue): string[] {
   return value.filter(isToken).map((token) => token.value);
 }
 
+/** One replacement of finished words by chips, at UI SDK offsets (a chip counts as one). */
+export type TagEdit = { at: TextRange; content: TokenInputValue };
+
 /**
- * Turns finished words into tag chips. Text before a comma is finished; with
- * `flush`, all of the text is (Enter). Blank and repeated words are dropped.
- * Chips come first, then the word still being typed.
+ * The edits that turn finished words into chips where they were typed. Text up
+ * to a segment's last comma is finished; with `flush`, all of it is (Enter,
+ * blur). Blank words and tags already present in any case are dropped. Each
+ * chip is followed by a space, as UI SDK's own insertion does, so the caret
+ * lands after it. Edits run right to left, so each leaves the earlier offsets valid.
  */
-export function commitTags(value: TokenInputValue, flush: boolean): TokenInputValue {
-  const tags = tagsOf(value);
-  const text = value.filter((part): part is string => !isToken(part)).join('');
-  const words = text.split(',');
-  const draft = flush ? '' : (words.pop() ?? '');
-  for (const word of words) {
-    const tag = word.trim();
-    if (tag !== '' && !tags.includes(tag)) {
-      tags.push(tag);
+export function tagEdits(value: TokenInputValue, flush: boolean): TagEdit[] {
+  const seen = new Set(tagsOf(value).map((tag) => tag.toLowerCase()));
+  const edits: TagEdit[] = [];
+  let offset = 0;
+  for (const segment of value) {
+    if (isToken(segment)) {
+      offset += 1;
+      continue;
     }
+    const lead = segment.length - segment.trimStart().length;
+    const finished = flush ? segment.trimEnd().length : segment.lastIndexOf(',') + 1;
+    if (finished > lead) {
+      const chips: Token[] = [];
+      for (const word of segment.slice(lead, finished).split(',')) {
+        const tag = word.trim();
+        if (tag !== '' && !seen.has(tag.toLowerCase())) {
+          seen.add(tag.toLowerCase());
+          chips.push(tagToken(tag));
+        }
+      }
+      const content: TokenInputValue = chips.flatMap((chip) => [chip, ' ']);
+      if (/\s/.test(segment[finished] ?? '')) {
+        content.pop();
+      }
+      edits.unshift({ at: { end: offset + finished, start: offset + lead }, content });
+    }
+    offset += segment.length;
   }
-  return [...tags.map(tagToken), ...(draft === '' ? [] : [draft])];
+  return edits;
 }
 
 /** The chip look Token Input and the multiple Combobox share: the Badge look. */
@@ -106,32 +130,45 @@ export function TokenInput({
   onValueChange,
   placeholder,
 }: TokenInputProps) {
-  const [value, setValue] = useState<TokenInputValue>(() => defaultValue.map(tagToken));
-  const update = (next: TokenInputValue) => {
-    const before = tagsOf(value);
-    setValue(next);
-    const after = tagsOf(next);
-    if (after.length !== before.length || after.some((tag, at) => tag !== before[at])) {
-      onValueChange?.(after);
+  const [controller] = useState(createTokenInputController);
+  const [initial] = useState(() => defaultValue.flatMap((tag) => [tagToken(tag), ' ']));
+  const reported = useRef(defaultValue);
+  // UI SDK's insert keeps the caret where the edit leaves it.
+  const commit = (flush: boolean) => {
+    for (const edit of tagEdits(controller.getValue(), flush)) {
+      controller.insert(edit.content, { at: edit.at });
     }
   };
   return (
     <SdkTokenInput
-      value={value}
+      controller={controller}
+      defaultValue={initial}
       disabled={disabled}
       name={name}
-      submitShortcut="enter"
-      onValueChange={(next) => {
-        update(commitTags(next, false));
+      onValueChange={(next, details) => {
+        const tags = tagsOf(next);
+        const before = reported.current;
+        if (tags.length !== before.length || tags.some((tag, at) => tag !== before[at])) {
+          reported.current = tags;
+          onValueChange?.(tags);
+        }
+        // A typed comma becomes a chip once UI SDK has applied the keystroke;
+        // undo and redo are left as they are, so undoing a chip restores its text.
+        if (
+          details.reason !== 'undo' &&
+          details.reason !== 'redo' &&
+          tagEdits(next, false).length > 0
+        ) {
+          queueMicrotask(() => commit(false));
+        }
       }}
-      onSubmit={(next) => {
-        update(commitTags(next, true));
-      }}
+      onSubmit={() => commit(true)}
       renderToken={(token) => <TagChip token={token} />}
     >
       <TokenInputEditor
         aria-label={ariaLabel}
         placeholder={placeholder}
+        onBlur={() => commit(true)}
         className={cn(
           TEXT_FIELD_CLASS,
           'min-h-11 py-2.5 leading-[26px] data-[empty]:before:text-ink-ghost data-[empty]:before:content-[attr(aria-placeholder)]',

@@ -16,14 +16,14 @@ const INSTALLED = fileURLToPath(
   new URL('../node_modules/@ui-sdk/core/skills/ui-sdk', import.meta.url),
 );
 
-/** Every file under `dir`, relative, with its text, in path order. */
-function tree(dir: string, prefix = ''): [string, string][] {
+/** Every file under `dir`, relative, with its bytes, in path order. */
+function tree(dir: string, prefix = ''): [string, Buffer][] {
   const entries = readdirSync(dir, { withFileTypes: true });
   entries.sort((a, b) => a.name.localeCompare(b.name));
-  return entries.flatMap((entry): [string, string][] =>
+  return entries.flatMap((entry): [string, Buffer][] =>
     entry.isDirectory()
       ? tree(join(dir, entry.name), `${prefix}${entry.name}/`)
-      : [[`${prefix}${entry.name}`, readFileSync(join(dir, entry.name), 'utf8')]],
+      : [[`${prefix}${entry.name}`, readFileSync(join(dir, entry.name))]],
   );
 }
 
@@ -32,7 +32,11 @@ function drift(committed: string, installed: string): string[] {
   const ours = new Map(tree(committed));
   const theirs = new Map(tree(installed));
   const paths = new Set([...ours.keys(), ...theirs.keys()]);
-  const drifted = [...paths].filter((path) => ours.get(path) !== theirs.get(path));
+  const drifted = [...paths].filter((path) => {
+    const mine = ours.get(path);
+    const upstream = theirs.get(path);
+    return mine === undefined || upstream === undefined || !mine.equals(upstream);
+  });
   drifted.sort();
   return drifted;
 }
@@ -56,6 +60,20 @@ test('a changed file in the committed copy is reported', () => {
     `${readFileSync(join(scratch, 'SKILL.md'), 'utf8')}\nedited\n`,
   );
   expect(drift(scratch, INSTALLED)).toEqual(['SKILL.md']);
+});
+
+test('a changed binary file is reported', () => {
+  cpSync(COMMITTED, scratch, { recursive: true });
+  const upstream = mkdtempSync(join(tmpdir(), 'mimir-ui-sdk-upstream-'));
+  cpSync(COMMITTED, upstream, { recursive: true });
+  // Two different invalid UTF-8 bytes that would both decode to U+FFFD.
+  writeFileSync(join(scratch, 'logo.png'), Buffer.from([137, 255, 0]));
+  writeFileSync(join(upstream, 'logo.png'), Buffer.from([137, 254, 0]));
+  try {
+    expect(drift(scratch, upstream)).toEqual(['logo.png']);
+  } finally {
+    rmSync(upstream, { force: true, recursive: true });
+  }
 });
 
 test('a file added to or missing from the committed copy is reported', () => {
