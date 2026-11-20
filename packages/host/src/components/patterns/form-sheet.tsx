@@ -331,8 +331,6 @@ export type FormSheetProps = {
    * `mutateAsync`); it must not reopen this sheet before it returns.
    */
   onCommit: () => void | Promise<void>;
-  /** Close after the commit returns or resolves (the default). */
-  closeOnCommit?: boolean;
   /** The form cannot be sent yet: its required fields are empty. */
   commitDisabled?: boolean;
   /** A call the caller runs is in flight (such as Archive): the commit disables and the sheet holds. */
@@ -354,7 +352,6 @@ export function FormSheet({
   context,
   commitLabel,
   onCommit,
-  closeOnCommit = true,
   commitDisabled = false,
   pending = false,
   note,
@@ -374,11 +371,7 @@ export function FormSheet({
     if (busy || commitDisabled) {
       return;
     }
-    void commit(commitButton.current, onCommit, () => {
-      if (closeOnCommit) {
-        onClose();
-      }
-    });
+    void commit(commitButton.current, onCommit, onClose);
   };
 
   const firstField = () => {
