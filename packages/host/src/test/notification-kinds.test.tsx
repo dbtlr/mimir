@@ -566,6 +566,28 @@ describe('another browser’s kinds', () => {
     expect(kinds).not.toHaveTextContent('This browser');
   });
 
+  it('closes an open kinds dialog when its row is no longer on the current key', async () => {
+    const { client, world } = await open('desktop', { world: { devices: [mine, other] } });
+    await openKinds('desktop', 'Android · Chrome');
+    changeRow(world, other.endpoint, { currentKey: false });
+    await reread(client);
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Android · Chrome' })).toBeNull();
+    });
+  });
+
+  it('closes an open kinds dialog when the host can no longer use its key', async () => {
+    const { client, world } = await open('desktop', { world: { devices: [mine, other] } });
+    await openKinds('desktop', 'Android · Chrome');
+    world.status = { state: 'key_unusable' };
+    await act(async () => {
+      await client.refetchQueries({ queryKey: ['push'] });
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Android · Chrome' })).toBeNull();
+    });
+  });
+
   it('an old-key row does not offer it', async () => {
     await open('desktop', { world: { devices: [mine, oldKey] } });
     await userEvent.click(

@@ -1049,7 +1049,8 @@ variant A, picked on 2026-11-20.
   sheet and opens a sheet titled with the row's label; on a desktop it opens a
   dialog titled the same way. Both hold the same four switches and a Done that
   closes them. An old-key row does not offer it, because no push reaches that
-  row.
+  row, and an open sheet or dialog closes when a read shows its row on an old
+  key or the host's key is no longer usable.
 - **A switch saves when it flips,** through Set kind for its one kind. The
   switch shows its new position while the call runs and is disabled until it
   answers; the other switches stay usable. On `saved` it stays, and the page

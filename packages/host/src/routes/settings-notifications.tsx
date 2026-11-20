@@ -375,7 +375,15 @@ export function NotificationsPage() {
   if (opened !== undefined && (subscriptionPending || isMine(opened))) {
     setOpened(undefined);
   }
-  if (kindsFor !== undefined && (subscriptionPending || isMine(kindsFor))) {
+  // Another row's kinds are offered only while it is on the current key (ADR 0045, MMR-712), so they close
+  // when a read shows it on an old key, or the host no longer serves a usable key.
+  const onOldKey = (row: PushDevice) =>
+    status?.state !== 'ready' ||
+    (devices?.state === 'listed' &&
+      devices.devices.some(
+        (listedRow) => listedRow.endpoint === row.endpoint && !listedRow.currentKey,
+      ));
+  if (kindsFor !== undefined && (subscriptionPending || isMine(kindsFor) || onOldKey(kindsFor))) {
     setKindsFor(undefined);
   }
 
