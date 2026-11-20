@@ -213,7 +213,12 @@ function MenuEntry({
   }
   return (
     <MenuItem
-      render={entry.render}
+      // A disabled link row runs nothing, its own press handler included.
+      render={
+        entry.render !== undefined && entry.disabled === true
+          ? cloneElement(entry.render, { onClick: undefined })
+          : entry.render
+      }
       disabled={entry.disabled}
       destructive={entry.destructive}
       closeOnSelect={entry.keepOpen === true ? false : undefined}

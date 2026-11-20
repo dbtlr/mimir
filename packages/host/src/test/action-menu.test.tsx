@@ -295,8 +295,10 @@ describe.each([
     expect(never).not.toHaveBeenCalled();
   });
 
-  it('a disabled link row does not navigate and says it is disabled', async () => {
+  it('a disabled link row does not navigate, runs nothing, and says it is disabled', async () => {
     viewport(desktop);
+    const own = vi.fn();
+    const chosen = vi.fn();
     render(
       <Harness
         entries={[
@@ -305,8 +307,9 @@ describe.each([
             key: 'a',
             kind: 'action',
             label: 'Go',
+            onSelect: chosen,
             // oxlint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label -- the pattern gives the row its label
-            render: <a href="#gone" />,
+            render: <a href="#gone" onClick={own} />,
           },
         ]}
       />,
@@ -318,6 +321,8 @@ describe.each([
       link.dispatchEvent(press);
     });
     expect(press.defaultPrevented).toBe(true);
+    expect(own).not.toHaveBeenCalled();
+    expect(chosen).not.toHaveBeenCalled();
     expect(link).toHaveAttribute('aria-disabled', 'true');
   });
 
