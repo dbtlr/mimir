@@ -691,6 +691,24 @@ describe('the record keeps this browser’s kinds', () => {
     expect(browser.record).toBeNull();
   });
 
+  it('the heal learns nothing into a record another tab turned on again under a new endpoint', async () => {
+    const browser = onBrowser(onRecord());
+    const read = browser.subscription.bind(browser);
+    const renewed = {
+      endpoint: 'https://push.example/renewed',
+      serverKey: SERVED_KEY,
+      state: 'on',
+    } as const;
+    vi.spyOn(browser, 'subscription').mockImplementation(async () => {
+      // Another tab turned this browser off and on again while this heal read the subscription.
+      browser.record = renewed;
+      return read();
+    });
+    await mountHealer(browser, { devices: [{ ...mine, muted: ['task_blocked'] }] });
+    await settle();
+    expect(browser.record).toStrictEqual(renewed);
+  });
+
   it('the heal learns this browser’s kinds from its row, without subscribing', async () => {
     const browser = onBrowser(onRecord());
     await mountHealer(browser, { devices: [{ ...mine, muted: ['task_blocked'] }] });
