@@ -1064,7 +1064,10 @@ variant A, picked on 2026-11-20.
   switches the same live region says "This browser is no longer subscribed.",
   since the reload ends the On state and the group with it. A save is not one
   of the actions after which the rows withhold their actions (the MMR-711
-  refinement), so a sheet or dialog stays open across saves.
+  refinement), so a sheet or dialog stays open across saves. Nor is a poll
+  of the device list: the page reads this browser's subscription again only
+  when the set of listed endpoints changes, as it does after a heal, so a
+  row's sheet, menu, or kinds stay open while the list refreshes.
 - **This browser's switches and the page take turns.** The switches are
   disabled while Turn on, Turn off, or a reset runs, and Turn off and Reset
   push key are disabled while a save on this browser's own row runs. A save on
@@ -1073,8 +1076,10 @@ variant A, picked on 2026-11-20.
   changes nothing and the switch returns with the same sentence Turn on uses.
 - **Done** closes the sheet or dialog and returns focus to the row that opened
   it.
-- **Every kind off** is allowed. The switches' group then says: "Every kind is
-  off. This browser stays subscribed and still takes a test notification."
+- **Every kind off** is allowed. The switches then say: "Every kind is off.
+  This browser stays subscribed and still takes a test notification." In
+  another row's sheet or dialog the sentence names that row: "That browser
+  stays subscribed and still takes a test notification."
 - **The row's meta line** adds the choice after its other parts: the kind's
   short name and "off" when one kind is muted (Deliveries off, Decisions off,
   Blocked tasks off, Answers off), "2 kinds off" or "3 kinds off", and "Every
