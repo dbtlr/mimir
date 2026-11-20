@@ -27,7 +27,14 @@ export type ToolSchema = {
   required: string[];
 };
 
-type ListedTool = { name: string; inputSchema?: Partial<ToolSchema> };
+/** A tool's MCP annotations, as `tools/list` advertises them. */
+export type ToolAnnotations = Record<string, unknown>;
+
+type ListedTool = {
+  name: string;
+  annotations?: ToolAnnotations;
+  inputSchema?: Partial<ToolSchema>;
+};
 
 const schemaOf = (tools: readonly ListedTool[], name: string): ToolSchema => {
   const tool = tools.find((one) => one.name === name);
@@ -47,6 +54,8 @@ export type McpSession = {
   call: (name: string, args: Record<string, unknown>) => Promise<ToolAnswer>;
   /** A tool's input property names, as `tools/list` advertises them. */
   schema: (name: string) => Promise<ToolSchema>;
+  /** Every tool's annotations by tool name, as `tools/list` advertises them. */
+  annotations: () => Promise<Map<string, ToolAnnotations>>;
   close: () => Promise<void>;
 };
 
@@ -120,6 +129,8 @@ export function loomMcpSession(app: Pick<Application, 'run'>): McpSession {
     return Array.isArray(tools) ? tools.map((tool: ListedTool) => tool) : [];
   };
   return {
+    annotations: async () =>
+      new Map((await listed()).map((tool) => [tool.name, tool.annotations ?? {}])),
     call: async (name, args) => {
       const { error, result } = await request('tools/call', { arguments: args, name });
       if (result === undefined) {

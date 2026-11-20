@@ -10,7 +10,7 @@ import { mcpCommand } from '@loomcli/plugins/mcp/extension';
 import { intentEncoders } from '@mimir/contract';
 import type { ArtifactSummary, SetResult } from '@mimir/contract';
 
-import { asciiOption, filterOption, scopeOption, tzOption } from '../options';
+import { asciiOption, filterOption, readHints, scopeOption, tzOption } from '../options';
 import { parseDateFeed, parseLimit, parseOffset, parseZone } from '../parse';
 import type { Ports } from '../ports';
 import { printNote } from '../query';
@@ -54,7 +54,7 @@ export function artifactsCommand(ports: Ports) {
           { command: 'artifacts -f ids', note: 'the newest ids, for a get' },
         ],
       }),
-      mcpCommand({ annotations: { openWorld: false, readOnly: true } }),
+      mcpCommand({ annotations: readHints }),
     ],
   })
     .option('scope', scopeOption)

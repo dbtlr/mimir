@@ -17,7 +17,8 @@ import type { BoardTemplate, OpenBoard, Tokens } from './testing/writes';
  * no `-f json` CLI pin owns has its whole structured content pinned by at
  * least one case. Every tool's input names and types are pinned too: no CLI
  * pin sees an input that only MCP names or drops, such as a positional's
- * declared name or an option under `mcpInput({ exclude: true })`.
+ * declared name or an option under `mcpInput({ exclude: true })`. Every tool's
+ * read-only and destructive hints are pinned as well.
  *
  * Normalization: the Scratchpad UUID, random by design, reads `<uuid>`. The
  * cases run in order against one board, each write on it, so a later case reads
@@ -258,10 +259,12 @@ const CASES: readonly McpCase[] = [
 const FINAL_STATE =
   'the board ends holding the records the cases changed, including every record the answers name';
 const INPUTS = 'every tool takes its inputs under these names and types';
+const HINTS = 'every tool declares these read-only and destructive hints';
 const pins = pinsOf(import.meta.url);
 const keys = new Map(CASES.filter((c) => c.pinned).map((c) => [c, pins.claim(c.name)]));
 const finalKey = pins.claim(FINAL_STATE);
 const inputsKey = pins.claim(INPUTS);
+const hintsKey = pins.claim(HINTS);
 
 let template: BoardTemplate;
 let open: OpenBoard;
@@ -316,6 +319,16 @@ test(INPUTS, async () => {
     lines.push(`${tool}(${inputs.join(', ')})`);
   }
   pins.check(inputsKey, quoted(`${lines.join('\n')}\n`));
+});
+
+test(HINTS, async () => {
+  const lines = [...(await loomServer.annotations())]
+    .toSorted(([a], [b]) => a.localeCompare(b))
+    .map(
+      ([tool, hints]) =>
+        `${tool}(readOnly: ${String(hints.readOnlyHint)}, destructive: ${String(hints.destructiveHint)})`,
+    );
+  pins.check(hintsKey, quoted(`${lines.join('\n')}\n`));
 });
 
 test('a refusal is a failed call whose structured content is the failure form', async () => {

@@ -6,7 +6,7 @@ import { Command } from '@loomcli/core';
 import { helpCommand, helpInput } from '@loomcli/plugins/help/extension';
 import { mcpCommand } from '@loomcli/plugins/mcp/extension';
 
-import { asciiOption, colOption, scopeOption, tzOption } from '../options';
+import { asciiOption, colOption, readHints, scopeOption, tzOption } from '../options';
 import { parseStatus } from '../parse';
 import type { Ports } from '../ports';
 import { filterOptions, nodeQueryOptions, readNodeSet } from '../query';
@@ -29,7 +29,7 @@ export function listCommand(ports: Ports) {
           { command: 'list -s MMR --is stale', note: 'a named project, ignoring the binding' },
         ],
       }),
-      mcpCommand({ annotations: { openWorld: false, readOnly: true } }),
+      mcpCommand({ annotations: readHints }),
     ],
   })
     .option('status', {

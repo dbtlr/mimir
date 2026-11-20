@@ -10,7 +10,7 @@ import { mcpCommand } from '@loomcli/plugins/mcp/extension';
 import { intentEncoders } from '@mimir/contract';
 import type { SeedView } from '@mimir/contract';
 
-import { asciiOption, filterOption, scopeOption, tzOption } from '../options';
+import { asciiOption, filterOption, readHints, scopeOption, tzOption } from '../options';
 import { parseDateFeed, parseSeedSort, parseSeedStatus, parseZone } from '../parse';
 import type { Ports } from '../ports';
 import { renderSeedLanes, renderSeedQueue } from '../render/feeds';
@@ -64,7 +64,7 @@ export function seedsCommand(ports: Ports) {
           },
         ],
       }),
-      mcpCommand({ annotations: { openWorld: false, readOnly: true } }),
+      mcpCommand({ annotations: readHints }),
     ],
   })
     .option('project', {

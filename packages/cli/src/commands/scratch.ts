@@ -11,7 +11,7 @@ import { intentEncoders, MimirError } from '@mimir/contract';
 import type { ArtifactDetail, Engine, Scratchpad } from '@mimir/contract';
 
 import { MimirUsageError } from '../failures';
-import { asciiOption, scopeOption, tagOption, text, writeHints } from '../options';
+import { asciiOption, readHints, scopeOption, tagOption, text, writeHints } from '../options';
 import { reasonWords } from '../parse';
 import type { Ports } from '../ports';
 import { presentationOf } from '../render/presentation';
@@ -43,7 +43,7 @@ function scratchListCommand(ports: Ports) {
           { command: 'scratch list -s MMR -f json', note: 'structured output for scripts' },
         ],
       }),
-      mcpCommand({ annotations: { openWorld: false, readOnly: true } }),
+      mcpCommand({ annotations: readHints }),
     ],
   })
     .option('scope', scopeOption)
@@ -81,7 +81,7 @@ function scratchGetCommand(ports: Ports) {
     description: 'Read one scratchpad by UUID: its agenda, journal, and linked work.',
     extensions: [
       helpCommand({ examples: [{ command: 'scratch get 0d6c3f1e-…', note: 'one pad in full' }] }),
-      mcpCommand({ annotations: { openWorld: false, readOnly: true } }),
+      mcpCommand({ annotations: readHints }),
     ],
   })
     .argument('id', { description: 'The scratchpad UUID.', required: true })

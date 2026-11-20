@@ -19,21 +19,18 @@ type Direction = {
   description: string;
   /** What the note says follows the id. */
   note: string;
-  destructive: boolean;
   example: string;
 };
 
 const DIRECTIONS: Record<Direction['verb'], Direction> = {
   depend: {
     description: 'Make a task, phase, or initiative wait on the others named by --on.',
-    destructive: false,
     example: 'depend MMR-18 --on MMR-16,MMR-17',
     note: 'now depends on',
     verb: 'depend',
   },
   undepend: {
     description: 'Stop a task, phase, or initiative waiting on the others named by --on.',
-    destructive: true,
     example: 'undepend MMR-18 --on MMR-16',
     note: 'no longer depends on',
     verb: 'undepend',
@@ -45,7 +42,7 @@ function dependenceCommand(ports: Ports, direction: Direction) {
     description: direction.description,
     extensions: [
       helpCommand({ examples: [{ command: direction.example, note: direction.description }] }),
-      mcpCommand({ annotations: { ...writeHints, destructive: direction.destructive } }),
+      mcpCommand({ annotations: writeHints }),
     ],
   })
     .argument('id', { description: 'The task, phase, or initiative (KEY-seq).', required: true })

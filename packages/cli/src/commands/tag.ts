@@ -42,13 +42,7 @@ function taggingCommand(ports: Ports, tagging: Tagging) {
     description: tagging.description,
     extensions: [
       helpCommand({ examples: [{ command: tagging.example, note: tagging.description }] }),
-      mcpCommand({
-        annotations: {
-          ...writeHints,
-          destructive: tagging.verb === 'untag',
-          idempotent: true,
-        },
-      }),
+      mcpCommand({ annotations: { ...writeHints, idempotent: true } }),
     ],
   })
     .argument('ids', {

@@ -63,7 +63,21 @@ export const tagOption = {
   type: 'string',
 } satisfies StringOption;
 
-/** The MCP annotations of a write that adds or changes records and never deletes. */
+/** The MCP annotations of a read: it changes no record. */
+export const readHints = {
+  destructive: false,
+  openWorld: false,
+  readOnly: true,
+} as const;
+
+/**
+ * The MCP annotations of a write that adds or changes records and loses no
+ * record's content. A write that removes an edge or clears a field is still a
+ * change: another call restores it. Freezing a scratchpad is a change too: it
+ * deletes the pad only after its content is kept as an artifact. Only a write
+ * that deletes a record and its content, a scratchpad discard, sets
+ * `destructive: true`.
+ */
 export const writeHints = {
   destructive: false,
   openWorld: false,

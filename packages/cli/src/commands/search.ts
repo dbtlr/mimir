@@ -10,7 +10,7 @@ import { intentEncoders } from '@mimir/contract';
 import type { SearchHit, SetResult } from '@mimir/contract';
 
 import { MimirUsageError } from '../failures';
-import { asciiOption, scopeOption } from '../options';
+import { asciiOption, readHints, scopeOption } from '../options';
 import { parseSearchLimit, reasonWords } from '../parse';
 import type { Ports } from '../ports';
 import { printNote } from '../query';
@@ -52,7 +52,7 @@ export function searchCommand(ports: Ports) {
           { command: 'search auth -n 5 -f json', note: 'structured output, five results' },
         ],
       }),
-      mcpCommand({ annotations: { openWorld: false, readOnly: true } }),
+      mcpCommand({ annotations: readHints }),
     ],
   })
     .argument('query', {
