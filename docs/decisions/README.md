@@ -35,7 +35,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0010](0010-one-binary-transport-only-consumption.md)             | One binary; transport-only consumption                             |
 | [0011](0011-repo-binding-is-repo-side.md)                         | Repo binding is repo-side; the store knows no paths (superseded by 0036) |
 | [0012](0012-http-api-true-resource-envelope.md)                   | The HTTP API is a true resource envelope                           |
-| [0013](0013-ui-embedded-spa.md)                                   | The UI is an embedded SPA — board-first console, PWA               |
+| [0013](0013-ui-embedded-spa.md)                                   | The UI is an embedded SPA — board-first console, PWA (component layer refined by 0046) |
 | [0014](0014-work-artifacts-authored-into-mimir.md)                | Work artifacts are authored into Mimir, not the vault              |
 | [0015](0015-project-archive-frozen-and-hidden.md)                 | Project archive — a frozen, hidden, reversible project state       |
 | [0016](0016-norn-vault-system-of-record.md)                       | A Norn-managed markdown vault is the system of record (superseded by 0032) |
@@ -68,6 +68,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0043](0043-the-decision-record.md)                               | The decision — a question answered without stopping                |
 | [0044](0044-checklist-items.md)                                   | Checklist items — small items a task adds, then checks or drops    |
 | [0045](0045-operator-notifications.md)                            | Operator notifications — events from entries to the needs-you set  |
+| [0046](0046-console-primitives-on-ui-sdk.md)                     | The console builds on UI SDK primitives and a fixed set of patterns |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete model

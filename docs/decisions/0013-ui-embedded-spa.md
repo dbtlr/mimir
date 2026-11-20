@@ -853,3 +853,14 @@ The review page (`/`) may show one card above Needs you that suggests turning
 on notifications, under the rules of ADR 0045's MMR-734 refinement. Once this
 browser answers it, it never shows again. A rebuilt review page keeps it in
 the same place.
+
+## Refinement (2026-11-20, MMR-736): UI SDK replaces Base UI under the components
+
+The stack's component layer is no longer shadcn/ui in its Base UI flavor.
+[ADR 0046](0046-console-primitives-on-ui-sdk.md) moves the console's headless
+behavior to UI SDK, pinned to an exact version. Only `components/ui` imports
+it, and features build from the patterns in ADR 0019's MMR-736 refinement. The
+rest of the stack stands: Vite, React, TanStack Router and Query, Tailwind v4,
+`vite-plugin-pwa`, and vitest. The vendored-source reason holds for the look
+and the components, which stay the console's own code; only behavior is
+imported.

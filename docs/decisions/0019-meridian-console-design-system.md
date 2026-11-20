@@ -1194,3 +1194,102 @@ a confirm beside its way out, the way out first.
 The push key reset sheet uses it. Moving the stop-run dialog and the inline
 Unpair confirm onto it waits on a set of input patterns chosen by the kind of
 input (MMR-736).
+
+## Refinement (2026-11-20, MMR-736): patterns chosen by the kind of input
+
+Features build from a fixed set of patterns over UI SDK primitives
+([ADR 0046](0046-console-primitives-on-ui-sdk.md)). A new ask picks its
+pattern by the kind of input it needs. A shape that no pattern provides is
+added here first. The inventory attached to MMR-736 maps each of the
+console's asks and each redesign building block to its pattern and to the
+task that moves it.
+
+### Three surfaces
+
+What a surface holds decides which one is used, not the device:
+
+- **Dialog**: a question. It is centred and modal at every width. Confirm,
+  Reason, the Walkthrough, and the jump palette use it.
+- **Sheet**: content or a form. It is UI SDK's Drawer: a bottom sheet on a
+  phone, and a panel from the right on desktop (440px for a preview, 640px
+  for a form). The preview panel, the Form sheet, and the filter sheet use
+  it.
+- **Popup**: a short list anchored to its button, either a menu or a
+  picker's results.
+
+An **Action menu** is the one pattern that changes with the width. Below
+`md` it opens as a bottom sheet of 44px rows, and from `md` up as an
+anchored menu. The pattern switches; no feature builds both shapes.
+
+### The input patterns
+
+| Pattern | For | Surface | Primitives |
+| --- | --- | --- | --- |
+| Confirm | an action that ends or removes something | Dialog | Alert Dialog, with `ConfirmCard`'s `bare` body |
+| Reason | a confirm that needs words, optional or required | Dialog | Dialog, Field, Textarea |
+| Choice | one or several values from a fixed set | inline | Segmented Control, Radio, Select, Checkbox, Switch |
+| Record picker | a record found by search | Popup; a Dialog for the jump palette | Combobox, Listbox, Command |
+| Form sheet | creating or editing a record | Sheet | Drawer, Field, Input, Textarea, Token Input, with Choice and Record picker |
+| Composer | text added in place, such as an annotation | inline | Textarea |
+| Action menu | choosing an action, including a record's More | Popup, or a bottom sheet on a phone | Menu, Drawer |
+| Suggestion | a one-time offer on a page | card | `ConfirmCard`'s `card` surface |
+| Notice | an outcome, optionally with Undo or Retry, or a standing state | Toast, or a banner for a standing state | Toast |
+| Walkthrough | a guided series of answers | Dialog, full layer | Dialog, Radio, Textarea |
+
+### When an action asks first
+
+- **An action that can be undone runs at once** and offers Undo in a
+  Notice. Archiving a project is one.
+- **An action that ends or removes something asks through Confirm.**
+  Stopping an agent run, unpairing a device, resetting the push key, and
+  removing another browser are such actions. Removing another browser gains a confirm here. The
+  destructive control keeps the MMR-635 red hairline.
+- **An answer that names exactly what it commits is its own confirm.** A
+  decision's _Confirm N_ and _Take M_ chips stay one tap, as the MMR-695
+  refinement set out, with its focus rules. They are a Choice that commits.
+- **No confirm expands in place.** The inline Unpair swap on Settings ›
+  Devices moves to Confirm, as the MMR-635 refinement already required.
+
+### Forms
+
+- **One form for each kind of record**, used to create and to edit, always in
+  the Form sheet. The kinds are task, phase, and initiative (one form);
+  seed; project; and a T3 launch. A Dialog never holds a form.
+- **Seed capture is the seed form in the sheet.** It keeps the `s` hotkey and
+  Enter to file.
+- **A container's Direction is a field of its form**, not a dialog of its own.
+
+### Choice
+
+- **Segmented Control** holds up to four short options.
+- **Radio** holds options that need a label of more than a word.
+- **Select** holds a longer fixed list, such as T3's models.
+- **Checkbox** holds several independent values.
+- **Switch** holds a setting that applies as soon as it changes, such as a
+  notification kind.
+- **A record is never a Choice.** A project or a parent is picked with the
+  Record picker.
+
+### Feed blocks
+
+These redesign blocks build on primitives:
+
+- The preview panel, the Form sheet, and the filter sheet use Drawer.
+- The day fold uses Collapsible.
+- The record header's tabs use Tabs.
+- The phone's sidebar is a left Drawer.
+- The Needs you deck uses Carousel if the deck's own task proves it fits.
+
+The card, row group, section head, quiet line, and Shipped summary are plain
+markup over the tokens and need no headless part.
+
+### What this replaces
+
+- **The MMR-734 refinement's surfaces.** `ConfirmCard`'s `bare` surface is now
+  the body of the Confirm dialog, and the push key reset moves from its sheet
+  to Confirm. Its `card` surface is the Suggestion pattern alone.
+- **The MMR-635 refinement's sheet and menu for _Remove this browser_.** The
+  Action menu pattern provides them now.
+- **The per-feature dialog frames.** The stop-run, reason, decision-note,
+  move, grooming, Direction, seed-capture, and T3 launch dialogs each move to
+  the pattern above that fits their input.
