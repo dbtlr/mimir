@@ -59,8 +59,8 @@ injects.
   0019 first. A new pattern is a design decision, not an implementation
   detail of one feature.
 - The primitives ADR 0019 names are built together before the redesign
-  builds on them. Each pattern is built by the first task that needs it, to
-  the definition ADR 0019 gives.
+  (the console readability phase, MMR-717) builds on them. Each pattern is
+  built by the first task that needs it, to the definition ADR 0019 gives.
 
 ### The version is pinned exactly
 

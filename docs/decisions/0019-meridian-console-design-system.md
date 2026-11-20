@@ -1248,15 +1248,17 @@ or _Resume_.
 The first rule that fits decides:
 
 1. **A setting the same control turns back is a Choice.** It applies at once
-   and asks nothing. Switching notifications off for this browser is one.
+   and asks nothing. A notification kind's Switch is one.
 2. **An answer chip that names exactly what it commits is its own confirm.**
    A decision's _Confirm N_ and _Take M_ chips stay one tap, with the MMR-695
    refinement's focus rules. They are `ActionButton` chips, not a Choice.
 3. **An action that takes words asks through Reason**, and Reason is its
    confirm. Parking, blocking, abandoning, returning, and pausing or
    abandoning a delivery use it.
-4. **An action the operator can undo runs at once** and offers Undo in a
-   Notice. Archiving a project is one.
+4. **An action the operator can undo runs at once** and offers its undo:
+   Undo in a Notice, as archiving a project does, or the reverse action in
+   the same place, as Turn off offers Turn on (ADR 0045's MMR-711
+   refinement).
 5. **An action that ends or removes something and cannot be undone asks
    through Destructive confirm.** Stopping an agent run, unpairing a device,
    denying a pairing request, resetting the push key, and removing another
@@ -1302,7 +1304,7 @@ stays a toast.
 
 ### Feed blocks
 
-These redesign blocks build on primitives:
+These building blocks of the readability phase (MMR-717) build on primitives:
 
 - The preview panel, the Form sheet, and the filter sheet use Drawer.
 - The day fold uses Collapsible.

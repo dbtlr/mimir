@@ -934,13 +934,11 @@ The Notifications page moves onto the patterns of ADR 0019's MMR-736
 refinement. What each action does, and the waits and refusals of the MMR-711
 refinement, are unchanged.
 
-- **This browser's Turn on and Turn off become one Switch.** It is a setting
-  the same control turns back, so it asks nothing. Switching it on still runs
-  from the tap itself, so the permission prompt keeps the user's activation.
-  When switching on or off ends in a refusal or a failure, the switch returns
-  to the state the browser and the host agree on, and the sentence under the
-  group says why. Where this browser cannot act, no switch shows. _Send test
-  notification_ stays a button.
+- **This browser's Turn on and Turn off stay buttons.** The MMR-711
+  refinement's reason for rejecting a switch holds: a permission prompt can
+  end denied or refused, and a switch would show a state the browser does not
+  hold. They are plain actions, and Turn off needs no confirm, because Turn on
+  in the same place reverses it.
 - **Another browser's actions are the Action menu pattern:** a Sheet titled
   with the label below `md`, and a menu from `md` up, as before.
 - **Remove this browser asks through Destructive confirm** before it removes
