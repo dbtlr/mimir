@@ -18,6 +18,7 @@ function subscribeRow(
     auth?: string;
     serverKey?: string;
     label?: string;
+    mutedKinds?: readonly string[];
   },
 ) {
   return {
@@ -68,6 +69,7 @@ describe.each([
       createdAt: '2026-11-01T12:00:00.000Z',
       endpoint: A,
       label: 'Phone',
+      mutedKinds: [],
       p256dh: 'key-1',
       serverKey: 'server-1',
     });
@@ -103,9 +105,48 @@ describe.each([
       endpoint: A,
       label: 'Tablet',
       lastSuccessAt: '2026-11-01T12:00:01.000Z',
+      mutedKinds: [],
       p256dh: 'key-2',
       serverKey: 'server-2',
     });
+  });
+
+  test('a row keeps its muted kinds through a subscribe that names none, and takes those one names', async () => {
+    const { subscriptions } = await fixture();
+    await subscriptions.subscribe(row(A, { mutedKinds: ['decisions'] }), 5);
+    expect((await subscriptions.get(A))?.mutedKinds).toEqual(['decisions']);
+    await subscriptions.subscribe(row(A, { auth: 'auth-2' }), 5);
+    expect((await subscriptions.get(A))?.mutedKinds).toEqual(['decisions']);
+    await subscriptions.subscribe(row(A, { mutedKinds: [] }), 5);
+    expect((await subscriptions.get(A))?.mutedKinds).toEqual([]);
+  });
+
+  test('setMutedKinds replaces one row\'s muted kinds and reports whether the row exists', async () => {
+    const { subscriptions } = await fixture();
+    await subscriptions.subscribe(row(A), 5);
+    await subscriptions.subscribe(row(B), 5);
+    expect(await subscriptions.setMutedKinds(A, ['task_blocked', 'decisions'])).toBe(true);
+    expect((await subscriptions.get(A))?.mutedKinds).toEqual(['task_blocked', 'decisions']);
+    expect((await subscriptions.get(B))?.mutedKinds).toEqual([]);
+    expect(await subscriptions.setMutedKinds('https://push.example/none', ['decisions'])).toBe(
+      false,
+    );
+    expect(await subscriptions.get('https://push.example/none')).toBeUndefined();
+  });
+
+  test('a stored muted_kinds that is not a JSON array of strings reads as none muted', async () => {
+    const { db, subscriptions } = await fixture();
+    await subscriptions.subscribe(row(A), 5);
+    for (const stored of ['not json', '{"a":1}', '[1,"decisions"]']) {
+      await db
+        .updateTable('push_subscriptions')
+        .set({ muted_kinds: stored })
+        .where('endpoint', '=', A)
+        .execute();
+      expect((await subscriptions.get(A))?.mutedKinds).toEqual(
+        stored === '[1,"decisions"]' ? ['decisions'] : [],
+      );
+    }
   });
 
   test('the limit refuses a new endpoint but allows an existing one', async () => {

@@ -36,6 +36,7 @@ export const MIGRATIONS = [
   { name: '0021_delivery_follow_up', version: 21 },
   { name: '0022_decision_option_details', version: 22 },
   { name: '0023_push_subscriptions', version: 23 },
+  { name: '0024_push_subscription_muted_kinds', version: 24 },
 ] as const;
 
 export type Migration = (typeof MIGRATIONS)[number];

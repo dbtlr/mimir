@@ -337,9 +337,13 @@ describe.each(arms)('$name', (arm) => {
       await sql.raw('ALTER TABLE decision DROP COLUMN option_details').execute(f.db);
       await f.db.deleteFrom('schema_version').where('version', '>=', 22).execute();
       expect(await upgradeSchema(f.db, arm.dialect)).toMatchObject({
-        applied: ['0022_decision_option_details', '0023_push_subscriptions'],
+        applied: [
+          '0022_decision_option_details',
+          '0023_push_subscriptions',
+          '0024_push_subscription_muted_kinds',
+        ],
         from: 21,
-        to: 23,
+        to: 24,
       });
       expect(await engine.getDecision({ id: d.id })).toEqual(d);
       expect((await f.store.export()).decisions[0]?.option_details).toBeNull();

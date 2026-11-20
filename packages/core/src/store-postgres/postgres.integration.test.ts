@@ -84,6 +84,7 @@ lane('upgradeSchema builds the schema from empty, and the gate then passes', asy
           '0021_delivery_follow_up',
           '0022_decision_option_details',
           '0023_push_subscriptions',
+          '0024_push_subscription_muted_kinds',
         ],
         from: 0,
         to: SCHEMA_VERSION,
