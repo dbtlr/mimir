@@ -996,6 +996,79 @@ describe('subscribed browsers', () => {
     },
   );
 
+  it('Remove’s confirm stays open through its own commit, even when a reread lands meanwhile', async () => {
+    stubViewport('desktop');
+    const served = servePush(world);
+    const browser = onBrowser();
+    const client = new QueryClient();
+    await renderRoute(consoleRoutes, '/settings/notifications', client, withBrowser(browser));
+    const removal = Promise.withResolvers<{ state: 'unsubscribed' }>();
+    vi.mocked(unsubscribePush).mockReturnValueOnce(removal.promise);
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Actions for Android · Chrome' }),
+    );
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Remove this browser' }));
+    const confirm = await screen.findByRole('alertdialog', { name: 'Remove Android · Chrome?' });
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Remove this browser' }));
+    expect(unsubscribePush).toHaveBeenCalledOnce();
+    // While the commit runs, a list naming another endpoint starts a reread of this browser's subscription.
+    const waiting: (() => void)[] = [];
+    vi.spyOn(browser, 'subscription').mockImplementation(async () => {
+      const { promise, resolve } = Promise.withResolvers<void>();
+      waiting.push(resolve);
+      await promise;
+      return SUBSCRIPTION;
+    });
+    served.devices = [...served.devices, device({ endpoint: 'https://push.example/new' })];
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: pushDevicesQuery.queryKey });
+    });
+    await waitFor(() => {
+      expect(waiting.length).toBeGreaterThan(0);
+    });
+    await settle();
+    expect(screen.getByRole('alertdialog', { name: 'Remove Android · Chrome?' })).toBe(confirm);
+    vi.mocked(browser.subscription).mockResolvedValue(SUBSCRIPTION);
+    await act(async () => {
+      for (const resolve of waiting) {
+        resolve();
+      }
+      served.devices = served.devices.filter((row) => row.endpoint !== other.endpoint);
+      removal.resolve({ state: 'unsubscribed' });
+      await removal.promise;
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+    });
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('button', { name: 'Actions for Android · Chrome' }),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it('Remove’s confirm closes, removing nothing, when the host’s key is no longer ready', async () => {
+    stubViewport('desktop');
+    const served = servePush(world);
+    const client = new QueryClient();
+    await renderRoute(consoleRoutes, '/settings/notifications', client, withBrowser(onBrowser()));
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Actions for Android · Chrome' }),
+    );
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Remove this browser' }));
+    await screen.findByRole('alertdialog', { name: 'Remove Android · Chrome?' });
+    served.status = { state: 'key_unusable' };
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: pushStatusQuery.queryKey });
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+    });
+    await settle();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(unsubscribePush).not.toHaveBeenCalled();
+  });
+
   it.each(['desktop', 'phone'] as const)(
     'on a %s, a failed Remove keeps the row, says so, and returns focus to it',
     async (width) => {
