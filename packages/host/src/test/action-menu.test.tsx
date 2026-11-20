@@ -452,6 +452,180 @@ describe.each([
   );
 });
 
+const KEY_INIT = {
+  ' ': { charCode: 32, code: 'Space' },
+  ArrowRight: { code: 'ArrowRight' },
+  Enter: { charCode: 13, code: 'Enter' },
+  Tab: { code: 'Tab' },
+} as const;
+
+/** One key event as Chromium sends it: to whatever holds focus, pressing a button on Enter's keypress and Space's keyup. */
+async function send(type: 'down' | 'press' | 'up', name: keyof typeof KEY_INIT, repeat = false) {
+  const init = { ...KEY_INIT[name], key: name, repeat };
+  let kept = true;
+  await act(async () => {
+    const target = at();
+    if (type === 'down') {
+      kept = fireEvent.keyDown(target, init);
+    } else if (type === 'press') {
+      kept = fireEvent.keyPress(target, init);
+      if (name === 'Enter' && kept && target instanceof HTMLButtonElement) {
+        target.click();
+      }
+    } else {
+      kept = fireEvent.keyUp(target, init);
+      if (name === ' ' && kept && target instanceof HTMLButtonElement) {
+        target.click();
+      }
+    }
+    await Promise.resolve();
+  });
+  return kept;
+}
+
+/** Let a close that the keys started finish, had they pressed something. */
+const pause = () =>
+  act(async () => {
+    const { promise, resolve } = Promise.withResolvers<void>();
+    setTimeout(resolve, 50);
+    await promise;
+  });
+
+/** Open the Action menu and put focus on its Remove row. */
+async function focusRemove(desktop: boolean) {
+  stubViewport(desktop ? 'desktop' : 'phone');
+  render(<OpensConfirm />);
+  await userEvent.click(screen.getByRole('button', { name: 'More' }));
+  const item = await screen.findByRole(itemRole(desktop), { name: 'Remove' });
+  act(() => {
+    item.focus();
+  });
+}
+
+const cancel = () => screen.getByRole('button', { name: 'Cancel' });
+
+/** The confirm is open on Cancel, and a fresh Enter presses Cancel and closes it. */
+async function expectHeldThenFresh() {
+  await pause();
+  expect(screen.getByRole('alertdialog', { name: 'Remove it?' })).toBeInTheDocument();
+  expect(cancel()).toHaveFocus();
+  expect(screen.queryByRole('dialog', { name: 'Actions' })).toBeNull();
+  await send('down', 'Enter');
+  await expect(send('press', 'Enter')).resolves.toBe(true);
+  await send('up', 'Enter');
+  await waitFor(() => {
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+}
+
+describe.each([
+  ['menu', true],
+  ['sheet', false],
+] as const)('The key that chose a row of the %s', (_name, desktop) => {
+  // A held key repeats: its later keydowns and keypresses went to the confirm that took focus, and
+  // pressed its Cancel; on a phone, a further repeat then pressed the row and opened the sheet again.
+  it('held, never presses what took focus, until it comes up', async () => {
+    await focusRemove(desktop);
+    await send('down', 'Enter');
+    await send('press', 'Enter');
+    await screen.findByRole('alertdialog', { name: 'Remove it?' });
+    for (let turn = 0; turn < 4; turn += 1) {
+      // oxlint-disable-next-line no-await-in-loop -- each repeat follows the one before it
+      await send('down', 'Enter', true);
+      // oxlint-disable-next-line no-await-in-loop -- each repeat follows the one before it
+      await send('press', 'Enter', true);
+    }
+    await send('up', 'Enter');
+    await expectHeldThenFresh();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
+  // Holding Enter on the trigger opens the menu or sheet, and a repeat then chooses the row that has focus.
+  it('held on the trigger, chooses by a repeat and holds from there', async () => {
+    stubViewport(desktop ? 'desktop' : 'phone');
+    render(<OpensConfirm />);
+    act(() => {
+      screen.getByRole('button', { name: 'More' }).focus();
+    });
+    await send('down', 'Enter');
+    await send('press', 'Enter');
+    await pause();
+    for (let turn = 0; turn < 4; turn += 1) {
+      // oxlint-disable-next-line no-await-in-loop -- each repeat follows the one before it
+      await send('down', 'Enter', true);
+      // oxlint-disable-next-line no-await-in-loop -- each repeat follows the one before it
+      await send('press', 'Enter', true);
+    }
+    await send('up', 'Enter');
+    await expectHeldThenFresh();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
+  it('another key while it is held does not release it', async () => {
+    await focusRemove(desktop);
+    await send('down', 'Enter');
+    await send('press', 'Enter');
+    await screen.findByRole('alertdialog', { name: 'Remove it?' });
+    await expect(send('down', 'ArrowRight')).resolves.toBe(true);
+    await send('up', 'ArrowRight');
+    await send('down', 'Enter', true);
+    await send('press', 'Enter', true);
+    await send('up', 'Enter');
+    await expectHeldThenFresh();
+  });
+
+  it('holds only that key: a fast Tab still moves on', async () => {
+    await focusRemove(desktop);
+    await send('down', 'Enter');
+    await send('press', 'Enter');
+    await screen.findByRole('alertdialog', { name: 'Remove it?' });
+    await expect(send('down', 'Tab')).resolves.toBe(true);
+    await send('up', 'Enter');
+    act(() => {
+      cancel().focus();
+    });
+    await expectHeldThenFresh();
+  });
+
+  it('is released when the window loses focus, as its keyup may never arrive', async () => {
+    await focusRemove(desktop);
+    await send('down', 'Enter');
+    await send('press', 'Enter');
+    await screen.findByRole('alertdialog', { name: 'Remove it?' });
+    act(() => {
+      globalThis.dispatchEvent(new Event('blur'));
+    });
+    await expect(send('press', 'Enter')).resolves.toBe(true);
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+    });
+  });
+
+  it('a row chosen by a pointer holds nothing', async () => {
+    await focusRemove(desktop);
+    await userEvent.click(screen.getByRole(itemRole(desktop), { name: 'Remove' }));
+    await screen.findByRole('alertdialog', { name: 'Remove it?' });
+    await waitFor(() => {
+      expect(cancel()).toHaveFocus();
+    });
+    await expectHeldThenFresh();
+  });
+});
+
+test('a Space that chose a menu row holds only Space: Enter before its keyup presses Cancel', async () => {
+  await focusRemove(true);
+  await send('down', ' ');
+  await send('press', ' ');
+  await screen.findByRole('alertdialog', { name: 'Remove it?' });
+  await send('down', 'Enter');
+  await expect(send('press', 'Enter')).resolves.toBe(true);
+  await send('up', 'Enter');
+  await send('up', ' ');
+  await waitFor(() => {
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+});
+
 function ThemeMenu() {
   const [theme, setTheme] = useState('dark');
   return (

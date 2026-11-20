@@ -1,5 +1,5 @@
 import { cloneElement, useId, useState } from 'react';
-import type { ComponentProps, MouseEvent, ReactElement, ReactNode } from 'react';
+import type { ComponentProps, KeyboardEvent, MouseEvent, ReactElement, ReactNode } from 'react';
 
 import { cn } from '../../lib/cn';
 import { useMediaQuery } from '../../lib/use-media-query';
@@ -15,6 +15,7 @@ import {
   DrawerTrigger,
 } from '../ui/drawer';
 import {
+  holdPressingEnter,
   Menu,
   MenuContent,
   MenuGroup,
@@ -37,6 +38,8 @@ import { Separator } from '../ui/separator';
  * feature builds both. A plain action closes it; a radio item keeps it open.
  * Focus returns to the trigger on close; an action that opens a confirm needs
  * nothing more, as the confirm takes focus from the trigger and gives it back.
+ * The rest of a key that chose a row (its repeats, keypress, and keyup) is held
+ * until it comes up, so it never presses what took focus.
  * A destructive action wears the MMR-635 red hairline in both shapes.
  */
 
@@ -51,6 +54,7 @@ export const ACTION_MENU_ANCHORED_QUERY = DRAWER_DESKTOP_QUERY;
 type RowProps = {
   className?: string;
   onClick?: (event: MouseEvent<HTMLElement>) => void;
+  onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void;
   children?: ReactNode;
   'aria-disabled'?: boolean | 'true' | 'false';
 };
@@ -169,8 +173,17 @@ export function ActionMenu({
 }
 
 /** The sheet's Cancel row; DrawerClose gives it its label. */
-function CancelRow(props: ComponentProps<'button'>) {
-  return <button type="button" {...props} />;
+function CancelRow({ onKeyDown, ...props }: ComponentProps<'button'>) {
+  return (
+    <button
+      type="button"
+      onKeyDown={(event) => {
+        holdPressingEnter(event);
+        onKeyDown?.(event);
+      }}
+      {...props}
+    />
+  );
 }
 
 function MenuEntry({
@@ -262,6 +275,10 @@ function SheetEntry({
         own.onClick?.(event);
         onChoose(entry);
       },
+      onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+        holdPressingEnter(event);
+        own.onKeyDown?.(event);
+      },
     });
   }
   const onClick = () => {
@@ -275,6 +292,7 @@ function SheetEntry({
       className={className}
       disabled={entry.disabled}
       data-disabled={entry.disabled === true ? '' : undefined}
+      onKeyDown={holdPressingEnter}
       onClick={onClick}
     >
       {content}
