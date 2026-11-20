@@ -767,7 +767,7 @@ describe('subscribed browsers', () => {
 
   it('closes an open row sheet and marks no row as this browser while a reread is pending', async () => {
     stubViewport('phone');
-    servePush(world);
+    const served = servePush(world);
     const browser = onBrowser();
     const client = new QueryClient();
     await renderRoute(consoleRoutes, '/settings/notifications', client, withBrowser(browser));
@@ -783,6 +783,8 @@ describe('subscribed browsers', () => {
       await promise;
       return SUBSCRIPTION;
     });
+    // A list that names another endpoint, as after a heal replaced a subscription, starts a reread.
+    served.devices = [...served.devices, device({ endpoint: 'https://push.example/new' })];
     await act(async () => {
       await client.invalidateQueries({ queryKey: pushDevicesQuery.queryKey });
     });

@@ -1,27 +1,43 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useState } from 'react';
 
+import type { PushDeviceList } from '../api/fns/push';
 import { pushDevicesQuery, pushStatusQuery } from '../api/push-queries';
 import type { BrowserSubscription } from './push-browser';
 import { deriveThisDevice } from './push-this-device';
 import { usePushBrowser } from './use-push-browser';
 
 /**
+ * What the reread of this browser's subscription is keyed on: the listed
+ * endpoints, sorted, so a poll or a saved kind that leaves them as they were
+ * reads nothing again; a list that is not `listed` falls back to its read time.
+ */
+function listedEndpoints(list: PushDeviceList | undefined, updatedAt: number): string {
+  if (list?.state !== 'listed') {
+    return `at ${String(updatedAt)}`;
+  }
+  return list.devices
+    .map((device) => device.endpoint)
+    .toSorted()
+    .join(' ');
+}
+
+/**
  * This browser's notification state (ADR 0045, MMR-711), live: the host's
  * status and device list, and what the browser holds. `refresh` rereads the
  * browser after an action changed it; `retryDevices` rereads a list that
  * failed to load. `subscriptionPending` holds until the newest read of the
- * browser's subscription settles.
+ * browser's subscription settles; a list naming other endpoints starts a read.
  */
 export function useThisDevice() {
   const browser = usePushBrowser();
   const status = useQuery(pushStatusQuery);
   const devices = useQuery(pushDevicesQuery);
   const [revision, setRevision] = useState(0);
-  // A new device list may follow a heal that replaced the subscription.
-  const listedAt = devices.dataUpdatedAt;
+  // A list naming other endpoints may follow a heal that replaced the subscription; a poll that lists the same ones does not.
+  const listed = listedEndpoints(devices.data, devices.dataUpdatedAt);
   /** Which read the subscription answers: a newer one is in flight until they match. */
-  const readKey = `${String(revision)}:${String(listedAt)}`;
+  const readKey = `${String(revision)}:${listed}`;
   const [read, setRead] = useState<{ key: string; subscription: BrowserSubscription | null }>();
   const subscription = read?.subscription;
   const refresh = useCallback(() => {
