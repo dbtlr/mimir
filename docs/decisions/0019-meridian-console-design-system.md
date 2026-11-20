@@ -1237,7 +1237,7 @@ the MMR-635 red hairline in both shapes.
 | Record picker | a record found by search | Popup; a Dialog for the jump palette | Combobox, Listbox, Command |
 | Form sheet | creating or editing a record, with several fields | Sheet | Drawer, Field, Input, Textarea, Token Input, with Choice and Record picker |
 | Composer | text added in place, such as an annotation | inline | Textarea |
-| Action menu | a list of actions, including a record's More | Popup, or a Sheet below `md` | Menu, Drawer, Separator |
+| Action menu | a list of actions, including a record's More | Popup, or a Sheet below `md` | Menu, Drawer, Separator, Radio |
 | Suggestion | a one-time offer on a page | card | `ConfirmCard`'s `card` surface |
 | Notice | an outcome whose ask has closed, optionally with Undo or Retry, and one second action; or a standing state | Toast; a banner for a standing state | Toast |
 | Walkthrough | a guided series of answers | Dialog, whole console | Dialog, Radio, Textarea |
