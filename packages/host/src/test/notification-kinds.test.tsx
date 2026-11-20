@@ -586,6 +586,23 @@ describe('another browser’s kinds', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Android · Chrome' })).toBeNull();
     });
+    // The list it was opened from is gone, so focus goes to the page rather than the body.
+    expect(screen.getByRole('main')).toHaveFocus();
+  });
+
+  it('on a phone, a row sheet whose row moves to an old key offers only Remove', async () => {
+    const { client, world } = await open('phone', { world: { devices: [mine, other] } });
+    await userEvent.click(screen.getByRole('button', { name: /^Android · Chrome/ }));
+    const sheet = await screen.findByRole('dialog', { name: 'Android · Chrome' });
+    changeRow(world, other.endpoint, { currentKey: false });
+    await reread(client);
+    await waitFor(() => {
+      expect(
+        within(sheet)
+          .getAllByRole('button')
+          .map((button) => button.textContent),
+      ).toStrictEqual(['Remove this browser', 'Cancel']);
+    });
   });
 
   it('an old-key row does not offer it', async () => {

@@ -284,11 +284,13 @@ function KindsSurface({
     if (last === undefined) {
       return null;
     }
-    if (last.gone) {
+    // A row that is gone, or a list that is no longer shown, leaves the page itself to take focus.
+    const row = last.gone ? null : rowOpener(last.endpoint);
+    if (row === null) {
       focusMain();
       return false;
     }
-    return rowOpener(last.endpoint);
+    return row;
   };
   const body = device !== undefined && (
     <>
@@ -372,7 +374,10 @@ export function NotificationsPage() {
     heldEndpoint !== undefined && sameEndpoint(row.endpoint, heldEndpoint);
   // A reread may change which row is this browser's, so a row's open sheet closes rather than act on a stale
   // match; one whose row turned out to be this browser's closes too, as those surfaces are for other browsers.
-  if (opened !== undefined && (subscriptionPending || isMine(opened))) {
+  if (
+    opened !== undefined &&
+    (subscriptionPending || isMine(opened) || status?.state !== 'ready')
+  ) {
     setOpened(undefined);
   }
   // Another row's kinds are offered only while it is on the current key (ADR 0045, MMR-712), so they close
@@ -699,7 +704,11 @@ export function NotificationsPage() {
       )}
 
       <RowSheet
-        device={desktop ? undefined : opened}
+        device={
+          desktop || opened === undefined
+            ? undefined
+            : (listed?.find((row) => row.endpoint === opened.endpoint) ?? opened)
+        }
         onClose={() => {
           setOpened(undefined);
         }}
