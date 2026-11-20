@@ -31,13 +31,17 @@ branch names, timestamps-as-data. Both are self-hosted through Fontsource
 | Record title | 17 / 24 | 600 | ink-bright | `text-dossier` | existing |
 | Group heading inside a form (Advanced, Lifecycle) | 16 / 24 | 600 | ink-bright | `text-base` | **proposed**: groups today use the 10.5px microlabel, under the floor |
 | Control text (input value, option label, select value) | 15 / 22 | 400 | ink-bright | `text-[15px] leading-[22px]` (Input, Textarea) | existing |
-| Field label | 14 / 20 | 500 | ink | `text-body` | **proposed**: `FIELD_LABEL_CLASS` is 12px ink-dim; a label must read before its control |
+| Field label | 14 / 20 | 500 | ink | `text-label` | **proposed**: `FIELD_LABEL_CLASS` is 12px ink-dim; a label must read before its control |
 | Body, prose | 14 / 23 (1.65) | 400 | ink | `text-body` | existing |
-| Button label | 14 / 20 | 600 | per variant | `text-body` (ActionButton `default`) | existing |
-| Help, context line, meta, a footer note | 13 / 20 | 400 | ink-dim | `text-meta` | **proposed** for help: `FieldDescription` is 12px ink-faint (2.6:1 on light) |
-| A group's explanation (Lifecycle) | 13 / 20, measure 368, `text-wrap: pretty` | 400 | ink-dim | `text-meta max-w-[368px] text-pretty` | **proposed**: today 12.5px; 368 keeps every line under 70 characters and, for the Lifecycle text, ends on a whole sentence at both widths (lines of 56, 64, 54, 40 on desktop; 56, 60, 58, 40 on a phone) |
+| Button label | 14 / 20 | 600 | per variant | `text-label` | size and weight existing (ActionButton `default`); the token **proposed** |
+| Help, context line, meta, a footer note, a group's explanation (Lifecycle) | 13 / 20, measure 440, `text-wrap: pretty` | 400 | ink-dim | `text-meta` | **proposed** for help: `FieldDescription` is 12px ink-faint (2.6:1 on light) |
 | Group heading inside a menu (a provider over its models) | 13 / 20 | 500 | ink-dim | `text-meta` | **proposed** |
 | Floor: tags, IDs, captions | 12 / 16 | 400–600 | ink-dim or brighter | `text-xs` | **proposed**: `text-mono-id` (11.5), `text-tag` (11), `text-micro` (10.5) rise to 12px, per MMR-718's "nothing under 12px" |
+
+`text-body` is one size with one line height: 14 / 23, for prose. A label is
+not prose, so it gets its own token. **Proposed**: `--text-label` (14px) with
+a paired 20px line height, for a field label, a button label, and a segment's
+text; `text-body` keeps 14 / 23 for body copy.
 
 Rules:
 
@@ -48,13 +52,20 @@ Rules:
   is ink at 500, the help ink-dim at 400.
 - **Sentence case everywhere.** The uppercase microlabel is the one all-caps
   idiom (ADR 0019 §6) and is for column and lane captions on dense feeds only,
-  never in a form, never as a label.
-- **Measure.** Prose wraps at 70 characters at most. Help text in a form is
-  capped at 440px (about 70 characters at 13px) and set `text-wrap: pretty`;
-  under a narrow control it still runs past the control's edge to that cap.
-  A parenthetical list of examples stays on one line (`white-space: nowrap`
-  from the word before it), so "every ID (`KEY-1`, `KEY-2`, …)" never
-  splits.
+  never in a form, never as a label. One exception: a value passed through
+  from a provider keeps the provider's spelling. Reasoning effort reads
+  `low`, `medium`, `high`, lowercase, in sans; a value is not recased to
+  look like a label.
+- **Measure.** Prose aims for about 70 characters a line; 70 is a target,
+  not a hard limit. A form has one measure for all its prose: help text and
+  a group's explanation (Lifecycle) both wrap at 440px (about 70 characters
+  at 13px), set `text-wrap: pretty`, so one paragraph never wraps at a
+  different width from the help above it. Under a narrow control, help still
+  runs past the control's edge to that cap. A parenthetical list of examples
+  stays on one line (`white-space: nowrap` from the word before it), so
+  "every ID (`KEY-1`, `KEY-2`, …)" never splits; when the space runs out
+  first, as on a phone, the run wraps whole onto the next line, and that
+  line may pass 70.
 - **No line of a paragraph is a single word.** Tune the measure until the
   last line holds a phrase, and check both widths.
 - **Mono sizes match their neighbors.** An ID inside a 13px meta line is 13px
@@ -63,10 +74,13 @@ Rules:
   write "Project key `MMR`", or put the record's title after its ID
   ("`MMR-743` Form sheet pattern"). The mono value takes the line's ink
   (`color: inherit`), in help text too.
-- **Identifiers are mono wherever they appear,** a Select's value included:
-  a system (`asgard`), a project slug (`mimir`), a key. A value that pairs a
-  key with a title keeps the source's format, the key in mono and the title
-  in sans: "`MMR` — Mimir".
+- **Identifiers are mono wherever they appear,** a Select's value and a
+  menu row included: a system (`asgard`), a key, a model shown by its
+  identifier (`gpt-6.1-sol`). A name is sans: a model shown by its product
+  name ("Sonnet 5.5"), a project's title. A Select shows what its source
+  displays, so Launch in T3's Project reads "Mimir", the title, not the
+  slug. A value that pairs a key with a title keeps the source's format, the
+  key in mono and the title in sans: "`MMR` — Mimir".
 - **Help that quotes the value being typed follows it.** The Key help shows
   `KEY-1, KEY-2, …` while the key is empty and the real key (`CRD-1`) once
   one exists.
@@ -200,9 +214,24 @@ stay put while the body scrolls. Nothing below a form's commit row scrolls.
 - **When content is scrolled above the fold,** the pinned header gains a
   hairline shadow (`0 1px 0` plus a 4px soft drop: black 35% and 45% in
   dark, `#17242f` at 6% and 10% in light) that disappears at the top.
-- **A still or a restored scroll rests on whole-field boundaries:** neither
-  bar cuts through a field, a group heading, or a choice row's text, so a
-  label is never parted from its control.
+- **A resting scroll keeps the body's padding at both bars.** At any resting
+  position (the end of a scroll, a restored scroll, a still), the first
+  visible label sits at least the body's top padding below the header
+  hairline (24 on a phone, 32 on desktop), and nothing above that label
+  shows: no control without its label, no sliver of a field. The last
+  visible block clears the footer hairline by at least the body's bottom
+  padding (32 on a phone, 40 on desktop), measured from a choice row's
+  whole tap row (44 or 36), not its text. Neither bar ever cuts a field, a
+  group heading, or a choice row.
+- **When whole fields cannot fit between the bars, add bottom scroll room;
+  never cut a field.** If the natural end of the scroll would leave a field
+  part-hidden under the header, the body grows its bottom padding until the
+  end lands on a clean rest. On a phone the 24 field gap equals the top
+  clearance, so the end can rest between any two fields (Launch in T3:
+  Reasoning effort 24 below the header, 50 of room added, Plan first's row
+  71 above the footer). On desktop the 32 clearance is wider than the 24
+  field gap, so a clean rest falls only where a group starts: Launch in T3
+  ends with the Advanced hairline 32 below the header and 267 of room added.
 - **Initial focus goes to the first field** (System in Launch in T3, Seed in
   File a seed, Title in New project), not to a later control.
 
@@ -211,13 +240,17 @@ stay put while the body scrolls. Nothing below a form's commit row scrolls.
 | Where | Phone (< 768) | Desktop (≥ 768) | Mark |
 | --- | --- | --- | --- |
 | Place | top, 8 below the app bar's bottom hairline, 16 from the sides; it never covers the bar or sits on its hairline, and clears the page title by 16 or more | bottom left of the content area, 16 from its edges (so 16 clear of the sidebar), 356 wide | **proposed**: `toast.tsx` places it 16 below the viewport top on a phone, over the app bar, and 16 from the window's left edge on desktop, over the sidebar |
-| Surface | `well-850`, 1px `line-bright` edge, `shadow-menu` in light, none in dark, 8 radius | same | **proposed**: today `well-900` (the page's own fill) with `shadow-2xl` |
+| Surface | `well-850`, 1px `line-bright` edge, 8 radius. In light, `shadow-overlay` plus a 2px contact shadow (`0 2px 6px`, `#17242f` at 10%), so it floats clearly above page cards, which carry a `line` edge and `shadow-card`; in dark, tone and the edge alone | same | **proposed**: today `well-900` (the page's own fill) with `shadow-2xl` |
 | Padding | 4 around the action, 16 before the text | same | **proposed** |
 | Text | 14 / 20 ink; the record's name ink-bright 600 | same | **proposed** |
 | Action | `accent-foreground` 600 text button, named for its effect ("Undo") | same | ADR 0019 |
 
-A Toast is raised like a menu, not dropped like a dialog: it borrows the menu's
-surface and shadow so it reads above the page without darkening it.
+A Toast floats; it is never mistaken for a card in the list below it. It
+takes a menu's surface but a deeper shadow than a menu, with a `line-bright`
+edge where a card has `line`, so it reads above the page without a scrim.
+The page it appears on is the page the console lands on: after Archive, the
+next project's page, where the archived project's name appears only in the
+Toast.
 
 ### Pages
 
@@ -231,9 +264,9 @@ surface and shadow so it reads above the page without darkening it.
 | Control | Phone (< 768) | Desktop (≥ 768) | Mark |
 | --- | --- | --- | --- |
 | Input, Select trigger, Combobox | 44 tall | 44 tall | existing for Input (`h-11`); **proposed** for Select (`min-h-9`, 36) so a form's controls share one height |
-| Segmented track | 50: a 3px inset (the 1px edge, then 2 clear) leaves each segment a 44 tap target; segments share the width | 44, segments 38, content width with 20 side padding | **proposed**: today about 28 |
+| Segmented track | 50: a 3px inset (the 1px edge, then 2 clear) leaves each segment a 44 tap target; segments share the width | 44, segments 38, full field width, segments share it, so every control in a form ends on one right edge | **proposed**: today about 28 |
 | Textarea | 3 lines: 88 (22 × 3 + 22 padding); grows by line | same | existing line height; height **proposed** |
-| Segmented segment text | 14 / 500, sentence case | same | **proposed**: today the 10.5px uppercase microlabel |
+| Segmented segment text | 14 / 20, 500, `text-label`, sentence case (a provider's values keep their own case) | same | **proposed**: today the 10.5px uppercase microlabel |
 | Choice row (radio, checkbox, switch) | 44 min | 36 min | 44 existing for Switch rows (ADR 0019 MMR-712); 36 **proposed** |
 | Radio and checkbox box | 16 | 16 | existing (`size-4`) |
 | Switch | 40 × 24 | 40 × 24 | existing |
@@ -261,7 +294,7 @@ text's row and the close glyph.
 | Focus on a button, checkbox, or the close | 2px `accent` outline, 2px offset | existing (`actionButtonVariants`) |
 | A menu over a sheet | `well-800`, 1px `ink-faint` edge, `shadow-menu` in light, 8 radius, 4 inset | **proposed**: `SelectContent` is `well-850` with `line-bright`, which vanishes over a `well-850` sheet |
 | A Select's menu, desktop | opens 8 below the trigger, which clears the trigger's 1px focus ring by 7; at least the trigger's width. It either covers every block below it whole (a field, a hairline, a heading) or ends at least 12 above the next one; if neither fits, it flips above or caps its height and scrolls. Groups are set off by their heading (12 above it after the first group), not by a rule | **proposed** |
-| A Select's menu, phone | a bottom list: a content-sized bottom sheet over the overlay scrim, `well-850`, 12 top corners, a decorative `ink-faint` grip, the field's label as a 16/600 heading, 44 rows with text at the 20 gutter, a tick on the chosen row, and the home-indicator inset below the last row | **proposed**: a popover on a phone lands over the next fields and cuts them |
+| A Select's menu, phone | a bottom list: a content-sized bottom sheet over the overlay scrim, `well-850`, 12 top corners, a decorative `ink-faint` grip, the field's label as a 16/600 heading, 44 rows with text at the 20 gutter, a tick on the chosen row, and the home-indicator inset below the last row. Its top edge is a 1px `line-bright` seam; in light it also casts `shadow-overlay` upward (`0 -12px 32px`) so the sheet separates from a light scrim. Its height is at most `100dvh - env(safe-area-inset-top) - 64`, so the scrim stays visible and tappable above it; a longer list scrolls inside, under its pinned grip and heading, with the home-indicator inset kept below the last row | **proposed**: a popover on a phone lands over the next fields and cuts them |
 
 Hairlines divide groups; they never box a single field. A group is never a
 card inside a sheet.
@@ -275,7 +308,7 @@ card inside a sheet.
 | Sheet, form | full screen below 768; 640 right panel from 768, so 576 of field width | existing (`drawer.tsx`) |
 | Breakpoint where a sheet becomes a panel | 768 (`md`) | existing (`DRAWER_DESKTOP_QUERY`) |
 | Content column | 1200 max for record and work pages; 720–960 for single-purpose pages | existing (`record-layout.tsx`, `focus-queue.tsx`, `settings-page.tsx`) |
-| Prose measure | 70ch max | existing practice (walkthrough uses 62ch) |
+| Prose measure | about 70ch, a target rather than a hard limit; 440px for all prose in a form | existing practice (walkthrough uses 62ch); the form measure **proposed** |
 
 ## The Form sheet, assembled
 
