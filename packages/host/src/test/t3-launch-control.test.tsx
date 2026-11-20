@@ -191,6 +191,13 @@ describe('the split button', () => {
     expect(input).toEqual({ ...DEFAULT_INPUT, attempt: expect.stringMatching(T3_ATTEMPT_PATTERN) });
   });
 
+  it('draws its caret with the icon set’s chevron, not a text glyph', async () => {
+    await show(connectedCatalog([reachableSystem()]));
+    const caret = await screen.findByRole('button', { name: 'Choose where to launch' });
+    expect(caret.textContent).toBe('');
+    expect(caret.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+  });
+
   it('lists every system in the caret menu, unreachable ones disabled, then Choose settings…', async () => {
     const peer = reachableSystem({ configured: false, environmentId: 'peer', label: 'asgard' });
     await show(connectedCatalog([reachableSystem(), peer, unreachableSystem()]));

@@ -22,6 +22,7 @@ import { toast } from './patterns/notice';
 import { announceLaunch } from './t3-launch-answers';
 import { T3LaunchForm } from './t3-launch-form';
 import { actionButtonVariants, ActionButton } from './ui/action-button';
+import { ChevronDownIcon } from './ui/icons';
 
 type ReachableSystem = Extract<T3System, { status: 'reachable' }>;
 type Connected = Extract<T3Catalog, { state: 'connected' }>;
@@ -372,7 +373,7 @@ function ConnectedLaunch({
               'rounded-l-none px-2',
             )}
           >
-            <span aria-hidden>▾</span>
+            <ChevronDownIcon className="size-4 md:size-4" />
           </button>
         }
         entries={[
