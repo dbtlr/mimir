@@ -206,6 +206,26 @@ if (typeof globalThis.ResizeObserver !== 'function') {
   };
 }
 
+// jsdom has no Web Animations; UI SDK's sheet presentation (a Select's bottom list on a phone)
+// holds its backdrop's dim with `animate()`. A paused, finished animation stands in for it.
+if (typeof Element.prototype.animate !== 'function') {
+  Element.prototype.animate = function animate() {
+    return {
+      cancel() {},
+      currentTime: 0,
+      finish() {},
+      finished: Promise.resolve(),
+      onfinish: null,
+      pause() {},
+      play() {},
+      playbackRate: 1,
+      reverse() {},
+      addEventListener() {},
+      removeEventListener() {},
+    } as unknown as Animation;
+  };
+}
+
 // Keep test-environment costs out of the first test's waits (MMR-525).
 // beforeAll runs after the test file's imports.
 beforeAll(() => {

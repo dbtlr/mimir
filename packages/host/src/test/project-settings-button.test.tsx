@@ -1,6 +1,6 @@
 import type { EngineNode } from '@mimir/contract';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
@@ -8,6 +8,7 @@ import { archive, unarchive, updateProject } from '../api/fns/shell';
 import type { NoticeHost, toast as realToast } from '../components/patterns/notice';
 import { ProjectSettingsButton } from '../components/project-settings-button';
 import { serveShell } from './shell-fns';
+import { stubViewport } from './viewport';
 
 vi.mock('../api/fns/shell');
 // The undo toast is the bare callable; `error` covers the mutation failures.
@@ -37,6 +38,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.clearAllMocks();
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 function wrap(ui: ReactNode) {
@@ -55,10 +57,10 @@ describe('projectSettingsButton', () => {
     expect(screen.getByRole('button', { name: /project settings/i })).toBeDisabled();
   });
 
-  it('clicking opens the sheet with name and description fields prefilled', () => {
+  it('clicking opens the form with title and description fields prefilled', () => {
     wrap(<ProjectSettingsButton project={baseProject} />);
     fireEvent.click(screen.getByRole('button', { name: /project settings/i }));
-    expect(screen.getByLabelText(/name/i)).toHaveValue('My Project');
+    expect(screen.getByLabelText(/title/i)).toHaveValue('My Project');
     expect(screen.getByLabelText(/description/i)).toHaveValue('A handy description');
   });
 
@@ -69,10 +71,10 @@ describe('projectSettingsButton', () => {
     expect(screen.getByLabelText(/description/i)).toHaveValue('');
   });
 
-  it('save button disabled when name is cleared', () => {
+  it('save button disabled when the title is cleared', () => {
     wrap(<ProjectSettingsButton project={baseProject} />);
     fireEvent.click(screen.getByRole('button', { name: /project settings/i }));
-    const nameInput = screen.getByLabelText(/name/i);
+    const nameInput = screen.getByLabelText(/title/i);
     fireEvent.change(nameInput, { target: { value: '' } });
     expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
   });
@@ -81,7 +83,7 @@ describe('projectSettingsButton', () => {
     wrap(<ProjectSettingsButton project={baseProject} />);
     fireEvent.click(screen.getByRole('button', { name: /project settings/i }));
 
-    fireEvent.change(screen.getByLabelText(/name/i), { target: { value: 'Renamed' } });
+    fireEvent.change(screen.getByLabelText(/title/i), { target: { value: 'Renamed' } });
     fireEvent.change(screen.getByLabelText(/description/i), { target: { value: 'New desc' } });
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
@@ -96,7 +98,7 @@ describe('projectSettingsButton', () => {
     wrap(<ProjectSettingsButton project={{ ...baseProject, description: null }} />);
     fireEvent.click(screen.getByRole('button', { name: /project settings/i }));
 
-    fireEvent.change(screen.getByLabelText(/name/i), { target: { value: 'Renamed' } });
+    fireEvent.change(screen.getByLabelText(/title/i), { target: { value: 'Renamed' } });
     fireEvent.change(screen.getByLabelText(/description/i), { target: { value: '   ' } });
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
@@ -132,7 +134,9 @@ const follows = (a: Element, b: Element) =>
 
 /** Whether a toast titled `text` is on screen, not only in the live region's copy of it. */
 const toastShown = (text: string) =>
-  screen.queryAllByText(text).some((node) => node.closest('[data-slot="toast-title"]') !== null);
+  [...document.querySelectorAll('[data-slot="toast-title"]')].some(
+    (title) => title.textContent === text,
+  );
 
 describe('projectSettings lifecycle (MMR-230)', () => {
   it('archiving archives the project with no confirm, closes, toasts undo, and returns to the review page', async () => {
@@ -150,7 +154,8 @@ describe('projectSettings lifecycle (MMR-230)', () => {
       ReactNode,
       { action: { label: string; onClick: () => void }; duration?: number },
     ];
-    expect(message).toBe('Archived My Project');
+    // The Notice sets the project's name in bold (MMR-743), so the message is markup.
+    expect(render(<p>{message}</p>).container).toHaveTextContent('Archived My Project');
     expect(opts.action.label).toBe('Undo');
     // The undo toast may be the nearest unarchive affordance at archive time
     // (the durable path is the archived project's page) — it must outlive
@@ -158,7 +163,7 @@ describe('projectSettings lifecycle (MMR-230)', () => {
     expect(opts.duration).toBe(10_000);
     expect(navigate).toHaveBeenCalledWith({ to: '/' });
     // The sheet closed — its fields are gone.
-    expect(screen.queryByLabelText(/name/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/title/i)).not.toBeInTheDocument();
   });
 
   // The option alone is not enough: the Notice must keep the toast up for it.
@@ -219,16 +224,21 @@ describe('projectSettings lifecycle (MMR-230)', () => {
     );
   });
 
-  it('keeps Cancel between Save and the no-confirm Archive in tab order', () => {
+  // MMR-743 ruling: Lifecycle comes at the end of the body, with DOM order matching visual
+  // order. Archive is the body's last control; the footer's Cancel and Save follow it, so
+  // tabbing past Archive reaches Cancel before the commit, and no Tab from Save lands on it.
+  it('puts the no-confirm Archive last in the body, before the footer’s Cancel then Save', () => {
+    stubViewport('desktop');
     wrap(<ProjectSettingsButton project={baseProject} />);
     openSheet();
-    const save = screen.getByRole('button', { name: /save/i });
-    const cancel = screen.getByRole('button', { name: /cancel/i });
-    const archiveButton = screen.getByRole('button', { name: 'Archive project' });
-    // DOM order IS tab order here (no tabindex overrides): Save → Cancel →
-    // Archive, so overshooting Save by one Tab lands on Cancel, never Archive.
-    expect(follows(save, cancel)).toBe(true);
-    expect(follows(cancel, archiveButton)).toBe(true);
+    const sheet = screen.getByRole('dialog', { name: 'Project settings' });
+    const save = within(sheet).getByRole('button', { name: /save/i });
+    const cancel = within(sheet).getByRole('button', { name: /cancel/i });
+    const archiveButton = within(sheet).getByRole('button', { name: 'Archive project' });
+    const description = within(sheet).getByLabelText(/description/i);
+    expect(follows(description, archiveButton)).toBe(true);
+    expect(follows(archiveButton, cancel)).toBe(true);
+    expect(follows(cancel, save)).toBe(true);
   });
 
   it('the archive button disables at 40% when offline', () => {
