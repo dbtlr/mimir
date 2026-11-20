@@ -528,9 +528,13 @@ export function FormTextInput(props: ComponentProps<typeof Input>) {
   return <Input {...props} />;
 }
 
-/** A text box three lines tall that grows by its corner. */
-export function FormTextArea(props: ComponentProps<typeof Textarea>) {
-  return <Textarea {...props} />;
+/**
+ * A text box three lines tall that scrolls past them. It draws no resize grip:
+ * the grip, a browser's own mark in the control's corner, reads as stray on a
+ * sheet whose width is fixed.
+ */
+export function FormTextArea({ className, ...props }: ComponentProps<typeof Textarea>) {
+  return <Textarea {...props} className={cn('resize-none', className)} />;
 }
 
 /**

@@ -163,6 +163,30 @@ describe('Form sheet shapes', () => {
 const rectAt = (top: number, height: number) =>
   DOMRect.fromRect({ height, width: 300, x: 0, y: top });
 
+/** A form whose first field is disabled. */
+function Locked() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <ActionButton onClick={() => setOpen(true)}>Open</ActionButton>
+      <FormSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title="New project"
+        commitLabel="Create project"
+        onCommit={ignore}
+      >
+        <FormField label="Key">
+          <FormTextInput disabled defaultValue="MMR" />
+        </FormField>
+        <FormField label="Title">
+          <FormTextInput />
+        </FormField>
+      </FormSheet>
+    </>
+  );
+}
+
 describe('Form sheet focus', () => {
   it('scrolls a field that takes focus below the fold to the rest that shows it whole', async () => {
     stubViewport('phone');
@@ -219,28 +243,6 @@ describe('Form sheet focus', () => {
 
   it('opens on the first field that can take focus, past a disabled one', async () => {
     stubViewport('desktop');
-    function Locked() {
-      const [open, setOpen] = useState(false);
-      return (
-        <>
-          <ActionButton onClick={() => setOpen(true)}>Open</ActionButton>
-          <FormSheet
-            open={open}
-            onClose={() => setOpen(false)}
-            title="New project"
-            commitLabel="Create project"
-            onCommit={ignore}
-          >
-            <FormField label="Key">
-              <FormTextInput disabled defaultValue="MMR" />
-            </FormField>
-            <FormField label="Title">
-              <FormTextInput />
-            </FormField>
-          </FormSheet>
-        </>
-      );
-    }
     render(<Locked />);
     await openSheet();
     await waitFor(() => {
@@ -391,6 +393,16 @@ describe('Form sheet commit', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
     });
+  });
+});
+
+describe('Form sheet fields', () => {
+  it('a text area draws no resize grip', async () => {
+    stubViewport('desktop');
+    render(<Harness />);
+    await openSheet();
+    expect(screen.getByRole('textbox', { name: /Description/ })).toHaveClass('resize-none');
+    expect(screen.getByRole('textbox', { name: /Description/ })).not.toHaveClass('resize-y');
   });
 });
 

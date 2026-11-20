@@ -135,7 +135,7 @@ function SeedForm({ open, onClose }: { open: boolean; onClose: () => void }) {
               requestFormCommit(event.currentTarget);
             }
           }}
-          className="resize-none caret-accent"
+          className="caret-accent"
         />
       </FormField>
       <RecordPicker
