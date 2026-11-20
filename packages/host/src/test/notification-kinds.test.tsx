@@ -944,6 +944,35 @@ describe('a saved kind changes the listed row', () => {
     expect(within(kinds).getByRole('switch', { name: 'Decisions to confirm' })).not.toBeChecked();
   });
 
+  it('a save that answers while an action rereads the list still shows that action’s list', async () => {
+    const { client, world } = await open('desktop', { world: { devices: [mine, other] } });
+    const group = await kindsGroup();
+    // The host writes the kind at once and answers later.
+    const serve = vi.mocked(setPushKind).getMockImplementation();
+    const answered = Promise.withResolvers<void>();
+    vi.mocked(setPushKind).mockImplementationOnce(async (call) => {
+      const result = await serve?.(call);
+      await answered.promise;
+      return result ?? { state: 'saved' };
+    });
+    await userEvent.click(within(group).getByRole('switch', { name: 'Decisions to confirm' }));
+    // Remove another browser while the save runs; the page's reread of the list is still in flight when it answers.
+    const release = holdDevices(world);
+    await userEvent.click(screen.getByRole('button', { name: 'Actions for Android · Chrome' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Remove this browser' }));
+    await waitFor(() => {
+      expect(client.isFetching({ queryKey: pushDevicesQuery.queryKey })).toBe(1);
+    });
+    await act(async () => {
+      answered.resolve();
+    });
+    await release();
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Actions for Android · Chrome' })).toBeNull();
+    });
+    expect(metaOf('Mac · Chrome')).toHaveTextContent('Decisions off');
+  });
+
   it('keeps the list’s read time, so the patch is not taken for a fresh read', async () => {
     const { client } = await open('phone', { world: { devices: [mine, other] } });
     const group = await kindsGroup();

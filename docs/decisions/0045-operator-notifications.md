@@ -1053,8 +1053,9 @@ variant A, picked on 2026-11-20.
 - **A switch saves when it flips,** through Set kind for its one kind. The
   switch shows its new position while the call runs and is disabled until it
   answers; the other switches stay usable. On `saved` it stays, and the page
-  changes that row's kinds in the list it holds, dropping a poll of the list
-  already in flight, which read the list before the save; the row's meta line
+  changes that row's kinds in the list it holds; a list read already in
+  flight, which may have read before the save, is dropped and a fresh one
+  takes its place, so an action's reread still arrives. The row's meta line
   follows at once, without a reread that would close an open sheet or
   dialog. On a thrown failure, or an `unconfigured` or `misconfigured`
   answer, it returns to its last saved position and a polite
