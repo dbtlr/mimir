@@ -73,8 +73,9 @@ export const readHints = {
 /**
  * The MCP annotations of a write that adds or changes records and never deletes
  * one. A write that removes an edge or clears a field is still a change: another
- * call restores it. Only a write that deletes a record, such as a scratchpad
- * discard, sets `destructive: true`.
+ * call restores it. Freezing a scratchpad is a change too: it deletes the pad
+ * only after its content is kept as an artifact. Only a write that deletes a
+ * record and its content, a scratchpad discard, sets `destructive: true`.
  */
 export const writeHints = {
   destructive: false,

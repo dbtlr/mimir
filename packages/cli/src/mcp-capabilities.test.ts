@@ -43,11 +43,12 @@ test('the machine-local and installer commands are not tools', () => {
 });
 
 /**
- * MCP reads a missing `destructiveHint` as true and a missing `readOnlyHint` as
- * false, and a Grant can filter on either, so every tool states both. The
- * values themselves are pinned in `mcp-parity.txt`.
+ * MCP reads a missing `readOnlyHint` as false and a missing `destructiveHint`
+ * as true, and a client or proxy may filter on either without the other, so
+ * every tool states both. The values themselves are pinned in `mcp-parity.txt`.
  */
 test('every tool declares a boolean readOnlyHint and destructiveHint', () => {
+  expect(loomAnnotations.size).toBeGreaterThan(0);
   const undeclared = [...loomAnnotations]
     .filter(
       ([, hints]) =>
