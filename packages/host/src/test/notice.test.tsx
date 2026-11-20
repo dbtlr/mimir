@@ -37,7 +37,7 @@ describe('Notice toast', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Undo' }));
     expect(onClick).toHaveBeenCalledOnce();
     await waitFor(() => {
-      expect(screen.queryByText('Archived Mimir')).toBeNull();
+      expect(shown('Archived Mimir')).toBe(false);
     });
   });
 
@@ -57,9 +57,11 @@ describe('Notice toast', () => {
     act(() => {
       toast('Archived Mimir', { action: { label: 'Undo', onClick } });
     });
-    await userEvent.click(await screen.findByRole('button', { name: 'Dismiss' }));
+    const dismiss = await screen.findByRole('button', { name: 'Dismiss' });
+    expect(shown('Archived Mimir')).toBe(true);
+    await userEvent.click(dismiss);
     await waitFor(() => {
-      expect(screen.queryByText('Archived Mimir')).toBeNull();
+      expect(shown('Archived Mimir')).toBe(false);
     });
     expect(onClick).not.toHaveBeenCalled();
   });
