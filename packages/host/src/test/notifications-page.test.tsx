@@ -297,11 +297,17 @@ describe('Turn on', () => {
         auth: SUBSCRIPTION.auth,
         endpoint,
         label: 'Mac · Chrome',
+        muted: [],
         p256dh: SUBSCRIPTION.p256dh,
         serverKey: SERVED_KEY,
       },
     });
-    expect(browser.record).toStrictEqual({ endpoint, serverKey: SERVED_KEY, state: 'on' });
+    expect(browser.record).toStrictEqual({
+      endpoint,
+      muted: [],
+      serverKey: SERVED_KEY,
+      state: 'on',
+    });
   });
 
   it('keeps the key it subscribed with when the browser does not say it', async () => {
@@ -316,6 +322,7 @@ describe('Turn on', () => {
     await expect(screen.findByRole('button', { name: 'Turn off' })).resolves.toBeInTheDocument();
     expect(browser.record).toStrictEqual({
       endpoint: browser.held?.endpoint,
+      muted: [],
       serverKey: SERVED_KEY,
       state: 'on',
     });
@@ -355,6 +362,7 @@ describe('Turn on', () => {
     expect(subscribePush).toHaveBeenCalledTimes(2);
     expect(browser.record).toStrictEqual({
       endpoint: browser.held?.endpoint,
+      muted: [],
       serverKey: SERVED_KEY,
       state: 'on',
     });
@@ -427,7 +435,8 @@ describe('Turn on', () => {
       }
       expect(prompt).toHaveBeenCalledOnce();
       expect(subscribe).not.toHaveBeenCalled();
-      expect(browser.record).toStrictEqual(record);
+      // The heal learned the row's kinds before it sent; Turn on changed nothing more.
+      expect(browser.record).toStrictEqual({ ...record, muted: [] });
     } finally {
       answered.resolve();
       await settle();
@@ -449,6 +458,7 @@ describe('Turn on', () => {
     expect(browser.held?.applicationServerKey).toBe('BFreshKey');
     expect(browser.record).toStrictEqual({
       endpoint: browser.held?.endpoint,
+      muted: [],
       serverKey: 'BFreshKey',
       state: 'on',
     });
@@ -537,6 +547,7 @@ describe('Turn on', () => {
     await settle();
     expect(browser.record).toStrictEqual({
       endpoint: browser.held?.endpoint,
+      muted: [],
       serverKey: SERVED_KEY,
       state: 'on',
     });
@@ -968,6 +979,7 @@ describe('Reset push key', () => {
     await settle();
     expect(browser.record).toStrictEqual({
       endpoint: browser.held?.endpoint,
+      muted: [],
       serverKey: 'BNewKey',
       state: 'on',
     });
@@ -1196,6 +1208,7 @@ describe('healing when the console opens', () => {
     });
     expect(browser.record).toStrictEqual({
       endpoint: SUBSCRIPTION.endpoint,
+      muted: [],
       serverKey: SERVED_KEY,
       state: 'on',
     });
@@ -1211,11 +1224,18 @@ describe('healing when the console opens', () => {
     const world = servePush({ devices: [device({ endpoint: stale })] });
     vi.mocked(unsubscribePush).mockRejectedValueOnce(new Error('offline'));
     await healThisBrowser(browser, READY, listed(world), readStatus);
-    expect(browser.record).toStrictEqual({ endpoint: stale, serverKey: SERVED_KEY, state: 'on' });
+    // The heal learned the old row's kinds before its removal failed.
+    expect(browser.record).toStrictEqual({
+      endpoint: stale,
+      muted: [],
+      serverKey: SERVED_KEY,
+      state: 'on',
+    });
     await healThisBrowser(browser, READY, listed(world), readStatus);
     expect(world.devices.map(({ endpoint }) => endpoint)).toStrictEqual([SUBSCRIPTION.endpoint]);
     expect(browser.record).toStrictEqual({
       endpoint: SUBSCRIPTION.endpoint,
+      muted: [],
       serverKey: SERVED_KEY,
       state: 'on',
     });
@@ -1342,6 +1362,7 @@ describe('healing when the console opens', () => {
     await waitFor(() => {
       expect(browser.record).toStrictEqual({
         endpoint: browser.held?.endpoint,
+        muted: [],
         serverKey: 'BNewKey',
         state: 'on',
       });
@@ -1481,6 +1502,7 @@ describe('healing when the console opens', () => {
     await settle();
     expect(browser.record).toStrictEqual({
       endpoint: browser.held?.endpoint,
+      muted: [],
       serverKey: 'BNewKey',
       state: 'on',
     });

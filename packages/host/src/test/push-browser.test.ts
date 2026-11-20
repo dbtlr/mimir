@@ -99,6 +99,39 @@ describe('createPushBrowser', () => {
     expect(unsubscribe).not.toHaveBeenCalled();
   });
 
+  it('keeps this browser’s muted kinds in the record, only the kinds it knows, in the event order', () => {
+    const { environment, store } = world(null);
+    const browser = createPushBrowser(environment);
+    browser.writeRecord({ endpoint: 'e', muted: ['decisions'], serverKey: 'k', state: 'on' });
+    expect(browser.readRecord()).toStrictEqual({
+      endpoint: 'e',
+      muted: ['decisions'],
+      serverKey: 'k',
+      state: 'on',
+    });
+    store.set(
+      RECORD_KEY,
+      JSON.stringify({
+        endpoint: 'e',
+        muted: ['task_blocked', 'retired_kind', 7, 'delivery_stopped'],
+        serverKey: 'k',
+        state: 'on',
+      }),
+    );
+    expect(browser.readRecord()).toStrictEqual({
+      endpoint: 'e',
+      muted: ['delivery_stopped', 'task_blocked'],
+      serverKey: 'k',
+      state: 'on',
+    });
+    // Kinds that are not a list read as unknown, like a record from before the kinds were kept.
+    store.set(
+      RECORD_KEY,
+      JSON.stringify({ endpoint: 'e', muted: 'x', serverKey: 'k', state: 'on' }),
+    );
+    expect(browser.readRecord()).toStrictEqual({ endpoint: 'e', serverKey: 'k', state: 'on' });
+  });
+
   it('keeps the record in storage and treats a bad or blocked store as no record', () => {
     const { environment, store } = world(null);
     const browser = createPushBrowser(environment);

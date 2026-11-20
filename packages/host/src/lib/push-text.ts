@@ -5,6 +5,8 @@ import type {
   PushStatus,
   PushSubscribeResult,
 } from '../api/fns/push';
+import { PUSH_EVENT_KINDS } from '../server/push-states';
+import type { PushEventKind } from '../server/push-states';
 import { isDesktop } from './push-identity';
 import type { BrowserIdentity } from './push-identity';
 import type { ThisDeviceState } from './push-this-device';
@@ -24,6 +26,43 @@ export const KEY_UNUSABLE_TEXT =
   "Notifications are paused on every device. This host can't open its push key, usually because MIMIR_SECRET_KEY changed. Restore the previous value and restart the host. If the previous value is lost, reset the push key; each device subscribes again the next time its console opens.";
 
 /** What Turn on and Turn off answer when a heal of this browser is still running after their wait. */
+/** Each kind's name on a switch, in the event order (ADR 0045, MMR-712). */
+export const KIND_NAMES: Record<PushEventKind, string> = {
+  decisions: 'Decisions to confirm',
+  delivery_stopped: 'Stopped deliveries',
+  task_blocked: 'Tasks blocked on you',
+  task_needs_answers: 'Tasks that need answers',
+};
+
+/** Each kind's short name in a row's meta line. */
+const KIND_SHORT_NAMES: Record<PushEventKind, string> = {
+  decisions: 'Decisions',
+  delivery_stopped: 'Deliveries',
+  task_blocked: 'Blocked tasks',
+  task_needs_answers: 'Answers',
+};
+
+/** What a row's meta line says of its muted kinds; nothing when it mutes none. */
+export function mutedText(muted: readonly PushEventKind[]): string {
+  const [only] = muted;
+  if (only === undefined) {
+    return '';
+  }
+  if (muted.length === 1) {
+    return `${KIND_SHORT_NAMES[only]} off`;
+  }
+  return muted.length >= PUSH_EVENT_KINDS.length
+    ? 'Every kind off'
+    : `${String(muted.length)} kinds off`;
+}
+
+/** The line under a group of switches that mute every kind. */
+export const EVERY_KIND_OFF_TEXT =
+  'Every kind is off. This browser stays subscribed and still takes a test notification.';
+export const KIND_SAVE_FAILED_TEXT = 'The choice couldn’t be saved.';
+export const THIS_BROWSER_GONE_TEXT = 'This browser is no longer subscribed.';
+export const THAT_BROWSER_GONE_TEXT = 'That browser is no longer subscribed.';
+
 export const HEAL_RUNNING_TEXT =
   "Another update to this browser's notifications is still running. Try again in a moment.";
 
@@ -246,6 +285,10 @@ export function deviceMeta(
     parts.push(`delivered ${ago(delivered, now)}`);
   } else if (device.currentKey) {
     parts.push('no notification yet');
+  }
+  const muted = mutedText(device.muted);
+  if (muted !== '') {
+    parts.push(muted);
   }
   return { oldKey: !device.currentKey, text: parts.join(' · ') };
 }

@@ -5,6 +5,7 @@ import {
   pushStatus,
   resetPushKey,
   sendTestPush,
+  setPushKind,
   subscribePush,
   unsubscribePush,
 } from '../api/fns/push';
@@ -12,6 +13,7 @@ import type {
   PushDevice,
   PushResetResult,
   PushSendTestResult,
+  PushSetKindResult,
   PushStatus,
   PushSubscribeResult,
 } from '../api/fns/push';
@@ -21,6 +23,7 @@ import type {
   PushBrowser,
   ThisDeviceRecord,
 } from '../lib/push-browser';
+import { orderedKinds } from '../server/push-states';
 
 /*
  * The Web Push server functions served from one world, and a fake browser
@@ -46,6 +49,8 @@ export type PushWorld = {
   subscribe: PushSubscribeResult;
   sendTest: PushSendTestResult;
   reset: PushResetResult;
+  /** What Set kind answers when it does not save; unset, it saves like the host. */
+  setKind?: PushSetKindResult;
 };
 
 export const device = (overrides: Partial<PushDevice> & { endpoint: string }): PushDevice => ({
@@ -71,16 +76,37 @@ export function servePush(world: Partial<PushWorld> = {}): PushWorld {
     devices: state.devices,
     state: 'listed',
   }));
-  // A subscribe the host accepts adds the device under its normalized endpoint, as in production.
+  // A subscribe the host accepts adds the device under its normalized endpoint, as in
+  // production: a known row keeps its muted kinds unless the subscribe names some.
   vi.mocked(subscribePush).mockImplementation(async ({ data }) => {
     if (state.subscribe.state === 'subscribed') {
       const endpoint = new URL(data.endpoint).href;
+      const known = state.devices.find((candidate) => candidate.endpoint === endpoint);
+      const muted = data.muted === undefined ? (known?.muted ?? []) : orderedKinds(data.muted);
       state.devices = [
-        device({ endpoint, label: data.label }),
+        device({ endpoint, label: data.label, muted }),
         ...state.devices.filter((candidate) => candidate.endpoint !== endpoint),
       ];
     }
     return state.subscribe;
+  });
+  // Set kind changes one kind on the row, as in production, unless the world answers otherwise.
+  vi.mocked(setPushKind).mockImplementation(async ({ data }) => {
+    if (state.setKind !== undefined) {
+      return state.setKind;
+    }
+    const endpoint = new URL(data.endpoint).href;
+    const row = state.devices.find((candidate) => candidate.endpoint === endpoint);
+    if (row === undefined) {
+      return { state: 'not_found' };
+    }
+    const others = row.muted.filter((kind) => kind !== data.kind);
+    const muted = orderedKinds(data.muted ? [...others, data.kind] : others);
+    // A new row, so a shared fixture is never changed between tests.
+    state.devices = state.devices.map((candidate) =>
+      candidate === row ? { ...row, muted } : candidate,
+    );
+    return { state: 'saved' };
   });
   vi.mocked(unsubscribePush).mockImplementation(async ({ data }) => {
     const endpoint = new URL(data.endpoint).href;

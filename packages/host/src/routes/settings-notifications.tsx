@@ -1,8 +1,11 @@
+import { Dialog } from '@base-ui-components/react/dialog';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import type { PushDevice } from '../api/fns/push';
+import type { PushDevice, PushDeviceList, PushEventKind } from '../api/fns/push';
 import { pushDevicesQuery, pushStatusQuery } from '../api/push-queries';
+import { KindSwitches } from '../components/push-kind-switches';
+import type { KindSwitchesProps } from '../components/push-kind-switches';
 import { SETTINGS_CARD, SettingsGroup, SettingsPage } from '../components/settings-page';
 import { ActionButton, DESTRUCTIVE_OUTLINE } from '../components/ui/action-button';
 import { ConfirmCard } from '../components/ui/confirm-card';
@@ -10,6 +13,7 @@ import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../components/ui/m
 import { Sheet, SheetClose, SheetContent, SheetTitle } from '../components/ui/sheet';
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/cn';
+import { focusMain } from '../lib/focus-main';
 import {
   healSettled,
   healThisBrowser,
@@ -19,10 +23,18 @@ import {
 } from '../lib/push-actions';
 import { sameEndpoint } from '../lib/push-endpoint';
 import { deviceLabel } from '../lib/push-identity';
-import { deviceMeta, resetRefusalText, stateCaption, testResultText } from '../lib/push-text';
+import {
+  deviceMeta,
+  resetRefusalText,
+  stateCaption,
+  testResultText,
+  THAT_BROWSER_GONE_TEXT,
+  THIS_BROWSER_GONE_TEXT,
+} from '../lib/push-text';
 import { canTurnOn } from '../lib/push-this-device';
 import { useMediaQuery } from '../lib/use-media-query';
 import { usePushControl } from '../lib/use-push-control';
+import { orderedKinds } from '../server/push-states';
 import { DESKTOP } from './shell';
 
 /**
@@ -104,11 +116,13 @@ function ResetSheet({
 function RowSheet({
   device,
   onClose,
+  onChoose,
   onTest,
   onRemove,
 }: {
   device: PushDevice | undefined;
   onClose: () => void;
+  onChoose: (device: PushDevice) => void;
   onTest: (device: PushDevice) => void;
   onRemove: (device: PushDevice) => void;
 }) {
@@ -135,15 +149,26 @@ function RowSheet({
               <p className="text-meta text-ink-dim">{meta.text}</p>
             </div>
             {device.currentKey && (
-              <button
-                type="button"
-                className={SHEET_ACTION}
-                onClick={() => {
-                  onTest(device);
-                }}
-              >
-                Send test notification
-              </button>
+              <>
+                <button
+                  type="button"
+                  className={SHEET_ACTION}
+                  onClick={() => {
+                    onChoose(device);
+                  }}
+                >
+                  Choose what notifies…
+                </button>
+                <button
+                  type="button"
+                  className={SHEET_ACTION}
+                  onClick={() => {
+                    onTest(device);
+                  }}
+                >
+                  Send test notification
+                </button>
+              </>
             )}
             <ActionButton
               variant="destructiveOutline"
@@ -165,16 +190,19 @@ function RowSheet({
 /** The ••• menu of one other browser, on a desktop. */
 function RowMenu({
   device,
+  onChoose,
   onTest,
   onRemove,
 }: {
   device: PushDevice;
+  onChoose: (device: PushDevice) => void;
   onTest: (device: PushDevice) => void;
   onRemove: (device: PushDevice) => void;
 }) {
   return (
     <MenuRoot>
       <MenuTrigger
+        data-push-row={device.endpoint}
         aria-label={`Actions for ${device.label}`}
         className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-ink-dim hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
       >
@@ -182,13 +210,22 @@ function RowMenu({
       </MenuTrigger>
       <MenuContent>
         {device.currentKey && (
-          <MenuItem
-            onClick={() => {
-              onTest(device);
-            }}
-          >
-            Send test notification
-          </MenuItem>
+          <>
+            <MenuItem
+              onClick={() => {
+                onChoose(device);
+              }}
+            >
+              Choose what notifies…
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                onTest(device);
+              }}
+            >
+              Send test notification
+            </MenuItem>
+          </>
         )}
         <MenuItem
           className={cn(
@@ -206,6 +243,87 @@ function RowMenu({
   );
 }
 
+const KINDS_DIALOG =
+  'fixed top-1/2 left-1/2 z-[60] flex max-h-[90dvh] w-[min(92vw,380px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 overflow-y-auto rounded-lg border border-line bg-well-900 p-4 shadow-2xl outline-none light:shadow-overlay';
+const KINDS_BLOCK = 'overflow-hidden rounded-lg border border-line bg-well-850';
+
+/** The row that opened another browser's switches, for Done to return focus to. */
+const rowOpener = (endpoint: string) =>
+  document.querySelector<HTMLElement>(`[data-push-row="${CSS.escape(endpoint)}"]`);
+
+/**
+ * Another browser's switches (ADR 0045, MMR-712): a sheet on a phone, a
+ * dialog on a desktop, titled with the row's label. Done closes it and
+ * returns focus to the row that opened it.
+ */
+function KindsSurface({
+  device,
+  desktop,
+  onClose,
+  switches,
+}: {
+  device: PushDevice | undefined;
+  desktop: boolean;
+  onClose: () => void;
+  switches: Omit<KindSwitchesProps, 'device' | 'own'>;
+}) {
+  const finalFocus = () => (device === undefined ? null : rowOpener(device.endpoint));
+  const body = device !== undefined && (
+    <>
+      <div className="flex flex-col">
+        <Dialog.Title className="text-body font-semibold text-ink-bright">
+          {device.label}
+        </Dialog.Title>
+        <Dialog.Description className="text-meta text-ink-dim">
+          Notify this browser about
+        </Dialog.Description>
+      </div>
+      <KindSwitches {...switches} device={device} own={false} className={KINDS_BLOCK} />
+      <div className="flex justify-end">
+        <Dialog.Close className="inline-flex min-h-11 items-center rounded-md border border-accent px-4 text-meta font-semibold text-accent-foreground hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent">
+          Done
+        </Dialog.Close>
+      </div>
+    </>
+  );
+  const onOpenChange = (open: boolean) => {
+    if (!open) {
+      onClose();
+    }
+  };
+  if (desktop) {
+    return (
+      <Dialog.Root open={device !== undefined} onOpenChange={onOpenChange}>
+        <Dialog.Portal>
+          <Dialog.Backdrop className="fixed inset-0 z-50 bg-well-950/70 backdrop-blur-[2px]" />
+          <Dialog.Popup className={KINDS_DIALOG} finalFocus={finalFocus}>
+            {body}
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
+    );
+  }
+  return (
+    <Sheet open={device !== undefined} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        className="gap-2 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+        finalFocus={finalFocus}
+      >
+        {body}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/** The list with the kinds saved since it was read; a newer read replaces them. */
+type SavedKinds = { list: PushDeviceList | undefined; muted: Record<string, PushEventKind[]> };
+
+const withSavedKinds = (device: PushDevice, saved: SavedKinds): PushDevice => {
+  const muted = saved.muted[device.endpoint];
+  return muted === undefined ? device : { ...device, muted };
+};
+
 export function NotificationsPage() {
   const client = useQueryClient();
   const desktop = useMediaQuery(DESKTOP);
@@ -216,10 +334,47 @@ export function NotificationsPage() {
   const [opened, setOpened] = useState<PushDevice | undefined>();
   const [resetOpen, setResetOpen] = useState(false);
   const [resetRefusal, setResetRefusal] = useState<string | undefined>();
+  const [kindsFor, setKindsFor] = useState<PushDevice | undefined>();
+  const [ownSaving, setOwnSaving] = useState(false);
+  // Saves change the rows in place, without a reread that would close an open sheet or dialog.
+  const [saved, setSaved] = useState<SavedKinds>({ list: undefined, muted: {} });
+  const savedKinds: SavedKinds = saved.list === devices ? saved : { list: devices, muted: {} };
   // A reread may change which row is this browser's, so a row's open sheet closes rather than act on a stale match.
   if (subscriptionPending && opened !== undefined) {
     setOpened(undefined);
   }
+  if (subscriptionPending && kindsFor !== undefined) {
+    setKindsFor(undefined);
+  }
+
+  const onKindSaved = (endpoint: string, kind: PushEventKind, muted: boolean) => {
+    setSaved((current) => {
+      const base = current.list === devices ? current : { list: devices, muted: {} };
+      const row =
+        devices?.state === 'listed'
+          ? devices.devices.find((candidate) => candidate.endpoint === endpoint)
+          : undefined;
+      const others = (base.muted[endpoint] ?? row?.muted ?? []).filter((name) => name !== kind);
+      return {
+        list: devices,
+        muted: { ...base.muted, [endpoint]: orderedKinds(muted ? [...others, kind] : others) },
+      };
+    });
+  };
+  const onThisGone = () => {
+    setNotice({ text: THIS_BROWSER_GONE_TEXT });
+    void reload();
+  };
+  const onThatGone = () => {
+    setKindsFor(undefined);
+    focusMain();
+    setNotice({ text: THAT_BROWSER_GONE_TEXT });
+    void reload();
+  };
+  const onChoose = (device: PushDevice) => {
+    setOpened(undefined);
+    setKindsFor(device);
+  };
 
   const caption = stateCaption(state, identity);
 
@@ -314,7 +469,13 @@ export function NotificationsPage() {
 
   const showReset = status?.state === 'ready' || status?.state === 'key_unusable';
   const listed =
-    status?.state === 'ready' && devices?.state === 'listed' ? devices.devices : undefined;
+    status?.state === 'ready' && devices?.state === 'listed'
+      ? devices.devices.map((device) => withSavedKinds(device, savedKinds))
+      : undefined;
+  const ownRow =
+    state.kind === 'on' && state.device.currentKey
+      ? withSavedKinds(state.device, savedKinds)
+      : undefined;
   // A pending reread may answer another endpoint: until it settles, no row is this browser's.
   const heldEndpoint = subscriptionPending ? undefined : subscription?.endpoint;
   const label = deviceLabel(identity);
@@ -333,7 +494,7 @@ export function NotificationsPage() {
             {state.kind === 'on' && (
               <ActionButton
                 variant="outline"
-                disabled={busy}
+                disabled={busy || ownSaving}
                 onClick={() => void control.turnOff()}
               >
                 Turn off
@@ -380,6 +541,7 @@ export function NotificationsPage() {
           <div>
             <ActionButton
               variant="outline"
+              disabled={ownSaving}
               onClick={() => {
                 setResetOpen(true);
               }}
@@ -389,6 +551,21 @@ export function NotificationsPage() {
           </div>
         )}
       </SettingsGroup>
+
+      {ownRow !== undefined && (
+        <SettingsGroup title="Notify this device about">
+          <KindSwitches
+            device={ownRow}
+            own
+            disabled={busy}
+            className={SETTINGS_CARD}
+            footnote="The badge still counts everything that needs you."
+            onSaved={onKindSaved}
+            onGone={onThisGone}
+            onSavingChange={setOwnSaving}
+          />
+        </SettingsGroup>
+      )}
 
       {listed !== undefined && (
         <SettingsGroup title={`Subscribed browsers · ${String(listed.length)}`}>
@@ -426,6 +603,7 @@ export function NotificationsPage() {
                         {text}
                         <RowMenu
                           device={device}
+                          onChoose={onChoose}
                           onTest={(row) => void onTestRow(row)}
                           onRemove={(row) => void onRemoveRow(row)}
                         />
@@ -433,6 +611,7 @@ export function NotificationsPage() {
                     ) : (
                       <button
                         type="button"
+                        data-push-row={device.endpoint}
                         aria-label={`${device.label}, ${meta.text}`}
                         className="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-well-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
                         onClick={() => {
@@ -470,6 +649,7 @@ export function NotificationsPage() {
           <button
             type="button"
             className={TEXT_BUTTON}
+            disabled={ownSaving}
             onClick={() => {
               setResetOpen(true);
             }}
@@ -484,8 +664,21 @@ export function NotificationsPage() {
         onClose={() => {
           setOpened(undefined);
         }}
+        onChoose={onChoose}
         onTest={(row) => void onTestRow(row)}
         onRemove={(row) => void onRemoveRow(row)}
+      />
+      <KindsSurface
+        device={
+          kindsFor === undefined
+            ? undefined
+            : (listed?.find((row) => row.endpoint === kindsFor.endpoint) ?? kindsFor)
+        }
+        desktop={desktop}
+        onClose={() => {
+          setKindsFor(undefined);
+        }}
+        switches={{ onGone: onThatGone, onSaved: onKindSaved }}
       />
       <ResetSheet
         open={resetOpen}
