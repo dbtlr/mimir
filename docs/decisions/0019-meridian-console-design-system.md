@@ -1206,6 +1206,9 @@ the setting, and the switch is named by it.
 - **While it saves,** the switch shows its new position and is disabled. A
   failure returns it to the saved position and says why in a polite line
   under its group.
+- **One sheet at a time.** A sheet action that opens a group of switches
+  closes its sheet first and opens the switches in their own sheet; sheets do
+  not stack.
 - **Not for an action.** A choice whose outcome is not known until a prompt or
   a call answers stays a button that names the action, as Turn on does (ADR
   0045, MMR-711 refinement).

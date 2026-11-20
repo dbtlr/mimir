@@ -931,8 +931,8 @@ you.
 ## Refinement (2026-11-20, MMR-712): each device chooses the kinds that notify it
 
 Every subscribed browser receives every kind of event until someone turns a
-kind off for it. A **muted kind** is an event `kind` (the event table above) that
-the host never pushes to that browser. The choice belongs to the
+kind off for it. A **muted kind** is an event `kind` (the event table above)
+that the host never pushes to that browser. The choice belongs to the
 subscription, so each browser has its own, and any browser listed on the
 Notifications page can change any row's choice.
 
@@ -945,24 +945,30 @@ transfer, as above.
 
 - Storing what is muted, not what is wanted, means a kind added later notifies
   every browser until someone mutes it, which is the default the phase chose.
-- The host writes only the four kinds, each at most once, in the event
-  table's order. A name it does not know, read from the column, is ignored, so
-  a kind that is retired later leaves no error behind.
+- The host writes only kinds it knows, each once, in the event table's order.
+  A name it does not know is ignored wherever it arrives: read from the
+  column, or sent in Subscribe's `muted`. So a kind retired later, or named by
+  a console build the host does not match, never turns into an error.
 
 ### The server functions
 
-- **Subscribe** takes an optional `muted`: the kinds to mute. A new row takes
-  the given kinds, or none. A row the table already holds keeps its own kinds
-  when `muted` is absent and takes the given kinds when it is present. Turn on
-  sends none; the heal sends the kinds this browser last knew (below).
-- **Set kinds**, a seventh function, takes an endpoint and `muted`, replaces
-  that row's muted kinds, and answers `saved`. An endpoint with no row answers
-  `not_found`. It answers `unconfigured` and `misconfigured` like the others
-  and works in the `key unusable` state, as Unsubscribe does.
+- **Subscribe** takes an optional `muted`: the kinds to mute, a list of at
+  most 16 names of at most 64 characters each, of which the known kinds are
+  kept. A new row takes them, or none. A row the table already holds keeps its
+  own kinds when `muted` is absent and takes the given kinds when it is
+  present.
+- **Set kind**, a seventh function, takes an endpoint, one kind, and whether
+  that kind is muted. It adds the kind to that row's muted kinds or takes it
+  out, leaving the others as they are, in one write transaction, and answers
+  `saved`. An endpoint with no row answers `not_found`. It answers
+  `unconfigured` and `misconfigured` like the others. It also works in the
+  `key unusable` state, as Unsubscribe does, although the console never
+  offers it there (below). A kind outside the four is a validation error.
 - **List** answers each row's `muted`, in the event table's order.
 
-In both inputs, `muted` is a list of the four kind names with no repeats, at
-most four long. Any other value is a validation error, never an answer.
+Changing one kind per call, rather than replacing the set, means a page that
+read the list a while ago cannot undo a kind another device changed since, and
+two switches flipped in quick succession cannot overwrite each other.
 
 ### Sending
 
@@ -978,41 +984,74 @@ it.
 
 A heal can replace this browser's row, and a key reset deletes it (the MMR-711
 refinement). So that the choice survives, the record's `on` state gains
-`muted`: the kinds this browser last knew for its own row. A record without
-it, written before this step, knows nothing about the choice.
+`muted`: the kinds this browser last knew for its own row. When the console
+reads the record it keeps only the kinds it knows. A record without `muted`,
+written before this step, knows nothing about the choice, and differs from
+every row.
 
-- **Written** by a set kinds call on this browser's own row that answers
-  `saved`, and by the heal (below) when the host's list holds a row for the
-  record's endpoint on the current key whose kinds differ from the record's.
-  So a choice made on another device reaches this browser's record the next
-  time its console opens.
-- **Sent** by the heal with every subscribe it makes, when the record carries
-  `muted`. So a browser whose key changed, or whose push service gave it a new
-  endpoint, keeps its choice. Turn on sends no `muted`.
-- **Dropped** with the record: Turn off clears it, so turning notifications
-  off and on again starts with every kind on.
+The heal (the MMR-711 refinement's "Healing when the console opens") acts on
+the record in this order, once per console load:
+
+1. **Learn.** When the heal makes its decision, it looks for this browser's
+   row on the current key in the list it read: the row for the endpoint the
+   browser holds, or, when the list has none, the row for the record's
+   endpoint. When it finds one whose kinds differ from the record's, it writes
+   that row's kinds into the record. A choice made on another device thus
+   reaches this browser's record the next time its console loads. A heal that
+   could not read the browser's subscription does nothing, this step
+   included, as before.
+2. **Send.** Every subscribe the heal makes carries the record's `muted`, after
+   step 1, when the record has one. So a browser whose key changed, or whose
+   push service gave it a new endpoint, keeps its choice, including one just
+   learned from its old row.
+3. **Keep.** When the heal writes the record after a `subscribed` answer, the
+   new record carries the kinds it sent.
+
+Elsewhere:
+
+- **Turn on** sends the record's `muted` when the record is `on` and has one,
+  and `muted: []` otherwise. A browser that shows Off while its record is
+  still `on`, after a heal that could not finish, keeps its choice, and a
+  browser turned on from Off or Removed starts with every kind on, even when a
+  dead row for its endpoint is still in the table.
+- **A saved change to this browser's own row** puts the new kinds into the
+  record only when the record is `on` at the moment the answer arrives. It
+  never writes a record that is absent or `removed`, so a save that crosses
+  Turn off, or a removal, cannot bring notifications back.
+- **Turn off**, and a heal that marks the browser `removed`, drop the record
+  and its kinds. Turning notifications on again, or after a removal, starts
+  with every kind on.
 
 ### The control
 
-This follows mock variant B of the MMR-711 page, with MMR-712's variant A picked
-on 2026-11-20.
+This follows the MMR-711 page's picked mock variant B, and MMR-712's mock
+variant A, picked on 2026-11-20.
 
-- **This browser.** In the On state, a group titled "Notify this device about"
-  sits under This device, with one switch for each kind, in the event table's
-  order: Stopped deliveries, Decisions to confirm, Tasks blocked on you, and
-  Tasks that need answers. A line under the group says that the badge still
-  counts everything that needs you. In every other state the group is absent.
+- **This browser.** In the On state, when this browser's row is on the current
+  key, a group titled "Notify this device about" sits under This device, with
+  one switch for each kind in the event table's order: Stopped deliveries,
+  Decisions to confirm, Tasks blocked on you, and Tasks that need answers. A
+  line under the group says that the badge still counts everything that needs
+  you. In every other state the group is absent, so the console never offers
+  a kind in the `key unusable` state, where every row is on another key.
 - **Another row.** Its sheet (phone) and its menu (desktop) gain "Choose what
-  notifies…" above Send test notification. On a phone it opens a second sheet
-  titled with the row's label; on a desktop, a dialog. Both hold the same four
-  switches and a Done that closes them. An old-key row does not offer it,
-  because no push reaches that row.
-- **A switch saves when it flips.** The switch shows its new position while the
-  call runs and is disabled until it answers. On `saved` it stays. On any
-  other answer, or a thrown failure, it returns to its last saved position and
-  a polite line under the switches says why: "The choice couldn't be saved."
+  notifies…" above Send test notification. On a phone it closes the row's
+  sheet and opens a sheet titled with the row's label; on a desktop it opens a
+  dialog titled the same way. Both hold the same four switches and a Done that
+  closes them. An old-key row does not offer it, because no push reaches that
+  row.
+- **A switch saves when it flips,** through Set kind for its one kind. The
+  switch shows its new position while the call runs and is disabled until it
+  answers; the other switches stay usable. On `saved` it stays. On any other
+  answer, or a thrown failure, it returns to its last saved position and a
+  polite line under the switches says why: "The choice couldn't be saved."
   for a failure, and "This browser is no longer subscribed." for `not_found`,
   after which the list reloads.
+- **This browser's switches wait for the page.** They are disabled while
+  Turn on, Turn off, or a reset runs, and a save on this browser's own row
+  first waits for a running heal, at most 10 seconds, as Turn on does. When
+  that heal is still running after the wait, the save changes nothing and
+  the switch returns with the same sentence Turn on uses.
 - **Every kind off** is allowed. The switches' group then says: "Every kind is
   off. This browser stays subscribed and still takes a test notification."
 - **The row's meta line** adds the choice after its other parts: the kind's
@@ -1024,15 +1063,15 @@ Each switch is the console's switch (ADR 0019, the MMR-712 refinement).
 
 ### Known limits of the choice
 
-- A choice made on another device after this browser's console last opened
-  is not in this browser's record. A key reset before this browser opens
-  again loses that choice, and the heal brings back the one the record holds.
-- Two devices changing one row's kinds at the same time: the later write wins,
-  each switch shows its own call's answer, and the list shows the stored
-  kinds after its next read.
-- A set kinds call that crosses a heal on the same browser can leave the
-  record holding the older kinds until the next console load corrects it from
-  the list.
+- A choice made on another device after this browser's console last loaded
+  is not in this browser's record. A key reset before this browser loads again
+  deletes the row it was on, and the heal brings back the kinds the record
+  holds.
+- A heal on one browser that crosses a change made to that browser's row from
+  another device can send the kinds it learned before the change, and so undo
+  it.
+- A Home Screen app that resumes without reloading learns no choice until its
+  next load.
 - The badge counts kinds the browser mutes, as above.
 
 ### Considered and rejected
@@ -1040,6 +1079,9 @@ Each switch is the console's switch (ADR 0019, the MMR-712 refinement).
 - **Storing the wanted kinds.** A kind added later would start off on every
   existing browser.
 - **A column per kind.** Each new kind would take a schema step.
+- **Replacing the whole set per call.** A page that read the list earlier, or
+  two switches in flight at once, would overwrite kinds the caller never
+  touched.
 - **Keeping the choice only on the host.** A key reset deletes every row, and
   a heal can replace a row's endpoint, so the choice would not survive either.
 - **Moving kinds over by endpoint in Subscribe** (the heal naming the old
