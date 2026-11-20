@@ -50,6 +50,13 @@ import { Separator } from '../ui/separator';
  */
 export const ACTION_MENU_ANCHORED_QUERY = DRAWER_DESKTOP_QUERY;
 
+/**
+ * Marks a row whose action closes the menu, so a surface holding the menu can
+ * tell the menu's own choice from its other controls (its Cancel row, a Choice):
+ * a record's chip sheet closes on the first, as on any other choice inside it.
+ */
+export const CLOSING_ROW_ATTRIBUTE = 'data-closes-menu';
+
 /** What a custom row receives: the pattern's class, its press handler, and the label. */
 type RowProps = {
   className?: string;
@@ -186,6 +193,10 @@ function CancelRow({ onKeyDown, ...props }: ComponentProps<'button'>) {
   );
 }
 
+/** The closing-row mark for an action that closes the menu when chosen. */
+const closingRow = (entry: ActionMenuAction) =>
+  entry.disabled === true || entry.keepOpen === true ? {} : { [CLOSING_ROW_ATTRIBUTE]: '' };
+
 function MenuEntry({
   entry,
   onChoose,
@@ -222,6 +233,7 @@ function MenuEntry({
       disabled={entry.disabled}
       destructive={entry.destructive}
       closeOnSelect={entry.keepOpen === true ? false : undefined}
+      {...closingRow(entry)}
       className={cn(entry.destructive === true && DESTRUCTIVE_ROW, entry.className)}
       onClick={(event) => {
         // A disabled link row stays where it is.
@@ -268,6 +280,7 @@ function SheetEntry({
   if (entry.render !== undefined) {
     const own = entry.render.props;
     return cloneElement(entry.render, {
+      ...closingRow(entry),
       'aria-disabled': entry.disabled === true ? true : own['aria-disabled'],
       children: content,
       className: cn(className, own.className),
@@ -297,6 +310,7 @@ function SheetEntry({
       className={className}
       disabled={entry.disabled}
       data-disabled={entry.disabled === true ? '' : undefined}
+      {...closingRow(entry)}
       onKeyDown={holdPressingEnter}
       onClick={onClick}
     >

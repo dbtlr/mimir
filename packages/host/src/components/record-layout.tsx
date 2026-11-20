@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import type { MouseEvent, ReactNode, Ref } from 'react';
 
 import { cn } from '../lib/cn';
+import { CLOSING_ROW_ATTRIBUTE } from './patterns/action-menu';
 import { iconButtonClass } from './ui/icon-button';
 import { CloseIcon } from './ui/icons';
 import { Sheet, SheetClose, SheetContent, SheetTitle } from './ui/sheet';
@@ -61,9 +62,10 @@ export function RailSection({
  * does a disclosure (`aria-expanded`), which only reveals more of the sheet. Clicks
  * inside that dialog reach here only through React's portal bubbling, so a
  * target outside the sheet body is ignored. UI SDK's popups render in place
- * instead, inside the body, so a click within a popup there (an Action menu's
- * sheet or menu) is that popup's: closing the sheet would unmount the control
- * whose action it runs, such as the T3 launch caret's settings dialog.
+ * instead, inside the body: a click within one (an Action menu's sheet or
+ * menu) is that popup's, unless it chose one of the menu's closing actions,
+ * which is a choice here too. A control whose action opens a dialog of its own
+ * keeps that dialog above the sheet, as Launch in T3 does, so it outlives the close.
  */
 function closeOnChoice(close: () => void) {
   return (event: MouseEvent<HTMLElement>) => {
@@ -72,7 +74,8 @@ function closeOnChoice(close: () => void) {
       return;
     }
     const popup = target.closest('[role="dialog"], [role="alertdialog"], [role="menu"]');
-    if (popup !== null && event.currentTarget.contains(popup)) {
+    const inPopup = popup !== null && event.currentTarget.contains(popup);
+    if (inPopup && target.closest(`[${CLOSING_ROW_ATTRIBUTE}]`) === null) {
       return;
     }
     const choice = target.closest('a, button');

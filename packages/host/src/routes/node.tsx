@@ -34,7 +34,11 @@ import { ParentLink } from '../components/parent-link';
 import { RailSection, RecordLayout, RecordPending } from '../components/record-layout';
 import type { RailChip } from '../components/record-layout';
 import { StatusBadge } from '../components/status-badge';
-import { T3LaunchControl, canLaunchOnT3 } from '../components/t3-launch-control';
+import {
+  T3LaunchControl,
+  T3LaunchSettingsHost,
+  canLaunchOnT3,
+} from '../components/t3-launch-control';
 import { TaskForm } from '../components/task-form';
 import { ActionButton } from '../components/ui/action-button';
 import { WorkPage } from '../components/work-page';
@@ -375,7 +379,8 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
   );
 
   return (
-    <>
+    // Launch in T3's settings dialog lives above the rail, so it outlives the phone's Actions sheet.
+    <T3LaunchSettingsHost>
       <OfflineBanner {...conn} />
       <RecordLayout
         head={head}
@@ -434,6 +439,6 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
         open={moving}
         onClose={() => setMoving(false)}
       />
-    </>
+    </T3LaunchSettingsHost>
   );
 }

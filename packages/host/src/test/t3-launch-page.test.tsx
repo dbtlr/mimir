@@ -4,7 +4,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { t3Catalog, t3Origin } from '../api/fns/t3';
+import { launchT3, t3Catalog, t3Origin } from '../api/fns/t3';
 import { NowRow } from '../components/work-sections';
 import { consoleRoutes } from '../router';
 import { serveBrowse } from './browse-fns';
@@ -49,6 +49,16 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/** A system where two projects match the task's remote, so nothing launches without asking which. */
+function twoProjects() {
+  const system = reachableSystem();
+  system.projects = [
+    ...system.projects,
+    { ...system.projects[0]!, id: 'proj-2', title: 'mimir-fork' },
+  ];
+  return system;
+}
+
 async function openTask(
   node: EngineNode,
   origin: string | null = T3_ORIGIN,
@@ -71,30 +81,35 @@ describe('Launch in T3 on the task page', () => {
   });
 
   // UI SDK's sheets render in place, so the launch sheet sits inside the Actions chip's sheet, whose
-  // body closes on a chosen button: that closed it, and the launch control with it, before its dialog opened.
-  it.each(['Choose settings…', 'Launch on Valhalla'])(
-    'on a phone with no remembered choice, %s in the caret sheet opens the settings dialog with focus in it',
-    async (item) => {
+  // body closes on a chosen button and unmounts the launch control. The settings dialog outlives it.
+  it.each([
+    ['the main half’s Launch in T3…', null],
+    ['the caret’s Choose settings…', 'Choose settings…'],
+    ['the caret’s Launch on Valhalla', 'Launch on Valhalla'],
+  ] as const)(
+    'on a phone with no remembered choice, %s in the Actions sheet opens the settings dialog with focus in it',
+    async (_path, item) => {
       stubViewport('phone');
       localStorage.clear();
-      // Two matching projects leave Launch on Valhalla nothing to launch without asking.
-      const twoProjects = reachableSystem();
-      twoProjects.projects = [
-        ...twoProjects.projects,
-        { ...twoProjects.projects[0]!, id: 'proj-2', title: 'mimir-fork' },
-      ];
       await openTask(
         engineTask({ id: 'MMR-7', parent: 'MMR-2', status: 'ready' }),
         T3_ORIGIN,
-        twoProjects,
+        twoProjects(),
       );
-      await userEvent.click(screen.getByRole('button', { name: 'Actions' }));
+      const chip = screen.getByRole('button', { name: 'Actions' });
+      await userEvent.click(chip);
       const actions = await screen.findByRole('dialog', { name: 'Actions' });
-      await userEvent.click(
-        await within(actions).findByRole('button', { name: 'Choose where to launch' }),
-      );
-      const sheet = await screen.findByRole('dialog', { name: 'Launch in T3' });
-      await userEvent.click(within(sheet).getByRole('button', { name: item }));
+      if (item === null) {
+        await userEvent.click(
+          await within(actions).findByRole('button', { name: 'Launch in T3…' }),
+        );
+      } else {
+        await userEvent.click(
+          await within(actions).findByRole('button', { name: 'Choose where to launch' }),
+        );
+        const sheet = await screen.findByRole('dialog', { name: 'Launch in T3' });
+        await userEvent.click(within(sheet).getByRole('button', { name: item }));
+      }
       const settings = await screen.findByRole('dialog', { name: 'Launch MMR-7 in T3' });
       await waitFor(() => {
         expect(screen.queryByRole('dialog', { name: 'Launch in T3' })).toBeNull();
@@ -102,8 +117,97 @@ describe('Launch in T3 on the task page', () => {
       await waitFor(() => {
         expect(settings).toContainElement(document.activeElement as HTMLElement);
       });
+      // The dialog launches what it was opened for, though the control that opened it is gone.
+      await userEvent.selectOptions(
+        within(settings).getByRole('combobox', { name: 'Project' }),
+        'proj-2',
+      );
+      await userEvent.click(within(settings).getByRole('button', { name: 'Launch' }));
+      await waitFor(() => {
+        expect(launchT3).toHaveBeenCalledOnce();
+      });
+      expect(vi.mocked(launchT3).mock.calls[0]?.[0].data).toMatchObject({
+        projectId: 'proj-2',
+        task: 'MMR-7',
+      });
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).toBeNull();
+      });
+      expect(document.body).not.toHaveFocus();
     },
   );
+
+  it('on a phone, Cancel on the settings dialog leaves the Actions sheet closed and focus on its chip', async () => {
+    stubViewport('phone');
+    localStorage.clear();
+    await openTask(
+      engineTask({ id: 'MMR-7', parent: 'MMR-2', status: 'ready' }),
+      T3_ORIGIN,
+      twoProjects(),
+    );
+    const chip = screen.getByRole('button', { name: 'Actions' });
+    await userEvent.click(chip);
+    const actions = await screen.findByRole('dialog', { name: 'Actions' });
+    await userEvent.click(await within(actions).findByRole('button', { name: 'Launch in T3…' }));
+    const settings = await screen.findByRole('dialog', { name: 'Launch MMR-7 in T3' });
+    await userEvent.click(within(settings).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(launchT3).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Actions' })).toHaveFocus();
+    });
+  });
+
+  it.each([
+    ['the main half', null],
+    ['the caret', 'Launch on Valhalla'],
+  ] as const)(
+    'on a phone, a plain launch from %s in the Actions sheet runs and closes it',
+    async (_path, item) => {
+      stubViewport('phone');
+      localStorage.clear();
+      await openTask(engineTask({ id: 'MMR-7', parent: 'MMR-2', status: 'ready' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Actions' }));
+      const actions = await screen.findByRole('dialog', { name: 'Actions' });
+      if (item === null) {
+        await userEvent.click(
+          await within(actions).findByRole('button', { name: 'Launch on Valhalla' }),
+        );
+      } else {
+        await userEvent.click(
+          await within(actions).findByRole('button', { name: 'Choose where to launch' }),
+        );
+        const sheet = await screen.findByRole('dialog', { name: 'Launch in T3' });
+        await userEvent.click(within(sheet).getByRole('button', { name: item }));
+      }
+      await waitFor(() => {
+        expect(launchT3).toHaveBeenCalledOnce();
+      });
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).toBeNull();
+      });
+      expect(document.body).not.toHaveFocus();
+    },
+  );
+
+  it('on a phone, Cancel in the caret sheet closes only that sheet', async () => {
+    stubViewport('phone');
+    await openTask(engineTask({ id: 'MMR-7', parent: 'MMR-2', status: 'ready' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Actions' }));
+    const actions = await screen.findByRole('dialog', { name: 'Actions' });
+    await userEvent.click(
+      await within(actions).findByRole('button', { name: 'Choose where to launch' }),
+    );
+    const sheet = await screen.findByRole('dialog', { name: 'Launch in T3' });
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Launch in T3' })).toBeNull();
+    });
+    expect(screen.getByRole('dialog', { name: 'Actions' })).toBe(actions);
+    expect(launchT3).not.toHaveBeenCalled();
+  });
 
   it('is absent, and T3 is never asked for a catalog, when T3 is unconfigured', async () => {
     const rail = await openTask(
