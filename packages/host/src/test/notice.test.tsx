@@ -93,9 +93,11 @@ describe('Notice second button', () => {
     });
     const retry = await screen.findByRole('button', { name: 'Retry' });
     const notice = retry.closest('[data-slot="toast"]');
-    expect(notice).toHaveClass('max-sm:flex-wrap');
+    // A phone is below `md`, where the rest of the Notice switches too (DESIGN.md, Toast).
+    expect(notice).toHaveClass('max-md:flex-wrap');
+    expect(notice).not.toHaveClass('max-sm:flex-wrap');
     expect(notice?.querySelector('[data-slot="toast-title"]')?.parentElement).toHaveClass(
-      'max-sm:flex-[0_0_100%]',
+      'max-md:flex-[0_0_100%]',
     );
   });
 
