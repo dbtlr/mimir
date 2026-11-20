@@ -217,6 +217,37 @@ describe('Form sheet focus', () => {
     });
   });
 
+  it('opens on the first field that can take focus, past a disabled one', async () => {
+    stubViewport('desktop');
+    function Locked() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <ActionButton onClick={() => setOpen(true)}>Open</ActionButton>
+          <FormSheet
+            open={open}
+            onClose={() => setOpen(false)}
+            title="New project"
+            commitLabel="Create project"
+            onCommit={ignore}
+          >
+            <FormField label="Key">
+              <FormTextInput disabled defaultValue="MMR" />
+            </FormField>
+            <FormField label="Title">
+              <FormTextInput />
+            </FormField>
+          </FormSheet>
+        </>
+      );
+    }
+    render(<Locked />);
+    await openSheet();
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: 'Title' })).toHaveFocus();
+    });
+  });
+
   it('opens on the field a form names, when that is not the first', async () => {
     stubViewport('desktop');
     render(<Harness initialFocusOnBody />);
