@@ -22,7 +22,7 @@ import {
 } from '../components/delivery-summary';
 import { DistributionBar } from '../components/distribution-bar';
 import { OfflineBanner } from '../components/offline-banner';
-import { ReasonDialog } from '../components/reason-dialog';
+import { Reason } from '../components/patterns/reason';
 import { RailSection, RecordLayout, RecordPending } from '../components/record-layout';
 import { StatusDot } from '../components/status-dot';
 import { ActionButton } from '../components/ui/action-button';
@@ -269,15 +269,11 @@ function DeliveryRecord({ id }: { id: string }) {
     <>
       <OfflineBanner {...conn} />
       {mode === 'decisions' && <DeliveryDecisions key={id} id={id} />}
-      <ReasonDialog
+      <Reason
         open={dialogOpen}
         required
-        keepOpenOnRefusal
-        disabled={disabled}
-        closeLocked={pending}
+        commitDisabled={disabled}
         title={`${dialog === 'pause' ? 'Pause' : 'Abandon'} ${id}`}
-        confirmLabel={dialog === 'pause' ? 'Pause delivery' : 'Abandon delivery'}
-        confirmVariant={dialog === 'pause' ? 'outline' : 'destructiveOutline'}
         // A disabled opener (offline, or a write in flight) cannot take focus back.
         finalFocus={() =>
           control.current?.isConnected && !control.current.disabled
@@ -287,13 +283,19 @@ function DeliveryRecord({ id }: { id: string }) {
         onClose={() => {
           setDialogOpen(false);
         }}
-        onConfirm={async (reason) => {
-          if (dialog === 'pause') {
-            await park.mutateAsync({ id, reason });
-          } else {
-            await abandon.mutateAsync({ id, reason });
-          }
-        }}
+        commits={[
+          {
+            label: dialog === 'pause' ? 'Pause delivery' : 'Abandon delivery',
+            onCommit: async (reason) => {
+              if (dialog === 'pause') {
+                await park.mutateAsync({ id, reason });
+              } else {
+                await abandon.mutateAsync({ id, reason });
+              }
+            },
+            variant: dialog === 'pause' ? 'outline' : 'destructiveOutline',
+          },
+        ]}
       />
       <RecordLayout large head={head} rail={rail} railLabel="Delivery details">
         {d.hold !== 'none' && (

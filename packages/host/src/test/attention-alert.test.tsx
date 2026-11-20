@@ -311,6 +311,23 @@ describe('the Needs you popover', () => {
     expect(screen.getByRole('dialog', { name: 'Needs you' })).toBeDefined();
   });
 
+  it('on a phone, Escape in the Answer… dialog closes only the dialog, not the sheet', async () => {
+    stubViewport('phone');
+    await renderAt('/p/MMR/tasks', twoProjects({ lm: [loomQuestion] }));
+    const sheet = await openAlert('1 needs you');
+    const answerButton = within(sheet).getByRole('button', { name: 'Answer…' });
+
+    await userEvent.click(answerButton);
+    await screen.findByRole('dialog', { name: 'Answer' });
+    await userEvent.keyboard('{Escape}');
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Answer' })).toBeNull();
+    });
+    expect(screen.getByRole('dialog', { name: 'Needs you' })).toBeDefined();
+    expect(answerButton).toHaveFocus();
+  });
+
   it('closes when the viewport crosses the breakpoint, and opens afresh as the sheet', async () => {
     const setViewport = stubViewport('desktop');
     await renderAt('/p/MMR/tasks', twoProjects({ lm: [loomQuestion] }));

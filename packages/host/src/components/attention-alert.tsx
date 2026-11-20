@@ -39,6 +39,9 @@ function useCurrentNodeId(): string | undefined {
   return match === undefined ? undefined : nodeIdOf(match.params.key, match.params.seq);
 }
 
+/** A UI SDK dialog or alert dialog that is open (the patterns a row's actions open). */
+const OPEN_DIALOG = '[data-slot="dialog-content"], [data-slot="alert-dialog-content"]';
+
 /**
  * Run `close` when a link inside the panel is activated. Clicks inside a
  * dialog a row opened reach here through React's portal bubbling, so a target
@@ -194,6 +197,14 @@ export function AttentionAlert() {
   const words = count === 1 ? 'needs you' : 'need you';
   // The trigger takes focus back from a walkthrough a panel entry opened (MMR-714).
   const returnTarget = { [RETURN_TARGET_ATTRIBUTE]: NEEDS_YOU_ENTRY };
+  // A row's Reason or confirm dialog is not part of the popover's or sheet's tree, so
+  // focus moving into it, or its Escape, reads as leaving. The panel stays until it closes.
+  const holdForNestedDialog = (next: boolean) => {
+    if (!next && document.querySelector(OPEN_DIALOG) !== null) {
+      return;
+    }
+    setOpen(next);
+  };
   const panel = (close?: ReactNode) => (
     <NeedsYouPanel
       report={report}
@@ -208,7 +219,7 @@ export function AttentionAlert() {
 
   if (desktop) {
     return (
-      <PopoverRoot open={open} onOpenChange={setOpen}>
+      <PopoverRoot open={open} onOpenChange={holdForNestedDialog}>
         <PopoverTrigger aria-label={label} className={PILL} {...returnTarget}>
           <PillFace count={count} words={words} />
         </PopoverTrigger>
@@ -231,7 +242,7 @@ export function AttentionAlert() {
       >
         <PillFace count={count} words={words} />
       </button>
-      <Sheet open={open} onOpenChange={setOpen}>
+      <Sheet open={open} onOpenChange={holdForNestedDialog}>
         <SheetContent side="bottom" aria-label="Needs you" aria-describedby={undefined}>
           {panel(
             <SheetClose aria-label="Close" className={cn(iconButtonClass, '-mr-2 ml-auto')}>

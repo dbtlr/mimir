@@ -21,6 +21,7 @@ import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
 import { engineContainer, engineTask } from './node-fixtures';
 import { serveNodes } from './node-fns';
+import { pressAndDropFocus } from './press-and-drop-focus';
 import { renderShell, renderRoute } from './router';
 import { serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
@@ -424,7 +425,7 @@ test.each(['Confirm with note', 'Answer with note'])(
     expect(commit).toHaveClass('inset-ring-line-bright');
     expect(commit).toBeDisabled();
     fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: '  Use neither  ' } });
-    fireEvent.click(commit);
+    pressAndDropFocus(commit);
     await waitFor(() => expect(fn).toHaveBeenCalledTimes(1));
     const attempt = expect.any(String);
     expect(fn).toHaveBeenCalledWith({
@@ -446,9 +447,7 @@ test('a refused one-tap decision returns focus to its chip', async () => {
   vi.mocked(confirm).mockRejectedValue(new Error('Refused answer'));
   await open();
   const chip = await screen.findByRole('button', { name: /Confirm option/ });
-  chip.focus();
-  fireEvent.click(chip);
-  chip.blur();
+  pressAndDropFocus(chip);
   await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Refused answer'));
   await waitFor(() => expect(chip).toHaveFocus());
 });
@@ -497,7 +496,7 @@ test.each(['Pause', 'Abandon'])(
     fireEvent.change(within(dialog).getByRole('textbox'), {
       target: { value: '  Wait for access  ' },
     });
-    fireEvent.click(commit);
+    pressAndDropFocus(commit);
     await waitFor(() =>
       expect(fn).toHaveBeenCalledExactlyOnceWith({
         data: { attempt: expect.any(String), id: 'MMR-d3', reason: 'Wait for access' },
@@ -617,9 +616,7 @@ test.each(['Clear stop', 'Resume'])('refused %s returns focus to its own chip', 
   vi.mocked(fn).mockRejectedValue(new Error('Cannot change delivery'));
   await open();
   const chip = (await screen.findAllByRole('button', { name: label }))[0]!;
-  chip.focus();
-  fireEvent.click(chip);
-  chip.blur();
+  pressAndDropFocus(chip);
   await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Cannot change delivery'));
   await waitFor(() => expect(chip).toHaveFocus());
 });
@@ -706,7 +703,7 @@ test('the Note dialog scrolls inside the viewport and wraps a long question', as
   await open();
   fireEvent.click(await screen.findByRole('button', { name: /Note for MMR-q1/ }));
   const dialog = await screen.findByRole('dialog', { name: 'Answer MMR-q1' });
-  expect(dialog).toHaveClass('max-h-[90dvh]');
+  expect(dialog).toHaveClass('max-h-[min(88dvh,var(--visual-viewport-height,100dvh))]');
   expect(dialog).toHaveClass('overflow-y-auto');
   expect(within(dialog).getByText(data.decisions[0]!.question)).toHaveClass('wrap-anywhere');
 });
@@ -768,9 +765,7 @@ test('a refused chip refocuses only once it is enabled again', async () => {
   );
   await open();
   const chip = await screen.findByRole('button', { name: /Confirm option/ });
-  chip.focus();
-  fireEvent.click(chip);
-  chip.blur();
+  pressAndDropFocus(chip);
   await waitFor(() => expect(confirm).toHaveBeenCalledTimes(1));
   const focusSpy = vi.spyOn(chip, 'focus');
   refuse();
@@ -799,9 +794,7 @@ test.each(['decision chip', 'delivery verb'])(
     const chip = await screen.findByRole('button', {
       name: kind === 'decision chip' ? /Confirm option/ : 'Resume',
     });
-    chip.focus();
-    fireEvent.click(chip);
-    chip.blur();
+    pressAndDropFocus(chip);
     await waitFor(() =>
       expect(kind === 'decision chip' ? confirm : deliveryUnpark).toHaveBeenCalledTimes(1),
     );

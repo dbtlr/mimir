@@ -13,8 +13,8 @@ import { useDisarmWhenSettled } from '../lib/use-row-focus-handoff';
 import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
 import { BrowserRow } from './browser-list';
 import { DecisionActions } from './decision-actions';
+import { GroomingAnswerDialog } from './grooming-answer-dialog';
 import { GroomingBadge } from './grooming-chip';
-import { GroomingDialog } from './grooming-dialog';
 import { SizeBadge, StaleBadge } from './signal-badges';
 import { StatusDot } from './status-dot';
 import { ActionButton } from './ui/action-button';
@@ -270,13 +270,7 @@ function AnswerAction({
         Answer…
       </ActionButton>
       {answering && (
-        <GroomingDialog
-          mode="answer"
-          nodeId={id}
-          question={question}
-          open
-          onClose={() => setAnswering(false)}
-        />
+        <GroomingAnswerDialog nodeId={id} question={question} onClose={() => setAnswering(false)} />
       )}
     </>
   );

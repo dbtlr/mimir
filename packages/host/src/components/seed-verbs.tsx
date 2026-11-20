@@ -9,7 +9,7 @@ import type { SeedStanding } from '../lib/seed-lanes';
 import { PHONE_TOUCH_TARGET } from '../lib/touch-target';
 import { useDisarmWhenSettled } from '../lib/use-row-focus-handoff';
 import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
-import { ReasonDialog } from './reason-dialog';
+import { Reason } from './patterns/reason';
 
 type PendingVerb = 'park' | 'reject' | 'resolve' | null;
 
@@ -218,37 +218,25 @@ export function SeedVerbs<S extends VerbSeed>({
     <div className={cn('flex flex-wrap items-center gap-2', className)}>
       {chips}
       {withSpawned && <SpawnedRef seed={seed} />}
-      <ReasonDialog
+      <Reason
         title="Park seed"
-        confirmLabel="Park"
         open={pending === 'park'}
         onClose={() => setPending(null)}
-        onConfirm={(reason) => {
-          commit(() => park.mutate(reason));
-          setPending(null);
-        }}
+        commits={[{ label: 'Park', onCommit: (reason) => commit(() => park.mutate(reason)) }]}
       />
-      <ReasonDialog
+      <Reason
         title="Reject seed"
-        confirmLabel="Reject"
         required
         open={pending === 'reject'}
         onClose={() => setPending(null)}
-        onConfirm={(reason) => {
-          commit(() => reject.mutate(reason));
-          setPending(null);
-        }}
+        commits={[{ label: 'Reject', onCommit: (reason) => commit(() => reject.mutate(reason)) }]}
       />
-      <ReasonDialog
+      <Reason
         title="Resolve seed"
-        confirmLabel="Resolve"
         required
         open={pending === 'resolve'}
         onClose={() => setPending(null)}
-        onConfirm={(reason) => {
-          commit(() => resolve.mutate(reason));
-          setPending(null);
-        }}
+        commits={[{ label: 'Resolve', onCommit: (reason) => commit(() => resolve.mutate(reason)) }]}
       />
     </div>
   );

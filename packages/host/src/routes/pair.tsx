@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useApprovePairing, useDenyPairing } from '../api/device-mutations';
 import { pairingLookupQuery } from '../api/device-queries';
 import { OfflineBanner } from '../components/offline-banner';
+import { DestructiveConfirm } from '../components/patterns/destructive-confirm';
 import { ActionButton } from '../components/ui/action-button';
 import { Skeleton } from '../components/ui/skeleton';
 import { connectivity } from '../lib/connectivity';
@@ -114,6 +115,8 @@ export function PairPage() {
   const [typed, setTyped] = useState(formatTyped(initial ?? ''));
   const approve = useApprovePairing();
   const deny = useDenyPairing();
+  // The code the Deny confirm was opened for; it binds the confirm to that one request.
+  const [denyingCode, setDenyingCode] = useState<string | undefined>();
   const code = typed.length === CODE_LENGTH + 1 ? typed : undefined;
   const lookup = useQuery({ ...pairingLookupQuery(code ?? ''), enabled: code !== undefined });
   const conn = connectivity(code === undefined ? [] : [lookup]);
@@ -143,6 +146,7 @@ export function PairPage() {
             onChange={(event) => {
               const next = formatTyped(event.target.value);
               setTyped(next);
+              setDenyingCode(undefined);
               void navigate({ replace: true, search: { code: next === '' ? undefined : next } });
             }}
             className="w-full rounded-lg border border-line-bright bg-well-950 px-3.5 py-3 font-mono text-xl tracking-[0.18em] text-ink-bright placeholder:text-ink-ghost focus-visible:outline-2 focus-visible:outline-accent"
@@ -182,12 +186,32 @@ export function PairPage() {
                   approve.mutate(code);
                 }}
                 onDeny={() => {
-                  deny.mutate(code);
+                  setDenyingCode(code);
                 }}
               />
             )}
         </div>
       </main>
+      <DestructiveConfirm
+        open={code !== undefined && denyingCode === code && decided === undefined}
+        onClose={() => {
+          setDenyingCode(undefined);
+        }}
+        title={`Deny ${request?.device ?? 'this device'}?`}
+        commitLabel="Deny"
+        pending={deny.isPending}
+        onConfirm={async () => {
+          if (code !== undefined) {
+            await deny.mutateAsync(code, {
+              onSettled: () => {
+                setDenyingCode(undefined);
+              },
+            });
+          }
+        }}
+      >
+        The request is discarded. The device has to ask again, with a new code, to pair.
+      </DestructiveConfirm>
     </>
   );
 }

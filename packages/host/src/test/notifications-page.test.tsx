@@ -894,7 +894,7 @@ describe('subscribed browsers', () => {
 /** Open the reset confirmation and confirm it. */
 async function confirmReset() {
   await userEvent.click(await screen.findByRole('button', { name: 'Reset push key…' }));
-  const sheet = await screen.findByRole('dialog', { name: 'Reset the push key?' });
+  const sheet = await screen.findByRole('alertdialog', { name: 'Reset the push key?' });
   await userEvent.click(within(sheet).getByRole('button', { name: 'Reset' }));
 }
 
@@ -902,19 +902,45 @@ describe('Reset push key', () => {
   it('asks first, and does nothing on Cancel', async () => {
     await open('phone', { world: { devices: [other] } });
     await userEvent.click(await screen.findByRole('button', { name: 'Reset push key…' }));
-    const sheet = await screen.findByRole('dialog', { name: 'Reset the push key?' });
+    const sheet = await screen.findByRole('alertdialog', { name: 'Reset the push key?' });
     expect(sheet).toHaveTextContent('Every device stops receiving notifications');
     await userEvent.click(within(sheet).getByRole('button', { name: 'Cancel' }));
     expect(resetPushKey).not.toHaveBeenCalled();
     await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Reset the push key?' })).toBeNull();
+      expect(screen.queryByRole('alertdialog', { name: 'Reset the push key?' })).toBeNull();
     });
+  });
+
+  it.each(['Cancel', 'Escape'])('allows %s while Turn on disables Reset', async (dismiss) => {
+    const browser = fakeBrowser();
+    const permission = Promise.withResolvers<NotificationPermission>();
+    vi.spyOn(browser, 'requestPermission').mockReturnValue(permission.promise);
+    await open('phone', { browser, world: { devices: [other] } });
+    try {
+      const turnOn = await screen.findByRole('button', { name: 'Turn on' });
+      await userEvent.click(turnOn);
+      expect(turnOn).toBeDisabled();
+      await userEvent.click(screen.getByRole('button', { name: 'Reset push key…' }));
+      const dialog = await screen.findByRole('alertdialog', { name: 'Reset the push key?' });
+      expect(within(dialog).getByRole('button', { name: 'Reset' })).toBeDisabled();
+      if (dismiss === 'Cancel') {
+        await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+      } else {
+        await userEvent.keyboard('{Escape}');
+      }
+      await waitFor(() => expect(dialog).not.toBeInTheDocument());
+      expect(turnOn).toBeDisabled();
+      expect(resetPushKey).not.toHaveBeenCalled();
+    } finally {
+      permission.resolve('denied');
+      await settle();
+    }
   });
 
   it('keeps the sheet open with the reason when the host refuses', async () => {
     await open('phone', { world: { devices: [other], reset: { state: 'unconfigured' } } });
     await confirmReset();
-    const sheet = await screen.findByRole('dialog', { name: 'Reset the push key?' });
+    const sheet = await screen.findByRole('alertdialog', { name: 'Reset the push key?' });
     await waitFor(() => {
       expect(sheet).toHaveTextContent(resetRefusalText({ state: 'unconfigured' }) ?? '');
     });
@@ -926,6 +952,26 @@ describe('Reset push key', () => {
     await waitFor(() => {
       expect(resetPushKey).toHaveBeenCalledOnce();
     });
+  });
+
+  it('holds Cancel and Escape while Reset is pending', async () => {
+    await open('phone', { world: { devices: [other] } });
+    const reset = Promise.withResolvers<Awaited<ReturnType<typeof resetPushKey>>>();
+    vi.mocked(resetPushKey).mockReturnValueOnce(reset.promise);
+    try {
+      await confirmReset();
+      const dialog = await screen.findByRole('alertdialog', { name: 'Reset the push key?' });
+      expect(resetPushKey).toHaveBeenCalledOnce();
+      expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled();
+      await userEvent.keyboard('{Escape}');
+      expect(dialog).toBeInTheDocument();
+    } finally {
+      await act(async () => {
+        reset.resolve({ state: 'unconfigured' });
+        await reset.promise;
+      });
+      await settle();
+    }
   });
 
   it('from an unusable key, resets and subscribes this browser once with the new key', async () => {
@@ -1031,7 +1077,7 @@ describe('Reset push key', () => {
         expect(resetPushKey).toHaveBeenCalledOnce();
       });
       await userEvent.click(await screen.findByRole('button', { name: 'Reset push key…' }));
-      const sheet = await screen.findByRole('dialog', { name: 'Reset the push key?' });
+      const sheet = await screen.findByRole('alertdialog', { name: 'Reset the push key?' });
       expect(within(sheet).getByRole('button', { name: 'Reset' })).toBeDisabled();
       await act(async () => {
         await vi.advanceTimersByTimeAsync(HEAL_WAIT_MS);
@@ -1080,7 +1126,7 @@ describe('Reset push key', () => {
         list.resolve();
       });
       await userEvent.click(await screen.findByRole('button', { name: 'Reset push key…' }));
-      const sheet = await screen.findByRole('dialog', { name: 'Reset the push key?' });
+      const sheet = await screen.findByRole('alertdialog', { name: 'Reset the push key?' });
       expect(within(sheet).getByRole('button', { name: 'Reset' })).toBeDisabled();
       await act(async () => {
         await vi.advanceTimersByTimeAsync(HEAL_WAIT_MS);

@@ -214,7 +214,7 @@ describe('Now on the work page', () => {
     await renderRoute(consoleRoutes, '/p/MMR', quietClient());
     const { row } = await rowOf('Show each clone’s last sync');
     await userEvent.click(within(row).getByRole('button', { name: 'Stop run on MMR-640' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Stop the agent on MMR-640?' });
+    const dialog = await screen.findByRole('alertdialog', { name: 'Stop the agent on MMR-640?' });
     state.activity = runningActivity({ stopping: true }, 'Show each clone’s last sync');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Stop run' }));
     await waitFor(() => {
@@ -267,7 +267,7 @@ describe('Now on the work page', () => {
     const stop = within(row).getByRole('button', { name: 'Stop run on MMR-640' });
     expect(stop).toHaveAttribute('title', 'Stop run');
     await userEvent.click(stop);
-    const dialog = await screen.findByRole('dialog', { name: 'Stop the agent on MMR-640?' });
+    const dialog = await screen.findByRole('alertdialog', { name: 'Stop the agent on MMR-640?' });
     await userEvent.click(within(dialog).getByRole('button', { name: 'Stop run' }));
     await waitFor(() => {
       expect(cancelGroom).toHaveBeenCalledWith({ data: { runId: 'run-1' } });
@@ -281,7 +281,7 @@ describe('Now on the work page', () => {
     const state = await openProject(runningActivity({ cancellable: true }));
     const { row } = await rowOf('Show each clone’s last sync time');
     await userEvent.click(within(row).getByRole('button', { name: 'Stop run on MMR-640' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Stop the agent on MMR-640?' });
+    const dialog = await screen.findByRole('alertdialog', { name: 'Stop the agent on MMR-640?' });
     state.activity = runningActivity({ cancellable: true, id: 'run-2', task: 'MMR-641' }, 'Next');
     await vi.advanceTimersByTimeAsync(10_500);
     // The modal hides the page behind it from the accessibility tree.
@@ -297,13 +297,13 @@ describe('Now on the work page', () => {
     const state = await openProject(runningActivity({ cancellable: true }));
     const { row } = await rowOf('Show each clone’s last sync time');
     await userEvent.click(within(row).getByRole('button', { name: 'Stop run on MMR-640' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Stop the agent on MMR-640?' });
+    const dialog = await screen.findByRole('alertdialog', { name: 'Stop the agent on MMR-640?' });
     // The run ended on its own: the stop answers ended, and the refresh empties Now.
     state.cancel = { runState: 'succeeded', state: 'ended' };
     state.activity = { running: null };
     await userEvent.click(within(dialog).getByRole('button', { name: 'Stop run' }));
     await vi.advanceTimersByTimeAsync(10_500);
-    const answered = await screen.findByRole('dialog', { name: 'Stop the agent on MMR-640?' });
+    const answered = await screen.findByRole('alertdialog', { name: 'Stop the agent on MMR-640?' });
     await expect(
       within(answered).findByText('The run already ended (succeeded).'),
     ).resolves.toBeInTheDocument();

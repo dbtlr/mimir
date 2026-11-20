@@ -5,11 +5,11 @@ import type { RefObject } from 'react';
 
 import type { PushDevice, PushDeviceList, PushEventKind } from '../api/fns/push';
 import { pushDevicesQuery, pushStatusQuery } from '../api/push-queries';
+import { DestructiveConfirm } from '../components/patterns/destructive-confirm';
 import { KindSwitches } from '../components/push-kind-switches';
 import type { KindSwitchesProps } from '../components/push-kind-switches';
 import { SETTINGS_CARD, SettingsGroup, SettingsPage } from '../components/settings-page';
 import { ActionButton, DESTRUCTIVE_OUTLINE } from '../components/ui/action-button';
-import { ConfirmCard } from '../components/ui/confirm-card';
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../components/ui/legacy-menu';
 import { Sheet, SheetClose, SheetContent, SheetTitle } from '../components/ui/sheet';
 import { Skeleton } from '../components/ui/skeleton';
@@ -75,46 +75,37 @@ function RowText({ label, meta, oldKey }: { label: string; meta: string; oldKey?
   );
 }
 
-/** A confirmation sheet for resetting the push key. */
-function ResetSheet({
+/** The Destructive confirm for resetting the push key. */
+function ResetConfirm({
   open,
   onOpenChange,
   onConfirm,
-  pending,
+  commitDisabled,
   refusal,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: () => void;
-  pending: boolean;
+  onConfirm: () => Promise<void>;
+  commitDisabled: boolean;
   refusal: string | undefined;
 }) {
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="p-4">
-        <ConfirmCard
-          surface="bare"
-          title="Reset the push key?"
-          titleAs={SheetTitle}
-          notice={refusal}
-          cancel={{
-            label: 'Cancel',
-            onClick: () => {
-              onOpenChange(false);
-            },
-          }}
-          confirm={{
-            disabled: pending,
-            label: 'Reset',
-            onClick: onConfirm,
-            variant: 'destructiveOutline',
-          }}
-        >
-          Every device stops receiving notifications until its console is opened again, and then
-          subscribes again.
-        </ConfirmCard>
-      </SheetContent>
-    </Sheet>
+    <DestructiveConfirm
+      open={open}
+      onClose={() => {
+        onOpenChange(false);
+      }}
+      title="Reset the push key?"
+      commitLabel="Reset"
+      commitDisabled={commitDisabled}
+      notice={refusal}
+      // A reset closes the dialog itself; a refusal stays, as the notice.
+      closeOnCommit={false}
+      onConfirm={onConfirm}
+    >
+      Every device stops receiving notifications until its console is opened again, and then
+      subscribes again.
+    </DestructiveConfirm>
   );
 }
 
@@ -743,7 +734,7 @@ export function NotificationsPage() {
           onSaved: onKindSaved,
         }}
       />
-      <ResetSheet
+      <ResetConfirm
         open={resetOpen}
         onOpenChange={(open) => {
           setResetOpen(open);
@@ -751,8 +742,8 @@ export function NotificationsPage() {
             setResetRefusal(undefined);
           }
         }}
-        onConfirm={() => void onReset()}
-        pending={busy}
+        onConfirm={onReset}
+        commitDisabled={busy}
         refusal={resetRefusal}
       />
     </SettingsPage>

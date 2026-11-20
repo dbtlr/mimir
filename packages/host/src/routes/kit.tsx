@@ -7,6 +7,7 @@ import { Badge, statusChipVariants } from '../components/ui/badge';
 import { Card, CardContent, CardHeader } from '../components/ui/card';
 import { ChoiceKit } from '../kit/choice';
 import { OverlaysKit } from '../kit/overlays';
+import { PatternsKit } from '../kit/patterns';
 import { PickersKit } from '../kit/pickers';
 import { PopupsKit } from '../kit/popups';
 import { Section } from '../kit/section';
@@ -200,6 +201,7 @@ export function KitPage() {
         </p>
       </header>
       <OverlaysKit />
+      <PatternsKit />
       <PopupsKit />
       <ChoiceKit />
       <TextKit />
