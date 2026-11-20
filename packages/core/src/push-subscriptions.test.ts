@@ -140,19 +140,16 @@ describe.each([
     expect(await subscriptions.get('https://push.example/none')).toBeUndefined();
   });
 
-  test('a stored muted_kinds that is not a JSON array of strings reads as none muted', async () => {
+  test('setMutedKind keeps a name the column holds that is not one of the kinds', async () => {
     const { db, subscriptions } = await fixture();
     await subscriptions.subscribe(row(A), 5);
-    for (const stored of ['not json', '{"a":1}', '[1,"decisions"]']) {
-      await db
-        .updateTable('push_subscriptions')
-        .set({ muted_kinds: stored })
-        .where('endpoint', '=', A)
-        .execute();
-      expect((await subscriptions.get(A))?.mutedKinds).toEqual(
-        stored === '[1,"decisions"]' ? ['decisions'] : [],
-      );
-    }
+    await db
+      .updateTable('push_subscriptions')
+      .set({ muted_kinds: '["retired_kind"]' })
+      .where('endpoint', '=', A)
+      .execute();
+    expect(await subscriptions.setMutedKind(A, 'decisions', true)).toBe(true);
+    expect((await subscriptions.get(A))?.mutedKinds).toEqual(['retired_kind', 'decisions']);
   });
 
   test('the limit refuses a new endpoint but allows an existing one', async () => {

@@ -809,6 +809,9 @@ describe('the VAPID key', () => {
       ],
       state: 'listed',
     });
+    // Set kind works here too, as Unsubscribe does, although the console never offers it.
+    expect(await r.channel.setKind(APPLE, 'decisions', true)).toEqual({ state: 'saved' });
+    expect((await r.subscriptions.get(APPLE))?.mutedKinds).toEqual(['decisions']);
     await r.channel.deliver(EVENT);
     expect(r.service.requests).toEqual([]);
     expect(await r.secrets.read(PUSH_SECRET_NAME)).toBe(sealed);
