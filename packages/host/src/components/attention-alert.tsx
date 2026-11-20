@@ -39,6 +39,9 @@ function useCurrentNodeId(): string | undefined {
   return match === undefined ? undefined : nodeIdOf(match.params.key, match.params.seq);
 }
 
+/** A UI SDK dialog or alert dialog that is open (the patterns a row's actions open). */
+const OPEN_DIALOG = '[data-slot="dialog-content"], [data-slot="alert-dialog-content"]';
+
 /**
  * Run `close` when a link inside the panel is activated. Clicks inside a
  * dialog a row opened reach here through React's portal bubbling, so a target
@@ -208,7 +211,17 @@ export function AttentionAlert() {
 
   if (desktop) {
     return (
-      <PopoverRoot open={open} onOpenChange={setOpen}>
+      <PopoverRoot
+        open={open}
+        onOpenChange={(next) => {
+          // A row's Reason or confirm dialog is not part of this popover's tree, so
+          // focus moving into it reads as leaving. The panel stays until it closes.
+          if (!next && document.querySelector(OPEN_DIALOG) !== null) {
+            return;
+          }
+          setOpen(next);
+        }}
+      >
         <PopoverTrigger aria-label={label} className={PILL} {...returnTarget}>
           <PillFace count={count} words={words} />
         </PopoverTrigger>

@@ -706,7 +706,7 @@ test('the Note dialog scrolls inside the viewport and wraps a long question', as
   await open();
   fireEvent.click(await screen.findByRole('button', { name: /Note for MMR-q1/ }));
   const dialog = await screen.findByRole('dialog', { name: 'Answer MMR-q1' });
-  expect(dialog).toHaveClass('max-h-[90dvh]');
+  expect(dialog).toHaveClass('max-h-[min(88dvh,var(--visual-viewport-height,100dvh))]');
   expect(dialog).toHaveClass('overflow-y-auto');
   expect(within(dialog).getByText(data.decisions[0]!.question)).toHaveClass('wrap-anywhere');
 });

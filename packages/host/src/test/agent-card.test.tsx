@@ -359,7 +359,7 @@ const openDialog = async (answer: GroomCancelResult = { state: 'cancelling' }) =
   shown.state.cancel = answer;
   await card();
   await userEvent.click(button('Stop'));
-  return screen.findByRole('dialog', { name: 'Stop the agent on MMR-640?' });
+  return screen.findByRole('alertdialog', { name: 'Stop the agent on MMR-640?' });
 };
 
 /** A card whose last run the operator stopped from the console, as the host reads it. */
@@ -397,7 +397,7 @@ describe('stopping a run', () => {
     await openDialog();
     await userEvent.click(screen.getByRole('button', { name: 'Keep running' }));
     await waitFor(() => {
-      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(screen.queryByRole('alertdialog')).toBeNull();
     });
     expect(cancelGroom).not.toHaveBeenCalled();
     expect(button('Stop')).toHaveFocus();
@@ -407,7 +407,7 @@ describe('stopping a run', () => {
     await openDialog();
     await userEvent.keyboard('{Escape}');
     await waitFor(() => {
-      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(screen.queryByRole('alertdialog')).toBeNull();
     });
     expect(cancelGroom).not.toHaveBeenCalled();
   });
@@ -419,7 +419,7 @@ describe('stopping a run', () => {
       expect(cancelGroom).toHaveBeenCalledWith({ data: { runId: 'run-1' } });
     });
     await waitFor(() => {
-      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(screen.queryByRole('alertdialog')).toBeNull();
     });
   });
 
@@ -430,11 +430,11 @@ describe('stopping a run', () => {
     await expect(
       screen.findByText('The run is already finishing on its own.'),
     ).resolves.toBeVisible();
-    expect(screen.getByRole('dialog')).toBeVisible();
+    expect(screen.getByRole('alertdialog')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Stop run' })).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Close' }));
     await waitFor(() => {
-      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(screen.queryByRole('alertdialog')).toBeNull();
     });
   });
 

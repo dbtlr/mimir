@@ -82,13 +82,17 @@ describe('devices page (MMR-585)', () => {
     expect(row).not.toBeNull();
     const inRow = within(row as HTMLElement);
     await userEvent.click(inRow.getByRole('button', { name: 'Unpair' }));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Unpair valhalla?' });
     expect(
-      inRow.getByText('Its token stops working now, and any waiting request is discarded.'),
+      within(dialog).getByText(
+        'Its token stops working now, and any waiting request is discarded.',
+      ),
     ).toBeDefined();
-    expect(inRow.getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
     expect(unpairDevice).not.toHaveBeenCalled();
 
-    await userEvent.click(inRow.getByRole('button', { name: 'Cancel' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
     expect(inRow.getByRole('button', { name: 'Unpair' })).toHaveFocus();
     expect(unpairDevice).not.toHaveBeenCalled();
 

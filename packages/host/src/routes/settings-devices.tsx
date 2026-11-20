@@ -1,12 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useUnpairDevice } from '../api/device-mutations';
 import { pairedDevicesQuery, pendingPairingsQuery } from '../api/device-queries';
 import type { PairedDevice } from '../api/fns/devices';
 import { OfflineBanner } from '../components/offline-banner';
+import { DestructiveConfirm } from '../components/patterns/destructive-confirm';
 import { SettingsPage } from '../components/settings-page';
 import { actionButtonVariants, ActionButton } from '../components/ui/action-button';
 import { Skeleton } from '../components/ui/skeleton';
@@ -18,7 +19,7 @@ import { absoluteTime, ago, calendarDate, until } from '../lib/time';
  * `/settings/devices` — the clients that wait to pair with this host and the
  * ones paired with it (ADR 0038, MMR-585, MMR-733). Waiting requests are
  * read-only here: a request's code is stored hashed, so the operator decides on
- * `/pair` with the code the device shows. Unpairing asks first, in the row,
+ * `/pair` with the code the device shows. Unpairing asks first, in a Destructive confirm,
  * because the device loses access the moment it is confirmed.
  */
 
@@ -55,41 +56,10 @@ function Dot({ className }: { className: string }) {
   return <span aria-hidden className={cn('size-[7px] shrink-0 rounded-full', className)} />;
 }
 
-/** A paired device, with Unpair turning into an inline confirm. */
+/** A paired device, with Unpair asking through a Destructive confirm. */
 function PairedRow({ device }: { device: PairedDevice }) {
   const [confirming, setConfirming] = useState(false);
   const unpair = useUnpairDevice();
-  const unpairButton = useRef<HTMLButtonElement>(null);
-  const cancelButton = useRef<HTMLButtonElement>(null);
-  const restoreFocus = useRef(false);
-  // The confirm opens on Cancel, the safe choice; leaving it returns to the button that opened it.
-  useEffect(() => {
-    if (confirming) {
-      cancelButton.current?.focus();
-    } else if (restoreFocus.current) {
-      restoreFocus.current = false;
-      unpairButton.current?.focus();
-    }
-  }, [confirming]);
-  const closeConfirm = () => {
-    restoreFocus.current = true;
-    setConfirming(false);
-  };
-  // Escape backs out of an open confirm, wherever focus has moved.
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        restoreFocus.current = true;
-        setConfirming(false);
-      }
-    };
-    if (confirming) {
-      document.addEventListener('keydown', onKeyDown);
-    }
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [confirming]);
   return (
     <li className={ROW}>
       <Dot className={device.last_used_at === null ? 'bg-ink-ghost' : 'bg-status-done'} />
@@ -99,44 +69,34 @@ function PairedRow({ device }: { device: PairedDevice }) {
         {device.last_used_at === null ? 'never used' : `used ${ago(device.last_used_at)}`}
       </span>
       <div className="ml-auto flex items-center gap-2">
-        {confirming ? (
-          <div
-            role="group"
-            aria-label={`Unpair ${device.device}?`}
-            className="flex flex-wrap items-center gap-2"
-          >
-            <span className="text-xs text-ink-dim">
-              Its token stops working now, and any waiting request is discarded.
-            </span>
-            <ActionButton
-              size="sm"
-              variant="destructiveOutline"
-              disabled={unpair.isPending}
-              onClick={() => {
-                unpair.mutate(device.device, {
-                  onSettled: closeConfirm,
-                });
-              }}
-            >
-              Unpair {device.device}
-            </ActionButton>
-            <ActionButton ref={cancelButton} size="sm" variant="outline" onClick={closeConfirm}>
-              Cancel
-            </ActionButton>
-          </div>
-        ) : (
-          <ActionButton
-            ref={unpairButton}
-            size="sm"
-            variant="destructiveOutline"
-            onClick={() => {
-              setConfirming(true);
-            }}
-          >
-            Unpair
-          </ActionButton>
-        )}
+        <ActionButton
+          size="sm"
+          variant="destructiveOutline"
+          onClick={() => {
+            setConfirming(true);
+          }}
+        >
+          Unpair
+        </ActionButton>
       </div>
+      <DestructiveConfirm
+        open={confirming}
+        onClose={() => {
+          setConfirming(false);
+        }}
+        title={`Unpair ${device.device}?`}
+        commitLabel={`Unpair ${device.device}`}
+        // A refusal is toasted by the mutation; the dialog closes either way, as the old swap did.
+        onConfirm={async () => {
+          try {
+            await unpair.mutateAsync(device.device);
+          } catch {
+            // Toasted by the mutation.
+          }
+        }}
+      >
+        Its token stops working now, and any waiting request is discarded.
+      </DestructiveConfirm>
     </li>
   );
 }

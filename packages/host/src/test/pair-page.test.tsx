@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -34,6 +34,13 @@ function waiting(device: string, rotates = false) {
     expires_at: new Date(now + 9.5 * MINUTE).toISOString(),
     rotates,
   };
+}
+
+/** Press Deny, then commit it in the confirm it opens. */
+async function denyAndConfirm() {
+  await userEvent.click(await screen.findByRole('button', { name: 'Deny' }));
+  const dialog = await screen.findByRole('alertdialog', { name: 'Deny drews-macbook?' });
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Deny' }));
 }
 
 describe('pair page (MMR-585)', () => {
@@ -125,7 +132,7 @@ describe('pair page (MMR-585)', () => {
     serveDevices({ codes: { [CODE]: waiting('drews-macbook') } });
     await renderRoute(consoleRoutes, `/pair?code=${CODE}`);
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Deny' }));
+    await denyAndConfirm();
 
     await expect(screen.findByText('Denied drews-macbook.')).resolves.toBeDefined();
     expect(denyPairing).toHaveBeenCalledWith({ data: { code: CODE } });
@@ -169,8 +176,23 @@ describe('pair page (MMR-585)', () => {
     serveDevices({ codes: { [CODE]: waiting('drews-macbook') } });
     await renderRoute(consoleRoutes, `/pair?code=${CODE}`);
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Deny' }));
+    await denyAndConfirm();
 
     await expect(screen.findByText('Denied drews-macbook.')).resolves.toHaveFocus();
+  });
+
+  it('asks before denying, and Cancel leaves the request waiting', async () => {
+    serveDevices({ codes: { [CODE]: waiting('drews-macbook') } });
+    await renderRoute(consoleRoutes, `/pair?code=${CODE}`);
+
+    const deny = await screen.findByRole('button', { name: 'Deny' });
+    await userEvent.click(deny);
+    const dialog = await screen.findByRole('alertdialog', { name: 'Deny drews-macbook?' });
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(denyPairing).not.toHaveBeenCalled();
+    expect(deny).toHaveFocus();
   });
 });

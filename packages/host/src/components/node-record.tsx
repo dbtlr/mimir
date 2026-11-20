@@ -16,7 +16,7 @@ import { verdictSummary } from '../lib/verdict';
 import type { RecordArtifact } from '../lib/work-page';
 import { LinkifiedText } from './linkified-text';
 import { MarkdownBody } from './markdown-body';
-import { ReasonDialog } from './reason-dialog';
+import { Reason } from './patterns/reason';
 import { OpenEndedBadge, PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
 import { StatusDot } from './status-dot';
 import type { TaskFormSubmit } from './task-form';
@@ -361,17 +361,23 @@ export function useNodeVerbs(nodeId: string) {
   }
 
   const dialog = (
-    <ReasonDialog
-      verb={reasonVerb?.verb ?? null}
+    <Reason
+      title={reasonVerb === null ? '' : transitionLabel(reasonVerb.verb)}
       required={reasonVerb?.verb === 'unqueue'}
       open={reasonVerb !== null}
       onClose={() => setReasonVerb(null)}
-      onConfirm={(reason) => {
-        if (reasonVerb !== null) {
-          transition(reason === '' ? { verb: reasonVerb.verb } : { reason, verb: reasonVerb.verb });
-        }
-        setReasonVerb(null);
-      }}
+      commits={[
+        {
+          label: 'Confirm',
+          onCommit: (reason) => {
+            if (reasonVerb !== null) {
+              transition(
+                reason === '' ? { verb: reasonVerb.verb } : { reason, verb: reasonVerb.verb },
+              );
+            }
+          },
+        },
+      ]}
     />
   );
 

@@ -135,6 +135,53 @@ Object.defineProperty(Element.prototype, 'scrollIntoView', {
   value: () => {},
 });
 
+// UI SDK's overlays (the Dialog and Alert Dialog primitives) ask the DOM for
+// animations and popover support that jsdom lacks (the ui-sdk skill's
+// testing reference lists these stubs). With none running, a closing overlay
+// unmounts at once, and the stubs change nothing about what a test observes.
+// oxlint-disable-next-line vitest/require-hook
+// Base UI, still on some asks, takes a `getAnimations` method as a sign that
+// an exit animation may run and waits a tick before it hands focus back, so
+// only UI SDK's elements (the ones with a `data-slot`) get the stub.
+// oxlint-disable-next-line vitest/require-hook
+Object.defineProperties(Element.prototype, {
+  checkVisibility: { configurable: true, value: () => true },
+  getAnimations: {
+    configurable: true,
+    get(this: Element) {
+      return this.hasAttribute('data-slot') ? () => [] : undefined;
+    },
+  },
+});
+// oxlint-disable-next-line vitest/require-hook
+Object.defineProperties(HTMLElement.prototype, {
+  hidePopover: { configurable: true, value: () => {} },
+  showPopover: { configurable: true, value: () => {} },
+});
+// jsdom hides [popover] content; UI SDK renders its overlays as popovers.
+// oxlint-disable-next-line vitest/require-hook
+document.head.append(
+  Object.assign(document.createElement('style'), {
+    textContent: '[popover] { display: block !important }',
+  }),
+);
+// UI SDK reads paint timing from `performance` when an overlay opens. jsdom has
+// none, and Vitest's fake clock swaps `performance` for a fake without it, so
+// the stub is applied again each time a test installs fake timers.
+function stubPaintTiming() {
+  if (typeof performance.getEntriesByType !== 'function') {
+    Object.defineProperty(performance, 'getEntriesByType', { configurable: true, value: () => [] });
+  }
+}
+// oxlint-disable-next-line vitest/require-hook
+stubPaintTiming();
+const installFakeTimers = vi.useFakeTimers.bind(vi);
+vi.useFakeTimers = (...args: Parameters<typeof vi.useFakeTimers>) => {
+  const result = installFakeTimers(...args);
+  stubPaintTiming();
+  return result;
+};
+
 // jsdom has no matchMedia; the theme resolver (lib/theme.ts) reads it on mount.
 // Default to "no match" (→ dark). theme.test.ts stubs it per-case for OS-pref tests.
 if (typeof globalThis !== 'undefined' && typeof globalThis.matchMedia !== 'function') {
