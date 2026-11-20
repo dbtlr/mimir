@@ -98,9 +98,14 @@ function ShellContent() {
   const topBar = useRef<HTMLElement>(null);
   // The phone's toasts sit under the top bar, at its measured height.
   const topBarHeight = useHeight(topBar);
-  const shellStyle: CSSProperties & Record<'--top-bar-height', string> = {
-    '--top-bar-height': `${String(topBarHeight)}px`,
-  };
+  const footer = useRef<HTMLElement>(null);
+  // The desktop's toasts sit 20 above the content area, past the version footer's strip.
+  const footerHeight = useHeight(footer);
+  const shellStyle: CSSProperties & Record<'--top-bar-height' | '--version-footer-height', string> =
+    {
+      '--top-bar-height': `${String(topBarHeight)}px`,
+      '--version-footer-height': `${String(footerHeight)}px`,
+    };
   return (
     <SeedCaptureProvider>
       <PushHealer />
@@ -133,7 +138,7 @@ function ShellContent() {
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <PwaUpdateBanner />
             <Outlet />
-            <VersionFooter />
+            <VersionFooter ref={footer} />
           </div>
         </div>
         {/* The Notice host shows every toast the console raises: bottom-left on a desktop, clear

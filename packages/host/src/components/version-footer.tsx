@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import type { Ref } from 'react';
 
 import { healthQuery } from '../api/shell-queries';
 import { BUILD_VERSION } from '../lib/build-version';
@@ -12,15 +13,19 @@ import { usePwaUpdate } from './pwa-update-provider';
  * "update available" hint — the reload/restart is on the operator, this is
  * only the tell. Deliberately achromatic (ADR 0019 §1): a version mismatch is
  * neither a status nor an attention-set member, so it earns no hue of its own.
+ * The shell measures it through `ref`, so a desktop Notice clears its strip.
  */
-export function VersionFooter() {
+export function VersionFooter({ ref }: { ref?: Ref<HTMLElement> }) {
   const health = useQuery(healthQuery);
   const update = usePwaUpdate();
   const serverVersion = health.data?.version;
   const stale = serverVersion !== undefined && serverVersion !== BUILD_VERSION;
 
   return (
-    <footer className="flex items-center justify-center gap-1.5 border-t border-line px-3 py-1">
+    <footer
+      ref={ref}
+      className="flex items-center justify-center gap-1.5 border-t border-line px-3 py-1"
+    >
       <span
         data-testid="console-version"
         className="font-mono text-micro text-ink-ghost"
