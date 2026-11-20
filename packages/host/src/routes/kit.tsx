@@ -7,6 +7,13 @@ import { ActionButton } from '../components/ui/action-button';
 import { Badge, statusChipVariants } from '../components/ui/badge';
 import { Card, CardContent, CardHeader } from '../components/ui/card';
 import { SegmentedControl } from '../components/ui/segmented-control';
+import { ChoiceKit } from '../kit/choice';
+import { OverlaysKit } from '../kit/overlays';
+import { PickersKit } from '../kit/pickers';
+import { PopupsKit } from '../kit/popups';
+import { Section } from '../kit/section';
+import { StructureKit } from '../kit/structure';
+import { TextKit } from '../kit/text';
 import { cn } from '../lib/cn';
 import { STATUS_META, STATUS_ORDER } from '../lib/status';
 
@@ -50,15 +57,6 @@ const TYPE_SCALE = [
   { cls: 'text-mono-id', mono: true, note: '11.5 · mono id' },
   { cls: 'text-tag', note: '11 · tag' },
 ] as const;
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="flex flex-col gap-3">
-      <h2 className="microlabel text-ink-faint">{title}</h2>
-      {children}
-    </section>
-  );
-}
 
 export function KitPage() {
   const [lens, setLens] = useState<'work' | 'timeline'>('work');
@@ -210,6 +208,19 @@ export function KitPage() {
           <Badge variant="outline">outline</Badge>
         </div>
       </Section>
+
+      <header className="flex flex-col gap-1 border-t border-line pt-8">
+        <h2 className="text-header font-bold text-ink-bright">UI SDK primitives</h2>
+        <p className="text-meta text-ink-dim">
+          components/ui over @ui-sdk/react · patterns build from these (ADR 0046)
+        </p>
+      </header>
+      <OverlaysKit />
+      <PopupsKit />
+      <ChoiceKit />
+      <TextKit />
+      <PickersKit />
+      <StructureKit />
     </main>
   );
 }
