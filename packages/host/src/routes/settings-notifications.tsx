@@ -380,10 +380,12 @@ export function NotificationsPage() {
   }
 
   // A save changes its row in the cached list, from the list as it is now, so saves in flight compose.
-  // The read time stays: the patch is not a list read, so it starts no needless reread of this browser's
-  // subscription, which every list read starts.
+  // A poll in flight read the list before the save wrote, so it is cancelled, which reverts the query at
+  // once, rather than land over the patch. The read time stays: the patch is not a list read, so it starts
+  // no needless reread of this browser's subscription, which every list read starts.
   const onKindSaved = (endpoint: string, kind: PushEventKind, muted: boolean) => {
     const { queryKey } = pushDevicesQuery;
+    void client.cancelQueries({ queryKey });
     client.setQueryData(queryKey, withSavedKind(endpoint, kind, muted), {
       updatedAt: client.getQueryState(queryKey)?.dataUpdatedAt,
     });

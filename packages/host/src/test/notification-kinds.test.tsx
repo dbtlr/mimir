@@ -127,6 +127,25 @@ function holdSetKind() {
 }
 
 /**
+ * Hold the device list's next read: it reads the host's list when it starts,
+ * as a request does, and answers that list only on `release`.
+ */
+function holdDevices(world: PushWorld) {
+  const gate = Promise.withResolvers<void>();
+  vi.mocked(pushDevices).mockImplementationOnce(async () => {
+    const answer = { devices: world.devices, state: 'listed' } as const;
+    await gate.promise;
+    return answer;
+  });
+  return async () => {
+    await act(async () => {
+      gate.resolve();
+    });
+    await settle();
+  };
+}
+
+/**
  * A browser whose subscription read fails, as on a service worker that has
  * not started, until the returned `warm` is called. The heal that fails on
  * it warns; the warning is silenced.
@@ -880,6 +899,38 @@ describe('a saved kind changes the listed row', () => {
       expect(metaOf('Mac · Chrome')).not.toHaveTextContent('Decisions off');
     });
     expect(within(group).getByRole('switch', { name: 'Decisions to confirm' })).toBeChecked();
+  });
+
+  it('a poll that read the list before the save wrote and answers after it leaves this browser’s saved kind', async () => {
+    const { client, world } = await open('phone', { world: { devices: [mine, other] } });
+    const group = await kindsGroup();
+    const release = holdDevices(world);
+    act(() => {
+      void client.refetchQueries({ queryKey: pushDevicesQuery.queryKey });
+    });
+    await userEvent.click(within(group).getByRole('switch', { name: 'Decisions to confirm' }));
+    await waitFor(() => {
+      expect(metaOf('Mac · Chrome')).toHaveTextContent('Decisions off');
+    });
+    await release();
+    expect(metaOf('Mac · Chrome')).toHaveTextContent('Decisions off');
+    expect(within(group).getByRole('switch', { name: 'Decisions to confirm' })).not.toBeChecked();
+  });
+
+  it('a poll that read the list before the save wrote and answers after it leaves another row’s saved kind', async () => {
+    const { client, world } = await open('desktop', { world: { devices: [mine, other] } });
+    const kinds = await openKinds('desktop', 'Android · Chrome');
+    const release = holdDevices(world);
+    act(() => {
+      void client.refetchQueries({ queryKey: pushDevicesQuery.queryKey });
+    });
+    await userEvent.click(within(kinds).getByRole('switch', { name: 'Decisions to confirm' }));
+    await waitFor(() => {
+      expect(metaOf('Android · Chrome')).toHaveTextContent('Decisions off');
+    });
+    await release();
+    expect(metaOf('Android · Chrome')).toHaveTextContent('Decisions off');
+    expect(within(kinds).getByRole('switch', { name: 'Decisions to confirm' })).not.toBeChecked();
   });
 
   it('keeps the list’s read time, so the patch is not taken for a fresh read', async () => {
