@@ -16,7 +16,8 @@ import { ActionButton } from './action-button';
  * Sonner. `toast(...)` works from anywhere; one `ToastStack` is mounted once
  * near the app root (MMR-740 does the swap). Placement matches Sonner today:
  * bottom-left on desktop, top-centre below `sm`. The toasts stack newest first
- * and fan out while the pointer or focus is in the region.
+ * and fan out while the pointer or focus is in the region: upward from the
+ * bottom edge, and downward from the top edge on a phone (`--stack`).
  */
 
 /** The imperative API: `toast("Archived MMR-12", { action: { label: "Undo", onAction } })`. */
@@ -26,7 +27,7 @@ const REGION_CLASS =
   'fixed z-50 h-(--toast-front-height) w-[356px] max-w-[calc(100vw-2rem)] bottom-4 left-4 data-[expanded]:h-[calc(var(--toast-stack-height)+(var(--toast-count)-1)*12px)] max-sm:top-4 max-sm:bottom-auto max-sm:left-1/2 max-sm:-translate-x-1/2';
 
 const TOAST_CLASS =
-  'absolute inset-x-0 bottom-0 flex items-start gap-3 overflow-hidden rounded-lg border border-line-bright bg-well-900 p-3 text-ink shadow-2xl select-none outline-none [--y:calc(var(--toast-index)*-12px)] z-[calc(100-var(--toast-index))] h-(--toast-height) translate-y-[calc(var(--y)+var(--toast-swipe-y,0px))] translate-x-(--toast-swipe-x,0px) scale-[calc(1-var(--toast-index)*0.05)] transition-[translate,scale,opacity,height] duration-300 [&:not([data-front],[data-expanded])]:h-(--toast-front-height) data-[expanded]:[--y:calc(-1*(var(--toast-offset)+var(--toast-index)*12px))] data-[expanded]:scale-100 data-[starting-style]:transition-none data-[starting-style]:data-[front]:[--y:100%] data-[starting-style]:not-data-[front]:opacity-0 data-[ending-style]:opacity-0 data-[swiping]:transition-none max-sm:top-0 max-sm:bottom-auto motion-reduce:transition-[opacity]';
+  'absolute inset-x-0 bottom-0 flex items-start gap-3 overflow-hidden rounded-lg border border-line-bright bg-well-900 p-3 text-ink shadow-2xl select-none outline-none [--stack:-1] max-sm:[--stack:1] [--y:calc(var(--stack)*var(--toast-index)*12px)] z-[calc(100-var(--toast-index))] h-(--toast-height) translate-y-[calc(var(--y)+var(--toast-swipe-y,0px))] translate-x-(--toast-swipe-x,0px) scale-[calc(1-var(--toast-index)*0.05)] transition-[translate,scale,opacity,height] duration-300 [&:not([data-front],[data-expanded])]:h-(--toast-front-height) data-[expanded]:[--y:calc(var(--stack)*(var(--toast-offset)+var(--toast-index)*12px))] data-[expanded]:scale-100 data-[starting-style]:transition-none data-[starting-style]:data-[front]:[--y:calc(-1*var(--stack)*100%)] data-[starting-style]:not-data-[front]:opacity-0 data-[ending-style]:opacity-0 data-[swiping]:transition-none max-sm:top-0 max-sm:bottom-auto motion-reduce:transition-[opacity]';
 
 /** A toast's title, description, and optional action, with a close button. */
 function ToastBody() {
