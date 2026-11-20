@@ -2,13 +2,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { pushDevices, pushStatus, setPushKind, subscribePush } from '../api/fns/push';
 import type { PushDevice, PushEventKind, PushSetKindResult } from '../api/fns/push';
 import { pushDevicesQuery } from '../api/push-queries';
 import { PushHealer } from '../components/push-healer';
 import { HEAL_WAIT_MS, healThisBrowser, saveKind, turnOn } from '../lib/push-actions';
+import { PushReadTimeoutError } from '../lib/push-browser';
 import type { PushBrowser, ThisDeviceRecord } from '../lib/push-browser';
 import { HEAL_RUNNING_TEXT } from '../lib/push-text';
 import { PushBrowserContext } from '../lib/use-push-browser';
@@ -122,6 +123,32 @@ function holdSetKind() {
       gate.resolve();
     });
     await settle();
+  };
+}
+
+/**
+ * A browser whose subscription read fails, as on a service worker that has
+ * not started, until the returned `warm` is called. The heal that fails on
+ * it warns; the warning is silenced.
+ */
+function coldBrowser() {
+  const browser = onBrowser();
+  let cold = true;
+  vi.spyOn(browser, 'subscription').mockImplementation(async () => {
+    if (cold) {
+      throw new PushReadTimeoutError();
+    }
+    return browser.held;
+  });
+  const warn = vi.spyOn(console, 'warn').mockReturnValue(undefined);
+  onTestFinished(() => {
+    warn.mockRestore();
+  });
+  return {
+    browser,
+    warm: () => {
+      cold = false;
+    },
   };
 }
 
@@ -742,6 +769,72 @@ describe('while the list polls', () => {
   });
 });
 
+describe('a poll reads this browser’s subscription again', () => {
+  it('a read that failed at load is read again by a poll that lists the same browsers', async () => {
+    const { browser, warm } = coldBrowser();
+    await open('desktop', { browser, client: pollingClient(), world: { devices: [mine, other] } });
+    expect(screen.getByRole('button', { name: 'Actions for Mac · Chrome' })).toBeInTheDocument();
+    warm();
+    await polled();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Turn off' })).toBeInTheDocument();
+    });
+    expect(metaOf('Mac · Chrome')).toHaveTextContent('This device');
+    expect(screen.queryByRole('button', { name: 'Actions for Mac · Chrome' })).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Actions for Android · Chrome' }),
+    ).toBeInTheDocument();
+  });
+
+  it('a heal that restores the same endpoint after the page read none shows on after a poll', async () => {
+    const browser = fakeBrowser({ permission: 'granted', record: onRecord([]) });
+    const restored = Promise.withResolvers<void>();
+    vi.spyOn(browser, 'subscribe').mockImplementation(async () => {
+      await restored.promise;
+      browser.held = SUBSCRIPTION;
+      return SUBSCRIPTION;
+    });
+    await open('desktop', { browser, client: pollingClient(), world: { devices: [mine, other] } });
+    expect(screen.getByRole('button', { name: 'Actions for Mac · Chrome' })).toBeInTheDocument();
+    await act(async () => {
+      restored.resolve();
+    });
+    await polled();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Turn off' })).toBeInTheDocument();
+    });
+    expect(metaOf('Mac · Chrome')).toHaveTextContent('This device');
+    expect(screen.queryByRole('button', { name: 'Actions for Mac · Chrome' })).toBeNull();
+  });
+
+  it('on a desktop, closes a row’s kinds dialog when a later read shows that row is this browser’s', async () => {
+    const { browser, warm } = coldBrowser();
+    await open('desktop', { browser, client: pollingClient(), world: { devices: [mine, other] } });
+    await openKinds('desktop', 'Mac · Chrome');
+    warm();
+    await polled();
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Mac · Chrome' })).toBeNull();
+    });
+    expect(metaOf('Mac · Chrome')).toHaveTextContent('This device');
+  });
+
+  it('on a phone, closes a row’s sheet when a later read shows that row is this browser’s', async () => {
+    const { browser, warm } = coldBrowser();
+    await open('phone', { browser, client: pollingClient(), world: { devices: [mine, other] } });
+    await userEvent.click(screen.getByRole('button', { name: /^Mac · Chrome/ }));
+    await expect(
+      screen.findByRole('dialog', { name: 'Mac · Chrome' }),
+    ).resolves.toBeInTheDocument();
+    warm();
+    await polled();
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Mac · Chrome' })).toBeNull();
+    });
+    expect(metaOf('Mac · Chrome')).toHaveTextContent('This device');
+  });
+});
+
 describe('a saved kind changes the listed row', () => {
   it('two switches flipped in quick succession both show, and the row says 2 kinds off', async () => {
     await open('phone', { world: { devices: [mine, other] } });
@@ -787,5 +880,19 @@ describe('a saved kind changes the listed row', () => {
       expect(metaOf('Mac · Chrome')).not.toHaveTextContent('Decisions off');
     });
     expect(within(group).getByRole('switch', { name: 'Decisions to confirm' })).toBeChecked();
+  });
+
+  it('keeps the list’s read time, so the patch is not taken for a fresh read', async () => {
+    const { client } = await open('phone', { world: { devices: [mine, other] } });
+    const group = await kindsGroup();
+    const readAt = client.getQueryState(pushDevicesQuery.queryKey)?.dataUpdatedAt;
+    await waitFor(() => {
+      expect(Date.now()).toBeGreaterThan(readAt ?? 0);
+    });
+    await userEvent.click(within(group).getByRole('switch', { name: 'Decisions to confirm' }));
+    await waitFor(() => {
+      expect(metaOf('Mac · Chrome')).toHaveTextContent('Decisions off');
+    });
+    expect(client.getQueryState(pushDevicesQuery.queryKey)?.dataUpdatedAt).toBe(readAt);
   });
 });

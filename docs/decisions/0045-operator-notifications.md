@@ -1053,7 +1053,8 @@ variant A, picked on 2026-11-20.
 - **A switch saves when it flips,** through Set kind for its one kind. The
   switch shows its new position while the call runs and is disabled until it
   answers; the other switches stay usable. On `saved` it stays, and the page
-  changes that row's kinds in the list it holds, so the row's meta line
+  changes that row's kinds in the list it holds, dropping a poll of the list
+  already in flight, which read the list before the save; the row's meta line
   follows at once, without a reread that would close an open sheet or
   dialog. On a thrown failure, or an `unconfigured` or `misconfigured`
   answer, it returns to its last saved position and a polite
@@ -1065,9 +1066,12 @@ variant A, picked on 2026-11-20.
   since the reload ends the On state and the group with it. A save is not one
   of the actions after which the rows withhold their actions (the MMR-711
   refinement), so a sheet or dialog stays open across saves. Nor is a poll
-  of the device list: the page reads this browser's subscription again only
-  when the set of listed endpoints changes, as it does after a heal, so a
-  row's sheet, menu, or kinds stay open while the list refreshes.
+  of the device list: every list read rereads this browser's subscription,
+  so a read that failed or a heal that restored the subscription shows at the
+  next poll, but only an action or a changed set of listed endpoints, as
+  after a heal, makes the rows withhold their actions and closes an open
+  sheet, menu, or kinds. A row's sheet, menu, or kinds also closes when its
+  row turns out to be this browser's.
 - **This browser's switches and the page take turns.** The switches are
   disabled while Turn on, Turn off, or a reset runs, and Turn off and Reset
   push key are disabled while a save on this browser's own row runs. A save on

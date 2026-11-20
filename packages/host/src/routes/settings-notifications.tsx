@@ -366,16 +366,22 @@ export function NotificationsPage() {
   // Read when the switches have closed, so it keeps the row they were for.
   const kindsOpener = useRef<KindsOpener | undefined>(undefined);
   const [ownSaving, setOwnSaving] = useState(false);
-  // A reread may change which row is this browser's, so a row's open sheet closes rather than act on a stale match.
-  if (subscriptionPending && opened !== undefined) {
+  // A pending reread may answer another endpoint: until it settles, no row is this browser's.
+  const heldEndpoint = subscriptionPending ? undefined : subscription?.endpoint;
+  const isMine = (row: PushDevice) =>
+    heldEndpoint !== undefined && sameEndpoint(row.endpoint, heldEndpoint);
+  // A reread may change which row is this browser's, so a row's open sheet closes rather than act on a stale
+  // match; one whose row turned out to be this browser's closes too, as those surfaces are for other browsers.
+  if (opened !== undefined && (subscriptionPending || isMine(opened))) {
     setOpened(undefined);
   }
-  if (subscriptionPending && kindsFor !== undefined) {
+  if (kindsFor !== undefined && (subscriptionPending || isMine(kindsFor))) {
     setKindsFor(undefined);
   }
 
   // A save changes its row in the cached list, from the list as it is now, so saves in flight compose.
-  // The read time stays, so the patch never passes for a fresher read than the one it changed.
+  // The read time stays: the patch is not a list read, so it starts no needless reread of this browser's
+  // subscription, which every list read starts.
   const onKindSaved = (endpoint: string, kind: PushEventKind, muted: boolean) => {
     const { queryKey } = pushDevicesQuery;
     client.setQueryData(queryKey, withSavedKind(endpoint, kind, muted), {
@@ -496,8 +502,6 @@ export function NotificationsPage() {
   const listed =
     status?.state === 'ready' && devices?.state === 'listed' ? devices.devices : undefined;
   const ownRow = state.kind === 'on' && state.device.currentKey ? state.device : undefined;
-  // A pending reread may answer another endpoint: until it settles, no row is this browser's.
-  const heldEndpoint = subscriptionPending ? undefined : subscription?.endpoint;
   const label = deviceLabel(identity);
 
   return (
@@ -595,8 +599,7 @@ export function NotificationsPage() {
           ) : (
             <ul className={SETTINGS_CARD}>
               {listed.map((device) => {
-                const mine =
-                  heldEndpoint !== undefined && sameEndpoint(device.endpoint, heldEndpoint);
+                const mine = isMine(device);
                 const meta = deviceMeta(device, { thisDevice: mine });
                 const rowNote = rowNotes[device.endpoint];
                 const text = (
