@@ -236,13 +236,26 @@ stay put while the body scrolls. Nothing below a form's commit row scrolls.
   it scrolls. The last visible block clears the footer hairline by at least
   the body's bottom padding (32 on a phone, 40 on desktop), measured from a
   choice row's whole tap row (44 or 36), not its text. Neither bar ever cuts
-  a field, a group heading, or a choice row.
+  a field, a group heading, or a choice row. A rest measures a checkbox row
+  or a collapsible heading by its text, not its pulled-back tap row, and when
+  the field gap would leave a sliver of the block above showing (a group
+  heading sits 20 above its first label), the rest hides that block whole and
+  the label sits 20 below the header.
+- **Focus moves to a rest.** When a control takes focus out of view, the
+  body scrolls to the nearest rest that shows its field whole, the control
+  clear of the footer by the body's bottom padding; when no rest holds it, it
+  scrolls the least that shows the control whole. A focused control is never
+  under a bar (WCAG 2.4.11). The body does not use scroll snap: a mandatory
+  snap re-rested a focused field under the header in Chromium, so a scroll
+  the operator leaves mid-way stays where it is.
 - **When whole fields cannot fit between the bars, add bottom scroll room;
   never cut a field.** If the natural end of the scroll would leave a field
   part-hidden under the header, the body grows its bottom padding until the
   end lands on a clean rest. Because the resting clearance equals the field
   gap, the end can rest between any two fields at every width, so the added
-  room stays small. Example: Launch in T3 with Advanced open rests with
+  room stays small. When content that is not a field follows the last block
+  (Lifecycle's explanation and Archive), the end may also rest where that
+  block is hidden whole. Example: Launch in T3 with Advanced open rests with
   Reasoning effort 24 below the header. A 32 desktop clearance was tried in
   MMR-743's mocks: the end could rest only where a group started, which left
   a stranded group hairline and about 300 of empty room.

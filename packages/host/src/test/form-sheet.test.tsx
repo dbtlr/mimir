@@ -10,7 +10,9 @@ import {
   FormSheet,
   FormTextArea,
   FormTextInput,
+  focusScroll,
   restingRoom,
+  restsOf,
 } from '../components/patterns/form-sheet';
 import { ActionButton } from '../components/ui/action-button';
 import { pressAndDropFocus } from './press-and-drop-focus';
@@ -157,7 +159,55 @@ describe('Form sheet shapes', () => {
   });
 });
 
+/** A rect 300 wide at `top`, for a layout jsdom lacks. */
+const rectAt = (top: number, height: number) =>
+  DOMRect.fromRect({ height, width: 300, x: 0, y: top });
+
 describe('Form sheet focus', () => {
+  it('scrolls a field that takes focus below the fold to the rest that shows it whole', async () => {
+    stubViewport('phone');
+    render(
+      <Harness>
+        {['One', 'Two', 'Three', 'Four'].map((label) => (
+          <FormField key={label} label={label}>
+            <FormTextInput />
+          </FormField>
+        ))}
+      </Harness>,
+    );
+    const sheet = await openSheet();
+    const body = sheet.querySelector<HTMLElement>('[data-slot="form-sheet-body"]');
+    if (body === null) {
+      throw new Error('no body');
+    }
+    // A layout jsdom lacks: the body 200 tall at 100 over 800 of content with a 32 end, and
+    // each field 72 tall, 100 apart from 24, with its control 28 below its top.
+    body.style.paddingBottom = '32px';
+    Object.defineProperty(body, 'clientHeight', { configurable: true, value: 200 });
+    Object.defineProperty(body, 'scrollHeight', { configurable: true, value: 800 });
+    const blocks = [...body.querySelectorAll<HTMLElement>('[data-form-block]')];
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function layout(
+      this: HTMLElement,
+    ) {
+      if (this === body) {
+        return rectAt(100, 200);
+      }
+      const index = blocks.findIndex((block) => block === this || block.contains(this));
+      if (index === -1) {
+        return DOMRect.fromRect();
+      }
+      const top = 100 + 24 + index * 100 - body.scrollTop;
+      return blocks[index] === this ? rectAt(top, 72) : rectAt(top + 28, 44);
+    });
+    // The fifth field, Three, rests at 400, with its control at 452–496 above the 32 end; the
+    // rest at 300 would leave the control 4 above the footer.
+    act(() => {
+      within(body).getByRole('textbox', { name: 'Three' }).focus();
+    });
+    expect(body.scrollTop).toBe(400);
+    vi.restoreAllMocks();
+  });
+
   it.each(['phone', 'desktop'] as const)('opens on the first field (%s)', async (width) => {
     stubViewport(width);
     render(<Harness />);
@@ -346,21 +396,103 @@ describe('Form sheet groups', () => {
   });
 });
 
+/** Blocks 48 tall at these tops, as a body's scroll space measures them. */
+const blocksAt = (tops: readonly number[]) => tops.map((top) => ({ bottom: top + 48, top }));
+
+/** The rests of blocks 48 tall at 32, 120, and 240: 8, 96, and 216. */
+const REST_AT = restsOf(blocksAt([32, 120, 240]), false);
+
 describe('resting scroll room', () => {
   it('adds nothing when the body does not scroll', () => {
-    expect(restingRoom(0, [32, 120, 240])).toBe(0);
+    expect(restingRoom(0, REST_AT)).toBe(0);
   });
 
   it('adds nothing when the natural end already rests a block 24 below the header', () => {
-    expect(restingRoom(96, [32, 120, 240])).toBe(0);
+    expect(restingRoom(96, REST_AT)).toBe(0);
   });
 
   it('adds the room that carries the end to the next block, rather than cut a field', () => {
     // The end at 70 would leave the block at 120 cut under the header; resting it at 96 needs 26.
-    expect(restingRoom(70, [32, 120, 240])).toBe(26);
+    expect(restingRoom(70, REST_AT)).toBe(26);
   });
 
   it('adds nothing past the last block, where no room helps', () => {
-    expect(restingRoom(400, [32, 120, 240])).toBe(0);
+    expect(restingRoom(400, REST_AT)).toBe(0);
+  });
+
+  it('carries an end past the last block to where that block hides whole, when content follows it', () => {
+    // Lifecycle: its heading ends at 288, and its explanation and Archive follow; an end at
+    // 270 would cut the heading, so the end hides it at 288.
+    expect(restingRoom(270, restsOf(blocksAt([32, 120, 240]), true))).toBe(18);
+  });
+});
+
+describe('resting scroll positions', () => {
+  it('rests each block a field gap below the header', () => {
+    expect(REST_AT).toEqual([8, 96, 216]);
+  });
+
+  it('rests a block lower when the gap would show a sliver of the block above it', () => {
+    // A group heading ending 20 above its first label: the label rests 20 below, the heading hidden.
+    expect(
+      restsOf(
+        [
+          { bottom: 100, top: 76 },
+          { bottom: 192, top: 120 },
+        ],
+        false,
+      ),
+    ).toEqual([52, 100]);
+  });
+
+  it('adds the rest that hides the last block when content that is not a block follows it', () => {
+    expect(restsOf(blocksAt([32, 120]), true)).toEqual([8, 96, 168]);
+  });
+});
+
+describe('focus scroll', () => {
+  // A body 200 tall over 600 of content, at the top, with blocks resting at 8, 96, 216, and 336.
+  const scroll = {
+    clientHeight: 200,
+    endClearance: 32,
+    maxScroll: 400,
+    rests: [8, 96, 216, 336],
+    scrollTop: 0,
+  };
+
+  it('leaves a control in view and clear of the footer where it is', () => {
+    expect(focusScroll({ controlBottom: 100, controlTop: 56, rest: 8 }, scroll)).toBeNull();
+  });
+
+  it('moves a control below the fold to the nearest rest that shows its field whole', () => {
+    // The field resting at 216 holds a control at 268–312: 216 shows it 32 clear of the footer.
+    expect(focusScroll({ controlBottom: 312, controlTop: 268, rest: 216 }, scroll)).toBe(216);
+  });
+
+  it('moves a control above the fold back down to its own rest', () => {
+    const above = { ...scroll, scrollTop: 336 };
+    expect(focusScroll({ controlBottom: 192, controlTop: 148, rest: 96 }, above)).toBe(96);
+  });
+
+  it('does not count a control flush with the footer as at rest', () => {
+    // The browser's own focus scroll can run first and leave the control's bottom on the footer.
+    const flush = { ...scroll, scrollTop: 112 };
+    expect(focusScroll({ controlBottom: 312, controlTop: 268, rest: 216 }, flush)).toBe(216);
+  });
+
+  it('lands on the end when that is the only rest that shows a control past the last block', () => {
+    // Archive, after Lifecycle's explanation: no block holds it, and only the end shows it whole.
+    expect(focusScroll({ controlBottom: 568, controlTop: 524, rest: 500 }, scroll)).toBe(400);
+  });
+
+  it('scrolls the least that shows the control whole when no rest does', () => {
+    const short = { ...scroll, clientHeight: 80, rests: [8, 300] };
+    // The field rests at 200, but there the control at 230–290 ends past an 80 tall body.
+    expect(focusScroll({ controlBottom: 290, controlTop: 230, rest: 200 }, short)).toBe(210);
+  });
+
+  it('scrolls to the top of a control taller than the body', () => {
+    const short = { ...scroll, clientHeight: 80, rests: [] };
+    expect(focusScroll({ controlBottom: 400, controlTop: 250, rest: 226 }, short)).toBe(250);
   });
 });

@@ -47,29 +47,178 @@ const FOCUSABLE =
   'input:not([type=hidden]):not(:disabled), textarea:not(:disabled), select:not(:disabled), button:not(:disabled), [tabindex]:not([tabindex="-1"])';
 
 /**
- * The bottom room a body needs so the end of its scroll rests cleanly: the
- * smallest snap position at or past the natural end, less that end. Positions
- * are a block's top less the field gap, measured in the body's scroll space.
- * Zero when the natural end already is one, or when nothing scrolls.
+ * A block's visible extent in the body's scroll space: its box less the
+ * height a negative margin pulls back (a check row's or a collapsible
+ * heading's tap row), so the rests measure its text, not its tap row.
  */
-export function restingRoom(naturalEnd: number, blockTops: readonly number[]): number {
+export type BlockExtent = { top: number; bottom: number };
+
+/**
+ * The scroll positions where the body rests cleanly, one per block: the block
+ * a field gap below the header, or lower when that would leave a sliver of the
+ * block above it showing (a heading 20 above its first label). When content
+ * that is not a block follows the last one (`contentFollows`: Lifecycle's
+ * explanation and Archive), the scroll that hides that last block whole is a
+ * rest too.
+ */
+export function restsOf(blocks: readonly BlockExtent[], contentFollows: boolean): number[] {
+  const rests: number[] = [];
+  let above = Number.NEGATIVE_INFINITY;
+  for (const block of blocks) {
+    rests.push(Math.max(block.top - FIELD_GAP, above));
+    above = Math.max(above, block.bottom);
+  }
+  if (blocks.length > 0 && contentFollows) {
+    rests.push(above);
+  }
+  return rests;
+}
+
+/**
+ * The bottom room a body needs so the end of its scroll rests cleanly: the
+ * smallest rest at or past the natural end, less that end, measured in the
+ * body's scroll space. Zero when the natural end already is one, or when
+ * nothing scrolls.
+ */
+export function restingRoom(naturalEnd: number, rests: readonly number[]): number {
   if (naturalEnd <= 0) {
     return 0;
   }
-  const rests = blockTops.map((top) => top - FIELD_GAP).filter((rest) => rest > 0);
-  if (rests.some((rest) => Math.abs(rest - naturalEnd) < 1)) {
+  const after = rests.filter((rest) => rest > 0);
+  if (after.some((rest) => Math.abs(rest - naturalEnd) < 1)) {
     return 0;
   }
-  const next = rests.filter((rest) => rest > naturalEnd).toSorted((a, b) => a - b)[0];
+  const next = after.filter((rest) => rest > naturalEnd).toSorted((x, y) => x - y)[0];
   return next === undefined ? 0 : Math.ceil(next - naturalEnd);
+}
+
+/** Where a newly focused control sits in the body's scroll space. */
+export type FocusedPlace = {
+  /** The rest of the block (the field) that holds it, or a field gap above the control when none does. */
+  rest: number;
+  controlTop: number;
+  controlBottom: number;
+};
+
+/** The body's scroll at the moment focus moves. */
+export type BodyScroll = {
+  scrollTop: number;
+  clientHeight: number;
+  maxScroll: number;
+  /** The clearance a rest keeps above the footer: the body's bottom padding. */
+  endClearance: number;
+  /** Every rest, from `restsOf`. */
+  rests: readonly number[];
+};
+
+/**
+ * The scroll that brings a newly focused control fully into view, or `null`
+ * when it already is (WCAG 2.4.11). It lands on a rest where one shows the
+ * whole field: its block a field gap below the header, the control clear of
+ * the footer by the body's end padding. The rests are the top, each block's,
+ * and the end, and the nearest to the current scroll wins. When no rest holds
+ * the field, it scrolls the least that shows the control whole, and when even
+ * the control is taller than the body, to its top.
+ */
+export function focusScroll(place: FocusedPlace, scroll: BodyScroll): number | null {
+  const { scrollTop, clientHeight, maxScroll, endClearance, rests } = scroll;
+  const { rest: own, controlTop, controlBottom } = place;
+  // In view, clear of the footer by the end padding when the control and that clearance fit:
+  // the browser's own focus scroll, which may run first, leaves a control flush with the footer.
+  const clearance = controlBottom - controlTop + endClearance <= clientHeight ? endClearance : 0;
+  if (
+    controlTop >= scrollTop - 0.5 &&
+    controlBottom + clearance <= scrollTop + clientHeight + 0.5
+  ) {
+    return null;
+  }
+  const clamp = (value: number) => Math.min(Math.max(value, 0), maxScroll);
+  const low = controlBottom + endClearance - clientHeight;
+  const fits = [0, maxScroll, ...rests]
+    .map(clamp)
+    .filter((at) => at >= low - 0.5 && at <= own + 0.5)
+    .toSorted((x, y) => Math.abs(x - scrollTop) - Math.abs(y - scrollTop));
+  if (fits[0] !== undefined) {
+    return fits[0];
+  }
+  const least = controlBottom - clientHeight;
+  if (least > controlTop) {
+    return clamp(controlTop);
+  }
+  return clamp(Math.min(Math.max(scrollTop, least), controlTop));
+}
+
+/** How far a negative margin on an element pulls its edge in, in px. */
+function pulled(element: Element | null, side: 'marginTop' | 'marginBottom'): number {
+  if (element === null) {
+    return 0;
+  }
+  const margin = Number.parseFloat(getComputedStyle(element)[side]);
+  return Number.isNaN(margin) ? 0 : Math.max(0, -margin);
+}
+
+/** The body's blocks, measured in its scroll space, and the rests they make. */
+function measureRests(element: HTMLElement) {
+  const origin = element.getBoundingClientRect().top - element.scrollTop;
+  const blocks = [...element.querySelectorAll<HTMLElement>(BLOCK_SELECTOR)];
+  const extents = blocks.map((block) => {
+    const rect = block.getBoundingClientRect();
+    const first = block.firstElementChild;
+    return {
+      bottom:
+        rect.bottom -
+        origin -
+        Math.max(pulled(block, 'marginBottom'), pulled(first, 'marginBottom')),
+      top: rect.top - origin + Math.max(pulled(block, 'marginTop'), pulled(first, 'marginTop')),
+    };
+  });
+  const content = element.lastElementChild;
+  const last = blocks.at(-1);
+  const contentFollows =
+    content !== null &&
+    last !== undefined &&
+    content.getBoundingClientRect().bottom - last.getBoundingClientRect().bottom > 1;
+  const rests = restsOf(extents, contentFollows);
+  return { blocks, origin, rests };
+}
+
+/** Brings the body's focused control into view, when focus sits in the body. */
+function keepFocusInView(element: HTMLElement, room: number) {
+  const focused = element.ownerDocument.activeElement;
+  if (!(focused instanceof HTMLElement) || focused === element || !element.contains(focused)) {
+    return;
+  }
+  const { blocks, origin, rests } = measureRests(element);
+  const control = focused.getBoundingClientRect();
+  const holder = blocks.findIndex((block) => block.contains(focused));
+  const padding = Number.parseFloat(getComputedStyle(element).paddingBottom);
+  const target = focusScroll(
+    {
+      controlBottom: control.bottom - origin,
+      controlTop: control.top - origin,
+      rest: rests[holder] ?? control.top - origin - FIELD_GAP,
+    },
+    {
+      clientHeight: element.clientHeight,
+      endClearance: Number.isNaN(padding) ? FIELD_GAP : padding - room,
+      maxScroll: element.scrollHeight - element.clientHeight,
+      rests,
+      scrollTop: element.scrollTop,
+    },
+  );
+  if (target !== null) {
+    element.scrollTop = target;
+  }
 }
 
 /**
  * The scrolling body. It keeps a resting scroll a field gap below the header
- * (DESIGN.md, Sheets): it snaps each block 24 below the header, and grows its
- * bottom padding when the natural end of its scroll would cut a field under
- * the header. It mounts with the sheet's content, so it measures what is shown,
- * and reports whether it has scrolled, for the header's shadow.
+ * (DESIGN.md, Sheets): it grows its bottom padding when the natural end of its
+ * scroll would cut a field under the header, and when focus moves to a control
+ * out of view, it scrolls to the nearest rest that shows it whole. It does not
+ * snap: a mandatory snap could rest the focused field under a bar. It mounts
+ * with the sheet's content, so it measures what is shown, and reports whether
+ * it has scrolled, for the header's shadow.
  */
 function FormBody({
   body,
@@ -85,23 +234,32 @@ function FormBody({
 
   useLayoutEffect(() => {
     const element = body.current;
-    if (element === null || typeof ResizeObserver === 'undefined') {
+    if (element === null) {
       return undefined;
+    }
+    // Focus moves before the browser scrolls it into view, so a control this
+    // scroll shows whole needs no scroll of the browser's own.
+    const onFocusIn = () => {
+      keepFocusInView(element, roomRef.current);
+    };
+    element.addEventListener('focusin', onFocusIn);
+    if (typeof ResizeObserver === 'undefined') {
+      return () => {
+        element.removeEventListener('focusin', onFocusIn);
+      };
     }
     const measure = () => {
       if (element.clientHeight === 0) {
         return;
       }
-      const origin = element.getBoundingClientRect().top - element.scrollTop;
-      const tops = [...element.querySelectorAll<HTMLElement>(BLOCK_SELECTOR)].map(
-        (block) => block.getBoundingClientRect().top - origin,
-      );
       const naturalEnd = element.scrollHeight - roomRef.current - element.clientHeight;
-      const next = restingRoom(naturalEnd, tops);
+      const next = restingRoom(naturalEnd, measureRests(element).rests);
       if (next !== roomRef.current) {
         roomRef.current = next;
         setRoom(next);
       }
+      // A body that shrinks (a phone's keyboard) or a field that grows keeps focus in view.
+      keepFocusInView(element, next);
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -111,6 +269,7 @@ function FormBody({
       observer.observe(content);
     }
     return () => {
+      element.removeEventListener('focusin', onFocusIn);
       observer.disconnect();
     };
   }, [body]);
@@ -127,13 +286,8 @@ function FormBody({
         onScrolled(event.currentTarget.scrollTop > 0);
       }}
       style={room > 0 ? { paddingBottom: `calc(var(--form-body-end) + ${String(room)}px)` } : {}}
-      className="relative min-h-0 flex-1 snap-y snap-mandatory overflow-y-auto px-5 pt-6 pb-(--form-body-end) [--form-body-end:2rem] md:px-8 md:pt-8 md:[--form-body-end:2.5rem]"
+      className="relative min-h-0 flex-1 overflow-y-auto px-5 pt-6 pb-(--form-body-end) [--form-body-end:2rem] md:px-8 md:pt-8 md:[--form-body-end:2.5rem]"
     >
-      {/* The rest before the body scrolls, so the top is a rest too. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute top-0 left-0 size-px snap-start"
-      />
       <div className="flex flex-col gap-6">{children}</div>
     </div>
   );
