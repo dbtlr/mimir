@@ -1,6 +1,7 @@
 import { Dialog } from '@base-ui-components/react/dialog';
 import { useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import type { RefObject } from 'react';
 
 import type { PushDevice, PushDeviceList, PushEventKind } from '../api/fns/push';
 import { pushDevicesQuery, pushStatusQuery } from '../api/push-queries';
@@ -25,25 +26,30 @@ import { sameEndpoint } from '../lib/push-endpoint';
 import { deviceLabel } from '../lib/push-identity';
 import {
   deviceMeta,
+  EVERY_KIND_OFF_TEXT,
   resetRefusalText,
   stateCaption,
   testResultText,
   THAT_BROWSER_GONE_TEXT,
+  THAT_EVERY_KIND_OFF_TEXT,
   THIS_BROWSER_GONE_TEXT,
 } from '../lib/push-text';
 import { canTurnOn } from '../lib/push-this-device';
 import { useMediaQuery } from '../lib/use-media-query';
 import { usePushControl } from '../lib/use-push-control';
-import { orderedKinds } from '../server/push-states';
+import { withKind } from '../server/push-states';
 import { DESKTOP } from './shell';
 
 /**
  * `/settings/notifications` — this browser's Web Push control and every
  * subscribed browser (ADR 0045, MMR-711). The row for this browser holds Turn
  * on or Turn off; its sentence, and the answer to each action, sit under the
- * group. Another browser's row opens its actions: a sheet on a phone, a menu
- * on a desktop, from Tailwind's `lg`, where Settings shows its sidebar. Turn
- * on and Turn off live in `usePushControl`; the page places their answers.
+ * group. While this browser is on, "Notify this device about" holds a switch
+ * per event kind (ADR 0045, MMR-712). Another browser's row opens its actions:
+ * a sheet on a phone, a menu on a desktop, from Tailwind's `lg`, where Settings
+ * shows its sidebar; on a current-key row, "Choose what notifies…" opens that
+ * row's switches in their own sheet or dialog. Turn on and Turn off live in
+ * `usePushControl`; the page places their answers.
  */
 
 const TEXT_BUTTON =
@@ -251,36 +257,53 @@ const KINDS_BLOCK = 'overflow-hidden rounded-lg border border-line bg-well-850';
 const rowOpener = (endpoint: string) =>
   document.querySelector<HTMLElement>(`[data-push-row="${CSS.escape(endpoint)}"]`);
 
+/** Which row the switches were opened for, and whether the host answered that it is gone. */
+type KindsOpener = { endpoint: string; gone: boolean };
+
 /**
  * Another browser's switches (ADR 0045, MMR-712): a sheet on a phone, a
  * dialog on a desktop, titled with the row's label. Done closes it and
- * returns focus to the row that opened it.
+ * returns focus to the row that opened it; after `not_found` focus goes to
+ * the page's `<main>`. `opener` outlives the close, when `device` is gone.
  */
 function KindsSurface({
   device,
   desktop,
+  opener,
   onClose,
   switches,
 }: {
   device: PushDevice | undefined;
   desktop: boolean;
+  opener: RefObject<KindsOpener | undefined>;
   onClose: () => void;
-  switches: Omit<KindSwitchesProps, 'device' | 'own'>;
+  switches: Omit<KindSwitchesProps, 'device' | 'own' | 'everyOffText'>;
 }) {
-  const finalFocus = () => (device === undefined ? null : rowOpener(device.endpoint));
+  const finalFocus = () => {
+    const last = opener.current;
+    if (last === undefined) {
+      return null;
+    }
+    if (last.gone) {
+      focusMain();
+      return false;
+    }
+    return rowOpener(last.endpoint);
+  };
   const body = device !== undefined && (
     <>
-      <div className="flex flex-col">
-        <Dialog.Title className="text-body font-semibold text-ink-bright">
-          {device.label}
-        </Dialog.Title>
-        <Dialog.Description className="text-meta text-ink-dim">
-          Notify this browser about
-        </Dialog.Description>
-      </div>
-      <KindSwitches {...switches} device={device} own={false} className={KINDS_BLOCK} />
+      <Dialog.Title className="text-body font-semibold text-ink-bright">
+        {device.label}
+      </Dialog.Title>
+      <KindSwitches
+        {...switches}
+        device={device}
+        own={false}
+        everyOffText={THAT_EVERY_KIND_OFF_TEXT}
+        className={KINDS_BLOCK}
+      />
       <div className="flex justify-end">
-        <Dialog.Close className="inline-flex min-h-11 items-center rounded-md border border-accent px-4 text-meta font-semibold text-accent-foreground hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent">
+        <Dialog.Close render={<ActionButton variant="outline" className="min-h-11 px-4" />}>
           Done
         </Dialog.Close>
       </div>
@@ -316,13 +339,18 @@ function KindsSurface({
   );
 }
 
-/** The list with the kinds saved since it was read; a newer read replaces them. */
-type SavedKinds = { list: PushDeviceList | undefined; muted: Record<string, PushEventKind[]> };
-
-const withSavedKinds = (device: PushDevice, saved: SavedKinds): PushDevice => {
-  const muted = saved.muted[device.endpoint];
-  return muted === undefined ? device : { ...device, muted };
-};
+/** `list` with one kind's change applied to the row for `endpoint`, every other row kept. */
+const withSavedKind =
+  (endpoint: string, kind: PushEventKind, muted: boolean) =>
+  (list: PushDeviceList | undefined): PushDeviceList | undefined =>
+    list?.state === 'listed'
+      ? {
+          ...list,
+          devices: list.devices.map((row) =>
+            row.endpoint === endpoint ? { ...row, muted: withKind(row.muted, kind, muted) } : row,
+          ),
+        }
+      : list;
 
 export function NotificationsPage() {
   const client = useQueryClient();
@@ -335,10 +363,9 @@ export function NotificationsPage() {
   const [resetOpen, setResetOpen] = useState(false);
   const [resetRefusal, setResetRefusal] = useState<string | undefined>();
   const [kindsFor, setKindsFor] = useState<PushDevice | undefined>();
+  // Read when the switches have closed, so it keeps the row they were for.
+  const kindsOpener = useRef<KindsOpener | undefined>(undefined);
   const [ownSaving, setOwnSaving] = useState(false);
-  // Saves change the rows in place, without a reread that would close an open sheet or dialog.
-  const [saved, setSaved] = useState<SavedKinds>({ list: undefined, muted: {} });
-  const savedKinds: SavedKinds = saved.list === devices ? saved : { list: devices, muted: {} };
   // A reread may change which row is this browser's, so a row's open sheet closes rather than act on a stale match.
   if (subscriptionPending && opened !== undefined) {
     setOpened(undefined);
@@ -347,18 +374,12 @@ export function NotificationsPage() {
     setKindsFor(undefined);
   }
 
+  // A save changes its row in the cached list, from the list as it is now, so saves in flight compose.
+  // The read time stays, so the patch never passes for a fresher read than the one it changed.
   const onKindSaved = (endpoint: string, kind: PushEventKind, muted: boolean) => {
-    setSaved((current) => {
-      const base = current.list === devices ? current : { list: devices, muted: {} };
-      const row =
-        devices?.state === 'listed'
-          ? devices.devices.find((candidate) => candidate.endpoint === endpoint)
-          : undefined;
-      const others = (base.muted[endpoint] ?? row?.muted ?? []).filter((name) => name !== kind);
-      return {
-        list: devices,
-        muted: { ...base.muted, [endpoint]: orderedKinds(muted ? [...others, kind] : others) },
-      };
+    const { queryKey } = pushDevicesQuery;
+    client.setQueryData(queryKey, withSavedKind(endpoint, kind, muted), {
+      updatedAt: client.getQueryState(queryKey)?.dataUpdatedAt,
     });
   };
   const onThisGone = () => {
@@ -366,12 +387,16 @@ export function NotificationsPage() {
     void reload();
   };
   const onThatGone = () => {
+    // The closing surface moves focus to <main>; focusing it while the surface is still open would be undone.
+    if (kindsOpener.current !== undefined) {
+      kindsOpener.current = { ...kindsOpener.current, gone: true };
+    }
     setKindsFor(undefined);
-    focusMain();
     setNotice({ text: THAT_BROWSER_GONE_TEXT });
     void reload();
   };
   const onChoose = (device: PushDevice) => {
+    kindsOpener.current = { endpoint: device.endpoint, gone: false };
     setOpened(undefined);
     setKindsFor(device);
   };
@@ -469,13 +494,8 @@ export function NotificationsPage() {
 
   const showReset = status?.state === 'ready' || status?.state === 'key_unusable';
   const listed =
-    status?.state === 'ready' && devices?.state === 'listed'
-      ? devices.devices.map((device) => withSavedKinds(device, savedKinds))
-      : undefined;
-  const ownRow =
-    state.kind === 'on' && state.device.currentKey
-      ? withSavedKinds(state.device, savedKinds)
-      : undefined;
+    status?.state === 'ready' && devices?.state === 'listed' ? devices.devices : undefined;
+  const ownRow = state.kind === 'on' && state.device.currentKey ? state.device : undefined;
   // A pending reread may answer another endpoint: until it settles, no row is this browser's.
   const heldEndpoint = subscriptionPending ? undefined : subscription?.endpoint;
   const label = deviceLabel(identity);
@@ -560,6 +580,7 @@ export function NotificationsPage() {
             disabled={busy}
             className={SETTINGS_CARD}
             footnote="The badge still counts everything that needs you."
+            everyOffText={EVERY_KIND_OFF_TEXT}
             onSaved={onKindSaved}
             onGone={onThisGone}
             onSavingChange={setOwnSaving}
@@ -675,6 +696,7 @@ export function NotificationsPage() {
             : (listed?.find((row) => row.endpoint === kindsFor.endpoint) ?? kindsFor)
         }
         desktop={desktop}
+        opener={kindsOpener}
         onClose={() => {
           setKindsFor(undefined);
         }}

@@ -1,14 +1,9 @@
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 
 import type { PushDevice, PushEventKind } from '../api/fns/push';
 import { cn } from '../lib/cn';
 import { saveKind } from '../lib/push-actions';
-import {
-  EVERY_KIND_OFF_TEXT,
-  HEAL_RUNNING_TEXT,
-  KIND_NAMES,
-  KIND_SAVE_FAILED_TEXT,
-} from '../lib/push-text';
+import { HEAL_RUNNING_TEXT, KIND_NAMES, KIND_SAVE_FAILED_TEXT } from '../lib/push-text';
 import { usePushBrowser } from '../lib/use-push-browser';
 import { PUSH_EVENT_KINDS } from '../server/push-states';
 import { Switch } from './ui/switch';
@@ -37,6 +32,8 @@ export type KindSwitchesProps = {
   className?: string;
   /** A line under the switches before the page's answers, such as the badge's. */
   footnote?: string;
+  /** The line when every kind is off, naming this browser or the row's. */
+  everyOffText: string;
 };
 
 export function KindSwitches({
@@ -48,8 +45,10 @@ export function KindSwitches({
   onSavingChange,
   className,
   footnote,
+  everyOffText,
 }: KindSwitchesProps) {
   const browser = usePushBrowser();
+  const nameId = useId();
   /** Each running save's kind and the position it shows. */
   const [pending, setPending] = useState<Partial<Record<PushEventKind, boolean>>>({});
   const [failure, setFailure] = useState<string | undefined>();
@@ -98,14 +97,19 @@ export function KindSwitches({
     <>
       <ul className={cn('divide-y divide-line', className)}>
         {PUSH_EVENT_KINDS.map((kind) => (
-          <li key={kind} className="flex min-h-11 items-center gap-3 px-4 py-2">
-            <span className="flex-1 text-body text-ink-bright">{KIND_NAMES[kind]}</span>
-            <Switch
-              aria-label={KIND_NAMES[kind]}
-              checked={!mutedNow(kind)}
-              disabled={disabled || pending[kind] !== undefined}
-              onCheckedChange={(notify) => void flip(kind, notify)}
-            />
+          <li key={kind}>
+            {/* The row is the switch's label, so tapping its text flips it (ADR 0019, MMR-712). */}
+            <label className="flex min-h-11 cursor-pointer items-center gap-3 px-4 py-2">
+              <span id={`${nameId}-${kind}`} className="flex-1 text-body text-ink-bright">
+                {KIND_NAMES[kind]}
+              </span>
+              <Switch
+                aria-labelledby={`${nameId}-${kind}`}
+                checked={!mutedNow(kind)}
+                disabled={disabled || pending[kind] !== undefined}
+                onCheckedChange={(notify) => void flip(kind, notify)}
+              />
+            </label>
           </li>
         ))}
       </ul>
@@ -115,7 +119,7 @@ export function KindSwitches({
         className="flex flex-col gap-1 px-1 text-xs text-ink-dim empty:hidden"
       >
         {failure !== undefined && <p className="font-medium text-ink-bright">{failure}</p>}
-        {everyOff && <p>{EVERY_KIND_OFF_TEXT}</p>}
+        {everyOff && <p>{everyOffText}</p>}
       </div>
     </>
   );

@@ -12,7 +12,7 @@ import type {
   PushStatus,
   PushSubscribeResult,
 } from '../api/fns/push';
-import { orderedKinds } from '../server/push-states';
+import { withKind } from '../server/push-states';
 import type { BrowserSubscription, PushBrowser, ThisDeviceRecord } from './push-browser';
 import { sameEndpoint } from './push-endpoint';
 import { decideHeal, healApplies } from './push-heal';
@@ -350,8 +350,7 @@ export async function saveKind(
     record?.state === 'on' &&
     (change.own === true || sameEndpoint(record.endpoint, endpoint))
   ) {
-    const others = (record.muted ?? rowMuted).filter((name) => name !== kind);
-    browser.writeRecord({ ...record, muted: orderedKinds(muted ? [...others, kind] : others) });
+    browser.writeRecord({ ...record, muted: withKind(record.muted ?? rowMuted, kind, muted) });
   }
   return answer;
 }

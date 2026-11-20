@@ -23,7 +23,7 @@ import type {
   PushBrowser,
   ThisDeviceRecord,
 } from '../lib/push-browser';
-import { orderedKinds } from '../server/push-states';
+import { orderedKinds, withKind } from '../server/push-states';
 
 /*
  * The Web Push server functions served from one world, and a fake browser
@@ -100,8 +100,7 @@ export function servePush(world: Partial<PushWorld> = {}): PushWorld {
     if (row === undefined) {
       return { state: 'not_found' };
     }
-    const others = row.muted.filter((kind) => kind !== data.kind);
-    const muted = orderedKinds(data.muted ? [...others, data.kind] : others);
+    const muted = withKind(row.muted, data.kind, data.muted);
     // A new row, so a shared fixture is never changed between tests.
     state.devices = state.devices.map((candidate) =>
       candidate === row ? { ...row, muted } : candidate,

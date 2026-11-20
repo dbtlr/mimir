@@ -25,7 +25,6 @@ export type Caption = { text: string; steps: string[] };
 export const KEY_UNUSABLE_TEXT =
   "Notifications are paused on every device. This host can't open its push key, usually because MIMIR_SECRET_KEY changed. Restore the previous value and restart the host. If the previous value is lost, reset the push key; each device subscribes again the next time its console opens.";
 
-/** What Turn on and Turn off answer when a heal of this browser is still running after their wait. */
 /** Each kind's name on a switch, in the event order (ADR 0045, MMR-712). */
 export const KIND_NAMES: Record<PushEventKind, string> = {
   decisions: 'Decisions to confirm',
@@ -56,13 +55,20 @@ export function mutedText(muted: readonly PushEventKind[]): string {
     : `${String(muted.length)} kinds off`;
 }
 
-/** The line under a group of switches that mute every kind. */
+/** The line under this browser's switches when they mute every kind. */
 export const EVERY_KIND_OFF_TEXT =
   'Every kind is off. This browser stays subscribed and still takes a test notification.';
-export const KIND_SAVE_FAILED_TEXT = 'The choice couldn’t be saved.';
+/** The line under another row's switches when they mute every kind. */
+export const THAT_EVERY_KIND_OFF_TEXT =
+  'Every kind is off. That browser stays subscribed and still takes a test notification.';
+/** What a switch says when its save failed and it returned to its saved position. */
+export const KIND_SAVE_FAILED_TEXT = "The choice couldn't be saved.";
+/** What the page says when a save on this browser's own row found no row. */
 export const THIS_BROWSER_GONE_TEXT = 'This browser is no longer subscribed.';
+/** What the page says when a save on another row found no row. */
 export const THAT_BROWSER_GONE_TEXT = 'That browser is no longer subscribed.';
 
+/** What Turn on, Turn off, and a save on this browser's row answer when a heal of this browser is still running after their wait. */
 export const HEAL_RUNNING_TEXT =
   "Another update to this browser's notifications is still running. Try again in a moment.";
 

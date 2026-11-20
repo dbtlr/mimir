@@ -74,6 +74,16 @@ export function orderedKinds(names: readonly string[]): PushEventKind[] {
   return PUSH_EVENT_KINDS.filter((kind) => names.includes(kind));
 }
 
+/** `muted` with one kind's change applied, the others kept, in {@link PUSH_EVENT_KINDS} order. */
+export function withKind(
+  muted: readonly PushEventKind[],
+  kind: PushEventKind,
+  mutedNow: boolean,
+): PushEventKind[] {
+  const others = muted.filter((name) => name !== kind);
+  return orderedKinds(mutedNow ? [...others, kind] : others);
+}
+
 /** One subscribed device, without its keys. Times are ISO 8601. */
 export type PushDevice = {
   endpoint: string;
