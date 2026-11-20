@@ -1070,8 +1070,10 @@ variant A, picked on 2026-11-20.
   so a read that failed or a heal that restored the subscription shows at the
   next poll, but only an action or a changed set of listed endpoints, as
   after a heal, makes the rows withhold their actions and closes an open
-  sheet, menu, or kinds. A row's sheet, menu, or kinds also closes when its
-  row turns out to be this browser's.
+  sheet, menu, or kinds. A poll's reread that fails keeps the subscription
+  the page last read, so a poll never shows this browser's row as another's.
+  A row's sheet, menu, or kinds also closes when its row turns out to be this
+  browser's.
 - **This browser's switches and the page take turns.** The switches are
   disabled while Turn on, Turn off, or a reset runs, and Turn off and Reset
   push key are disabled while a save on this browser's own row runs. A save on

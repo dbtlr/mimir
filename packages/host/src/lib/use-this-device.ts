@@ -55,13 +55,20 @@ export function useThisDevice() {
     let live = true;
     const load = async () => {
       let held: BrowserSubscription | null = null;
+      let failed = false;
       try {
         held = await browser.subscription();
       } catch {
         // A browser that cannot say, or whose service worker has not started, holds none for the page's purposes.
+        failed = true;
       }
       if (live) {
-        setRead({ key: readKey, scope, subscription: held });
+        // A quiet reread that fails keeps what the page last read, so a poll never shows this browser's row as another's.
+        setRead((settled) =>
+          failed && settled?.scope === scope
+            ? { ...settled, key: readKey }
+            : { key: readKey, scope, subscription: held },
+        );
       }
     };
     void load();

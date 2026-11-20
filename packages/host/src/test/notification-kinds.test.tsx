@@ -826,6 +826,17 @@ describe('a poll reads this browser’s subscription again', () => {
     expect(screen.queryByRole('button', { name: 'Actions for Mac · Chrome' })).toBeNull();
   });
 
+  it('a quiet reread that fails keeps the subscription the page last read', async () => {
+    const browser = onBrowser();
+    await open('desktop', { browser, client: pollingClient(), world: { devices: [mine, other] } });
+    await expect(screen.findByRole('button', { name: 'Turn off' })).resolves.toBeInTheDocument();
+    vi.spyOn(browser, 'subscription').mockRejectedValue(new PushReadTimeoutError());
+    await polled();
+    expect(screen.getByRole('button', { name: 'Turn off' })).toBeInTheDocument();
+    expect(metaOf('Mac · Chrome')).toHaveTextContent('This device');
+    expect(screen.queryByRole('button', { name: 'Actions for Mac · Chrome' })).toBeNull();
+  });
+
   it('on a desktop, closes a row’s kinds dialog when a later read shows that row is this browser’s', async () => {
     const { browser, warm } = coldBrowser();
     await open('desktop', { browser, client: pollingClient(), world: { devices: [mine, other] } });
