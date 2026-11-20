@@ -15,8 +15,10 @@ import { createPushChannel, PUSH_DEVICE_LIMIT, PUSH_SECRET_NAME } from './push-c
 import type { PushChannelOptions } from './push-channel';
 import { decryptPushBody, makeBrowserKeys, verifyJwt } from './push-fixtures';
 import type { BrowserKeys } from './push-fixtures';
+import type { PushSubscribeInput } from './push-input';
 import { readVapidKeys } from './push-protocol';
 import type { PushSettings } from './push-settings';
+import { PUSH_EVENT_KINDS } from './push-states';
 import { deferred, stubPushService } from './push-stub';
 import type { StubPushAnswer } from './push-stub';
 
@@ -149,6 +151,7 @@ describe('an absent or misconfigured channel', () => {
     expect(await r.channel.list()).toEqual({ state: 'unconfigured' });
     expect(await r.channel.sendTest(APPLE)).toEqual({ state: 'unconfigured' });
     expect(await r.channel.unsubscribe(APPLE)).toEqual({ state: 'unconfigured' });
+    expect(await r.channel.setKind(APPLE, 'decisions', true)).toEqual({ state: 'unconfigured' });
     expect(await r.channel.resetKey()).toEqual({ state: 'unconfigured' });
     await r.channel.deliver(EVENT);
     expect(await r.secrets.read(PUSH_SECRET_NAME)).toBeUndefined();
@@ -244,6 +247,36 @@ describe('delivering an event', () => {
       GOOGLE,
       APPLE,
     ]);
+  });
+
+  test("a row that mutes the event's kind receives nothing, and every other row still does", async () => {
+    const r = await rig();
+    await subscribed(r, APPLE);
+    await subscribed(r, GOOGLE);
+    expect(await r.channel.setKind(APPLE, 'decisions', true)).toEqual({ state: 'saved' });
+    await r.channel.deliver(EVENT);
+    expect(r.service.requests.map((request) => request.endpoint)).toEqual([GOOGLE]);
+    expect((await r.subscriptions.get(APPLE))?.lastSuccessAt).toBeUndefined();
+    await r.channel.deliver({ ...EVENT, ids: ['MMR-7'], kind: 'task_blocked', target: '/p/MMR/7' });
+    expect(r.service.requests.map((request) => request.endpoint).toSorted()).toEqual([
+      GOOGLE,
+      GOOGLE,
+      APPLE,
+    ]);
+  });
+
+  test('a decisions event of many decisions follows the decisions choice, and muting every kind still takes a test push', async () => {
+    const r = await rig();
+    await subscribed(r, APPLE);
+    for (const kind of PUSH_EVENT_KINDS) {
+      await r.channel.setKind(APPLE, kind, true);
+    }
+    await r.channel.deliver({ ...EVENT, ids: ['MMR-q1', 'MMR-q2', 'MMR-q3'] });
+    for (const kind of ['delivery_stopped', 'task_blocked', 'task_needs_answers'] as const) {
+      await r.channel.deliver({ ...EVENT, kind });
+    }
+    expect(r.service.requests).toEqual([]);
+    expect(await r.channel.sendTest(APPLE)).toEqual({ state: 'delivered' });
   });
 
   test('a 410 or a 404 removes the subscription and logs the host and status only', async () => {
@@ -428,7 +461,7 @@ async function locked(): Promise<never> {
 /** Subscribe a new browser to APPLE with the current key, changed as given. */
 async function attempt(
   r: Rig,
-  change: Record<string, string> = {},
+  change: Partial<PushSubscribeInput> = {},
   origin: string | null = CONSOLE,
 ) {
   const browser = await makeBrowserKeys();
@@ -516,6 +549,26 @@ describe('subscribing', () => {
     await subscribed(r, APPLE, `${'x'.repeat(59)}😀more`);
     expect((await r.subscriptions.get(APPLE))?.label).toBe(`${'x'.repeat(59)}😀`);
   });
+  test("a subscribe stores the known kinds it names in the event order, and one that names none keeps the row's", async () => {
+    const r = await rig();
+    expect(
+      await attempt(r, { muted: ['task_needs_answers', 'retired_kind', 'decisions'] }),
+    ).toEqual({
+      state: 'subscribed',
+    });
+    const endpoint = (await r.subscriptions.list())[0]!.endpoint;
+    expect((await r.subscriptions.get(endpoint))?.mutedKinds).toEqual([
+      'decisions',
+      'task_needs_answers',
+    ]);
+    await attempt(r, {});
+    expect((await r.subscriptions.get(endpoint))?.mutedKinds).toEqual([
+      'decisions',
+      'task_needs_answers',
+    ]);
+    await attempt(r, { muted: [] });
+    expect((await r.subscriptions.get(endpoint))?.mutedKinds).toEqual([]);
+  });
 });
 
 describe('the device list, test push, and unsubscribe', () => {
@@ -529,8 +582,20 @@ describe('the device list, test push, and unsubscribe', () => {
     const listed = await r.channel.list();
     expect(listed).toEqual({
       devices: expect.arrayContaining([
-        { createdAt: expect.any(String), currentKey: true, endpoint: APPLE, label: 'Phone' },
-        { createdAt: expect.any(String), currentKey: false, endpoint: GOOGLE, label: 'Old' },
+        {
+          createdAt: expect.any(String),
+          currentKey: true,
+          endpoint: APPLE,
+          label: 'Phone',
+          muted: [],
+        },
+        {
+          createdAt: expect.any(String),
+          currentKey: false,
+          endpoint: GOOGLE,
+          label: 'Old',
+          muted: [],
+        },
       ]),
       state: 'listed',
     });
@@ -585,6 +650,39 @@ describe('the device list, test push, and unsubscribe', () => {
     );
     expect(await r.channel.sendTest(GOOGLE)).toEqual({ state: 'stale_key' });
     expect(r.service.requests).toEqual([]);
+  });
+
+  test("lists each row's muted kinds in the event order, leaving out names it does not know", async () => {
+    const r = await rig();
+    await subscribed(r, APPLE);
+    for (const kind of ['task_blocked', 'retired_kind', 'delivery_stopped']) {
+      await r.subscriptions.setMutedKind(APPLE, kind, true);
+    }
+    const listed = await r.channel.list();
+    expect(listed.state === 'listed' && listed.devices[0]?.muted).toEqual([
+      'delivery_stopped',
+      'task_blocked',
+    ]);
+  });
+
+  test('set kind changes one kind on a row by its serialized endpoint, and a missing row is not_found', async () => {
+    const r = await rig();
+    await subscribed(r, APPLE);
+    const variant = 'https://WEB.push.apple.com:443/device-one';
+    expect(await r.channel.setKind(variant, 'task_needs_answers', true)).toEqual({
+      state: 'saved',
+    });
+    expect(await r.channel.setKind(APPLE, 'delivery_stopped', true)).toEqual({ state: 'saved' });
+    expect((await r.subscriptions.get(APPLE))?.mutedKinds).toEqual([
+      'task_needs_answers',
+      'delivery_stopped',
+    ]);
+    expect(await r.channel.setKind(APPLE, 'task_needs_answers', false)).toEqual({
+      state: 'saved',
+    });
+    expect((await r.subscriptions.get(APPLE))?.mutedKinds).toEqual(['delivery_stopped']);
+    expect(await r.channel.setKind(GOOGLE, 'decisions', true)).toEqual({ state: 'not_found' });
+    expect(await r.channel.setKind('not a url', 'decisions', true)).toEqual({ state: 'not_found' });
   });
 
   test('unsubscribe deletes the serialized endpoint, and no row is not an error', async () => {
@@ -701,7 +799,13 @@ describe('the VAPID key', () => {
     expect(await r.channel.sendTest(APPLE)).toEqual({ state: 'key_unusable' });
     expect(await r.channel.list()).toEqual({
       devices: [
-        { createdAt: expect.any(String), currentKey: false, endpoint: APPLE, label: 'Phone' },
+        {
+          createdAt: expect.any(String),
+          currentKey: false,
+          endpoint: APPLE,
+          label: 'Phone',
+          muted: [],
+        },
       ],
       state: 'listed',
     });

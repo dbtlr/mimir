@@ -49,8 +49,8 @@ export type PushSubscriptionStore = {
     },
     limit: number,
   ) => Promise<'subscribed' | 'too_many_devices'>;
-  /** Replace one row's muted kinds; returns whether the row exists. */
-  setMutedKinds: (endpoint: string, mutedKinds: readonly string[]) => Promise<boolean>;
+  /** Mute or unmute one kind on one row, leaving its other kinds, in one write transaction; returns whether the row exists. */
+  setMutedKind: (endpoint: string, kind: string, muted: boolean) => Promise<boolean>;
   /** Delete by endpoint; no row is not an error. Returns whether a row was deleted. */
   remove: (endpoint: string) => Promise<boolean>;
   /** Delete every row whose server_key differs; returns how many. */
@@ -171,16 +171,24 @@ export function createPushSubscriptionStore({
       );
       return Number(result.numDeletedRows);
     },
-    setMutedKinds: async (endpoint, mutedKinds) => {
-      const result = await dialect.write(db, (tx) =>
-        tx
-          .updateTable('push_subscriptions')
-          .set({ muted_kinds: JSON.stringify(mutedKinds) })
+    setMutedKind: (endpoint, kind, muted) =>
+      dialect.write(db, async (tx) => {
+        const row = await tx
+          .selectFrom('push_subscriptions')
+          .select('muted_kinds')
           .where('endpoint', '=', endpoint)
-          .executeTakeFirst(),
-      );
-      return Number(result.numUpdatedRows) > 0;
-    },
+          .executeTakeFirst();
+        if (row === undefined) {
+          return false;
+        }
+        const others = parseMutedKinds(row.muted_kinds).filter((name) => name !== kind);
+        await tx
+          .updateTable('push_subscriptions')
+          .set({ muted_kinds: JSON.stringify(muted ? [...others, kind] : others) })
+          .where('endpoint', '=', endpoint)
+          .execute();
+        return true;
+      }),
     subscribe: (row, limit) =>
       dialect.write(db, async (tx) => {
         const existing = await tx

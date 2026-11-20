@@ -52,6 +52,7 @@ export const device = (overrides: Partial<PushDevice> & { endpoint: string }): P
   createdAt: '2026-11-18T10:00:00.000Z',
   currentKey: true,
   label: 'Mac · Chrome',
+  muted: [],
   ...overrides,
 });
 

@@ -121,14 +121,20 @@ describe.each([
     expect((await subscriptions.get(A))?.mutedKinds).toEqual([]);
   });
 
-  test('setMutedKinds replaces one row\'s muted kinds and reports whether the row exists', async () => {
+  test('setMutedKind mutes or unmutes one kind, keeps the others, and reports whether the row exists', async () => {
     const { subscriptions } = await fixture();
-    await subscriptions.subscribe(row(A), 5);
+    await subscriptions.subscribe(row(A, { mutedKinds: ['decisions'] }), 5);
     await subscriptions.subscribe(row(B), 5);
-    expect(await subscriptions.setMutedKinds(A, ['task_blocked', 'decisions'])).toBe(true);
-    expect((await subscriptions.get(A))?.mutedKinds).toEqual(['task_blocked', 'decisions']);
+    expect(await subscriptions.setMutedKind(A, 'task_blocked', true)).toBe(true);
+    expect((await subscriptions.get(A))?.mutedKinds).toEqual(['decisions', 'task_blocked']);
+    expect(await subscriptions.setMutedKind(A, 'task_blocked', true)).toBe(true);
+    expect((await subscriptions.get(A))?.mutedKinds).toEqual(['decisions', 'task_blocked']);
+    expect(await subscriptions.setMutedKind(A, 'decisions', false)).toBe(true);
+    expect((await subscriptions.get(A))?.mutedKinds).toEqual(['task_blocked']);
+    expect(await subscriptions.setMutedKind(A, 'decisions', false)).toBe(true);
+    expect((await subscriptions.get(A))?.mutedKinds).toEqual(['task_blocked']);
     expect((await subscriptions.get(B))?.mutedKinds).toEqual([]);
-    expect(await subscriptions.setMutedKinds('https://push.example/none', ['decisions'])).toBe(
+    expect(await subscriptions.setMutedKind('https://push.example/none', 'decisions', true)).toBe(
       false,
     );
     expect(await subscriptions.get('https://push.example/none')).toBeUndefined();
