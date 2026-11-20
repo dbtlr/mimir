@@ -9,7 +9,7 @@ date: 2026-11-20
 [ADR 0013](0013-ui-embedded-spa.md) chose shadcn/ui in its Base UI flavor for
 the console's components. The console kept a thin vendored layer in
 `packages/host/src/components/ui/`, but features did not have to go through
-it. By 2026-11-20 fourteen feature files imported Base UI's Dialog directly,
+it. By 2026-11-20 eleven feature files imported Base UI's Dialog directly,
 and the console asked the operator for input in 42 places built in more
 shapes than their jobs needed:
 
@@ -47,10 +47,14 @@ injects.
 | --- | --- | --- | --- |
 | Primitives | `components/ui` | UI SDK parts styled with the Meridian tokens | `@ui-sdk/*` and the tokens |
 | Patterns | `components/patterns` | The input patterns and feed blocks that ADR 0019 names | Primitives only |
-| Features | Everything else | Pages, routes, and record views | Patterns, and a primitive only where ADR 0019 names the primitive as the pattern |
+| Features | Everything else | Pages, routes, and record views | Patterns, and the plain parts in `components/ui` that wrap no UI SDK behavior |
 
 - Only `components/ui` imports `@ui-sdk/*`. A lint rule enforces this, so an
   import anywhere else fails `verify`.
+- The plain parts are `ActionButton`, `IconButton`, `Badge`, `Card`, the
+  icons, and `Skeleton`. A feature uses them directly, for example for a
+  one-tap action. A feature never builds an overlay or an input from a
+  primitive itself; it uses the pattern for that kind of input.
 - A feature that needs a shape no pattern provides adds the pattern to ADR
   0019 first. A new pattern is a design decision, not an implementation
   detail of one feature.

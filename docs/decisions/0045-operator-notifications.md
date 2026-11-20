@@ -927,3 +927,26 @@ answer removes the card, focus moves to the page's `<main>`.
 The card is the console's `ConfirmCard` (ADR 0019's MMR-734 refinement). Its
 Turn on is an outline, because the page's one solid button belongs to Needs
 you.
+
+## Refinement (2026-11-20, MMR-736): the Notifications control on the console's patterns
+
+The Notifications page moves onto the patterns of ADR 0019's MMR-736
+refinement. What each action does, and the waits and refusals of the MMR-711
+refinement, are unchanged.
+
+- **This browser's Turn on and Turn off become one Switch.** It is a setting
+  the same control turns back, so it asks nothing. Switching it on still runs
+  from the tap itself, so the permission prompt keeps the user's activation.
+  When switching on or off ends in a refusal or a failure, the switch returns
+  to the state the browser and the host agree on, and the sentence under the
+  group says why. Where this browser cannot act, no switch shows. _Send test
+  notification_ stays a button.
+- **Another browser's actions are the Action menu pattern:** a Sheet titled
+  with the label below `md`, and a menu from `md` up, as before.
+- **Remove this browser asks through Destructive confirm** before it removes
+  the row. A removed browser receives nothing until its own console turns
+  notifications on again, so the removal cannot be undone from this page.
+- **Reset push key asks through Destructive confirm** instead of its sheet.
+  The confirm says what the reset's current text says.
+- **The review page's card** (MMR-734 refinement) is the Suggestion pattern,
+  unchanged.

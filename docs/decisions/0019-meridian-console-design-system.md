@@ -1200,75 +1200,105 @@ input (MMR-736).
 Features build from a fixed set of patterns over UI SDK primitives
 ([ADR 0046](0046-console-primitives-on-ui-sdk.md)). A new ask picks its
 pattern by the kind of input it needs. A shape that no pattern provides is
-added here first. The inventory attached to MMR-736 maps each of the
-console's asks and each redesign building block to its pattern and to the
-task that moves it.
+added here first. The console readability phase (MMR-717) rebuilds the
+console's feeds and record pages on these patterns. The inventory attached to
+MMR-736 maps each of the console's asks to the task that moves it. The
+mapping of every existing ask to its pattern is below, under _What this
+replaces_.
 
-### Three surfaces
+### Surfaces
 
-What a surface holds decides which one is used, not the device:
+What a surface holds decides which one is used:
 
-- **Dialog**: a question. It is centred and modal at every width. Confirm,
-  Reason, the Walkthrough, and the jump palette use it.
-- **Sheet**: content or a form. It is UI SDK's Drawer: a bottom sheet on a
-  phone, and a panel from the right on desktop (440px for a preview, 640px
-  for a form). The preview panel, the Form sheet, and the filter sheet use
-  it.
+- **Dialog**: a question, modal. It is centred at every width. The one
+  exception is the Walkthrough, a Dialog that covers the whole console at
+  every width, as the MMR-703 refinement set out.
+- **Sheet**: content or a form. It is UI SDK's Drawer: below `md`, a sheet
+  from the bottom (full screen for a form); from `md` up, a panel from the
+  right, 440px for content and 640px for a form.
 - **Popup**: a short list anchored to its button, either a menu or a
   picker's results.
 
-An **Action menu** is the one pattern that changes with the width. Below
-`md` it opens as a bottom sheet of 44px rows, and from `md` up as an
-anchored menu. The pattern switches; no feature builds both shapes.
+An **Action menu** opens in a Sheet below `md` (rows 44px tall) and as an
+anchored menu from `md` up. The pattern makes that switch, so no feature
+builds both shapes.
 
-### The input patterns
+### The patterns
 
 | Pattern | For | Surface | Primitives |
 | --- | --- | --- | --- |
-| Confirm | an action that ends or removes something | Dialog | Alert Dialog, with `ConfirmCard`'s `bare` body |
-| Reason | a confirm that needs words, optional or required | Dialog | Dialog, Field, Textarea |
+| Destructive confirm | an action that ends or removes something and cannot be undone | Dialog | Alert Dialog, with `ConfirmCard`'s `bare` body |
+| Reason | an action that takes words before it runs: optional, or required; one commit, or two where a dialog offers two answers | Dialog | Dialog, Field, Textarea |
 | Choice | one or several values from a fixed set | inline | Segmented Control, Radio, Select, Checkbox, Switch |
 | Record picker | a record found by search | Popup; a Dialog for the jump palette | Combobox, Listbox, Command |
-| Form sheet | creating or editing a record | Sheet | Drawer, Field, Input, Textarea, Token Input, with Choice and Record picker |
+| Form sheet | creating or editing a record, with several fields | Sheet | Drawer, Field, Input, Textarea, Token Input, with Choice and Record picker |
 | Composer | text added in place, such as an annotation | inline | Textarea |
-| Action menu | choosing an action, including a record's More | Popup, or a bottom sheet on a phone | Menu, Drawer |
+| Action menu | a list of actions, including a record's More | Popup, or a Sheet below `md` | Menu, Drawer, Separator |
 | Suggestion | a one-time offer on a page | card | `ConfirmCard`'s `card` surface |
-| Notice | an outcome, optionally with Undo or Retry, or a standing state | Toast, or a banner for a standing state | Toast |
-| Walkthrough | a guided series of answers | Dialog, full layer | Dialog, Radio, Textarea |
+| Notice | an outcome whose ask has closed, optionally with Undo or Retry; or a standing state | Toast; a banner for a standing state | Toast |
+| Walkthrough | a guided series of answers | Dialog, whole console | Dialog, Radio, Textarea |
+
+Plain parts in `components/ui` that wrap no UI SDK behavior (`ActionButton`,
+`IconButton`, `Badge`, `Card`, the icons, and `Skeleton`) are no pattern.
+Features use them directly, for a one-tap action such as _Approve_, _Turn on_,
+or _Resume_.
 
 ### When an action asks first
 
-- **An action that can be undone runs at once** and offers Undo in a
-  Notice. Archiving a project is one.
-- **An action that ends or removes something asks through Confirm.**
-  Stopping an agent run, unpairing a device, resetting the push key, and
-  removing another browser are such actions. Removing another browser gains a confirm here. The
-  destructive control keeps the MMR-635 red hairline.
-- **An answer that names exactly what it commits is its own confirm.** A
-  decision's _Confirm N_ and _Take M_ chips stay one tap, as the MMR-695
-  refinement set out, with its focus rules. They are a Choice that commits.
-- **No confirm expands in place.** The inline Unpair swap on Settings ›
-  Devices moves to Confirm, as the MMR-635 refinement already required.
+The first rule that fits decides:
+
+1. **A setting the same control turns back is a Choice.** It applies at once
+   and asks nothing. Switching notifications off for this browser is one.
+2. **An answer chip that names exactly what it commits is its own confirm.**
+   A decision's _Confirm N_ and _Take M_ chips stay one tap, with the MMR-695
+   refinement's focus rules. They are `ActionButton` chips, not a Choice.
+3. **An action that takes words asks through Reason**, and Reason is its
+   confirm. Parking, blocking, abandoning, returning, and pausing or
+   abandoning a delivery use it.
+4. **An action the operator can undo runs at once** and offers Undo in a
+   Notice. Archiving a project is one.
+5. **An action that ends or removes something and cannot be undone asks
+   through Destructive confirm.** Stopping an agent run, unpairing a device,
+   denying a pairing request, resetting the push key, and removing another
+   browser are such actions. Denying a pairing request and removing another
+   browser gain this confirm here. The MMR-635 red hairline stays on each
+   control and on the confirm's commit.
+6. **Anything else runs at once.**
+
+No confirm expands in place, as the MMR-635 refinement already required. The
+inline Unpair swap on Settings › Devices moves to Destructive confirm.
 
 ### Forms
 
 - **One form for each kind of record**, used to create and to edit, always in
   the Form sheet. The kinds are task, phase, and initiative (one form);
-  seed; project; and a T3 launch. A Dialog never holds a form.
-- **Seed capture is the seed form in the sheet.** It keeps the `s` hotkey and
-  Enter to file.
+  seed; project; and a T3 launch. A Dialog never holds a form of several
+  fields. Reason's one field is not a form.
+- **Seed capture is the seed form in the Form sheet.** It keeps the `s`
+  hotkey and Enter to file.
 - **A container's Direction is a field of its form**, not a dialog of its own.
 
 ### Choice
 
-- **Segmented Control** holds up to four short options.
+- **Segmented Control** holds a few one-word options that fit on one row,
+  such as a task's size and priority, a seed's kind, and the theme.
 - **Radio** holds options that need a label of more than a word.
 - **Select** holds a longer fixed list, such as T3's models.
 - **Checkbox** holds several independent values.
-- **Switch** holds a setting that applies as soon as it changes, such as a
-  notification kind.
+- **Switch** holds a setting that applies as soon as it changes.
 - **A record is never a Choice.** A project or a parent is picked with the
   Record picker.
+- **An Action menu may hold one Choice**, such as the theme in the top bar's
+  _More_, shown as a group of menu radio items. Choosing it keeps the menu
+  open, as the update action does (ADR 0013's MMR-715 refinement).
+
+### Outcomes
+
+An outcome shows where its ask was while that ask is still on screen:
+`ConfirmCard`'s answer line, the sentence under the Notifications control
+(ADR 0045's MMR-711 refinement), or a row's own result. An outcome whose ask
+has closed is a Notice. A refusal that the MMR-695 refinement sends to a toast
+stays a toast.
 
 ### Feed blocks
 
@@ -1285,11 +1315,37 @@ markup over the tokens and need no headless part.
 
 ### What this replaces
 
+Each existing ask's pattern:
+
+| Ask | Pattern |
+| --- | --- |
+| Stop run dialog | Destructive confirm |
+| Reason dialog (node verbs, seed reject, resolve, and park, delivery pause and abandon) | Reason |
+| Decision note dialog (MMR-695's _Confirm with note_ and _Answer with note_) | Reason, with two commits |
+| Move dialog | The Parent field of the task form, a Record picker |
+| Grooming dialog, set mode | A Choice (Radio) and a note field in the task form |
+| Grooming dialog, answer mode | Reason, required |
+| _Direction_ dialog | A field of the container's form |
+| Seed capture dialog | The seed form in the Form sheet |
+| T3 launch dialog | The T3 launch form in the Form sheet |
+| Push key reset sheet | Destructive confirm |
+| Inline Unpair confirm | Destructive confirm |
+| Another browser's sheet and menu | Action menu |
+| Jump palette | Record picker in a Dialog |
+| Project picker, Home picker, depends-on field | Record picker |
+| Task and seed edit forms, authoring sheet, promote sheet, new project and project settings sheets | Form sheet, one form per kind |
+| Top-bar _More_ and T3's launch menu | Action menu |
+| Toasts (Sonner) and the update and offline banners | Notice |
+
+It also changes these accepted passages:
+
 - **The MMR-734 refinement's surfaces.** `ConfirmCard`'s `bare` surface is now
-  the body of the Confirm dialog, and the push key reset moves from its sheet
-  to Confirm. Its `card` surface is the Suggestion pattern alone.
-- **The MMR-635 refinement's sheet and menu for _Remove this browser_.** The
-  Action menu pattern provides them now.
-- **The per-feature dialog frames.** The stop-run, reason, decision-note,
-  move, grooming, Direction, seed-capture, and T3 launch dialogs each move to
-  the pattern above that fits their input.
+  the body of Destructive confirm, so the push key reset leaves its sheet.
+  The `card` surface is the Suggestion pattern alone.
+- **The MMR-635 refinement's list.** _Deny_ on `/pair` and _Remove this
+  browser_ now ask through Destructive confirm, and _Remove this browser_'s
+  sheet and menu are the Action menu pattern.
+- **The MMR-703 refinement's "The answers are a native radio group".** They
+  are UI SDK's Radio, which keeps the arrow keys moving the selection.
+- **The MMR-492 _Needs you_ popover and phone sheet** stay until the Needs you
+  page (MMR-723) replaces them. They take no new pattern.
