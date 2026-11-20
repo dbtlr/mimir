@@ -1,19 +1,25 @@
 import { createServerFn } from '@tanstack/react-start';
 
-import { parsePushEndpointInput, parsePushSubscribeInput } from '../../server/push-input';
-import type { PushEndpointInput, PushSubscribeInput } from '../../server/push-input';
+import {
+  parsePushEndpointInput,
+  parsePushKindInput,
+  parsePushSubscribeInput,
+} from '../../server/push-input';
+import type { PushEndpointInput, PushKindInput, PushSubscribeInput } from '../../server/push-input';
 import { pushNotifications, requestOriginHeader } from './engine';
 
 export type {
   PushDevice,
   PushDeviceList,
   PushResetResult,
+  PushEventKind,
   PushSendTestResult,
+  PushSetKindResult,
   PushStatus,
   PushSubscribeResult,
   PushUnsubscribeResult,
 } from '../../server/push-states';
-export type { PushEndpointInput, PushSubscribeInput } from '../../server/push-input';
+export type { PushEndpointInput, PushKindInput, PushSubscribeInput } from '../../server/push-input';
 
 /*
  * The Web Push channel's server functions (ADR 0045, the MMR-709
@@ -47,6 +53,13 @@ export const unsubscribePush = createServerFn({ method: 'POST' })
 export const sendTestPush = createServerFn({ method: 'POST' })
   .validator((input: PushEndpointInput) => parsePushEndpointInput(input))
   .handler(async ({ data }) => (await pushNotifications()).sendTest(data.endpoint));
+
+/** Mute or unmute one kind on one device (ADR 0045, the MMR-712 refinement). */
+export const setPushKind = createServerFn({ method: 'POST' })
+  .validator((input: PushKindInput) => parsePushKindInput(input))
+  .handler(async ({ data }) =>
+    (await pushNotifications()).setKind(data.endpoint, data.kind, data.muted),
+  );
 
 /** Replace the VAPID key; every device subscribes again. */
 export const resetPushKey = createServerFn({ method: 'POST' }).handler(async () =>

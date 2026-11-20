@@ -17,18 +17,21 @@ import type {
   PushDeviceList,
   PushFailure,
   PushResetResult,
+  PushEventKind,
   PushSendTestResult,
+  PushSetKindResult,
   PushStatus,
   PushSubscribeResult,
   PushUnavailable,
   PushUnsubscribeResult,
 } from './push-states';
+import { orderedKinds } from './push-states';
 
 export { PUSH_SECRET_NAME } from './push-key';
 
 /*
  * The Web Push channel (ADR 0045, the MMR-709 refinement): the notifier's
- * channel and the operations behind the console's six server functions. Each
+ * channel and the operations behind the console's seven server functions. Each
  * operation answers `unconfigured` or `misconfigured` before it touches a
  * table when the channel is not ready. A store error rejects (a host fault);
  * a push service's failure is an answer.
@@ -81,6 +84,7 @@ function deviceOf(row: PushSubscriptionRecord, currentKey: string | undefined): 
     currentKey: row.serverKey === currentKey,
     endpoint,
     label,
+    muted: orderedKinds(row.mutedKinds),
     ...(lastSuccessAt === undefined ? {} : { lastSuccessAt }),
     ...(lastFailureAt === undefined ? {} : { lastFailureAt }),
     ...(lastFailure !== undefined && isPushFailure(lastFailure) ? { lastFailure } : {}),
@@ -143,7 +147,7 @@ export function createPushChannel(options: PushChannelOptions) {
   };
 
   return {
-    /** The notifier's channel: every row made for the current key, all at once. */
+    /** The notifier's channel: every row made for the current key that does not mute the event's kind, all at once. */
     deliver: async (event: NotificationEvent): Promise<void> => {
       if ('state' in setup) {
         return;
@@ -156,7 +160,9 @@ export function createPushChannel(options: PushChannelOptions) {
       const payload = eventPayload(event, setup.consoleUrl);
       await Promise.all(
         rows
-          .filter((row) => row.serverKey === key.keys.publicKey)
+          .filter(
+            (row) => row.serverKey === key.keys.publicKey && !row.mutedKinds.includes(event.kind),
+          )
           .map((row) => pushTo(setup.sender, row, key.keys, payload)),
       );
     },
@@ -222,6 +228,21 @@ export function createPushChannel(options: PushChannelOptions) {
       return { state: outcome.kind };
     },
 
+    /** Mute or unmute one kind on one row; it works in the key unusable state, as unsubscribe does. */
+    setKind: async (
+      endpoint: string,
+      kind: PushEventKind,
+      muted: boolean,
+    ): Promise<PushSetKindResult> => {
+      if ('state' in setup) {
+        return setup;
+      }
+      const serialized = serializePushEndpoint(endpoint);
+      const saved =
+        serialized !== undefined && (await subscriptions.setMutedKind(serialized, kind, muted));
+      return { state: saved ? 'saved' : 'not_found' };
+    },
+
     /** The key a browser subscribes with and the origin a push opens. */
     status: async (): Promise<PushStatus> => {
       if ('state' in setup) {
@@ -270,6 +291,7 @@ export function createPushChannel(options: PushChannelOptions) {
             label: plainLabel(input.label),
             p256dh: input.p256dh,
             serverKey: key.keys.publicKey,
+            ...(input.muted === undefined ? {} : { mutedKinds: orderedKinds(input.muted) }),
           },
           PUSH_DEVICE_LIMIT,
         );

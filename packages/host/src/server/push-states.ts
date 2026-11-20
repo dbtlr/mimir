@@ -60,6 +60,30 @@ export type PushSendTestResult =
   | { state: 'stale_key' }
   | { state: 'key_unusable' };
 
+/** The event kinds, in the order ADR 0045's event table lists them; a device may mute any of them. */
+export const PUSH_EVENT_KINDS = [
+  'delivery_stopped',
+  'decisions',
+  'task_blocked',
+  'task_needs_answers',
+] as const;
+export type PushEventKind = (typeof PUSH_EVENT_KINDS)[number];
+
+/** The known kinds among `names`, each once, in {@link PUSH_EVENT_KINDS} order. */
+export function orderedKinds(names: readonly string[]): PushEventKind[] {
+  return PUSH_EVENT_KINDS.filter((kind) => names.includes(kind));
+}
+
+/** `muted` with one kind's change applied, the others kept, in {@link PUSH_EVENT_KINDS} order. */
+export function withKind(
+  muted: readonly PushEventKind[],
+  kind: PushEventKind,
+  mutedNow: boolean,
+): PushEventKind[] {
+  const others = muted.filter((name) => name !== kind);
+  return orderedKinds(mutedNow ? [...others, kind] : others);
+}
+
 /** One subscribed device, without its keys. Times are ISO 8601. */
 export type PushDevice = {
   endpoint: string;
@@ -70,6 +94,8 @@ export type PushDevice = {
   lastFailure?: PushFailure;
   /** Whether the row was made for the key the channel signs with now. */
   currentKey: boolean;
+  /** The kinds no event push reaches this device for, in {@link PUSH_EVENT_KINDS} order. */
+  muted: PushEventKind[];
 };
 
 /** What the device list answers, newest first. */
@@ -77,6 +103,9 @@ export type PushDeviceList = PushUnavailable | { state: 'listed'; devices: PushD
 
 /** What an unsubscribe answers; an endpoint with no row is not an error. */
 export type PushUnsubscribeResult = PushUnavailable | { state: 'unsubscribed' };
+
+/** What muting or unmuting one kind on a device answers. */
+export type PushSetKindResult = PushUnavailable | { state: 'saved' } | { state: 'not_found' };
 
 /** What a key reset answers: the new public key. */
 export type PushResetResult = PushUnavailable | { state: 'reset'; publicKey: string };

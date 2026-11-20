@@ -1351,3 +1351,25 @@ It also changes these accepted passages:
   are UI SDK's Radio, which keeps the arrow keys moving the selection.
 - **The MMR-492 _Needs you_ popover and phone sheet** stay until the Needs you
   page (MMR-723) replaces them. They take no new pattern.
+
+## Refinement (2026-11-20, MMR-712): the Switch of the Choice pattern
+
+The Notifications page's kinds (ADR 0045's MMR-712 refinement) are the first
+Switch of the MMR-736 refinement's Choice pattern: a setting that applies as
+soon as it changes and asks nothing. This refinement adds how the Switch
+looks and behaves while it saves.
+
+- **The row.** The setting's name is the row's text, and a `<label>` wraps it
+  and the switch, so the name labels the switch and a tap on the text flips
+  it. The row is at least 44 pixels tall on a phone.
+- **The switch** is 40 by 24 pixels: accent when on, and faint ink when off,
+  at least 3:1 against the card in both themes.
+- **While it saves,** the switch shows its new position and is disabled. A
+  failure returns it to the saved position and says why in a polite line
+  under its group.
+- **The primitive.** Until UI SDK's primitives are built (ADR 0046), the
+  Switch is Base UI's, vendored as `components/ui/switch.tsx`; it moves to UI
+  SDK's Switch with the other Base UI asks, as ADR 0046 says.
+- **Not for an action.** A choice whose outcome is not known until a prompt or
+  a call answers stays a button that names the action, as Turn on does (ADR
+  0045's MMR-711 and MMR-736 refinements).

@@ -1,4 +1,4 @@
-import type { ExpressionBuilder, Kysely } from 'kysely';
+import type { ExpressionBuilder, Kysely, Selectable } from 'kysely';
 import { sql } from 'kysely';
 
 import type { StoreDialect } from './store-sql/dialect';
@@ -16,6 +16,8 @@ export type PushSubscriptionRecord = {
   lastSuccessAt?: string;
   lastFailureAt?: string;
   lastFailure?: string;
+  /** The event kinds this subscription does not want; the host judges the names. */
+  mutedKinds: string[];
 };
 
 /** What a send was encrypted for; outcome writes apply only while the row still matches. */
@@ -35,7 +37,7 @@ export type PushSubscriptionStore = {
   /** Every row, newest created_at first. */
   list: () => Promise<PushSubscriptionRecord[]>;
   get: (endpoint: string) => Promise<PushSubscriptionRecord | undefined>;
-  /** Upsert by endpoint. A new endpoint is refused when `limit` rows already exist; the count and the write are one write transaction. An existing endpoint gets the new p256dh, auth, serverKey, label; its last_failure_at and last_failure are cleared; created_at and last_success_at are kept. */
+  /** Upsert by endpoint. A new endpoint is refused when `limit` rows already exist; the count and the write are one write transaction. An existing endpoint gets the new p256dh, auth, serverKey, label; its last_failure_at and last_failure are cleared; created_at and last_success_at are kept. A given `mutedKinds` is stored; without one, a new row mutes nothing and an existing row keeps its own. */
   subscribe: (
     row: {
       endpoint: string;
@@ -43,9 +45,12 @@ export type PushSubscriptionStore = {
       auth: string;
       serverKey: string;
       label: string;
+      mutedKinds?: readonly string[];
     },
     limit: number,
   ) => Promise<'subscribed' | 'too_many_devices'>;
+  /** Mute or unmute one kind on one row, leaving its other kinds, in one write transaction; returns whether the row exists. */
+  setMutedKind: (endpoint: string, kind: string, muted: boolean) => Promise<boolean>;
   /** Delete by endpoint; no row is not an error. Returns whether a row was deleted. */
   remove: (endpoint: string) => Promise<boolean>;
   /** Delete every row whose server_key differs; returns how many. */
@@ -58,12 +63,25 @@ export type PushSubscriptionStore = {
   removeIfMatches: (match: PushSubscriptionMatch) => Promise<boolean>;
 };
 
-function toRecord(row: PushSubscriptionTable): PushSubscriptionRecord {
+/** The stored muted kinds: the strings of a JSON array; anything else mutes nothing. */
+function parseMutedKinds(stored: string): string[] {
+  try {
+    const value: unknown = JSON.parse(stored);
+    return Array.isArray(value)
+      ? value.filter((kind): kind is string => typeof kind === 'string')
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function toRecord(row: Selectable<PushSubscriptionTable>): PushSubscriptionRecord {
   return {
     auth: row.auth,
     createdAt: row.created_at,
     endpoint: row.endpoint,
     label: row.label,
+    mutedKinds: parseMutedKinds(row.muted_kinds),
     p256dh: row.p256dh,
     serverKey: row.server_key,
     ...(row.last_success_at === null ? {} : { lastSuccessAt: row.last_success_at }),
@@ -153,6 +171,24 @@ export function createPushSubscriptionStore({
       );
       return Number(result.numDeletedRows);
     },
+    setMutedKind: (endpoint, kind, muted) =>
+      dialect.write(db, async (tx) => {
+        const row = await tx
+          .selectFrom('push_subscriptions')
+          .select('muted_kinds')
+          .where('endpoint', '=', endpoint)
+          .executeTakeFirst();
+        if (row === undefined) {
+          return false;
+        }
+        const others = parseMutedKinds(row.muted_kinds).filter((name) => name !== kind);
+        await tx
+          .updateTable('push_subscriptions')
+          .set({ muted_kinds: JSON.stringify(muted ? [...others, kind] : others) })
+          .where('endpoint', '=', endpoint)
+          .execute();
+        return true;
+      }),
     subscribe: (row, limit) =>
       dialect.write(db, async (tx) => {
         const existing = await tx
@@ -177,6 +213,7 @@ export function createPushSubscriptionStore({
           last_failure_at: null,
           p256dh: row.p256dh,
           server_key: row.serverKey,
+          ...(row.mutedKinds === undefined ? {} : { muted_kinds: JSON.stringify(row.mutedKinds) }),
         };
         await tx
           .insertInto('push_subscriptions')

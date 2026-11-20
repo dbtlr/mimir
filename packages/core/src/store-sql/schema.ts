@@ -285,6 +285,8 @@ export type PushSubscriptionTable = {
   last_success_at: string | null;
   last_failure_at: string | null;
   last_failure: string | null;
+  /** A JSON array of the event kinds this subscription mutes. */
+  muted_kinds: Generated<string>;
 };
 
 export type RunTable = {

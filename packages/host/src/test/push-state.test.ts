@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { decideHeal } from '../lib/push-heal';
 import type { HealInput } from '../lib/push-heal';
-import { deviceMeta, stateCaption } from '../lib/push-text';
+import { deviceMeta, mutedText, stateCaption } from '../lib/push-text';
 import {
   couldSuggestTurningOn,
   deriveThisDevice,
@@ -224,6 +224,21 @@ describe('deviceMeta', () => {
       oldKey: true,
       text: 'Old key · failed Nov 17: HTTP 410',
     });
+  });
+});
+
+describe('mutedText', () => {
+  it.each([
+    [[], ''],
+    [['delivery_stopped'], 'Deliveries off'],
+    [['decisions'], 'Decisions off'],
+    [['task_blocked'], 'Blocked tasks off'],
+    [['task_needs_answers'], 'Answers off'],
+    [['decisions', 'task_blocked'], '2 kinds off'],
+    [['delivery_stopped', 'decisions', 'task_needs_answers'], '3 kinds off'],
+    [['delivery_stopped', 'decisions', 'task_blocked', 'task_needs_answers'], 'Every kind off'],
+  ] as const)('%j reads %j', (muted, text) => {
+    expect(mutedText(muted)).toBe(text);
   });
 });
 

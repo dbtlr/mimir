@@ -1,6 +1,7 @@
 import type { ConsoleOutput } from '@mimir/contract';
 
 import { deliveryPath, nodeLink } from '../lib/record-url';
+import type { PushEventKind } from './push-states';
 
 /*
  * The notifier's event building (ADR 0045): a member of the needs-you set
@@ -8,11 +9,8 @@ import { deliveryPath, nodeLink } from '../lib/record-url';
  * delivery-title read a decisions title may ask for.
  */
 
-export type NotificationKind =
-  | 'delivery_stopped'
-  | 'decisions'
-  | 'task_blocked'
-  | 'task_needs_answers';
+/** An event's kind: one of the event table's kinds, listed once in `PUSH_EVENT_KINDS`. */
+export type NotificationKind = PushEventKind;
 
 /** One notification event: what a channel receives. */
 export type NotificationEvent = {

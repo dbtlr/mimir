@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { parsePushEndpointInput, parsePushSubscribeInput } from './push-input';
+import { parsePushEndpointInput, parsePushKindInput, parsePushSubscribeInput } from './push-input';
 
 const SUBSCRIBE = {
   auth: 'BTBZMqHH6r4Tts7J_aSIgg',
@@ -51,6 +51,38 @@ describe('the push server functions validate their input structure', () => {
     });
     for (const input of [{}, { endpoint: null }, { endpoint: 'x', other: 1 }]) {
       expect(() => parsePushEndpointInput(input)).toThrow(
+        expect.objectContaining({ code: 'validation' }),
+      );
+    }
+  });
+
+  test('subscribe takes muted as a bounded list of names, which the channel filters', () => {
+    const muted = ['decisions', 'retired_kind'];
+    expect(parsePushSubscribeInput({ ...SUBSCRIBE, muted })).toEqual({ ...SUBSCRIBE, muted });
+    expect(
+      parsePushSubscribeInput({ ...SUBSCRIBE, muted: Array(16).fill('k'.repeat(64)) }),
+    ).toMatchObject({ muted: expect.any(Array) });
+    for (const bad of ['decisions', [null], Array(17).fill('k'), ['k'.repeat(65)]]) {
+      expect(() => parsePushSubscribeInput({ ...SUBSCRIBE, muted: bad })).toThrow(
+        expect.objectContaining({ code: 'validation' }),
+      );
+    }
+  });
+
+  test('set kind takes one endpoint, one known kind, and whether it is muted', () => {
+    const input = {
+      endpoint: 'https://web.push.apple.com/abc',
+      kind: 'decisions' as const,
+      muted: true,
+    };
+    expect(parsePushKindInput(input)).toEqual(input);
+    for (const bad of [
+      { ...input, kind: 'retired_kind' },
+      { ...input, muted: 'yes' },
+      { endpoint: input.endpoint, kind: 'decisions' },
+      { ...input, more: 1 },
+    ]) {
+      expect(() => parsePushKindInput(bad)).toThrow(
         expect.objectContaining({ code: 'validation' }),
       );
     }

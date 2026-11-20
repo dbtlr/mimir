@@ -1,3 +1,5 @@
+import { orderedKinds } from '../server/push-states';
+import type { PushEventKind } from '../server/push-states';
 import { decodeBase64Url, encodeBase64Url } from './base64url';
 import { identify } from './push-identity';
 import type { BrowserIdentity } from './push-identity';
@@ -26,10 +28,12 @@ export type BrowserSubscription = {
  * What this browser last did, kept in its own storage; absent storage is no
  * record. A turn on keeps the key it subscribed with, so a browser that does
  * not say its subscription's key can still tell a key reset. `serverKey` is
- * null only for a record written before the key was kept.
+ * null only for a record written before the key was kept. `muted` is the
+ * kinds this browser last knew for its own row (ADR 0045, MMR-712), absent
+ * when it knows nothing of them.
  */
 export type ThisDeviceRecord =
-  | { state: 'on'; endpoint: string; serverKey: string | null }
+  | { state: 'on'; endpoint: string; serverKey: string | null; muted?: PushEventKind[] }
   | { state: 'removed' };
 
 /** What the page can read of this browser without asking it anything. */
@@ -133,7 +137,17 @@ function parseRecord(text: string | null): ThisDeviceRecord | null {
     if (value.state === 'on' && 'endpoint' in value && typeof value.endpoint === 'string') {
       const serverKey =
         'serverKey' in value && typeof value.serverKey === 'string' ? value.serverKey : null;
-      return { endpoint: value.endpoint, serverKey, state: 'on' };
+      // Only the kinds this console knows: a retired or newer one is never sent.
+      const muted =
+        'muted' in value && Array.isArray(value.muted)
+          ? orderedKinds(value.muted.filter((kind): kind is string => typeof kind === 'string'))
+          : undefined;
+      return {
+        endpoint: value.endpoint,
+        serverKey,
+        state: 'on',
+        ...(muted === undefined ? {} : { muted }),
+      };
     }
   } catch {
     // A record that does not parse is no record.

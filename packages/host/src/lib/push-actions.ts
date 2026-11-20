@@ -1,9 +1,22 @@
-import { resetPushKey, sendTestPush, subscribePush, unsubscribePush } from '../api/fns/push';
-import type { PushDeviceList, PushStatus, PushSubscribeResult } from '../api/fns/push';
-import type { BrowserSubscription, PushBrowser } from './push-browser';
+import {
+  resetPushKey,
+  sendTestPush,
+  setPushKind,
+  subscribePush,
+  unsubscribePush,
+} from '../api/fns/push';
+import type {
+  PushDeviceList,
+  PushEventKind,
+  PushSetKindResult,
+  PushStatus,
+  PushSubscribeResult,
+} from '../api/fns/push';
+import { withKind } from '../server/push-states';
+import type { BrowserSubscription, PushBrowser, ThisDeviceRecord } from './push-browser';
 import { sameEndpoint } from './push-endpoint';
-import { decideHeal } from './push-heal';
-import type { HealAction } from './push-heal';
+import { decideHeal, healApplies } from './push-heal';
+import type { HealAction, HealInput } from './push-heal';
 import { deviceLabel } from './push-identity';
 import { HEAL_RUNNING_TEXT, subscribeRefusalText } from './push-text';
 
@@ -29,8 +42,17 @@ const BUSY = { kind: 'busy', message: HEAL_RUNNING_TEXT } as const;
 
 type Ready = Extract<PushStatus, { state: 'ready' }>;
 
-/** Send a subscription to the host under this browser's generated label. */
-async function send(browser: PushBrowser, status: Ready, made: BrowserSubscription) {
+/** The kinds a subscribe carries for this browser: the record's, when it knows them (ADR 0045, MMR-712). */
+const recordMuted = (record: ThisDeviceRecord | null): PushEventKind[] | undefined =>
+  record?.state === 'on' ? record.muted : undefined;
+
+/** Send a subscription to the host under this browser's generated label, with the kinds to mute when given. */
+async function send(
+  browser: PushBrowser,
+  status: Ready,
+  made: BrowserSubscription,
+  muted: PushEventKind[] | undefined,
+) {
   return subscribePush({
     data: {
       auth: made.auth,
@@ -38,11 +60,17 @@ async function send(browser: PushBrowser, status: Ready, made: BrowserSubscripti
       label: deviceLabel(browser.snapshot().identity),
       p256dh: made.p256dh,
       serverKey: status.publicKey,
+      ...(muted === undefined ? {} : { muted }),
     },
   });
 }
 
-type Sent = { answer: PushSubscribeResult; status: Ready; made: BrowserSubscription };
+type Sent = {
+  answer: PushSubscribeResult;
+  status: Ready;
+  made: BrowserSubscription;
+  muted: PushEventKind[] | undefined;
+};
 
 /**
  * Send `made` to the host. A stale key means the host's key changed since
@@ -54,21 +82,31 @@ async function sendOrRetry(
   status: Ready,
   readStatus: () => Promise<PushStatus>,
   made: BrowserSubscription,
+  muted: PushEventKind[] | undefined,
 ): Promise<Sent> {
-  const answer = await send(browser, status, made);
+  const answer = await send(browser, status, made, muted);
   if (answer.state === 'stale_key') {
     const fresh = await readStatus();
     if (fresh.state === 'ready') {
       const again = await browser.subscribe(fresh.publicKey);
-      return { answer: await send(browser, fresh, again), made: again, status: fresh };
+      return {
+        answer: await send(browser, fresh, again, muted),
+        made: again,
+        muted,
+        status: fresh,
+      };
     }
   }
-  return { answer, made, status };
+  return { answer, made, muted, status };
 }
 
-/** The record of a turn on the host accepted: the endpoint and the key it was made for. */
-const onRecord = ({ made, status }: Sent) =>
-  ({ endpoint: made.endpoint, serverKey: status.publicKey, state: 'on' }) as const;
+/** The record of a turn on the host accepted: the endpoint, the key it was made for, and the kinds it sent. */
+const onRecord = ({ made, muted, status }: Sent): ThisDeviceRecord => ({
+  endpoint: made.endpoint,
+  serverKey: status.publicKey,
+  state: 'on',
+  ...(muted === undefined ? {} : { muted }),
+});
 
 /**
  * Refusals a heal answers by turning this browser off: the browser itself
@@ -111,11 +149,13 @@ export async function turnOn(
     if (!(await healSettled())) {
       return BUSY;
     }
+    // A record still on keeps its kinds; any other turn on starts with every kind on.
     const sent = await sendOrRetry(
       browser,
       status,
       readStatus,
       await browser.subscribe(status.publicKey),
+      recordMuted(browser.readRecord()) ?? [],
     );
     const { answer, status: used } = sent;
     if (answer.state === 'subscribed') {
@@ -224,7 +264,13 @@ export async function applyHeal(
       if (made === null) {
         return;
       }
-      const sent = await sendOrRetry(browser, status, readStatus, made);
+      const sent = await sendOrRetry(
+        browser,
+        status,
+        readStatus,
+        made,
+        recordMuted(browser.readRecord()),
+      );
       if (FINAL_REFUSALS.has(sent.answer.state)) {
         await forget(browser);
         return;
@@ -247,6 +293,77 @@ export async function applyHeal(
   }
 }
 
+/** Whether two lists of kinds name the same kinds; an unknown list differs from every list. */
+const sameKinds = (a: readonly PushEventKind[] | undefined, b: readonly PushEventKind[]) =>
+  a !== undefined && a.length === b.length && a.every((kind) => b.includes(kind));
+
+/**
+ * The heal's first step (ADR 0045, MMR-712): copy this browser's row's kinds
+ * into the record when they differ, so a choice made on another device
+ * survives the subscribe that follows. The row is the current-key row for the
+ * endpoint the browser holds, or else for the record's endpoint.
+ */
+function learnKinds(browser: PushBrowser, input: HealInput): void {
+  const { devices, record, subscription } = input;
+  if (!healApplies(input) || record?.state !== 'on' || devices.state !== 'listed') {
+    return;
+  }
+  const rowFor = (endpoint: string) =>
+    devices.devices.find((row) => row.currentKey && sameEndpoint(row.endpoint, endpoint));
+  const row =
+    (subscription === null ? undefined : rowFor(subscription.endpoint)) ?? rowFor(record.endpoint);
+  if (row === undefined || sameKinds(record.muted, row.muted)) {
+    return;
+  }
+  // Read again: another tab may have turned this browser off, or on again, while the heal read its subscription.
+  const now = browser.readRecord();
+  if (
+    now?.state === 'on' &&
+    sameEndpoint(now.endpoint, record.endpoint) &&
+    now.serverKey === record.serverKey
+  ) {
+    browser.writeRecord({ ...now, muted: row.muted });
+  }
+}
+
+/** What a switch's save answers; `busy` when a heal on this browser outlasted the wait. */
+export type SaveKindOutcome = PushSetKindResult | { state: 'busy' };
+
+/**
+ * Mute or unmute one kind on one browser's row. A save on this browser's own
+ * row (`own`) first waits for a running heal, so the two never cross. When it
+ * saves, it applies the change to the record only when the record is `on`
+ * and is for that endpoint, or the save is on this browser's own row (whose
+ * record may still name an old endpoint), starting from `rowMuted` (the row's
+ * listed kinds) when the record knows none: it never writes an absent or
+ * removed record.
+ */
+export async function saveKind(
+  browser: PushBrowser,
+  change: {
+    endpoint: string;
+    kind: PushEventKind;
+    muted: boolean;
+    rowMuted: readonly PushEventKind[];
+    own?: boolean;
+  },
+): Promise<SaveKindOutcome> {
+  const { endpoint, kind, muted, rowMuted } = change;
+  if (change.own === true && !(await healSettled())) {
+    return { state: 'busy' };
+  }
+  const answer = await setPushKind({ data: { endpoint, kind, muted } });
+  const record = browser.readRecord();
+  if (
+    answer.state === 'saved' &&
+    record?.state === 'on' &&
+    (change.own === true || sameEndpoint(record.endpoint, endpoint))
+  ) {
+    browser.writeRecord({ ...record, muted: withKind(record.muted ?? rowMuted, kind, muted) });
+  }
+  return answer;
+}
+
 /** The heal running now, which a second caller joins. */
 let healing: Promise<void> | undefined;
 
@@ -264,14 +381,17 @@ async function heal(
   try {
     const snapshot = browser.snapshot();
     const record = browser.readRecord();
-    const action = decideHeal({
+    const subscription = await browser.subscription();
+    const input = {
       devices,
       permission: snapshot.permission,
       pushSupported: snapshot.pushSupported,
       record,
       status,
-      subscription: await browser.subscription(),
-    });
+      subscription,
+    };
+    learnKinds(browser, input);
+    const action = decideHeal(input);
     await applyHeal(
       browser,
       status,

@@ -36,6 +36,7 @@ import { statements as deliverySinceIndexes } from './migrations/0020-delivery-s
 import { statements as deliveryFollowUp } from './migrations/0021-delivery-follow-up';
 import { statements as decisionOptionDetails } from './migrations/0022-decision-option-details';
 import { statements as pushSubscriptions } from './migrations/0023-push-subscriptions';
+import { statements as pushSubscriptionMutedKinds } from './migrations/0024-push-subscription-muted-kinds';
 import { serializable, snapshotRead } from './tx';
 
 /**
@@ -145,6 +146,7 @@ export const postgresDialect: StoreDialect = {
     '0021_delivery_follow_up': deliveryFollowUp,
     '0022_decision_option_details': decisionOptionDetails,
     '0023_push_subscriptions': pushSubscriptions,
+    '0024_push_subscription_muted_kinds': pushSubscriptionMutedKinds,
   },
   // A shared store is migrated by the host that owns it when it starts, never as
   // a side effect of another binary opening it (ADR 0030, ADR 0035).
