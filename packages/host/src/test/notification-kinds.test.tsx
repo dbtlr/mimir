@@ -590,6 +590,20 @@ describe('another browser’s kinds', () => {
     expect(screen.getByRole('main')).toHaveFocus();
   });
 
+  it('on a phone, a row sheet closed by an unusable key leaves focus on the page', async () => {
+    const { client, world } = await open('phone', { world: { devices: [mine, other] } });
+    await userEvent.click(screen.getByRole('button', { name: /^Android · Chrome/ }));
+    await screen.findByRole('dialog', { name: 'Android · Chrome' });
+    world.status = { state: 'key_unusable' };
+    await act(async () => {
+      await client.refetchQueries({ queryKey: ['push'] });
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Android · Chrome' })).toBeNull();
+    });
+    expect(screen.getByRole('main')).toHaveFocus();
+  });
+
   it('on a phone, a row sheet whose row moves to an old key offers only Remove', async () => {
     const { client, world } = await open('phone', { world: { devices: [mine, other] } });
     await userEvent.click(screen.getByRole('button', { name: /^Android · Chrome/ }));

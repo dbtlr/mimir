@@ -121,18 +121,30 @@ function ResetSheet({
 /** A phone's sheet of actions for one other browser. */
 function RowSheet({
   device,
+  opener,
   onClose,
   onChoose,
   onTest,
   onRemove,
 }: {
   device: PushDevice | undefined;
+  /** The endpoint of the row that opened the sheet, set when it opens; it outlives the close. */
+  opener: RefObject<string | undefined>;
   onClose: () => void;
   onChoose: (device: PushDevice) => void;
   onTest: (device: PushDevice) => void;
   onRemove: (device: PushDevice) => void;
 }) {
   const meta = device === undefined ? undefined : deviceMeta(device, { thisDevice: false });
+  // Focus returns to the row that opened the sheet, or to the page when that row is gone.
+  const finalFocus = () => {
+    const row = opener.current === undefined ? null : rowOpener(opener.current);
+    if (row === null) {
+      focusMain();
+      return false;
+    }
+    return row;
+  };
   return (
     <Sheet
       open={device !== undefined}
@@ -145,6 +157,7 @@ function RowSheet({
       <SheetContent
         side="bottom"
         className="gap-1 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        finalFocus={finalFocus}
       >
         {device !== undefined && meta !== undefined && (
           <>
@@ -251,7 +264,8 @@ function RowMenu({
 
 const KINDS_DIALOG =
   'fixed top-1/2 left-1/2 z-[60] flex max-h-[90dvh] w-[min(92vw,380px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 overflow-y-auto rounded-lg border border-line bg-well-900 p-4 shadow-2xl outline-none light:shadow-overlay';
-const KINDS_BLOCK = 'overflow-hidden rounded-lg border border-line bg-well-850';
+// The list scrolls on a short screen, so every switch stays reachable above Done.
+const KINDS_BLOCK = 'min-h-0 overflow-y-auto rounded-lg border border-line bg-well-850';
 
 /** The row that opened another browser's switches, for Done to return focus to. */
 const rowOpener = (endpoint: string) =>
@@ -367,6 +381,7 @@ export function NotificationsPage() {
   const [kindsFor, setKindsFor] = useState<PushDevice | undefined>();
   // Read when the switches have closed, so it keeps the row they were for.
   const kindsOpener = useRef<KindsOpener | undefined>(undefined);
+  const rowSheetOpener = useRef<string | undefined>(undefined);
   const [ownSaving, setOwnSaving] = useState(false);
   // A pending reread may answer another endpoint: until it settles, no row is this browser's.
   const heldEndpoint = subscriptionPending ? undefined : subscription?.endpoint;
@@ -664,6 +679,7 @@ export function NotificationsPage() {
                         aria-label={`${device.label}, ${meta.text}`}
                         className="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-well-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
                         onClick={() => {
+                          rowSheetOpener.current = device.endpoint;
                           setOpened(device);
                         }}
                       >
@@ -709,6 +725,7 @@ export function NotificationsPage() {
       )}
 
       <RowSheet
+        opener={rowSheetOpener}
         device={
           desktop || opened === undefined
             ? undefined
