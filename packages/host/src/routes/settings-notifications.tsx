@@ -1,16 +1,16 @@
-import { Dialog } from '@base-ui-components/react/dialog';
 import { useQueryClient } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
-import type { RefObject } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { ReactElement, RefObject } from 'react';
 
 import type { PushDevice, PushDeviceList, PushEventKind } from '../api/fns/push';
 import { pushDevicesQuery, pushStatusQuery } from '../api/push-queries';
+import { ACTION_MENU_ANCHORED_QUERY, ActionMenu } from '../components/patterns/action-menu';
+import type { ActionMenuEntry } from '../components/patterns/action-menu';
 import { DestructiveConfirm } from '../components/patterns/destructive-confirm';
 import { KindSwitches } from '../components/push-kind-switches';
 import type { KindSwitchesProps } from '../components/push-kind-switches';
 import { SETTINGS_CARD, SettingsGroup, SettingsPage } from '../components/settings-page';
-import { ActionButton, DESTRUCTIVE_OUTLINE } from '../components/ui/action-button';
-import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../components/ui/legacy-menu';
+import { ActionButton } from '../components/ui/action-button';
 import { Sheet, SheetClose, SheetContent, SheetTitle } from '../components/ui/sheet';
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/cn';
@@ -38,24 +38,22 @@ import { canTurnOn } from '../lib/push-this-device';
 import { useMediaQuery } from '../lib/use-media-query';
 import { usePushControl } from '../lib/use-push-control';
 import { withKind } from '../server/push-states';
-import { DESKTOP } from './shell';
 
 /**
  * `/settings/notifications` — this browser's Web Push control and every
  * subscribed browser (ADR 0045, MMR-711). The row for this browser holds Turn
  * on or Turn off; its sentence, and the answer to each action, sit under the
  * group. While this browser is on, "Notify this device about" holds a switch
- * per event kind (ADR 0045, MMR-712). Another browser's row opens its actions:
- * a sheet on a phone, a menu on a desktop, from Tailwind's `lg`, where Settings
- * shows its sidebar; on a current-key row, "Choose what notifies…" opens that
- * row's switches in their own sheet or dialog. Turn on and Turn off live in
+ * per event kind (ADR 0045, MMR-712). Another browser's row opens its Action
+ * menu: below `md` the row is a full-width button and the menu a sheet; from
+ * `md` up the row has a ••• button and the menu is anchored to it, switching
+ * where the pattern does. On a current-key row, "Choose what notifies…" opens
+ * that row's switches in their own sheet. Turn on and Turn off live in
  * `usePushControl`; the page places their answers.
  */
 
 const TEXT_BUTTON =
   'inline-flex min-h-11 items-center rounded px-1 text-meta text-ink-dim hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent';
-const SHEET_ACTION =
-  'flex min-h-11 w-full items-center rounded-lg px-3 text-left text-body text-ink-bright hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent';
 
 function RowText({ label, meta, oldKey }: { label: string; meta: string; oldKey?: boolean }) {
   return (
@@ -109,147 +107,170 @@ function ResetConfirm({
   );
 }
 
-/** A phone's sheet of actions for one other browser. */
-function RowSheet({
+/**
+ * The Action menu of one other browser (ADR 0019, MMR-736): a bottom sheet on
+ * a phone, headed by the row's label and meta, and an anchored menu on a
+ * desktop. `trigger` is the row on a phone and the ••• button on a desktop.
+ * The menu returns focus to its trigger; Choose's switches and Remove's
+ * confirm take it from there and send it back to the row when they close.
+ */
+function RowActions({
   device,
-  opener,
-  onClose,
-  onChoose,
-  onTest,
-  onRemove,
-}: {
-  device: PushDevice | undefined;
-  /** The endpoint of the row that opened the sheet, set when it opens; it outlives the close. */
-  opener: RefObject<string | undefined>;
-  onClose: () => void;
-  onChoose: (device: PushDevice) => void;
-  onTest: (device: PushDevice) => void;
-  onRemove: (device: PushDevice) => void;
-}) {
-  const meta = device === undefined ? undefined : deviceMeta(device, { thisDevice: false });
-  // Focus returns to the row that opened the sheet, or to the page when that row is gone.
-  const finalFocus = () => {
-    const row = opener.current === undefined ? null : rowOpener(opener.current);
-    if (row === null) {
-      focusMain();
-      return false;
-    }
-    return row;
-  };
-  return (
-    <Sheet
-      open={device !== undefined}
-      onOpenChange={(open) => {
-        if (!open) {
-          onClose();
-        }
-      }}
-    >
-      <SheetContent
-        side="bottom"
-        className="gap-1 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
-        finalFocus={finalFocus}
-      >
-        {device !== undefined && meta !== undefined && (
-          <>
-            <div className="px-3 pb-2">
-              <SheetTitle className="text-body font-semibold text-ink-bright">
-                {device.label}
-              </SheetTitle>
-              <p className="text-meta text-ink-dim">{meta.text}</p>
-            </div>
-            {device.currentKey && (
-              <>
-                <button
-                  type="button"
-                  className={SHEET_ACTION}
-                  onClick={() => {
-                    onChoose(device);
-                  }}
-                >
-                  Choose what notifies…
-                </button>
-                <button
-                  type="button"
-                  className={SHEET_ACTION}
-                  onClick={() => {
-                    onTest(device);
-                  }}
-                >
-                  Send test notification
-                </button>
-              </>
-            )}
-            <ActionButton
-              variant="destructiveOutline"
-              className="min-h-11 w-full justify-start"
-              onClick={() => {
-                onRemove(device);
-              }}
-            >
-              Remove this browser
-            </ActionButton>
-            <SheetClose className={cn(SHEET_ACTION, 'text-ink-dim')}>Cancel</SheetClose>
-          </>
-        )}
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-/** The ••• menu of one other browser, on a desktop. */
-function RowMenu({
-  device,
+  trigger,
+  open,
+  onOpenChange,
   onChoose,
   onTest,
   onRemove,
 }: {
   device: PushDevice;
+  trigger: ReactElement;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onChoose: (device: PushDevice) => void;
   onTest: (device: PushDevice) => void;
   onRemove: (device: PushDevice) => void;
 }) {
+  const entries: ActionMenuEntry[] = [];
+  if (device.currentKey) {
+    entries.push(
+      {
+        key: 'choose',
+        kind: 'action',
+        label: 'Choose what notifies…',
+        onSelect: () => {
+          onChoose(device);
+        },
+      },
+      {
+        key: 'test',
+        kind: 'action',
+        label: 'Send test notification',
+        onSelect: () => {
+          onTest(device);
+        },
+      },
+    );
+  }
+  entries.push({
+    destructive: true,
+    key: 'remove',
+    kind: 'action',
+    label: 'Remove this browser',
+    onSelect: () => {
+      onRemove(device);
+    },
+  });
   return (
-    <MenuRoot>
-      <MenuTrigger
-        data-push-row={device.endpoint}
-        aria-label={`Actions for ${device.label}`}
-        className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-ink-dim hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
-      >
-        <span aria-hidden>•••</span>
-      </MenuTrigger>
-      <MenuContent>
-        {device.currentKey && (
-          <>
-            <MenuItem
-              onClick={() => {
-                onChoose(device);
-              }}
-            >
-              Choose what notifies…
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                onTest(device);
-              }}
-            >
-              Send test notification
-            </MenuItem>
-          </>
-        )}
-        <MenuItem
-          className={cn(
-            DESTRUCTIVE_OUTLINE,
-            'data-[highlighted]:bg-line/50 data-[highlighted]:text-status-blocked-foreground',
-          )}
-          onClick={() => {
-            onRemove(device);
-          }}
-        >
-          Remove this browser
-        </MenuItem>
-      </MenuContent>
-    </MenuRoot>
+    <ActionMenu
+      title={device.label}
+      description={deviceMeta(device, { thisDevice: false }).text}
+      trigger={trigger}
+      entries={entries}
+      finalFocus={afterRemoveFocus(device.endpoint)}
+      open={open}
+      onOpenChange={onOpenChange}
+    />
+  );
+}
+
+/** Move focus to the page's `<main>` and name it, for a `finalFocus` whose row is gone. */
+const focusPage = (): HTMLElement | null => {
+  focusMain();
+  return document.activeElement instanceof HTMLElement ? document.activeElement : null;
+};
+
+/** Whether a dialog, such as a confirm still closing, holds focus: it returns focus itself. */
+const focusInDialog = () =>
+  document.activeElement?.closest('[role="dialog"], [role="alertdialog"]') != null;
+
+/**
+ * Give focus back to a row once the list has `settled` after an action, as a
+ * fallback. An action's reread redraws the rows and hides their triggers, so
+ * the trigger that held focus, or that a closing surface returned it to, is
+ * gone meanwhile, and focus falls to `<body>`, or UI SDK moves it to a nearby
+ * control. When the list settles, focus goes to the row, or the page when the
+ * row is gone, unless a dialog holds it. Request it as the action is chosen:
+ * a press or key from then on cancels it, so focus the operator moved stays.
+ * The request returns `land`, to call once the action's reread has started.
+ */
+function useFocusBackToRow(settled: boolean) {
+  const request = useRef<{ endpoint: string; landing: boolean } | undefined>(undefined);
+  const stop = useRef<() => void>(() => undefined);
+  // A landing request renders again, so the effect below sees it.
+  const [, setLandings] = useState(0);
+  useEffect(() => {
+    if (settled && request.current?.landing === true) {
+      if (!focusInDialog()) {
+        const row = rowOpener(request.current.endpoint);
+        if (row === null) {
+          focusMain();
+        } else {
+          row.focus();
+        }
+      }
+      stop.current();
+    }
+  });
+  return (endpoint: string) => {
+    stop.current();
+    const own = { endpoint, landing: false };
+    request.current = own;
+    const release = () => {
+      if (request.current === own) {
+        request.current = undefined;
+      }
+      document.removeEventListener('pointerdown', release, true);
+      document.removeEventListener('keydown', release, true);
+    };
+    document.addEventListener('pointerdown', release, true);
+    document.addEventListener('keydown', release, true);
+    stop.current = release;
+    return () => {
+      if (request.current === own) {
+        own.landing = true;
+        setLandings((count) => count + 1);
+      }
+    };
+  };
+}
+
+/** Where focus goes when another browser's menu or its Remove confirm closes: its row, or the page once the row is gone. */
+const afterRemoveFocus = (endpoint: string) => () => {
+  const row = rowOpener(endpoint);
+  return row ?? focusPage();
+};
+
+/** The Destructive confirm for removing another browser (ADR 0019, rule 5): its subscription cannot be restored from here. */
+function RemoveConfirm({
+  device,
+  onClose,
+  onConfirm,
+}: {
+  device: PushDevice | undefined;
+  onClose: () => void;
+  onConfirm: (device: PushDevice) => Promise<void>;
+}) {
+  // The last device stays through the close, so the dialog keeps its text while it leaves.
+  const [shown, setShown] = useState(device);
+  if (device !== undefined && device !== shown) {
+    setShown(device);
+  }
+  return (
+    <DestructiveConfirm
+      open={device !== undefined}
+      onClose={onClose}
+      title={`Remove ${shown?.label ?? 'this browser'}?`}
+      commitLabel="Remove this browser"
+      finalFocus={shown === undefined ? undefined : afterRemoveFocus(shown.endpoint)}
+      onConfirm={async () => {
+        if (device !== undefined) {
+          await onConfirm(device);
+        }
+      }}
+    >
+      It stops receiving notifications from this console, and this cannot be undone from here.
+    </DestructiveConfirm>
   );
 }
 
@@ -296,9 +317,7 @@ function KindsSurface({
   };
   const body = device !== undefined && (
     <>
-      <Dialog.Title className="text-body font-semibold text-ink-bright">
-        {device.label}
-      </Dialog.Title>
+      <SheetTitle className="text-body font-semibold text-ink-bright">{device.label}</SheetTitle>
       <KindSwitches
         {...switches}
         device={device}
@@ -307,9 +326,9 @@ function KindsSurface({
         className={KINDS_BLOCK}
       />
       <div className="flex justify-end">
-        <Dialog.Close render={<ActionButton variant="outline" className="min-h-11 px-4" />}>
+        <SheetClose render={<ActionButton variant="outline" className="min-h-11 px-4" />}>
           Done
-        </Dialog.Close>
+        </SheetClose>
       </div>
     </>
   );
@@ -345,7 +364,8 @@ const withSavedKind =
 
 export function NotificationsPage() {
   const client = useQueryClient();
-  const desktop = useMediaQuery(DESKTOP);
+  // The row's shape follows the Action menu's: a ••• button where the menu is anchored, the row itself where it is a sheet.
+  const desktop = useMediaQuery(ACTION_MENU_ANCHORED_QUERY);
   const control = usePushControl();
   const { browser, busy, devices, identity, notice, reload, setNotice, state, status } = control;
   const { devicesFailed, retryDevices, subscription, subscriptionPending, whileBusy } = control;
@@ -358,7 +378,12 @@ export function NotificationsPage() {
   const [kindsOpening, setKindsOpening] = useState(0);
   // Read when the switches have closed, so it keeps the row they were for.
   const kindsOpener = useRef<KindsOpener | undefined>(undefined);
-  const rowSheetOpener = useRef<string | undefined>(undefined);
+  const [removing, setRemoving] = useState<PushDevice | undefined>();
+  // Set from Confirm until the Remove confirm closes: its own reread must not close it as stale.
+  const [removeRunning, setRemoveRunning] = useState(false);
+  // The list redraws after a Send test or a failed Remove, which can drop focus from the row, so focus
+  // goes back to it once the redraw settles, unless the operator has moved on by then.
+  const returnFocusToRow = useFocusBackToRow(!subscriptionPending);
   const [ownSaving, setOwnSaving] = useState(false);
   // A pending reread may answer another endpoint: until it settles, no row is this browser's.
   const heldEndpoint = subscriptionPending ? undefined : subscription?.endpoint;
@@ -366,11 +391,14 @@ export function NotificationsPage() {
     heldEndpoint !== undefined && sameEndpoint(row.endpoint, heldEndpoint);
   // A reread may change which row is this browser's, so a row's open sheet closes rather than act on a stale
   // match; one whose row turned out to be this browser's closes too, as those surfaces are for other browsers.
-  if (
-    opened !== undefined &&
-    (subscriptionPending || isMine(opened) || status?.state !== 'ready')
-  ) {
+  const staleRow = (row: PushDevice) =>
+    subscriptionPending || isMine(row) || status?.state !== 'ready';
+  if (opened !== undefined && staleRow(opened)) {
     setOpened(undefined);
+  }
+  // The Remove confirm closes on the same reads, except while its own commit runs and rereads.
+  if (removing !== undefined && !removeRunning && staleRow(removing)) {
+    setRemoving(undefined);
   }
   // Another row's kinds are offered only while it is on the current key (ADR 0045, MMR-712), so they close
   // when a read shows it on an old key, or the host no longer serves a usable key.
@@ -448,18 +476,28 @@ export function NotificationsPage() {
     setRowNotes((notes) => ({ ...notes, [endpoint]: text }));
   };
   const onTestRow = async (device: PushDevice) => {
+    const land = returnFocusToRow(device.endpoint);
     setOpened(undefined);
     note(device.endpoint, 'Sending a test…');
-    note(device.endpoint, await runTest(device.endpoint));
+    const result = await runTest(device.endpoint);
+    land();
+    note(device.endpoint, result);
   };
   const onRemoveRow = async (device: PushDevice) => {
-    setOpened(undefined);
+    setRemoveRunning(true);
+    let failed = false;
     try {
       await removeBrowser(device.endpoint);
     } catch {
+      failed = true;
       note(device.endpoint, "That browser couldn't be removed. Try again.");
     }
     await reload();
+    // The row stays, but the reread hides its trigger as the confirm closes, so focus comes back to it.
+    // The confirm holds focus until then, so the request starts here and lands at once.
+    if (failed) {
+      returnFocusToRow(device.endpoint)();
+    }
   };
 
   /**
@@ -639,34 +677,49 @@ export function NotificationsPage() {
                     </li>
                   );
                 }
+                const rowActions = (trigger: ReactElement) => (
+                  <RowActions
+                    device={device}
+                    trigger={trigger}
+                    open={opened?.endpoint === device.endpoint}
+                    onOpenChange={(next) => {
+                      setOpened(next ? device : undefined);
+                    }}
+                    onChoose={onChoose}
+                    onTest={(row) => void onTestRow(row)}
+                    onRemove={setRemoving}
+                  />
+                );
                 return (
                   <li key={device.endpoint}>
                     {desktop ? (
                       <div className="flex min-h-14 items-center gap-3 py-2.5 pr-3 pl-4">
                         {text}
-                        <RowMenu
-                          device={device}
-                          onChoose={onChoose}
-                          onTest={(row) => void onTestRow(row)}
-                          onRemove={(row) => void onRemoveRow(row)}
-                        />
+                        {rowActions(
+                          <button
+                            type="button"
+                            data-push-row={device.endpoint}
+                            aria-label={`Actions for ${device.label}`}
+                            className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-ink-dim hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
+                          >
+                            <span aria-hidden>•••</span>
+                          </button>,
+                        )}
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        data-push-row={device.endpoint}
-                        aria-label={`${device.label}, ${meta.text}`}
-                        className="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-well-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
-                        onClick={() => {
-                          rowSheetOpener.current = device.endpoint;
-                          setOpened(device);
-                        }}
-                      >
-                        {text}
-                        <span aria-hidden className="text-ink-faint">
-                          ›
-                        </span>
-                      </button>
+                      rowActions(
+                        <button
+                          type="button"
+                          data-push-row={device.endpoint}
+                          aria-label={`${device.label}, ${meta.text}`}
+                          className="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-well-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
+                        >
+                          {text}
+                          <span aria-hidden className="text-ink-faint">
+                            ›
+                          </span>
+                        </button>,
+                      )
                     )}
                     {noteLine}
                   </li>
@@ -703,19 +756,13 @@ export function NotificationsPage() {
         </div>
       )}
 
-      <RowSheet
-        opener={rowSheetOpener}
-        device={
-          desktop || opened === undefined
-            ? undefined
-            : (listed?.find((row) => row.endpoint === opened.endpoint) ?? opened)
-        }
+      <RemoveConfirm
+        device={removing}
         onClose={() => {
-          setOpened(undefined);
+          setRemoving(undefined);
+          setRemoveRunning(false);
         }}
-        onChoose={onChoose}
-        onTest={(row) => void onTestRow(row)}
-        onRemove={(row) => void onRemoveRow(row)}
+        onConfirm={onRemoveRow}
       />
       <KindsSurface
         device={

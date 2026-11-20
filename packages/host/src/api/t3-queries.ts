@@ -1,7 +1,7 @@
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
-import { toast } from 'sonner';
 
+import { toast } from '../components/patterns/notice';
 import { leaveFor } from '../lib/leave-for';
 import { connectT3, launchT3, t3Catalog, t3Origin, t3Status } from './fns/t3';
 import type { T3ConnectResult, T3LaunchInput, T3LaunchResult } from './fns/t3';

@@ -1,6 +1,9 @@
 import { useState } from 'react';
 
+import { ActionMenu } from '../components/patterns/action-menu';
 import { DestructiveConfirm } from '../components/patterns/destructive-confirm';
+import { toast } from '../components/patterns/notice';
+import { NoticeBanner } from '../components/patterns/notice-banner';
 import { Reason } from '../components/patterns/reason';
 import { ActionButton } from '../components/ui/action-button';
 import { Sample, Section } from './section';
@@ -19,6 +22,8 @@ export function PatternsKit() {
         destructive
       />
       <TwoCommitSample />
+      <ActionMenuSample />
+      <NoticeSample />
     </Section>
   );
 }
@@ -98,5 +103,75 @@ function TwoCommitSample() {
         ]}
       />
     </Sample>
+  );
+}
+
+function ActionMenuSample() {
+  const [theme, setTheme] = useState('dark');
+  return (
+    <Sample label="action menu · a menu from md up, a bottom sheet below it (resize to see both)">
+      <ActionMenu
+        title="Android · Chrome"
+        description="delivered 1d ago"
+        trigger={
+          <ActionButton variant="outline" aria-label="More">
+            More
+          </ActionButton>
+        }
+        entries={[
+          { key: 'settings', kind: 'action', label: 'Choose what notifies…' },
+          { key: 'test', kind: 'action', label: 'Send test notification' },
+          { key: 'sep', kind: 'separator' },
+          {
+            key: 'theme',
+            kind: 'choice',
+            label: 'Theme',
+            onChange: setTheme,
+            options: [
+              { label: 'Dark', value: 'dark' },
+              { label: 'Light', value: 'light' },
+            ],
+            value: theme,
+          },
+          { key: 'sep2', kind: 'separator' },
+          { destructive: true, key: 'remove', kind: 'action', label: 'Remove this browser' },
+        ]}
+      />
+    </Sample>
+  );
+}
+
+function NoticeSample() {
+  return (
+    <>
+      <Sample label="notice · toast, with Undo or Retry">
+        <ActionButton
+          variant="outline"
+          onClick={() => {
+            toast('Archived Mimir', { action: { label: 'Undo', onClick: () => undefined } });
+          }}
+        >
+          Archived (Undo)
+        </ActionButton>
+        <ActionButton
+          variant="outline"
+          onClick={() => {
+            toast.error("Couldn't save the reason", {
+              action: { label: 'Retry', onClick: () => undefined },
+            });
+          }}
+        >
+          Failed (Retry)
+        </ActionButton>
+      </Sample>
+      <Sample label="notice · banner, a standing state">
+        <div className="flex w-full flex-col gap-2">
+          <NoticeBanner action={{ label: 'Refresh now', onClick: () => undefined }}>
+            A new version is ready.
+          </NoticeBanner>
+          <NoticeBanner tone="blocked">Offline — last synced 3m ago</NoticeBanner>
+        </div>
+      </Sample>
+    </>
   );
 }

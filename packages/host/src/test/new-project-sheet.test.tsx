@@ -8,7 +8,7 @@ import { engineProject } from './engine-fixtures';
 
 vi.mock('../api/fns/shell');
 const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn() } }));
-vi.mock('sonner', () => ({ toast }));
+vi.mock('../components/patterns/notice', () => ({ toast }));
 
 afterEach(() => {
   vi.clearAllMocks();

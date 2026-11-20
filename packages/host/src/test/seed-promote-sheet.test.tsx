@@ -13,7 +13,7 @@ import { serveShell } from './shell-fns';
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn(), success: vi.fn() } }));
-vi.mock('sonner', () => ({ toast }));
+vi.mock('../components/patterns/notice', () => ({ toast }));
 // The sheet's only router touch is useNavigate for "& open"; stub it.
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => vi.fn() }));
 

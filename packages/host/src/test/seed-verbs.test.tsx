@@ -10,7 +10,7 @@ import { seedIn } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 
 vi.mock('../api/fns/browse');
-vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('../components/patterns/notice', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 beforeEach(() => {
   serveBrowse();

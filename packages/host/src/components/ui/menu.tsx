@@ -9,7 +9,7 @@ import {
   MenuSubContent as SdkMenuSubContent,
   MenuSubTrigger as SdkMenuSubTrigger,
 } from '@ui-sdk/react/menu';
-import type { ComponentProps, ReactNode } from 'react';
+import type { ComponentProps, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 
 import { mergeClassName } from './class-name';
 import { LIST_DIVIDER_CLASS } from './separator';
@@ -47,8 +47,95 @@ export function MenuContent({
   );
 }
 
-export function MenuItem({ className, ...props }: ComponentProps<typeof SdkMenuItem>) {
-  return <SdkMenuItem className={mergeClassName(MENU_ITEM_CLASS, className)} {...props} />;
+/** Keep a key event from its default and from every listener after this one. */
+function swallow(event: KeyboardEvent) {
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+/**
+ * Stop the rest of a key that chose something from reaching whatever took focus: that key's repeated
+ * keydowns, its keypresses, and its keyup, until it comes up. A choice may move focus at once, as
+ * opening a Destructive confirm does, and Chromium presses a focused button on Enter's keypress and
+ * Space's keyup, so a held key would press the new focus over and over. No other key releases the
+ * hold; window blur does, as the keyup may then never arrive, and so does a fresh press of the same
+ * key. `passPress` lets the next keypress through, for a button that presses on it.
+ */
+function holdKey(view: Window, press: ReactKeyboardEvent, passPress: boolean) {
+  const key = press.code || press.key;
+  const matches = (event: KeyboardEvent) => (event.code || event.key) === key;
+  let pass = passPress;
+  const release = () => {
+    view.removeEventListener('keydown', onKeyDown, true);
+    view.removeEventListener('keypress', onKeyPress, true);
+    view.removeEventListener('keyup', onKeyUp, true);
+    view.removeEventListener('blur', release);
+  };
+  function onKeyDown(event: KeyboardEvent) {
+    if (!matches(event)) {
+      return;
+    }
+    if (event.repeat) {
+      pass = false;
+      swallow(event);
+    } else {
+      // The keyup was missed, so this is a new press.
+      release();
+    }
+  }
+  function onKeyPress(event: KeyboardEvent) {
+    if (!matches(event)) {
+      return;
+    }
+    if (pass) {
+      pass = false;
+    } else {
+      swallow(event);
+    }
+  }
+  function onKeyUp(event: KeyboardEvent) {
+    if (matches(event)) {
+      swallow(event);
+      release();
+    }
+  }
+  view.addEventListener('keydown', onKeyDown, true);
+  view.addEventListener('keypress', onKeyPress, true);
+  view.addEventListener('keyup', onKeyUp, true);
+  view.addEventListener('blur', release);
+}
+
+/** A menu item chooses on keydown, a first press or a repeat: hold the rest of that Enter or Space. */
+function holdChoosingKey(event: ReactKeyboardEvent) {
+  const view = event.currentTarget.ownerDocument.defaultView;
+  if (view !== null && (event.key === 'Enter' || event.key === ' ')) {
+    holdKey(view, event, false);
+  }
+}
+
+/**
+ * For a button row that runs an action on click, such as a sheet's: Enter's keypress presses it, so
+ * hold the rest of that Enter once the keypress has gone through. Space presses on keyup, after which
+ * nothing of the key is left to hold. Put it on the row's `onKeyDown`.
+ */
+export function holdPressingEnter(event: ReactKeyboardEvent) {
+  const view = event.currentTarget.ownerDocument.defaultView;
+  if (view !== null && event.key === 'Enter') {
+    holdKey(view, event, true);
+  }
+}
+
+export function MenuItem({ className, onKeyDown, ...props }: ComponentProps<typeof SdkMenuItem>) {
+  return (
+    <SdkMenuItem
+      className={mergeClassName(MENU_ITEM_CLASS, className)}
+      onKeyDown={(event) => {
+        holdChoosingKey(event);
+        onKeyDown?.(event);
+      }}
+      {...props}
+    />
+  );
 }
 
 export function MenuSeparator({ className, ...props }: ComponentProps<typeof SdkMenuSeparator>) {

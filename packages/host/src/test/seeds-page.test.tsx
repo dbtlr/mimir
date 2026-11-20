@@ -25,7 +25,10 @@ beforeEach(() => {
   serveViews();
   serveBareRecords();
 });
-vi.mock('sonner', () => ({ Toaster: () => null, toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('../components/patterns/notice', () => ({
+  NoticeHost: () => null,
+  toast: { error: vi.fn(), success: vi.fn() },
+}));
 
 /** One seed per live lane, plus two terminal rows for the settled fold. */
 const list: EngineSeed[] = [

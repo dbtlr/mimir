@@ -1,9 +1,8 @@
-import { Menu } from '@base-ui-components/react/menu';
 import type { EngineNode } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useState } from 'react';
-import { toast } from 'sonner';
+import { createContext, useCallback, useContext, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import type { T3Catalog, T3LaunchInput, T3System } from '../api/fns/t3';
 import { t3CatalogQuery, t3OriginQuery, useConnectT3, useLaunchT3 } from '../api/t3-queries';
@@ -16,11 +15,13 @@ import {
   recallChoice,
   rememberChoice,
 } from '../lib/t3-defaults';
-import type { LaunchChoice } from '../lib/t3-defaults';
+import type { LaunchChoice, RememberedChoice } from '../lib/t3-defaults';
+import { ActionMenu } from './patterns/action-menu';
+import type { ActionMenuEntry } from './patterns/action-menu';
+import { toast } from './patterns/notice';
 import { announceLaunch } from './t3-launch-answers';
 import { T3LaunchDialog } from './t3-launch-dialog';
 import { actionButtonVariants, ActionButton } from './ui/action-button';
-import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/legacy-menu';
 
 type ReachableSystem = Extract<T3System, { status: 'reachable' }>;
 type Connected = Extract<T3Catalog, { state: 'connected' }>;
@@ -30,12 +31,79 @@ export function canLaunchOnT3(node: EngineNode): boolean {
   return node.type === 'task' && (node.status === 'ready' || node.status === 'awaiting');
 }
 
+/** What the settings dialog opens with, and the launch it hands its choice to. */
+type SettingsRequest = {
+  taskId: string;
+  systems: ReachableSystem[];
+  remembered: RememberedChoice | null;
+  environmentId?: string;
+  run: (choice: LaunchChoice) => void;
+};
+
+const OpenSettings = createContext<((request: SettingsRequest) => void) | null>(null);
+
+/**
+ * Holds Launch in T3's settings dialog above the controls that open it. On a
+ * phone the control sits in a record's chip sheet, which closes on the choice
+ * and unmounts it, so a dialog the control held would close with it; one held
+ * here outlives that sheet. A control with no host above it makes its own.
+ */
+export function T3LaunchSettingsHost({
+  children,
+  eligible = true,
+}: {
+  children: ReactNode;
+  eligible?: boolean;
+}) {
+  const [request, setRequest] = useState<(SettingsRequest & { id: number }) | null>(null);
+  const requestId = useRef(0);
+  const openSettings = useCallback((next: SettingsRequest) => {
+    requestId.current += 1;
+    setRequest({ ...next, id: requestId.current });
+  }, []);
+  if (!eligible && request !== null) {
+    setRequest(null);
+  }
+  return (
+    <OpenSettings.Provider value={openSettings}>
+      {children}
+      {eligible && request !== null && (
+        <T3LaunchDialog
+          key={request.id}
+          taskId={request.taskId}
+          systems={request.systems}
+          remembered={request.remembered}
+          initialEnvironmentId={request.environmentId}
+          onClose={() => {
+            setRequest(null);
+          }}
+          onLaunch={(choice) => {
+            setRequest(null);
+            request.run(choice);
+          }}
+        />
+      )}
+    </OpenSettings.Provider>
+  );
+}
+
 /**
  * Launch this task in a new T3 thread (ADR 0040, Launch). It shows only when
  * the host has an Open in T3 origin, so an unconfigured console makes no T3
  * call and shows nothing.
  */
 export function T3LaunchControl({ node, offline }: { node: EngineNode; offline: boolean }) {
+  if (useContext(OpenSettings) === null) {
+    return (
+      <T3LaunchSettingsHost>
+        <T3LaunchControl node={node} offline={offline} />
+      </T3LaunchSettingsHost>
+    );
+  }
+  return <LaunchControl node={node} offline={offline} />;
+}
+
+function LaunchControl({ node, offline }: { node: EngineNode; offline: boolean }) {
   const origin = useQuery(t3OriginQuery).data?.origin ?? null;
   if (origin === null) {
     return null;
@@ -65,8 +133,6 @@ function LaunchOnT3({
         : 'Connect T3 is not available.',
     );
   });
-  const [settings, setSettings] = useState<{ environmentId?: string } | null>(null);
-
   const launch = useLaunchT3((answer, input, retry) => {
     if (answer.state === 'launched') {
       rememberChoice(project, input);
@@ -133,8 +199,6 @@ function LaunchOnT3({
       project={project}
       taskId={node.id}
       disabled={offline || launch.isPending}
-      settings={settings}
-      onSettings={setSettings}
       onRun={run}
     />
   );
@@ -172,18 +236,15 @@ function ConnectedLaunch({
   project,
   taskId,
   disabled,
-  settings,
-  onSettings,
   onRun,
 }: {
   catalog: Connected;
   project: string;
   taskId: string;
   disabled: boolean;
-  settings: { environmentId?: string } | null;
-  onSettings: (next: { environmentId?: string } | null) => void;
   onRun: (choice: LaunchChoice) => void;
 }) {
+  const openSettings = useContext(OpenSettings);
   if (catalog.noRemote) {
     return <Unavailable reason="This project has no git remote for T3 to match." />;
   }
@@ -196,26 +257,31 @@ function ConnectedLaunch({
   const defaultLabel = catalog.systems.find(
     (s) => s.environmentId === defaults?.environmentId,
   )?.label;
+  const onSettings = (environmentId?: string) => {
+    openSettings?.({ environmentId, remembered, run: onRun, systems: launchable, taskId });
+  };
 
   return (
-    <>
-      <span className="inline-flex">
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => {
-            if (defaults === null) {
-              onSettings({});
-            } else {
-              onRun(defaults);
-            }
-          }}
-          className={cn(actionButtonVariants({ size: 'sm', variant: 'outline' }), 'rounded-r-none')}
-        >
-          {defaultLabel === undefined ? 'Launch in T3…' : `Launch on ${defaultLabel}`}
-        </button>
-        <MenuRoot>
-          <MenuTrigger
+    <span className="inline-flex">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => {
+          if (defaults === null) {
+            onSettings();
+          } else {
+            onRun(defaults);
+          }
+        }}
+        className={cn(actionButtonVariants({ size: 'sm', variant: 'outline' }), 'rounded-r-none')}
+      >
+        {defaultLabel === undefined ? 'Launch in T3…' : `Launch on ${defaultLabel}`}
+      </button>
+      <ActionMenu
+        title="Launch in T3"
+        trigger={
+          <button
+            type="button"
             disabled={disabled}
             aria-label="Choose where to launch"
             className={cn(
@@ -225,50 +291,36 @@ function ConnectedLaunch({
             )}
           >
             <span aria-hidden>▾</span>
-          </MenuTrigger>
-          <MenuContent>
-            {catalog.systems.map((system) => (
-              <MenuItem
-                key={system.environmentId}
-                disabled={system.status !== 'reachable'}
-                onClick={() => {
-                  const choice = defaultsForSystem(system, remembered);
-                  if (choice === null) {
-                    onSettings({ environmentId: system.environmentId });
-                  } else {
-                    onRun(choice);
-                  }
-                }}
-              >
-                Launch on {system.label}
-              </MenuItem>
-            ))}
-            <Menu.Separator className="mx-0.5 my-1 h-px bg-line" />
-            <MenuItem
-              onClick={() => {
-                onSettings({ environmentId: defaults?.environmentId });
-              }}
-            >
-              Choose settings…
-            </MenuItem>
-          </MenuContent>
-        </MenuRoot>
-      </span>
-      {settings !== null && (
-        <T3LaunchDialog
-          taskId={taskId}
-          systems={launchable}
-          remembered={remembered}
-          initialEnvironmentId={settings.environmentId}
-          onClose={() => {
-            onSettings(null);
-          }}
-          onLaunch={(choice) => {
-            onSettings(null);
-            onRun(choice);
-          }}
-        />
-      )}
-    </>
+          </button>
+        }
+        entries={[
+          ...catalog.systems.map((system): ActionMenuEntry => {
+            const choice = defaultsForSystem(system, remembered);
+            return {
+              disabled: system.status !== 'reachable',
+              key: system.environmentId,
+              kind: 'action',
+              label: `Launch on ${system.label}`,
+              onSelect: () => {
+                if (choice === null) {
+                  onSettings(system.environmentId);
+                } else {
+                  onRun(choice);
+                }
+              },
+            };
+          }),
+          { key: 'separator', kind: 'separator' },
+          {
+            key: 'settings',
+            kind: 'action',
+            label: 'Choose settings…',
+            onSelect: () => {
+              onSettings(defaults?.environmentId);
+            },
+          },
+        ]}
+      />
+    </span>
   );
 }

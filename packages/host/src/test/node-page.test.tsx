@@ -2,7 +2,6 @@ import type { EngineNode } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -24,6 +23,7 @@ import {
 import { nodeWork } from '../api/fns/views';
 import { POLL_MS } from '../api/queries';
 import { createQueryClient } from '../api/query-client';
+import { toast } from '../components/patterns/notice';
 import { consoleRoutes } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineTree } from './engine-fixtures';
@@ -38,9 +38,9 @@ vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 vi.mock('../api/fns/views');
-vi.mock('sonner', async (orig) => ({
+vi.mock('../components/patterns/notice', async (orig) => ({
   // oxlint-disable-next-line typescript/consistent-type-imports
-  ...(await orig<typeof import('sonner')>()),
+  ...(await orig<typeof import('../components/patterns/notice')>()),
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 

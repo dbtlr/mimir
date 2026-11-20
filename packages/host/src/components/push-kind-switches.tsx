@@ -6,7 +6,7 @@ import { saveKind } from '../lib/push-actions';
 import { HEAL_RUNNING_TEXT, KIND_NAMES, KIND_SAVE_FAILED_TEXT } from '../lib/push-text';
 import { usePushBrowser } from '../lib/use-push-browser';
 import { PUSH_EVENT_KINDS } from '../server/push-states';
-import { Switch } from './ui/legacy-switch';
+import { Switch } from './ui/switch';
 
 /*
  * The four switches that choose which kinds notify one browser (ADR 0045,

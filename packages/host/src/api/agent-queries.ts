@@ -1,7 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
-import { toast } from 'sonner';
 
+import { toast } from '../components/patterns/notice';
 import { agentActivity, cancelGroom, groomCard, startGroom } from './fns/agent';
 import type { GroomCancelResult, GroomCancelTarget, GroomRefusal, GroomTarget } from './fns/agent';
 import { annotationsQuery, nodeQuery } from './node-queries';

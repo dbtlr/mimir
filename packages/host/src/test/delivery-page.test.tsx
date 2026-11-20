@@ -3,7 +3,6 @@
 import type { ConsoleOutput } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
 import { screen, within, waitFor, fireEvent } from '@testing-library/react';
-import { toast } from 'sonner';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
@@ -16,6 +15,7 @@ import {
   deliveryAbandon,
 } from '../api/fns/deliveries';
 import { deliveryPage, phaseDeliveries } from '../api/fns/views';
+import { toast } from '../components/patterns/notice';
 import { consoleRoutes } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
@@ -33,7 +33,10 @@ vi.mock('../api/fns/browse');
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/views');
-vi.mock('sonner', () => ({ Toaster: () => null, toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('../components/patterns/notice', () => ({
+  NoticeHost: () => null,
+  toast: { error: vi.fn(), success: vi.fn() },
+}));
 
 const stamp = new Date('2026-11-16T12:00:00Z');
 function fixture(): ConsoleOutput<'deliveryPage'> {

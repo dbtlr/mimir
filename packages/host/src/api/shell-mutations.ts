@@ -1,6 +1,6 @@
 import { useMutation, useMutationState, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
 
+import { toast } from '../components/patterns/notice';
 import { archive, create, unarchive, updateProject } from './fns/shell';
 import { useInvalidateOnWrite } from './mutations';
 import { projectsQuery } from './shell-queries';

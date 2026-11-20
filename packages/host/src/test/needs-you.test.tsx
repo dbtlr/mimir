@@ -19,7 +19,10 @@ vi.mock('../api/fns/browse');
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/views');
-vi.mock('sonner', () => ({ Toaster: () => null, toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('../components/patterns/notice', () => ({
+  NoticeHost: () => null,
+  toast: { error: vi.fn(), success: vi.fn() },
+}));
 const stamp = new Date('2026-11-16T12:00:00Z');
 function rows(): NeedsYouMember[] {
   return [

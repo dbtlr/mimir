@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode, RefObject } from 'react';
-import { toast } from 'sonner';
 
 import { tasksQuery } from '../api/browse-queries';
 import type { DepCandidate } from '../api/browse-queries';
@@ -18,6 +17,7 @@ import { homeOptions } from '../lib/parent-options';
 import type { AuthoringType } from '../lib/parent-options';
 import { projectKeyOf } from '../lib/project-key';
 import { nodeLink } from '../lib/record-url';
+import { toast } from './patterns/notice';
 import { StatusDot } from './status-dot';
 import { ActionButton } from './ui/action-button';
 import { CloseIcon } from './ui/icons';

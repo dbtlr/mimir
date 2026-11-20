@@ -522,8 +522,9 @@ state. The red marks the consequence of the click, and the label names it.
   on a work page's Now row, and the confirm's **Stop run** (MMR-635) use the
   variant. They no longer carry their
   own copies of the classes. Settings › Notifications' **Remove this browser**
-  (MMR-711) uses it in a phone's action sheet; in a desktop menu the item
-  wears the same hairline and label, from the classes the variant exports.
+  (MMR-711) wears the same hairline and label in a phone's action sheet and
+  in a desktop menu, from the classes the variant exports, which the Action
+  menu pattern puts on every destructive action (MMR-736).
 - **Considered and rejected.** A red-filled confirm button, the common
   pattern elsewhere: it is a status hue filling a button, which §1 rules
   out. A neutral outline for destructive actions: the hairline is the only
@@ -1219,9 +1220,12 @@ What a surface holds decides which one is used:
 - **Popup**: a short list anchored to its button, either a menu or a
   picker's results.
 
-An **Action menu** opens in a Sheet below `md` (rows 44px tall) and as an
-anchored menu from `md` up. The pattern makes that switch, so no feature
-builds both shapes.
+An **Action menu** opens in a Sheet below `md` (rows 44px tall, ending in a
+Cancel row) and as an anchored menu from `md` up. The pattern makes that
+switch, so no feature builds both shapes. A feature whose trigger changes
+shape with the width, such as a row that is a full-width button on a phone,
+switches it at the same `md`. An action that ends or removes something wears
+the MMR-635 red hairline in both shapes.
 
 ### The patterns
 
@@ -1233,9 +1237,9 @@ builds both shapes.
 | Record picker | a record found by search | Popup; a Dialog for the jump palette | Combobox, Listbox, Command |
 | Form sheet | creating or editing a record, with several fields | Sheet | Drawer, Field, Input, Textarea, Token Input, with Choice and Record picker |
 | Composer | text added in place, such as an annotation | inline | Textarea |
-| Action menu | a list of actions, including a record's More | Popup, or a Sheet below `md` | Menu, Drawer, Separator |
+| Action menu | a list of actions, including a record's More | Popup, or a Sheet below `md` | Menu, Drawer, Separator, Radio |
 | Suggestion | a one-time offer on a page | card | `ConfirmCard`'s `card` surface |
-| Notice | an outcome whose ask has closed, optionally with Undo or Retry; or a standing state | Toast; a banner for a standing state | Toast |
+| Notice | an outcome whose ask has closed, optionally with Undo or Retry, and one second action; or a standing state | Toast; a banner for a standing state | Toast |
 | Walkthrough | a guided series of answers | Dialog, whole console | Dialog, Radio, Textarea |
 
 Plain parts in `components/ui` that wrap no UI SDK behavior (`ActionButton`,
@@ -1369,9 +1373,8 @@ looks and behaves while it saves.
 - **While it saves,** the switch shows its new position and is disabled. A
   failure returns it to the saved position and says why in a polite line
   under its group.
-- **The primitive.** Until UI SDK's primitives are built (ADR 0046), the
-  Switch is Base UI's, vendored as `components/ui/switch.tsx`; it moves to UI
-  SDK's Switch with the other Base UI asks, as ADR 0046 says.
+- **The primitive.** The Switch is UI SDK's, styled in `components/ui/switch.tsx`
+  (ADR 0046), and the notification kinds use it.
 - **Not for an action.** A choice whose outcome is not known until a prompt or
   a call answers stays a button that names the action, as Turn on does (ADR
   0045's MMR-711 and MMR-736 refinements).

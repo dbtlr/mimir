@@ -22,7 +22,7 @@ vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn(), success: vi.fn() } }));
-vi.mock('sonner', () => ({ toast }));
+vi.mock('../components/patterns/notice', () => ({ toast }));
 
 afterEach(() => {
   vi.clearAllMocks();

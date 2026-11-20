@@ -33,7 +33,7 @@ import { serveNodes } from './node-fns';
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn() } }));
-vi.mock('sonner', () => ({ toast }));
+vi.mock('../components/patterns/notice', () => ({ toast }));
 
 beforeEach(() => {
   serveNodes({ nodes: [engineTask({ id: 'MMR-9', status: 'ready' })] });

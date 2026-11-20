@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { toast } from 'sonner';
 
 import { seedQuery } from '../api/browse-queries';
 import type { EngineSeed } from '../api/browse-queries';
 import { AuthoringSheet } from './authoring-sheet';
+import { toast } from './patterns/notice';
 import { SeedKindChip } from './seed-kind-chip';
 
 /**

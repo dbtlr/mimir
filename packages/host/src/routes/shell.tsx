@@ -1,9 +1,11 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router';
-import { Toaster } from 'sonner';
+import { useLayoutEffect, useRef, useState } from 'react';
+import type { CSSProperties, RefObject } from 'react';
 
 import { AttentionAlert } from '../components/attention-alert';
 import { BrandMark } from '../components/brand-mark';
 import { JumpPalette } from '../components/jump-palette';
+import { NoticeHost } from '../components/patterns/notice';
 import { ProjectDrawer, ProjectSidebar } from '../components/project-sidebar';
 import { PushHealer } from '../components/push-healer';
 import { PwaUpdateBanner } from '../components/pwa-update-banner';
@@ -16,7 +18,6 @@ import { focusMain } from '../lib/focus-main';
 import { isSettingsPath, sidebarContextOf } from '../lib/project-sidebar';
 import { useMediaQuery } from '../lib/use-media-query';
 import { useTheme } from '../lib/use-theme';
-import { useToastPosition } from '../lib/use-toast-position';
 import { useOpenerFocus } from '../lib/walkthrough-mark';
 
 /**
@@ -26,8 +27,26 @@ import { useOpenerFocus } from '../lib/walkthrough-mark';
  */
 export const DESKTOP = '(min-width: 1024px)';
 
-/** The sidebar's width plus a gutter, so a desktop toast clears it. */
-const TOAST_OFFSET_PAST_SIDEBAR = { left: 'calc(16rem + 24px)' };
+/** The element's height in pixels, kept as it resizes (the top bar grows under a status bar). */
+function useHeight(element: RefObject<HTMLElement | null>): number {
+  const [height, setHeight] = useState(0);
+  useLayoutEffect(() => {
+    const node = element.current;
+    if (node === null) {
+      return undefined;
+    }
+    const measure = () => {
+      setHeight(node.getBoundingClientRect().height);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+    };
+  }, [element]);
+  return height;
+}
 
 /**
  * The first stop for a keyboard: jumps past the top bar and the sidebar to the
@@ -66,7 +85,6 @@ export function Shell() {
 function ShellContent() {
   const { theme, toggle } = useTheme();
   useOpenerFocus();
-  const toastPosition = useToastPosition();
   const desktop = useMediaQuery(DESKTOP);
   useRememberCurrentProject();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -77,16 +95,25 @@ function ShellContent() {
   // Settings is framed with no project too: pairing a device comes first.
   const context = framed || isSettingsPath(pathname) ? sidebarContextOf(pathname) : undefined;
   const sidebarShown = context !== undefined && desktop;
+  const topBar = useRef<HTMLElement>(null);
+  // The phone's toasts sit under the top bar, at its measured height.
+  const topBarHeight = useHeight(topBar);
+  const shellStyle: CSSProperties & Record<'--top-bar-height', string> = {
+    '--top-bar-height': `${String(topBarHeight)}px`,
+  };
   return (
     <SeedCaptureProvider>
       <PushHealer />
-      <div className="flex h-dvh flex-col overflow-hidden">
+      <div className="flex h-dvh flex-col overflow-hidden" style={shellStyle}>
         <SkipLink />
         {/* Solid well-950, the top bar's own ground, which the browser chrome
           also takes (theme-color): a translucent bar here let the status bar
           fade into it. The safe-area pad keeps the bar's ground under a status
           bar that overlays the page. */}
-        <header className="z-20 flex items-center gap-2 border-b border-line bg-well-950 px-4 pt-[calc(0.5rem+env(safe-area-inset-top))] pb-2 max-lg:px-2 max-md:gap-1">
+        <header
+          ref={topBar}
+          className="z-20 flex items-center gap-2 border-b border-line bg-well-950 px-4 pt-[calc(0.5rem+env(safe-area-inset-top))] pb-2 max-lg:px-2 max-md:gap-1"
+        >
           {context !== undefined && !desktop && <ProjectDrawer context={context} />}
           <Link
             to="/"
@@ -109,19 +136,10 @@ function ShellContent() {
             <VersionFooter />
           </div>
         </div>
-        {/* Desktop: bottom-LEFT — a sheet's rail owns the bottom-right
-          corner, and a toast there sits on top of (and intercepts clicks meant
-          for) the rail's footer actions — exactly the error-retry path toasts
-          announce. Mobile: top-center — sonner goes full-width at the bottom
-          below 600px no matter the x-position, right over the bottom sheet's
-          footer, so small viewports route toasts to the top instead. */}
-        <Toaster
-          theme={theme}
-          position={toastPosition}
-          offset={sidebarShown ? TOAST_OFFSET_PAST_SIDEBAR : undefined}
-          richColors
-          closeButton
-        />
+        {/* The Notice host shows every toast the console raises: bottom-left on a desktop, clear
+          of a sheet's footer on the right and of the sidebar, and on a phone at the top, under the
+          top bar and clear of a bottom sheet's footer. */}
+        <NoticeHost offsetPastSidebar={sidebarShown} />
       </div>
     </SeedCaptureProvider>
   );
