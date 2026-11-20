@@ -154,6 +154,12 @@ const uiLintOverride: Override = {
   // the same scope to win. No-count entries are the react-target defaults we keep;
   // counted entries are conformance backlog (walk down one at a time).
   rules: {
+    // UI SDK's Switch, Checkbox, and Radio render the control inside their
+    // own element, so a wrapping <label> pairs with them (ADR 0046).
+    'jsx-a11y/label-has-associated-control': [
+      'error',
+      { controlComponents: ['Checkbox', 'Radio', 'Switch'], depth: 3 },
+    ],
     'jsx-a11y/no-autofocus': 'off', // 1
     'jsx-a11y/prefer-tag-over-role': 'off', // 3
     'react-perf/jsx-no-jsx-as-prop': 'off', // 1

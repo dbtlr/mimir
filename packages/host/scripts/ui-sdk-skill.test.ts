@@ -18,13 +18,13 @@ const INSTALLED = fileURLToPath(
 
 /** Every file under `dir`, relative, with its text, in path order. */
 function tree(dir: string, prefix = ''): [string, string][] {
-  return readdirSync(dir, { withFileTypes: true })
-    .toSorted((a, b) => a.name.localeCompare(b.name))
-    .flatMap((entry): [string, string][] =>
-      entry.isDirectory()
-        ? tree(join(dir, entry.name), `${prefix}${entry.name}/`)
-        : [[`${prefix}${entry.name}`, readFileSync(join(dir, entry.name), 'utf8')]],
-    );
+  const entries = readdirSync(dir, { withFileTypes: true });
+  entries.sort((a, b) => a.name.localeCompare(b.name));
+  return entries.flatMap((entry): [string, string][] =>
+    entry.isDirectory()
+      ? tree(join(dir, entry.name), `${prefix}${entry.name}/`)
+      : [[`${prefix}${entry.name}`, readFileSync(join(dir, entry.name), 'utf8')]],
+  );
 }
 
 /** The relative paths that differ between two skill folders: changed, added, or missing. */
@@ -32,7 +32,9 @@ function drift(committed: string, installed: string): string[] {
   const ours = new Map(tree(committed));
   const theirs = new Map(tree(installed));
   const paths = new Set([...ours.keys(), ...theirs.keys()]);
-  return [...paths].filter((path) => ours.get(path) !== theirs.get(path)).toSorted();
+  const drifted = [...paths].filter((path) => ours.get(path) !== theirs.get(path));
+  drifted.sort();
+  return drifted;
 }
 
 let scratch: string;

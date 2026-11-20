@@ -1,12 +1,10 @@
 import { createLazyRoute } from '@tanstack/react-router';
-import { useState } from 'react';
 
 import { StatusBadge } from '../components/status-badge';
 import { StatusDot } from '../components/status-dot';
 import { ActionButton } from '../components/ui/action-button';
 import { Badge, statusChipVariants } from '../components/ui/badge';
 import { Card, CardContent, CardHeader } from '../components/ui/card';
-import { SegmentedControl } from '../components/ui/segmented-control';
 import { ChoiceKit } from '../kit/choice';
 import { OverlaysKit } from '../kit/overlays';
 import { PickersKit } from '../kit/pickers';
@@ -59,8 +57,6 @@ const TYPE_SCALE = [
 ] as const;
 
 export function KitPage() {
-  const [lens, setLens] = useState<'work' | 'timeline'>('work');
-
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-10 overflow-y-auto px-5 py-8">
       <header className="flex flex-col gap-1">
@@ -187,18 +183,6 @@ export function KitPage() {
             Disabled
           </ActionButton>
         </div>
-      </Section>
-
-      <Section title="Segmented control">
-        <SegmentedControl
-          ariaLabel="View"
-          value={lens}
-          onChange={setLens}
-          options={[
-            { label: 'Work', value: 'work' },
-            { label: 'Timeline', value: 'timeline' },
-          ]}
-        />
       </Section>
 
       <Section title="Badges">

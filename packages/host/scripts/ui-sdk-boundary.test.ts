@@ -19,8 +19,8 @@ const pid = String(process.pid);
 const IMPORT = "import { Dialog } from '@ui-sdk/react/dialog';\n\nexport { Dialog };\n";
 const PROBES = {
   feature: { path: source(`components/ui-sdk-probe-feature-${pid}.tsx`), source: IMPORT },
-  route: { path: source(`routes/ui-sdk-probe-route-${pid}.tsx`), source: IMPORT },
   primitive: { path: source(`components/ui/ui-sdk-probe-primitive-${pid}.tsx`), source: IMPORT },
+  route: { path: source(`routes/ui-sdk-probe-route-${pid}.tsx`), source: IMPORT },
   serverFn: { path: source(`api/fns/ui-sdk-probe-fn-${pid}.ts`), source: IMPORT },
 };
 
