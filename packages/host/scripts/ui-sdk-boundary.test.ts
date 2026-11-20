@@ -20,6 +20,10 @@ const IMPORT = "import { Dialog } from '@ui-sdk/react/dialog';\n\nexport { Dialo
 const PROBES = {
   feature: { path: source(`components/ui-sdk-probe-feature-${pid}.tsx`), source: IMPORT },
   primitive: { path: source(`components/ui/ui-sdk-probe-primitive-${pid}.tsx`), source: IMPORT },
+  primitiveTest: {
+    path: source(`components/ui/ui-sdk-probe-${pid}.test.ts`),
+    source: IMPORT,
+  },
   route: { path: source(`routes/ui-sdk-probe-route-${pid}.tsx`), source: IMPORT },
   serverFn: { path: source(`api/fns/ui-sdk-probe-fn-${pid}.ts`), source: IMPORT },
   test: { path: source(`components/ui-sdk-probe-${pid}.test.ts`), source: IMPORT },
@@ -107,4 +111,8 @@ test('a relative path into node_modules/@ui-sdk is refused', () => {
 
 test('a primitive in components/ui imports UI SDK cleanly', () => {
   expect(of(PROBES.primitive.path)).toBe('');
+});
+
+test('a test beside the primitives imports UI SDK cleanly', () => {
+  expect(of(PROBES.primitiveTest.path)).toBe('');
 });

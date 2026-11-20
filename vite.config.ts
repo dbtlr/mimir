@@ -208,6 +208,10 @@ const layerOverrides: Override[] = [
   { files: ['**/*.test.ts'], rules: { 'no-restricted-imports': 'off' } },
   // The console's tests still reach UI SDK only through its primitives (ADR 0046).
   restrict(['packages/host/**/*.test.ts'], [noUiSdk]),
+  {
+    files: ['packages/host/src/components/ui/**/*.test.ts'],
+    rules: { 'no-restricted-imports': 'off' },
+  },
   // The core/cli direction holds for tests too: core tests may not import the
   // CLI, and CLI tests still reach core only through its entries.
   restrict(['packages/core/**'], [noCliImports, noWireImports]),
