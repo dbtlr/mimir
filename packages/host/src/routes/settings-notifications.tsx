@@ -269,8 +269,8 @@ const KINDS_BLOCK = 'min-h-0 overflow-y-auto rounded-lg border border-line bg-we
 const rowOpener = (endpoint: string) =>
   document.querySelector<HTMLElement>(`[data-push-row="${CSS.escape(endpoint)}"]`);
 
-/** Which row the switches were opened for, and whether the host answered that it is gone. */
-type KindsOpener = { endpoint: string; gone: boolean };
+/** Which opening of the switches this is, the row it was for, and whether the host answered that it is gone. */
+type KindsOpener = { id: number; endpoint: string; gone: boolean };
 
 /**
  * Another browser's switches (ADR 0045, MMR-712): a Sheet titled with the
@@ -363,6 +363,8 @@ export function NotificationsPage() {
   const [resetOpen, setResetOpen] = useState(false);
   const [resetRefusal, setResetRefusal] = useState<string | undefined>();
   const [kindsFor, setKindsFor] = useState<PushDevice | undefined>();
+  // Each opening of the switches gets its own id, so a late answer to a save closes only its own opening.
+  const [kindsOpening, setKindsOpening] = useState(0);
   // Read when the switches have closed, so it keeps the row they were for.
   const kindsOpener = useRef<KindsOpener | undefined>(undefined);
   const rowSheetOpener = useRef<string | undefined>(undefined);
@@ -411,11 +413,11 @@ export function NotificationsPage() {
     setNotice({ text: THIS_BROWSER_GONE_TEXT });
     void reload();
   };
-  const onThatGone = (endpoint: string) => {
-    // Only the switches the save came from close: a save that answers after Done leaves another row's open.
-    // The closing surface moves focus to <main>; focusing it while the surface is still open would be undone.
+  const onThatGone = (opening: number) => {
+    // Only the opening the save came from closes: a save that answers after Done leaves a later opening alone,
+    // another row's or the same row's. Focus then goes to <main> as the surface closes, not while it is open.
     const opener = kindsOpener.current;
-    if (opener !== undefined && sameEndpoint(opener.endpoint, endpoint)) {
+    if (opener?.id === opening) {
       kindsOpener.current = { ...opener, gone: true };
       setKindsFor(undefined);
     }
@@ -424,7 +426,9 @@ export function NotificationsPage() {
     void client.invalidateQueries({ queryKey: pushDevicesQuery.queryKey });
   };
   const onChoose = (device: PushDevice) => {
-    kindsOpener.current = { endpoint: device.endpoint, gone: false };
+    const opening = kindsOpening + 1;
+    setKindsOpening(opening);
+    kindsOpener.current = { endpoint: device.endpoint, gone: false, id: opening };
     setOpened(undefined);
     setKindsFor(device);
   };
@@ -732,7 +736,12 @@ export function NotificationsPage() {
         onClose={() => {
           setKindsFor(undefined);
         }}
-        switches={{ onGone: onThatGone, onSaved: onKindSaved }}
+        switches={{
+          onGone: () => {
+            onThatGone(kindsOpening);
+          },
+          onSaved: onKindSaved,
+        }}
       />
       <ResetSheet
         open={resetOpen}

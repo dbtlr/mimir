@@ -646,6 +646,28 @@ describe('another browser’s kinds', () => {
     });
   });
 
+  it('a not_found that answers after Done leaves the same row’s reopened switches alone', async () => {
+    await open('desktop', { world: { devices: [mine, other] } });
+    const first = await openKinds('desktop', 'Android · Chrome');
+    const answered = Promise.withResolvers<void>();
+    vi.mocked(setPushKind).mockImplementationOnce(async () => {
+      await answered.promise;
+      return { state: 'not_found' };
+    });
+    await userEvent.click(within(first).getByRole('switch', { name: 'Decisions to confirm' }));
+    await userEvent.click(within(first).getByRole('button', { name: 'Done' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Android · Chrome' })).toBeNull();
+    });
+    // That browser subscribed again under the same endpoint before the late answer arrived.
+    const reopened = await openKinds('desktop', 'Android · Chrome');
+    await act(async () => {
+      answered.resolve();
+    });
+    await settle();
+    expect(screen.getByRole('dialog', { name: 'Android · Chrome' })).toBe(reopened);
+  });
+
   it('an old-key row does not offer it', async () => {
     await open('desktop', { world: { devices: [mine, oldKey] } });
     await userEvent.click(
