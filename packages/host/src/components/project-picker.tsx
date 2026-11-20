@@ -28,7 +28,7 @@ import {
 } from './project-options';
 import { StatusDot } from './status-dot';
 import { SearchIcon } from './ui/icons';
-import { PopoverContent, PopoverRoot, PopoverTrigger } from './ui/popover';
+import { PopoverContent, PopoverRoot, PopoverTrigger } from './ui/legacy-popover';
 
 /** The picker heads the project and All projects contexts; Settings has none. */
 type WorkContext = Exclude<SidebarContext, { kind: 'settings' }>;

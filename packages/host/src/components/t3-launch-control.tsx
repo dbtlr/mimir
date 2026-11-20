@@ -20,7 +20,7 @@ import type { LaunchChoice } from '../lib/t3-defaults';
 import { announceLaunch } from './t3-launch-answers';
 import { T3LaunchDialog } from './t3-launch-dialog';
 import { actionButtonVariants, ActionButton } from './ui/action-button';
-import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/menu';
+import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/legacy-menu';
 
 type ReachableSystem = Extract<T3System, { status: 'reachable' }>;
 type Connected = Extract<T3Catalog, { state: 'connected' }>;

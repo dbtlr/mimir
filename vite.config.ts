@@ -79,6 +79,17 @@ const cliNoTesting = {
   message: 'Layer boundary: only tests import packages/cli/src/testing; it reaches core.',
 };
 
+/**
+ * The console's headless library stays behind its primitives (ADR 0046): only
+ * `packages/host/src/components/ui` imports `@ui-sdk/*`, so a beta upgrade
+ * breaks one directory and features build from patterns, not raw parts.
+ */
+const noUiSdk = {
+  group: ['@ui-sdk/*', '@ui-sdk/**'],
+  message:
+    'Layer boundary: only packages/host/src/components/ui imports @ui-sdk/*; build from its primitives or a pattern (ADR 0046).',
+};
+
 const noCoreImports = {
   group: ['@mimir/core', '@mimir/core/**', '**/core', '**/core/**'],
   message: 'Layer boundary: contract and wire depend on the Engine contract, not core.',
@@ -172,13 +183,16 @@ const layerOverrides: Override[] = [
       },
     ],
   ),
-  restrict(['packages/host/**'], [coreEntryOnly]),
+  // An override's pattern list replaces an earlier one for the same file, so
+  // each host restriction below repeats the ones it keeps.
+  restrict(['packages/host/**'], [coreEntryOnly, noUiSdk]),
+  restrict(['packages/host/src/components/ui/**'], [coreEntryOnly]),
   // The console's server functions reach the domain only through the host's
   // Engine (ADR 0034 decision 7): never core or the host
   // runtime that holds them. Only fns/engine.ts opens the runtime, and it
   // hands the rest the `Engine` interface.
-  restrict(['packages/host/src/api/fns/**'], [serverFnBoundary(true)]),
-  restrict(['packages/host/src/api/fns/engine.ts'], [serverFnBoundary(false)]),
+  restrict(['packages/host/src/api/fns/**'], [serverFnBoundary(true), noUiSdk]),
+  restrict(['packages/host/src/api/fns/engine.ts'], [serverFnBoundary(false), noUiSdk]),
   restrict(['packages/cli/**'], [cliNoCore, cliNoWire, cliNoTesting]),
   restrict(['packages/cli/src/app.ts'], [cliNoTesting, coreEntryOnly]),
   // Tests legitimately wire layers together (the store fixture from
@@ -255,8 +269,9 @@ export default defineConfig({
   plugins: [
     toolingPlugin({
       fmt: {
-        // Machine-written route trees and build output.
-        ignores: ['**/routeTree.gen.ts', '**/.output/**'],
+        // Machine-written route trees and build output, and the UI SDK skill,
+        // a byte-for-byte copy of the package's (ADR 0046).
+        ignores: ['**/routeTree.gen.ts', '**/.output/**', 'skills/ui-sdk/**'],
       },
       lint: {
         ignores: ['dist/**', '**/routeTree.gen.ts', '**/.output/**'],
