@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { DestructiveConfirm } from '../components/patterns/destructive-confirm';
 import type { AlertDialogContent } from '../components/ui/alert-dialog';
+import { pressAndDropFocus } from './press-and-drop-focus';
 
 /*
  * In a browser a Destructive confirm reopened during its exit transition keeps
@@ -50,7 +51,7 @@ describe('Destructive confirm reopened while its content stayed mounted', () => 
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
     const dialog = await screen.findByRole('alertdialog');
     const commit = within(dialog).getByRole('button', { name: 'Remove' });
-    await userEvent.click(commit);
+    pressAndDropFocus(commit);
     await act(async () => {
       refused.reject(new Error('refused'));
       await refused.promise.catch(() => undefined);

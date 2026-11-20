@@ -17,6 +17,7 @@ import { useFinalFocus } from '../components/patterns/opener';
 import { Reason } from '../components/patterns/reason';
 import type { ReasonCommit } from '../components/patterns/reason';
 import { ActionButton } from '../components/ui/action-button';
+import { pressAndDropFocus } from './press-and-drop-focus';
 
 /** A page with an opener, so focus return has somewhere to land. */
 function ConfirmHarness({ onConfirm }: { onConfirm: () => void | Promise<void> }) {
@@ -189,10 +190,7 @@ describe('DestructiveConfirm', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Open' }));
     const dialog = await screen.findByRole('alertdialog');
     const commit = within(dialog).getByRole('button', { name: 'Remove' });
-    await userEvent.click(commit);
-    // A browser drops focus to the page when the focused button disables; jsdom does not, so
-    // the test observes the pattern's own call to focus the commit again.
-    commit.blur();
+    pressAndDropFocus(commit);
     const refocus = vi.spyOn(commit, 'focus');
     call.reject(new Error('refused'));
     await waitFor(() => expect(refocus).toHaveBeenCalled());
@@ -216,11 +214,9 @@ describe('DestructiveConfirm', () => {
     const { rerender } = render(confirm(false));
     const dialog = await screen.findByRole('alertdialog');
     const commit = within(dialog).getByRole('button', { name: 'Remove' });
-    await userEvent.click(commit);
+    pressAndDropFocus(commit);
     expect(commit).toBeDisabled();
     rerender(confirm(true));
-    // jsdom keeps focus on a button that becomes disabled.
-    commit.blur();
     const refocus = vi.spyOn(commit, 'focus');
     await settleCall(call, 'reject');
     expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeEnabled();
@@ -360,7 +356,7 @@ describe('Reason', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Open' }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.type(within(dialog).getByRole('textbox'), 'Wait for access');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Park' }));
+    pressAndDropFocus(within(dialog).getByRole('button', { name: 'Park' }));
     await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Park' })).toHaveFocus());
     expect(within(dialog).getByRole('textbox')).toHaveValue('Wait for access');
     expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -585,10 +581,8 @@ describe.each([
     show(work);
     const dialog = await holdCloseReopen(role, commitName);
     const commit = within(dialog).getByRole('button', { name: commitName });
-    await userEvent.click(commit);
+    pressAndDropFocus(commit);
     expect(work).toHaveBeenCalledTimes(2);
-    // A browser drops focus when the focused button disables; jsdom keeps it.
-    commit.blur();
     const refocus = vi.spyOn(commit, 'focus');
     await settleCall(calls[1]!, 'reject');
     await waitFor(() => expect(commit).toBeEnabled());
@@ -636,10 +630,8 @@ async function refuseCallerPending(onCommit: () => void = () => undefined) {
   render(<CallerPendingReason onCommit={onCommit} />);
   const dialog = await screen.findByRole('dialog');
   const commit = within(dialog).getByRole('button', { name: 'Answer' });
-  await userEvent.click(commit);
+  pressAndDropFocus(commit);
   expect(commit).toBeDisabled();
-  // A browser drops focus when the focused button disables; jsdom keeps it.
-  commit.blur();
   const refocus = vi.spyOn(commit, 'focus');
   // A dispatched click, which moves no focus; the modal dialog hides the button from roles.
   fireEvent.click(screen.getByText('Refuse'));
@@ -675,14 +667,10 @@ describe('Reason refusals', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Open' }));
     const dialog = await screen.findByRole('dialog');
     const commit = within(dialog).getByRole('button', { name: 'Park' });
-    // The dialog's own focus handling can put focus back on a blurred button, so the test
-    // observes the pattern's call to focus the commit, as the DestructiveConfirm one does.
     const refocus = vi.spyOn(commit, 'focus');
     for (const [attempt, call] of calls.entries()) {
-      await userEvent.click(commit);
+      pressAndDropFocus(commit);
       expect(onCommit).toHaveBeenCalledTimes(attempt + 1);
-      // A browser drops focus when the focused button disables; jsdom keeps it.
-      commit.blur();
       refocus.mockClear();
       call.reject(new Error('refused'));
       await waitFor(() => expect(refocus).toHaveBeenCalledOnce());
@@ -708,12 +696,10 @@ async function refuseReasonOffline() {
   const text = within(dialog).getByRole('textbox');
   await userEvent.type(text, 'wait');
   const commit = within(dialog).getByRole('button', { name: 'Park' });
-  await userEvent.click(commit);
+  pressAndDropFocus(commit);
   expect(onCommit).toHaveBeenCalledOnce();
   expect(commit).toBeDisabled();
   rerender(reason(true, true));
-  // A browser drops focus when the focused button disables; jsdom keeps it.
-  commit.blur();
   const refocus = vi.spyOn(commit, 'focus');
   await settleCall(call, 'reject');
   expect(commit).toHaveAttribute('aria-busy', 'false');

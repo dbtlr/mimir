@@ -11,6 +11,7 @@ import { GroomingAnswerDialog } from '../components/grooming-answer-dialog';
 import { StopRunDialog } from '../components/stop-run-dialog';
 import { consoleRoutes } from '../router';
 import { serveDevices } from './devices-fns';
+import { pressAndDropFocus } from './press-and-drop-focus';
 import { renderRoute } from './router';
 import { serveViews } from './views-fns';
 
@@ -155,7 +156,7 @@ describe('the grooming answer, before the answer renders as pending', () => {
   it('runs the answer again after a refusal, with focus back on the commit', async () => {
     vi.mocked(groom).mockRejectedValueOnce(new Error('Host refused.'));
     const { commit } = await groomingAnswerDialog();
-    await userEvent.click(commit);
+    pressAndDropFocus(commit);
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Host refused.'));
     await waitFor(() => expect(commit).toBeEnabled());
     expect(commit).toHaveFocus();
