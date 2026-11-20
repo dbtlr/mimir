@@ -1,45 +1,58 @@
-import { Popover } from '@base-ui-components/react/popover';
-import type { ComponentProps, ReactNode } from 'react';
+import {
+  PopoverContent as SdkPopoverContent,
+  PopoverDescription as SdkPopoverDescription,
+  PopoverTitle as SdkPopoverTitle,
+} from '@ui-sdk/react/popover';
+import type { ComponentProps } from 'react';
 
-import { cn } from '../../lib/cn';
+import { mergeClassName } from './class-name';
 
-/**
- * Vendored Base UI popover — a non-modal panel anchored to its trigger, for
- * content that holds controls of its own (the top-bar Needs you list). Use
- * the menu for a list of commands. Focus moves in on open, and Escape closes
- * and returns it to the trigger.
+/*
+ * The Popover primitive (ADR 0046): a non-modal panel anchored to its trigger,
+ * for content that holds controls of its own, such as Record picker results
+ * where no Combobox fits. Use Menu for a list of commands. Focus moves in on
+ * open, and Escape closes and returns it to the trigger.
  */
-export function PopoverRoot(props: ComponentProps<typeof Popover.Root>) {
-  return <Popover.Root {...props} />;
-}
 
-export function PopoverTrigger(props: ComponentProps<typeof Popover.Trigger>) {
-  return <Popover.Trigger {...props} />;
-}
+/* Root, Trigger, and Close carry behavior only. */
+export { Popover, PopoverClose, PopoverTrigger } from '@ui-sdk/react/popover';
 
 export function PopoverContent({
-  align = 'end',
   className,
-  children,
+  align = 'end',
+  sideOffset = 8,
   ...props
-}: ComponentProps<typeof Popover.Popup> & {
-  children: ReactNode;
-  /** Which edge of the trigger the panel lines up with; the end by default. */
-  align?: ComponentProps<typeof Popover.Positioner>['align'];
-}) {
+}: ComponentProps<typeof SdkPopoverContent>) {
   return (
-    <Popover.Portal>
-      <Popover.Positioner align={align} sideOffset={8} className="z-50">
-        <Popover.Popup
-          className={cn(
-            'flex max-h-[min(70dvh,640px)] w-[min(440px,calc(100vw-2rem))] flex-col rounded-lg border border-line-bright bg-well-900 shadow-2xl outline-none',
-            className,
-          )}
-          {...props}
-        >
-          {children}
-        </Popover.Popup>
-      </Popover.Positioner>
-    </Popover.Portal>
+    <SdkPopoverContent
+      align={align}
+      sideOffset={sideOffset}
+      className={mergeClassName(
+        'z-50 flex max-h-[min(70dvh,640px)] w-[min(440px,calc(100vw-2rem))] origin-(--transform-origin) flex-col overflow-y-auto rounded-lg border border-line-bright bg-well-900 text-ink shadow-2xl outline-none transition-[opacity,scale] duration-150 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0',
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export function PopoverTitle({ className, ...props }: ComponentProps<typeof SdkPopoverTitle>) {
+  return (
+    <SdkPopoverTitle
+      className={mergeClassName('text-sm font-semibold text-ink-bright', className)}
+      {...props}
+    />
+  );
+}
+
+export function PopoverDescription({
+  className,
+  ...props
+}: ComponentProps<typeof SdkPopoverDescription>) {
+  return (
+    <SdkPopoverDescription
+      className={mergeClassName('text-meta text-ink-dim', className)}
+      {...props}
+    />
   );
 }

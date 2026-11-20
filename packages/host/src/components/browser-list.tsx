@@ -5,7 +5,7 @@ import type { ReactNode, Ref } from 'react';
 import { cn } from '../lib/cn';
 import type { artifactLink, nodeLink, seedLink } from '../lib/record-url';
 import { CloseIcon, SearchIcon } from './ui/icons';
-import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/menu';
+import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/legacy-menu';
 
 /**
  * The grouped reading list (MMR-448 mock "Browsers C", MMR-454) — the shared

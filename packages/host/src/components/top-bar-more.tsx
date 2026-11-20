@@ -5,7 +5,7 @@ import type { Theme } from '../lib/theme';
 import { UpdateReadyDot, usePwaRefresh } from './pwa-refresh-action';
 import { iconButtonClass } from './ui/icon-button';
 import { MoonIcon, MoreIcon, RefreshIcon, SettingsIcon, SunIcon } from './ui/icons';
-import { MenuContent, MenuItem, MenuRoot, MenuSeparator, MenuTrigger } from './ui/menu';
+import { MenuContent, MenuItem, MenuRoot, MenuSeparator, MenuTrigger } from './ui/legacy-menu';
 
 /** Menu-item icons sit at the menu's text size, not the button's. */
 const ITEM_ICON = 'size-[18px] md:size-4 text-ink-dim';

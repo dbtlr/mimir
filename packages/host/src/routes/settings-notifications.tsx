@@ -10,7 +10,7 @@ import type { KindSwitchesProps } from '../components/push-kind-switches';
 import { SETTINGS_CARD, SettingsGroup, SettingsPage } from '../components/settings-page';
 import { ActionButton, DESTRUCTIVE_OUTLINE } from '../components/ui/action-button';
 import { ConfirmCard } from '../components/ui/confirm-card';
-import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../components/ui/menu';
+import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../components/ui/legacy-menu';
 import { Sheet, SheetClose, SheetContent, SheetTitle } from '../components/ui/sheet';
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/cn';

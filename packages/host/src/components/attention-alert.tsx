@@ -18,7 +18,7 @@ import { EntrySurfaceName } from './decisions-entry';
 import { actionButtonVariants } from './ui/action-button';
 import { iconButtonClass } from './ui/icon-button';
 import { CloseIcon } from './ui/icons';
-import { PopoverContent, PopoverRoot, PopoverTrigger } from './ui/popover';
+import { PopoverContent, PopoverRoot, PopoverTrigger } from './ui/legacy-popover';
 import { Sheet, SheetClose, SheetContent } from './ui/sheet';
 
 /** Tailwind's `md`: from here the alert opens a popover, below it a bottom sheet. */

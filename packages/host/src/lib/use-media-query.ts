@@ -16,5 +16,8 @@ export function useMediaQuery(query: string): boolean {
       };
     },
     () => globalThis.matchMedia(query).matches,
+    // A server render has no viewport; it renders the narrow surface, and the
+    // client's first snapshot takes over on hydration.
+    () => false,
   );
 }
