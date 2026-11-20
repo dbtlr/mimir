@@ -605,6 +605,33 @@ describe('another browser’s kinds', () => {
     });
   });
 
+  it('a not_found that answers after Done leaves another row’s open dialog alone', async () => {
+    const tablet = device({ endpoint: 'https://push.example/tablet', label: 'iPad · Safari' });
+    await open('desktop', { world: { devices: [mine, other, tablet] } });
+    const first = await openKinds('desktop', 'Android · Chrome');
+    const answered = Promise.withResolvers<void>();
+    vi.mocked(setPushKind).mockImplementationOnce(async () => {
+      await answered.promise;
+      return { state: 'not_found' };
+    });
+    await userEvent.click(within(first).getByRole('switch', { name: 'Decisions to confirm' }));
+    await userEvent.click(within(first).getByRole('button', { name: 'Done' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Android · Chrome' })).toBeNull();
+    });
+    const second = await openKinds('desktop', 'iPad · Safari');
+    // That browser subscribed again under the same endpoint meanwhile, so the list's endpoints don't change.
+    await act(async () => {
+      answered.resolve();
+    });
+    await settle();
+    expect(second).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'iPad · Safari' })).toBe(second);
+    await waitFor(() => {
+      expect(screen.getByText('That browser is no longer subscribed.')).toBeInTheDocument();
+    });
+  });
+
   it('an old-key row does not offer it', async () => {
     await open('desktop', { world: { devices: [mine, oldKey] } });
     await userEvent.click(
@@ -615,6 +642,19 @@ describe('another browser’s kinds', () => {
 });
 
 describe('the record keeps this browser’s kinds', () => {
+  it('the heal learns nothing into a record another tab turned off during its read', async () => {
+    const browser = onBrowser(onRecord());
+    const read = browser.subscription.bind(browser);
+    vi.spyOn(browser, 'subscription').mockImplementation(async () => {
+      // Another tab's Turn off clears the record while this heal reads the subscription.
+      browser.record = null;
+      return read();
+    });
+    await mountHealer(browser, { devices: [{ ...mine, muted: ['task_blocked'] }] });
+    await settle();
+    expect(browser.record).toBeNull();
+  });
+
   it('the heal learns this browser’s kinds from its row, without subscribing', async () => {
     const browser = onBrowser(onRecord());
     await mountHealer(browser, { devices: [{ ...mine, muted: ['task_blocked'] }] });
@@ -852,11 +892,19 @@ describe('a poll reads this browser’s subscription again', () => {
       browser.held = SUBSCRIPTION;
       return SUBSCRIPTION;
     });
-    await open('desktop', { browser, client: pollingClient(), world: { devices: [mine, other] } });
-    expect(screen.getByRole('button', { name: 'Actions for Mac · Chrome' })).toBeInTheDocument();
-    await act(async () => {
-      restored.resolve();
-    });
+    try {
+      await open('desktop', {
+        browser,
+        client: pollingClient(),
+        world: { devices: [mine, other] },
+      });
+      expect(screen.getByRole('button', { name: 'Actions for Mac · Chrome' })).toBeInTheDocument();
+    } finally {
+      // Released even when the assertion fails, so no later test joins a heal left running.
+      await act(async () => {
+        restored.resolve();
+      });
+    }
     await polled();
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Turn off' })).toBeInTheDocument();

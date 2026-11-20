@@ -312,8 +312,13 @@ function learnKinds(browser: PushBrowser, input: HealInput): void {
     devices.devices.find((row) => row.currentKey && sameEndpoint(row.endpoint, endpoint));
   const row =
     (subscription === null ? undefined : rowFor(subscription.endpoint)) ?? rowFor(record.endpoint);
-  if (row !== undefined && !sameKinds(record.muted, row.muted)) {
-    browser.writeRecord({ ...record, muted: row.muted });
+  if (row === undefined || sameKinds(record.muted, row.muted)) {
+    return;
+  }
+  // Read again: another tab may have turned this browser off while the heal read its subscription.
+  const now = browser.readRecord();
+  if (now?.state === 'on' && sameEndpoint(now.endpoint, record.endpoint)) {
+    browser.writeRecord({ ...now, muted: row.muted });
   }
 }
 

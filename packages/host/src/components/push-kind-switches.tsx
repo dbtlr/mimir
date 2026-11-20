@@ -24,8 +24,8 @@ export type KindSwitchesProps = {
   disabled?: boolean;
   /** A save landed: the page applies that one kind's change to the row it shows. */
   onSaved: (endpoint: string, kind: PushEventKind, muted: boolean) => void;
-  /** The host no longer holds the row. */
-  onGone: () => void;
+  /** The host no longer holds the row; given the endpoint the save was for. */
+  onGone: (endpoint: string) => void;
   /** Whether any save is running, for the page to hold Turn off and Reset. */
   onSavingChange?: (saving: boolean) => void;
   /** The list's own classes: a card on the page, a bordered block in a sheet or dialog. */
@@ -78,7 +78,7 @@ export function KindSwitches({
       if (answer.state === 'saved') {
         onSaved(device.endpoint, kind, muted);
       } else if (answer.state === 'not_found') {
-        onGone();
+        onGone(device.endpoint);
       } else {
         setFailure(answer.state === 'busy' ? HEAL_RUNNING_TEXT : KIND_SAVE_FAILED_TEXT);
       }
@@ -114,10 +114,7 @@ export function KindSwitches({
         ))}
       </ul>
       {footnote !== undefined && <p className="px-1 text-xs text-ink-dim">{footnote}</p>}
-      <div
-        aria-live="polite"
-        className="flex flex-col gap-1 px-1 text-xs text-ink-dim empty:hidden"
-      >
+      <div aria-live="polite" className="flex flex-col gap-1 px-1 text-xs text-ink-dim">
         {failure !== undefined && <p className="font-medium text-ink-bright">{failure}</p>}
         {everyOff && <p>{everyOffText}</p>}
       </div>

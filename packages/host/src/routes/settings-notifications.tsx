@@ -412,14 +412,17 @@ export function NotificationsPage() {
     setNotice({ text: THIS_BROWSER_GONE_TEXT });
     void reload();
   };
-  const onThatGone = () => {
+  const onThatGone = (endpoint: string) => {
+    // Only the switches the save came from close: a save that answers after Done leaves another row's open.
     // The closing surface moves focus to <main>; focusing it while the surface is still open would be undone.
-    if (kindsOpener.current !== undefined) {
-      kindsOpener.current = { ...kindsOpener.current, gone: true };
+    const opener = kindsOpener.current;
+    if (opener !== undefined && sameEndpoint(opener.endpoint, endpoint)) {
+      kindsOpener.current = { ...opener, gone: true };
+      setKindsFor(undefined);
     }
-    setKindsFor(undefined);
     setNotice({ text: THAT_BROWSER_GONE_TEXT });
-    void reload();
+    // Only the list changed: this browser's own subscription did not, so this is no action that rereads it.
+    void client.invalidateQueries({ queryKey: pushDevicesQuery.queryKey });
   };
   const onChoose = (device: PushDevice) => {
     kindsOpener.current = { endpoint: device.endpoint, gone: false };
@@ -606,7 +609,9 @@ export function NotificationsPage() {
             footnote="The badge still counts everything that needs you."
             everyOffText={EVERY_KIND_OFF_TEXT}
             onSaved={onKindSaved}
-            onGone={onThisGone}
+            onGone={() => {
+              onThisGone();
+            }}
             onSavingChange={setOwnSaving}
           />
         </SettingsGroup>
