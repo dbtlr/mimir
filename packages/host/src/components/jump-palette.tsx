@@ -28,7 +28,6 @@ const SEARCH_DEBOUNCE_MS = 120;
 /** A record row's fields: a search hit, or a remembered record without the search's extras. */
 type RowRecord = RecentRecord & Partial<Pick<EngineSearchHit, 'lifecycle' | 'link' | 'snippet'>>;
 
-
 /**
  * The jump palette (MMR-455, mock A "grouped list"): ⌘K or Ctrl-K from any
  * page, or the top-bar button, opens a search across every project. Results
@@ -254,9 +253,7 @@ function RecordRow({ record, query }: { record: RowRecord; query: string }) {
       )}
       <span className="min-w-16 shrink-0 font-mono text-xs text-ink-dim">{record.id}</span>
       {record.link !== undefined && (
-        <span className="shrink-0 font-mono text-xs text-ink-dim">
-          {LINK_LABEL[record.link]}
-        </span>
+        <span className="shrink-0 font-mono text-xs text-ink-dim">{LINK_LABEL[record.link]}</span>
       )}
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-ink">

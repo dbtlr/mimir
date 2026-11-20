@@ -4,9 +4,9 @@ import type { ReactElement, RefObject } from 'react';
 
 import type { PushDevice, PushDeviceList, PushEventKind } from '../api/fns/push';
 import { pushDevicesQuery, pushStatusQuery } from '../api/push-queries';
-import { ContentSheet } from '../components/patterns/content-sheet';
 import { ACTION_MENU_ANCHORED_QUERY, ActionMenu } from '../components/patterns/action-menu';
 import type { ActionMenuEntry } from '../components/patterns/action-menu';
+import { ContentSheet } from '../components/patterns/content-sheet';
 import { DestructiveConfirm } from '../components/patterns/destructive-confirm';
 import { KindSwitches } from '../components/push-kind-switches';
 import type { KindSwitchesProps } from '../components/push-kind-switches';

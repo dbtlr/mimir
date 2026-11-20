@@ -2,7 +2,7 @@ import type { EngineNode } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { ReactNode, RefObject } from 'react';
 
 import type { T3Catalog, T3LaunchInput, T3System } from '../api/fns/t3';
 import { t3CatalogQuery, t3OriginQuery, useConnectT3, useLaunchT3 } from '../api/t3-queries';
@@ -78,8 +78,7 @@ const TRAIL_LENGTH = 8;
  * sheet closed behind it), focus walks back to the newest one still on the
  * page, as the chip that opened that sheet, never to the page's body.
  */
-function useFocusTrail() {
-  const trail = useRef<HTMLElement[]>([]);
+function useFocusTrail(trail: RefObject<HTMLElement[]>) {
   useEffect(() => {
     const record = (event: FocusEvent) => {
       if (event.target instanceof HTMLElement) {
@@ -90,8 +89,7 @@ function useFocusTrail() {
     return () => {
       document.removeEventListener('focusin', record);
     };
-  }, []);
-  return trail;
+  }, [trail]);
 }
 
 /**
@@ -112,22 +110,20 @@ export function T3LaunchSettingsHost({
   const [request, setRequest] = useState<(SettingsRequest & { id: number }) | null>(null);
   const [open, setOpen] = useState(false);
   const requestId = useRef(0);
-  const trail = useFocusTrail();
-  const openSettings = useCallback(
-    (next: SettingsRequest) => {
-      requestId.current += 1;
-      // Where focus was on the way here, newest last: the control, the sheet it sat in, the
-      // chip that opened that sheet. Read now, before the form takes focus.
-      const before = trail.current.slice();
-      setRequest({
-        ...next,
-        id: requestId.current,
-        opener: () => next.opener() ?? lastUsable(before),
-      });
-      setOpen(true);
-    },
-    [trail],
-  );
+  const trail = useRef<HTMLElement[]>([]);
+  useFocusTrail(trail);
+  const openSettings = useCallback((next: SettingsRequest) => {
+    requestId.current += 1;
+    // Where focus was on the way here, newest last: the control, the sheet it sat in, the
+    // chip that opened that sheet. Read now, before the form takes focus.
+    const before = [...trail.current];
+    setRequest({
+      ...next,
+      id: requestId.current,
+      opener: () => next.opener() ?? lastUsable(before),
+    });
+    setOpen(true);
+  }, []);
   if (!eligible && open) {
     setOpen(false);
   }
@@ -301,7 +297,6 @@ function Unavailable({ reason }: { reason: string }) {
 }
 
 const HALF = 'inset-ring inset-ring-line-bright text-ink hover:bg-line/50 hover:text-ink-bright';
-
 
 function ConnectedLaunch({
   catalog,

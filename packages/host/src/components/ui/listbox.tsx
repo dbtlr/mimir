@@ -27,7 +27,8 @@ export const PICKER_ROW_CLASS =
  * A group's heading ("Recent", "Actions"): 13/20 ink-dim at 500, sentence case,
  * as a menu's group heading is (DESIGN.md, Type).
  */
-export const PICKER_GROUP_LABEL_CLASS = 'px-2 pt-2 pb-1 text-meta leading-5 font-medium text-ink-dim';
+export const PICKER_GROUP_LABEL_CLASS =
+  'px-2 pt-2 pb-1 text-meta leading-5 font-medium text-ink-dim';
 
 /**
  * The "No matches" line a picker shows when nothing fits the query. UI SDK

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { ComponentProps, ReactNode, RefObject } from 'react';
 
 import { cn } from '../../lib/cn';
@@ -60,43 +60,49 @@ export function restingRoom(naturalEnd: number, blockTops: readonly number[]): n
   if (rests.some((rest) => Math.abs(rest - naturalEnd) < 1)) {
     return 0;
   }
-  const next = rests.filter((rest) => rest > naturalEnd).sort((a, b) => a - b)[0];
+  const next = rests.filter((rest) => rest > naturalEnd).toSorted((a, b) => a - b)[0];
   return next === undefined ? 0 : Math.ceil(next - naturalEnd);
 }
 
 /**
- * Keeps a resting scroll a field gap below the header (DESIGN.md, Sheets): the
- * body snaps each block 24 below the header, and grows its bottom padding when
- * the natural end of its scroll would cut a field under the header. Returns the
- * room added and whether the body has scrolled, for the header's shadow.
+ * The scrolling body. It keeps a resting scroll a field gap below the header
+ * (DESIGN.md, Sheets): it snaps each block 24 below the header, and grows its
+ * bottom padding when the natural end of its scroll would cut a field under
+ * the header. It mounts with the sheet's content, so it measures what is shown,
+ * and reports whether it has scrolled, for the header's shadow.
  */
-function useRestingScroll(body: RefObject<HTMLDivElement | null>, open: boolean) {
+function FormBody({
+  body,
+  onScrolled,
+  children,
+}: {
+  body: RefObject<HTMLDivElement | null>;
+  onScrolled: (scrolled: boolean) => void;
+  children: ReactNode;
+}) {
   const [room, setRoom] = useState(0);
-  const [scrolled, setScrolled] = useState(false);
   const roomRef = useRef(0);
-
-  const measure = useCallback(() => {
-    const element = body.current;
-    if (element === null || element.clientHeight === 0) {
-      return;
-    }
-    const origin = element.getBoundingClientRect().top - element.scrollTop;
-    const tops = [...element.querySelectorAll<HTMLElement>(BLOCK_SELECTOR)].map(
-      (block) => block.getBoundingClientRect().top - origin,
-    );
-    const naturalEnd = element.scrollHeight - roomRef.current - element.clientHeight;
-    const next = restingRoom(naturalEnd, tops);
-    if (next !== roomRef.current) {
-      roomRef.current = next;
-      setRoom(next);
-    }
-  }, [body]);
 
   useLayoutEffect(() => {
     const element = body.current;
-    if (!open || element === null || typeof ResizeObserver === 'undefined') {
-      return;
+    if (element === null || typeof ResizeObserver === 'undefined') {
+      return undefined;
     }
+    const measure = () => {
+      if (element.clientHeight === 0) {
+        return;
+      }
+      const origin = element.getBoundingClientRect().top - element.scrollTop;
+      const tops = [...element.querySelectorAll<HTMLElement>(BLOCK_SELECTOR)].map(
+        (block) => block.getBoundingClientRect().top - origin,
+      );
+      const naturalEnd = element.scrollHeight - roomRef.current - element.clientHeight;
+      const next = restingRoom(naturalEnd, tops);
+      if (next !== roomRef.current) {
+        roomRef.current = next;
+        setRoom(next);
+      }
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(element);
@@ -107,21 +113,29 @@ function useRestingScroll(body: RefObject<HTMLDivElement | null>, open: boolean)
     return () => {
       observer.disconnect();
     };
-  }, [body, measure, open]);
-
-  useEffect(() => {
-    if (!open) {
-      roomRef.current = 0;
-      setRoom(0);
-      setScrolled(false);
-    }
-  }, [open]);
-
-  const onScroll = useCallback(() => {
-    setScrolled((body.current?.scrollTop ?? 0) > 0);
   }, [body]);
 
-  return { onScroll, room, scrolled };
+  useEffect(() => {
+    onScrolled(false);
+  }, [onScrolled]);
+
+  return (
+    <div
+      ref={body}
+      data-slot="form-sheet-body"
+      onScroll={(event) => {
+        onScrolled(event.currentTarget.scrollTop > 0);
+      }}
+      style={room > 0 ? { paddingBottom: `calc(var(--form-body-end) + ${String(room)}px)` } : {}}
+      className="min-h-0 flex-1 snap-y snap-mandatory overflow-y-auto px-5 pt-6 pb-(--form-body-end) [--form-body-end:2rem] md:px-8 md:pt-8 md:[--form-body-end:2.5rem]"
+    >
+      <div className="flex flex-col gap-6">
+        {/* The rest before the body scrolls, so the top is a rest too. */}
+        <div aria-hidden="true" className="-mt-6 -mb-6 h-0 snap-start md:-mt-8" />
+        {children}
+      </div>
+    </div>
+  );
 }
 
 export type FormSheetProps = {
@@ -179,7 +193,7 @@ export function FormSheet({
   const body = useRef<HTMLDivElement>(null);
   const commitButton = useRef<HTMLButtonElement>(null);
   const noteId = useId();
-  const { onScroll, room, scrolled } = useRestingScroll(body, open);
+  const [scrolled, setScrolled] = useState(false);
 
   const send = () => {
     if (busy || commitDisabled) {
@@ -254,19 +268,9 @@ export function FormSheet({
               <CloseIcon className="size-5 md:size-[18px]" />
             </button>
           </header>
-          <div
-            ref={body}
-            data-slot="form-sheet-body"
-            onScroll={onScroll}
-            style={room > 0 ? { paddingBottom: `calc(var(--form-body-end) + ${String(room)}px)` } : {}}
-            className="min-h-0 flex-1 snap-y snap-mandatory overflow-y-auto px-5 pt-6 pb-(--form-body-end) [--form-body-end:2rem] md:px-8 md:pt-8 md:[--form-body-end:2.5rem]"
-          >
-            <div className="flex flex-col gap-6">
-              {/* The rest before the body scrolls, so the top is a rest too. */}
-              <div aria-hidden="true" className="-mt-6 -mb-6 h-0 snap-start md:-mt-8" />
-              {children}
-            </div>
-          </div>
+          <FormBody body={body} onScrolled={setScrolled}>
+            {children}
+          </FormBody>
           <div
             data-slot="form-sheet-footer"
             className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-t border-line bg-well-850 px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:flex-nowrap md:justify-end md:px-8 md:py-4"
@@ -380,7 +384,10 @@ export function FormCheckRow({
   return (
     <div
       {...BLOCK_PROPS}
-      className={cn(BLOCK_PROPS.className, '-my-[11px] flex min-h-11 items-center gap-3 md:-my-[7px] md:min-h-9')}
+      className={cn(
+        BLOCK_PROPS.className,
+        '-my-[11px] flex min-h-11 items-center gap-3 md:-my-[7px] md:min-h-9',
+      )}
     >
       <Checkbox
         id={id}
@@ -454,7 +461,10 @@ export function FormGroup({
     );
   }
   return (
-    <section aria-labelledby={`${proseId}-heading`} className="mt-2 flex flex-col gap-5 border-t border-line pt-6">
+    <section
+      aria-labelledby={`${proseId}-heading`}
+      className="mt-2 flex flex-col gap-5 border-t border-line pt-6"
+    >
       <h3 {...BLOCK_PROPS} id={`${proseId}-heading`} className={cn(BLOCK_PROPS.className, heading)}>
         {title}
       </h3>

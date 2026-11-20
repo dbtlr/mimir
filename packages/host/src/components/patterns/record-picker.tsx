@@ -96,7 +96,7 @@ export function RecordPicker({
       <span id={labelId} className="text-label font-medium text-ink">
         {label}
       </span>
-      <Combobox<string>
+      <Combobox
         value={value}
         disabled={disabled}
         filter={false}
@@ -211,6 +211,8 @@ export function RecordPickerPopup({
   );
 }
 
+const NO_HINTS: readonly string[] = [];
+
 /** One row of a palette: a record to open or an action to run. */
 export type PaletteChoice = {
   key: string;
@@ -259,7 +261,7 @@ export function RecordPalette({
   groups,
   waiting = false,
   notice,
-  hints = [],
+  hints = NO_HINTS,
   onClosed,
   finalFocus,
 }: RecordPaletteProps) {
@@ -377,7 +379,10 @@ function PaletteBody({
           Cancel
         </DialogClose>
       </div>
-      <CommandList aria-busy={waiting} className={cn('transition-opacity', waiting && 'opacity-60')}>
+      <CommandList
+        aria-busy={waiting}
+        className={cn('transition-opacity', waiting && 'opacity-60')}
+      >
         {shown.map((group) => (
           <CommandGroup key={group.label} className="py-1">
             <CommandGroupLabel>

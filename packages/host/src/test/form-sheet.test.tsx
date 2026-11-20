@@ -21,8 +21,10 @@ afterEach(() => {
 });
 
 /** A page with an opener and a one-field form, so focus return has somewhere to land. */
+const ignore = () => undefined;
+
 function Harness({
-  onCommit = () => undefined,
+  onCommit = ignore,
   context,
   note,
   pending,
@@ -121,9 +123,9 @@ describe('Form sheet shapes', () => {
     stubViewport('desktop');
     render(<Harness note="Joins the project list on the review page." />);
     const sheet = await openSheet();
-    expect(within(sheet).getByRole('button', { name: 'Create project' })).toHaveAccessibleDescription(
-      'Joins the project list on the review page.',
-    );
+    expect(
+      within(sheet).getByRole('button', { name: 'Create project' }),
+    ).toHaveAccessibleDescription('Joins the project list on the review page.');
   });
 
   it('keeps the header and footer out of the body, which alone scrolls', async () => {
@@ -132,7 +134,9 @@ describe('Form sheet shapes', () => {
     const sheet = await openSheet();
     const body = sheet.querySelector('[data-slot="form-sheet-body"]');
     expect(body).not.toBeNull();
-    expect(within(body as HTMLElement).queryByRole('button', { name: 'Create project' })).toBeNull();
+    expect(
+      within(body as HTMLElement).queryByRole('button', { name: 'Create project' }),
+    ).toBeNull();
     expect(within(body as HTMLElement).queryByRole('button', { name: 'Close' })).toBeNull();
     expect(within(body as HTMLElement).getByRole('textbox', { name: 'Title' })).toBeInTheDocument();
   });

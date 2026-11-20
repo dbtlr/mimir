@@ -55,11 +55,11 @@ export const actionButtonVariants = cva(
         attentionOutline:
           'inset-ring inset-ring-attention/45 text-attention-foreground hover:bg-attention/10',
         destructiveOutline: DESTRUCTIVE_OUTLINE,
-        outline:
-          'inset-ring inset-ring-line-bright text-ink hover:bg-line/50 hover:text-ink-bright',
         /** A Form sheet's Cancel and Archive: an outline whose edge meets 3:1 (DESIGN.md). */
         formOutline:
           'inset-ring inset-ring-ink-faint text-ink-bright hover:inset-ring-ink-dim disabled:opacity-40',
+        outline:
+          'inset-ring inset-ring-line-bright text-ink hover:bg-line/50 hover:text-ink-bright',
       },
     },
   },

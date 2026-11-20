@@ -18,7 +18,9 @@ const PROJECTS: PickerRecord[] = [
   { id: 'MUN', title: 'Muninn' },
 ];
 
-function PickerHarness({ onChange = () => undefined }: { onChange?: (id: string) => void }) {
+const ignore = () => undefined;
+
+function PickerHarness({ onChange = ignore }: { onChange?: (id: string) => void }) {
   const [value, setValue] = useState<string | null>('MMR');
   return (
     <RecordPicker
@@ -55,9 +57,7 @@ describe('Record picker', () => {
     });
     expect(screen.getAllByRole('option')).toHaveLength(3);
     await user.type(search, 'nor');
-    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
-      'NRNNorn',
-    ]);
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['NRNNorn']);
     await user.clear(search);
     await user.type(search, 'mun');
     expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
@@ -109,9 +109,7 @@ describe('Record picker', () => {
         onValueChange={() => undefined}
       />,
     );
-    expect(screen.getByRole('button', { name: 'Project' })).toHaveTextContent(
-      'Choose a project…',
-    );
+    expect(screen.getByRole('button', { name: 'Project' })).toHaveTextContent('Choose a project…');
   });
 });
 
@@ -137,7 +135,9 @@ function PaletteHarness({
       label: 'Recent',
     },
     {
-      choices: [{ content: 'File a seed', key: 'seed', run: (newTab: boolean) => run('seed', newTab) }],
+      choices: [
+        { content: 'File a seed', key: 'seed', run: (newTab: boolean) => run('seed', newTab) },
+      ],
       label: 'Actions',
     },
   ];

@@ -2,8 +2,8 @@ import type { EngineNode } from '@mimir/contract';
 import { useId, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { proseEdit } from '../lib/prose';
 import { suggestKey } from '../lib/project-key';
+import { proseEdit } from '../lib/prose';
 import {
   FormField,
   FormGroup,
@@ -141,10 +141,7 @@ export function ProjectForm(props: ProjectFormProps) {
         />
       </FormField>
       {props.mode === 'edit' && (
-        <Lifecycle
-          onArchive={props.onArchive}
-          disabled={props.offline || props.archiving}
-        />
+        <Lifecycle onArchive={props.onArchive} disabled={props.offline || props.archiving} />
       )}
     </FormSheet>
   );

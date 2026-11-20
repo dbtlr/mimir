@@ -234,7 +234,7 @@ export function T3LaunchForm({
       onCommit={launch}
     >
       <FormField label="System">
-        <Select<string>
+        <Select
           value={environmentId}
           onValueChange={(next) => {
             if (next !== null) {
@@ -256,7 +256,7 @@ export function T3LaunchForm({
       </FormField>
       {system !== undefined && system.projects.length > 1 && choice !== null && (
         <FormField label="Project">
-          <Select<string>
+          <Select
             value={choice.projectId === '' ? null : choice.projectId}
             onValueChange={(next) => {
               if (next !== null) {
@@ -283,7 +283,7 @@ export function T3LaunchForm({
       {system !== undefined && choice !== null && (
         <>
           <FormField label="Model">
-            <Select<string>
+            <Select
               value={modelValue(choice.model.instanceId, choice.model.model)}
               onValueChange={(next) => {
                 if (next !== null) {
@@ -331,7 +331,7 @@ export function T3LaunchForm({
               />
             ))}
           <FormField label="Runtime">
-            <Select<string>
+            <Select
               value={choice.runtimeMode}
               onValueChange={(next) => {
                 const mode = T3_RUNTIME_MODES.find((m) => m === next);
@@ -340,9 +340,7 @@ export function T3LaunchForm({
                 }
               }}
             >
-              <SelectTrigger>
-                {RUNTIME_LABELS[choice.runtimeMode]}
-              </SelectTrigger>
+              <SelectTrigger>{RUNTIME_LABELS[choice.runtimeMode]}</SelectTrigger>
               <SelectContent label="Runtime">
                 {T3_RUNTIME_MODES.filter((mode) => provider?.runtimeModes.includes(mode)).map(
                   (mode) => (

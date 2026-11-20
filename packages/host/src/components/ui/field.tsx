@@ -51,12 +51,7 @@ export function FieldDescription({
   className,
   ...props
 }: ComponentProps<typeof SdkFieldDescription>) {
-  return (
-    <SdkFieldDescription
-      className={mergeClassName(FORM_PROSE_CLASS, className)}
-      {...props}
-    />
-  );
+  return <SdkFieldDescription className={mergeClassName(FORM_PROSE_CLASS, className)} {...props} />;
 }
 
 /** Says what is wrong with the value; shows only while the field is invalid. */

@@ -18,6 +18,7 @@ import {
   projectSwitchTarget,
 } from '../lib/project-switcher';
 import { lazySheet } from './lazy-sheet';
+import { RecordPickerPopup } from './patterns/record-picker';
 import {
   NeedsYouCount,
   ProjectOption,
@@ -28,7 +29,6 @@ import {
 } from './project-options';
 import { StatusDot } from './status-dot';
 import { SearchIcon } from './ui/icons';
-import { RecordPickerPopup } from './patterns/record-picker';
 
 /** The picker heads the project and All projects contexts; Settings has none. */
 type WorkContext = Exclude<SidebarContext, { kind: 'settings' }>;
@@ -107,77 +107,78 @@ export function ProjectPicker({
         initialFocus={searchRef}
         trigger={
           <button
-          type="button"
-          className="group flex w-full items-center gap-2 rounded-lg bg-well-850 px-2.5 py-2 text-left inset-ring inset-ring-line-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent data-[open]:inset-ring-accent/45">
-          {context.kind === 'all' ? (
-            <>
-              <AllProjectsGlyph />
-              <span className="min-w-0 flex-1 truncate text-body font-semibold text-ink-bright">
-                All projects
-              </span>
-              <NeedsYouCount count={everywhere} />
-            </>
-          ) : (
-            <>
-              {active !== undefined && <StatusDot status={active.status} />}
-              {frozen !== undefined && <Snowflake />}
-              <span
-                className={cn(
-                  'font-mono text-meta font-bold text-ink-bright',
-                  frozen !== undefined && 'text-ink-faint',
-                )}
-              >
-                {context.key}
-              </span>
-              <span
-                className={cn(
-                  'min-w-0 flex-1 truncate text-body font-semibold text-ink-bright',
-                  frozen !== undefined && 'text-ink-faint',
-                )}
-              >
-                {current?.title}
-              </span>
-              {elsewhere > 0 && (
-                <span className="flex shrink-0 items-center gap-1 text-micro font-semibold text-attention-foreground before:size-1.5 before:rounded-full before:bg-attention">
-                  <span aria-hidden="true">{elsewhere} elsewhere</span>
-                  <span className="sr-only">
-                    {elsewhere} {elsewhere === 1 ? 'needs you' : 'need you'} in other projects
-                  </span>
-                </span>
-              )}
-            </>
-          )}
-          <svg
-            width="11"
-            height="11"
-            viewBox="0 0 24 24"
-            fill="none"
-            aria-hidden="true"
-            className="shrink-0 text-ink-faint transition-transform group-data-[open]:rotate-180"
+            type="button"
+            className="group flex w-full items-center gap-2 rounded-lg bg-well-850 px-2.5 py-2 text-left inset-ring inset-ring-line-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent data-[open]:inset-ring-accent/45"
           >
-            <path
-              d="m6 9 6 6 6-6"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+            {context.kind === 'all' ? (
+              <>
+                <AllProjectsGlyph />
+                <span className="min-w-0 flex-1 truncate text-body font-semibold text-ink-bright">
+                  All projects
+                </span>
+                <NeedsYouCount count={everywhere} />
+              </>
+            ) : (
+              <>
+                {active !== undefined && <StatusDot status={active.status} />}
+                {frozen !== undefined && <Snowflake />}
+                <span
+                  className={cn(
+                    'font-mono text-meta font-bold text-ink-bright',
+                    frozen !== undefined && 'text-ink-faint',
+                  )}
+                >
+                  {context.key}
+                </span>
+                <span
+                  className={cn(
+                    'min-w-0 flex-1 truncate text-body font-semibold text-ink-bright',
+                    frozen !== undefined && 'text-ink-faint',
+                  )}
+                >
+                  {current?.title}
+                </span>
+                {elsewhere > 0 && (
+                  <span className="flex shrink-0 items-center gap-1 text-micro font-semibold text-attention-foreground before:size-1.5 before:rounded-full before:bg-attention">
+                    <span aria-hidden="true">{elsewhere} elsewhere</span>
+                    <span className="sr-only">
+                      {elsewhere} {elsewhere === 1 ? 'needs you' : 'need you'} in other projects
+                    </span>
+                  </span>
+                )}
+              </>
+            )}
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+              className="shrink-0 text-ink-faint transition-transform group-data-[open]:rotate-180"
+            >
+              <path
+                d="m6 9 6 6 6-6"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
         }
       >
         <SwitcherPanel
-              context={context}
-              needsYou={needsYouByKey}
-              everywhere={everywhere}
-              searchRef={searchRef}
-              offline={conn.offline}
-              onPick={pick}
-              onNew={() => {
-                setOpen(false);
-                setCreating(true);
-              }}
-            />
+          context={context}
+          needsYou={needsYouByKey}
+          everywhere={everywhere}
+          searchRef={searchRef}
+          offline={conn.offline}
+          onPick={pick}
+          onNew={() => {
+            setOpen(false);
+            setCreating(true);
+          }}
+        />
       </RecordPickerPopup>
       <NewProjectSheet open={creating} onOpenChange={setCreating} />
     </>

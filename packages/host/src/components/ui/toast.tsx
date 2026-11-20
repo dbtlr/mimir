@@ -59,7 +59,10 @@ function ToastBody({
       </div>
       <SdkToastAction className={TOAST_ACTION_CLASS} />
       {cancel !== undefined && (
-        <SdkToastClose action={cancel.onCancel} className={cn(TOAST_ACTION_CLASS, 'text-ink-bright')}>
+        <SdkToastClose
+          action={cancel.onCancel}
+          className={cn(TOAST_ACTION_CLASS, 'text-ink-bright')}
+        >
           {cancel.label}
         </SdkToastClose>
       )}
