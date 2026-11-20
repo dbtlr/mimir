@@ -80,13 +80,13 @@ function ResetConfirm({
   open,
   onOpenChange,
   onConfirm,
-  pending,
+  commitDisabled,
   refusal,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => Promise<void>;
-  pending: boolean;
+  commitDisabled: boolean;
   refusal: string | undefined;
 }) {
   return (
@@ -97,7 +97,7 @@ function ResetConfirm({
       }}
       title="Reset the push key?"
       commitLabel="Reset"
-      pending={pending}
+      commitDisabled={commitDisabled}
       notice={refusal}
       // A reset closes the dialog itself; a refusal stays, as the notice.
       closeOnCommit={false}
@@ -743,7 +743,7 @@ export function NotificationsPage() {
           }
         }}
         onConfirm={onReset}
-        pending={busy}
+        commitDisabled={busy}
         refusal={resetRefusal}
       />
     </SettingsPage>

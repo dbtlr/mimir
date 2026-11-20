@@ -35,6 +35,8 @@ export type DestructiveConfirmProps = {
    * closes itself, or answers in place, passes `false`.
    */
   closeOnCommit?: boolean;
+  /** Disables the commit and leaves Cancel and Escape available. */
+  commitDisabled?: boolean;
   /** A call the caller runs is in flight: the commit disables and Escape holds. */
   pending?: boolean;
   /** A line under the question, such as why a call failed; the question and both buttons stay. */
@@ -62,13 +64,14 @@ export function DestructiveConfirm({
   cancelLabel = 'Cancel',
   onConfirm,
   closeOnCommit = true,
+  commitDisabled = false,
   pending = false,
   notice,
   answer,
   finalFocus,
 }: DestructiveConfirmProps) {
   const returnTo = useFinalFocus(open, finalFocus);
-  const { busy, commit } = useOpening(open, pending);
+  const { busy, commit } = useOpening(open, pending, commitDisabled);
   const commitButton = useRef<HTMLButtonElement | null>(null);
   return (
     <AlertDialog
@@ -109,7 +112,7 @@ export function DestructiveConfirm({
           confirm={
             answer === undefined
               ? {
-                  disabled: busy,
+                  disabled: busy || commitDisabled,
                   label: commitLabel,
                   onClick: () =>
                     void commit(commitButton.current, onConfirm, (how) => {

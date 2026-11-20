@@ -103,6 +103,21 @@ describe('Stop run, before the stop renders as pending', () => {
 });
 
 describe('the grooming answer, before the answer renders as pending', () => {
+  it('disables the grooming choices as soon as the answer starts saving', async () => {
+    vi.mocked(groom).mockReturnValue(inFlight<never>().promise);
+    const { commit, dialog } = await groomingAnswerDialog();
+    const choices = within(dialog).getAllByRole('radio');
+    for (const choice of choices) {
+      expect(choice).toBeEnabled();
+    }
+
+    fireEvent.click(commit);
+    expect(commit).toBeDisabled();
+    for (const choice of choices) {
+      expect(choice).toBeDisabled();
+    }
+  });
+
   it('saves one note for a second click', async () => {
     vi.mocked(groom).mockReturnValue(inFlight<never>().promise);
     const { commit } = await groomingAnswerDialog();

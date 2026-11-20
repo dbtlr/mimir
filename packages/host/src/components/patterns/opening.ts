@@ -25,10 +25,12 @@ function createOpening(id: number): Opening {
  * `busy` is true while this opening's commit promise runs, or while the caller
  * says its own call is `pending`. When a busy period ends with the dialog open
  * (a refusal, however the caller reports it), focus returns to the commit that
- * ran, since a browser drops focus when the focused commit disables. `key`
- * names the opening, for content that must remount with each one.
+ * ran, since a browser drops focus when the focused commit disables. If
+ * `commitDisabled` still holds the button disabled, focus waits until it is
+ * enabled in the same opening. Closing discards the request. `key` names the
+ * opening, for content that must remount with each one.
  */
-export function useOpening(open: boolean, pending: boolean) {
+export function useOpening(open: boolean, pending: boolean, commitDisabled = false) {
   // The opening advances while rendering the one where `open` turns true, so the render that
   // shows the dialog already holds it and every click on that render's buttons sees it.
   const [seen, setSeen] = useState(() => ({ open, opening: createOpening(0) }));
@@ -51,16 +53,30 @@ export function useOpening(open: boolean, pending: boolean) {
     current.current = opening;
   }, [opening]);
 
-  const ran = useRef<HTMLElement | null>(null);
-  const busyIn = useRef<Opening | null>(null);
+  const ran = useRef<{ button: HTMLButtonElement | null; opening: Opening } | null>(null);
+  const refocusIn = useRef<Opening | null>(null);
   useEffect(() => {
-    const settled = !busy && busyIn.current === opening;
-    busyIn.current = busy ? opening : null;
-    const pressed = ran.current;
-    if (settled && open && pressed?.isConnected === true) {
+    if (!open) {
+      ran.current = null;
+      refocusIn.current = null;
+      return;
+    }
+    if (busy) {
+      refocusIn.current = opening;
+      return;
+    }
+    if (refocusIn.current !== opening) {
+      return;
+    }
+    const pressed = ran.current?.opening === opening ? ran.current.button : null;
+    if (pressed?.isConnected === true && (commitDisabled || pressed.disabled)) {
+      return;
+    }
+    refocusIn.current = null;
+    if (pressed?.isConnected === true) {
       pressed.focus();
     }
-  }, [busy, open, opening]);
+  }, [busy, commitDisabled, open, opening]);
 
   /**
    * Runs `work` from the `button` that was pressed, once at a time per opening.
@@ -69,7 +85,7 @@ export function useOpening(open: boolean, pending: boolean) {
    * with focus back on `button`; the caller's call reports the failure.
    */
   async function commit(
-    button: HTMLElement | null,
+    button: HTMLButtonElement | null,
     work: CommitWork,
     onCommitted: (how: Committed) => void,
   ): Promise<void> {
@@ -84,7 +100,7 @@ export function useOpening(open: boolean, pending: boolean) {
     if (result === HELD) {
       return;
     }
-    ran.current = button;
+    ran.current = { button, opening: mine };
     if (!(result instanceof Promise)) {
       onCommitted('returned');
       return;

@@ -304,6 +304,22 @@ describe('Reason', () => {
     expect(onCommit).toHaveBeenCalledOnce();
   });
 
+  it('keeps the reason read-only while a commit is pending', async () => {
+    const call = deferred();
+    render(<ReasonHarness commits={[{ label: 'Park', onCommit: () => call.promise }]} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const dialog = await screen.findByRole('dialog');
+    const reason = within(dialog).getByRole('textbox');
+    await userEvent.type(reason, 'Wait for access');
+    const commit = within(dialog).getByRole('button', { name: 'Park' });
+    await userEvent.click(commit);
+    expect(commit).toBeDisabled();
+
+    await userEvent.type(reason, ' and review');
+    expect(reason).toHaveAttribute('readonly');
+    expect(reason).toHaveValue('Wait for access');
+  });
+
   it('keeps the dialog and the text when a commit fails, and focuses the commit again', async () => {
     const onCommit = vi.fn().mockRejectedValueOnce(new Error('refused'));
     render(<ReasonHarness required commits={[{ label: 'Park', onCommit }]} />);
@@ -638,6 +654,55 @@ describe('Reason refusals', () => {
       await waitFor(() => expect(refocus).toHaveBeenCalledOnce());
       expect(commit).toHaveFocus();
     }
+  });
+});
+
+async function refuseReasonOffline() {
+  const call = deferred();
+  const onCommit = vi.fn(() => call.promise);
+  const reason = (open: boolean, commitDisabled: boolean) => (
+    <Reason
+      open={open}
+      commitDisabled={commitDisabled}
+      onClose={() => undefined}
+      title="Park it"
+      commits={[{ label: 'Park', onCommit }]}
+    />
+  );
+  const { rerender } = render(reason(true, false));
+  const dialog = await screen.findByRole('dialog');
+  const commit = within(dialog).getByRole('button', { name: 'Park' });
+  await userEvent.click(commit);
+  expect(onCommit).toHaveBeenCalledOnce();
+  expect(commit).toBeDisabled();
+  rerender(reason(true, true));
+  // A browser drops focus when the focused button disables; jsdom keeps it.
+  commit.blur();
+  const refocus = vi.spyOn(commit, 'focus');
+  await settleCall(call, 'reject');
+  expect(commit).toHaveAttribute('aria-busy', 'false');
+  expect(commit).toBeDisabled();
+  return { commit, reason, refocus, rerender };
+}
+
+describe('Reason refusals while offline', () => {
+  it('returns focus to the commit when it is enabled again', async () => {
+    const { commit, refocus, rerender, reason } = await refuseReasonOffline();
+    refocus.mockClear();
+    rerender(reason(true, false));
+    expect(commit).toBeEnabled();
+    expect(refocus).toHaveBeenCalledOnce();
+    expect(commit).toHaveFocus();
+  });
+
+  it('leaves focus alone while disabled and after closing before reconnection', async () => {
+    const { refocus, rerender, reason } = await refuseReasonOffline();
+    expect(refocus).not.toHaveBeenCalled();
+
+    rerender(reason(false, true));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    rerender(reason(false, false));
+    expect(refocus).not.toHaveBeenCalled();
   });
 });
 

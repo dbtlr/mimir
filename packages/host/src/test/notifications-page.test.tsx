@@ -911,6 +911,32 @@ describe('Reset push key', () => {
     });
   });
 
+  it.each(['Cancel', 'Escape'])('allows %s while Turn on disables Reset', async (dismiss) => {
+    const browser = fakeBrowser();
+    const permission = Promise.withResolvers<NotificationPermission>();
+    vi.spyOn(browser, 'requestPermission').mockReturnValue(permission.promise);
+    await open('phone', { browser, world: { devices: [other] } });
+    try {
+      const turnOn = await screen.findByRole('button', { name: 'Turn on' });
+      await userEvent.click(turnOn);
+      expect(turnOn).toBeDisabled();
+      await userEvent.click(screen.getByRole('button', { name: 'Reset push key…' }));
+      const dialog = await screen.findByRole('alertdialog', { name: 'Reset the push key?' });
+      expect(within(dialog).getByRole('button', { name: 'Reset' })).toBeDisabled();
+      if (dismiss === 'Cancel') {
+        await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+      } else {
+        await userEvent.keyboard('{Escape}');
+      }
+      await waitFor(() => expect(dialog).not.toBeInTheDocument());
+      expect(turnOn).toBeDisabled();
+      expect(resetPushKey).not.toHaveBeenCalled();
+    } finally {
+      permission.resolve('denied');
+      await settle();
+    }
+  });
+
   it('keeps the sheet open with the reason when the host refuses', async () => {
     await open('phone', { world: { devices: [other], reset: { state: 'unconfigured' } } });
     await confirmReset();

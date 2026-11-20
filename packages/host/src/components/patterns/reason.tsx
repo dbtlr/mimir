@@ -53,7 +53,7 @@ export type ReasonProps = {
   /** One commit, or two where the dialog offers two answers. */
   commits: ReasonCommit[];
   /**
-   * Further controls under the text box; they decide `commitDisabled`.
+   * Further controls under the text box; they decide `commitDisabled` and disable while busy.
    * Transitional: a Choice pattern only. The grooming answer's radios move to
    * the Choice pattern (UI SDK Radio) with MMR-731; a feature passes no raw inputs.
    */
@@ -97,7 +97,7 @@ export function Reason({
   finalFocus,
 }: ReasonProps) {
   const returnTo = useFinalFocus(open, finalFocus);
-  const { busy, commit, key } = useOpening(open, pending);
+  const { busy, commit, key } = useOpening(open, pending, commitDisabled);
   return (
     <Dialog
       open={open}
@@ -175,11 +175,16 @@ function ReasonBody({
           // oxlint-disable-next-line jsx-a11y/no-autofocus -- a Reason dialog opens on its text box
           autoFocus
           value={text}
+          readOnly={busy}
           placeholder={placeholder ?? defaultPlaceholder(required)}
           onChange={(event) => setText(event.target.value)}
         />
       </Field>
-      {children}
+      {children !== undefined && (
+        <fieldset disabled={busy} className="min-w-0">
+          {children}
+        </fieldset>
+      )}
       <DialogFooter className="flex-wrap">
         <DialogClose disabled={busy} render={<ActionButton size="sm" variant="outline" />}>
           Cancel
