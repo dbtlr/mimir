@@ -1,5 +1,5 @@
 import { useCreateProject } from '../api/shell-mutations';
-import { useFormOpening } from './patterns/form-sheet';
+import { useOpeningKey } from './patterns/opening';
 import { ProjectForm } from './project-form';
 
 /**
@@ -16,7 +16,7 @@ export function NewProjectSheet({
   onOpenChange: (open: boolean) => void;
 }) {
   const create = useCreateProject();
-  const opening = useFormOpening(open);
+  const opening = useOpeningKey(open);
   return (
     <ProjectForm
       key={opening}

@@ -475,18 +475,6 @@ export function FormSheet({
 }
 
 /**
- * A number that changes each time `open` turns true. A form keys its fields'
- * state by it, so each opening starts fresh even when its sheet stays mounted.
- */
-export function useFormOpening(open: boolean): number {
-  const [seen, setSeen] = useState({ count: open ? 1 : 0, open });
-  if (seen.open !== open) {
-    setSeen({ count: open ? seen.count + 1 : seen.count, open });
-  }
-  return open && !seen.open ? seen.count + 1 : seen.count;
-}
-
-/**
  * Asks the sheet's form to send itself, as Enter in a field does: the Seed's
  * Enter files. A form that cannot be sent ignores it.
  */

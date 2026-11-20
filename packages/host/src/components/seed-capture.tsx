@@ -9,6 +9,7 @@ import { projectsQuery } from '../api/shell-queries';
 import { useHotkey } from '../lib/use-hotkey';
 import { FormField, FormSheet, FormTextArea, requestFormCommit } from './patterns/form-sheet';
 import { toast } from './patterns/notice';
+import { useOpeningKey } from './patterns/opening';
 import { RecordPicker } from './patterns/record-picker';
 import { SegmentedControl } from './ui/segmented-control';
 
@@ -42,12 +43,11 @@ const KIND_OPTIONS = [
 export function SeedCaptureProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   // Each opening starts a fresh form.
-  const [opening, setOpening] = useState(0);
+  const opening = useOpeningKey(open);
   // Guard the hotkey while open — the sheet itself carries role="dialog", so
   // the in-hook dialog check also covers it; disabling is the cheaper belt.
   const openCapture = useMemo(
     () => () => {
-      setOpening((n) => n + 1);
       setOpen(true);
     },
     [],

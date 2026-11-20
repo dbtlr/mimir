@@ -12,6 +12,20 @@ export type Committed = 'returned' | 'resolved';
 /** The work a commit runs. It must not reopen its own dialog before it returns. */
 export type CommitWork = () => void | Promise<void>;
 
+/**
+ * A number that changes each time `open` turns true, already in the render
+ * where it does. The one count of a dialog's openings: `useOpening` names its
+ * opening by it, and a form keys its fields' state by it, so each opening
+ * starts fresh even when its sheet stays mounted.
+ */
+export function useOpeningKey(open: boolean): number {
+  const [seen, setSeen] = useState({ count: open ? 1 : 0, open });
+  if (seen.open !== open) {
+    setSeen({ count: open ? seen.count + 1 : seen.count, open });
+  }
+  return open && !seen.open ? seen.count + 1 : seen.count;
+}
+
 function createOpening(id: number): Opening {
   return { gate: createCommitGate(), id };
 }
@@ -38,18 +52,17 @@ function restoreCommitFocus(button: HTMLButtonElement | null) {
  * pressed commit disabled. If `commitDisabled` still holds the button disabled,
  * restoration waits until it is enabled in the same opening. Closing or finding
  * focus on another control when the button enables discards the request. `key`
- * names the opening, for content that must remount with each one.
+ * names the opening (`useOpeningKey`), for content that must remount with each one.
  */
 export function useOpening(open: boolean, pending: boolean, commitDisabled = false) {
   // The opening advances while rendering the one where `open` turns true, so the render that
   // shows the dialog already holds it and every click on that render's buttons sees it.
-  const [seen, setSeen] = useState(() => ({ open, opening: createOpening(0) }));
-  let opening = seen.opening;
-  if (seen.open !== open) {
-    if (open) {
-      opening = createOpening(seen.opening.id + 1);
-    }
-    setSeen({ open, opening });
+  const id = useOpeningKey(open);
+  const [shown, setShown] = useState(() => createOpening(id));
+  let opening = shown;
+  if (shown.id !== id) {
+    opening = createOpening(id);
+    setShown(opening);
   }
   const [running, setRunning] = useState<Opening | null>(null);
   const busy = pending || running === opening;

@@ -93,7 +93,6 @@ export function SegmentedControl<T extends string>({
   className,
   segmentClassName,
   size = 'compact',
-  ...rest
 }: {
   options: readonly SegmentedOption<T>[];
   value: T;
@@ -101,16 +100,14 @@ export function SegmentedControl<T extends string>({
   ariaLabel: string;
   /** `field` spans a form field's width at the control height; `compact` sits inline. */
   size?: 'compact' | 'field';
-  /** Ties the control to a visible label, as a Form sheet field does. */
-  'aria-labelledby'?: string;
   className?: string;
   /** Per-segment overrides (e.g. the authoring sheet's pill-shaped, mixed-case type selector). */
   segmentClassName?: string;
 }) {
   return (
     <SdkSegmentedControl<T>
-      aria-label={rest['aria-labelledby'] === undefined ? ariaLabel : undefined}
-      aria-labelledby={rest['aria-labelledby']}
+      // Inside a Form sheet field, UI SDK's Field also ties the group to the field's label.
+      aria-label={ariaLabel}
       value={value}
       onValueChange={(next) => {
         if (next !== null) {

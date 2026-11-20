@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 import { useArchiveProject, useUnarchiveProject, useUpdateProject } from '../api/shell-mutations';
 import { archivedUndoToast } from './archive-undo-toast';
-import { useFormOpening } from './patterns/form-sheet';
+import { useOpeningKey } from './patterns/opening';
 import { ProjectForm } from './project-form';
 import type { EditedProject } from './project-form';
 
@@ -24,7 +24,7 @@ export function ProjectSettingsButton({
   offline?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const opening = useFormOpening(open);
+  const opening = useOpeningKey(open);
   const navigate = useNavigate();
   const update = useUpdateProject(project.id);
   const archive = useArchiveProject(project.id);
