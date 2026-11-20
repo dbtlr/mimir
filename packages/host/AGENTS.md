@@ -3,6 +3,9 @@
 The console is React on UI SDK (`@ui-sdk/react` over `@ui-sdk/core`), its
 only headless library ([ADR 0046](../../docs/decisions/0046-console-primitives-on-ui-sdk.md)).
 
+Build and review console UI to the numbers in [DESIGN.md](DESIGN.md): type,
+color roles, spacing, control sizes, radii, and layout widths.
+
 ## Using UI SDK
 
 - Before you use UI SDK, follow the `ui-sdk` skill and read
