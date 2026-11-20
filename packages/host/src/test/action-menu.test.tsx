@@ -357,6 +357,7 @@ describe.each([
     expect(chosen).not.toHaveBeenCalled();
     expect(link).toHaveAttribute('aria-disabled', 'true');
     expect(link).not.toHaveAttribute('href');
+    expect(screen.getByRole('link', { name: 'Go' })).toBe(link);
   });
 
   it('a disabled router link row has no navigation target', async () => {
@@ -378,6 +379,7 @@ describe.each([
     const row = screen.getByText('Go');
     expect(row).toHaveAttribute('aria-disabled', 'true');
     expect(row).not.toHaveAttribute('href');
+    expect(screen.getByRole('link', { name: 'Go' })).toBe(row);
   });
 
   it.each([true, false])(

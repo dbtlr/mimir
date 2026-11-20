@@ -205,11 +205,18 @@ function customRow(entry: ActionMenuAction): ReactElement<RowProps> | undefined 
   if (row === undefined || entry.disabled !== true) {
     return row;
   }
+  // A disabled link has no href, so it names its role itself to stay announced as a link.
   // A component such as a router Link can generate an href from its other props.
   if (typeof row.type !== 'string') {
-    return <span className={row.props.className} />;
+    // oxlint-disable-next-line jsx-a11y/control-has-associated-label -- the pattern gives the row its label
+    return <span className={row.props.className} role="link" />;
   }
-  return cloneElement(row, { href: undefined, onClick: undefined, onKeyDown: undefined });
+  return cloneElement(row, {
+    href: undefined,
+    onClick: undefined,
+    onKeyDown: undefined,
+    ...(row.type === 'a' ? { role: 'link' } : {}),
+  });
 }
 
 function MenuEntry({
