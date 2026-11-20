@@ -8,7 +8,7 @@ import { helpCommand, helpInput } from '@loomcli/plugins/help/extension';
 import { mcpCommand } from '@loomcli/plugins/mcp/extension';
 import { intentEncoders } from '@mimir/contract';
 
-import { asciiOption } from '../options';
+import { asciiOption, readHints } from '../options';
 import { parseProjectStatus } from '../parse';
 import type { Ports } from '../ports';
 import { nodeSetValue, nodeSetViews } from '../render/node-set';
@@ -27,7 +27,7 @@ export function projectsCommand(ports: Ports) {
           { command: 'projects -f json', note: 'structured output for scripts' },
         ],
       }),
-      mcpCommand({ annotations: { openWorld: false, readOnly: true } }),
+      mcpCommand({ annotations: readHints }),
     ],
   })
     .option('status', {

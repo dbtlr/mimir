@@ -6,7 +6,7 @@ import { Command } from '@loomcli/core';
 import { helpCommand } from '@loomcli/plugins/help/extension';
 import { mcpCommand } from '@loomcli/plugins/mcp/extension';
 
-import { asciiOption, colOption, scopeOption, text, tzOption } from '../options';
+import { asciiOption, colOption, readHints, scopeOption, text, tzOption } from '../options';
 import type { Ports } from '../ports';
 import { filterOptions, nodeQueryOptions, readNodeSet } from '../query';
 import { nodeSetViews } from '../render/node-set';
@@ -26,7 +26,7 @@ export function nextCommand(ports: Ports) {
           { command: 'next --format json', note: 'structured output for scripts' },
         ],
       }),
-      mcpCommand({ annotations: { openWorld: false, readOnly: true } }),
+      mcpCommand({ annotations: readHints }),
     ],
   })
     .option('scope', scopeOption)

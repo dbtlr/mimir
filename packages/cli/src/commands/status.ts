@@ -9,7 +9,7 @@ import { mcpCommand } from '@loomcli/plugins/mcp/extension';
 import { intentEncoders } from '@mimir/contract';
 import type { StatusView } from '@mimir/contract';
 
-import { asciiOption } from '../options';
+import { asciiOption, readHints } from '../options';
 import type { Ports } from '../ports';
 import { presentationOf } from '../render/presentation';
 import type { Presentation } from '../render/presentation';
@@ -43,7 +43,7 @@ export function statusCommand(ports: Ports) {
       helpCommand({
         examples: [{ command: 'status MMR-3', note: 'the rollup of an initiative or phase' }],
       }),
-      mcpCommand({ annotations: { openWorld: false, readOnly: true } }),
+      mcpCommand({ annotations: readHints }),
     ],
   })
     .argument('id', { description: 'KEY-seq or KEY.', required: true })

@@ -3,6 +3,7 @@ import { afterAll, beforeAll, expect, test } from 'bun:test';
 import { parityBoard } from './testing/fixture';
 import type { ParityBoard } from './testing/fixture';
 import { loomMcpSession } from './testing/mcp';
+import type { ToolAnnotations } from './testing/mcp';
 
 /**
  * MCP capabilities (ADR 0037): the machine-local and installer commands stay
@@ -11,11 +12,13 @@ import { loomMcpSession } from './testing/mcp';
  */
 let board: ParityBoard;
 let loomTools: string[];
+let loomAnnotations: Map<string, ToolAnnotations>;
 
 beforeAll(async () => {
   board = await parityBoard();
   const loom = loomMcpSession(board.app('MMR'));
   loomTools = await loom.tools();
+  loomAnnotations = await loom.annotations();
   await loom.close();
 });
 
@@ -37,4 +40,19 @@ test('the machine-local and installer commands are not tools', () => {
     'installation_install',
   ];
   expect(loomTools.filter((tool) => machine.some((name) => tool.startsWith(name)))).toEqual([]);
+});
+
+/**
+ * MCP reads a missing `destructiveHint` as true and a missing `readOnlyHint` as
+ * false, and a Grant can filter on either, so every tool states both. The
+ * values themselves are pinned in `mcp-parity.txt`.
+ */
+test('every tool declares a boolean readOnlyHint and destructiveHint', () => {
+  const undeclared = [...loomAnnotations]
+    .filter(
+      ([, hints]) =>
+        typeof hints.readOnlyHint !== 'boolean' || typeof hints.destructiveHint !== 'boolean',
+    )
+    .map(([name]) => name);
+  expect(undeclared).toEqual([]);
 });

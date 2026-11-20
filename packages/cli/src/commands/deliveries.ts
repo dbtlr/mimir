@@ -5,7 +5,7 @@ import { blankProse, DELIVERY_INT_MAX, encodeDelivery, MimirError } from '@mimir
 import type { DeliveryView } from '@mimir/contract';
 
 import { MimirUsageError } from '../failures';
-import { asciiOption, text, writeHints } from '../options';
+import { asciiOption, readHints, text, writeHints } from '../options';
 import type { Ports } from '../ports';
 import { renderDelivery, deliveryEchoViews } from '../render/deliveries';
 import type { DeliveryValue } from '../render/deliveries';
@@ -124,7 +124,7 @@ export function deliveriesCommand(ports: Ports) {
       helpCommand({
         examples: [{ command: 'deliveries --project MMR', note: 'read the project attempts' }],
       }),
-      mcpCommand({ annotations: { openWorld: false, readOnly: true } }),
+      mcpCommand({ annotations: readHints }),
     ],
   })
     .option('project', { ...text('The project key; defaults to the clone binding.'), short: 'p' })

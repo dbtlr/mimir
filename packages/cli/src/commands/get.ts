@@ -15,7 +15,7 @@ import {
 
 import { MimirUsageError } from '../failures';
 import { DATE_QUERY_VERBS } from '../flag-owners';
-import { asciiOption, colOption, text } from '../options';
+import { asciiOption, colOption, readHints, text } from '../options';
 import { parseFacets, parseSince } from '../parse';
 import type { Ports } from '../ports';
 import { idOf, recordsOf, tableOf } from '../render/get';
@@ -140,7 +140,7 @@ export function getCommand(ports: Ports) {
           },
         ],
       }),
-      mcpCommand({ annotations: { openWorld: false, readOnly: true } }),
+      mcpCommand({ annotations: readHints }),
     ],
   })
     .argument('id', {

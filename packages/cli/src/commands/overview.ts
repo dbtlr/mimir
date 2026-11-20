@@ -11,7 +11,7 @@ import { intentEncoders } from '@mimir/contract';
 import type { OverviewReport } from '@mimir/contract';
 
 import { defaultFormat } from '../default-format';
-import { asciiOption, scopeOption } from '../options';
+import { asciiOption, readHints, scopeOption } from '../options';
 import type { Ports } from '../ports';
 import { presentationOf } from '../render/presentation';
 import type { Presentation } from '../render/presentation';
@@ -47,7 +47,7 @@ export function overviewCommand(ports: Ports) {
           { command: 'overview -f json', note: 'the composite envelope for scripts' },
         ],
       }),
-      mcpCommand({ annotations: { openWorld: false, readOnly: true } }),
+      mcpCommand({ annotations: readHints }),
     ],
   })
     .option('scope', scopeOption)

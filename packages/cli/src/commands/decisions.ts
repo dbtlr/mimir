@@ -11,7 +11,7 @@ import {
 import type { DecisionView } from '@mimir/contract';
 
 import { MimirUsageError } from '../failures';
-import { asciiOption, text, writeHints } from '../options';
+import { asciiOption, readHints, text, writeHints } from '../options';
 import type { Ports } from '../ports';
 import { decisionEchoViews, renderDecision } from '../render/decisions';
 import type { DecisionValue } from '../render/decisions';
@@ -193,7 +193,7 @@ export function decisionsCommand(ports: Ports) {
           },
         ],
       }),
-      mcpCommand({ annotations: { openWorld: false, readOnly: true } }),
+      mcpCommand({ annotations: readHints }),
     ],
   })
     .option('project', { ...text('The project key; defaults to the clone binding.'), short: 'p' })
