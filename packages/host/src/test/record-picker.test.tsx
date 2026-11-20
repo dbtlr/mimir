@@ -39,9 +39,11 @@ function PickerHarness({ onChange = ignore }: { onChange?: (id: string) => void 
 }
 
 describe('Record picker', () => {
-  it('shows the chosen record as its key and title, named by its label', () => {
+  it('shows the chosen record as its key and title, named by its label and that value', () => {
     render(<PickerHarness />);
-    const trigger = screen.getByRole('button', { name: 'Project' });
+    // A screen reader hears the choice with the label, and that the button opens a list.
+    const trigger = screen.getByRole('button', { name: 'Project MMR — Mimir' });
+    expect(trigger).toHaveAttribute('aria-haspopup', 'listbox');
     expect(trigger).toHaveTextContent('MMR — Mimir');
     // The key is an identifier, so it is mono; the title is a name, so it is not.
     expect(within(trigger).getByText('MMR')).toHaveClass('font-mono');
@@ -50,7 +52,7 @@ describe('Record picker', () => {
   it('opens on a search box that narrows the records by key or title', async () => {
     const user = userEvent.setup();
     render(<PickerHarness />);
-    await user.click(screen.getByRole('button', { name: 'Project' }));
+    await user.click(screen.getByRole('button', { name: /^Project / }));
     const search = await screen.findByRole('combobox', { name: 'Find a project' });
     await waitFor(() => {
       expect(search).toHaveFocus();
@@ -69,7 +71,7 @@ describe('Record picker', () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     render(<PickerHarness onChange={onChange} />);
-    const trigger = screen.getByRole('button', { name: 'Project' });
+    const trigger = screen.getByRole('button', { name: /^Project / });
     await user.click(trigger);
     const search = await screen.findByRole('combobox', { name: 'Find a project' });
     await user.type(search, 'n');
@@ -88,7 +90,7 @@ describe('Record picker', () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     render(<PickerHarness onChange={onChange} />);
-    await user.click(screen.getByRole('button', { name: 'Project' }));
+    await user.click(screen.getByRole('button', { name: /^Project / }));
     const search = await screen.findByRole('combobox', { name: 'Find a project' });
     await user.type(search, 'zzz');
     expect(screen.queryAllByRole('option')).toHaveLength(0);
@@ -109,7 +111,9 @@ describe('Record picker', () => {
         onValueChange={() => undefined}
       />,
     );
-    expect(screen.getByRole('button', { name: 'Project' })).toHaveTextContent('Choose a project…');
+    expect(screen.getByRole('button', { name: 'Project Choose a project…' })).toHaveTextContent(
+      'Choose a project…',
+    );
   });
 });
 

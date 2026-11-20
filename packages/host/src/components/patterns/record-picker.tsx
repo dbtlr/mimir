@@ -88,6 +88,7 @@ export function RecordPicker({
   disabled = false,
 }: RecordPickerProps) {
   const labelId = useId();
+  const valueId = useId();
   const [query, setQuery] = useState('');
   const [button, setButton] = useState<HTMLButtonElement | null>(null);
   const chosen = records.find((record) => record.id === value);
@@ -123,11 +124,20 @@ export function RecordPicker({
           }
         }}
       >
-        <ComboboxButton ref={setButton} aria-labelledby={labelId}>
+        {/* Named by its label and the value it shows, so a screen reader hears the choice. */}
+        <ComboboxButton
+          ref={setButton}
+          aria-labelledby={`${labelId} ${valueId}`}
+          aria-haspopup="listbox"
+        >
           {chosen === undefined ? (
-            <span className="text-ink-dim">{placeholder}</span>
+            <span id={valueId} className="text-ink-dim">
+              {placeholder}
+            </span>
           ) : (
-            <RecordValue record={chosen} />
+            <span id={valueId}>
+              <RecordValue record={chosen} />
+            </span>
           )}
         </ComboboxButton>
         <ComboboxContent
