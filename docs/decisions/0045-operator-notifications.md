@@ -1022,10 +1022,12 @@ Elsewhere:
   sent.
 - **A saved change to this browser's own row** applies that one kind's change
   to the record's `muted`, starting from the row's listed kinds when the
-  record has none. It does so only when the record is `on`, for the endpoint
-  the save named, at the moment the answer arrives. It never writes a record
-  that is absent, `removed`, or for another endpoint, so a save that crosses
-  a removal cannot bring notifications back.
+  record has none. It does so only when the record is `on` at the moment the
+  answer arrives, and is for the endpoint the save named or the save was on
+  this browser's own row (whose record can still name an old endpoint after a
+  heal's failed removal). It never writes a record that is absent or
+  `removed`, so a save that crosses a removal cannot bring notifications
+  back.
 - **Turn off**, and a heal that marks the browser `removed`, drop the record
   and its kinds. Turning notifications on again, or after a removal, starts
   with every kind on.
@@ -1053,13 +1055,16 @@ variant A, picked on 2026-11-20.
   answers; the other switches stay usable. On `saved` it stays, and the page
   changes that row's kinds in the list it holds, so the row's meta line
   follows at once, without a reread that would close an open sheet or
-  dialog. On a thrown failure, or an `unconfigured`, `misconfigured`, or
-  `key_unusable` answer, it returns to its last saved position and a polite
+  dialog. On a thrown failure, or an `unconfigured` or `misconfigured`
+  answer, it returns to its last saved position and a polite
   line under the switches says "The choice couldn't be saved." On
-  `not_found`, the sheet or dialog closes, the page says "That browser is no
-  longer subscribed." in its live region (for this browser's own group, the
-  line under its switches says "This browser is no longer subscribed."), and
-  the list reloads.
+  `not_found`, the sheet or dialog closes, focus moves to the page's
+  `<main>`, the page says "That browser is no longer subscribed." in the live
+  region under This device, and the list reloads. For this browser's own
+  switches the same live region says "This browser is no longer subscribed.",
+  since the reload ends the On state and the group with it. A save is not one
+  of the actions after which the rows withhold their actions (the MMR-711
+  refinement), so a sheet or dialog stays open across saves.
 - **This browser's switches and the page take turns.** The switches are
   disabled while Turn on, Turn off, or a reset runs, and Turn off and Reset
   push key are disabled while a save on this browser's own row runs. A save on
