@@ -23,14 +23,17 @@ export { ListboxGroup, ListboxSeparator } from '@ui-sdk/react/listbox';
 export const PICKER_ROW_CLASS =
   'flex min-w-0 cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 text-sm text-ink outline-none select-none max-md:py-2.5 data-[highlighted]:bg-accent/10 data-[highlighted]:inset-ring data-[highlighted]:inset-ring-accent/25 data-[disabled]:cursor-default data-[disabled]:text-ink-faint';
 
-/** A group's heading ("Tasks", "Projects"): the console's microlabel. */
-export const PICKER_GROUP_LABEL_CLASS = 'microlabel px-2 pt-1.5 pb-1 text-ink-faint';
+/**
+ * A group's heading ("Recent", "Actions"): 13/20 ink-dim at 500, sentence case,
+ * as a menu's group heading is (DESIGN.md, Type).
+ */
+export const PICKER_GROUP_LABEL_CLASS = 'px-2 pt-2 pb-1 text-meta leading-5 font-medium text-ink-dim';
 
 /**
  * The "No matches" line a picker shows when nothing fits the query. UI SDK
  * keeps the part in the page as a live region, so it takes no room while empty.
  */
-export const PICKER_EMPTY_CLASS = 'px-2 py-3 text-meta text-ink-faint empty:p-0';
+export const PICKER_EMPTY_CLASS = 'px-2 py-3 text-meta text-ink-dim empty:p-0';
 
 /** The element the selected check sits in, pushed to the row's end. */
 export const PICKER_CHECK_CLASS = 'ml-auto shrink-0 text-accent';

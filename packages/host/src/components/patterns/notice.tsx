@@ -68,16 +68,18 @@ export const toast = Object.assign(
 
 /**
  * Mount once near the app root: it shows every `toast`. On a desktop they sit
- * bottom-left, past the sidebar when it shows; on a phone, at the top (a
- * bottom sheet's footer owns the bottom), below the top bar whose height an
- * ancestor sets as `--top-bar-height`.
+ * bottom-left on the content column's 20px gutter, past the sidebar when it
+ * shows; on a phone, at the top (a bottom sheet's footer owns the bottom), 8
+ * below the top bar whose height an ancestor sets as `--top-bar-height`, on the
+ * phone page's 14px gutter. A Notice floats over what is under it, the first
+ * card or a route's banner, and the page does not move for it (DESIGN.md, Toast).
  */
 export function NoticeHost({ offsetPastSidebar = false }: { offsetPastSidebar?: boolean }) {
   return (
     <ToastStack
       className={cn(
-        'max-sm:top-[calc(var(--top-bar-height,0px)+0.5rem)]',
-        offsetPastSidebar && 'lg:left-[calc(16rem+24px)]',
+        'max-md:top-[calc(var(--top-bar-height,0px)+0.5rem)] md:bottom-5 md:left-5',
+        offsetPastSidebar && 'lg:left-[calc(16rem+20px)]',
       )}
     />
   );

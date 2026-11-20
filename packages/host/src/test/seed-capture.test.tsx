@@ -49,7 +49,7 @@ const renderApp = async (initial = '/p/MMR/seeds') =>
     )
   ).router;
 
-describe('seed capture popover (12c, MMR-247)', () => {
+describe('seed form (12c, MMR-247; the Form sheet, MMR-743)', () => {
   it('files the right body (project/title/kind, no requester) and resets on success', async () => {
     mockApi();
     vi.mocked(seedCreate).mockResolvedValue(engineSeed({ id: 'MMR-s7' }));
@@ -57,12 +57,12 @@ describe('seed capture popover (12c, MMR-247)', () => {
     const user = userEvent.setup();
 
     await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
-    // the popover is up
+    // the form is up
     await screen.findByLabelText('Seed');
 
-    await user.click(screen.getByRole('button', { name: 'bug' }));
+    await user.click(screen.getByRole('radio', { name: 'Bug' }));
     await user.type(screen.getByLabelText('Seed'), 'Tree lens loses scroll');
-    await user.click(screen.getByRole('button', { name: 'File ↵' }));
+    await user.click(screen.getByRole('button', { name: 'File seed' }));
 
     await waitFor(() => {
       expect(seedCreate).toHaveBeenCalledWith({
@@ -71,28 +71,30 @@ describe('seed capture popover (12c, MMR-247)', () => {
     });
     // never carries requester — a console-filed seed is self-filed
     expect(vi.mocked(seedCreate).mock.calls[0]?.[0].data).not.toHaveProperty('requester');
-    // success toasts and the popover closes (fields reset behind it)
+    // success toasts and the form closes (fields reset behind it)
     expect(toast.success).toHaveBeenCalledWith('Filed MMR-s7');
     await waitFor(() => {
       expect(screen.queryByLabelText('Seed')).toBeNull();
     });
   });
 
-  // ADR 0019 §1 (MMR-626): seed kind is a category, so the picked kind draws in ink.
-  it('a picked kind draws in ink, never a status hue', async () => {
+  // ADR 0019 §1 (MMR-626): seed kind is a category, so the picked kind never wears a status hue.
+  // The Form sheet (MMR-743) draws Kind as a Segmented Control, whose pick is the accent
+  // selection wash every Choice shares, where the pills drew it in ink.
+  it('a picked kind takes the selection wash, never a status hue', async () => {
     mockApi();
     await renderApp();
     const user = userEvent.setup();
 
     await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
     await screen.findByLabelText('Seed');
-    for (const kind of ['bug', 'idea', 'feature']) {
-      const pill = screen.getByRole('button', { name: kind });
-      await user.click(pill);
-      expect(pill).toHaveAttribute('aria-pressed', 'true');
-      expect(pill.className).not.toMatch(/status-/);
-      expect(pill.className.split(/\s+/)).toEqual(
-        expect.arrayContaining(['bg-line', 'text-ink-bright']),
+    for (const kind of ['Bug', 'Idea', 'Feature']) {
+      const segment = screen.getByRole('radio', { name: kind });
+      await user.click(segment);
+      expect(segment).toBeChecked();
+      expect(segment.className).not.toMatch(/status-/);
+      expect(segment.className.split(/\s+/)).toEqual(
+        expect.arrayContaining(['bg-accent/12', 'text-accent-foreground']),
       );
     }
   });
@@ -104,7 +106,7 @@ describe('seed capture popover (12c, MMR-247)', () => {
 
     await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
     const field = await screen.findByLabelText('Seed');
-    await user.click(screen.getByRole('button', { name: 'bug' }));
+    await user.click(screen.getByRole('radio', { name: 'Bug' }));
 
     await user.type(field, 'title line');
     // Shift+Enter inserts a newline — it must NOT file.
