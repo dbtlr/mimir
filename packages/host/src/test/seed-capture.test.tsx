@@ -123,6 +123,40 @@ describe('seed form (12c, MMR-247; the Form sheet, MMR-743)', () => {
     });
   });
 
+  it('enter on an empty seed field files nothing', async () => {
+    mockApi();
+    await renderApp();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
+    const field = await screen.findByLabelText('Seed');
+    await user.click(field);
+    await user.keyboard('{Enter}');
+    expect(seedCreate).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Seed')).toBeInTheDocument();
+  });
+
+  it('on a project the picker does not offer (archived), chooses none and holds File seed', async () => {
+    serveShell({
+      archived: [engineProject({ id: 'OLD', status: 'done', title: 'Old project' })],
+      projects: [
+        engineProject({ id: 'MMR', title: 'Mimir' }),
+        engineProject({ id: 'NRN', status: 'ready', title: 'Norn' }),
+      ],
+    });
+    serveBrowse();
+    await renderApp('/p/OLD');
+    const user = userEvent.setup();
+    await screen.findByText(/Old project/);
+    await user.keyboard('s');
+    const field = await screen.findByLabelText('Seed');
+    await user.type(field, 'Filed where it shows');
+    // The picker shows no project, so the form files to none rather than one it hides.
+    expect(screen.getByRole('button', { name: 'Project Choose a project…' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'File seed' })).toBeDisabled();
+    await user.keyboard('{Enter}');
+    expect(seedCreate).not.toHaveBeenCalled();
+  });
+
   it('opens on the global `s` hotkey', async () => {
     mockApi();
     await renderApp();

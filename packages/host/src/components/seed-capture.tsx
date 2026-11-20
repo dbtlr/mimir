@@ -70,7 +70,8 @@ export function SeedCaptureProvider({ children }: { children: ReactNode }) {
 
 /**
  * Three fields, no more (12c): Kind (default Idea), the capture field, and the
- * project (the current one on `/p/$key`, else the first). The capture field is
+ * project (the current one on `/p/$key` when the picker offers it, none on an
+ * archived one, else the first). The capture field is
  * one blob with commit-message semantics (MMR-263): the first line is the
  * title, the rest is the body. Enter files; Shift+Enter adds a newline. Success
  * closes and toasts; a refusal keeps the form and its fields.
@@ -79,7 +80,10 @@ function SeedForm({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { key } = useParams({ strict: false });
   const projects = useQuery(projectsQuery);
   const projectItems = projects.data ?? [];
-  const defaultProject = key ?? projectItems[0]?.id ?? '';
+  // The route's project only when the picker offers it: on an archived or unknown one the
+  // picker would show no choice, so the form must not file to it unseen.
+  const routeProject = projectItems.some((p) => p.id === key) ? key : undefined;
+  const defaultProject = key === undefined ? (projectItems[0]?.id ?? '') : (routeProject ?? '');
 
   const [kind, setKind] = useState<SeedKind>('idea');
   const [title, setTitle] = useState('');
