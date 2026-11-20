@@ -32,16 +32,34 @@ const STATUSES = [
   { label: 'Done', value: 'done' },
 ];
 
+const EFFORTS = [
+  { label: 'low', value: 'low' },
+  { label: 'medium', value: 'medium' },
+  { label: 'high', value: 'high' },
+] as const;
+
 const LABEL_CLASS = 'flex items-center gap-2 text-meta text-ink';
 
 /** Segmented Control, Radio, Checkbox, Switch, and Select: the Choice primitives. */
 export function ChoiceKit() {
   const [theme, setTheme] = useState<Theme>('system');
+  const [effort, setEffort] = useState<(typeof EFFORTS)[number]['value']>('medium');
   return (
     <>
       <Section title="Segmented Control">
         <Sample label="segmented control · Appearance theme">
           <SegmentedControl ariaLabel="Theme" options={THEMES} value={theme} onChange={setTheme} />
+        </Sample>
+        <Sample label="segmented control · field (a form's full-width track, 50 / 44)">
+          <div className="w-full max-w-[576px]">
+            <SegmentedControl
+              size="field"
+              ariaLabel="Reasoning effort"
+              options={EFFORTS}
+              value={effort}
+              onChange={setEffort}
+            />
+          </div>
         </Sample>
       </Section>
       <Section title="Radio">

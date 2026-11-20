@@ -71,7 +71,8 @@ function matches(record: PickerRecord, query: string): boolean {
 function RecordValue({ record }: { record: PickerRecord }) {
   return (
     <>
-      <span className="font-mono">{record.id}</span> — {record.title}
+      <span className="font-mono [font-size-adjust:var(--mono-adjust)]">{record.id}</span> —{' '}
+      {record.title}
     </>
   );
 }
@@ -149,7 +150,9 @@ export function RecordPicker({
                 label={record.title}
                 className="min-h-9 text-[15px] leading-[22px] max-md:min-h-11"
               >
-                <span className="min-w-12 shrink-0 font-mono text-ink-dim">{record.id}</span>
+                <span className="min-w-12 shrink-0 font-mono text-ink-dim [font-size-adjust:var(--mono-adjust)]">
+                  {record.id}
+                </span>
                 <span className="min-w-0 flex-1 truncate">{record.title}</span>
               </ComboboxItem>
             ))}
@@ -365,8 +368,9 @@ function PaletteBody({
       }}
       className="min-h-0 flex-1"
     >
-      <div className="flex items-center">
-        <div className="min-w-0 flex-1">
+      {/* One rule under the search row, Cancel included; the input's own rule gives way to it. */}
+      <div className="flex items-center border-b border-line">
+        <div className="min-w-0 flex-1 [&>div]:border-b-0">
           <CommandInput
             ref={input}
             aria-label={label}

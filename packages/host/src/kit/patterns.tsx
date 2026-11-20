@@ -2,9 +2,18 @@ import { useState } from 'react';
 
 import { ActionMenu } from '../components/patterns/action-menu';
 import { DestructiveConfirm } from '../components/patterns/destructive-confirm';
+import {
+  FormCheckRow,
+  FormField,
+  FormGroup,
+  FormSheet,
+  FormTextArea,
+  FormTextInput,
+} from '../components/patterns/form-sheet';
 import { toast } from '../components/patterns/notice';
 import { NoticeBanner } from '../components/patterns/notice-banner';
 import { Reason } from '../components/patterns/reason';
+import { RecordPicker } from '../components/patterns/record-picker';
 import { ActionButton } from '../components/ui/action-button';
 import { Sample, Section } from './section';
 
@@ -24,6 +33,8 @@ export function PatternsKit() {
       <TwoCommitSample />
       <ActionMenuSample />
       <NoticeSample />
+      <FormSheetSample />
+      <RecordPickerSample />
     </Section>
   );
 }
@@ -173,5 +184,65 @@ function NoticeSample() {
         </div>
       </Sample>
     </>
+  );
+}
+
+function FormSheetSample() {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState('');
+  const [plan, setPlan] = useState(false);
+  return (
+    <Sample label="form sheet · full screen on a phone, 640 panel from md">
+      <ActionButton variant="outline" onClick={() => setOpen(true)}>
+        New project…
+      </ActionButton>
+      <FormSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title="New project"
+        note="Joins the project list on the review page."
+        commitLabel="Create project"
+        commitDisabled={title.trim() === ''}
+        onCommit={() => undefined}
+      >
+        <FormField label="Title">
+          <FormTextInput value={title} onChange={(event) => setTitle(event.target.value)} />
+        </FormField>
+        <FormField label="Key" help="It can’t change later: it names every ID.">
+          <FormTextInput className="w-32 font-mono" />
+        </FormField>
+        <FormField label="Description" optional>
+          <FormTextArea />
+        </FormField>
+        <FormGroup title="Advanced" collapsible>
+          <FormCheckRow label="Plan first" checked={plan} onCheckedChange={setPlan} />
+        </FormGroup>
+      </FormSheet>
+    </Sample>
+  );
+}
+
+const KIT_PROJECTS = [
+  { id: 'MMR', title: 'Mimir' },
+  { id: 'NRN', title: 'Norn' },
+  { id: 'MUN', title: 'Muninn' },
+];
+
+function RecordPickerSample() {
+  const [project, setProject] = useState<string | null>('MMR');
+  return (
+    <Sample label="record picker · a form's project field">
+      <div className="w-full max-w-[576px]">
+        <RecordPicker
+          label="Project"
+          records={KIT_PROJECTS}
+          value={project}
+          onValueChange={setProject}
+          placeholder="Choose a project…"
+          searchLabel="Find a project"
+          emptyText="No projects match."
+        />
+      </div>
+    </Sample>
   );
 }

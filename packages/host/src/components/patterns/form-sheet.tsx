@@ -106,7 +106,7 @@ function FormBody({
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(element);
-    const content = element.firstElementChild;
+    const content = element.lastElementChild;
     if (content !== null) {
       observer.observe(content);
     }
@@ -127,13 +127,14 @@ function FormBody({
         onScrolled(event.currentTarget.scrollTop > 0);
       }}
       style={room > 0 ? { paddingBottom: `calc(var(--form-body-end) + ${String(room)}px)` } : {}}
-      className="min-h-0 flex-1 snap-y snap-mandatory overflow-y-auto px-5 pt-6 pb-(--form-body-end) [--form-body-end:2rem] md:px-8 md:pt-8 md:[--form-body-end:2.5rem]"
+      className="relative min-h-0 flex-1 snap-y snap-mandatory overflow-y-auto px-5 pt-6 pb-(--form-body-end) [--form-body-end:2rem] md:px-8 md:pt-8 md:[--form-body-end:2.5rem]"
     >
-      <div className="flex flex-col gap-6">
-        {/* The rest before the body scrolls, so the top is a rest too. */}
-        <div aria-hidden="true" className="-mt-6 -mb-6 h-0 snap-start md:-mt-8" />
-        {children}
-      </div>
+      {/* The rest before the body scrolls, so the top is a rest too. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute top-0 left-0 size-px snap-start"
+      />
+      <div className="flex flex-col gap-6">{children}</div>
     </div>
   );
 }
