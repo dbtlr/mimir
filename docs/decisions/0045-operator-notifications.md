@@ -928,6 +928,27 @@ The card is the console's `ConfirmCard` (ADR 0019's MMR-734 refinement). Its
 Turn on is an outline, because the page's one solid button belongs to Needs
 you.
 
+## Refinement (2026-11-20, MMR-736): the Notifications control on the console's patterns
+
+The Notifications page moves onto the patterns of ADR 0019's MMR-736
+refinement. What each action does, and the waits and refusals of the MMR-711
+refinement, are unchanged.
+
+- **This browser's Turn on and Turn off stay buttons.** The MMR-711
+  refinement's reason for rejecting a switch holds: a permission prompt can
+  end denied or refused, and a switch would show a state the browser does not
+  hold. They are plain actions, and Turn off needs no confirm, because Turn on
+  in the same place reverses it.
+- **Another browser's actions are the Action menu pattern:** a Sheet titled
+  with the label below `md`, and a menu from `md` up, as before.
+- **Remove this browser asks through Destructive confirm** before it removes
+  the row. A removed browser receives nothing until its own console turns
+  notifications on again, so the removal cannot be undone from this page.
+- **Reset push key asks through Destructive confirm** instead of its sheet.
+  The confirm says what the reset's current text says.
+- **The review page's card** (MMR-734 refinement) is the Suggestion pattern,
+  unchanged.
+
 ## Refinement (2026-11-20, MMR-712): each device chooses the kinds that notify it
 
 Every subscribed browser receives every kind of event until someone turns a
@@ -1044,13 +1065,15 @@ variant A, picked on 2026-11-20.
   line under the group says that the badge still counts everything that needs
   you. In every other state the group is absent, so the console never offers
   a kind in the `key unusable` state, where every row is on another key.
-- **Another row.** Its sheet (phone) and its menu (desktop) gain "Choose what
-  notifies…" above Send test notification. On a phone it closes the row's
-  sheet and opens a sheet titled with the row's label; on a desktop it opens a
-  dialog titled the same way. Both hold the same four switches and a Done that
-  closes them. An old-key row does not offer it, because no push reaches that
-  row, and an open sheet or dialog closes when a read shows its row on an old
-  key or the host's key is no longer usable.
+- **Another row.** Its Action menu (the MMR-736 refinement: a sheet on a
+  phone, a menu on a desktop) gains "Choose what notifies…" above Send test
+  notification. It opens the same four switches in a Sheet titled with the
+  row's label (ADR 0019's MMR-736 refinement: content goes in a Sheet, from the
+  bottom on a phone and as a panel from the right on a desktop), with a Done
+  that closes it. On a phone it first closes the row's sheet, so sheets never
+  stack. An old-key row does not offer it, because no push reaches that row,
+  and an open Sheet of switches closes when a read shows its row on an old key
+  or the host's key is no longer usable.
 - **A switch saves when it flips,** through Set kind for its one kind. The
   switch shows its new position while the call runs and is disabled until it
   answers; the other switches stay usable. On `saved` it stays, and the page
@@ -1058,16 +1081,16 @@ variant A, picked on 2026-11-20.
   flight, which may have read before the save, is dropped and a fresh one
   takes its place, so an action's reread still arrives. The row's meta line
   follows at once, without a reread that would close an open sheet or
-  dialog. On a thrown failure, or an `unconfigured` or `misconfigured`
+  sheet. On a thrown failure, or an `unconfigured` or `misconfigured`
   answer, it returns to its last saved position and a polite
   line under the switches says "The choice couldn't be saved." On
-  `not_found`, the sheet or dialog closes, focus moves to the page's
+  `not_found`, the sheet closes, focus moves to the page's
   `<main>`, the page says "That browser is no longer subscribed." in the live
   region under This device, and the list reloads. For this browser's own
   switches the same live region says "This browser is no longer subscribed.",
   since the reload ends the On state and the group with it. A save is not one
   of the actions after which the rows withhold their actions (the MMR-711
-  refinement), so a sheet or dialog stays open across saves. Nor is a poll
+  refinement), so a sheet stays open across saves. Nor is a poll
   of the device list: every list read rereads this browser's subscription,
   so a read that failed or a heal that restored the subscription shows at the
   next poll, but only an action or a changed set of listed endpoints, as
@@ -1082,11 +1105,11 @@ variant A, picked on 2026-11-20.
   this browser's own row first waits for a running heal, at most 10 seconds,
   as Turn on does. When that heal is still running after the wait, the save
   changes nothing and the switch returns with the same sentence Turn on uses.
-- **Done** closes the sheet or dialog and returns focus to the row that opened
+- **Done** closes the sheet and returns focus to the row that opened
   it.
 - **Every kind off** is allowed. The switches then say: "Every kind is off.
   This browser stays subscribed and still takes a test notification." In
-  another row's sheet or dialog the sentence names that row: "That browser
+  another row's sheet the sentence names that row: "That browser
   stays subscribed and still takes a test notification."
 - **The row's meta line** adds the choice after its other parts: the kind's
   short name and "off" when one kind is muted (Deliveries off, Decisions off,
@@ -1112,6 +1135,9 @@ Each switch is the console's switch (ADR 0019, the MMR-712 refinement).
   it.
 - A Home Screen app that resumes without reloading learns no choice until its
   next load.
+- A save whose answer arrives after a list read that saw another device's
+  newer change to the same kind shows this browser's value until the next
+  list read, within one poll.
 - The badge counts kinds the browser mutes, as above.
 
 ### Considered and rejected

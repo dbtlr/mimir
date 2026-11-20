@@ -262,8 +262,6 @@ function RowMenu({
   );
 }
 
-const KINDS_DIALOG =
-  'fixed top-1/2 left-1/2 z-[60] flex max-h-[90dvh] w-[min(92vw,380px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 overflow-y-auto rounded-lg border border-line bg-well-900 p-4 shadow-2xl outline-none light:shadow-overlay';
 // The list scrolls on a short screen, so every switch stays reachable above Done.
 const KINDS_BLOCK = 'min-h-0 overflow-y-auto rounded-lg border border-line bg-well-850';
 
@@ -275,20 +273,19 @@ const rowOpener = (endpoint: string) =>
 type KindsOpener = { endpoint: string; gone: boolean };
 
 /**
- * Another browser's switches (ADR 0045, MMR-712): a sheet on a phone, a
- * dialog on a desktop, titled with the row's label. Done closes it and
+ * Another browser's switches (ADR 0045, MMR-712): a Sheet titled with the
+ * row's label, from the bottom on a phone and a panel from the right on a
+ * desktop (ADR 0019's MMR-736 refinement). Done closes it and
  * returns focus to the row that opened it; after `not_found` focus goes to
  * the page's `<main>`. `opener` outlives the close, when `device` is gone.
  */
 function KindsSurface({
   device,
-  desktop,
   opener,
   onClose,
   switches,
 }: {
   device: PushDevice | undefined;
-  desktop: boolean;
   opener: RefObject<KindsOpener | undefined>;
   onClose: () => void;
   switches: Omit<KindSwitchesProps, 'device' | 'own' | 'everyOffText'>;
@@ -330,22 +327,9 @@ function KindsSurface({
       onClose();
     }
   };
-  if (desktop) {
-    return (
-      <Dialog.Root open={device !== undefined} onOpenChange={onOpenChange}>
-        <Dialog.Portal>
-          <Dialog.Backdrop className="fixed inset-0 z-50 bg-well-950/70 backdrop-blur-[2px]" />
-          <Dialog.Popup className={KINDS_DIALOG} finalFocus={finalFocus}>
-            {body}
-          </Dialog.Popup>
-        </Dialog.Portal>
-      </Dialog.Root>
-    );
-  }
   return (
     <Sheet open={device !== undefined} onOpenChange={onOpenChange}>
       <SheetContent
-        side="bottom"
         className="gap-2 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
         finalFocus={finalFocus}
       >
@@ -744,7 +728,6 @@ export function NotificationsPage() {
             ? undefined
             : (listed?.find((row) => row.endpoint === kindsFor.endpoint) ?? kindsFor)
         }
-        desktop={desktop}
         opener={kindsOpener}
         onClose={() => {
           setKindsFor(undefined);
