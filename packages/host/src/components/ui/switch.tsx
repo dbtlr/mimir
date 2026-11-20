@@ -5,8 +5,10 @@ import { cn } from '../../lib/cn';
 
 /**
  * Vendored Base UI switch: an on-or-off setting that takes effect when it
- * flips (ADR 0019, MMR-712 refinement). 40 by 24 pixels, accent when on; name
- * it with `aria-label` or a wrapping label.
+ * flips (ADR 0019, MMR-712 refinement). 40 by 24 pixels, accent when on. Put it in
+ * a `<label>` row with its text, so a tap on the text flips it, and name it by
+ * that text with `aria-labelledby`: the switch is a span, which a label does
+ * not name.
  */
 export function Switch({ className, ...props }: ComponentProps<typeof BaseSwitch.Root>) {
   return (
@@ -19,7 +21,7 @@ export function Switch({ className, ...props }: ComponentProps<typeof BaseSwitch
       )}
       {...props}
     >
-      <BaseSwitch.Thumb className="size-[18px] rounded-full bg-white shadow transition-transform data-[checked]:translate-x-4" />
+      <BaseSwitch.Thumb className="size-[18px] rounded-full bg-white transition-transform light:shadow-card data-[checked]:translate-x-4" />
     </BaseSwitch.Root>
   );
 }
