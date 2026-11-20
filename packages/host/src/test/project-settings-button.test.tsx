@@ -257,7 +257,8 @@ describe('projectSettings lifecycle (MMR-230)', () => {
   });
 
   it('holds Archive while a Save is in flight, so the two never race', async () => {
-    vi.mocked(updateProject).mockReturnValue(new Promise(() => undefined));
+    // A Save that never settles.
+    vi.mocked(updateProject).mockReturnValue(Promise.withResolvers<never>().promise);
     wrap(<ProjectSettingsButton project={baseProject} />);
     openSheet();
     fireEvent.change(screen.getByLabelText(/title/i), { target: { value: 'Renamed' } });
