@@ -78,6 +78,12 @@ const TRAIL_LENGTH = 8;
  * for the settings is gone by the time the form closes (a phone's Actions
  * sheet closed behind it), focus walks back to the newest one still on the
  * page, as the chip that opened that sheet, never to the page's body.
+ *
+ * This stays with T3 rather than in `opener.ts`: the general rule there
+ * (`useFinalFocus`) leaves focus to the page's own handoff once the opener is
+ * gone (MMR-474). Only this host outlives the sheet that held its trigger, so
+ * only it knows a chain of openers to walk back through; another overlay's
+ * opener names its own fallback, as Settings › Notifications names a row.
  */
 function useFocusTrail(trail: RefObject<HTMLElement[]>) {
   useEffect(() => {
