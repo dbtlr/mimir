@@ -28,7 +28,7 @@ import {
   useProjectListbox,
 } from './project-options';
 import { StatusDot } from './status-dot';
-import { SearchIcon } from './ui/icons';
+import { ChevronDownIcon, ChevronRightIcon, SearchIcon } from './ui/icons';
 
 /** The picker heads the project and All projects contexts; Settings has none. */
 type WorkContext = Exclude<SidebarContext, { kind: 'settings' }>;
@@ -317,9 +317,8 @@ function SwitcherPanel({
               setActiveKey(null);
             }}
             onKeyDown={onKeyDown}
-            className="min-w-0 flex-1 bg-transparent text-meta text-ink-bright outline-none placeholder:text-ink-faint"
+            className="min-w-0 flex-1 bg-transparent text-meta text-ink-bright outline-none placeholder:text-ink-dim"
           />
-          <kbd className="shrink-0 font-mono text-micro text-ink-ghost max-md:hidden">↑↓ ↵ ⌥P</kbd>
         </div>
       </div>
       <p role="status" aria-live="polite" className="sr-only">
@@ -357,9 +356,13 @@ function SwitcherPanel({
               onClick={() => {
                 setShowArchived((v) => !v);
               }}
-              className="microlabel flex w-full items-center gap-1.5 rounded-sm px-2 py-2 text-left text-ink-faint hover:text-ink-dim focus-visible:outline-2 focus-visible:outline-accent"
+              className="flex w-full items-center gap-1.5 rounded-sm px-2 py-2 text-left text-meta leading-5 font-medium text-ink-dim hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
             >
-              <span aria-hidden="true">{showArchived ? '▾' : '▸'}</span>
+              {showArchived ? (
+                <ChevronDownIcon className="size-3.5 md:size-3.5" />
+              ) : (
+                <ChevronRightIcon className="size-3.5 md:size-3.5" />
+              )}
               Archived · {archivedRows.length}
             </button>
             {showArchived && (
@@ -433,12 +436,15 @@ function AllProjectsOption({
   );
 }
 
-/** A labelled run of rows inside the listbox. */
+/** A labelled run of rows inside the listbox, under a menu group heading: 13/20 ink-dim at 500, sentence case. */
 function Group({ label, children }: { label: string; children: ReactNode }) {
   const labelId = useId();
   return (
     <div role="group" aria-labelledby={labelId}>
-      <span id={labelId} className="microlabel block px-2 pt-2.5 pb-1 text-ink-faint">
+      <span
+        id={labelId}
+        className="block px-2 pt-2.5 pb-1 text-meta leading-5 font-medium text-ink-dim"
+      >
         {label}
       </span>
       {children}

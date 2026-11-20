@@ -14,7 +14,7 @@ import { useDebouncedValue } from '../lib/use-debounced-value';
 import { IS_APPLE, useCommandHotkey } from '../lib/use-hotkey';
 import { lazySheet } from './lazy-sheet';
 import { RecordPalette } from './patterns/record-picker';
-import type { PaletteChoice, PaletteGroup } from './patterns/record-picker';
+import type { PaletteChoice, PaletteGroup, PaletteHint } from './patterns/record-picker';
 import { useSeedCapture } from './seed-capture';
 import { StatusDot } from './status-dot';
 import { iconButtonClass } from './ui/icon-button';
@@ -232,12 +232,20 @@ function PaletteSearch({
       groups={groups}
       waiting={waiting}
       notice={notice}
-      hints={['↑↓ move', '↵ open', `${IS_APPLE ? '⌘' : 'Ctrl'}↵ open in new tab`, 'esc close']}
+      hints={HINTS}
       finalFocus={finalFocus}
       onClosed={onClosed}
     />
   );
 }
+
+/** The palette's key hints: ⌘ on a Mac, Ctrl elsewhere. */
+const HINTS: readonly PaletteHint[] = [
+  { action: 'move', keys: ['up', 'down'] },
+  { action: 'open', keys: ['enter'] },
+  { action: 'open in new tab', keys: [IS_APPLE ? 'command' : 'Ctrl', 'enter'] },
+  { action: 'close', keys: ['Esc'] },
+];
 
 function RecordRow({ record, query }: { record: RowRecord; query: string }) {
   const status = hitStatus({ lifecycle: record.lifecycle ?? null });

@@ -22,6 +22,7 @@ import {
   CommandList,
 } from '../ui/command';
 import { Dialog, DialogBackdrop, DialogClose, DialogContent } from '../ui/dialog';
+import { ArrowDownIcon, ArrowUpIcon, CommandKeyIcon, EnterKeyIcon } from '../ui/icons';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { BLOCK_PROPS } from './form-block';
 import { useFinalFocus } from './opener';
@@ -224,7 +225,37 @@ export function RecordPickerPopup({
   );
 }
 
-const NO_HINTS: readonly string[] = [];
+/** A key a hint names: the arrows, Enter, and ⌘ draw as icons; any other key reads as its name ("Ctrl", "Esc"). */
+export type HintKey = 'up' | 'down' | 'enter' | 'command' | (string & {});
+
+/** One key hint under the palette's rows: the keys, then what they do. */
+export type PaletteHint = { keys: readonly HintKey[]; action: string };
+
+const NO_HINTS: readonly PaletteHint[] = [];
+
+const KEY_ICONS: Record<string, typeof ArrowUpIcon> = {
+  command: CommandKeyIcon,
+  down: ArrowDownIcon,
+  enter: EnterKeyIcon,
+  up: ArrowUpIcon,
+};
+
+/** A hint's keys, each an icon from the icon set or its name, then its action. */
+function Hint({ hint }: { hint: PaletteHint }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      {hint.keys.map((key) => {
+        const KeyIcon = KEY_ICONS[key];
+        return KeyIcon === undefined ? (
+          <span key={key}>{key}</span>
+        ) : (
+          <KeyIcon key={key} className="size-3.5 md:size-3.5" />
+        );
+      })}
+      <span className="ml-0.5">{hint.action}</span>
+    </span>
+  );
+}
 
 /** One row of a palette: a record to open or an action to run. */
 export type PaletteChoice = {
@@ -253,7 +284,7 @@ export type RecordPaletteProps = {
   /** A line under the rows, such as "No records match" or a failed search. */
   notice?: ReactNode;
   /** The key hints under the results, on a desktop. */
-  hints?: readonly string[];
+  hints?: readonly PaletteHint[];
   /** Runs once the palette has finished closing, for an action that opens its own dialog. */
   onClosed?: () => void;
   finalFocus?: FinalFocus;
@@ -330,7 +361,7 @@ function PaletteBody({
 }: Pick<RecordPaletteProps, 'label' | 'query' | 'onQueryChange' | 'groups' | 'notice'> & {
   input: RefObject<HTMLInputElement | null>;
   waiting: boolean;
-  hints: readonly string[];
+  hints: readonly PaletteHint[];
 }) {
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const shown = groups.filter((group) => group.choices.length > 0);
@@ -430,7 +461,7 @@ function PaletteBody({
       {hints.length > 0 && (
         <CommandFooter className="max-md:hidden">
           {hints.map((hint) => (
-            <span key={hint}>{hint}</span>
+            <Hint key={hint.action} hint={hint} />
           ))}
         </CommandFooter>
       )}

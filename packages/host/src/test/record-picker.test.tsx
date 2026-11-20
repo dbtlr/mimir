@@ -110,7 +110,9 @@ describe('Record picker', () => {
       expect(screen.queryByRole('combobox', { name: 'Find a project' })).toBeNull();
     });
     await user.click(screen.getByRole('button', { name: /^Project / }));
-    expect(await screen.findByRole('combobox', { name: 'Find a project' })).toHaveValue('');
+    await expect(screen.findByRole('combobox', { name: 'Find a project' })).resolves.toHaveValue(
+      '',
+    );
     expect(screen.getAllByRole('option')).toHaveLength(3);
   });
 
@@ -172,7 +174,36 @@ function PaletteHarness({
         groups={query === 'none' ? [] : shown}
         waiting={waiting}
         notice={query === 'none' ? 'No records match “none”.' : undefined}
-        hints={['↑↓ move', '↵ open']}
+        hints={[
+          { action: 'move', keys: ['up', 'down'] },
+          { action: 'open', keys: ['enter'] },
+        ]}
+      />
+    </>
+  );
+}
+
+/** One group of record rows with these keys. */
+const rows = (keys: string[]): PaletteGroup[] => [
+  {
+    choices: keys.map((key) => ({ content: key, key, run: () => undefined })),
+    label: 'Records',
+  },
+];
+/** A palette whose caller searches: the rows for a query arrive as `groups`, after it. */
+function Searching({ groups }: { groups: PaletteGroup[] }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  return (
+    <>
+      <ActionButton onClick={() => setOpen(true)}>Jump</ActionButton>
+      <RecordPalette
+        open={open}
+        onClose={() => setOpen(false)}
+        label="Jump to a record or action"
+        query={query}
+        onQueryChange={setQuery}
+        groups={groups}
       />
     </>
   );
@@ -289,29 +320,6 @@ describe('Record palette (the jump palette’s Dialog)', () => {
     stubViewport('desktop');
     // The caller searches: rows for a new query arrive after it, where the row the highlight held
     // (MMR-2) and the old first row (MMR-1) both stay, neither of them first.
-    const rows = (keys: string[]): PaletteGroup[] => [
-      {
-        choices: keys.map((key) => ({ content: key, key, run: () => undefined })),
-        label: 'Records',
-      },
-    ];
-    function Searching({ groups }: { groups: PaletteGroup[] }) {
-      const [open, setOpen] = useState(false);
-      const [query, setQuery] = useState('');
-      return (
-        <>
-          <ActionButton onClick={() => setOpen(true)}>Jump</ActionButton>
-          <RecordPalette
-            open={open}
-            onClose={() => setOpen(false)}
-            label="Jump to a record or action"
-            query={query}
-            onQueryChange={setQuery}
-            groups={groups}
-          />
-        </>
-      );
-    }
     const { rerender } = render(<Searching groups={rows(['MMR-1', 'MMR-2', 'MMR-3'])} />);
     const dialog = await openPalette();
     await userEvent.keyboard('{ArrowDown}');
