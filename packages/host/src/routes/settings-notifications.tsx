@@ -190,17 +190,19 @@ const focusInDialog = () =>
  * the trigger that held focus, or that a closing surface returned it to, is
  * gone meanwhile, and focus falls to `<body>`, or UI SDK moves it to a nearby
  * control. When the list settles, focus goes to the row, or the page when the
- * row is gone, unless a dialog holds it. A press or key before then cancels
- * it, so focus the operator moved stays. Request it once the reread has
- * started. Returns the request: the endpoint of the row.
+ * row is gone, unless a dialog holds it. Request it as the action is chosen:
+ * a press or key from then on cancels it, so focus the operator moved stays.
+ * The request returns `land`, to call once the action's reread has started.
  */
 function useFocusBackToRow(settled: boolean) {
-  const target = useRef<string | undefined>(undefined);
+  const request = useRef<{ endpoint: string; landing: boolean } | undefined>(undefined);
   const stop = useRef<() => void>(() => undefined);
+  // A landing request renders again, so the effect below sees it.
+  const [, setLandings] = useState(0);
   useEffect(() => {
-    if (settled && target.current !== undefined) {
+    if (settled && request.current?.landing === true) {
       if (!focusInDialog()) {
-        const row = rowOpener(target.current);
+        const row = rowOpener(request.current.endpoint);
         if (row === null) {
           focusMain();
         } else {
@@ -212,15 +214,24 @@ function useFocusBackToRow(settled: boolean) {
   });
   return (endpoint: string) => {
     stop.current();
-    target.current = endpoint;
+    const own = { endpoint, landing: false };
+    request.current = own;
     const release = () => {
-      target.current = undefined;
+      if (request.current === own) {
+        request.current = undefined;
+      }
       document.removeEventListener('pointerdown', release, true);
       document.removeEventListener('keydown', release, true);
     };
     document.addEventListener('pointerdown', release, true);
     document.addEventListener('keydown', release, true);
     stop.current = release;
+    return () => {
+      if (request.current === own) {
+        own.landing = true;
+        setLandings((count) => count + 1);
+      }
+    };
   };
 }
 
@@ -465,10 +476,11 @@ export function NotificationsPage() {
     setRowNotes((notes) => ({ ...notes, [endpoint]: text }));
   };
   const onTestRow = async (device: PushDevice) => {
+    const land = returnFocusToRow(device.endpoint);
     setOpened(undefined);
     note(device.endpoint, 'Sending a test…');
     const result = await runTest(device.endpoint);
-    returnFocusToRow(device.endpoint);
+    land();
     note(device.endpoint, result);
   };
   const onRemoveRow = async (device: PushDevice) => {
@@ -482,8 +494,9 @@ export function NotificationsPage() {
     }
     await reload();
     // The row stays, but the reread hides its trigger as the confirm closes, so focus comes back to it.
+    // The confirm holds focus until then, so the request starts here and lands at once.
     if (failed) {
-      returnFocusToRow(device.endpoint);
+      returnFocusToRow(device.endpoint)();
     }
   };
 

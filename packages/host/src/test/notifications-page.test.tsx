@@ -959,6 +959,85 @@ describe('subscribed browsers', () => {
     });
   });
 
+  /** Choose Send test on Android · Chrome's ••• menu, with its answer held until `answer` is called. */
+  async function sendHeldTest() {
+    // One other row, so Tab moves on to a control the reread leaves in place.
+    await open('desktop', { browser: onBrowser(), world: { devices: [mine, other] } });
+    const { promise, resolve } = Promise.withResolvers<{ state: 'delivered' }>();
+    vi.mocked(sendTestPush).mockReturnValueOnce(promise);
+    const trigger = await screen.findByRole('button', { name: 'Actions for Android · Chrome' });
+    await userEvent.click(trigger);
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Send test notification' }));
+    await waitFor(() => {
+      expect(trigger).toHaveFocus();
+    });
+    const answer = async () => {
+      await act(async () => {
+        resolve({ state: 'delivered' });
+        await promise;
+      });
+      await waitFor(() => {
+        expect(group('Subscribed browsers · 2')).toHaveTextContent('Test sent.');
+      });
+      await settle();
+    };
+    return { answer };
+  }
+
+  // Focus goes back to the row only as a fallback: where the operator moved it while the test was being
+  // sent, it stays once the answer and its reread land.
+  it('on a desktop, a Tab while a test is being sent keeps focus where it went', async () => {
+    const { answer } = await sendHeldTest();
+    await userEvent.tab();
+    const moved = document.activeElement;
+    expect(moved).not.toBe(screen.getByRole('button', { name: 'Actions for Android · Chrome' }));
+    await answer();
+    expect(document.activeElement).toBe(moved);
+  });
+
+  it('on a desktop, a press while a test is being sent keeps focus where it went', async () => {
+    const { answer } = await sendHeldTest();
+    const spare = document.createElement('button');
+    spare.textContent = 'Elsewhere';
+    document.body.append(spare);
+    await userEvent.click(spare);
+    expect(spare).toHaveFocus();
+    await answer();
+    expect(spare).toHaveFocus();
+    spare.remove();
+  });
+
+  // A dialog opened with no key or pointer, as assistive technology presses a button, keeps its focus.
+  it('on a desktop, a dialog that holds focus when a test’s answer lands keeps it', async () => {
+    const { answer } = await sendHeldTest();
+    act(() => {
+      screen.getByRole('button', { name: 'Reset push key…' }).click();
+    });
+    const dialog = await screen.findByRole('alertdialog', { name: 'Reset the push key?' });
+    await waitFor(() => {
+      expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    });
+    await answer();
+    expect(dialog).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it('on a desktop, a Send test whose row is gone by its answer moves focus to the page', async () => {
+    const served = (await open('desktop', { browser: onBrowser(), world })).world;
+    vi.mocked(sendTestPush).mockImplementationOnce(async () => {
+      served.devices = served.devices.filter((row) => row.endpoint !== other.endpoint);
+      return { state: 'delivered' };
+    });
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Actions for Android · Chrome' }),
+    );
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Send test notification' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Actions for Android · Chrome' })).toBeNull();
+    });
+    await settle();
+    expect(screen.getByRole('main')).toHaveFocus();
+  });
+
   it.each(['desktop', 'phone'] as const)(
     'on a %s, Remove’s confirm closes and removes nothing when a reread finds the row is this browser’s',
     async (width) => {
