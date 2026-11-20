@@ -1,6 +1,7 @@
 import type { EngineNode } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
 import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { t3Catalog, t3Origin } from '../api/fns/t3';
@@ -14,6 +15,7 @@ import { renderInRouter, renderRoute } from './router';
 import { serveShell } from './shell-fns';
 import { connectedCatalog, reachableSystem } from './t3-fixtures';
 import { serveT3Launch, T3_ORIGIN } from './t3-fns';
+import { stubViewport } from './viewport';
 import { nowRow } from './views-fixtures';
 import { serveViews } from './views-fns';
 
@@ -44,12 +46,17 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
 
-async function openTask(node: EngineNode, origin: string | null = T3_ORIGIN) {
+async function openTask(
+  node: EngineNode,
+  origin: string | null = T3_ORIGIN,
+  system = reachableSystem(),
+) {
   serveShell({ trees: { MMR: TREE } });
   serveNodes({ nodes: [node], notes: { [node.id]: [] }, scratchpads: [] });
-  serveT3Launch(connectedCatalog([reachableSystem()]), undefined, origin);
+  serveT3Launch(connectedCatalog([system]), undefined, origin);
   await renderRoute(consoleRoutes, '/p/MMR/7', quiet());
   return screen.findByRole('complementary', { name: 'Record details' });
 }
@@ -62,6 +69,41 @@ describe('Launch in T3 on the task page', () => {
     ).resolves.toBeVisible();
     expect(within(rail).getByRole('button', { name: 'Start' })).toBeVisible();
   });
+
+  // UI SDK's sheets render in place, so the launch sheet sits inside the Actions chip's sheet, whose
+  // body closes on a chosen button: that closed it, and the launch control with it, before its dialog opened.
+  it.each(['Choose settings…', 'Launch on Valhalla'])(
+    'on a phone with no remembered choice, %s in the caret sheet opens the settings dialog with focus in it',
+    async (item) => {
+      stubViewport('phone');
+      localStorage.clear();
+      // Two matching projects leave Launch on Valhalla nothing to launch without asking.
+      const twoProjects = reachableSystem();
+      twoProjects.projects = [
+        ...twoProjects.projects,
+        { ...twoProjects.projects[0]!, id: 'proj-2', title: 'mimir-fork' },
+      ];
+      await openTask(
+        engineTask({ id: 'MMR-7', parent: 'MMR-2', status: 'ready' }),
+        T3_ORIGIN,
+        twoProjects,
+      );
+      await userEvent.click(screen.getByRole('button', { name: 'Actions' }));
+      const actions = await screen.findByRole('dialog', { name: 'Actions' });
+      await userEvent.click(
+        await within(actions).findByRole('button', { name: 'Choose where to launch' }),
+      );
+      const sheet = await screen.findByRole('dialog', { name: 'Launch in T3' });
+      await userEvent.click(within(sheet).getByRole('button', { name: item }));
+      const settings = await screen.findByRole('dialog', { name: 'Launch MMR-7 in T3' });
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog', { name: 'Launch in T3' })).toBeNull();
+      });
+      await waitFor(() => {
+        expect(settings).toContainElement(document.activeElement as HTMLElement);
+      });
+    },
+  );
 
   it('is absent, and T3 is never asked for a catalog, when T3 is unconfigured', async () => {
     const rail = await openTask(

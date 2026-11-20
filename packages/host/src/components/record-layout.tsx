@@ -60,12 +60,19 @@ export function RailSection({
  * beneath it, because that dialog lives inside the sheet's content, and so
  * does a disclosure (`aria-expanded`), which only reveals more of the sheet. Clicks
  * inside that dialog reach here only through React's portal bubbling, so a
- * target outside the sheet body is ignored.
+ * target outside the sheet body is ignored. UI SDK's popups render in place
+ * instead, inside the body, so a click within a popup there (an Action menu's
+ * sheet or menu) is that popup's: closing the sheet would unmount the control
+ * whose action it runs, such as the T3 launch caret's settings dialog.
  */
 function closeOnChoice(close: () => void) {
   return (event: MouseEvent<HTMLElement>) => {
     const target = event.target;
     if (!(target instanceof Element) || !event.currentTarget.contains(target)) {
+      return;
+    }
+    const popup = target.closest('[role="dialog"], [role="alertdialog"], [role="menu"]');
+    if (popup !== null && event.currentTarget.contains(popup)) {
       return;
     }
     const choice = target.closest('a, button');
