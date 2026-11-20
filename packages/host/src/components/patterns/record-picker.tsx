@@ -196,6 +196,13 @@ export function RecordPickerPopup({
       <PopoverContent
         align="start"
         initialFocus={() => initialFocus.current}
+        // Escape closes this popup alone, not a sheet or drawer that holds it (the phone's
+        // project drawer): it stops here once the popup has taken it.
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            event.stopPropagation();
+          }
+        }}
         className={cn('w-[min(360px,calc(100vw-2rem))] bg-well-850 light:shadow-menu', className)}
       >
         {open && children}

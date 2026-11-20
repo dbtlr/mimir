@@ -28,7 +28,7 @@ import {
 } from './project-options';
 import { StatusDot } from './status-dot';
 import { SearchIcon } from './ui/icons';
-import { PopoverContent, PopoverRoot, PopoverTrigger } from './ui/legacy-popover';
+import { RecordPickerPopup } from './patterns/record-picker';
 
 /** The picker heads the project and All projects contexts; Settings has none. */
 type WorkContext = Exclude<SidebarContext, { kind: 'settings' }>;
@@ -101,8 +101,14 @@ export function ProjectPicker({
 
   return (
     <>
-      <PopoverRoot open={open} onOpenChange={setOpen}>
-        <PopoverTrigger className="group flex w-full items-center gap-2 rounded-lg bg-well-850 px-2.5 py-2 text-left inset-ring inset-ring-line-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent data-[popup-open]:inset-ring-accent/45">
+      <RecordPickerPopup
+        open={open}
+        onOpenChange={setOpen}
+        initialFocus={searchRef}
+        trigger={
+          <button
+          type="button"
+          className="group flex w-full items-center gap-2 rounded-lg bg-well-850 px-2.5 py-2 text-left inset-ring inset-ring-line-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent data-[open]:inset-ring-accent/45">
           {context.kind === 'all' ? (
             <>
               <AllProjectsGlyph />
@@ -147,7 +153,7 @@ export function ProjectPicker({
             viewBox="0 0 24 24"
             fill="none"
             aria-hidden="true"
-            className="shrink-0 text-ink-faint transition-transform group-data-[popup-open]:rotate-180"
+            className="shrink-0 text-ink-faint transition-transform group-data-[open]:rotate-180"
           >
             <path
               d="m6 9 6 6 6-6"
@@ -157,14 +163,10 @@ export function ProjectPicker({
               strokeLinejoin="round"
             />
           </svg>
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          initialFocus={searchRef}
-          className="w-[min(360px,calc(100vw-2rem))] bg-well-850"
-        >
-          {open && (
-            <SwitcherPanel
+        </button>
+        }
+      >
+        <SwitcherPanel
               context={context}
               needsYou={needsYouByKey}
               everywhere={everywhere}
@@ -176,9 +178,7 @@ export function ProjectPicker({
                 setCreating(true);
               }}
             />
-          )}
-        </PopoverContent>
-      </PopoverRoot>
+      </RecordPickerPopup>
       <NewProjectSheet open={creating} onOpenChange={setCreating} />
     </>
   );
