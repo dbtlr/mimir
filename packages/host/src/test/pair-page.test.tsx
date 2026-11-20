@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -227,5 +227,65 @@ describe('pair page (MMR-585)', () => {
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(denyPairing).toHaveBeenCalledTimes(1);
     expect(denyPairing).not.toHaveBeenCalledWith({ data: { code: other } });
+  });
+
+  it('closes the confirm after a refused deny, shows the refusal, and returns focus to Deny', async () => {
+    serveDevices({ codes: { [CODE]: waiting('drews-macbook') } });
+    vi.mocked(denyPairing).mockRejectedValueOnce(new Error('Host refused.'));
+    await renderRoute(consoleRoutes, `/pair?code=${CODE}`);
+    const deny = await screen.findByRole('button', { name: 'Deny' });
+
+    await userEvent.click(deny);
+    const dialog = await screen.findByRole('alertdialog', { name: 'Deny drews-macbook?' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Deny' }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Host refused.'));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(screen.getByRole('button', { name: 'Deny' })).toHaveFocus();
+    expect(screen.queryByText('Denied drews-macbook.')).toBeNull();
+  });
+
+  it('keeps the confirm closed once a deny succeeds', async () => {
+    serveDevices({ codes: { [CODE]: waiting('drews-macbook') } });
+    await renderRoute(consoleRoutes, `/pair?code=${CODE}`);
+    await denyAndConfirm();
+    await screen.findByText('Denied drews-macbook.');
+    await waitFor(() => expect(lookupPairing).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(denyPairing).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes the confirm when the code is edited, and a retyped code does not reopen it', async () => {
+    serveDevices({ codes: { [CODE]: waiting('drews-macbook') } });
+    await renderRoute(consoleRoutes, `/pair?code=${CODE}`);
+    await userEvent.click(await screen.findByRole('button', { name: 'Deny' }));
+    await screen.findByRole('alertdialog', { name: 'Deny drews-macbook?' });
+
+    const box = screen.getByRole('textbox', { name: 'Pairing code' });
+    fireEvent.change(box, { target: { value: CODE.slice(0, -1) } });
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    fireEvent.change(box, { target: { value: CODE } });
+    await expect(screen.findByText('Approve drews-macbook?')).resolves.toBeDefined();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(denyPairing).not.toHaveBeenCalled();
+  });
+
+  it('acts only on the code the confirm was opened for', async () => {
+    const other = 'ZZZZ-9999';
+    serveDevices({
+      codes: { [CODE]: waiting('drews-macbook'), [other]: waiting('other-laptop') },
+    });
+    await renderRoute(consoleRoutes, `/pair?code=${CODE}`);
+    await userEvent.click(await screen.findByRole('button', { name: 'Deny' }));
+    await screen.findByRole('alertdialog', { name: 'Deny drews-macbook?' });
+
+    // One change event swaps the code for another valid one.
+    fireEvent.change(screen.getByRole('textbox', { name: 'Pairing code' }), {
+      target: { value: other },
+    });
+
+    await expect(screen.findByText('Approve other-laptop?')).resolves.toBeDefined();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(denyPairing).not.toHaveBeenCalled();
   });
 });

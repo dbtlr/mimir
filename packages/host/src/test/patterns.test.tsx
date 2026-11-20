@@ -1,6 +1,15 @@
-import { fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DestructiveConfirm } from '../components/patterns/destructive-confirm';
@@ -148,8 +157,11 @@ describe('DestructiveConfirm', () => {
     const commit = within(await screen.findByRole('alertdialog')).getByRole('button', {
       name: 'Remove',
     });
-    fireEvent.click(commit);
-    fireEvent.click(commit);
+    // Both clicks land before React flushes, so only the gate can hold the second.
+    act(() => {
+      commit.click();
+      commit.click();
+    });
     expect(onConfirm).toHaveBeenCalledOnce();
   });
 
@@ -298,9 +310,134 @@ describe('Reason', () => {
     render(<ReasonHarness closeOnCommit={false} commits={[{ label: 'Park', onCommit }]} />);
     await userEvent.click(screen.getByRole('button', { name: 'Open' }));
     const commit = within(await screen.findByRole('dialog')).getByRole('button', { name: 'Park' });
-    fireEvent.click(commit);
-    fireEvent.click(commit);
+    act(() => {
+      commit.click();
+      commit.click();
+    });
     expect(onCommit).toHaveBeenCalledOnce();
+  });
+});
+
+/** An opener and a closer outside the dialog, so a test can close and reopen a held one. */
+function Reopenable({ children }: { children: (open: boolean, close: () => void) => ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)}>
+        Open
+      </button>
+      <button type="button" onClick={() => setOpen(false)}>
+        Force close
+      </button>
+      {children(open, () => setOpen(false))}
+    </>
+  );
+}
+
+describe('reopening a dialog whose commit never settled', () => {
+  it('DestructiveConfirm: the new opening is not busy, and the old settle is ignored', async () => {
+    const never = deferred();
+    const onConfirm = vi.fn(() => never.promise);
+    render(
+      <Reopenable>
+        {(open, close) => (
+          <DestructiveConfirm
+            open={open}
+            onClose={close}
+            title="Remove it?"
+            commitLabel="Remove"
+            onConfirm={onConfirm}
+          >
+            It cannot be undone.
+          </DestructiveConfirm>
+        )}
+      </Reopenable>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const first = await screen.findByRole('alertdialog');
+    fireEvent.click(within(first).getByRole('button', { name: 'Remove' }));
+    expect(within(first).getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Force close' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await waitFor(() =>
+      expect(within(dialog).getByRole('button', { name: 'Remove' })).toBeEnabled(),
+    );
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeEnabled();
+    // The earlier opening settles late; it must not close the new one.
+    await act(async () => {
+      never.resolve();
+      await never.promise;
+    });
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+  });
+
+  it('Reason: the new opening is not busy, and the old settle is ignored', async () => {
+    const never = deferred();
+    const onCommit = vi.fn(() => never.promise);
+    render(
+      <Reopenable>
+        {(open, close) => (
+          <Reason
+            open={open}
+            onClose={close}
+            title="Park it"
+            commits={[{ label: 'Park', onCommit }]}
+          />
+        )}
+      </Reopenable>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const first = await screen.findByRole('dialog');
+    fireEvent.click(within(first).getByRole('button', { name: 'Park' }));
+    expect(within(first).getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Force close' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Park' })).toBeEnabled());
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeEnabled();
+    await act(async () => {
+      never.resolve();
+      await never.promise;
+    });
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+});
+
+describe('Reason refusals', () => {
+  it('returns focus to the commit after each of two consecutive refusals', async () => {
+    const calls = [deferred(), deferred()];
+    let next = 0;
+    const onCommit = vi.fn(() => {
+      const call = calls[next];
+      next += 1;
+      return call?.promise;
+    });
+    render(<ReasonHarness commits={[{ label: 'Park', onCommit }]} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const dialog = await screen.findByRole('dialog');
+    const commit = within(dialog).getByRole('button', { name: 'Park' });
+    // The dialog's own focus handling can put focus back on a blurred button, so the test
+    // observes the pattern's call to focus the commit, as the DestructiveConfirm one does.
+    const refocus = vi.spyOn(commit, 'focus');
+    for (const [attempt, call] of calls.entries()) {
+      await userEvent.click(commit);
+      expect(onCommit).toHaveBeenCalledTimes(attempt + 1);
+      // A browser drops focus when the focused button disables; jsdom keeps it.
+      commit.blur();
+      refocus.mockClear();
+      call.reject(new Error('refused'));
+      await waitFor(() => expect(refocus).toHaveBeenCalledOnce());
+      expect(commit).toHaveFocus();
+    }
   });
 });
 

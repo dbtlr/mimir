@@ -63,10 +63,28 @@ export function DestructiveConfirm({
   const busy = running || pending;
   const returnTo = useFinalFocus(open, finalFocus);
   const gate = useCommitGate();
+  // Counts openings, so a commit that settles after the dialog was closed and reopened is ignored.
+  const opening = useRef(0);
   const commitButton = useRef<HTMLButtonElement | null>(null);
   // The commit and Cancel both disable while a call runs, so a browser drops focus off the
   // dialog's buttons. A failed call leaves the dialog open; the commit takes focus back.
   const wasBusy = useRef(false);
+  // Each opening starts clear: a commit that never settled must not lock the next one. The state
+  // resets while rendering the opening; the refs reset in an effect declared before the focus one.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setRunning(false);
+    }
+  }
+  useEffect(() => {
+    if (open) {
+      opening.current += 1;
+      gate.reset();
+      wasBusy.current = false;
+    }
+  }, [open, gate]);
   useEffect(() => {
     const settled = wasBusy.current && !busy;
     wasBusy.current = busy;
@@ -80,7 +98,7 @@ export function DestructiveConfirm({
     }
     let result: void | Promise<void> | typeof HELD;
     try {
-      result = gate(onConfirm);
+      result = gate.run(onConfirm);
     } catch {
       // A throw before the call started is a failure like a rejection: the dialog stays.
       commitButton.current?.focus();
@@ -89,14 +107,19 @@ export function DestructiveConfirm({
     if (result === HELD || !(result instanceof Promise)) {
       return;
     }
+    const started = opening.current;
     setRunning(true);
     try {
       await result;
-      onClose();
+      if (started === opening.current) {
+        onClose();
+      }
     } catch {
       // The caller's call reports the failure; the dialog stays for another attempt.
     } finally {
-      setRunning(false);
+      if (started === opening.current) {
+        setRunning(false);
+      }
     }
   }
   return (

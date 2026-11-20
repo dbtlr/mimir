@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 /** What `run` returns when the gate is closed and the work did not run. */
 export const HELD = Symbol('held');
@@ -20,11 +20,18 @@ async function settle(result: Promise<unknown>, release: () => void): Promise<vo
  * task would both pass it; this flag closes on the first. It reopens when a
  * returned promise settles, or, for a commit that returns nothing, once the
  * render that reflects the caller's own pending or closed state has run (a
- * microtask later). A synchronous throw reopens it and rethrows.
+ * microtask later). A synchronous throw reopens it and rethrows. `reset` reopens it for a
+ * new opening of the dialog, whatever a commit from the last one is doing.
  */
 export function useCommitGate() {
   const held = useRef(false);
-  return useCallback(<T>(work: () => T): T | typeof HELD => {
+  // Bumped by `reset`, so a settle from before it cannot reopen a gate that a newer commit holds.
+  const generation = useRef(0);
+  const reset = useCallback(() => {
+    generation.current += 1;
+    held.current = false;
+  }, []);
+  const run = useCallback(<T>(work: () => T): T | typeof HELD => {
     if (held.current) {
       return HELD;
     }
@@ -36,8 +43,11 @@ export function useCommitGate() {
       held.current = false;
       throw error;
     }
+    const opened = generation.current;
     const release = () => {
-      held.current = false;
+      if (opened === generation.current) {
+        held.current = false;
+      }
     };
     if (result instanceof Promise) {
       void settle(result, release);
@@ -46,4 +56,5 @@ export function useCommitGate() {
     }
     return result;
   }, []);
+  return useMemo(() => ({ reset, run }), [reset, run]);
 }

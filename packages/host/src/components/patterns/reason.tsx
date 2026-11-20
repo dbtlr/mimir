@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { ReactNode, RefObject } from 'react';
 
 import { ActionButton } from '../ui/action-button';
 import type { ActionButtonProps } from '../ui/action-button';
@@ -96,6 +96,20 @@ export function Reason({
   const [running, setRunning] = useState(false);
   const busy = running || pending;
   const returnTo = useFinalFocus(open, finalFocus);
+  // Counts openings, so a commit that settles after a close and reopen is ignored.
+  const opening = useRef(0);
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setRunning(false);
+    }
+  }
+  useEffect(() => {
+    if (open) {
+      opening.current += 1;
+    }
+  }, [open]);
   return (
     <Dialog
       open={open}
@@ -123,6 +137,7 @@ export function Reason({
           commitDisabled={commitDisabled}
           closeOnCommit={closeOnCommit}
           busy={busy}
+          opening={opening}
           onRunning={setRunning}
           onClose={onClose}
         >
@@ -146,6 +161,7 @@ function ReasonBody({
   commitDisabled,
   closeOnCommit,
   busy,
+  opening,
   onRunning,
   onClose,
 }: Pick<ReasonProps, 'title' | 'description' | 'lead' | 'label' | 'placeholder' | 'children'> & {
@@ -154,6 +170,7 @@ function ReasonBody({
   commitDisabled: boolean;
   closeOnCommit: boolean;
   busy: boolean;
+  opening: RefObject<number>;
   onRunning: (running: boolean) => void;
   onClose: () => void;
 }) {
@@ -164,12 +181,13 @@ function ReasonBody({
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
   // A failed commit disables while it runs, which drops focus to the page; it takes focus back
   // once enabled again, so a keyboard or screen-reader user stays in the dialog.
-  const [refused, setRefused] = useState<number | null>(null);
-  const refocused = useRef<number | null>(null);
+  // Each refusal is a new object, so the same commit refused twice is refocused twice.
+  const [refused, setRefused] = useState<{ index: number } | null>(null);
+  const refocused = useRef<{ index: number } | null>(null);
   useEffect(() => {
     if (refused !== null && refused !== refocused.current && !busy) {
       refocused.current = refused;
-      buttons.current[refused]?.focus();
+      buttons.current[refused.index]?.focus();
     }
   }, [refused, busy]);
 
@@ -180,9 +198,9 @@ function ReasonBody({
   async function commit(index: number, { onCommit }: ReasonCommit) {
     let result: void | Promise<void> | typeof HELD;
     try {
-      result = gate(() => onCommit(trimmed));
+      result = gate.run(() => onCommit(trimmed));
     } catch {
-      setRefused(index);
+      setRefused({ index });
       return;
     }
     if (result === HELD) {
@@ -194,17 +212,22 @@ function ReasonBody({
       }
       return;
     }
+    const started = opening.current;
     onRunning(true);
     try {
       await result;
-      if (closeOnCommit) {
+      if (closeOnCommit && started === opening.current) {
         onClose();
       }
     } catch {
       // The caller's mutation reports the refusal; keep the text for another attempt.
-      setRefused(index);
+      if (started === opening.current) {
+        setRefused({ index });
+      }
     } finally {
-      onRunning(false);
+      if (started === opening.current) {
+        onRunning(false);
+      }
     }
   }
 
