@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -385,6 +385,28 @@ describe('the settings dialog', () => {
       expect(launchT3).toHaveBeenCalledOnce();
     });
     expect(launchCalls()[0]?.projectId).toBe('p2');
+  });
+
+  it('resets the form when a new settings request replaces one for the same task', async () => {
+    const system = reachableSystem({
+      projects: [
+        { defaultModelSelection: null, id: 'p1', title: 'one' },
+        { defaultModelSelection: null, id: 'p2', title: 'two' },
+      ],
+    });
+    await show(connectedCatalog([system]));
+    await screen.findByRole('button', { name: 'Choose where to launch' });
+    const trigger = screen.getByRole('button', { name: 'Launch in T3…' });
+    await userEvent.click(trigger);
+    const dialog = await screen.findByRole('dialog', { name: 'Launch MMR-9 in T3' });
+    await userEvent.selectOptions(within(dialog).getByRole('combobox', { name: 'Project' }), 'p2');
+    expect(within(dialog).getByRole('button', { name: 'Launch' })).toBeEnabled();
+
+    // Dispatch through the same control while the modal blocks pointer interaction.
+    fireEvent.click(trigger);
+    const replacement = await screen.findByRole('dialog', { name: 'Launch MMR-9 in T3' });
+    expect(within(replacement).getByRole('combobox', { name: 'Project' })).toHaveValue('');
+    expect(within(replacement).getByRole('button', { name: 'Launch' })).toBeDisabled();
   });
 
   it('closes on Cancel without launching', async () => {

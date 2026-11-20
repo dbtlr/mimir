@@ -61,7 +61,9 @@ function swallow(event: KeyboardEvent) {
  * hold; window blur does, as the keyup may then never arrive, and so does a fresh press of the same
  * key. `passPress` lets the next keypress through, for a button that presses on it.
  */
-function holdKey(view: Window, key: string, passPress: boolean) {
+function holdKey(view: Window, press: ReactKeyboardEvent, passPress: boolean) {
+  const key = press.code || press.key;
+  const matches = (event: KeyboardEvent) => (event.code || event.key) === key;
   let pass = passPress;
   const release = () => {
     view.removeEventListener('keydown', onKeyDown, true);
@@ -70,7 +72,7 @@ function holdKey(view: Window, key: string, passPress: boolean) {
     view.removeEventListener('blur', release);
   };
   function onKeyDown(event: KeyboardEvent) {
-    if (event.key !== key) {
+    if (!matches(event)) {
       return;
     }
     if (event.repeat) {
@@ -82,7 +84,7 @@ function holdKey(view: Window, key: string, passPress: boolean) {
     }
   }
   function onKeyPress(event: KeyboardEvent) {
-    if (event.key !== key) {
+    if (!matches(event)) {
       return;
     }
     if (pass) {
@@ -92,7 +94,7 @@ function holdKey(view: Window, key: string, passPress: boolean) {
     }
   }
   function onKeyUp(event: KeyboardEvent) {
-    if (event.key === key) {
+    if (matches(event)) {
       swallow(event);
       release();
     }
@@ -107,7 +109,7 @@ function holdKey(view: Window, key: string, passPress: boolean) {
 function holdChoosingKey(event: ReactKeyboardEvent) {
   const view = event.currentTarget.ownerDocument.defaultView;
   if (view !== null && (event.key === 'Enter' || event.key === ' ')) {
-    holdKey(view, event.key, false);
+    holdKey(view, event, false);
   }
 }
 
@@ -119,7 +121,7 @@ function holdChoosingKey(event: ReactKeyboardEvent) {
 export function holdPressingEnter(event: ReactKeyboardEvent) {
   const view = event.currentTarget.ownerDocument.defaultView;
   if (view !== null && event.key === 'Enter') {
-    holdKey(view, 'Enter', true);
+    holdKey(view, event, true);
   }
 }
 

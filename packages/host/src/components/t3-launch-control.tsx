@@ -1,7 +1,7 @@
 import type { EngineNode } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { createContext, useContext, useState } from 'react';
+import { createContext, useCallback, useContext, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import type { T3Catalog, T3LaunchInput, T3System } from '../api/fns/t3';
@@ -49,12 +49,18 @@ const OpenSettings = createContext<((request: SettingsRequest) => void) | null>(
  * here outlives that sheet. A control with no host above it makes its own.
  */
 export function T3LaunchSettingsHost({ children }: { children: ReactNode }) {
-  const [request, setRequest] = useState<SettingsRequest | null>(null);
+  const [request, setRequest] = useState<(SettingsRequest & { id: number }) | null>(null);
+  const requestId = useRef(0);
+  const openSettings = useCallback((next: SettingsRequest) => {
+    requestId.current += 1;
+    setRequest({ ...next, id: requestId.current });
+  }, []);
   return (
-    <OpenSettings.Provider value={setRequest}>
+    <OpenSettings.Provider value={openSettings}>
       {children}
       {request !== null && (
         <T3LaunchDialog
+          key={request.id}
           taskId={request.taskId}
           systems={request.systems}
           remembered={request.remembered}

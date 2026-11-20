@@ -356,7 +356,7 @@ describe.each([
 });
 
 /** An action that opens a Destructive confirm, as Remove this browser does. */
-function OpensConfirm() {
+function OpensConfirm({ onSelect }: { onSelect?: () => void }) {
   const [asking, setAsking] = useState(false);
   return (
     <>
@@ -369,7 +369,10 @@ function OpensConfirm() {
             key: 'remove',
             kind: 'action',
             label: 'Remove',
-            onSelect: () => setAsking(true),
+            onSelect: () => {
+              onSelect?.();
+              setAsking(true);
+            },
           },
         ]}
       />
@@ -461,12 +464,14 @@ const KEY_INIT = {
   ' ': { charCode: 32, code: 'Space' },
   ArrowRight: { code: 'ArrowRight' },
   Enter: { charCode: 13, code: 'Enter' },
+  NumpadEnter: { charCode: 13, code: 'NumpadEnter' },
   Tab: { code: 'Tab' },
 } as const;
 
-/** One key event as Chromium sends it: to whatever holds focus, pressing a button on Enter's keypress and Space's keyup. */
+/** Send each event to the focused element and simulate native Enter and Space activation. */
 async function send(type: 'down' | 'press' | 'up', name: keyof typeof KEY_INIT, repeat = false) {
-  const init = { ...KEY_INIT[name], key: name, repeat };
+  const key = name === 'NumpadEnter' ? 'Enter' : name;
+  const init = { ...KEY_INIT[name], key, repeat };
   let kept = true;
   await act(async () => {
     const target = at();
@@ -474,7 +479,12 @@ async function send(type: 'down' | 'press' | 'up', name: keyof typeof KEY_INIT, 
       kept = fireEvent.keyDown(target, init);
     } else if (type === 'press') {
       kept = fireEvent.keyPress(target, init);
-      if (name === 'Enter' && kept && target instanceof HTMLButtonElement) {
+      if (
+        key === 'Enter' &&
+        kept &&
+        (target instanceof HTMLButtonElement ||
+          (target instanceof HTMLAnchorElement && target.hasAttribute('href')))
+      ) {
         target.click();
       }
     } else {
@@ -548,7 +558,8 @@ describe.each([
   // Holding Enter on the trigger opens the menu or sheet, and a repeat then chooses the row that has focus.
   it('held on the trigger, chooses by a repeat and holds from there', async () => {
     stubViewport(desktop ? 'desktop' : 'phone');
-    render(<OpensConfirm />);
+    const chosen = vi.fn();
+    render(<OpensConfirm onSelect={chosen} />);
     act(() => {
       screen.getByRole('button', { name: 'More' }).focus();
     });
@@ -562,6 +573,7 @@ describe.each([
       await send('press', 'Enter', true);
     }
     await send('up', 'Enter');
+    expect(chosen).toHaveBeenCalledOnce();
     await expectHeldThenFresh();
     expect(screen.queryByRole('alertdialog')).toBeNull();
   });
@@ -573,6 +585,31 @@ describe.each([
     await screen.findByRole('alertdialog', { name: 'Remove it?' });
     await expect(send('down', 'ArrowRight')).resolves.toBe(true);
     await send('up', 'ArrowRight');
+    await send('down', 'Enter', true);
+    await send('press', 'Enter', true);
+    await send('up', 'Enter');
+    await expectHeldThenFresh();
+  });
+
+  it('releasing Numpad Enter first leaves the regular Enter hold in place', async () => {
+    stubViewport(desktop ? 'desktop' : 'phone');
+    render(<OpensConfirm />);
+    act(() => {
+      screen.getByRole('button', { name: 'More' }).focus();
+    });
+    await send('down', 'NumpadEnter');
+    await send('press', 'NumpadEnter');
+    const remove = await screen.findByRole(itemRole(desktop), { name: 'Remove' });
+    act(() => {
+      remove.focus();
+    });
+    await send('down', 'Enter');
+    await send('press', 'Enter');
+    await screen.findByRole('alertdialog', { name: 'Remove it?' });
+    await waitFor(() => {
+      expect(cancel()).toHaveFocus();
+    });
+    await send('up', 'NumpadEnter');
     await send('down', 'Enter', true);
     await send('press', 'Enter', true);
     await send('up', 'Enter');
@@ -614,6 +651,87 @@ describe.each([
       expect(cancel()).toHaveFocus();
     });
     await expectHeldThenFresh();
+  });
+});
+
+describe('Holding Enter in the sheet', () => {
+  it('on Cancel closes it without reopening it or choosing an action', async () => {
+    stubViewport('phone');
+    const chosen = vi.fn();
+    const openChanged = vi.fn();
+    render(
+      <Harness
+        entries={[{ key: 'a', kind: 'action', label: 'Do it', onSelect: chosen }]}
+        onOpenChange={openChanged}
+      />,
+    );
+    const trigger = screen.getByRole('button', { name: 'More' });
+    await userEvent.click(trigger);
+    const row = await screen.findByRole('button', { name: 'Cancel' });
+    act(() => {
+      row.focus();
+    });
+    await send('down', 'Enter');
+    await send('press', 'Enter');
+    await waitFor(() => {
+      expect(trigger).toHaveFocus();
+    });
+    await send('down', 'Enter', true);
+    await send('press', 'Enter', true);
+    await send('up', 'Enter');
+    expect(openChanged.mock.calls).toEqual([[true], [false]]);
+    expect(chosen).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('on a link row runs the link and the action once', async () => {
+    stubViewport('phone');
+    const own = vi.fn((event: { preventDefault: () => void }) => {
+      event.preventDefault();
+    });
+    const chosen = vi.fn();
+    render(
+      <Harness
+        entries={[
+          {
+            keepOpen: true,
+            key: 'link',
+            kind: 'action',
+            label: 'Go',
+            onSelect: chosen,
+            // oxlint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label -- the pattern gives the row its label
+            render: <a href="#go" onClick={own} />,
+          },
+        ]}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'More' }));
+    const link = await screen.findByRole('link', { name: 'Go' });
+    act(() => {
+      link.focus();
+    });
+    await send('down', 'Enter');
+    await send('press', 'Enter');
+    await send('down', 'Enter', true);
+    await send('press', 'Enter', true);
+    await send('up', 'Enter');
+    expect(own).toHaveBeenCalledOnce();
+    expect(chosen).toHaveBeenCalledOnce();
+  });
+
+  it('keeps repeat keydowns from reaching the confirm’s focused Cancel button', async () => {
+    await focusRemove(false);
+    await send('down', 'Enter');
+    await send('press', 'Enter');
+    await waitFor(() => {
+      expect(cancel()).toHaveFocus();
+    });
+    const keyDown = vi.fn();
+    cancel().addEventListener('keydown', keyDown);
+    await send('down', 'Enter', true);
+    await send('press', 'Enter', true);
+    await send('up', 'Enter');
+    expect(keyDown).not.toHaveBeenCalled();
   });
 });
 
