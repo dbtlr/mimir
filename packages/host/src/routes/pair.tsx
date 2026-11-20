@@ -200,9 +200,9 @@ export function PairPage() {
         title={`Deny ${request?.device ?? 'this device'}?`}
         commitLabel="Deny"
         pending={deny.isPending}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (code !== undefined) {
-            deny.mutate(code, {
+            await deny.mutateAsync(code, {
               onSettled: () => {
                 setDenyingCode(undefined);
               },

@@ -41,9 +41,11 @@ export function StopRunDialog({ target, onClose }: { target: StopTarget; onClose
       cancelLabel="Keep running"
       commitLabel="Stop run"
       pending={stop.isPending}
+      // The answer closes the dialog, or replaces the question.
+      closeOnCommit={false}
       answer={refusal === undefined ? undefined : cancelAnswerText(refusal)}
-      onConfirm={() => {
-        stop.mutate({ runId: target.runId });
+      onConfirm={async () => {
+        await stop.mutateAsync({ runId: target.runId });
       }}
     >
       <div className="flex flex-col gap-2">

@@ -73,9 +73,9 @@ export function GroomingAnswerDialog({
       commits={[
         {
           label: 'Answer',
-          onCommit: (note) => {
+          onCommit: async (note) => {
             if (chosen !== null) {
-              groom.mutate({ note, state: chosen });
+              await groom.mutateAsync({ note, state: chosen });
             }
           },
         },

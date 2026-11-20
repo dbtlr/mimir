@@ -15,7 +15,7 @@ import { useOpening } from './opening';
 
 export type DestructiveConfirmProps = {
   open: boolean;
-  /** Called when the operator backs out, or after `onConfirm`'s promise resolves. */
+  /** Called when the operator backs out, or after `onConfirm`'s promise resolves (see `closeOnCommit`). */
   onClose: () => void;
   title: string;
   /** What the action does and costs, in a sentence or two. */
@@ -23,13 +23,19 @@ export type DestructiveConfirmProps = {
   commitLabel: string;
   cancelLabel?: string;
   /**
-   * Runs the action. Return a promise to have the dialog hold itself open while
-   * it runs, close when it resolves, and stay open when it rejects. Return
-   * nothing to close the dialog yourself, as a mutation's callback does. It
+   * Runs the action. An action that calls the host returns its promise (a
+   * mutation's `mutateAsync`): the dialog holds itself open while it runs,
+   * closes when it resolves, and stays open when it rejects. Return nothing
+   * only when the action is done as it returns, such as closing the dialog. It
    * must not reopen this dialog before it returns.
    */
   onConfirm: () => void | Promise<void>;
-  /** The call is in flight (for a caller that closes itself): the commit disables and Escape holds. */
+  /**
+   * Close after `onConfirm`'s promise resolves (the default). A caller that
+   * closes itself, or answers in place, passes `false`.
+   */
+  closeOnCommit?: boolean;
+  /** A call the caller runs is in flight: the commit disables and Escape holds. */
   pending?: boolean;
   /** A line under the question, such as why a call failed; the question and both buttons stay. */
   notice?: ReactNode;
@@ -55,6 +61,7 @@ export function DestructiveConfirm({
   commitLabel,
   cancelLabel = 'Cancel',
   onConfirm,
+  closeOnCommit = true,
   pending = false,
   notice,
   answer,
@@ -106,7 +113,7 @@ export function DestructiveConfirm({
                   label: commitLabel,
                   onClick: () =>
                     void commit(commitButton.current, onConfirm, (how) => {
-                      if (how === 'resolved') {
+                      if (how === 'resolved' && closeOnCommit) {
                         onClose();
                       }
                     }),

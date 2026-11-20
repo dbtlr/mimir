@@ -85,7 +85,7 @@ function ResetConfirm({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: () => void;
+  onConfirm: () => Promise<void>;
   pending: boolean;
   refusal: string | undefined;
 }) {
@@ -99,6 +99,8 @@ function ResetConfirm({
       commitLabel="Reset"
       pending={pending}
       notice={refusal}
+      // A reset closes the dialog itself; a refusal stays, as the notice.
+      closeOnCommit={false}
       onConfirm={onConfirm}
     >
       Every device stops receiving notifications until its console is opened again, and then
@@ -740,7 +742,7 @@ export function NotificationsPage() {
             setResetRefusal(undefined);
           }
         }}
-        onConfirm={() => void onReset()}
+        onConfirm={onReset}
         pending={busy}
         refusal={resetRefusal}
       />

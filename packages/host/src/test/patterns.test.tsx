@@ -554,7 +554,7 @@ describe.each([
  * caller's own call, which the caller reports through `pending`. "Refuse",
  * outside the dialog, ends the call.
  */
-function CallerPendingReason() {
+function CallerPendingReason({ onCommit }: { onCommit: () => void }) {
   const [pending, setPending] = useState(false);
   return (
     <>
@@ -567,15 +567,23 @@ function CallerPendingReason() {
         title="Answer"
         closeOnCommit={false}
         pending={pending}
-        commits={[{ label: 'Answer', onCommit: () => setPending(true) }]}
+        commits={[
+          {
+            label: 'Answer',
+            onCommit: () => {
+              onCommit();
+              setPending(true);
+            },
+          },
+        ]}
       />
     </>
   );
 }
 
 /** Commits, then refuses the call once the browser dropped focus. */
-async function refuseCallerPending() {
-  render(<CallerPendingReason />);
+async function refuseCallerPending(onCommit: () => void = () => undefined) {
+  render(<CallerPendingReason onCommit={onCommit} />);
   const dialog = await screen.findByRole('dialog');
   const commit = within(dialog).getByRole('button', { name: 'Answer' });
   await userEvent.click(commit);
@@ -594,6 +602,13 @@ describe('Reason with a caller-managed pending call', () => {
     const { commit, refocus } = await refuseCallerPending();
     await waitFor(() => expect(refocus).toHaveBeenCalled());
     expect(commit).toHaveFocus();
+  });
+
+  it('runs the commit again after the call is refused', async () => {
+    const onCommit = vi.fn();
+    const { commit } = await refuseCallerPending(onCommit);
+    fireEvent.click(commit);
+    expect(onCommit).toHaveBeenCalledTimes(2);
   });
 });
 
