@@ -315,9 +315,13 @@ function learnKinds(browser: PushBrowser, input: HealInput): void {
   if (row === undefined || sameKinds(record.muted, row.muted)) {
     return;
   }
-  // Read again: another tab may have turned this browser off while the heal read its subscription.
+  // Read again: another tab may have turned this browser off, or on again, while the heal read its subscription.
   const now = browser.readRecord();
-  if (now?.state === 'on' && sameEndpoint(now.endpoint, record.endpoint)) {
+  if (
+    now?.state === 'on' &&
+    sameEndpoint(now.endpoint, record.endpoint) &&
+    now.serverKey === record.serverKey
+  ) {
     browser.writeRecord({ ...now, muted: row.muted });
   }
 }
