@@ -7,8 +7,8 @@ import { TEXT_FIELD_CLASS } from './input';
 /*
  * The Textarea primitive (ADR 0046): a multi-line text box. `grow` gives the
  * console's composer behavior: one line tall, growing with the text to four
- * lines, then scrolling (ADR 0019, MMR-703 refinement, MMR-736). Reason
- * dialogs and the Walkthrough use it.
+ * lines, then scrolling (ADR 0019, MMR-703 refinement, MMR-736). The
+ * Composer, Reason dialogs, and the Walkthrough use it.
  */
 
 export type TextareaProps = ComponentProps<typeof SdkTextarea> & {

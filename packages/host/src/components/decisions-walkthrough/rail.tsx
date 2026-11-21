@@ -1,5 +1,6 @@
 import { cn } from '../../lib/cn';
-import { CheckGlyph, AgentGlyph, SendGlyph } from './icons';
+import { isRepeatClick, useWalkthroughBusy } from '../patterns/walkthrough';
+import { AgentGlyph, CheckGlyph, SendGlyph } from './icons';
 import { answerText, verdictOf } from './model';
 import type { Selection, WalkDecision } from './model';
 import { Outcome } from './parts';
@@ -13,14 +14,14 @@ export type RailEntry = {
 };
 
 const BUTTON_CLASS =
-  'flex w-full items-start gap-3 border-b border-line px-2.5 py-3 text-left disabled:cursor-default focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent enabled:hover:bg-well-850';
+  'flex w-full items-start gap-3 border-b border-line px-3 py-3 text-left disabled:cursor-default focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent enabled:hover:bg-well-850';
 
-/** A rail entry's text: bright and bold when current, dim when reachable, ghosted when not. */
+/** A rail entry's text: bright and bold when current, ink when reachable, dim when not (still 4.5:1). */
 function tone(current: boolean, reachable: boolean): string {
   if (current) {
     return 'font-semibold text-ink-bright';
   }
-  return reachable ? 'text-ink-dim' : 'text-ink-ghost';
+  return reachable ? 'text-ink' : 'text-ink-dim';
 }
 
 /** A decision's mark in the rail: a check once answered, the agent's mark while current. */
@@ -42,16 +43,16 @@ export function Rail({
   step,
   hasCheck,
   checkReady,
-  disabled,
   onGo,
 }: {
   entries: readonly RailEntry[];
   step: number;
   hasCheck: boolean;
   checkReady: boolean;
-  disabled: boolean;
   onGo: (step: number) => void;
 }) {
+  // A Send holds the rail with the rest of the layer.
+  const disabled = useWalkthroughBusy();
   return (
     <nav
       aria-label="Decisions"
@@ -69,7 +70,11 @@ export function Rail({
                 className={BUTTON_CLASS}
                 disabled={!reachable || disabled}
                 aria-current={current ? 'step' : undefined}
-                onClick={() => onGo(index)}
+                onClick={(event) => {
+                  if (!isRepeatClick(event)) {
+                    onGo(index);
+                  }
+                }}
               >
                 <span
                   aria-hidden
@@ -79,22 +84,19 @@ export function Rail({
                     current &&
                       !answered &&
                       'text-attention-foreground inset-ring-[1.5px] inset-ring-attention',
-                    !reachable && 'border border-dashed border-ink-ghost',
+                    !reachable && 'border border-dashed border-ink-faint',
                   )}
                 >
                   {mark(answered, current)}
                 </span>
-                <span className="flex min-w-0 flex-col gap-[3px]">
+                <span className="flex min-w-0 flex-col gap-1">
                   <span
-                    className={cn(
-                      'text-[13.5px] leading-[1.4] wrap-anywhere',
-                      tone(current, reachable),
-                    )}
+                    className={cn('text-meta leading-5 wrap-anywhere', tone(current, reachable))}
                   >
                     {decision.question}
                   </span>
                   {answered && (
-                    <span className="text-[13.5px] leading-[1.4] text-ink-bright wrap-anywhere">
+                    <span className="text-meta leading-5 text-ink-bright wrap-anywhere">
                       {gone ? (
                         'No longer waits on you'
                       ) : (
@@ -117,22 +119,23 @@ export function Rail({
               className={BUTTON_CLASS}
               disabled={!checkReady || disabled}
               aria-current={step === entries.length ? 'step' : undefined}
-              onClick={() => onGo(entries.length)}
+              onClick={(event) => {
+                if (!isRepeatClick(event)) {
+                  onGo(entries.length);
+                }
+              }}
             >
               <span
                 aria-hidden
                 className={cn(
                   'mt-px grid size-[22px] shrink-0 place-items-center',
-                  checkReady ? 'text-attention-foreground' : 'text-ink-ghost',
+                  checkReady ? 'text-attention-foreground' : 'text-ink-faint',
                 )}
               >
                 <SendGlyph size={12} />
               </span>
               <span
-                className={cn(
-                  'text-[13.5px] leading-[1.4]',
-                  tone(step === entries.length, checkReady),
-                )}
+                className={cn('text-meta leading-5', tone(step === entries.length, checkReady))}
               >
                 Check and send
               </span>
@@ -141,24 +144,5 @@ export function Rail({
         )}
       </ol>
     </nav>
-  );
-}
-
-/** The phone's progress: one segment for each step, done ones dimmer violet, the current one full. */
-export function SegmentedBar({ count, step }: { count: number; step: number }) {
-  return (
-    <div aria-hidden className="flex gap-1 px-4 pt-2.5 md:hidden">
-      {Array.from({ length: count }, (_, index) => (
-        <span
-          key={index}
-          className={cn(
-            'h-1 flex-1 rounded-sm transition-colors',
-            index < step && 'bg-attention/55',
-            index === step && 'bg-attention',
-            index > step && 'bg-well-800',
-          )}
-        />
-      ))}
-    </div>
   );
 }

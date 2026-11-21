@@ -23,6 +23,7 @@ import type { BrowserSubscription, PushBrowser } from '../lib/push-browser';
 import { resetRefusalText } from '../lib/push-text';
 import { PushBrowserContext } from '../lib/use-push-browser';
 import { consoleRoutes } from '../router';
+import { pressAndDropFocus } from './press-and-drop-focus';
 import {
   CONSOLE_ORIGIN,
   device,
@@ -1286,6 +1287,19 @@ describe('Reset push key', () => {
     const sheet = await screen.findByRole('alertdialog', { name: 'Reset the push key?' });
     await waitFor(() => {
       expect(sheet).toHaveTextContent(resetRefusalText({ state: 'unconfigured' }) ?? '');
+    });
+  });
+
+  it('returns dropped focus to Reset when the host refuses', async () => {
+    await open('phone', { world: { devices: [other], reset: { state: 'unconfigured' } } });
+    await userEvent.click(await screen.findByRole('button', { name: 'Reset push key…' }));
+    const sheet = await screen.findByRole('alertdialog', { name: 'Reset the push key?' });
+    const reset = within(sheet).getByRole('button', { name: 'Reset' });
+    pressAndDropFocus(reset);
+
+    await waitFor(() => {
+      expect(sheet).toHaveTextContent(resetRefusalText({ state: 'unconfigured' }) ?? '');
+      expect(reset).toHaveFocus();
     });
   });
 

@@ -72,14 +72,16 @@ export const toast = Object.assign(
  * shows, and 20 above the content area's bottom, past the version footer whose
  * height an ancestor sets as `--version-footer-height`; on a phone, at the top (a bottom sheet's footer owns the bottom), 8
  * below the top bar whose height an ancestor sets as `--top-bar-height`, on the
- * phone page's 14px gutter. A Notice floats over what is under it, the first
+ * phone page's 14px gutter. While a Walkthrough covers the console, it sits 8
+ * below the layer's header instead, from `--layer-top-bar-height`, which the
+ * layer sets on the root while it is open. A Notice floats over what is under it, the first
  * card or a route's banner, and the page does not move for it (DESIGN.md, Toast).
  */
 export function NoticeHost({ offsetPastSidebar = false }: { offsetPastSidebar?: boolean }) {
   return (
     <ToastStack
       className={cn(
-        'max-md:top-[calc(var(--top-bar-height,0px)+0.5rem)] md:bottom-[calc(var(--version-footer-height,0px)+1.25rem)] md:left-5',
+        'max-md:top-[calc(var(--layer-top-bar-height,var(--top-bar-height,0px))+0.5rem)] md:bottom-[calc(var(--version-footer-height,0px)+1.25rem)] md:left-5',
         offsetPastSidebar && 'lg:left-[calc(16rem+20px)]',
       )}
     />

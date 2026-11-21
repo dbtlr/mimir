@@ -42,7 +42,9 @@ function restoreCommitFocus(button: HTMLButtonElement | null) {
 
 /**
  * The commit state of a dialog, scoped to one opening, shared by Destructive
- * confirm and Reason. Each time `open` turns true the dialog starts a new
+ * confirm, Reason, the Form sheet, and the Walkthrough. The Composer, which is
+ * inline and always open, passes `open` true for one opening that lasts its
+ * life. Each time `open` turns true the dialog starts a new
  * opening with its own commit gate and no busy commit, so a commit from an
  * earlier opening that never settled cannot lock, close, or free this one.
  *
@@ -51,10 +53,16 @@ function restoreCommitFocus(button: HTMLButtonElement | null) {
  * (a refusal, however the caller reports it), restore focus dropped when the
  * pressed commit disabled. If `commitDisabled` still holds the button disabled,
  * restoration waits until it is enabled in the same opening. Closing or finding
- * focus on another control when the button enables discards the request. `key`
- * names the opening (`useOpeningKey`), for content that must remount with each one.
+ * focus on another control when the button enables discards the request.
+ * Set `restoreFocusOnResolve` to false when a resolved commit manages focus
+ * itself. `key` names the opening (`useOpeningKey`) for content that remounts.
  */
-export function useOpening(open: boolean, pending: boolean, commitDisabled = false) {
+export function useOpening(
+  open: boolean,
+  pending: boolean,
+  commitDisabled = false,
+  { restoreFocusOnResolve = true }: { restoreFocusOnResolve?: boolean } = {},
+) {
   // The opening advances while rendering the one where `open` turns true, so the render that
   // shows the dialog already holds it and every click on that render's buttons sees it.
   const id = useOpeningKey(open);
@@ -129,6 +137,9 @@ export function useOpening(open: boolean, pending: boolean, commitDisabled = fal
     setRunning(mine);
     try {
       await result;
+      if (!restoreFocusOnResolve && refocusIn.current === mine) {
+        refocusIn.current = null;
+      }
       if (current.current === mine) {
         onCommitted('resolved');
       }

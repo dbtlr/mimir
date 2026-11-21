@@ -880,13 +880,19 @@ agent's briefing. The chips stay as MMR-695 defines them.
   walkthrough.
 - Its header shows the delivery's title and id, or "Decisions without a
   delivery" and the project key, then the progress as "N of M", or "Check
-  and send" on the check step. Close is an icon button named "Close the
+  and send" on the check step. On a phone the segmented bar under the header
+  shows the progress instead, and the progress text is left to a screen
+  reader, so the title has the header's width and may take a second line. Close is an icon button named "Close the
   walkthrough". Close leaves the mode and shows the page; the browser's
   Back returns to the history entry before the walkthrough, which is the page when
   the walkthrough opened from it. Both keep the answers chosen so far
   (_Drafts_) and ask nothing. Leaving while _Send_ is writing does not stop
   the write; the next opening shows what landed.
-- The offline notice shows at the top of the layer, and toasts show above it.
+- The offline notice shows at the top of the layer, and toasts show above it;
+  on a phone a toast sits 8 below the layer's header, as it sits below the
+  console's top bar.
+- When a change removes the focused control and focus falls to the page body,
+  focus moves to the screen's heading except while a commit runs.
 - The layer uses the console's tokens, so both themes apply.
 
 ### A step
@@ -915,7 +921,10 @@ Each decision reads as the agent's briefing, top to bottom:
 
 ### The reply bar
 
-The reply bar sits at the bottom of the step. It holds, in order:
+The reply bar sits at the bottom of the step. On a phone the effect line
+comes first, then the note box on its own row when shown, then Back and the
+step's button together. On desktop the effect line sits above a single row
+with Back, the note box when shown, and the step's button, in that order.
 
 - **The effect line**, which follows the selected answer. For the taken
   option: `Confirming changes nothing.`, followed by `<ids> stay as built.`
@@ -960,8 +969,12 @@ the browser lacks `field-sizing`.
   directly and reads "Confirm and send", "Overturn and send", or "Send my
   answer".
 - Nothing is written before _Send_. A write in flight disables _Send_, Back,
-  _Change_, and Close. Offline disables _Send_ and the one-decision commit;
-  moving between steps still works.
+  _Change_, and Close, and _Send_ (or the one-decision commit) reads
+  "Sending…" until it settles. Offline disables _Send_ and the one-decision
+  commit. Moving between steps still works.
+- _Continue_, _Review_, _Send_, _Change_, Back, and the rail entries ignore
+  the second click of a double click. Answer rows also ignore it so a
+  double click on _Change_ keeps the selected answer.
 
 ### After Send
 
@@ -1009,8 +1022,9 @@ function.
   refinement's refusals do, and returns focus to _Send_ or the one-decision
   commit once the write ends, when focus was lost with it.
 - The answers are a native radio group: the arrow keys move the selection.
-- The answer group's name and the step button's name include the
-  decision's id.
+- The answer group's accessible name includes the decision's id. The step
+  button's accessible name includes the id except while it writes, when
+  its name is "Sending…".
 
 ### Phone and desktop
 
@@ -1019,8 +1033,7 @@ function.
   step again; the current one is marked in attention violet; later ones are
   dimmed and disabled. The last entry is the check step, when there is one.
 - Below `md`, a segmented bar under the header shows the progress, and the
-  rail is hidden. The reply bar puts the note box on its own row, above Back
-  and the step's button.
+  rail is hidden.
 - Controls take the 44px phone touch target.
 - Attention violet marks the agent's answer and its flag, and the current
   step; the "Agent recommends" flag is dim ink. "Confirmed" takes the `done`
