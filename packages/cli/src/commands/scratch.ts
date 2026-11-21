@@ -12,7 +12,7 @@ import type { ArtifactDetail, Engine, Scratchpad } from '@mimir/contract';
 
 import { MimirUsageError } from '../failures';
 import { asciiOption, readHints, scopeOption, tagOption, text, writeHints } from '../options';
-import { reasonWords } from '../parse';
+import { flagOrWords, reasonWords, refuseWords } from '../parse';
 import type { Ports } from '../ports';
 import { presentationOf } from '../render/presentation';
 import type { Presentation } from '../render/presentation';
@@ -172,9 +172,8 @@ function scratchWriteCommands(ports: Ports) {
       const notify = (line: string): void => {
         void out.print(line);
       };
-      const words = reasonWords(args.words);
       const title = required(
-        options.title ?? (words === '' ? undefined : words),
+        flagOrWords(options.title, args.words) || undefined,
         'scratch create requires a title',
       );
       const bound = await boundProject(ports, options.scope, notify);
@@ -311,11 +310,12 @@ function scratchWriteCommands(ports: Ports) {
         write = (engine) => engine.scratchAgendaAdd({ content, expectedUpdatedAt, id });
       } else if (action === 'complete') {
         const number = agendaNumber(first, 'complete');
+        refuseWords(rest);
         write = (engine) => engine.scratchAgendaComplete({ expectedUpdatedAt, id, number });
       } else {
         const number = agendaNumber(first, 'supersede');
         const reason = required(
-          options.reason ?? (rest.join(' ') || undefined),
+          flagOrWords(options.reason, rest) || undefined,
           'scratch agenda supersede requires a reason',
         );
         write = (engine) =>

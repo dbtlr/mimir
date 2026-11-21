@@ -74,16 +74,17 @@ exit 0
 --- state
 + scratchpads[<held>]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","delivery":null,"freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"From a flag","updatedAt":"2026-10-01T12:00:00.000Z"}
 
-### scratch create --title wins
-exit 0
+### scratch create --title beside words is refused
+exit 2
 --- stdout
-| id  <uuid>
-| open agenda  0
-| project  MMR
-| title  From a flag
-| updated at  2026-10-01T12:00:00.000Z
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "unexpected argument: Ignored"
+| }
 --- state
-+ scratchpads[<held>]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","delivery":null,"freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"From a flag","updatedAt":"2026-10-01T12:00:00.000Z"}
+unchanged
 
 ### scratch create --link
 exit 0

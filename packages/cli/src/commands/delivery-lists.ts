@@ -11,7 +11,7 @@ import { mcpCommand } from '@loomcli/plugins/mcp/extension';
 import { encodeDelivery } from '@mimir/contract';
 
 import { asciiOption, text, writeHints } from '../options';
-import { reasonWords } from '../parse';
+import { flagOrWords, reasonWords } from '../parse';
 import type { Ports } from '../ports';
 import { deliveryEchoViews } from '../render/deliveries';
 import type { DeliveryValue } from '../render/deliveries';
@@ -83,7 +83,7 @@ export function declineVerb(ports: Ports) {
     .result<DeliveryValue>({ views: deliveryEchoViews })
     .views({ records: deliveryEchoViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out }) => {
-      const reason = options.reason ?? reasonWords(args.words);
+      const reason = flagOrWords(options.reason, args.words);
       const delivery = await (
         await ports.engine()
       ).deliveryDecline({ finding: args.finding, id: args.id, reason });
