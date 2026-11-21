@@ -120,6 +120,9 @@ function projectCommand(ports: Ports) {
       .views({ records: noticeViews.records }, { default: 'records' })
       .action(async (context) => {
         const { args, host, interactive, options, out } = context;
+        if (args.name !== undefined && options.name !== undefined) {
+          throw new MimirUsageError('give the name as the argument or --name, not both');
+        }
         const name = args.name ?? options.name;
         if (name === undefined) {
           throw new MimirUsageError(

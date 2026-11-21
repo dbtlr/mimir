@@ -6,7 +6,7 @@ USAGE
 ARGUMENTS
   action  add, complete, or supersede.
   id      The scratchpad UUID.
-  words   For add, the item; for complete and supersede, the item number then any reason.
+  words   For add, the item; for complete, the item number; for supersede, the item number then the reason.
 
 OPTIONS
       --expected-updated-at <timestamp>  The scratchpad's updated_at as last read: the write is refused if it changed since.

@@ -246,10 +246,10 @@ function scratchWriteCommands(ports: Ports) {
     .option('ascii', asciiOption)
     .result<ScratchEcho>({ views: scratchEchoViews })
     .views({ records: scratchEchoViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out }) => {
+    .action(async ({ args, host, options, out, supplied }) => {
       const inline = reasonWords(args.text) || undefined;
-      // Piped stdin only stands in for a checkpoint when no text was typed; a path is explicit.
-      if (inline !== undefined && options.file?.path !== undefined) {
+      // Piped stdin only stands in for a checkpoint when no text was typed; --file, a path or -, is explicit.
+      if (inline !== undefined && supplied.options.file !== undefined) {
         throw new MimirUsageError(
           'scratch checkpoint accepts either inline content or --file, not both',
         );
@@ -284,7 +284,7 @@ function scratchWriteCommands(ports: Ports) {
     .argument('id', { description: 'The scratchpad UUID.', required: true })
     .argument('words', {
       description:
-        'For add, the item; for complete and supersede, the item number then any reason.',
+        'For add, the item; for complete, the item number; for supersede, the item number then the reason.',
       variadic: true,
     })
     .option('expected-updated-at', expectedOption)
@@ -296,6 +296,9 @@ function scratchWriteCommands(ports: Ports) {
       const { action, id } = args;
       if (action !== 'add' && action !== 'complete' && action !== 'supersede') {
         throw new MimirUsageError('scratch agenda requires add, complete, or supersede');
+      }
+      if (options.reason !== undefined && action !== 'supersede') {
+        throw new MimirUsageError('--reason applies only to supersede');
       }
       const expectedUpdatedAt = guard(options['expected-updated-at']);
       const words = args.words;

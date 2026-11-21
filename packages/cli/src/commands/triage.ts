@@ -8,6 +8,7 @@ import { mcpCommand } from '@loomcli/plugins/mcp/extension';
 import { intentEncoders } from '@mimir/contract';
 
 import { defaultFormat } from '../default-format';
+import { MimirUsageError } from '../failures';
 import { asciiOption, scopeOption, writeHints } from '../options';
 import type { Ports } from '../ports';
 import { presentationOf } from '../render/presentation';
@@ -50,6 +51,9 @@ export function triageCommand(ports: Ports) {
       const notify = (line: string): void => {
         void out.print(line);
       };
+      if (args.board !== undefined && options.scope !== undefined) {
+        throw new MimirUsageError('give the board as the argument or --scope, not both');
+      }
       const raw = args.board;
       const bound =
         raw === undefined ? await boundProject(ports, options.scope, notify) : undefined;

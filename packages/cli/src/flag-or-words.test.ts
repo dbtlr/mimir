@@ -37,3 +37,33 @@ test.each([
   expect(run.exitCode).toBe(2);
   expect(run.stderr).toContain(`unexpected argument: ${dropped}`);
 });
+
+test.each([
+  [
+    ['create', 'project', 'Loose name', '--name', 'Flag name', '--key', 'FP', '-y'],
+    'the name as the argument or --name, not both',
+  ],
+  [['triage', 'MMR', '--scope', 'XX'], 'the board as the argument or --scope, not both'],
+  [
+    ['scratch', 'agenda', 'add', PAD, 'An item', '--reason', 'R', ...GUARD],
+    '--reason applies only to supersede',
+  ],
+  [
+    ['scratch', 'agenda', 'complete', PAD, '1', '--reason', 'R', ...GUARD],
+    '--reason applies only to supersede',
+  ],
+])('%j refuses the input it would ignore', async (argv, message) => {
+  const run = await runArgv(board.app(), argv);
+  expect(run.exitCode).toBe(2);
+  expect(run.stderr).toContain(message);
+});
+
+test('scratch checkpoint refuses inline text beside --file -', async () => {
+  const run = await runArgv(
+    board.app(),
+    ['scratch', 'checkpoint', PAD, '--file', '-', 'inline', ...GUARD],
+    { stdin: 'piped text' },
+  );
+  expect(run.exitCode).toBe(2);
+  expect(run.stderr).toContain('either inline content or --file, not both');
+});
