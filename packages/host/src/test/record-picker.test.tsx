@@ -186,6 +186,7 @@ function PaletteHarness({
         hints={[
           { action: 'move', keys: ['up', 'down'] },
           { action: 'open', keys: ['enter'] },
+          { action: 'close', keys: ['Esc'] },
         ]}
       />
     </>
@@ -350,6 +351,37 @@ describe('Record palette (the jump palette’s Dialog)', () => {
     expect(within(dialog).getByRole('option', { name: 'MMR-1' })).toHaveAttribute(
       'data-highlighted',
     );
+  });
+
+  it('sets its search box’s placeholder in ink-dim, as a search box’s is', async () => {
+    stubViewport('desktop');
+    render(<PaletteHarness run={() => undefined} />);
+    const dialog = await openPalette();
+    const search = within(dialog).getByRole('combobox', { name: 'Jump to a record or action' });
+    expect(search).toHaveClass('placeholder:text-ink-dim');
+    expect(search).not.toHaveClass('placeholder:text-ink-faint');
+  });
+
+  it('sets its key hints at the floor for text, 12px ink-dim', async () => {
+    stubViewport('desktop');
+    render(<PaletteHarness run={() => undefined} />);
+    const dialog = await openPalette();
+    const footer = within(dialog).getByText('move').closest('[aria-hidden="true"]');
+    expect(footer).toHaveClass('text-xs', 'text-ink-dim');
+    expect(footer).not.toHaveClass('text-ink-faint');
+  });
+
+  it('draws the arrows and Enter from the icon set, and names any other key', async () => {
+    stubViewport('desktop');
+    render(<PaletteHarness run={() => undefined} />);
+    const dialog = await openPalette();
+    const hint = (action: string) => within(dialog).getByText(action).parentElement;
+    expect(hint('move')?.querySelectorAll('svg')).toHaveLength(2);
+    expect(hint('move')?.textContent).toBe('move');
+    expect(hint('open')?.querySelectorAll('svg')).toHaveLength(1);
+    expect(hint('open')?.textContent).toBe('open');
+    expect(hint('close')?.querySelectorAll('svg')).toHaveLength(0);
+    expect(hint('close')?.textContent).toBe('Escclose');
   });
 
   it('shows its notice when nothing matches', async () => {

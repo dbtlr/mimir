@@ -417,7 +417,6 @@ function PaletteBody({
             aria-label={label}
             placeholder={label}
             onKeyDownCapture={holdEnter}
-            className="placeholder:text-ink-dim"
           />
         </div>
         <DialogClose className="mr-2 inline-flex min-h-11 items-center rounded px-2 text-meta text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent md:hidden">

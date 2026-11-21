@@ -220,6 +220,51 @@ describe('switcher order and groups', () => {
   });
 });
 
+/** The menu group heading DESIGN.md sets the picker's headings in: 13/20 ink-dim at 500. */
+const GROUP_HEADING = ['text-meta', 'leading-5', 'font-medium', 'text-ink-dim'];
+/** The faint uppercase microlabel the headings left behind. */
+const MICROLABEL = ['microlabel', 'text-ink-faint'];
+
+describe('switcher styles', () => {
+  it('heads Pinned and Recent as menu group headings, not microlabels', async () => {
+    await renderAt('/p/NRN');
+    await openSwitcher();
+    for (const name of ['Pinned', 'Recent']) {
+      const group = within(listbox()).getByRole('group', { name });
+      const heading = document.getElementById(group.getAttribute('aria-labelledby') ?? '');
+      expect(heading).toHaveClass(...GROUP_HEADING);
+      for (const old of MICROLABEL) {
+        expect(heading).not.toHaveClass(old);
+      }
+    }
+  });
+
+  it('heads the Archived fold the same way, with the icon set’s chevrons rather than glyphs', async () => {
+    await renderAt('/p/NRN');
+    await openSwitcher();
+    const fold = await screen.findByRole('button', { name: /Archived/ });
+    expect(fold).toHaveClass(...GROUP_HEADING);
+    for (const old of MICROLABEL) {
+      expect(fold).not.toHaveClass(old);
+    }
+    for (const open of [false, true]) {
+      expect(fold).toHaveAttribute('aria-expanded', String(open));
+      expect(fold.querySelectorAll('svg')).toHaveLength(1);
+      expect(fold.textContent).toBe('Archived · 1');
+      if (!open) {
+        await userEvent.click(fold);
+      }
+    }
+  });
+
+  it('sets its search box’s placeholder in ink-dim, as a search box’s is', async () => {
+    await renderAt('/p/NRN');
+    const search = await openSwitcher();
+    expect(search).toHaveClass('placeholder:text-ink-dim');
+    expect(search).not.toHaveClass('placeholder:text-ink-faint');
+  });
+});
+
 describe('switcher search', () => {
   it('focuses the search box on open and filters by key or name', async () => {
     await renderAt('/p/NRN');
