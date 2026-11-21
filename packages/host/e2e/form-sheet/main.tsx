@@ -154,14 +154,19 @@ function WalkthroughPage() {
               <WalkthroughBody>
                 <WalkthroughHeading className="mb-3">Check your answers</WalkthroughHeading>
                 <ul>
-                  {QUESTIONS.slice(dropped ? 1 : 0).map((question) => (
-                    <li key={question} className="flex justify-between gap-3 py-4">
-                      <p className="text-pretty">{question}</p>
-                      <button type="button" onClick={() => setStep(0)}>
-                        Change
-                      </button>
-                    </li>
-                  ))}
+                  {QUESTIONS.map((question, index) => ({ index, question }))
+                    .slice(dropped ? 1 : 0)
+                    .map(({ question, index }) => (
+                      <li key={question} className="flex items-start justify-between gap-3 py-4">
+                        <div>
+                          <p className="text-pretty">{question}</p>
+                          <p>Confirmed {ANSWERS.find(({ value }) => value === answer)?.label}</p>
+                        </div>
+                        <button type="button" onClick={() => setStep(index)}>
+                          Change
+                        </button>
+                      </li>
+                    ))}
                 </ul>
               </WalkthroughBody>
               <WalkthroughBar>

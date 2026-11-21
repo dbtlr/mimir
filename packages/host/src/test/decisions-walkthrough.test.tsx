@@ -337,6 +337,69 @@ test('Back returns to the step before and Change returns from the check step, ke
   await heading(layer, 'Question 1?');
 });
 
+test.each([
+  { answer: /^No/, entry: 2, otherAnswer: 'Yes' },
+  { answer: /^Alpha/, entry: 3, otherAnswer: 'Something else' },
+])(
+  'double-clicking Change for entry $entry keeps its answer',
+  async ({ entry, answer, otherAnswer }) => {
+    const { layer } = await openDelivery();
+    await heading(layer, 'Question 1?');
+    await toCheck(layer);
+
+    fireEvent.click(button(layer, `Change your answer to MMR-q${String(entry)}`), { detail: 1 });
+    await heading(layer, `Question ${String(entry)}?`);
+    // jsdom cannot hit-test the same point after Change replaces the check step.
+    fireEvent.click(within(layer).getByText(otherAnswer, { exact: true }), { detail: 2 });
+
+    expect(within(layer).getByRole('radio', { name: answer })).toBeChecked();
+  },
+);
+
+test('Change ignores a repeat click and accepts keyboard activation', async () => {
+  const { layer } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  await toCheck(layer);
+  const change = button(layer, 'Change your answer to MMR-q2');
+
+  fireEvent.click(change, { detail: 2 });
+  expect(within(layer).getByRole('heading', { name: 'Check your answers' })).toBeVisible();
+
+  fireEvent.click(change, { detail: 0 });
+  await heading(layer, 'Question 2?');
+});
+
+test('double-clicking Back moves back one step', async () => {
+  const { layer } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  await toCheck(layer);
+
+  fireEvent.click(button(layer, 'Back'), { detail: 1 });
+  await heading(layer, 'Question 3?');
+  fireEvent.click(button(layer, 'Back'), { detail: 2 });
+
+  expect(within(layer).getByRole('heading', { name: 'Question 3?' })).toBeVisible();
+});
+
+test('the rail ignores repeat clicks on decisions and Check and send', async () => {
+  const { layer } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  await toCheck(layer);
+  const rail = within(layer).getByRole('navigation', { name: 'Decisions' });
+  const first = button(rail, /Question 1\?/);
+  const check = button(rail, 'Check and send');
+
+  fireEvent.click(first, { detail: 2 });
+  expect(within(layer).getByRole('heading', { name: 'Check your answers' })).toBeVisible();
+  fireEvent.click(first, { detail: 1 });
+  await heading(layer, 'Question 1?');
+
+  fireEvent.click(check, { detail: 2 });
+  expect(within(layer).getByRole('heading', { name: 'Question 1?' })).toBeVisible();
+  fireEvent.click(check, { detail: 0 });
+  await heading(layer, 'Check your answers');
+});
+
 test('Send writes every answer once, in order, for the delivery', async () => {
   const { layer } = await openDelivery();
   await heading(layer, 'Question 1?');

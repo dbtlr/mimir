@@ -334,7 +334,12 @@ export function WalkthroughRow({
 }
 
 /** Back, an icon button with the 44px target; it holds while a commit runs. */
-export function WalkthroughBack({ className, disabled, ...props }: ComponentProps<'button'>) {
+export function WalkthroughBack({
+  className,
+  disabled,
+  onClick,
+  ...props
+}: ComponentProps<'button'>) {
   const { busy } = useWalkthrough();
   return (
     <button
@@ -345,6 +350,11 @@ export function WalkthroughBack({ className, disabled, ...props }: ComponentProp
         'inline-flex size-11 items-center justify-center rounded-lg text-ink inset-ring inset-ring-ink-faint hover:inset-ring-ink-dim hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40',
         className,
       )}
+      onClick={(event) => {
+        if (!isRepeatClick(event)) {
+          onClick?.(event);
+        }
+      }}
       {...props}
     >
       <BackGlyph />
@@ -375,12 +385,8 @@ function BackGlyph() {
 /** The screen's one solid action: full width beside Back below `md`, 220 wide in the third column from `md` up. */
 const SOLID_CLASS = 'md:col-start-3 md:min-w-[220px]';
 
-/**
- * A double click's second click lands on the next screen's button in the same
- * place, before the operator has seen that screen: it is not a press. A key's
- * activation has no click count (`detail` 0) and always counts.
- */
-function isRepeatClick(event: MouseEvent<HTMLButtonElement>): boolean {
+// The next screen can appear between clicks. Keyboard activation has detail 0.
+export function isRepeatClick(event: MouseEvent): boolean {
   return event.detail > 1;
 }
 
@@ -486,6 +492,13 @@ export function WalkthroughChoices({
       aria-label={label}
       value={value}
       readOnly={busy}
+      onClickCapture={(event) => {
+        if (isRepeatClick(event)) {
+          // A label would forward the click to its radio with detail 0.
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
       onValueChange={(next) => {
         if (next !== null) {
           onChange(next);

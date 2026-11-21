@@ -252,5 +252,36 @@ for (const viewport of VIEWPORTS) {
       await layer.getByRole('button', { name: 'Send 2 answers' }).press('Enter');
       await expect(page.locator('main')).toHaveAttribute('data-writes', '1');
     });
+
+    test('double-clicking Change opens the decision and keeps its answer', async ({ page }) => {
+      await page.goto(`${harness.origin}?form=walkthrough`);
+      await settled(page, viewport);
+      const layer = page.getByRole('dialog');
+      await layer.getByRole('button', { name: 'Confirm and continue' }).press('Enter');
+      await layer.getByRole('button', { name: 'Confirm and review' }).press('Enter');
+
+      await layer.getByRole('button', { name: 'Change' }).nth(1).dblclick();
+
+      await expect(
+        layer.getByRole('heading', { name: 'Group the refused answers?' }),
+      ).toBeVisible();
+      await expect(layer.getByRole('radio', { name: 'Keep the rail' })).toBeChecked({
+        timeout: 3000,
+      });
+    });
+
+    test('double-clicking Back moves back one step', async ({ page }) => {
+      await page.goto(`${harness.origin}?form=walkthrough`);
+      await settled(page, viewport);
+      const layer = page.getByRole('dialog');
+      await layer.getByRole('button', { name: 'Confirm and continue' }).press('Enter');
+      await layer.getByRole('button', { name: 'Confirm and review' }).press('Enter');
+
+      await layer.getByRole('button', { name: 'Back' }).dblclick();
+
+      await expect(layer.getByRole('heading', { name: 'Group the refused answers?' })).toBeVisible({
+        timeout: 3000,
+      });
+    });
   });
 }

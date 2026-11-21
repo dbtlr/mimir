@@ -1,5 +1,5 @@
 import { cn } from '../../lib/cn';
-import { useWalkthroughBusy } from '../patterns/walkthrough';
+import { isRepeatClick, useWalkthroughBusy } from '../patterns/walkthrough';
 import { AgentGlyph, CheckGlyph, SendGlyph } from './icons';
 import { answerText, verdictOf } from './model';
 import type { Selection, WalkDecision } from './model';
@@ -70,7 +70,11 @@ export function Rail({
                 className={BUTTON_CLASS}
                 disabled={!reachable || disabled}
                 aria-current={current ? 'step' : undefined}
-                onClick={() => onGo(index)}
+                onClick={(event) => {
+                  if (!isRepeatClick(event)) {
+                    onGo(index);
+                  }
+                }}
               >
                 <span
                   aria-hidden
@@ -115,7 +119,11 @@ export function Rail({
               className={BUTTON_CLASS}
               disabled={!checkReady || disabled}
               aria-current={step === entries.length ? 'step' : undefined}
-              onClick={() => onGo(entries.length)}
+              onClick={(event) => {
+                if (!isRepeatClick(event)) {
+                  onGo(entries.length);
+                }
+              }}
             >
               <span
                 aria-hidden

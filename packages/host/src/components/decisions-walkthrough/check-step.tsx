@@ -6,6 +6,7 @@ import {
   WalkthroughCommit,
   WalkthroughHeading,
   WalkthroughRow,
+  isRepeatClick,
   useWalkthroughBusy,
 } from '../patterns/walkthrough';
 import { SENDING, checkEffect, sendLabel, sendLine } from './copy';
@@ -72,7 +73,11 @@ export function CheckStep({
                 <TextButton
                   disabled={busy}
                   aria-label={`Change your answer to ${decision.id}`}
-                  onClick={() => onChange(index)}
+                  onClick={(event) => {
+                    if (!isRepeatClick(event)) {
+                      onChange(index);
+                    }
+                  }}
                 >
                   Change
                 </TextButton>
