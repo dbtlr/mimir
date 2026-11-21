@@ -157,6 +157,26 @@ describe('seed form (12c, MMR-247; the Form sheet, MMR-743)', () => {
     expect(seedCreate).not.toHaveBeenCalled();
   });
 
+  it('reopens fresh after Escape abandons its edits: Idea and an empty seed', async () => {
+    mockApi();
+    await renderApp();
+    const user = userEvent.setup();
+    const opener = await screen.findByRole('button', { name: '+ File a seed' });
+
+    await user.click(opener);
+    await user.click(await screen.findByRole('radio', { name: 'Bug' }));
+    await user.type(screen.getByLabelText('Seed'), 'Abandoned thought');
+    await user.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Seed')).toBeNull();
+    });
+
+    await user.click(opener);
+    expect(await screen.findByLabelText('Seed')).toHaveValue('');
+    expect(screen.getByRole('radio', { name: 'Idea' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Bug' })).not.toBeChecked();
+  });
+
   it('opens on the global `s` hotkey', async () => {
     mockApi();
     await renderApp();
