@@ -24,7 +24,7 @@ const refuseHttpServe: Middleware<Plugin> = async (context) => {
   await context.next();
 };
 
-/** Install after `mcp()`, so the refusal sees the `mcp` Command's options. */
+/** The plugin that refuses `mcp --http`; it reads the routed request, so its place among the plugins does not matter. */
 export function stdioMcp(): Plugin {
   return plugin('@mimir/cli/stdio-mcp', {
     middleware: { activate: 'always', load: () => Promise.resolve({ default: refuseHttpServe }) },
