@@ -419,3 +419,53 @@ for (const { width, height, padding } of [
     await context.close();
   });
 }
+
+test('a phone’s model list opened, arrowed, and closed by keyboard leaves the form where it was', async ({
+  browser,
+}) => {
+  const { context, page } = await openAsShown(browser, 't3', { height: 365, width: 390 });
+  const model = page.getByRole('combobox', { name: 'Model' });
+  await page.keyboard.press('Tab');
+  await expect(model).toBeFocused();
+  const resting = await bodyScroll(page);
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(600);
+  await expect(page.getByRole('option', { name: 'Claude Opus' })).toBeVisible();
+  const scrolls = [await bodyScroll(page)];
+  for (let step = 0; step < 3; step += 1) {
+    await page.keyboard.press('ArrowDown');
+    scrolls.push(await bodyScroll(page));
+  }
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(600);
+  await expect(model).toBeFocused();
+  scrolls.push(await bodyScroll(page));
+  expect(scrolls).toEqual([resting, resting, resting, resting, resting]);
+  await context.close();
+});
+
+test('a keyboard-focused field low in the form keeps the end padding above the footer when the viewport shortens', async ({
+  browser,
+}) => {
+  const { context, page } = await openAsShown(browser, 't3', { height: 640, width: 390 });
+  // Runtime, the last field before Advanced, sits low in the body at this height.
+  const runtime = page.getByRole('combobox', { name: 'Runtime' });
+  for (
+    let step = 0;
+    step < 8 && !(await runtime.evaluate((e) => e === document.activeElement));
+    step += 1
+  ) {
+    await page.keyboard.press('Tab');
+  }
+  await expect(runtime).toBeFocused();
+  // Shorten the viewport until Runtime ends 16 above the footer: whole, but inside the end padding.
+  const before = await clearance(page);
+  expect(before.bottom).toBeGreaterThan(16);
+  await page.setViewportSize({ height: 640 - (before.bottom - 16), width: 390 });
+  await page.waitForTimeout(300);
+  // The body's end padding on a phone (DESIGN.md, Sheets): a keyboard focus rests this far up.
+  const at = await clearance(page);
+  expect(at.top).toBeGreaterThanOrEqual(0);
+  expect(at.bottom).toBeGreaterThanOrEqual(32);
+  await context.close();
+});
