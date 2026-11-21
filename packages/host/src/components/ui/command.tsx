@@ -44,7 +44,7 @@ export function CommandInput({ className, ...props }: ComponentProps<typeof SdkC
       </svg>
       <SdkCommandInput
         className={mergeClassName(
-          'min-w-0 flex-1 bg-transparent text-base text-ink-bright outline-none placeholder:text-ink-faint',
+          'min-w-0 flex-1 bg-transparent text-base text-ink-bright outline-none placeholder:text-ink-dim',
           className,
         )}
         {...props}

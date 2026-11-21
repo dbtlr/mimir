@@ -206,7 +206,7 @@ export function ComboboxChipsInput({
   return (
     <SdkComboboxInput
       className={mergeClassName(
-        'min-w-24 flex-1 bg-transparent py-1 text-[15px] text-ink-bright outline-none placeholder:text-ink-ghost data-[disabled]:cursor-not-allowed',
+        'min-w-24 flex-1 bg-transparent py-1 text-[15px] text-ink-bright outline-none placeholder:text-ink-dim data-[disabled]:cursor-not-allowed',
         className,
       )}
       {...props}

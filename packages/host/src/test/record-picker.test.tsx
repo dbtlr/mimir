@@ -99,6 +99,15 @@ describe('Record picker', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it('sets its search box’s placeholder in ink-dim, as a search box’s is (DESIGN.md)', async () => {
+    const user = userEvent.setup();
+    render(<PickerHarness />);
+    await user.click(screen.getByRole('button', { name: /^Project / }));
+    const search = await screen.findByRole('combobox', { name: 'Find a project' });
+    expect(search).toHaveClass('placeholder:text-ink-dim');
+    expect(search).not.toHaveClass('placeholder:text-ink-ghost');
+  });
+
   it('opens again on an empty search that offers every record', async () => {
     const user = userEvent.setup();
     render(<PickerHarness />);
