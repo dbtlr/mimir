@@ -125,16 +125,20 @@ describe('projectSettingsButton', () => {
     expect(data.description).toBeUndefined();
   });
 
-  it.each([false, true])(
-    'a title-only save leaves a description received during the edit alone (reverted draft: %s)',
-    async (reverted) => {
+  it.each([
+    { before: null, reverted: false },
+    { before: null, reverted: true },
+    { before: 'Old description', reverted: false },
+  ])(
+    'a title-only save leaves a description received during the edit alone (opened with %j)',
+    async ({ before, reverted }) => {
       const client = new QueryClient();
       const settings = (project: typeof baseProject) => (
         <QueryClientProvider client={client}>
           <ProjectSettingsButton project={project} />
         </QueryClientProvider>
       );
-      const { rerender } = render(settings({ ...baseProject, description: null }));
+      const { rerender } = render(settings({ ...baseProject, description: before }));
       openSheet();
       fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Renamed' } });
       rerender(settings({ ...baseProject, description: 'Description from refresh' }));
