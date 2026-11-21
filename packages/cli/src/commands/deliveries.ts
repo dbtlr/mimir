@@ -94,6 +94,7 @@ export function createDeliveryCommand(ports: Ports) {
     .option('ascii', asciiOption)
     .result<DeliveryValue>({ views: deliveryEchoViews })
     .views({ records: deliveryEchoViews.records }, { default: 'records' })
+    .passthrough({ description: 'The title, when it leads with a dash.' })
     .action(async ({ args, host, options, out, passthrough }) => {
       const title = requireTitle(args.title, passthrough, 'delivery');
       const timeCap = parseTimeCap(options['time-cap']);
@@ -160,10 +161,7 @@ export function landVerb(ports: Ports) {
     .option('ascii', asciiOption)
     .result<DeliveryValue>({ views: deliveryEchoViews })
     .views({ records: deliveryEchoViews.records }, { default: 'records' })
-    .action(async ({ args, options, host, out, passthrough }) => {
-      if (passthrough.length > 0) {
-        throw new MimirUsageError(`unexpected argument: ${passthrough.join(' ')}`);
-      }
+    .action(async ({ args, options, host, out }) => {
       await out.results({
         delivery: encodeDelivery(await (await ports.engine()).deliveryLand({ id: args.id })),
         presentation: presentationOf(host, options.ascii),

@@ -41,14 +41,18 @@ const notOpenEndedOption = {
 
 /**
  * The title a create takes: the argument, else the words after `--` (which is
- * how a title that leads with a dash arrives). Absent, it is the usage error
- * that points at the `--` terminator.
+ * how a title that leads with a dash arrives, unquoted words included). Words
+ * after `--` beside a given title are refused, not dropped. Absent, it is the
+ * usage error that points at the `--` terminator.
  */
 export function requireTitle(
   title: string | undefined,
   passthrough: readonly string[],
   type: string,
 ): string {
+  if (title !== undefined && passthrough.length > 0) {
+    throw new MimirUsageError(`unexpected argument: ${passthrough.join(' ')}`);
+  }
   const given = title ?? (passthrough.length > 0 ? passthrough.join(' ') : undefined);
   if (given === undefined || given.trim() === '') {
     throw new MimirUsageError(`create ${type} requires a title`, DASH_TITLE_HINT);
@@ -116,6 +120,9 @@ function projectCommand(ports: Ports) {
       .views({ records: noticeViews.records }, { default: 'records' })
       .action(async (context) => {
         const { args, host, interactive, options, out } = context;
+        if (args.name !== undefined && options.name !== undefined) {
+          throw new MimirUsageError('give the name as the argument or --name, not both');
+        }
         const name = args.name ?? options.name;
         if (name === undefined) {
           throw new MimirUsageError(
@@ -187,6 +194,7 @@ function initiativeCommand(ports: Ports) {
     .option('ascii', asciiOption)
     .result<NodeEcho>({ views: nodeEchoViews })
     .views({ records: nodeEchoViews.records }, { default: 'records' })
+    .passthrough({ description: 'The title, when it leads with a dash.' })
     .action(async ({ args, host, options, out, passthrough }) => {
       const title = requireTitle(args.title, passthrough, 'initiative');
       const parent = requireParentKind(
@@ -242,6 +250,7 @@ function phaseCommand(ports: Ports) {
     .option('ascii', asciiOption)
     .result<NodeEcho>({ views: nodeEchoViews })
     .views({ records: nodeEchoViews.records }, { default: 'records' })
+    .passthrough({ description: 'The title, when it leads with a dash.' })
     .action(async ({ args, host, options, out, passthrough }) => {
       const title = requireTitle(args.title, passthrough, 'phase');
       const parent = requireParentKind(
@@ -333,6 +342,7 @@ function taskCommand(ports: Ports) {
     .option('ascii', asciiOption)
     .result<NodeEcho>({ views: nodeEchoViews })
     .views({ records: nodeEchoViews.records }, { default: 'records' })
+    .passthrough({ description: 'The title, when it leads with a dash.' })
     .action(async ({ args, host, options, out, passthrough }) => {
       const title = requireTitle(args.title, passthrough, 'task');
       const parent = requireParentKind(

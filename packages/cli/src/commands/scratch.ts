@@ -12,7 +12,7 @@ import type { ArtifactDetail, Engine, Scratchpad } from '@mimir/contract';
 
 import { MimirUsageError } from '../failures';
 import { asciiOption, readHints, scopeOption, tagOption, text, writeHints } from '../options';
-import { reasonWords } from '../parse';
+import { flagOrWords, reasonWords, refuseWords } from '../parse';
 import type { Ports } from '../ports';
 import { presentationOf } from '../render/presentation';
 import type { Presentation } from '../render/presentation';
@@ -168,13 +168,12 @@ function scratchWriteCommands(ports: Ports) {
     .option('ascii', asciiOption)
     .result<ScratchEcho>({ views: scratchEchoViews })
     .views({ records: scratchEchoViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out, passthrough }) => {
+    .action(async ({ args, host, options, out }) => {
       const notify = (line: string): void => {
         void out.print(line);
       };
-      const words = reasonWords(args.words, passthrough);
       const title = required(
-        options.title ?? (words === '' ? undefined : words),
+        flagOrWords(options.title, args.words) || undefined,
         'scratch create requires a title',
       );
       const bound = await boundProject(ports, options.scope, notify);
@@ -247,10 +246,10 @@ function scratchWriteCommands(ports: Ports) {
     .option('ascii', asciiOption)
     .result<ScratchEcho>({ views: scratchEchoViews })
     .views({ records: scratchEchoViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out, passthrough }) => {
-      const inline = reasonWords(args.text, passthrough) || undefined;
-      // Piped stdin only stands in for a checkpoint when no text was typed; a path is explicit.
-      if (inline !== undefined && options.file?.path !== undefined) {
+    .action(async ({ args, host, options, out, supplied }) => {
+      const inline = reasonWords(args.text) || undefined;
+      // Piped stdin only stands in for a checkpoint when no text was typed; --file, a path or -, is explicit.
+      if (inline !== undefined && supplied.options.file !== undefined) {
         throw new MimirUsageError(
           'scratch checkpoint accepts either inline content or --file, not both',
         );
@@ -285,7 +284,7 @@ function scratchWriteCommands(ports: Ports) {
     .argument('id', { description: 'The scratchpad UUID.', required: true })
     .argument('words', {
       description:
-        'For add, the item; for complete and supersede, the item number then any reason.',
+        'For add, the item; for complete, the item number; for supersede, the item number then the reason.',
       variadic: true,
     })
     .option('expected-updated-at', expectedOption)
@@ -293,13 +292,16 @@ function scratchWriteCommands(ports: Ports) {
     .option('ascii', asciiOption)
     .result<ScratchEcho>({ views: scratchEchoViews })
     .views({ records: scratchEchoViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out, passthrough }) => {
+    .action(async ({ args, host, options, out }) => {
       const { action, id } = args;
       if (action !== 'add' && action !== 'complete' && action !== 'supersede') {
         throw new MimirUsageError('scratch agenda requires add, complete, or supersede');
       }
+      if (options.reason !== undefined && action !== 'supersede') {
+        throw new MimirUsageError('--reason applies only to supersede');
+      }
       const expectedUpdatedAt = guard(options['expected-updated-at']);
-      const words = [...args.words, ...passthrough];
+      const words = args.words;
       const [first, ...rest] = words;
       // Every usage refusal comes before the store opens.
       let write: (engine: Engine) => Promise<unknown>;
@@ -311,11 +313,12 @@ function scratchWriteCommands(ports: Ports) {
         write = (engine) => engine.scratchAgendaAdd({ content, expectedUpdatedAt, id });
       } else if (action === 'complete') {
         const number = agendaNumber(first, 'complete');
+        refuseWords(rest);
         write = (engine) => engine.scratchAgendaComplete({ expectedUpdatedAt, id, number });
       } else {
         const number = agendaNumber(first, 'supersede');
         const reason = required(
-          options.reason ?? (rest.join(' ') || undefined),
+          flagOrWords(options.reason, rest) || undefined,
           'scratch agenda supersede requires a reason',
         );
         write = (engine) =>

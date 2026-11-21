@@ -61,7 +61,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0036](0036-project-binding-through-git-config.md)               | A clone binds to its project through git config and the project remote |
 | [0037](0037-the-cli-and-mcp-on-loom.md)                         | The CLI and MCP on Loom                                            |
 | [0038](0038-device-pairing-and-the-version-window.md)            | Device pairing and the version window                              |
-| [0039](0039-changelog-and-versioning-on-loom.md)                 | Changelog and versioning on Loom (supersedes 0022)                 |
+| [0039](0039-changelog-and-versioning-on-loom.md)                 | Changelog and versioning on Loom (supersedes 0022; 0.x version rule superseded by 0047) |
 | [0040](0040-outbound-integrations-and-host-secrets.md)            | Outbound integrations and host secrets (refined by 0041)           |
 | [0041](0041-agent-runtime-on-the-host.md)                         | The agent runtime runs on the host                                 |
 | [0042](0042-the-delivery-record.md)                               | The delivery — one attempt to deliver a phase through one branch   |
@@ -69,6 +69,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0044](0044-checklist-items.md)                                   | Checklist items — small items a task adds, then checks or drops    |
 | [0045](0045-operator-notifications.md)                            | Operator notifications — events from entries to the needs-you set  |
 | [0046](0046-console-primitives-on-ui-sdk.md)                     | The console builds on UI SDK primitives and a fixed set of patterns |
+| [0047](0047-below-1-0-a-feature-advances-the-minor.md)            | Below 1.0, a feature advances the minor (supersedes 0039's 0.x version rule) |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete model

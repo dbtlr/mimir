@@ -10,6 +10,7 @@ OPTIONS
       --apply            Write the import instead of previewing it.
       --resume           Re-run a partial import, skipping what is already identical.
   -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+      --fields <fields>  Select top-level fields of json and jsonl output, as a comma list.  (repeatable)
 
 GLOBAL OPTIONS
   -h, --help      Show this help.

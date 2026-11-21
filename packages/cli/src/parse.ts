@@ -290,10 +290,29 @@ export function parseFilters(
 }
 
 /**
- * The reason a verb records: the words before `--` and the words after it,
- * joined by single spaces. After `--` Loom stops reading options, so a reason
- * that begins with a dash (`park MMR-3 -- -1 day`) survives as text.
+ * The reason a verb records: its words joined by single spaces. Words after
+ * `--` fill the same argument, so a reason that begins with a dash
+ * (`park MMR-3 -- -1 day`) survives as text.
  */
-export function reasonWords(words: readonly string[], afterDashes: readonly string[]): string {
-  return [...words, ...afterDashes].join(' ');
+export function reasonWords(words: readonly string[]): string {
+  return words.join(' ');
+}
+
+/**
+ * The text a verb takes from a flag or from the rest of the line: the flag's
+ * value, else the words joined by single spaces. Both at once is refused, so
+ * no words are dropped in silence.
+ */
+export function flagOrWords(flag: string | undefined, words: readonly string[]): string {
+  if (flag !== undefined && words.length > 0) {
+    throw new MimirUsageError(`unexpected argument: ${words.join(' ')}`);
+  }
+  return flag ?? reasonWords(words);
+}
+
+/** Refuses words a verb has no place for, rather than dropping them. */
+export function refuseWords(words: readonly string[]): void {
+  if (words.length > 0) {
+    throw new MimirUsageError(`unexpected argument: ${words.join(' ')}`);
+  }
 }

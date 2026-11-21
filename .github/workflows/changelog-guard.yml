@@ -54,9 +54,10 @@ jobs:
           fi
 
           # An Engine contract change, additive included, ships only in a minor
-          # release (ADR 0038), and on 0.x only a breaking fragment cuts one
-          # (ADR 0039). The schema snapshot and MIN_CLIENT mark the contract;
-          # the label does not waive this.
+          # release (ADR 0038), and it needs a breaking fragment, whose migration
+          # tells operators to update the host before its clients (ADR 0047).
+          # The schema snapshot and MIN_CLIENT mark the contract; the label does
+          # not waive this.
           if echo "$changed" | grep -qE '^packages/contract/(engine-schemas\.json|src/version\.ts)$' \
             && ! ls packages/cli/.changes/breaking.*.md > /dev/null 2>&1; then
             echo "::error::This PR changes the Engine contract, which ships only in a minor release, but no breaking fragment is pending. Add packages/cli/.changes/breaking.<slug>.md; for an additive change, its migration is to update the host before its clients."

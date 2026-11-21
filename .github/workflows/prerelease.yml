@@ -73,15 +73,15 @@ jobs:
             echo "::error::loom changelog write --dry-run printed no next version."
             exit 1
           fi
-          # The next version only rises between cuts. Reverting the only breaking
-          # fragment would drop it below prereleases already published, and the
+          # The next version only rises between cuts. Reverting the only breaking or
+          # feature fragment would drop it below prereleases already published, and the
           # next channel and self-update would keep serving the higher one.
           released=$(sed -nE 's/^[[:space:]]*"version": "([^"]+)".*/\1/p' packages/cli/package.json | head -1)
           for t in $(git tag -l 'v*-next.*'); do
             base="${t#v}"; base="${base%%-next.*}"
             if [ "$base" = "$ver" ] || [ "$base" = "$released" ]; then continue; fi
             if [ "$(printf '%s\n%s\n%s\n' "$base" "$ver" "$released" | sort -V | tail -1)" = "$base" ]; then
-              echo "::error::The pending fragments cut ${ver}, below prerelease ${t} published since ${released}. Restore the breaking fragment, or delete the v${base}-next.* prereleases if that change is gone."
+              echo "::error::The pending fragments cut ${ver}, below prerelease ${t} published since ${released}. Restore the breaking or feature fragment that raised the minor, or delete the v${base}-next.* prereleases and their tags (gh release delete <tag> --cleanup-tag) if that change is gone."
               exit 1
             fi
           done

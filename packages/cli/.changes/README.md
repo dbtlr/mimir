@@ -1,4 +1,4 @@
-<!-- Managed by loom init. sha256:be7d87cd0f008510beafa079704d47a74f4479e8e5354f35f8d379c0c13f6707 -->
+<!-- Managed by loom init. sha256:57aa59d1162448906cda18a4a0339f79284627b012d0707181fd0c4b68f29c6d -->
 
 # Change fragments
 
@@ -53,8 +53,8 @@ The highest kind present decides the next version.
 | Current version | Highest kind present | Next version |
 | --------------- | -------------------- | ------------ |
 | `0.0.0`         | Any                  | `0.1.0`      |
-| `0.4.7`         | Breaking             | `0.5.0`      |
-| `0.4.7`         | Feature or fix       | `0.4.8`      |
+| `0.4.7`         | Breaking or feature  | `0.5.0`      |
+| `0.4.7`         | Fix                  | `0.4.8`      |
 | `1.4.7`         | Breaking             | `2.0.0`      |
 | `1.4.7`         | Feature              | `1.5.0`      |
 | `1.4.7`         | Fix                  | `1.4.8`      |

@@ -11,7 +11,7 @@ import { mcpCommand } from '@loomcli/plugins/mcp/extension';
 import { encodeDelivery } from '@mimir/contract';
 
 import { asciiOption, text, writeHints } from '../options';
-import { reasonWords } from '../parse';
+import { flagOrWords, reasonWords } from '../parse';
 import type { Ports } from '../ports';
 import { deliveryEchoViews } from '../render/deliveries';
 import type { DeliveryValue } from '../render/deliveries';
@@ -40,10 +40,10 @@ export function limitationVerb(ports: Ports) {
     .option('ascii', asciiOption)
     .result<DeliveryValue>({ views: deliveryEchoViews })
     .views({ records: deliveryEchoViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out, passthrough }) => {
+    .action(async ({ args, host, options, out }) => {
       const delivery = await (
         await ports.engine()
-      ).deliveryLimitation({ id: args.id, text: reasonWords(args.text, passthrough) });
+      ).deliveryLimitation({ id: args.id, text: reasonWords(args.text) });
       await out.results({
         delivery: encodeDelivery(delivery),
         presentation: presentationOf(host, options.ascii),
@@ -82,8 +82,8 @@ export function declineVerb(ports: Ports) {
     .option('ascii', asciiOption)
     .result<DeliveryValue>({ views: deliveryEchoViews })
     .views({ records: deliveryEchoViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out, passthrough }) => {
-      const reason = options.reason ?? reasonWords(args.words, passthrough);
+    .action(async ({ args, host, options, out }) => {
+      const reason = flagOrWords(options.reason, args.words);
       const delivery = await (
         await ports.engine()
       ).deliveryDecline({ finding: args.finding, id: args.id, reason });

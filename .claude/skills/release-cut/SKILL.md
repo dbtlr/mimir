@@ -25,7 +25,10 @@ and deletes the fragments. There is no cycle to open afterwards.
 - No published prerelease has a base above `X.Y.Z` (`gh release list`); a cut
   below one leaves `self-update --channel next` serving the higher build. The
   prerelease tagger refuses that state, so a red tagger run on `main` means
-  resolve it first: restore the breaking fragment, or delete those prereleases.
+  resolve it first: restore the breaking or feature fragment that raised the
+  minor, or delete those prereleases with their tags, since the tagger reads
+  git tags: `gh release delete <tag> --cleanup-tag` for each release, and
+  `git push origin --delete <tag>` for a tag with no release.
 
 ## 2. Cut commit (PR)
 

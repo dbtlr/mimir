@@ -14,7 +14,7 @@ import type { EngineChecklist } from '@mimir/contract';
 import { MimirUsageError } from '../failures';
 import { nodeToken } from '../node-input';
 import { asciiOption, text, writeHints } from '../options';
-import { reasonWords } from '../parse';
+import { flagOrWords, reasonWords } from '../parse';
 import type { Ports } from '../ports';
 import { itemEchoViews } from '../render/checklist';
 import type { ItemEcho } from '../render/checklist';
@@ -60,8 +60,8 @@ function itemAddCommand(ports: Ports) {
     .option('ascii', asciiOption)
     .result<ItemEcho>({ views: itemEchoViews })
     .views({ records: itemEchoViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out, passthrough }) => {
-      const content = reasonWords(args.content, passthrough);
+    .action(async ({ args, host, options, out }) => {
+      const content = reasonWords(args.content);
       if (content === '') {
         throw new MimirUsageError('item add requires content');
       }
@@ -111,9 +111,9 @@ function itemDropCommand(ports: Ports) {
     .option('ascii', asciiOption)
     .result<ItemEcho>({ views: itemEchoViews })
     .views({ records: itemEchoViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out, passthrough }) => {
+    .action(async ({ args, host, options, out }) => {
       const number = itemNumber(args.number, 'drop');
-      const reason = options.reason ?? reasonWords(args.words, passthrough);
+      const reason = flagOrWords(options.reason, args.words);
       const task = nodeToken(ports.grammar, args.task, 'task');
       const checklist = await (await ports.engine()).itemDrop({ number, reason, task });
       await out.results(echo(checklist, number, presentationOf(host, options.ascii)));

@@ -240,6 +240,8 @@ const ELSEWHERE: Readonly<Record<string, string>> = {
   queue: 'same builder as start; lifecycle.parity.test.ts pins `start MMR-3 -f jsonl`',
   reopen: 'same builder as park; lifecycle.parity.test.ts pins `park MMR-s1 -f jsonl`',
   return: 'same builder as park; lifecycle.parity.test.ts pins `park MMR-s1 -f jsonl`',
+  'skills status':
+    "Loom's skills plugin declares it and its views; Mimir adds no output of its own",
   start: 'lifecycle.parity.test.ts pins `start MMR-3 -f jsonl`',
   undepend: 'same builder as depend; depend.parity.test.ts pins `depend MMR-5 --on MMR-3 -f jsonl`',
   unqueue: 'same builder as park; lifecycle.parity.test.ts pins `park MMR-s1 -f jsonl`',

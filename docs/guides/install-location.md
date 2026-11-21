@@ -21,6 +21,19 @@ curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/dbtlr/mi
 
 Keep the binary on a local disk, not on a network volume.
 
+To install a side copy, such as a second version to compare, add
+`--unmanaged` beside `--dir`, and give it a directory that holds no Mimir
+installation. The installer then writes no installation record, gives no
+PATH advice, and runs no post-install command. In such a directory the side
+copy has no receipt, so it runs on the isolated development directories, not
+your board
+([ADR 0031](../decisions/0031-installation-authority-and-disposable-development.md)).
+In a directory that already holds an installation, the installer replaces
+its binary but leaves its records and its `mimir.installation.json` receipt
+in place. The receipt no longer matches the binary, so the binary fails
+closed and refuses to run until you run the installer again without
+`--unmanaged`.
+
 The installer takes no environment variables. These variables of the earlier
 installer map to arguments:
 

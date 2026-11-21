@@ -11,6 +11,7 @@ OPTIONS
       --since <INSTANT>  A delivery's change feed: events after this zoned instant (KEY-dN only). Pass the answer's as_of next time.
       --ascii            Print without color, in ASCII glyphs.
   -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+      --fields <fields>  Select top-level fields of json and jsonl output, as a comma list.  (repeatable)
 
 GLOBAL OPTIONS
   -h, --help      Show this help.

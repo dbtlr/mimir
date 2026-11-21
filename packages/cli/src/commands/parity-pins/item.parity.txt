@@ -365,9 +365,9 @@ exit 2
 --- stdout
 --- failure
 | {
-|   "code": "invalid-input",
+|   "code": "usage",
 |   "hints": [],
-|   "message": "Argument \"number\" requires a value. Supply a value for \"number\"."
+|   "message": "item check requires a positive item number"
 | }
 --- state
 unchanged

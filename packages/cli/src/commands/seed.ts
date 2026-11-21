@@ -219,9 +219,9 @@ function settleCommand(ports: Ports, verb: 'reject' | 'resolve') {
     .option('ascii', asciiOption)
     .result<SeedEcho>({ views: seedEchoViews })
     .views({ records: seedEchoViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out, passthrough }) => {
+    .action(async ({ args, host, options, out }) => {
       const id = requireSeedId(ports, verb, args.id);
-      const reason = reasonWords(args.reason, passthrough);
+      const reason = reasonWords(args.reason);
       if (reason.trim() === '') {
         throw new MimirUsageError(`${verb} requires a reason`);
       }

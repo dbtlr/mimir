@@ -195,6 +195,26 @@ test('words after -- are the title, so a title may lead with a dash', async () =
   expect(made.title).toBe('--two words');
 });
 
+test.each([
+  ['task', '--parent', 'MMR-2'],
+  ['delivery', '--phase', 'MMR-2'],
+])(
+  'create %s refuses words after -- beside a title rather than dropping them',
+  async (kind, flag, parent) => {
+    const run = await runArgv(board.app(), [
+      'create',
+      kind,
+      'Ship docs',
+      flag,
+      parent,
+      '--',
+      'extra',
+    ]);
+    expect(run.exitCode).toBe(2);
+    expect(run.stderr).toContain('unexpected argument: extra');
+  },
+);
+
 /** An app whose failures read `argv` as the run's words. */
 const appFor = (argv: string[]) =>
   createApp({
@@ -222,7 +242,9 @@ test.each<{ argv: string[] }>([
 
 test('a by-name create with an unknown option gets no dash hint', async () => {
   const app = appFor(['mcp', 'serve']);
-  const outcome = await app.invoke(['create', 'task'], {
+  // An untyped path, so the undeclared option reaches the run instead of the type checker.
+  const createTask: readonly string[] = ['create', 'task'];
+  const outcome = await app.invoke(createTask, {
     args: { title: 'Ship docs' },
     options: { bogus: 'x' },
   });

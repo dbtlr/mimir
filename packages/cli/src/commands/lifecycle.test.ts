@@ -311,7 +311,7 @@ test('unqueue refuses a blank reason before it reaches the Engine', async () => 
 test('unarchive refuses words after -- rather than dropping them', async () => {
   const run = await runArgv(board.app(), ['unarchive', 'XX', '--', 'x']);
   expect(run.exitCode).toBe(2);
-  expect(run.stderr).toContain('unexpected argument: x');
+  expect(run.stderr).toContain('accepts 1 argument');
 });
 
 test('block refuses an --on value outside its choice as a usage error that opens no store', async () => {

@@ -139,6 +139,7 @@ import type { Diagnosis, Machine } from './machine';
 import { documentExists, readDocumentFile, writeDocumentFile } from './machine-files';
 import type { Ports } from './ports';
 import { abortableSleep } from './sleep';
+import { refuseHttp, stdioMcp } from './stdio-mcp';
 import { VERSION } from './version';
 
 /** A host that owns the store, reached over the wire (ADR 0038). */
@@ -788,8 +789,11 @@ export function createApp(source: CliSource) {
         format({ short: 'f' }),
         // --no-input: a scripted run answers every question from its flags.
         interaction(),
-        // `mimir mcp` serves the commands that opt in with mcpCommand (ADR 0037).
-        mcp(),
+        // `mimir mcp` serves the commands that opt in with mcpCommand (ADR 0037),
+        // over stdio only (ADR 0010): stdioMcp refuses --http, and refuseHttp
+        // answers 401 to any HTTP request.
+        mcp({ authorize: refuseHttp }),
+        stdioMcp(),
         // The repository's skills/ folder, one subfolder per skill. A source run
         // reads it from disk; loom build carries it into the bundle or binary, so
         // the installed skill matches this binary (MMR-24).

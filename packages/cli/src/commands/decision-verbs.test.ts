@@ -98,7 +98,7 @@ test('decide refuses words beyond the quoted question, before or after --', asyn
     expect(unquoted.stderr).toContain('accepts 1 argument');
     const passthrough = await runArgv(board.app(), ['decide', 'Store', ...rest, '--', 'snapshots']);
     expect(passthrough.exitCode).toBe(2);
-    expect(passthrough.stderr).toContain('quote the question as one argument');
+    expect(passthrough.stderr).toContain('accepts 1 argument');
     const get = await runArgv(board.app(), ['get', 'MMR-q1']);
     expect(get.exitCode).not.toBe(0);
   } finally {

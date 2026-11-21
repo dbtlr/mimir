@@ -154,18 +154,6 @@ exit 1
 --- state
 unchanged
 
-### queue argv: MMR-3 --session run-1 -- x
-exit 2
---- stdout
---- failure
-| {
-|   "code": "usage",
-|   "hints": [],
-|   "message": "unexpected argument: x"
-| }
---- state
-unchanged
-
 ### unqueue argv: MMR-3 run cancelled
 exit 0
 --- stdout
@@ -721,7 +709,7 @@ exit 2
 |   "hints": [
 |     "'--on' names the owner at block (you|others), the prerequisites at depend/undepend, and a date filter at list, next, artifacts, seeds"
 |   ],
-|   "message": "Unknown option \"--on\". Supply a declared option; prefix a hyphenated path with \"./\"."
+|   "message": "Unknown option \"--on\". Supply a declared option, or pass it as an argument after \"--\"."
 | }
 --- state
 unchanged
@@ -779,18 +767,6 @@ exit 0
 --- state
 + nodes[MMR-6].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-6].lifecycle: "todo" -> "in_progress"
-
-### start argv: MMR-3 -- x
-exit 2
---- stdout
---- failure
-| {
-|   "code": "usage",
-|   "hints": [],
-|   "message": "unexpected argument: x"
-| }
---- state
-unchanged
 
 ### start argv: MMR-3 #3
 exit 0
@@ -1198,18 +1174,6 @@ exit 1
 |   "code": "validation",
 |   "hints": [],
 |   "message": "task is already done"
-| }
---- state
-unchanged
-
-### done argv: MMR-5 -- x
-exit 2
---- stdout
---- failure
-| {
-|   "code": "usage",
-|   "hints": [],
-|   "message": "unexpected argument: x"
 | }
 --- state
 unchanged
@@ -2238,7 +2202,7 @@ exit 2
 |   "hints": [
 |     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
 |   ],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
+|   "message": "Unknown option \"--parent\". Supply a declared option, or pass it as an argument after \"--\"."
 | }
 --- state
 unchanged

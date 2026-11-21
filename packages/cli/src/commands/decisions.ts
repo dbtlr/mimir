@@ -89,10 +89,7 @@ export function decideCommand(ports: Ports) {
     .option('ascii', asciiOption)
     .result<DecisionValue>({ views: decisionEchoViews })
     .views({ records: decisionEchoViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out, passthrough }) => {
-      if (passthrough.length) {
-        throw new MimirUsageError('quote the question as one argument');
-      }
+    .action(async ({ args, host, options, out }) => {
       const cls = DECISION_CLASS_VALUES.find((c) => c === options.class);
       if (!cls) {
         throw new MimirUsageError('--class must be product, architecture, or other');
@@ -147,10 +144,7 @@ export function decisionAnswerCommand(ports: Ports, verb: 'confirm' | 'overturn'
     .option('ascii', asciiOption)
     .result<DecisionValue>({ views: decisionEchoViews })
     .views({ records: decisionEchoViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out, passthrough }) => {
-      if (passthrough.length) {
-        throw new MimirUsageError('quote the outcome note as one argument');
-      }
+    .action(async ({ args, host, options, out }) => {
       if (verb === 'confirm' && options.option !== undefined) {
         throw new MimirUsageError('--option applies only to overturn');
       }

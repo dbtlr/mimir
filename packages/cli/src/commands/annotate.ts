@@ -45,9 +45,8 @@ export function annotateCommand(ports: Ports) {
     .option('ascii', asciiOption)
     .result<NodeEcho>({ views: nodeEchoViews })
     .views({ records: nodeEchoViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out, passthrough, stdin }) => {
-      // Words after `--` are text too, so a note may lead with a dash.
-      const typed = [...args.text, ...passthrough].join(' ');
+    .action(async ({ args, host, options, out, stdin }) => {
+      const typed = args.text.join(' ');
       const content =
         typed === '' ? (await contentText(stdin, host.terminal.stdin.isTTY)).trim() : typed;
       if (content === '') {

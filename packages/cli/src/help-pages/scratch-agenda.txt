@@ -6,13 +6,14 @@ USAGE
 ARGUMENTS
   action  add, complete, or supersede.
   id      The scratchpad UUID.
-  words   For add, the item; for complete and supersede, the item number then any reason.
+  words   For add, the item; for complete, the item number; for supersede, the item number then the reason.
 
 OPTIONS
       --expected-updated-at <timestamp>  The scratchpad's updated_at as last read: the write is refused if it changed since.
       --reason <text>                    For supersede, why, in place of the words after the number.
       --ascii                            Print without color, in ASCII glyphs.
   -f, --format <format>                  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+      --fields <fields>                  Select top-level fields of json and jsonl output, as a comma list.  (repeatable)
 
 GLOBAL OPTIONS
   -h, --help      Show this help.

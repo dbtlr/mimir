@@ -5,8 +5,9 @@ description: Released Mimir changes and upgrade guidance, compiled from pending 
 # Changelog
 
 All notable changes to this project are documented here. Mimir is
-**pre-release** (`0.x`): a minor release may include breaking changes, and a
-patch release holds only features and fixes.
+**pre-release** (`0.x`): a minor release may include breaking changes and
+features, and a patch release holds only fixes
+([ADR 0047](../../docs/decisions/0047-below-1-0-a-feature-advances-the-minor.md)).
 
 This file holds released sections only. Pending entries accrue as per-PR
 fragments in [`.changes/`](.changes/README.md), and `loom changelog write`

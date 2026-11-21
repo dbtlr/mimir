@@ -46,7 +46,9 @@ test('an unbound clone binds from its origin remote and says so on stderr', asyn
     },
     store: () => Promise.resolve(board.store),
   });
-  const outcome = await app.invoke(['next'], { options: { format: 'ids' } });
+  // `format` is the format plugin's option, so the path stays untyped for it.
+  const next: readonly string[] = ['next'];
+  const outcome = await app.invoke(next, { options: { format: 'ids' } });
   expect(outcome).toMatchObject({
     messages: 'bound to MMR from the origin remote github.com/dbtlr/mimir (saved in git config)\n',
     output: 'MMR-3\nMMR-8\n',
