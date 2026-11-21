@@ -494,14 +494,19 @@ the status misreading MMR-617, MMR-619, and MMR-620 removed elsewhere.
   two signal pickers, which sit side by side, select alike. They keep that
   neutral fill rather than the accent wash §1 gives selection and the list
   filter chips use; whether form pickers move to the accent is left open.
+  The MMR-743 refinement settles it for a form's Segmented Control, the seed
+  form's Kind among them, which selects with the accent; the authoring
+  sheet's pills keep this neutral fill until MMR-731 moves them.
 - **Considered and rejected.** Flat neutral chips for every priority: p0
   read the same as p3 at a glance. A ▲ mark on p0 alone: a new glyph to
   learn, and p1 to p3 read the same.
 - `packages/host/src/test/signal-chips.test.tsx` fails if a priority or kind
   chip carries a `status-` class, if the priority ink steps change, or if
-  two kinds draw differently. The authoring sheet's and seed capture's tests
-  fail if a selected priority or kind pill carries a `status-` class or
-  loses the `bg-line` fill or `ink-bright` text.
+  two kinds draw differently. The authoring sheet's tests fail if a selected
+  priority pill carries a `status-` class or loses the `bg-line` fill or
+  `ink-bright` text; the seed form's test, under the MMR-743 refinement,
+  fails if a selected kind carries a `status-` class or loses the accent
+  wash.
 
 ## Refinement (2026-11-09, MMR-635): a destructive action wears a red hairline
 
@@ -1236,6 +1241,7 @@ the MMR-635 red hairline in both shapes.
 | Choice | one or several values from a fixed set | inline | Segmented Control, Radio, Select, Checkbox, Switch |
 | Record picker | a record found by search | Popup; a Dialog for the jump palette | Combobox, Listbox, Command |
 | Form sheet | creating or editing a record, with several fields | Sheet | Drawer, Field, Input, Textarea, Token Input, with Choice and Record picker |
+| Content sheet | a record's or a row's content and settings that apply as they change, closed by Done or the caller's own actions | Sheet, 440 from `md` up | Drawer |
 | Composer | text added in place, such as an annotation | inline | Textarea |
 | Action menu | a list of actions, including a record's More | Popup, or a Sheet below `md` | Menu, Drawer, Separator, Radio |
 | Suggestion | a one-time offer on a page | card | `ConfirmCard`'s `card` surface |
@@ -1378,3 +1384,39 @@ looks and behaves while it saves.
 - **Not for an action.** A choice whose outcome is not known until a prompt or
   a call answers stays a button that names the action, as Turn on does (ADR
   0045's MMR-711 and MMR-736 refinements).
+
+## Refinement (2026-11-21, MMR-743): a form's choices, the Content sheet, and the switcher
+
+The Form sheet (MMR-743) settles three questions the MMR-626 and MMR-736
+refinements left open, and records two exceptions.
+
+- **A form's Segmented Control selects with the accent.** A selected segment
+  is the `accent/12` wash with a 1px `accent` inset ring (§1 and DESIGN.md,
+  Color roles), as the seed form's Kind and Launch in T3's options draw.
+  This replaces the MMR-626 refinement's neutral selected pill for a form,
+  and its test clause for the seed capture: the seed form's test fails if a
+  selected kind carries a `status-` class or loses the accent wash. The
+  authoring sheet's priority pills keep the neutral `line` fill until
+  MMR-731 moves the authoring sheet onto the Segmented Control.
+- **Workspace stays a Segmented Control.** Launch in T3's Workspace offers
+  "Project checkout" and "New worktree", labels longer than a word, which the
+  MMR-736 refinement's Choice gives to a Radio. It stays a Segmented Control,
+  as in the source mock: its two options fit one row at every width, and it
+  sits under Advanced among other one-row choices. A third option, or a label
+  that wraps, moves it to a Radio.
+- **The Content sheet is a pattern.** A Sheet that holds content rather
+  than a form, 440 wide from `md` up and from the bottom below it, takes the
+  row added to the patterns table above. It shows a record's or a row's
+  content and settings that apply as they change, so it asks nothing; one
+  Done closes it unless the caller gives its own footer actions, and its
+  title may set a key in mono. Another browser's notification kinds are the
+  first: their switches are hairline-separated rows on the sheet, since a
+  group is never a card inside a sheet. Its sides keep the Form sheet's
+  padding, 20 on a phone and 32 from `md` up.
+- **The project switcher is a temporary exception.** It is the Record
+  picker's popup (`RecordPickerPopup`) holding its own listbox, with its
+  pins, archive fold, and All projects row on its own keyboard model, not
+  Combobox and Listbox as the patterns table gives a Record picker. MMR-730
+  converges it onto Combobox and Listbox; until then its group headings use
+  the menu group heading (13/20, ink-dim, sentence case) so it reads as the
+  other pickers do.
