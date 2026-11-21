@@ -56,7 +56,7 @@ describe('newProjectSheet (MMR-230)', () => {
       expect(screen.queryByRole('dialog')).toBeNull();
     });
     await user.click(screen.getByRole('button', { name: 'New project' }));
-    expect(await screen.findByLabelText(/title/i)).toHaveValue('');
+    await expect(screen.findByLabelText(/title/i)).resolves.toHaveValue('');
     expect(screen.getByLabelText(/key/i)).toHaveValue('');
     expect(screen.getByLabelText(/description/i)).toHaveValue('');
   });

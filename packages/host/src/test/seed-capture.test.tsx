@@ -172,7 +172,7 @@ describe('seed form (12c, MMR-247; the Form sheet, MMR-743)', () => {
     });
 
     await user.click(opener);
-    expect(await screen.findByLabelText('Seed')).toHaveValue('');
+    await expect(screen.findByLabelText('Seed')).resolves.toHaveValue('');
     expect(screen.getByRole('radio', { name: 'Idea' })).toBeChecked();
     expect(screen.getByRole('radio', { name: 'Bug' })).not.toBeChecked();
   });
