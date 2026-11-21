@@ -61,7 +61,7 @@ export function Composer({
   const [text, setText] = useState('');
   const box = useRef<HTMLTextAreaElement | null>(null);
   // An inline composer is always open: one opening for its life, so a commit still holds the gate.
-  const { busy, commit } = useOpening(true, false, disabled);
+  const { busy, commit } = useOpening(true, false, disabled, { restoreFocusOnResolve: false });
   const trimmed = text.trim();
   return (
     <div className="flex items-end gap-2">
