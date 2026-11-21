@@ -90,11 +90,11 @@ function pickModel(
   return remembered !== null && offers(system, remembered) ? remembered : null;
 }
 
-/** The first model of the first provider that has one: the dialog's start when nothing is defaulted. */
+/** The first launchable model, when nothing is defaulted. */
 function firstModel(system: ReachableSystem) {
   for (const provider of system.providers) {
     const model = provider.models[0];
-    if (model !== undefined) {
+    if (model !== undefined && provider.runtimeModes.length > 0) {
       return { instanceId: provider.providerInstanceId, model: model.id };
     }
   }

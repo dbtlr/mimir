@@ -1,5 +1,5 @@
 import type { EngineNode } from '@mimir/contract';
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { suggestKey } from '../lib/project-key';
@@ -38,7 +38,7 @@ type EditMode = {
   /** Saves the edit; returns the call's promise. */
   onSave: (values: ProjectFormValues) => Promise<unknown>;
   /** The Lifecycle group's Archive: an undoable action that runs at once (ADR 0019, rule 4). */
-  onArchive: () => void;
+  onArchive: () => void | Promise<unknown>;
   archiving: boolean;
   offline: boolean;
 };
@@ -61,28 +61,54 @@ export function ProjectForm(props: ProjectFormProps) {
   const { open, onClose } = props;
   const editing = props.mode === 'edit' ? props.project : undefined;
   const [title, setTitle] = useState(editing?.title ?? '');
-  const [description, setDescription] = useState(editing?.description ?? '');
+  const [originalDescription] = useState(editing?.description ?? '');
+  const [description, setDescription] = useState(originalDescription);
   const [key, setKey] = useState('');
   // Once the operator touches Key it stops tracking Title; clearing it resumes.
   const [keyEdited, setKeyEdited] = useState(false);
+  const writing = useRef(false);
 
   const trimmedTitle = title.trim();
   const trimmedKey = key.trim();
   const canSend = trimmedTitle !== '' && (props.mode === 'edit' || trimmedKey !== '');
 
-  const send = () => {
+  const send = async () => {
+    const trimmedDescription = description.trim();
     if (props.mode === 'create') {
-      const body = description.trim();
-      return props.onCreate({
-        ...(body === '' ? {} : { description: body }),
+      await props.onCreate({
+        ...(trimmedDescription === '' ? {} : { description: trimmedDescription }),
         key: trimmedKey,
         name: trimmedTitle,
       });
+      return;
     }
-    return props.onSave({
-      description: proseEdit(description.trim(), props.project.description),
-      title: trimmedTitle,
-    });
+    const body =
+      trimmedDescription === originalDescription.trim()
+        ? undefined
+        : proseEdit(trimmedDescription, originalDescription);
+    writing.current = true;
+    try {
+      await props.onSave({
+        ...(body === undefined ? {} : { description: body }),
+        title: trimmedTitle,
+      });
+    } finally {
+      writing.current = false;
+    }
+  };
+
+  const archive = async () => {
+    if (props.mode !== 'edit' || props.offline || props.archiving || writing.current) {
+      return;
+    }
+    writing.current = true;
+    try {
+      await props.onArchive();
+    } catch {
+      // The mutation reports the failure.
+    } finally {
+      writing.current = false;
+    }
   };
 
   return (
@@ -101,9 +127,8 @@ export function ProjectForm(props: ProjectFormProps) {
       commitLabel={props.mode === 'create' ? 'Create project' : 'Save'}
       commitDisabled={!canSend}
       pending={props.mode === 'edit' && props.archiving}
-      onCommit={async () => {
-        await send();
-      }}
+      canCommit={() => !writing.current}
+      onCommit={send}
     >
       <FormField label="Title">
         <FormTextInput
@@ -142,7 +167,12 @@ export function ProjectForm(props: ProjectFormProps) {
         />
       </FormField>
       {props.mode === 'edit' && (
-        <Lifecycle onArchive={props.onArchive} disabled={props.offline || props.archiving} />
+        <Lifecycle
+          onArchive={() => {
+            void archive();
+          }}
+          disabled={props.offline || props.archiving}
+        />
       )}
     </FormSheet>
   );
@@ -173,7 +203,6 @@ function KeyHelp({ projectKey }: { projectKey: string }) {
  */
 function Lifecycle({ onArchive, disabled }: { onArchive: () => void; disabled: boolean }) {
   const explanationId = useId();
-  // A Save in flight holds Archive, so the two never race.
   const saving = useFormSheetBusy();
   return (
     <FormGroup

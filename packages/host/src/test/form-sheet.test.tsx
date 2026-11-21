@@ -680,6 +680,13 @@ describe('focus scroll', () => {
     ).toBe(224);
   });
 
+  it('keeps the footer clearance after a resize even when no rest fits', () => {
+    const resized = { ...scroll, clientHeight: 110, rests: [0, 275, 335], scrollTop: 275 };
+    expect(
+      focusScroll({ controlBottom: 372, controlTop: 328, fieldTop: 300, rest: 275 }, resized),
+    ).toBe(294);
+  });
+
   it('scrolls to the top of a control taller than the body', () => {
     const short = { ...scroll, clientHeight: 80, rests: [] };
     expect(

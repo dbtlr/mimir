@@ -30,8 +30,8 @@ export function ProjectSettingsButton({
   const archive = useArchiveProject(project.id);
   const unarchive = useUnarchiveProject(project.id);
 
-  const handleArchive = () => {
-    archive.mutate(undefined, {
+  const handleArchive = () =>
+    archive.mutateAsync(undefined, {
       onSuccess: () => {
         setOpen(false);
         // Shared MMR-125 undo Notice, held for 10s (longer than the 5s
@@ -42,7 +42,6 @@ export function ProjectSettingsButton({
         void navigate({ to: '/' });
       },
     });
-  };
 
   return (
     <>
@@ -57,7 +56,7 @@ export function ProjectSettingsButton({
         ⚙
       </button>
       <ProjectForm
-        key={opening}
+        key={`${project.id}:${String(opening)}`}
         mode="edit"
         open={open}
         onClose={() => {

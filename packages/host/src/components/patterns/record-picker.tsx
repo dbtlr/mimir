@@ -92,6 +92,7 @@ export function RecordPicker({
   const valueId = useId();
   const [query, setQuery] = useState('');
   const [button, setButton] = useState<HTMLButtonElement | null>(null);
+  const returnFocus = useRef(false);
   const chosen = records.find((record) => record.id === value);
   const shown = records.filter((record) => matches(record, query));
   return (
@@ -108,13 +109,14 @@ export function RecordPicker({
         onQueryChange={(next) => {
           setQuery(next);
         }}
-        onOpenChange={(open) => {
+        onOpenChange={(open, { reason }) => {
+          returnFocus.current = !open && (reason === 'item-press' || reason === 'escape-key');
           if (open) {
             setQuery('');
           }
         }}
         onOpenChangeComplete={(open) => {
-          if (!open) {
+          if (!open && returnFocus.current) {
             button?.focus();
           }
         }}

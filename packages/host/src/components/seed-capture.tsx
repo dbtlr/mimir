@@ -80,19 +80,20 @@ function SeedForm({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { key } = useParams({ strict: false });
   const projects = useQuery(projectsQuery);
   const projectItems = projects.data ?? [];
-  // The route's project only when the picker offers it: on an archived or unknown one the
-  // picker would show no choice, so the form must not file to it unseen.
-  const routeProject = projectItems.some((p) => p.id === key) ? key : undefined;
-  const defaultProject = key === undefined ? (projectItems[0]?.id ?? '') : (routeProject ?? '');
+  const defaultProject = key ?? projectItems[0]?.id;
 
   const [kind, setKind] = useState<SeedKind>('idea');
   const [title, setTitle] = useState('');
-  const [project, setProject] = useState('');
+  const [project, setProject] = useState<string | null | undefined>(undefined);
   const seedField = useRef<HTMLTextAreaElement>(null);
 
   const file = useFileSeed();
-  const effectiveProject = project !== '' ? project : defaultProject;
-  const canFile = title.trim() !== '' && effectiveProject !== '';
+  const requestedProject = project === undefined ? defaultProject : project;
+  const effectiveProject = projectItems.find((item) => item.id === requestedProject)?.id ?? null;
+  if (typeof project === 'string' && effectiveProject === null) {
+    setProject(null);
+  }
+  const canFile = title.trim() !== '' && effectiveProject !== null;
 
   return (
     <FormSheet
@@ -103,6 +104,9 @@ function SeedForm({ open, onClose }: { open: boolean; onClose: () => void }) {
       commitDisabled={!canFile}
       initialFocus={seedField}
       onCommit={async () => {
+        if (effectiveProject === null) {
+          return;
+        }
         // Never send `requester` — a console-filed seed is self-filed (server → "you").
         // Send the whole capture blob as `title`; the server splits the first line
         // off as the title and the rest into the `## Seed Description` body (MMR-263).
@@ -141,7 +145,7 @@ function SeedForm({ open, onClose }: { open: boolean; onClose: () => void }) {
       <RecordPicker
         label="Project"
         records={projectItems.map((p) => ({ id: p.id, title: p.title }))}
-        value={effectiveProject === '' ? null : effectiveProject}
+        value={effectiveProject}
         onValueChange={setProject}
         placeholder="Choose a project…"
         searchLabel="Find a project"

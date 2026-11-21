@@ -317,7 +317,8 @@ describe('the settings dialog', () => {
     expect(within(dialog).getByRole('radio', { name: 'high' })).toBeChecked();
 
     await userEvent.click(within(dialog).getByRole('radio', { name: 'low' }));
-    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Thinking' }));
+    const thinking = within(dialog).getByRole('radiogroup', { name: 'Thinking' });
+    await userEvent.click(within(thinking).getByRole('radio', { name: 'On' }));
     await choose(dialog, 'Runtime', 'Approval required');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Advanced' }));
     await userEvent.click(within(dialog).getByRole('radio', { name: 'Project checkout' }));
@@ -366,6 +367,49 @@ describe('the settings dialog', () => {
     expect(within(tier).getByRole('radio', { name: 'default' })).toBeChecked();
     const effort = within(dialog).getByRole('radiogroup', { name: 'Reasoning effort' });
     expect(within(effort).getByRole('radio', { name: 'Unset' })).toBeChecked();
+  });
+
+  it('can set a boolean option off or on and then omit it again', async () => {
+    await show(connectedCatalog([reachableSystem()]));
+    const dialog = await openSettings();
+    const thinking = within(within(dialog).getByRole('radiogroup', { name: 'Thinking' }));
+    const unset = thinking.getByRole('radio', { name: 'Unset' });
+    expect(unset).toBeChecked();
+    for (const name of ['On', 'Off']) {
+      const option = thinking.getByRole('radio', { name });
+      await userEvent.click(option);
+      expect(option).toBeChecked();
+    }
+    await userEvent.click(unset);
+    expect(unset).toBeChecked();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Launch' }));
+    await waitFor(() => {
+      expect(launchT3).toHaveBeenCalledOnce();
+    });
+    expect(launchCalls()[0]?.model.options).toEqual([{ id: 'effort', value: 'high' }]);
+  });
+
+  it('uses a checkbox for a boolean option with a usable default', async () => {
+    const system = reachableSystem();
+    const [provider] = system.providers;
+    if (provider === undefined) {
+      throw new Error('the system fixture has no provider');
+    }
+    const opus = {
+      id: 'opus',
+      label: 'Claude Opus',
+      options: [{ default: true, id: 'thinking', values: [false, true] }],
+    };
+    await show(connectedCatalog([{ ...system, providers: [{ ...provider, models: [opus] }] }]));
+    const dialog = await openSettings();
+    const thinking = within(dialog).getByRole('checkbox', { name: 'Thinking' });
+    expect(thinking).toBeChecked();
+    await userEvent.click(thinking);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Launch' }));
+    await waitFor(() => {
+      expect(launchT3).toHaveBeenCalledOnce();
+    });
+    expect(launchCalls()[0]?.model.options).toEqual([{ id: 'thinking', value: false }]);
   });
 
   it('sends a branch only for a worktree', async () => {

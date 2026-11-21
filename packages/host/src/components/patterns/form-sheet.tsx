@@ -143,8 +143,8 @@ export type BodyScroll = {
  * whole field: its block a field gap below the header, the control clear of
  * the footer by the body's end padding. The rests are the top, each block's,
  * and the end, and the nearest to the current scroll wins. When no rest holds
- * the field, it scrolls the least that shows it whole, and when even the
- * control is taller than the body, to its top.
+ * the field, it scrolls the least that shows it whole, with the end padding
+ * when both fit. When even the control is taller than the body, it shows its top.
  */
 export function focusScroll(place: FocusedPlace, scroll: BodyScroll): number | null {
   const { scrollTop, clientHeight, maxScroll, endClearance, holdClearance, rests } = scroll;
@@ -168,7 +168,8 @@ export function focusScroll(place: FocusedPlace, scroll: BodyScroll): number | n
   if (least > controlTop) {
     return clamp(controlTop);
   }
-  return clamp(Math.min(Math.max(scrollTop, least), top));
+  const start = low <= Math.min(top, maxScroll) ? low : least;
+  return clamp(Math.min(Math.max(scrollTop, start), top));
 }
 
 /** How far a negative margin on an element pulls its edge in, in px. */
@@ -502,6 +503,8 @@ export type FormSheetProps = {
   onCommit: () => void | Promise<void>;
   /** The form cannot be sent yet: its required fields are empty. */
   commitDisabled?: boolean;
+  /** Recheck an interlock at submit time, before a pending render can disable the button. */
+  canCommit?: () => boolean;
   /** A call the caller runs is in flight (such as Archive): the commit disables and the sheet holds. */
   pending?: boolean;
   /** One line on what the commit leads to; it sits with the commit and describes it. */
@@ -522,6 +525,7 @@ export function FormSheet({
   commitLabel,
   onCommit,
   commitDisabled = false,
+  canCommit,
   pending = false,
   note,
   initialFocus,
@@ -537,7 +541,7 @@ export function FormSheet({
   const [scrolled, setScrolled] = useState(false);
 
   const send = () => {
-    if (busy || commitDisabled) {
+    if (busy || commitDisabled || canCommit?.() === false) {
       return;
     }
     void commit(commitButton.current, onCommit, onClose);

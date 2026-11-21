@@ -77,10 +77,8 @@ function SystemName({ label }: { label: string }) {
 }
 
 /**
- * One model option with values: a checkbox row for a boolean one, else a
- * Segmented Control of the provider's values, verbatim (`low`, `medium`,
- * `high`). Only an option with no usable default offers "Unset", which leaves
- * it out of the launch; an option with one starts on it (ADR 0040, Defaults).
+ * Boolean options with a usable default can use a checkbox. Other options use
+ * a Segmented Control, with "Unset" when the launch can omit the option.
  */
 function OptionField({
   option,
@@ -92,7 +90,9 @@ function OptionField({
   onChange: (value: T3OptionChoice['value'] | undefined) => void;
 }) {
   const label = optionLabel(option.id);
-  if (option.values.every((value) => typeof value === 'boolean') && option.values.includes(true)) {
+  const hasDefault = option.default !== null && option.values.includes(option.default);
+  const boolean = option.values.every((value) => typeof value === 'boolean');
+  if (boolean && hasDefault && option.values.includes(true)) {
     return (
       <FormCheckRow
         label={label}
@@ -105,7 +105,6 @@ function OptionField({
     );
   }
   const index = chosen === undefined ? -1 : option.values.indexOf(chosen);
-  const hasDefault = option.default !== null && option.values.includes(option.default);
   return (
     <FormField label={label}>
       <SegmentedControl
@@ -117,7 +116,10 @@ function OptionField({
         }}
         options={[
           ...(hasDefault ? [] : [{ label: 'Unset', value: '' }]),
-          ...option.values.map((value, i) => ({ label: String(value), value: String(i) })),
+          ...option.values.map((value, i) => {
+            const booleanLabel = value === true ? 'On' : 'Off';
+            return { label: boolean ? booleanLabel : String(value), value: String(i) };
+          }),
         ]}
       />
     </FormField>

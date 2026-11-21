@@ -1,9 +1,10 @@
 import { QueryClient } from '@tanstack/react-query';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
 import { seedCreate } from '../api/fns/browse';
+import { projectsQuery } from '../api/shell-queries';
 import { engineSeed } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
@@ -155,6 +156,56 @@ describe('seed form (12c, MMR-247; the Form sheet, MMR-743)', () => {
     expect(screen.getByRole('button', { name: 'File seed' })).toBeDisabled();
     await user.keyboard('{Enter}');
     expect(seedCreate).not.toHaveBeenCalled();
+  });
+
+  it('keeps an offered choice on refresh and requires a new choice when it disappears', async () => {
+    const mimir = engineProject({ id: 'MMR', title: 'Mimir' });
+    const norn = engineProject({ id: 'NRN', status: 'ready', title: 'Norn' });
+    serveShell({ projects: [mimir, norn] });
+    serveBrowse();
+    vi.mocked(seedCreate).mockResolvedValue(engineSeed({ id: 'MMR-s7' }));
+    const client = new QueryClient({ defaultOptions: { queries: { refetchInterval: false } } });
+    await renderShell('/p/MMR/seeds', client);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
+    const field = await screen.findByLabelText('Seed');
+    await user.type(field, 'Keep this draft');
+    const choose = async (name: RegExp) => {
+      await user.click(screen.getByRole('button', { name: /^Project / }));
+      await user.click(await screen.findByRole('option', { name }));
+    };
+    await choose(/Norn/);
+    const file = screen.getByRole('button', { name: 'File seed' });
+    const refresh = async (projects: (typeof mimir)[]) => {
+      await act(async () => {
+        client.setQueryData(projectsQuery.queryKey, projects);
+      });
+    };
+
+    await refresh([mimir, { ...norn, title: 'Norn renamed' }]);
+    await expect(
+      screen.findByRole('button', { name: /Project NRN.*Norn renamed/ }),
+    ).resolves.toBeVisible();
+    expect(file).toBeEnabled();
+
+    await refresh([mimir]);
+    await expect(
+      screen.findByRole('button', { name: 'Project Choose a project…' }),
+    ).resolves.toBeVisible();
+    expect(file).toBeDisabled();
+    await user.click(field);
+    await user.keyboard('{Enter}');
+    expect(seedCreate).not.toHaveBeenCalled();
+
+    await refresh([mimir, norn]);
+    expect(file).toBeDisabled();
+    await choose(/Mimir/);
+    await user.click(file);
+    await waitFor(() => {
+      expect(seedCreate).toHaveBeenCalledWith({
+        data: { kind: 'idea', project: 'MMR', title: 'Keep this draft' },
+      });
+    });
   });
 
   it('reopens fresh after Escape abandons its edits: Idea and an empty seed', async () => {

@@ -86,6 +86,49 @@ describe('Record picker', () => {
     });
   });
 
+  it('keeps focus where the operator presses outside the picker', async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <PickerHarness />
+        <textarea aria-label="Seed" />
+      </>,
+    );
+    const trigger = screen.getByRole('button', { name: /^Project / });
+    await user.click(trigger);
+    const search = await screen.findByRole('combobox', { name: 'Find a project' });
+    await waitFor(() => {
+      expect(search).toHaveFocus();
+    });
+    const seed = screen.getByRole('textbox', { name: 'Seed' });
+    // jsdom finishes the popup's dismissal before the click can focus Seed.
+    const restore = vi.spyOn(trigger, 'focus');
+    await user.click(seed);
+    await waitFor(() => {
+      expect(search).not.toBeInTheDocument();
+    });
+    expect(restore).not.toHaveBeenCalled();
+    expect(seed).toHaveFocus();
+    await user.keyboard('New seed');
+    expect(seed).toHaveValue('New seed');
+  });
+
+  it('returns focus to the trigger on Escape', async () => {
+    const user = userEvent.setup();
+    render(<PickerHarness />);
+    const trigger = screen.getByRole('button', { name: /^Project / });
+    await user.click(trigger);
+    const search = await screen.findByRole('combobox', { name: 'Find a project' });
+    await waitFor(() => {
+      expect(search).toHaveFocus();
+    });
+    await user.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(search).not.toBeInTheDocument();
+      expect(trigger).toHaveFocus();
+    });
+  });
+
   it('says so when no record matches, and picks nothing on Enter', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

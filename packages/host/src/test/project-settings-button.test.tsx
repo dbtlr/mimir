@@ -125,6 +125,56 @@ describe('projectSettingsButton', () => {
     expect(data.description).toBeUndefined();
   });
 
+  it.each([false, true])(
+    'a title-only save leaves a description received during the edit alone (reverted draft: %s)',
+    async (reverted) => {
+      const client = new QueryClient();
+      const settings = (project: typeof baseProject) => (
+        <QueryClientProvider client={client}>
+          <ProjectSettingsButton project={project} />
+        </QueryClientProvider>
+      );
+      const { rerender } = render(settings({ ...baseProject, description: null }));
+      openSheet();
+      fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Renamed' } });
+      rerender(settings({ ...baseProject, description: 'Description from refresh' }));
+      if (reverted) {
+        const field = screen.getByLabelText(/description/i);
+        fireEvent.change(field, { target: { value: 'Temporary draft' } });
+        fireEvent.change(field, { target: { value: '' } });
+      }
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+      await vi.waitFor(() => {
+        expect(updateProject).toHaveBeenCalledOnce();
+      });
+      const data = vi.mocked(updateProject).mock.lastCall?.[0].data;
+      expect(data).toEqual({ id: 'MMR', name: 'Renamed' });
+      expect(data).not.toHaveProperty('description');
+    },
+  );
+
+  it('opens the new project with its own fields when the project changes', async () => {
+    const client = new QueryClient();
+    const settings = (project: typeof baseProject) => (
+      <QueryClientProvider client={client}>
+        <ProjectSettingsButton project={project} />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(settings(baseProject));
+    openSheet();
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Mimir draft' } });
+    fireEvent.change(screen.getByLabelText(/description/i), { target: { value: 'Old draft' } });
+    rerender(settings({ description: 'Norn description', id: 'NRN', title: 'Norn' }));
+
+    expect(screen.getByLabelText('Title')).toHaveValue('Norn');
+    expect(screen.getByLabelText(/description/i)).toHaveValue('Norn description');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await vi.waitFor(() => {
+      expect(updateProject).toHaveBeenCalledWith({ data: { id: 'NRN', name: 'Norn' } });
+    });
+  });
+
   it.each(['', '   '])('an emptied description %j clears it with null', async (blank) => {
     wrap(<ProjectSettingsButton project={baseProject} />);
     fireEvent.click(screen.getByRole('button', { name: /project settings/i }));
@@ -271,6 +321,32 @@ describe('projectSettings lifecycle (MMR-230)', () => {
     fireEvent.click(archiveButton);
     expect(archive).not.toHaveBeenCalled();
   });
+
+  it.each(['Archive project', 'Save'])(
+    'holds the other action when %s dispatches first in the same task',
+    async (first) => {
+      const archiveFirst = first === 'Archive project';
+      const calls = archiveFirst
+        ? { held: updateProject, started: archive }
+        : { held: archive, started: updateProject };
+      vi.mocked(archive).mockReturnValue(Promise.withResolvers<never>().promise);
+      vi.mocked(updateProject).mockReturnValue(Promise.withResolvers<never>().promise);
+      wrap(<ProjectSettingsButton project={baseProject} />);
+      openSheet();
+      const firstButton = screen.getByRole('button', { name: first });
+      const secondButton = screen.getByRole('button', {
+        name: archiveFirst ? 'Save' : 'Archive project',
+      });
+
+      await act(async () => {
+        firstButton.click();
+        secondButton.click();
+      });
+
+      expect(calls.started).toHaveBeenCalledOnce();
+      expect(calls.held).not.toHaveBeenCalled();
+    },
+  );
 
   it('the archive button disables at 40% when offline', () => {
     const { rerender } = wrap(<ProjectSettingsButton project={baseProject} />);
