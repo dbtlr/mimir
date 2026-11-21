@@ -64,16 +64,23 @@ export type BlockExtent = { top: number; bottom: number };
 /**
  * The scroll positions where the body rests cleanly, one per block: the block
  * a field gap below the header, or lower when that would leave a sliver of the
- * block above it showing (a heading 20 above its first label). When content
+ * block above it showing (a heading 20 above its first label). A block that
+ * opens the body, at its top padding (`topPadding`), rests at the top, so the
+ * first field keeps that padding (24 on a phone, 32 from `md` up). When content
  * that is not a block follows the last one (`contentFollows`: Lifecycle's
  * explanation and Archive), the scroll that hides that last block whole is a
  * rest too.
  */
-export function restsOf(blocks: readonly BlockExtent[], contentFollows: boolean): number[] {
+export function restsOf(
+  blocks: readonly BlockExtent[],
+  contentFollows: boolean,
+  topPadding = 0,
+): number[] {
   const rests: number[] = [];
   let above = Number.NEGATIVE_INFINITY;
   for (const block of blocks) {
-    rests.push(Math.max(block.top - FIELD_GAP, above));
+    const opensBody = rests.length === 0 && block.top <= topPadding + 0.5;
+    rests.push(opensBody ? 0 : Math.max(block.top - FIELD_GAP, above));
     above = Math.max(above, block.bottom);
   }
   if (blocks.length > 0 && contentFollows) {
@@ -186,29 +193,109 @@ function measureRests(element: HTMLElement) {
     content !== null &&
     last !== undefined &&
     content.getBoundingClientRect().bottom - last.getBoundingClientRect().bottom > 1;
-  const rests = restsOf(extents, contentFollows);
+  const topPadding = Number.parseFloat(getComputedStyle(element).paddingTop);
+  const rests = restsOf(extents, contentFollows, Number.isNaN(topPadding) ? 0 : topPadding);
   return { blocks, origin, rests };
 }
 
-/** Brings the body's focused control into view, when focus sits in the body. */
-function keepFocusInView(element: HTMLElement, room: number) {
+/**
+ * The popups a body control opens inside the body's DOM: a Select's list
+ * (a top-layer popover on a phone), a Record picker's popup, a menu, or a
+ * dialog nested in the sheet. Focus inside one moves nothing in the form.
+ */
+const POPUP_SELECTOR = [
+  '[data-slot=select-viewport]',
+  '[data-slot=select-content]',
+  '[data-slot=combobox-content]',
+  '[data-slot=popover-content]',
+  '[data-slot=menu-content]',
+  '[role=menu]',
+  '[role=dialog]',
+  '[role=alertdialog]',
+].join(', ');
+
+/** `element.matches`, false for a selector this DOM cannot parse (jsdom's `:popover-open`). */
+function matchesSafely(element: Element, selector: string): boolean {
+  try {
+    return element.matches(selector);
+  } catch {
+    return false;
+  }
+}
+
+/** Whether focus at `focused` sits in a popup opened from the body, rather than on a body control. */
+export function inPopup(focused: Element, body: Element): boolean {
+  for (
+    let node: Element | null = focused;
+    node !== null && node !== body;
+    node = node.parentElement
+  ) {
+    if (matchesSafely(node, POPUP_SELECTOR) || matchesSafely(node, ':popover-open')) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** The input that last came before a focus move: a key, a pointer press, or none yet. */
+export type LastInput = 'key' | 'pointer' | null;
+
+/**
+ * Whether a focus move came from the keyboard, so the body may scroll for it.
+ * A pointer press never counts, even on a text box that draws its ring for
+ * any focus: the scroll would move the target out from under the pointer
+ * before the release lands. A key counts, and so does a focus with no input
+ * before it that the browser marks `:focus-visible` (focus returned in code).
+ */
+export function isKeyboardFocus(focused: Element, last: LastInput): boolean {
+  if (last === 'pointer') {
+    return false;
+  }
+  return last === 'key' || matchesSafely(focused, ':focus-visible');
+}
+
+/** How far a focused control's outline reaches past its box, in px: its width plus its offset. */
+function ringReach(element: Element): number {
+  const style = getComputedStyle(element);
+  if (style.outlineStyle === '' || style.outlineStyle === 'none') {
+    return 0;
+  }
+  const reach =
+    Number.parseFloat(style.outlineWidth) + Number.parseFloat(style.outlineOffset || '0');
+  return Number.isNaN(reach) ? 0 : Math.max(0, reach);
+}
+
+/**
+ * Brings the body's focused control into view, outline and all, when focus
+ * sits on a body control. `keepClear` also keeps it the end padding clear of
+ * the footer, as a keyboard focus rests; without it, the control need only
+ * show whole (a pointer focus whose body shrank).
+ */
+function keepFocusInView(element: HTMLElement, room: number, keepClear: boolean) {
   const focused = element.ownerDocument.activeElement;
-  if (!(focused instanceof HTMLElement) || focused === element || !element.contains(focused)) {
+  if (
+    !(focused instanceof HTMLElement) ||
+    focused === element ||
+    !element.contains(focused) ||
+    inPopup(focused, element)
+  ) {
     return;
   }
   const { blocks, origin, rests } = measureRests(element);
   const control = focused.getBoundingClientRect();
+  const ring = ringReach(focused);
   const holder = blocks.findIndex((block) => block.contains(focused));
   const padding = Number.parseFloat(getComputedStyle(element).paddingBottom);
+  const endClearance = Number.isNaN(padding) ? FIELD_GAP : padding - room;
   const target = focusScroll(
     {
-      controlBottom: control.bottom - origin,
-      controlTop: control.top - origin,
+      controlBottom: control.bottom + ring - origin,
+      controlTop: control.top - ring - origin,
       rest: rests[holder] ?? control.top - origin - FIELD_GAP,
     },
     {
       clientHeight: element.clientHeight,
-      endClearance: Number.isNaN(padding) ? FIELD_GAP : padding - room,
+      endClearance: keepClear ? endClearance : 0,
       maxScroll: element.scrollHeight - element.clientHeight,
       rests,
       scrollTop: element.scrollTop,
@@ -222,9 +309,11 @@ function keepFocusInView(element: HTMLElement, room: number) {
 /**
  * The scrolling body. It keeps a resting scroll a field gap below the header
  * (DESIGN.md, Sheets): it grows its bottom padding when the natural end of its
- * scroll would cut a field under the header, and when focus moves to a control
- * out of view, it scrolls to the nearest rest that shows it whole. It does not
- * snap: a mandatory snap could rest the focused field under a bar. It mounts
+ * scroll would cut a field under the header, and when the keyboard moves focus
+ * to a control out of view, it scrolls to the nearest rest that shows it whole,
+ * outline and all. A pointer's focus, and focus inside a popup a control opens,
+ * move nothing. It does not snap: a mandatory snap could rest the focused field
+ * under a bar. It mounts
  * with the sheet's content, so it measures what is shown, and reports whether
  * it has scrolled, for the header's shadow.
  */
@@ -245,16 +334,75 @@ function FormBody({
     if (element === null) {
       return undefined;
     }
-    // Focus moves before the browser scrolls it into view, so a control this
-    // scroll shows whole needs no scroll of the browser's own.
-    const onFocusIn = () => {
-      keepFocusInView(element, roomRef.current);
+    const owner = element.ownerDocument;
+    // The input before each focus move, read on capture so a popup that stops a key still counts it.
+    let lastInput: LastInput = null;
+    // Whether the focused body control took focus from the keyboard, for a later resize.
+    let keyboardFocus = false;
+    // Whether a focus move is being dispatched, while the drawer's own reveal is dropped (below).
+    let focusMoving = false;
+    const onKey = () => {
+      lastInput = 'key';
+      focusMoving = false;
     };
+    const onPointer = () => {
+      lastInput = 'pointer';
+      focusMoving = false;
+    };
+    // Focus moves before the browser scrolls it into view, so a control this
+    // scroll shows whole needs no scroll of the browser's own. Focus inside a
+    // popup moves nothing; focus back on its trigger takes the usual rule.
+    const onFocusIn = (event: FocusEvent) => {
+      const focused = event.target;
+      if (!(focused instanceof Element)) {
+        return;
+      }
+      if (inPopup(focused, element)) {
+        return;
+      }
+      keyboardFocus = isKeyboardFocus(focused, lastInput);
+      if (keyboardFocus) {
+        keepFocusInView(element, roomRef.current, true);
+      }
+    };
+    // The drawer reveals a newly focused control too, 16 from the body's edge and
+    // smoothly, in the same focus dispatch: it would move a pressed control from under
+    // the pointer and the form behind a popup. The rule above has decided that move, so
+    // the body drops the drawer's scroll while focus moves, from the document's capture
+    // of `focusin` to the window's, and takes it otherwise (a phone keyboard's rise).
+    const startFocusMove = () => {
+      focusMoving = true;
+    };
+    const endFocusMove = () => {
+      focusMoving = false;
+    };
+    const view = owner.defaultView;
+    Object.defineProperty(element, 'scrollBy', {
+      configurable: true,
+      value: (...args: unknown[]) => {
+        if (!focusMoving) {
+          // oxlint-disable-next-line typescript/unbound-method -- applied to the body itself
+          Reflect.apply(Element.prototype.scrollBy, element, args);
+        }
+      },
+    });
+    owner.addEventListener('keydown', onKey, true);
+    owner.addEventListener('pointerdown', onPointer, true);
+    owner.addEventListener('mousedown', onPointer, true);
+    owner.addEventListener('focusin', startFocusMove, true);
+    view?.addEventListener('focusin', endFocusMove);
     element.addEventListener('focusin', onFocusIn);
+    const stopListening = () => {
+      owner.removeEventListener('keydown', onKey, true);
+      owner.removeEventListener('pointerdown', onPointer, true);
+      owner.removeEventListener('mousedown', onPointer, true);
+      owner.removeEventListener('focusin', startFocusMove, true);
+      view?.removeEventListener('focusin', endFocusMove);
+      element.removeEventListener('focusin', onFocusIn);
+      Reflect.deleteProperty(element, 'scrollBy');
+    };
     if (typeof ResizeObserver === 'undefined') {
-      return () => {
-        element.removeEventListener('focusin', onFocusIn);
-      };
+      return stopListening;
     }
     const measure = () => {
       if (element.clientHeight === 0) {
@@ -266,8 +414,9 @@ function FormBody({
         roomRef.current = next;
         setRoom(next);
       }
-      // A body that shrinks (a phone's keyboard) or a field that grows keeps focus in view.
-      keepFocusInView(element, next);
+      // A body that shrinks (a phone's keyboard) or a field that grows keeps focus in view:
+      // clear of the footer for a keyboard focus, and only whole for a pointer's.
+      keepFocusInView(element, next, keyboardFocus);
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -277,7 +426,7 @@ function FormBody({
       observer.observe(content);
     }
     return () => {
-      element.removeEventListener('focusin', onFocusIn);
+      stopListening();
       observer.disconnect();
     };
   }, [body]);

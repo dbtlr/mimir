@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import type { Browser, Page } from '@playwright/test';
 
 import { serveHarness } from './form-sheet/serve';
 import type { Harness } from './form-sheet/serve';
@@ -172,3 +172,196 @@ for (const { form, width, heights } of SWEEP) {
     expect(failures).toEqual([]);
   });
 }
+
+/** Opens a form at a viewport as it first shows: Advanced folded, focus on the first field. */
+async function openAsShown(
+  browser: Browser,
+  form: string,
+  viewport: { width: number; height: number },
+) {
+  const phone = viewport.width < 768;
+  const context = await browser.newContext({ hasTouch: phone, isMobile: phone, viewport });
+  const page = await context.newPage();
+  await page.goto(`${harness.origin}?form=${form}`);
+  await page.locator('[data-slot=form-sheet-body]').waitFor();
+  await page.waitForTimeout(400);
+  return { context, page };
+}
+
+/** The body's scroll. */
+function bodyScroll(page: Page): Promise<number> {
+  return page.locator('[data-slot=form-sheet-body]').evaluate((element) => element.scrollTop);
+}
+
+type Clearance = {
+  name: string;
+  /** Room between the header and the top of the focused control's outline, in px. */
+  top: number;
+  /** Room between the bottom of its outline and the footer, in px. */
+  bottom: number;
+  /** Room between the body's top and the first block's label: its top padding at rest. */
+  firstBlock: number;
+};
+
+/** Where the focused control's outline sits against the body's edges. */
+function clearance(page: Page): Promise<Clearance> {
+  return page.evaluate(() => {
+    const body = document.querySelector('[data-slot=form-sheet-body]');
+    const focused = document.activeElement;
+    const first = document.querySelector('[data-form-block]');
+    if (body === null || first === null || !(focused instanceof HTMLElement)) {
+      throw new Error('no focused control in a body');
+    }
+    const style = getComputedStyle(focused);
+    const ring =
+      style.outlineStyle === 'none'
+        ? 0
+        : Math.max(
+            0,
+            Number.parseFloat(style.outlineWidth) + Number.parseFloat(style.outlineOffset),
+          );
+    const frame = body.getBoundingClientRect();
+    const rect = focused.getBoundingClientRect();
+    return {
+      bottom: Math.round(frame.bottom - (rect.bottom + ring)),
+      firstBlock: Math.round(first.getBoundingClientRect().top - frame.top),
+      name: (focused.getAttribute('aria-label') ?? focused.textContent ?? '').trim().slice(0, 24),
+      top: Math.round(rect.top - ring - frame.top),
+    };
+  });
+}
+
+// oxlint-disable-next-line vitest/prefer-each -- Playwright has no `each`; this is its pattern
+for (const width of [390, 1280]) {
+  test(`a press on Advanced just in view at the bottom opens it where it lies, at ${String(width)} wide`, async ({
+    browser,
+  }) => {
+    const { context, page } = await openAsShown(browser, 't3', { height: 680, width });
+    const trigger = page.getByRole('button', { name: 'Advanced' });
+    // Scroll so the heading's tap row ends 2 above the footer: whole, but short of the end padding.
+    await page.locator('[data-slot=form-sheet-body]').evaluate((element) => {
+      const heading = [...element.querySelectorAll('button')].find(
+        (button) => button.textContent?.trim() === 'Advanced',
+      );
+      if (heading === undefined) {
+        throw new Error('no Advanced');
+      }
+      const bottom = heading.getBoundingClientRect().bottom - element.getBoundingClientRect().top;
+      element.scrollTop += bottom - element.clientHeight + 2;
+    });
+    const before = await bodyScroll(page);
+    expect(before).toBeGreaterThan(0);
+    const box = await trigger.boundingBox();
+    if (box === null) {
+      throw new Error('Advanced has no box');
+    }
+    // A mouse press, not a tap: the press focuses the heading before the release lands.
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(400);
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(await bodyScroll(page)).toBe(before);
+    await context.close();
+  });
+}
+
+test('a phone’s model list leaves the form behind it where it was, opened and closed', async ({
+  browser,
+}) => {
+  const { context, page } = await openAsShown(browser, 't3', { height: 420, width: 390 });
+  const model = page.getByRole('combobox', { name: 'Model' });
+  await model.tap();
+  await page.waitForTimeout(600);
+  await expect(page.getByRole('option', { name: 'Claude Opus' })).toBeVisible();
+  expect(await bodyScroll(page)).toBe(0);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(600);
+  await expect(model).toBeFocused();
+  expect(await bodyScroll(page)).toBe(0);
+  await context.close();
+});
+
+test('arrowing through a phone’s model list leaves the form behind it where it was', async ({
+  browser,
+}) => {
+  const { context, page } = await openAsShown(browser, 't3', { height: 340, width: 390 });
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('combobox', { name: 'Model' })).toBeFocused();
+  const resting = await bodyScroll(page);
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(600);
+  const scrolls: number[] = [];
+  for (let step = 0; step < 3; step += 1) {
+    await page.keyboard.press('ArrowDown');
+    scrolls.push(await bodyScroll(page));
+  }
+  expect(scrolls).toEqual([resting, resting, resting]);
+  await context.close();
+});
+
+test('focus back from a desktop model list lands on its trigger whole, clear of the header', async ({
+  browser,
+}) => {
+  const { context, page } = await openAsShown(browser, 't3', { height: 360, width: 1280 });
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('combobox', { name: 'Model' })).toBeFocused();
+  const resting = await bodyScroll(page);
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(300);
+  await page.keyboard.press('ArrowDown');
+  await page.waitForTimeout(100);
+  expect(await bodyScroll(page)).toBe(resting);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  await expect(page.getByRole('combobox', { name: 'Model' })).toBeFocused();
+  const at = await clearance(page);
+  expect(at.top).toBeGreaterThanOrEqual(0);
+  expect(at.bottom).toBeGreaterThanOrEqual(0);
+  await context.close();
+});
+
+// oxlint-disable-next-line vitest/prefer-each -- Playwright has no `each`; this is its pattern
+for (const { width, height, padding } of [
+  { height: 360, padding: 24, width: 390 },
+  { height: 400, padding: 32, width: 1280 },
+]) {
+  test(`Shift+Tab back to the first field rests it at the body's top padding, at ${String(width)} wide`, async ({
+    browser,
+  }) => {
+    const { context, page } = await openAsShown(browser, 'project', { height, width });
+    await expect(page.getByRole('textbox', { name: 'Title' })).toBeFocused();
+    for (let step = 0; step < 3; step += 1) {
+      await page.keyboard.press('Tab');
+    }
+    for (let step = 0; step < 3; step += 1) {
+      await page.keyboard.press('Shift+Tab');
+    }
+    await expect(page.getByRole('textbox', { name: 'Title' })).toBeFocused();
+    const at = await clearance(page);
+    expect(at.top).toBeGreaterThan(0);
+    expect(at.firstBlock).toBe(padding);
+    await context.close();
+  });
+}
+
+test('a focused field stays whole when the viewport shortens under it, as a phone’s keyboard opens', async ({
+  browser,
+}) => {
+  const { context, page } = await openAsShown(browser, 't3', { height: 640, width: 390 });
+  // Runtime, the last field before Advanced, sits low in the body at this height.
+  const runtime = page.getByRole('combobox', { name: 'Runtime' });
+  for (
+    let step = 0;
+    step < 8 && !(await runtime.evaluate((e) => e === document.activeElement));
+    step += 1
+  ) {
+    await page.keyboard.press('Tab');
+  }
+  await expect(runtime).toBeFocused();
+  expect((await clearance(page)).bottom).toBeGreaterThanOrEqual(0);
+  await page.setViewportSize({ height: 400, width: 390 });
+  await page.waitForTimeout(300);
+  const at = await clearance(page);
+  expect(at.top).toBeGreaterThanOrEqual(0);
+  expect(at.bottom).toBeGreaterThanOrEqual(0);
+  await context.close();
+});

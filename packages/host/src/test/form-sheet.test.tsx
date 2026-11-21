@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import {
   FormField,
@@ -187,48 +187,133 @@ function Locked() {
   );
 }
 
+/** The four-field form the focus scroll cases lay out, open, with its body. */
+async function openFourFields(extra?: ReactNode) {
+  stubViewport('phone');
+  render(
+    <Harness>
+      {['One', 'Two', 'Three', 'Four'].map((label) => (
+        <FormField key={label} label={label}>
+          <FormTextInput />
+        </FormField>
+      ))}
+      {extra}
+    </Harness>,
+  );
+  const sheet = await openSheet();
+  const body = sheet.querySelector<HTMLElement>('[data-slot="form-sheet-body"]');
+  if (body === null) {
+    throw new Error('no body');
+  }
+  // A layout jsdom lacks: the body 200 tall at 100 over 800 of content with a 32 end, and
+  // each field 72 tall, 100 apart from 24, with its control 28 below its top.
+  body.style.paddingBottom = '32px';
+  Object.defineProperty(body, 'clientHeight', { configurable: true, value: 200 });
+  Object.defineProperty(body, 'scrollHeight', { configurable: true, value: 800 });
+  const blocks = [...body.querySelectorAll<HTMLElement>('[data-form-block]')];
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function layout(
+    this: HTMLElement,
+  ) {
+    if (this === body) {
+      return rectAt(100, 200);
+    }
+    const index = blocks.findIndex((block) => block === this || block.contains(this));
+    if (index === -1) {
+      return DOMRect.fromRect();
+    }
+    const top = 100 + 24 + index * 100 - body.scrollTop;
+    return blocks[index] === this ? rectAt(top, 72) : rectAt(top + 28, 44);
+  });
+  return body;
+}
+
 describe('Form sheet focus', () => {
   it('scrolls a field that takes focus below the fold to the rest that shows it whole', async () => {
-    stubViewport('phone');
-    render(
-      <Harness>
-        {['One', 'Two', 'Three', 'Four'].map((label) => (
-          <FormField key={label} label={label}>
-            <FormTextInput />
-          </FormField>
-        ))}
-      </Harness>,
-    );
-    const sheet = await openSheet();
-    const body = sheet.querySelector<HTMLElement>('[data-slot="form-sheet-body"]');
-    if (body === null) {
-      throw new Error('no body');
-    }
-    // A layout jsdom lacks: the body 200 tall at 100 over 800 of content with a 32 end, and
-    // each field 72 tall, 100 apart from 24, with its control 28 below its top.
-    body.style.paddingBottom = '32px';
-    Object.defineProperty(body, 'clientHeight', { configurable: true, value: 200 });
-    Object.defineProperty(body, 'scrollHeight', { configurable: true, value: 800 });
-    const blocks = [...body.querySelectorAll<HTMLElement>('[data-form-block]')];
-    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function layout(
-      this: HTMLElement,
-    ) {
-      if (this === body) {
-        return rectAt(100, 200);
-      }
-      const index = blocks.findIndex((block) => block === this || block.contains(this));
-      if (index === -1) {
-        return DOMRect.fromRect();
-      }
-      const top = 100 + 24 + index * 100 - body.scrollTop;
-      return blocks[index] === this ? rectAt(top, 72) : rectAt(top + 28, 44);
-    });
+    const body = await openFourFields();
     // The fifth field, Three, rests at 400, with its control at 452–496 above the 32 end; the
     // rest at 300 would leave the control 4 above the footer.
     act(() => {
       within(body).getByRole('textbox', { name: 'Three' }).focus();
     });
     expect(body.scrollTop).toBe(400);
+    vi.restoreAllMocks();
+  });
+
+  it('scrolls for a focus the keyboard moves, after a press elsewhere', async () => {
+    const body = await openFourFields();
+    const three = within(body).getByRole('textbox', { name: 'Three' });
+    fireEvent.pointerDown(within(body).getByRole('textbox', { name: 'One' }));
+    fireEvent.keyDown(body, { key: 'Tab' });
+    act(() => {
+      three.focus();
+    });
+    expect(body.scrollTop).toBe(400);
+    vi.restoreAllMocks();
+  });
+
+  it('never scrolls for a focus a pointer press gives, so the press lands where it aimed', async () => {
+    const body = await openFourFields();
+    const three = within(body).getByRole('textbox', { name: 'Three' });
+    fireEvent.keyDown(body, { key: 'Tab' });
+    fireEvent.pointerDown(three);
+    act(() => {
+      three.focus();
+    });
+    expect(body.scrollTop).toBe(0);
+    vi.restoreAllMocks();
+  });
+
+  it('moves nothing for focus inside a popup a body control opens', async () => {
+    // A Select's list in the field below Four, out of view: as a body control it would scroll.
+    const popup = (
+      <FormField label="Model">
+        <div data-slot="select-viewport">
+          <button type="button">Claude Opus</button>
+        </div>
+      </FormField>
+    );
+    const body = await openFourFields(popup);
+    fireEvent.keyDown(body, { key: 'ArrowDown' });
+    act(() => {
+      within(body).getByRole('button', { name: 'Claude Opus' }).focus();
+    });
+    expect(body.scrollTop).toBe(0);
+    vi.restoreAllMocks();
+  });
+
+  it('drops the drawer’s own reveal while focus moves, and takes it otherwise', async () => {
+    const scrolls: unknown[] = [];
+    // The native scroll the body passes a reveal on to (jsdom has none), recorded rather than run.
+    const native = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollBy');
+    Object.defineProperty(Element.prototype, 'scrollBy', {
+      configurable: true,
+      value: (options: unknown) => {
+        scrolls.push(options);
+      },
+    });
+    onTestFinished(() => {
+      if (native === undefined) {
+        Reflect.deleteProperty(Element.prototype, 'scrollBy');
+      } else {
+        Object.defineProperty(Element.prototype, 'scrollBy', native);
+      }
+    });
+    const body = await openFourFields();
+    const one = within(body).getByRole('textbox', { name: 'One' });
+    fireEvent.pointerDown(one);
+    // A reveal inside the focus dispatch, as the drawer's `focusin` listener makes one.
+    const reveal = () => {
+      body.scrollBy({ top: 14 });
+    };
+    body.parentElement?.addEventListener('focusin', reveal);
+    act(() => {
+      one.focus();
+    });
+    body.parentElement?.removeEventListener('focusin', reveal);
+    expect(scrolls).toEqual([]);
+    // A reveal outside one (a phone keyboard's rise) still scrolls.
+    body.scrollBy({ top: 20 });
+    expect(scrolls).toEqual([{ top: 20 }]);
     vi.restoreAllMocks();
   });
 
@@ -491,6 +576,11 @@ describe('resting scroll positions', () => {
   it('adds the rest that hides the last block when content that is not a block follows it', () => {
     expect(restsOf(blocksAt([32, 120]), true)).toEqual([8, 96, 168]);
   });
+
+  it('rests a block that opens the body at the top, so the first field keeps the top padding', () => {
+    // From `md` up the body's top padding is 32: a rest at 8 would leave the first field 24 down.
+    expect(restsOf(blocksAt([32, 120]), false, 32)).toEqual([0, 96]);
+  });
 });
 
 describe('focus scroll', () => {
@@ -521,6 +611,13 @@ describe('focus scroll', () => {
     // The browser's own focus scroll can run first and leave the control's bottom on the footer.
     const flush = { ...scroll, scrollTop: 112 };
     expect(focusScroll({ controlBottom: 312, controlTop: 268, rest: 216 }, flush)).toBe(216);
+  });
+
+  it('of several rests that show the field whole, lands on the one nearest the current scroll', () => {
+    // A body 400 tall scrolled to 200, past a control at 150–194: the rests at 0, 40, 80, and
+    // 120 all show its field whole, and 120 is the nearest; the lowest and the farthest is 0.
+    const tall = { ...scroll, clientHeight: 400, rests: [0, 40, 80, 120], scrollTop: 200 };
+    expect(focusScroll({ controlBottom: 194, controlTop: 150, rest: 120 }, tall)).toBe(120);
   });
 
   it('lands on the end when that is the only rest that shows a control past the last block', () => {
