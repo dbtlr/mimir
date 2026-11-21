@@ -21,6 +21,12 @@ curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/dbtlr/mi
 
 Keep the binary on a local disk, not on a network volume.
 
+To install a side copy, such as a second version to compare, add
+`--unmanaged` beside `--dir`. The installer then writes no installation record,
+gives no PATH advice, and runs no post-install command. A side copy has no
+receipt, so it runs on the isolated development directories, not your board
+([ADR 0031](../decisions/0031-installation-authority-and-disposable-development.md)).
+
 The installer takes no environment variables. These variables of the earlier
 installer map to arguments:
 

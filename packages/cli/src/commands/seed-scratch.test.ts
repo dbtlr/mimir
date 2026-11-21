@@ -43,7 +43,7 @@ test.each(MCP_HINTS)('%p opts in to MCP as a write', (path, destructive) => {
   expect(mcp.annotations.destructive ?? false).toBe(destructive);
 });
 
-/** The inputs the `scratch_checkpoint` tool lists: the command's arguments, then its local options. */
+/** The inputs the `scratch checkpoint` command declares: its arguments, then its options, Loom's `--fields` included (the MCP tool does not take it). */
 test('the scratch checkpoint tool lists its inputs by name', () => {
   const node = board
     .app()

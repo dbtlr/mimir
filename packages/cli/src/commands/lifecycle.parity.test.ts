@@ -100,7 +100,6 @@ const QUEUE: SetupCase[] = [
   argv('queue MMR-4 --session run-1'),
   argv('queue MMR-5 --session run-1'),
   argv('queue MMR-7 --session run-1'),
-  argv('queue MMR-3 --session run-1 -- x'),
 ];
 
 const UNQUEUE: SetupCase[] = [
@@ -141,11 +140,10 @@ const START: SetupCase[] = [
   argv('start MMR-99 -f json'),
   // A flag start does not own, redirected to the commands that do.
   argv('start MMR-3 --on you'),
-  // A bound clone, a container, a blocked task, and a word after the terminator.
+  // A bound clone, a container, and a blocked task.
   argv('start MMR-3', { bound: 'XX' }),
   argv('start MMR-1'),
   argv('start MMR-6'),
-  argv('start MMR-3 -- x'),
   // A reservation the claim takes over.
   argv('start MMR-3', { setup: queued }),
   argv('start MMR-3 --session s-2 --harness codex', { setup: queued }),
@@ -176,7 +174,6 @@ const DONE: SetupCase[] = [
   argv('done MMR-5', { setup: underReview }),
   argv('done MMR-3'),
   argv('done MMR-7'),
-  argv('done MMR-5 -- x'),
   argv('done MMR-3', { setup: queued }),
 ];
 

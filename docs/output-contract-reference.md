@@ -66,6 +66,10 @@ Every entity has **exactly one rendered id**, and every surface speaks it — ec
 
 ## Projection vocabulary (`--col`)
 
+`--col` is the projection flag. Help also lists Loom's `--fields` on every
+command with `--format`, but Mimir's `json` and `jsonl` views are its own, and
+Loom refuses `--fields` on them with exit 2. The MCP tools do not take it.
+
 One **flat, closed** vocabulary on every selection front-end — _the dot-facet prefix is dropped_ (groomed 2026-06-10, `MMR-38`). The dot was a Norn carryover whose justifying condition doesn't travel: Norn fences structural facets from a _dynamic, user-defined_ frontmatter namespace; Mimir's schema is closed, so no collision exists and the punctuation only taxed callers. Some columns return sets — the heavy/cheap distinction lives in **defaults** and help grouping, not syntax.
 
 ### Bare fields

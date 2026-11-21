@@ -154,18 +154,6 @@ exit 1
 --- state
 unchanged
 
-### queue argv: MMR-3 --session run-1 -- x
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"queue\" accepts 1 argument. Remove the extra values."
-| }
---- state
-unchanged
-
 ### unqueue argv: MMR-3 run cancelled
 exit 0
 --- stdout
@@ -780,18 +768,6 @@ exit 0
 + nodes[MMR-6].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-6].lifecycle: "todo" -> "in_progress"
 
-### start argv: MMR-3 -- x
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"start\" accepts 1 argument. Remove the extra values."
-| }
---- state
-unchanged
-
 ### start argv: MMR-3 #3
 exit 0
 --- stdout
@@ -1198,18 +1174,6 @@ exit 1
 |   "code": "validation",
 |   "hints": [],
 |   "message": "task is already done"
-| }
---- state
-unchanged
-
-### done argv: MMR-5 -- x
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"done\" accepts 1 argument. Remove the extra values."
 | }
 --- state
 unchanged

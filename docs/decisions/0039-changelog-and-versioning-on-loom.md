@@ -104,7 +104,7 @@ so the minor-release rule for Engine changes and the development version's
 
 ## Changelog
 
-- 2026-11-21: The 0.x version rule is superseded by
+- 2026-11-21 (MMR-746): The 0.x version rule is superseded by
   [ADR 0047](0047-below-1-0-a-feature-advances-the-minor.md): a feature
   fragment now bumps the minor too, as Loom 0.19.0's cut computes it. The rest
   of this decision stands.

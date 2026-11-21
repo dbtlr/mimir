@@ -23,6 +23,9 @@ Supersedes the 0.x version rule in [ADR 0039](0039-changelog-and-versioning-on-l
   change only in a minor release, and `changelog-guard` still requires a
   pending breaking fragment for one, because that fragment carries the
   host-first migration.
+- **The version window is unchanged.** ADR 0038's upper bound still refuses a
+  client on a newer minor than its host, so after a feature release the host
+  updates before its CLIs, even when the Engine contract did not change.
 
 ## Why
 
@@ -33,9 +36,22 @@ Supersedes the 0.x version rule in [ADR 0039](0039-changelog-and-versioning-on-l
 - **A patch release holds only fixes.** A reader of the version learns whether
   a release adds anything, not only whether it breaks anything.
 
+## Considered and rejected
+
+- **Pin Loom below 0.19.0.** It keeps the old rule and gives up every later
+  Loom release.
+- **Compute the version outside `loom changelog write`.** It brings back the
+  second version mechanism ADR 0039 removed.
+- **Tie the window's upper bound to the Engine contract instead of the minor.**
+  It would keep feature releases inside the window, but it adds a second
+  version to keep honest, and one operator updates host and CLIs together.
+
 ## Consequences
 
 - Minor releases come more often: nearly every cycle carries a feature.
+- After a feature release, a CLI that updates before its host is refused as
+  newer than the host, with the remedy to update the host first. Under ADR
+  0039's rule the same release was a patch, inside the window.
 - The prerelease tagger's refusal of a next version below a published
   prerelease now also follows reverting the cycle's only feature fragment, not
   only its only breaking fragment.
