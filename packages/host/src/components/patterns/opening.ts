@@ -52,8 +52,9 @@ function restoreCommitFocus(button: HTMLButtonElement | null) {
  * says its own call is `pending`. When a busy period ends with the dialog open
  * (a refusal, however the caller reports it), restore focus dropped when the
  * pressed commit disabled. If `commitDisabled` still holds the button disabled,
- * restoration waits until it is enabled in the same opening. Closing or finding
- * focus on another control when the button enables discards the request. `key`
+ * restoration waits until it is enabled in the same opening. A resolved commit,
+ * closing, or finding focus on another control when the button enables
+ * discards the request. `key`
  * names the opening (`useOpeningKey`), for content that must remount with each one.
  */
 export function useOpening(open: boolean, pending: boolean, commitDisabled = false) {
@@ -131,6 +132,10 @@ export function useOpening(open: boolean, pending: boolean, commitDisabled = fal
     setRunning(mine);
     try {
       await result;
+      // A resolved commit never asks for focus back, so a later enable of the commit cannot pull it.
+      if (refocusIn.current === mine) {
+        refocusIn.current = null;
+      }
       if (current.current === mine) {
         onCommitted('resolved');
       }

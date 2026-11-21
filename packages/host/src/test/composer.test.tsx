@@ -62,6 +62,29 @@ describe('Composer', () => {
     expect(commit).toBeDisabled();
   });
 
+  it('leaves focus alone after a resolved commit when the commit later disables and enables', async () => {
+    const call = deferred();
+    const onCommit = vi.fn(() => call.promise);
+    const props = { commitLabel: 'Append', commitName: 'Append note', label: 'Add a note', onCommit };
+    const { box, commit, rerender } = renderComposer(props);
+    await userEvent.type(box, 'found a bug');
+    pressAndDropFocus(commit);
+    await act(async () => {
+      call.resolve();
+      await call.promise;
+    });
+    await waitFor(() => expect(box).toHaveValue(''));
+    await userEvent.type(box, 'next');
+    // Offline: the box disables, and a browser drops its focus to the body.
+    // jsdom keeps focus on a control as it disables, so drop it first.
+    act(() => box.blur());
+    rerender(<Composer {...props} disabled />);
+    expect(document.body).toHaveFocus();
+    rerender(<Composer {...props} />);
+    expect(commit).toBeEnabled();
+    expect(commit).not.toHaveFocus();
+  });
+
   it('holds the text read-only and the commit busy while the commit is pending, and runs it once', async () => {
     const call = deferred();
     const onCommit = vi.fn(() => call.promise);
