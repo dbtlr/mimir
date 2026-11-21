@@ -32,14 +32,6 @@ export function CheckGlyph({ size }: { size?: number }) {
   );
 }
 
-export function BackGlyph({ size }: { size?: number }) {
-  return (
-    <Glyph size={size ?? 16}>
-      <path d="M13 8H3.5M7.5 4L3.5 8l4 4" />
-    </Glyph>
-  );
-}
-
 /** The agent's mark: a diamond with a point at its centre. */
 export function AgentGlyph({ size }: { size?: number }) {
   return (

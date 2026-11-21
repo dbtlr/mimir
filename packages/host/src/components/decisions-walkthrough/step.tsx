@@ -1,14 +1,21 @@
-import { useId } from 'react';
-import type { Ref } from 'react';
-
 import { ago } from '../../lib/time';
-import { GrowingTextarea } from '../ui/growing-textarea';
+import {
+  WalkthroughBack,
+  WalkthroughBar,
+  WalkthroughBody,
+  WalkthroughChoices,
+  WalkthroughCommit,
+  WalkthroughHeading,
+  WalkthroughNext,
+  WalkthroughNote,
+  WalkthroughRow,
+} from '../patterns/walkthrough';
 import { effectLine, stepButtonLabel } from './copy';
 import type { StepTarget } from './copy';
 import { AgentGlyph } from './icons';
 import { isBlankCustom, optionDetail, verdictOf } from './model';
 import type { Selection, WalkDecision } from './model';
-import { BackButton, Composer, MetaLine, PrimaryButton, Scroll, ScreenHeading } from './parts';
+import { MetaLine } from './parts';
 
 /**
  * The flags beside an option: "Agent's answer" in attention violet, "Agent
@@ -20,7 +27,7 @@ import { BackButton, Composer, MetaLine, PrimaryButton, Scroll, ScreenHeading } 
 function Flag({ text, className }: { text: string; className: string }) {
   return (
     <>
-      <span aria-hidden="true" className={`text-tag font-semibold ${className}`}>
+      <span aria-hidden="true" className={`text-xs font-semibold ${className}`}>
         {text}
       </span>
       <span className="sr-only">, {text}</span>
@@ -41,95 +48,54 @@ function Flags({ decision, number }: { decision: WalkDecision; number: number })
   );
 }
 
-const ROW_CLASS =
-  'flex min-h-12 cursor-pointer items-start gap-3 border-b border-line px-1 py-3 has-[:focus-visible]:rounded-md has-[:focus-visible]:outline-2 has-[:focus-visible]:-outline-offset-2 has-[:focus-visible]:outline-accent';
-const RADIO_CLASS =
-  'mt-[3px] size-[18px] shrink-0 appearance-none rounded-full border-[1.5px] border-ink-faint outline-none checked:border-attention checked:bg-attention checked:shadow-[inset_0_0_0_3.5px_var(--color-well-900)]';
+/** The choice that holds an answer of the operator's own, after the options. */
+const CUSTOM = 'custom';
 
 /**
- * The answers: a native radio group, one row per option and a last row for
- * the operator's own words, whose text box shows under the group.
+ * The answers, on the Walkthrough's Radio: one row per option, flagged where
+ * the agent took or recommends it, then a last row for the operator's own
+ * words, whose text box shows under the group.
  */
 function Answers({
   decision,
   selection,
-  disabled,
   onChange,
 }: {
   decision: WalkDecision;
   selection: Selection;
-  disabled: boolean;
   onChange: (patch: Partial<Selection>) => void;
 }) {
-  const group = useId();
+  const choices = [
+    ...decision.options.map((text, index) => {
+      const number = index + 1;
+      return {
+        detail: optionDetail(decision, number),
+        label: (
+          <>
+            <span>{text}</span>
+            <Flags decision={decision} number={number} />
+          </>
+        ),
+        value: String(number),
+      };
+    }),
+    { label: <span className="text-ink-dim">Something else</span>, value: CUSTOM },
+  ];
   return (
     <>
-      <div
-        role="radiogroup"
-        aria-label={`Your answer to ${decision.id}`}
-        className="mb-0 border-t border-line"
-      >
-        {decision.options.map((text, index) => {
-          const number = index + 1;
-          const picked = selection.choice === number;
-          const detail = optionDetail(decision, number);
-          // The whole row is the label, so a tap anywhere on it, the detail included,
-          // selects the option. The radio's name comes from the text and flags alone;
-          // the detail describes it instead.
-          const textId = `${group}-${String(number)}`;
-          const detailId = `${textId}-detail`;
-          return (
-            <label key={number} className={ROW_CLASS}>
-              <input
-                type="radio"
-                name={group}
-                className={RADIO_CLASS}
-                aria-labelledby={textId}
-                aria-describedby={detail === null ? undefined : detailId}
-                checked={picked}
-                disabled={disabled}
-                onChange={() => onChange({ choice: number })}
-              />
-              <span className="flex min-w-0 flex-col gap-1">
-                <span
-                  id={textId}
-                  className={`flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-0.5 text-[15.5px] leading-[1.45] wrap-anywhere ${picked ? 'text-ink-bright' : 'text-ink'}`}
-                >
-                  <span>{text}</span>
-                  <Flags decision={decision} number={number} />
-                </span>
-                {detail !== null && (
-                  <span
-                    id={detailId}
-                    className={`text-meta leading-[1.45] whitespace-pre-line text-ink-dim wrap-anywhere ${picked ? '' : 'line-clamp-2 md:line-clamp-3'}`}
-                  >
-                    {detail}
-                  </span>
-                )}
-              </span>
-            </label>
-          );
-        })}
-        <label className={ROW_CLASS}>
-          <input
-            type="radio"
-            name={group}
-            className={RADIO_CLASS}
-            checked={selection.choice === 'custom'}
-            disabled={disabled}
-            onChange={() => onChange({ choice: 'custom' })}
-          />
-          <span className="text-[15.5px] leading-[1.45] text-ink-dim">Something else</span>
-        </label>
-      </div>
+      <WalkthroughChoices
+        label={`Your answer to ${decision.id}`}
+        choices={choices}
+        value={selection.choice === 'custom' ? CUSTOM : String(selection.choice)}
+        onChange={(value) => onChange({ choice: value === CUSTOM ? 'custom' : Number(value) })}
+      />
       {selection.choice === 'custom' && (
-        <div className="pt-2.5 pb-1">
-          <GrowingTextarea
-            aria-label="Your own answer"
+        <div className="pt-3">
+          <WalkthroughNote
+            label="Your own answer"
             placeholder="The answer you want"
             value={selection.answer}
-            disabled={disabled}
-            onChange={(event) => onChange({ answer: event.target.value })}
+            onChange={(answer) => onChange({ answer })}
           />
         </div>
       )}
@@ -149,12 +115,12 @@ function BuiltOn({
     return null;
   }
   return (
-    <div className="mt-[18px]">
+    <div className="mt-6">
       <p className="mb-1 text-meta font-semibold text-ink-dim">Built on this answer</p>
       <ul className="flex flex-col">
         {tasks.map((id) => (
-          <li key={id} className="flex items-baseline gap-2.5 py-[3px] text-body">
-            <span className="font-mono text-mono-id text-ink-faint">{id}</span>
+          <li key={id} className="flex items-baseline gap-2 py-1 text-body">
+            <span className="font-mono text-ink-dim">{id}</span>
             {titles.has(id) && <span className="text-ink wrap-anywhere">{titles.get(id)}</span>}
           </li>
         ))}
@@ -182,10 +148,8 @@ export function Step({
   gone,
   selection,
   titles,
-  headingRef,
   target,
   first,
-  writing,
   offline,
   onChange,
   onBack,
@@ -195,26 +159,24 @@ export function Step({
   gone: boolean;
   selection: Selection;
   titles: ReadonlyMap<string, string>;
-  headingRef: Ref<HTMLHeadingElement>;
   target: StepTarget;
   first: boolean;
-  writing: boolean;
   offline: boolean;
   onChange: (patch: Partial<Selection>) => void;
   onBack: () => void;
-  /** Move on, or write for a lone decision; `control` is the button, which takes focus back if the write fails. */
-  onNext: (control: HTMLElement) => void;
+  /** Move on, or, for a lone decision (`target` send), write: a write returns its promise, which holds the layer. */
+  onNext: () => void | Promise<void>;
 }) {
   const taken = decision.options[decision.taken - 1] ?? '';
   const recommended = decision.options[decision.recommended - 1];
   const verdict = verdictOf(decision, selection);
   const custom = selection.choice === 'custom';
   const commits = target === 'send';
-  const blocked = gone ? commits : isBlankCustom(selection) || (commits && offline) || writing;
+  const blocked = gone ? commits : isBlankCustom(selection) || (commits && offline);
   const label = gone ? goneLabel(target) : stepButtonLabel(verdict, target);
   return (
     <section aria-label={`Decision ${decision.id}`} className="flex min-h-0 flex-1 flex-col">
-      <Scroll>
+      <WalkthroughBody>
         <MetaLine>
           <span className="flex items-center gap-1.5 font-semibold text-attention-foreground">
             <AgentGlyph />
@@ -222,15 +184,10 @@ export function Step({
           </span>
           <span className="capitalize">{decision.class}</span>
           <span>{ago(decision.created_at)}</span>
-          <span className="font-mono text-mono-id">{decision.id}</span>
+          <span className="font-mono">{decision.id}</span>
         </MetaLine>
-        <ScreenHeading
-          headingRef={headingRef}
-          className="mb-2.5 text-header leading-[1.28] md:text-[24px]"
-        >
-          {decision.question}
-        </ScreenHeading>
-        <p className="mb-1.5 text-ink">
+        <WalkthroughHeading className="mb-3">{decision.question}</WalkthroughHeading>
+        <p className="mb-2 text-body text-ink">
           It took <strong className="font-semibold text-ink-bright">{taken}</strong> and kept
           building.
           {recommended !== undefined && decision.recommended !== decision.taken && (
@@ -242,7 +199,7 @@ export function Step({
           )}
         </p>
         {decision.why !== null && decision.why !== '' && (
-          <p className="mb-[18px] max-w-[62ch] text-[14.5px] text-ink-dim">{decision.why}</p>
+          <p className="mb-5 max-w-[62ch] text-body text-ink-dim">{decision.why}</p>
         )}
         {gone ? (
           <p
@@ -252,42 +209,42 @@ export function Step({
             This decision no longer waits on you
           </p>
         ) : (
-          <Answers
-            decision={decision}
-            selection={selection}
-            disabled={writing}
-            onChange={onChange}
-          />
+          <Answers decision={decision} selection={selection} onChange={onChange} />
         )}
         <BuiltOn tasks={decision.tasks} titles={titles} />
-      </Scroll>
-      <Composer>
-        {!gone && (
-          <p className="text-[13.5px] leading-[1.45] text-ink-dim">
-            {effectLine(verdict, decision.tasks)}
-          </p>
-        )}
-        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-end gap-2 md:grid-cols-[auto_minmax(0,1fr)_auto]">
-          <BackButton disabled={first || writing} onClick={onBack} />
+      </WalkthroughBody>
+      <WalkthroughBar>
+        {!gone && <p className="text-meta text-ink-dim">{effectLine(verdict, decision.tasks)}</p>}
+        <WalkthroughRow>
+          <WalkthroughBack disabled={first} onClick={onBack} />
           {!gone && !custom && (
-            <GrowingTextarea
-              aria-label="Add a note for the agent (optional)"
+            <WalkthroughNote
+              label="Add a note for the agent (optional)"
               placeholder="Add a note for the agent (optional)"
               value={selection.note}
-              disabled={writing}
-              onChange={(event) => onChange({ note: event.target.value })}
+              onChange={(note) => onChange({ note })}
               className="max-md:order-first max-md:col-span-2"
             />
           )}
-          <PrimaryButton
-            aria-label={`${label} (${decision.id})`}
-            disabled={blocked}
-            onClick={(event) => onNext(event.currentTarget)}
-          >
-            {label}
-          </PrimaryButton>
-        </div>
-      </Composer>
+          {commits ? (
+            <WalkthroughCommit
+              aria-label={`${label} (${decision.id})`}
+              disabled={blocked}
+              onCommit={onNext}
+            >
+              {label}
+            </WalkthroughCommit>
+          ) : (
+            <WalkthroughNext
+              aria-label={`${label} (${decision.id})`}
+              disabled={blocked}
+              onClick={() => void onNext()}
+            >
+              {label}
+            </WalkthroughNext>
+          )}
+        </WalkthroughRow>
+      </WalkthroughBar>
     </section>
   );
 }

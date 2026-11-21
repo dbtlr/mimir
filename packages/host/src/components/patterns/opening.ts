@@ -42,7 +42,9 @@ function restoreCommitFocus(button: HTMLButtonElement | null) {
 
 /**
  * The commit state of a dialog, scoped to one opening, shared by Destructive
- * confirm and Reason. Each time `open` turns true the dialog starts a new
+ * confirm, Reason, the Form sheet, and the Walkthrough. The Composer, which is
+ * inline and always open, passes `open` true for one opening that lasts its
+ * life. Each time `open` turns true the dialog starts a new
  * opening with its own commit gate and no busy commit, so a commit from an
  * earlier opening that never settled cannot lock, close, or free this one.
  *

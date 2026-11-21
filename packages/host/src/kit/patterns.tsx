@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { ActionMenu } from '../components/patterns/action-menu';
+import { Composer } from '../components/patterns/composer';
 import { DestructiveConfirm } from '../components/patterns/destructive-confirm';
 import {
   FormCheckRow,
@@ -14,6 +15,18 @@ import { toast } from '../components/patterns/notice';
 import { NoticeBanner } from '../components/patterns/notice-banner';
 import { Reason } from '../components/patterns/reason';
 import { RecordPicker } from '../components/patterns/record-picker';
+import {
+  Walkthrough,
+  WalkthroughBack,
+  WalkthroughBar,
+  WalkthroughBody,
+  WalkthroughChoices,
+  WalkthroughCommit,
+  WalkthroughHeading,
+  WalkthroughNext,
+  WalkthroughNote,
+  WalkthroughRow,
+} from '../components/patterns/walkthrough';
 import { ActionButton } from '../components/ui/action-button';
 import { Sample, Section } from './section';
 
@@ -35,6 +48,8 @@ export function PatternsKit() {
       <NoticeSample />
       <FormSheetSample />
       <RecordPickerSample />
+      <ComposerSample />
+      <WalkthroughSample />
     </Section>
   );
 }
@@ -244,5 +259,127 @@ function RecordPickerSample() {
         />
       </div>
     </Sample>
+  );
+}
+
+/** A promise that resolves after a moment, as a host call would, so the kit shows the pending state. */
+function settleSoon(): Promise<void> {
+  const { promise, resolve } = Promise.withResolvers<void>();
+  setTimeout(resolve, 1200);
+  return promise;
+}
+
+function ComposerSample() {
+  return (
+    <Sample label="composer · inline, one line growing to four; Append waits for text">
+      <div className="w-full max-w-[576px]">
+        <Composer
+          label="Add a note"
+          placeholder="Add a note…"
+          commitLabel="Append"
+          commitName="Append note"
+          onCommit={() => settleSoon()}
+        />
+      </div>
+    </Sample>
+  );
+}
+
+const KIT_STEPS = [
+  {
+    choices: [
+      { label: 'Keep the rail', value: 'keep' },
+      {
+        detail: 'Drops the rail and its tests; the phone keeps its segmented bar.',
+        label: 'Remove it on desktop',
+        value: 'remove',
+      },
+      { label: 'Something else', value: 'custom' },
+    ],
+    question: 'Keep the rail beside the steps?',
+  },
+  {
+    choices: [
+      { label: 'Yes, under their own heading', value: 'yes' },
+      { label: 'No, mixed in with the rest', value: 'no' },
+    ],
+    question: 'Group the refused answers?',
+  },
+];
+
+function WalkthroughSample() {
+  const [open, setOpen] = useState(false);
+  return (
+    <Sample label="walkthrough · a Dialog over the whole console at every width; arrow keys move the answer">
+      <ActionButton variant="outline" onClick={() => setOpen(true)}>
+        Review 2 decisions
+      </ActionButton>
+      {open && <KitWalkthrough onClose={() => setOpen(false)} />}
+    </Sample>
+  );
+}
+
+/** Two questions, then a Send that takes a moment, as a write would. */
+function KitWalkthrough({ onClose }: { onClose: () => void }) {
+  const [step, setStep] = useState(0);
+  const [answers, setAnswers] = useState(['keep', 'yes']);
+  const [note, setNote] = useState('');
+  const current = KIT_STEPS[step]!;
+  const last = step === KIT_STEPS.length - 1;
+  return (
+    <Walkthrough
+      title={
+        <>
+          <span className="min-w-0 truncate">Deliver the console</span>{' '}
+          <span className="shrink-0 font-mono text-meta font-normal whitespace-nowrap text-ink-dim">
+            MMR-d3
+          </span>
+        </>
+      }
+      progress={`${String(step + 1)} of ${String(KIT_STEPS.length)}`}
+      steps={{ count: KIT_STEPS.length, current: step }}
+      closeLabel="Close the walkthrough"
+      onClose={onClose}
+      screen={String(step)}
+    >
+      <WalkthroughBody>
+        <WalkthroughHeading className="mb-3">{current.question}</WalkthroughHeading>
+        <WalkthroughChoices
+          label={`Your answer to MMR-q${String(step + 1)}`}
+          choices={current.choices}
+          value={answers[step]!}
+          onChange={(value) =>
+            setAnswers((all) => all.map((answer, index) => (index === step ? value : answer)))
+          }
+        />
+      </WalkthroughBody>
+      <WalkthroughBar>
+        <p className="text-meta text-ink-dim">Confirming changes nothing.</p>
+        <WalkthroughRow>
+          <WalkthroughBack disabled={step === 0} onClick={() => setStep(step - 1)} />
+          <WalkthroughNote
+            label="Add a note for the agent (optional)"
+            placeholder="Add a note for the agent (optional)"
+            value={note}
+            onChange={setNote}
+            className="max-md:order-first max-md:col-span-2"
+          />
+          {last ? (
+            <WalkthroughCommit
+              onCommit={async () => {
+                await settleSoon();
+                onClose();
+              }}
+            >
+              Confirm and send
+            </WalkthroughCommit>
+          ) : (
+            <WalkthroughNext onClick={() => setStep(step + 1)}>
+              Confirm and continue
+            </WalkthroughNext>
+          )}
+        </WalkthroughRow>
+      </WalkthroughBar>
+    </Walkthrough>
   );
 }

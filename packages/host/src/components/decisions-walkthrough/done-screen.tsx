@@ -1,17 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import type { Ref } from 'react';
 
 import type { DecisionAnswerResult } from '../../api/fns/deliveries';
 import { reviewQuery } from '../../api/view-queries';
 import { deliveryLink } from '../../lib/record-url';
 import { markState, useOpenerMark } from '../../lib/walkthrough-mark';
+import { WalkthroughBody, WalkthroughHeading } from '../patterns/walkthrough';
 import { decisionCount, reviewSetLabel } from './copy';
 import { CheckGlyph } from './icons';
 import { setOfDecision } from './model';
 import type { WalkDecision, WalkScope } from './model';
 import { PageLink } from './page-link';
-import { MetaLine, Outcome, Scroll, ScreenHeading } from './parts';
+import { MetaLine, Outcome } from './parts';
 
 /** An answer's result as the Send answered it; the record carries the tasks sent back. */
 export type SendResult = DecisionAnswerResult<{ tasks: string[] }>;
@@ -46,7 +46,7 @@ function NextSet({ current }: { current: string }) {
   const count = decisions.filter((d) => setOfDecision(d) === set).length;
   const forDelivery = head.delivery !== null;
   return (
-    <p className="mt-[18px] flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-lg bg-attention/10 px-3.5 py-3 text-ink-bright">
+    <p className="mt-5 flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-lg bg-attention/10 px-4 py-3 text-body text-ink-bright">
       <span>
         {forDelivery
           ? `${set} has ${decisionCount(count)} for you`
@@ -87,12 +87,10 @@ export function DoneScreen({
   scope,
   decisions,
   results,
-  headingRef,
 }: {
   scope: WalkScope;
   decisions: readonly WalkDecision[];
   results: readonly SendResult[];
-  headingRef: Ref<HTMLHeadingElement>;
 }) {
   const question = (id: string) => decisions.find((d) => d.id === id)?.question ?? id;
   const recorded = results.filter((r) => r.outcome === 'confirmed' || r.outcome === 'overturned');
@@ -103,17 +101,17 @@ export function DoneScreen({
   const current = scope.kind === 'delivery' ? scope.id : scope.key;
   return (
     <section aria-label="Result" className="flex min-h-0 flex-1 flex-col">
-      <Scroll>
+      <WalkthroughBody>
         <MetaLine>
           <span className="flex items-center gap-1.5 font-semibold text-status-done-foreground">
             <CheckGlyph />
             Done
           </span>
         </MetaLine>
-        <ScreenHeading headingRef={headingRef} className="mb-2.5 text-header md:text-[24px]">
+        <WalkthroughHeading className="mb-3">
           {scope.kind === 'delivery' ? 'Answers sent' : 'Answers recorded'}
-        </ScreenHeading>
-        <p className="mb-2 max-w-[52ch] text-ink">
+        </WalkthroughHeading>
+        <p className="mb-2 max-w-[52ch] text-body text-ink">
           {recorded.length === 0
             ? 'No answer was recorded.'
             : `${decisionCount(recorded.length)} recorded.`}
@@ -150,10 +148,10 @@ export function DoneScreen({
           </div>
         )}
         <NextSet current={current} />
-        <p className="mt-[18px]">
+        <p className="mt-5 text-body">
           <PageLink scope={scope} className={LINK_CLASS} />
         </p>
-      </Scroll>
+      </WalkthroughBody>
     </section>
   );
 }

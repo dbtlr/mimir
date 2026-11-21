@@ -1,19 +1,17 @@
-import type { Ref } from 'react';
-
+import {
+  WalkthroughBack,
+  WalkthroughBar,
+  WalkthroughBody,
+  WalkthroughCommit,
+  WalkthroughHeading,
+  WalkthroughRow,
+  useWalkthroughBusy,
+} from '../patterns/walkthrough';
 import { checkEffect, sendLabel, sendLine } from './copy';
 import { CheckGlyph, SendGlyph } from './icons';
 import { answerText, isBlankCustom, noteOf, verdictOf } from './model';
 import type { Selection, WalkDecision } from './model';
-import {
-  BackButton,
-  Composer,
-  MetaLine,
-  Outcome,
-  PrimaryButton,
-  Scroll,
-  ScreenHeading,
-  TextButton,
-} from './parts';
+import { MetaLine, Outcome, TextButton } from './parts';
 
 /** One decision to check: its place in the set, and what the operator chose for it. */
 export type CheckEntry = { index: number; decision: WalkDecision; selection: Selection };
@@ -27,8 +25,6 @@ export type CheckEntry = { index: number; decision: WalkDecision; selection: Sel
 export function CheckStep({
   entries,
   delivery,
-  headingRef,
-  writing,
   offline,
   onChange,
   onBack,
@@ -36,51 +32,48 @@ export function CheckStep({
 }: {
   entries: readonly CheckEntry[];
   delivery: string | null;
-  headingRef: Ref<HTMLHeadingElement>;
-  writing: boolean;
   offline: boolean;
   onChange: (index: number) => void;
   onBack: () => void;
-  /** Write the answers; `control` is Send, which takes focus back if the write fails. */
-  onSend: (control: HTMLElement) => void;
+  /** Write the answers; the write's promise holds the layer, and a refusal returns focus to Send. */
+  onSend: () => Promise<void>;
 }) {
+  const busy = useWalkthroughBusy();
   const blank = entries.find(({ selection }) => isBlankCustom(selection));
   return (
     <section aria-label="Check your answers" className="flex min-h-0 flex-1 flex-col">
-      <Scroll>
+      <WalkthroughBody>
         <MetaLine>
           <span className="flex items-center gap-1.5 font-semibold text-attention-foreground">
             <SendGlyph />
             Before you send
           </span>
         </MetaLine>
-        <ScreenHeading headingRef={headingRef} className="mb-2.5 text-header md:text-[24px]">
-          Check your answers
-        </ScreenHeading>
+        <WalkthroughHeading className="mb-3">Check your answers</WalkthroughHeading>
         <ol className="mt-2 border-t border-line">
           {entries.map(({ index, decision, selection }) => {
             const verdict = verdictOf(decision, selection);
             const note = noteOf(selection);
             return (
-              <li key={decision.id} className="flex items-start gap-3 border-b border-line py-3.5">
+              <li key={decision.id} className="flex items-start gap-3 border-b border-line py-4">
                 <span className="mt-px grid size-[22px] shrink-0 place-items-center rounded-full bg-attention/15 text-attention-foreground">
                   <CheckGlyph size={13} />
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-body text-ink-dim wrap-anywhere">{decision.question}</p>
-                  <p className="my-1 text-[15px] leading-[1.45] font-medium text-ink-bright wrap-anywhere">
+                  <p className="my-1 text-[15px] leading-[22px] font-medium text-ink-bright wrap-anywhere">
                     <Outcome confirmed={verdict === 'confirm'} />
                     {answerText(decision, selection)}
                   </p>
                   {verdict !== 'custom' && note !== '' && (
-                    <p className="my-1.5 border-l-2 border-line-bright pl-2.5 text-body whitespace-pre-wrap text-ink wrap-anywhere">
+                    <p className="my-2 border-l-2 border-line-bright pl-3 text-body whitespace-pre-wrap text-ink wrap-anywhere">
                       {note}
                     </p>
                   )}
-                  <p className="text-meta text-ink-faint">{checkEffect(verdict, decision.tasks)}</p>
+                  <p className="text-meta text-ink-dim">{checkEffect(verdict, decision.tasks)}</p>
                 </div>
                 <TextButton
-                  disabled={writing}
+                  disabled={busy}
                   aria-label={`Change your answer to ${decision.id}`}
                   onClick={() => onChange(index)}
                 >
@@ -90,26 +83,26 @@ export function CheckStep({
             );
           })}
         </ol>
-        <p className="mt-[18px] rounded-lg border border-line bg-well-850 px-3.5 py-3 text-body text-ink">
+        <p className="mt-5 rounded-lg border border-line bg-well-850 px-4 py-3 text-body text-ink">
           {sendLine(delivery)}
         </p>
-      </Scroll>
-      <Composer>
+      </WalkthroughBody>
+      <WalkthroughBar>
         {blank !== undefined && (
-          <p className="mb-2 text-meta text-ink-faint">
+          <p className="text-meta text-ink-dim">
             {`Write your own answer to "${blank.decision.question}", or pick another answer, before sending.`}
           </p>
         )}
-        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-end gap-2 md:grid-cols-[auto_minmax(0,1fr)_auto]">
-          <BackButton disabled={writing} onClick={onBack} />
-          <PrimaryButton
-            disabled={writing || offline || blank !== undefined || entries.length === 0}
-            onClick={(event) => onSend(event.currentTarget)}
+        <WalkthroughRow>
+          <WalkthroughBack onClick={onBack} />
+          <WalkthroughCommit
+            disabled={offline || blank !== undefined || entries.length === 0}
+            onCommit={onSend}
           >
             {sendLabel(entries.length)}
-          </PrimaryButton>
-        </div>
-      </Composer>
+          </WalkthroughCommit>
+        </WalkthroughRow>
+      </WalkthroughBar>
     </section>
   );
 }
