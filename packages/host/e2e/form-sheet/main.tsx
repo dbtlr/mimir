@@ -119,7 +119,7 @@ const DROP_EVENT = 'walkthrough-drop';
 function WalkthroughPage() {
   const [open, setOpen] = useState(true);
   const [step, setStep] = useState(0);
-  const [answer, setAnswer] = useState('keep');
+  const [answers, setAnswers] = useState(() => QUESTIONS.map(() => 'keep'));
   const [note, setNote] = useState('');
   const [dropped, setDropped] = useState(false);
   const [writes, setWrites] = useState(0);
@@ -160,7 +160,9 @@ function WalkthroughPage() {
                       <li key={question} className="flex items-start justify-between gap-3 py-4">
                         <div>
                           <p className="text-pretty">{question}</p>
-                          <p>Confirmed {ANSWERS.find(({ value }) => value === answer)?.label}</p>
+                          <p>
+                            Confirmed {ANSWERS.find(({ value }) => value === answers[index])?.label}
+                          </p>
                         </div>
                         <button type="button" onClick={() => setStep(index)}>
                           Change
@@ -195,8 +197,12 @@ function WalkthroughPage() {
                   <WalkthroughChoices
                     label={`Your answer to MMR-q${String(step + 1)}`}
                     choices={ANSWERS}
-                    value={answer}
-                    onChange={setAnswer}
+                    value={answers[step]}
+                    onChange={(value) =>
+                      setAnswers((current) =>
+                        current.map((answer, index) => (index === step ? value : answer)),
+                      )
+                    }
                   />
                 )}
               </WalkthroughBody>

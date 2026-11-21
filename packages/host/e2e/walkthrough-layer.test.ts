@@ -253,11 +253,15 @@ for (const viewport of VIEWPORTS) {
       await expect(page.locator('main')).toHaveAttribute('data-writes', '1');
     });
 
-    test('double-clicking Change opens the decision and keeps its answer', async ({ page }) => {
+    test('double-clicking Change opens the decision and keeps each answer', async ({ page }) => {
       await page.goto(`${harness.origin}?form=walkthrough`);
       await settled(page, viewport);
       const layer = page.getByRole('dialog');
+      const remove = layer.getByRole('radio', { name: 'Remove it on desktop' });
+      const custom = layer.getByRole('radio', { name: 'Something else' });
+      await remove.click();
       await layer.getByRole('button', { name: 'Confirm and continue' }).press('Enter');
+      await custom.click();
       await layer.getByRole('button', { name: 'Confirm and review' }).press('Enter');
 
       await layer.getByRole('button', { name: 'Change' }).nth(1).dblclick();
@@ -265,9 +269,11 @@ for (const viewport of VIEWPORTS) {
       await expect(
         layer.getByRole('heading', { name: 'Group the refused answers?' }),
       ).toBeVisible();
-      await expect(layer.getByRole('radio', { name: 'Keep the rail' })).toBeChecked({
-        timeout: 3000,
-      });
+      await expect(custom).toBeChecked({ timeout: 3000 });
+
+      await layer.getByRole('button', { name: 'Back' }).press('Enter');
+      await expect(layer.getByRole('heading', { name: QUESTION })).toBeVisible();
+      await expect(remove).toBeChecked({ timeout: 3000 });
     });
 
     test('double-clicking Back moves back one step', async ({ page }) => {
