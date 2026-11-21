@@ -26,6 +26,10 @@ To install a side copy, such as a second version to compare, add
 gives no PATH advice, and runs no post-install command. A side copy has no
 receipt, so it runs on the isolated development directories, not your board
 ([ADR 0031](../decisions/0031-installation-authority-and-disposable-development.md)).
+Give it a directory other than the installed binary's: the installer replaces
+the binary in `--dir` without updating its records, so the installed `mimir`
+then fails closed and refuses your board until you run the installer again
+without `--unmanaged`.
 
 The installer takes no environment variables. These variables of the earlier
 installer map to arguments:
