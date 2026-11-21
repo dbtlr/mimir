@@ -111,6 +111,9 @@ export function restingRoom(naturalEnd: number, rests: readonly number[]): numbe
 export type FocusedPlace = {
   /** The rest of the block (the field) that holds it, or a field gap above the control when none does. */
   rest: number;
+  /** The top of the field that holds it (its label), or the control's own top when no field holds it. */
+  fieldTop: number;
+  /** The control's edges, its outline included. */
   controlTop: number;
   controlBottom: number;
 };
@@ -122,29 +125,34 @@ export type BodyScroll = {
   maxScroll: number;
   /** The clearance a rest keeps above the footer: the body's bottom padding. */
   endClearance: number;
+  /**
+   * The clearance above the footer a control already in view needs to stay where it is: none
+   * for a focus that just moved, which stays wherever its field shows whole, and the end
+   * padding for a keyboard focus whose body resized under it.
+   */
+  holdClearance: number;
   /** Every rest, from `restsOf`. */
   rests: readonly number[];
 };
 
 /**
- * The scroll that brings a newly focused control fully into view, or `null`
- * when it already is (WCAG 2.4.11). It lands on a rest where one shows the
+ * The scroll that brings a newly focused control's field fully into view, or
+ * `null` when it already is (WCAG 2.4.11): its label and its control, outline
+ * and all, clear of the footer by `holdClearance`. A field taller than the body
+ * need only show its control. Otherwise it lands on a rest that shows the
  * whole field: its block a field gap below the header, the control clear of
  * the footer by the body's end padding. The rests are the top, each block's,
  * and the end, and the nearest to the current scroll wins. When no rest holds
- * the field, it scrolls the least that shows the control whole, and when even
- * the control is taller than the body, to its top.
+ * the field, it scrolls the least that shows it whole, and when even the
+ * control is taller than the body, to its top.
  */
 export function focusScroll(place: FocusedPlace, scroll: BodyScroll): number | null {
-  const { scrollTop, clientHeight, maxScroll, endClearance, rests } = scroll;
-  const { rest: own, controlTop, controlBottom } = place;
-  // In view, clear of the footer by the end padding when the control and that clearance fit:
-  // the browser's own focus scroll, which may run first, leaves a control flush with the footer.
-  const clearance = controlBottom - controlTop + endClearance <= clientHeight ? endClearance : 0;
-  if (
-    controlTop >= scrollTop - 0.5 &&
-    controlBottom + clearance <= scrollTop + clientHeight + 0.5
-  ) {
+  const { scrollTop, clientHeight, maxScroll, endClearance, holdClearance, rests } = scroll;
+  const { rest: own, fieldTop, controlTop, controlBottom } = place;
+  const top =
+    controlBottom - fieldTop <= clientHeight ? Math.min(fieldTop, controlTop) : controlTop;
+  const clearance = controlBottom - controlTop + holdClearance <= clientHeight ? holdClearance : 0;
+  if (top >= scrollTop - 0.5 && controlBottom + clearance <= scrollTop + clientHeight + 0.5) {
     return null;
   }
   const clamp = (value: number) => Math.min(Math.max(value, 0), maxScroll);
@@ -160,7 +168,7 @@ export function focusScroll(place: FocusedPlace, scroll: BodyScroll): number | n
   if (least > controlTop) {
     return clamp(controlTop);
   }
-  return clamp(Math.min(Math.max(scrollTop, least), controlTop));
+  return clamp(Math.min(Math.max(scrollTop, least), top));
 }
 
 /** How far a negative margin on an element pulls its edge in, in px. */
@@ -195,7 +203,7 @@ function measureRests(element: HTMLElement) {
     content.getBoundingClientRect().bottom - last.getBoundingClientRect().bottom > 1;
   const topPadding = Number.parseFloat(getComputedStyle(element).paddingTop);
   const rests = restsOf(extents, contentFollows, Number.isNaN(topPadding) ? 0 : topPadding);
-  return { blocks, origin, rests };
+  return { blocks, extents, origin, rests };
 }
 
 /**
@@ -266,12 +274,19 @@ function ringReach(element: Element): number {
 }
 
 /**
- * Brings the body's focused control into view, outline and all, when focus
- * sits on a body control. `keepClear` also keeps it the end padding clear of
- * the footer, as a keyboard focus rests; without it, the control need only
- * show whole (a pointer focus whose body shrank).
+ * How the body keeps its focused control in view: `moved` for a keyboard focus
+ * that just moved, which stays wherever its field shows whole and otherwise
+ * rests clear of the footer by the end padding; `clear` for a keyboard focus
+ * whose body resized, which also stays only that clear; `whole` for a pointer's
+ * focus whose body resized, whose control need only show whole.
  */
-function keepFocusInView(element: HTMLElement, room: number, keepClear: boolean) {
+type FocusKeep = 'moved' | 'clear' | 'whole';
+
+/**
+ * Brings the body's focused control into view, outline and all, when focus
+ * sits on a body control, as `keep` says.
+ */
+function keepFocusInView(element: HTMLElement, room: number, keep: FocusKeep) {
   const focused = element.ownerDocument.activeElement;
   if (
     !(focused instanceof HTMLElement) ||
@@ -281,21 +296,25 @@ function keepFocusInView(element: HTMLElement, room: number, keepClear: boolean)
   ) {
     return;
   }
-  const { blocks, origin, rests } = measureRests(element);
+  const { blocks, extents, origin, rests } = measureRests(element);
   const control = focused.getBoundingClientRect();
   const ring = ringReach(focused);
   const holder = blocks.findIndex((block) => block.contains(focused));
   const padding = Number.parseFloat(getComputedStyle(element).paddingBottom);
   const endClearance = Number.isNaN(padding) ? FIELD_GAP : padding - room;
+  const controlTop = control.top - ring - origin;
+  const field = keep === 'whole' ? undefined : extents[holder];
   const target = focusScroll(
     {
       controlBottom: control.bottom + ring - origin,
-      controlTop: control.top - ring - origin,
+      controlTop,
+      fieldTop: field?.top ?? controlTop,
       rest: rests[holder] ?? control.top - origin - FIELD_GAP,
     },
     {
       clientHeight: element.clientHeight,
-      endClearance: keepClear ? endClearance : 0,
+      endClearance: keep === 'whole' ? 0 : endClearance,
+      holdClearance: keep === 'clear' ? endClearance : 0,
       maxScroll: element.scrollHeight - element.clientHeight,
       rests,
       scrollTop: element.scrollTop,
@@ -310,8 +329,9 @@ function keepFocusInView(element: HTMLElement, room: number, keepClear: boolean)
  * The scrolling body. It keeps a resting scroll a field gap below the header
  * (DESIGN.md, Sheets): it grows its bottom padding when the natural end of its
  * scroll would cut a field under the header, and when the keyboard moves focus
- * to a control out of view, it scrolls to the nearest rest that shows it whole,
- * outline and all. A pointer's focus, and focus inside a popup a control opens,
+ * to a control whose field (label and control, outline and all) is not wholly
+ * in view, it scrolls to the nearest rest that shows it whole; a field already
+ * in view stays where it is. A pointer's focus, and focus inside a popup a control opens,
  * move nothing. It does not snap: a mandatory snap could rest the focused field
  * under a bar. It mounts
  * with the sheet's content, so it measures what is shown, and reports whether
@@ -362,7 +382,7 @@ function FormBody({
       }
       keyboardFocus = isKeyboardFocus(focused, lastInput);
       if (keyboardFocus) {
-        keepFocusInView(element, roomRef.current, true);
+        keepFocusInView(element, roomRef.current, 'moved');
       }
     };
     // The drawer reveals a newly focused control too, 16 from the body's edge and
@@ -416,7 +436,7 @@ function FormBody({
       }
       // A body that shrinks (a phone's keyboard) or a field that grows keeps focus in view:
       // clear of the footer for a keyboard focus, and only whole for a pointer's.
-      keepFocusInView(element, next, keyboardFocus);
+      keepFocusInView(element, next, keyboardFocus ? 'clear' : 'whole');
     };
     measure();
     const observer = new ResizeObserver(measure);

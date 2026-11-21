@@ -585,54 +585,105 @@ describe('resting scroll positions', () => {
 
 describe('focus scroll', () => {
   // A body 200 tall over 600 of content, at the top, with blocks resting at 8, 96, 216, and 336.
+  // A resize under a keyboard focus holds a control only when it clears the footer by the end.
   const scroll = {
     clientHeight: 200,
     endClearance: 32,
+    holdClearance: 32,
     maxScroll: 400,
     rests: [8, 96, 216, 336],
     scrollTop: 0,
   };
+  // A focus that just moved stays wherever its field shows whole.
+  const moved = { ...scroll, holdClearance: 0 };
 
   it('leaves a control in view and clear of the footer where it is', () => {
-    expect(focusScroll({ controlBottom: 100, controlTop: 56, rest: 8 }, scroll)).toBeNull();
+    expect(
+      focusScroll({ controlBottom: 100, controlTop: 56, fieldTop: 32, rest: 8 }, scroll),
+    ).toBeNull();
+  });
+
+  it('leaves a field that just took focus where it is when it shows whole, near the footer or not', () => {
+    // The field at 120–192, label and control, ends 8 above the footer: nothing is cut.
+    expect(
+      focusScroll({ controlBottom: 192, controlTop: 148, fieldTop: 120, rest: 96 }, moved),
+    ).toBeNull();
+  });
+
+  it('moves a field whose label sits under the header, its control in view, to its rest', () => {
+    // Scrolled 40, Title's control at 52–96 shows whole, but its label at 24 sits under the header.
+    const under = { ...moved, rests: [0, 96], scrollTop: 40 };
+    expect(focusScroll({ controlBottom: 96, controlTop: 52, fieldTop: 24, rest: 0 }, under)).toBe(
+      0,
+    );
   });
 
   it('moves a control below the fold to the nearest rest that shows its field whole', () => {
     // The field resting at 216 holds a control at 268–312: 216 shows it 32 clear of the footer.
-    expect(focusScroll({ controlBottom: 312, controlTop: 268, rest: 216 }, scroll)).toBe(216);
+    expect(
+      focusScroll({ controlBottom: 312, controlTop: 268, fieldTop: 240, rest: 216 }, scroll),
+    ).toBe(216);
   });
 
   it('moves a control above the fold back down to its own rest', () => {
     const above = { ...scroll, scrollTop: 336 };
-    expect(focusScroll({ controlBottom: 192, controlTop: 148, rest: 96 }, above)).toBe(96);
+    expect(
+      focusScroll({ controlBottom: 192, controlTop: 148, fieldTop: 120, rest: 96 }, above),
+    ).toBe(96);
   });
 
-  it('does not count a control flush with the footer as at rest', () => {
-    // The browser's own focus scroll can run first and leave the control's bottom on the footer.
+  it('does not hold a control flush with the footer after a resize', () => {
+    // A phone's keyboard shrinks the body until the control's bottom sits on the footer.
     const flush = { ...scroll, scrollTop: 112 };
-    expect(focusScroll({ controlBottom: 312, controlTop: 268, rest: 216 }, flush)).toBe(216);
+    expect(
+      focusScroll({ controlBottom: 312, controlTop: 268, fieldTop: 240, rest: 216 }, flush),
+    ).toBe(216);
+  });
+
+  it('does not count a control whose outline the footer cuts as in view', () => {
+    // The browser's own focus scroll leaves the control's box flush with the footer, its outline past it.
+    const flush = { ...moved, scrollTop: 112 };
+    expect(
+      focusScroll({ controlBottom: 313, controlTop: 267, fieldTop: 240, rest: 216 }, flush),
+    ).toBe(216);
   });
 
   it('of several rests that show the field whole, lands on the one nearest the current scroll', () => {
     // A body 400 tall scrolled to 200, past a control at 150–194: the rests at 0, 40, 80, and
     // 120 all show its field whole, and 120 is the nearest; the lowest and the farthest is 0.
     const tall = { ...scroll, clientHeight: 400, rests: [0, 40, 80, 120], scrollTop: 200 };
-    expect(focusScroll({ controlBottom: 194, controlTop: 150, rest: 120 }, tall)).toBe(120);
+    expect(
+      focusScroll({ controlBottom: 194, controlTop: 150, fieldTop: 144, rest: 120 }, tall),
+    ).toBe(120);
   });
 
   it('lands on the end when that is the only rest that shows a control past the last block', () => {
     // Archive, after Lifecycle's explanation: no block holds it, and only the end shows it whole.
-    expect(focusScroll({ controlBottom: 568, controlTop: 524, rest: 500 }, scroll)).toBe(400);
+    expect(
+      focusScroll({ controlBottom: 568, controlTop: 524, fieldTop: 524, rest: 500 }, scroll),
+    ).toBe(400);
   });
 
   it('scrolls the least that shows the control whole when no rest does', () => {
     const short = { ...scroll, clientHeight: 80, rests: [8, 300] };
     // The field rests at 200, but there the control at 230–290 ends past an 80 tall body.
-    expect(focusScroll({ controlBottom: 290, controlTop: 230, rest: 200 }, short)).toBe(210);
+    expect(
+      focusScroll({ controlBottom: 290, controlTop: 230, fieldTop: 224, rest: 200 }, short),
+    ).toBe(210);
+  });
+
+  it('scrolls the least that shows the whole field when no rest does, label included', () => {
+    // A body 100 tall at 300: the field at 224–290 fits, but no rest keeps the end padding too.
+    const short = { ...moved, clientHeight: 100, rests: [8, 300], scrollTop: 300 };
+    expect(
+      focusScroll({ controlBottom: 290, controlTop: 230, fieldTop: 224, rest: 200 }, short),
+    ).toBe(224);
   });
 
   it('scrolls to the top of a control taller than the body', () => {
     const short = { ...scroll, clientHeight: 80, rests: [] };
-    expect(focusScroll({ controlBottom: 400, controlTop: 250, rest: 226 }, short)).toBe(250);
+    expect(
+      focusScroll({ controlBottom: 400, controlTop: 250, fieldTop: 250, rest: 226 }, short),
+    ).toBe(250);
   });
 });

@@ -365,3 +365,57 @@ test('a focused field stays whole when the viewport shortens under it, as a phon
   expect(at.bottom).toBeGreaterThanOrEqual(0);
   await context.close();
 });
+
+// oxlint-disable-next-line vitest/prefer-each -- Playwright has no `each`; this is its pattern
+for (const height of [365, 375]) {
+  test(`focus back on a phone’s Model, already whole in view, moves nothing, at 390x${String(height)}`, async ({
+    browser,
+  }) => {
+    const { context, page } = await openAsShown(browser, 't3', { height, width: 390 });
+    const model = page.getByRole('combobox', { name: 'Model' });
+    await model.tap();
+    await page.waitForTimeout(600);
+    await expect(page.getByRole('option', { name: 'Claude Opus' })).toBeVisible();
+    const scrolls = [await bodyScroll(page)];
+    for (let step = 0; step < 3; step += 1) {
+      await page.keyboard.press('ArrowDown');
+      scrolls.push(await bodyScroll(page));
+    }
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(600);
+    await expect(model).toBeFocused();
+    scrolls.push(await bodyScroll(page));
+    expect(scrolls).toEqual([0, 0, 0, 0, 0]);
+    await context.close();
+  });
+}
+
+// oxlint-disable-next-line vitest/prefer-each -- Playwright has no `each`; this is its pattern
+for (const { width, height, padding } of [
+  { height: 480, padding: 24, width: 390 },
+  { height: 520, padding: 32, width: 1280 },
+]) {
+  test(`Shift+Tab onto Title with its label scrolled under the header rests the whole field, at ${String(width)} wide`, async ({
+    browser,
+  }) => {
+    const { context, page } = await openAsShown(browser, 'project', { height, width });
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('textbox', { name: 'Description' })).toBeFocused();
+    // Description shows whole at this height, so the Tab moves nothing.
+    expect(await bodyScroll(page)).toBe(0);
+    const body = page.locator('[data-slot=form-sheet-body]');
+    const box = await body.boundingBox();
+    if (box === null) {
+      throw new Error('the body has no box');
+    }
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.wheel(0, 40);
+    // Title's control still shows whole at 40; only its label sits under the header.
+    await expect.poll(() => bodyScroll(page)).toBe(40);
+    await page.keyboard.press('Shift+Tab');
+    await expect(page.getByRole('textbox', { name: 'Title' })).toBeFocused();
+    const at = await clearance(page);
+    expect(at.firstBlock).toBe(padding);
+    await context.close();
+  });
+}
