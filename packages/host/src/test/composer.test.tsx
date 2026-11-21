@@ -65,7 +65,12 @@ describe('Composer', () => {
   it('leaves focus alone after a resolved commit when the commit later disables and enables', async () => {
     const call = deferred();
     const onCommit = vi.fn(() => call.promise);
-    const props = { commitLabel: 'Append', commitName: 'Append note', label: 'Add a note', onCommit };
+    const props = {
+      commitLabel: 'Append',
+      commitName: 'Append note',
+      label: 'Add a note',
+      onCommit,
+    };
     const { box, commit, rerender } = renderComposer(props);
     await userEvent.type(box, 'found a bug');
     pressAndDropFocus(commit);

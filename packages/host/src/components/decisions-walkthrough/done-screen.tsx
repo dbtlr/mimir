@@ -7,11 +7,10 @@ import { deliveryLink } from '../../lib/record-url';
 import { markState, useOpenerMark } from '../../lib/walkthrough-mark';
 import { WalkthroughBody, WalkthroughHeading } from '../patterns/walkthrough';
 import { decisionCount, reviewSetLabel } from './copy';
-import { CheckGlyph } from './icons';
 import { setOfDecision } from './model';
 import type { WalkDecision, WalkScope } from './model';
 import { PageLink } from './page-link';
-import { MetaLine, Outcome } from './parts';
+import { Outcome } from './parts';
 
 /** An answer's result as the Send answered it; the record carries the tasks sent back. */
 export type SendResult = DecisionAnswerResult<{ tasks: string[] }>;
@@ -102,12 +101,6 @@ export function DoneScreen({
   return (
     <section aria-label="Result" className="flex min-h-0 flex-1 flex-col">
       <WalkthroughBody>
-        <MetaLine>
-          <span className="flex items-center gap-1.5 font-semibold text-status-done-foreground">
-            <CheckGlyph />
-            Done
-          </span>
-        </MetaLine>
         <WalkthroughHeading className="mb-3">
           {scope.kind === 'delivery' ? 'Answers sent' : 'Answers recorded'}
         </WalkthroughHeading>
@@ -130,14 +123,14 @@ export function DoneScreen({
         )}
         {notRecorded.length > 0 && (
           <div className="mt-3">
-            <p className="mb-1 text-meta font-semibold text-status-blocked-foreground">
+            <p className="mb-1 text-meta leading-5 font-semibold text-status-blocked-foreground">
               Not recorded
             </p>
             <ul aria-label="Not recorded" className="flex flex-col gap-2 text-body">
               {notRecorded.map((r) => (
                 <li key={r.id} className="wrap-anywhere">
                   <span className="text-ink-bright">{question(r.id)}</span>
-                  <span className="block text-meta text-ink-dim">
+                  <span className="block text-meta leading-5 text-ink-dim">
                     {r.outcome === 'refused'
                       ? r.reason
                       : 'This answer failed and was not recorded.'}

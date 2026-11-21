@@ -2,6 +2,7 @@ import { ago } from '../../lib/time';
 import {
   WalkthroughBack,
   WalkthroughBar,
+  WalkthroughBarLine,
   WalkthroughBody,
   WalkthroughChoices,
   WalkthroughCommit,
@@ -80,7 +81,15 @@ function Answers({
         value: String(number),
       };
     }),
-    { label: <span className="text-ink-dim">Something else</span>, value: CUSTOM },
+    {
+      // Dim until chosen, then ink-bright as every chosen answer is.
+      label: (
+        <span className={selection.choice === 'custom' ? 'text-ink-bright' : 'text-ink-dim'}>
+          Something else
+        </span>
+      ),
+      value: CUSTOM,
+    },
   ];
   return (
     <>
@@ -117,7 +126,7 @@ function BuiltOn({
   }
   return (
     <div className="mt-6">
-      <p className="mb-1 text-meta font-semibold text-ink-dim">Built on this answer</p>
+      <p className="mb-1 text-meta leading-5 font-semibold text-ink-dim">Built on this answer</p>
       <ul className="flex flex-col">
         {tasks.map((id) => (
           <li key={id} className="flex items-baseline gap-2 py-1 text-body">
@@ -189,7 +198,7 @@ export function Step({
           <span className="font-mono">{decision.id}</span>
         </MetaLine>
         <WalkthroughHeading className="mb-3">{decision.question}</WalkthroughHeading>
-        <p className="mb-2 text-body text-ink">
+        <p className="text-ink">
           It took <strong className="font-semibold text-ink-bright">{taken}</strong> and kept
           building.
           {recommended !== undefined && decision.recommended !== decision.taken && (
@@ -201,12 +210,12 @@ export function Step({
           )}
         </p>
         {decision.why !== null && decision.why !== '' && (
-          <p className="mb-5 max-w-[62ch] text-body text-ink-dim">{decision.why}</p>
+          <p className="mt-2 max-w-[62ch] text-ink-dim">{decision.why}</p>
         )}
         {gone ? (
           <p
             role="status"
-            className="mt-3 rounded-lg border border-line bg-well-850 p-3 text-body text-ink-dim"
+            className="mt-5 rounded-lg border border-line bg-well-850 p-3 text-ink-dim"
           >
             This decision no longer waits on you
           </p>
@@ -216,18 +225,21 @@ export function Step({
         <BuiltOn tasks={decision.tasks} titles={titles} />
       </WalkthroughBody>
       <WalkthroughBar>
-        {!gone && <p className="text-meta text-ink-dim">{effectLine(verdict, decision.tasks)}</p>}
-        <WalkthroughRow>
-          <WalkthroughBack disabled={first} onClick={onBack} />
-          {!gone && !custom && (
-            <WalkthroughNote
-              label="Add a note for the agent (optional)"
-              placeholder="Add a note for the agent (optional)"
-              value={selection.note}
-              onChange={(note) => onChange({ note })}
-              className="max-md:order-first max-md:col-span-2"
-            />
-          )}
+        {!gone && <WalkthroughBarLine>{effectLine(verdict, decision.tasks)}</WalkthroughBarLine>}
+        <WalkthroughRow
+          back={<WalkthroughBack disabled={first} onClick={onBack} />}
+          note={
+            !gone &&
+            !custom && (
+              <WalkthroughNote
+                label="Add a note for the agent (optional)"
+                placeholder="Add a note for the agent (optional)"
+                value={selection.note}
+                onChange={(note) => onChange({ note })}
+              />
+            )
+          }
+        >
           {commits ? (
             <WalkthroughCommit
               // While it writes, the button is named by its pending label alone.

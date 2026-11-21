@@ -713,7 +713,9 @@ describe('sidebar breakpoint', () => {
       return el as HTMLElement;
     });
     // A phone is below `md` (DESIGN.md), where the Notice moves to the top.
-    expect(region).toHaveClass('max-md:top-[calc(var(--top-bar-height,0px)+0.5rem)]');
+    expect(region).toHaveClass(
+      'max-md:top-[calc(var(--layer-top-bar-height,var(--top-bar-height,0px))+0.5rem)]',
+    );
     expect(region).not.toHaveClass('max-md:top-4');
     const shell = region.closest<HTMLElement>('[style*="--top-bar-height"]');
     expect(shell?.style.getPropertyValue('--top-bar-height')).toBe('57px');

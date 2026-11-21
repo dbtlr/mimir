@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import {
   Walkthrough,
@@ -13,7 +13,9 @@ import {
   WalkthroughHeading,
   WalkthroughNext,
   WalkthroughNote,
+  WalkthroughRow,
 } from '../components/patterns/walkthrough';
+import { DRAWER_DESKTOP_QUERY } from '../components/ui/drawer';
 import { pressAndDropFocus } from './press-and-drop-focus';
 
 const noop = () => undefined;
@@ -241,5 +243,98 @@ describe('WalkthroughNote', () => {
     expect(note).toHaveAttribute('rows', '1');
     await userEvent.type(note, 'Agreed');
     expect(note).toHaveValue('Agreed');
+  });
+});
+
+/** A matchMedia whose desktop query matches or not, as the viewport is at least `md` or not. */
+function stubViewport(desktop: boolean) {
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    addEventListener: noop,
+    matches: desktop && query === DRAWER_DESKTOP_QUERY,
+    media: query,
+    removeEventListener: noop,
+  }));
+}
+
+/** One screen whose bar holds Back, a note, and the commit, in a WalkthroughRow. */
+function RowHarness() {
+  const [note, setNote] = useState('');
+  return (
+    <Walkthrough title="Row" closeLabel="Close" onClose={noop} screen="one">
+      <WalkthroughBody>
+        <WalkthroughHeading>Question?</WalkthroughHeading>
+      </WalkthroughBody>
+      <WalkthroughBar>
+        <WalkthroughRow
+          back={<WalkthroughBack />}
+          note={<WalkthroughNote label="Add a note" value={note} onChange={setNote} />}
+        >
+          <WalkthroughNext>Continue</WalkthroughNext>
+        </WalkthroughRow>
+      </WalkthroughBar>
+    </Walkthrough>
+  );
+}
+
+/** The bar's controls, in DOM order, by name. */
+function barOrder(layer: HTMLElement): string[] {
+  const bar = layer.querySelector('footer')!;
+  return [...bar.querySelectorAll('button, textarea')].map(
+    (control) => control.getAttribute('aria-label') ?? control.textContent ?? '',
+  );
+}
+
+describe('WalkthroughRow', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('on a phone, puts the note in a row of its own before Back and the commit, in the DOM', async () => {
+    stubViewport(false);
+    render(<RowHarness />);
+    const layer = await screen.findByRole('dialog');
+    expect(barOrder(layer)).toStrictEqual(['Add a note', 'Back', 'Continue']);
+    const note = within(layer).getByRole('textbox', { name: 'Add a note' });
+    const back = within(layer).getByRole('button', { name: 'Back' });
+    expect(note.parentElement).not.toBe(back.parentElement);
+    // No CSS `order` puts it there: no class sets one.
+    const ordered = [...layer.querySelectorAll('*')].filter((el) =>
+      [...el.classList].some((name) => /(^|:)order-/.test(name)),
+    );
+    expect(ordered).toStrictEqual([]);
+  });
+
+  it('from md up, keeps Back, the note, and the commit in one row, in that order', async () => {
+    stubViewport(true);
+    render(<RowHarness />);
+    const layer = await screen.findByRole('dialog');
+    expect(barOrder(layer)).toStrictEqual(['Back', 'Add a note', 'Continue']);
+    const note = within(layer).getByRole('textbox', { name: 'Add a note' });
+    const back = within(layer).getByRole('button', { name: 'Back' });
+    expect(note.parentElement).toBe(back.parentElement);
+  });
+});
+
+describe('Walkthrough header', () => {
+  it('sets the layer top bar height on the root while open, for the phone Notice, and clears it on close', async () => {
+    const measured = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect');
+    measured.mockImplementation(function headerRect(this: HTMLElement) {
+      return this.tagName === 'HEADER' ? new DOMRect(0, 0, 390, 69) : new DOMRect();
+    });
+    onTestFinished(() => {
+      measured.mockRestore();
+    });
+    const root = document.documentElement;
+    const { unmount } = render(<Harness />);
+    await screen.findByRole('dialog');
+    expect(root.style.getPropertyValue('--layer-top-bar-height')).toBe('69px');
+    unmount();
+    expect(root.style.getPropertyValue('--layer-top-bar-height')).toBe('');
+  });
+
+  it('keeps the progress for a screen reader on a phone, where the segmented bar shows it', async () => {
+    render(<Harness />);
+    const layer = await screen.findByRole('dialog');
+    expect(within(layer).getByText('1 of 2')).toHaveClass('max-md:sr-only');
   });
 });

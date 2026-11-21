@@ -22,13 +22,17 @@ export function Outcome({ confirmed }: { confirmed: boolean }) {
   );
 }
 
-/** A quiet text button, as the check step's Change. */
+/**
+ * A quiet text button, as the check step's Change. Its 23px line sits on the
+ * first line of the prose beside it; on a phone a pseudo-element stretches its
+ * tap area to 44 tall without moving the text off that line.
+ */
 export function TextButton({ className, ...props }: ComponentProps<'button'>) {
   return (
     <button
       type="button"
       className={cn(
-        'rounded-sm text-meta font-semibold text-accent-foreground underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40 max-md:min-h-11',
+        'relative rounded-sm text-meta leading-[23px] font-semibold text-accent-foreground underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40 max-md:after:absolute max-md:after:-inset-x-2 max-md:after:-inset-y-[10.5px]',
         className,
       )}
       {...props}
@@ -36,10 +40,10 @@ export function TextButton({ className, ...props }: ComponentProps<'button'>) {
   );
 }
 
-/** The small line over a screen: its mark and kind, in the meta voice. */
+/** The small line over a decision's step: the agent's mark, the kind, age, and id, in the meta voice. */
 export function MetaLine({ children }: { children: ReactNode }) {
   return (
-    <p className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-ink-dim">
+    <p className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta leading-5 text-ink-dim">
       {children}
     </p>
   );

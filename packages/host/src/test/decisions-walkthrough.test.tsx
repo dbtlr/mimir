@@ -1010,3 +1010,25 @@ test('a decision with no details renders no description', async () => {
     expect(radio).not.toHaveAttribute('aria-describedby');
   }
 });
+
+test('only a decision step carries the meta line: the check step and the done screen have none', async () => {
+  const { layer } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  expect(layer).toHaveTextContent('Agent');
+  await toCheck(layer);
+  expect(layer).not.toHaveTextContent('Before you send');
+  fireEvent.click(button(layer, 'Send 3 answers'));
+  const done = await heading(layer, 'Answers sent');
+  expect(done.previousElementSibling).toBeNull();
+  expect(layer).not.toHaveTextContent('Done');
+});
+
+test('a chosen Something else reads ink-bright, as every chosen answer does', async () => {
+  const { layer } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  const label = within(layer).getByText('Something else');
+  expect(label).toHaveClass('text-ink-dim');
+  pick(layer, 'Something else');
+  expect(within(layer).getByText('Something else')).toHaveClass('text-ink-bright');
+  expect(within(layer).getByText('Something else')).not.toHaveClass('text-ink-dim');
+});

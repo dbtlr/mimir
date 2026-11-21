@@ -1,6 +1,7 @@
 import {
   WalkthroughBack,
   WalkthroughBar,
+  WalkthroughBarLine,
   WalkthroughBody,
   WalkthroughCommit,
   WalkthroughHeading,
@@ -8,10 +9,10 @@ import {
   useWalkthroughBusy,
 } from '../patterns/walkthrough';
 import { SENDING, checkEffect, sendLabel, sendLine } from './copy';
-import { CheckGlyph, SendGlyph } from './icons';
+import { CheckGlyph } from './icons';
 import { answerText, isBlankCustom, noteOf, verdictOf } from './model';
 import type { Selection, WalkDecision } from './model';
-import { MetaLine, Outcome, TextButton } from './parts';
+import { Outcome, TextButton } from './parts';
 
 /** One decision to check: its place in the set, and what the operator chose for it. */
 export type CheckEntry = { index: number; decision: WalkDecision; selection: Selection };
@@ -43,12 +44,6 @@ export function CheckStep({
   return (
     <section aria-label="Check your answers" className="flex min-h-0 flex-1 flex-col">
       <WalkthroughBody>
-        <MetaLine>
-          <span className="flex items-center gap-1.5 font-semibold text-attention-foreground">
-            <SendGlyph />
-            Before you send
-          </span>
-        </MetaLine>
         <WalkthroughHeading className="mb-3">Check your answers</WalkthroughHeading>
         <ol className="mt-2 border-t border-line">
           {entries.map(({ index, decision, selection }) => {
@@ -60,17 +55,19 @@ export function CheckStep({
                   <CheckGlyph size={13} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-body text-ink-dim wrap-anywhere">{decision.question}</p>
-                  <p className="my-1 text-[15px] leading-[22px] font-medium text-ink-bright wrap-anywhere">
+                  <p className="text-pretty text-ink-dim wrap-anywhere">{decision.question}</p>
+                  <p className="my-1 text-[15px] leading-[22px] font-medium text-pretty text-ink-bright wrap-anywhere">
                     <Outcome confirmed={verdict === 'confirm'} />
                     {answerText(decision, selection)}
                   </p>
                   {verdict !== 'custom' && note !== '' && (
-                    <p className="my-2 border-l-2 border-line-bright pl-3 text-body whitespace-pre-wrap text-ink wrap-anywhere">
+                    <p className="my-2 border-l-2 border-line-bright pl-3 text-pretty whitespace-pre-wrap text-ink wrap-anywhere">
                       {note}
                     </p>
                   )}
-                  <p className="text-meta text-ink-dim">{checkEffect(verdict, decision.tasks)}</p>
+                  <p className="text-meta leading-5 text-pretty text-ink-dim">
+                    {checkEffect(verdict, decision.tasks)}
+                  </p>
                 </div>
                 <TextButton
                   disabled={busy}
@@ -83,18 +80,17 @@ export function CheckStep({
             );
           })}
         </ol>
-        <p className="mt-5 rounded-lg border border-line bg-well-850 px-4 py-3 text-body text-ink">
+        <p className="mt-5 rounded-lg border border-line bg-well-850 px-4 py-3 text-pretty text-ink">
           {sendLine(delivery)}
         </p>
       </WalkthroughBody>
       <WalkthroughBar>
         {blank !== undefined && (
-          <p className="text-meta text-ink-dim">
+          <WalkthroughBarLine>
             {`Write your own answer to "${blank.decision.question}", or pick another answer, before sending.`}
-          </p>
+          </WalkthroughBarLine>
         )}
-        <WalkthroughRow>
-          <WalkthroughBack onClick={onBack} />
+        <WalkthroughRow back={<WalkthroughBack onClick={onBack} />}>
           <WalkthroughCommit
             disabled={offline || blank !== undefined || entries.length === 0}
             onCommit={onSend}

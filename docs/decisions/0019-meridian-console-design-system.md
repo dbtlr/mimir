@@ -880,13 +880,20 @@ agent's briefing. The chips stay as MMR-695 defines them.
   walkthrough.
 - Its header shows the delivery's title and id, or "Decisions without a
   delivery" and the project key, then the progress as "N of M", or "Check
-  and send" on the check step. Close is an icon button named "Close the
+  and send" on the check step. On a phone the segmented bar under the header
+  shows the progress instead, and the progress text is left to a screen
+  reader, so the title has the header's width. Close is an icon button named "Close the
   walkthrough". Close leaves the mode and shows the page; the browser's
   Back returns to the history entry before the walkthrough, which is the page when
   the walkthrough opened from it. Both keep the answers chosen so far
   (_Drafts_) and ask nothing. Leaving while _Send_ is writing does not stop
   the write; the next opening shows what landed.
-- The offline notice shows at the top of the layer, and toasts show above it.
+- The offline notice shows at the top of the layer, and toasts show above it;
+  on a phone a toast sits 8 below the layer's header, as it sits below the
+  console's top bar.
+- When what held focus leaves the screen, as when a refresh drops the
+  decision being answered, focus moves to the screen's heading, never out of
+  the layer.
 - The layer uses the console's tokens, so both themes apply.
 
 ### A step
@@ -960,7 +967,10 @@ the browser lacks `field-sizing`.
   directly and reads "Confirm and send", "Overturn and send", or "Send my
   answer".
 - Nothing is written before _Send_. A write in flight disables _Send_, Back,
-  _Change_, and Close. Offline disables _Send_ and the one-decision commit;
+  _Change_, and Close, and _Send_ (or the one-decision commit) reads
+  "Sending…" until it settles. The second click of a double click never
+  counts on a step's button or on _Send_, since it lands on the next
+  screen's button before that screen is read. Offline disables _Send_ and the one-decision commit;
   moving between steps still works.
 
 ### After Send

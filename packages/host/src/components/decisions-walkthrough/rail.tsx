@@ -86,11 +86,13 @@ export function Rail({
                   {mark(answered, current)}
                 </span>
                 <span className="flex min-w-0 flex-col gap-1">
-                  <span className={cn('text-meta wrap-anywhere', tone(current, reachable))}>
+                  <span
+                    className={cn('text-meta leading-5 wrap-anywhere', tone(current, reachable))}
+                  >
                     {decision.question}
                   </span>
                   {answered && (
-                    <span className="text-meta text-ink-bright wrap-anywhere">
+                    <span className="text-meta leading-5 text-ink-bright wrap-anywhere">
                       {gone ? (
                         'No longer waits on you'
                       ) : (
@@ -124,7 +126,9 @@ export function Rail({
               >
                 <SendGlyph size={12} />
               </span>
-              <span className={cn('text-meta', tone(step === entries.length, checkReady))}>
+              <span
+                className={cn('text-meta leading-5', tone(step === entries.length, checkReady))}
+              >
                 Check and send
               </span>
             </button>

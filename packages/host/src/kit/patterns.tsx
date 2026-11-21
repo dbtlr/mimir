@@ -19,6 +19,7 @@ import {
   Walkthrough,
   WalkthroughBack,
   WalkthroughBar,
+  WalkthroughBarLine,
   WalkthroughBody,
   WalkthroughChoices,
   WalkthroughCommit,
@@ -354,16 +355,18 @@ function KitWalkthrough({ onClose }: { onClose: () => void }) {
         />
       </WalkthroughBody>
       <WalkthroughBar>
-        <p className="text-meta text-ink-dim">Confirming changes nothing.</p>
-        <WalkthroughRow>
-          <WalkthroughBack disabled={step === 0} onClick={() => setStep(step - 1)} />
-          <WalkthroughNote
-            label="Add a note for the agent (optional)"
-            placeholder="Add a note for the agent (optional)"
-            value={note}
-            onChange={setNote}
-            className="max-md:order-first max-md:col-span-2"
-          />
+        <WalkthroughBarLine>Confirming changes nothing.</WalkthroughBarLine>
+        <WalkthroughRow
+          back={<WalkthroughBack disabled={step === 0} onClick={() => setStep(step - 1)} />}
+          note={
+            <WalkthroughNote
+              label="Add a note for the agent (optional)"
+              placeholder="Add a note for the agent (optional)"
+              value={note}
+              onChange={setNote}
+            />
+          }
+        >
           {last ? (
             <WalkthroughCommit
               onCommit={async () => {
