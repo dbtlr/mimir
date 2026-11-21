@@ -331,7 +331,9 @@ function KitWalkthrough({ onClose }: { onClose: () => void }) {
     <Walkthrough
       title={
         <>
-          <span className="min-w-0 truncate max-md:line-clamp-2 max-md:whitespace-normal">Deliver the console</span>{' '}
+          <span className="min-w-0 truncate max-md:line-clamp-2 max-md:whitespace-normal">
+            Deliver the console
+          </span>{' '}
           <span className="shrink-0 font-mono text-meta font-normal whitespace-nowrap text-ink-dim">
             MMR-d3
           </span>

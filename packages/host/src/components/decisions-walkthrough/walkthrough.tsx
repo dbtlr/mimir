@@ -198,7 +198,9 @@ export function DecisionsWalkthrough({
   const heading =
     scope.kind === 'delivery' ? (
       <>
-        <span className="min-w-0 truncate max-md:line-clamp-2 max-md:whitespace-normal">{scope.title}</span>{' '}
+        <span className="min-w-0 truncate max-md:line-clamp-2 max-md:whitespace-normal">
+          {scope.title}
+        </span>{' '}
         <span className="shrink-0 font-mono text-meta font-normal whitespace-nowrap text-ink-dim">
           {scope.id}
         </span>
