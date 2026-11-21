@@ -34,6 +34,7 @@ type HarnessProps = {
   onClose?: () => void;
   pending?: boolean;
   commitDisabled?: boolean;
+  showNote?: boolean;
 };
 
 /** Two steps of one question each, then a commit on the last. */
@@ -42,6 +43,7 @@ function Harness({
   onClose = noop,
   pending = false,
   commitDisabled = false,
+  showNote = true,
 }: HarnessProps) {
   const [step, setStep] = useState(0);
   const [choice, setChoice] = useState('keep');
@@ -69,7 +71,7 @@ function Harness({
         />
       </WalkthroughBody>
       <WalkthroughBar>
-        <WalkthroughNote label="Add a note" value={note} onChange={setNote} />
+        {showNote && <WalkthroughNote label="Add a note" value={note} onChange={setNote} />}
         <WalkthroughBack disabled={step === 0} onClick={() => setStep(0)} />
         {step === 0 ? (
           <WalkthroughNext onClick={() => setStep(1)}>Continue</WalkthroughNext>
@@ -171,6 +173,31 @@ describe('Walkthrough', () => {
     pressAndDropFocus(send);
     await waitFor(() => expect(send).toHaveFocus());
     expect(onCommit).toHaveBeenCalledOnce();
+  });
+
+  it('returns focus to the refused commit when the layer changes during the write', async () => {
+    const call = deferred();
+    const onCommit = () => call.promise;
+    const { rerender } = render(<Harness onCommit={onCommit} />);
+    const layer = await toLastStep();
+    const send = within(layer).getByRole('button', { name: 'Send' });
+    await userEvent.click(send);
+    expect(send).toBeDisabled();
+    const note = within(layer).getByRole('textbox', { name: 'Add a note' });
+    note.focus();
+    expect(note).toHaveFocus();
+
+    await act(async () => {
+      rerender(<Harness onCommit={onCommit} showNote={false} />);
+    });
+    expect(note).not.toBeInTheDocument();
+
+    await act(async () => {
+      call.reject(new Error('refused'));
+      await call.promise.catch(noop);
+    });
+    expect(send).toBeEnabled();
+    expect(send).toHaveFocus();
   });
 
   it('holds a disabled commit, as offline, and runs nothing', async () => {
