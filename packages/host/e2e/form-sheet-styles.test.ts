@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 import { serveHarness } from './form-sheet/serve';
 import type { Harness } from './form-sheet/serve';
@@ -32,27 +32,19 @@ async function openForm(page: Page, form: string) {
   await page.waitForTimeout(400);
 }
 
-/** Tabs until `name` has focus, then reads the outline and edge it draws. */
-async function ringOn(page: Page, name: RegExp) {
-  for (let step = 0; step < 12; step += 1) {
-    const focused = await page.evaluate(() => {
-      const element = document.activeElement;
-      return element instanceof HTMLElement
-        ? (element.getAttribute('aria-label') ?? element.textContent ?? '')
-        : '';
-    });
-    if (name.test(focused)) {
-      break;
-    }
+/** Tabs until the requested control has focus, then reads its outline and edge. */
+async function ringOn(page: Page, control: Locator) {
+  for (
+    let step = 0;
+    step < 12 && !(await control.evaluate((element) => element === document.activeElement));
+    step += 1
+  ) {
     await page.keyboard.press('Tab');
   }
   // The edge eases to accent (`transition-colors`); read it once it lands.
   await page.waitForTimeout(TRANSITION);
-  return page.evaluate(() => {
-    const element = document.activeElement;
-    if (!(element instanceof HTMLElement)) {
-      return null;
-    }
+  await expect(control).toBeFocused();
+  return control.evaluate((element) => {
     const style = getComputedStyle(element);
     return {
       border: style.borderTopColor,
@@ -64,6 +56,18 @@ async function ringOn(page: Page, name: RegExp) {
   });
 }
 
+/** Resolve the theme's accent through Chromium's computed color serialization. */
+function accentColor(page: Page) {
+  return page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.style.color = 'var(--color-accent)';
+    document.body.append(probe);
+    const color = getComputedStyle(probe).color;
+    probe.remove();
+    return color;
+  });
+}
+
 test('a field’s focus ring is its accent edge joined by a 1px solid outline', async ({
   browser,
 }) => {
@@ -72,23 +76,15 @@ test('a field’s focus ring is its accent edge joined by a 1px solid outline', 
   await openForm(page, 'project');
   await page.keyboard.press('Shift+Tab');
   await page.keyboard.press('Tab');
-  await page.waitForTimeout(TRANSITION);
-  const ring = await page.evaluate(() => {
-    const element = document.activeElement;
-    if (!(element instanceof HTMLInputElement)) {
-      return null;
-    }
-    const style = getComputedStyle(element);
-    return {
-      border: style.borderTopColor,
-      color: style.outlineColor,
-      offset: style.outlineOffset,
-      style: style.outlineStyle,
-      width: style.outlineWidth,
-    };
+  const ring = await ringOn(page, page.getByRole('textbox', { name: 'Title' }));
+  const accent = await accentColor(page);
+  expect(ring).toMatchObject({
+    border: accent,
+    color: accent,
+    offset: '0px',
+    style: 'solid',
+    width: '1px',
   });
-  expect(ring).toMatchObject({ offset: '0px', style: 'solid', width: '1px' });
-  expect(ring?.color).toBe(ring?.border);
   await context.close();
 });
 
@@ -98,10 +94,16 @@ test('a Select trigger and a collapsible heading draw their focus rings solid', 
   const context = await browser.newContext({ viewport: { height: 800, width: 1280 } });
   const page = await context.newPage();
   await openForm(page, 't3');
-  const select = await ringOn(page, /Claude Opus/);
-  expect(select).toMatchObject({ offset: '0px', style: 'solid', width: '1px' });
-  expect(select?.color).toBe(select?.border);
-  const heading = await ringOn(page, /^Advanced$/);
+  const select = await ringOn(page, page.getByRole('combobox', { name: 'Model' }));
+  const accent = await accentColor(page);
+  expect(select).toMatchObject({
+    border: accent,
+    color: accent,
+    offset: '0px',
+    style: 'solid',
+    width: '1px',
+  });
+  const heading = await ringOn(page, page.getByRole('button', { exact: true, name: 'Advanced' }));
   expect(heading).toMatchObject({ offset: '2px', style: 'solid', width: '2px' });
   await context.close();
 });

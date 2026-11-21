@@ -47,10 +47,21 @@ function classLists(text: string): string[] {
 
 /** Whether a class list hides the outline and then draws a focus outline only by its width. */
 function hidesItsFocusRing(list: string): boolean {
-  return (
-    /(^|[\s'"`])outline-(none|hidden)\b/.test(list) &&
-    /focus-visible:outline-\d/.test(list) &&
-    !/focus-visible:outline-solid\b/.test(list)
+  const classes = list.split(/[\s'"`]+/).map((token) => {
+    const variants = token.split(/:(?![^[\]]*\])/);
+    return { utility: variants.pop(), variants };
+  });
+  const resets = classes.filter(
+    ({ utility }) => utility === 'outline-none' || utility === 'outline-hidden',
+  );
+  const focus = classes.filter(({ variants }) => variants.includes('focus-visible'));
+  const solids = focus.filter(({ utility }) => utility === 'outline-solid');
+  const widths = focus.filter(({ utility }) => /^outline-\d+$/.test(utility ?? ''));
+  return resets.some((reset) =>
+    widths.some((width) => {
+      const scope = new Set([...reset.variants, ...width.variants]);
+      return !solids.some((solid) => solid.variants.every((variant) => scope.has(variant)));
+    }),
   );
 }
 
@@ -68,5 +79,34 @@ describe('focus rings', () => {
     expect(
       classLists(`cn('rounded outline-none', 'focus-visible:outline-2')`).filter(hidesItsFocusRing),
     ).toHaveLength(1);
+  });
+
+  it('requires a whole outline-solid token that covers the reset and focus width', () => {
+    expect(
+      classLists(
+        `cn('outline-none', 'focus-visible:outline-2 md:focus-visible:outline-solid')`,
+      ).filter(hidesItsFocusRing),
+    ).toHaveLength(1);
+    expect(
+      classLists(
+        `cn('outline-none', 'focus-visible:outline-2 focus-visible:outline-solid')`,
+      ).filter(hidesItsFocusRing),
+    ).toHaveLength(0);
+    expect(
+      classLists(
+        `cn('outline-none', 'md:focus-visible:outline-2 md:focus-visible:outline-solid')`,
+      ).filter(hidesItsFocusRing),
+    ).toHaveLength(0);
+    expect(
+      classLists(
+        `cn('outline-none', 'hover:focus-visible:outline-2 focus-visible:outline-solid-extra')`,
+      ).filter(hidesItsFocusRing),
+    ).toHaveLength(1);
+    expect(
+      classLists(`cn('outline-none-extra', 'focus-visible:outline-2')`).filter(hidesItsFocusRing),
+    ).toHaveLength(0);
+    expect(
+      classLists(`cn('outline-none', 'focus-visible:outline-2-extra')`).filter(hidesItsFocusRing),
+    ).toHaveLength(0);
   });
 });

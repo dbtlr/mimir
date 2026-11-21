@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import type { Browser, Page } from '@playwright/test';
+import type { Browser, Locator, Page } from '@playwright/test';
 
 import { serveHarness } from './form-sheet/serve';
 import type { Harness } from './form-sheet/serve';
@@ -33,9 +33,10 @@ type Placement = {
   /** What has focus, for the failure message. */
   name: string;
   inBody: boolean;
-  /** The focused control's edges against the body's, in px. */
+  /** The focused control's outline against the body's edges, in px. */
   above: number;
   below: number;
+  firstBlock: number;
 };
 
 /** Where the focused control sits in the scrolling body. */
@@ -43,14 +44,24 @@ function placement(page: Page): Promise<Placement> {
   return page.evaluate(() => {
     const body = document.querySelector('[data-slot=form-sheet-body]');
     const focused = document.activeElement;
-    if (body === null || !(focused instanceof HTMLElement)) {
-      return { above: 0, below: 0, inBody: false, name: 'nothing' };
+    const first = body?.querySelector('[data-form-block]');
+    if (body === null || first == null || !(focused instanceof HTMLElement)) {
+      throw new Error('no focused control or form body');
     }
+    const style = getComputedStyle(focused);
+    const ring =
+      style.outlineStyle === 'none'
+        ? 0
+        : Math.max(
+            0,
+            Number.parseFloat(style.outlineWidth) + Number.parseFloat(style.outlineOffset),
+          );
     const frame = body.getBoundingClientRect();
     const rect = focused.getBoundingClientRect();
     return {
-      above: frame.top - rect.top,
-      below: rect.bottom - frame.bottom,
+      above: frame.top - (rect.top - ring),
+      below: rect.bottom + ring - frame.bottom,
+      firstBlock: first.getBoundingClientRect().top - frame.top,
       inBody: body.contains(focused),
       name: (
         focused.getAttribute('aria-label') ??
@@ -77,33 +88,58 @@ async function openForm(page: Page, form: string) {
     await page.getByRole('radio', { name: 'New worktree' }).click();
     await expect(page.getByLabel('Branch')).toBeVisible();
     // Focus starts again on the first field, as on opening.
-    await page.locator('[data-slot=form-sheet-body] input').first().focus();
+    await page.getByRole('combobox', { name: 'System' }).focus();
   }
 }
 
+/** The tab stop in each body field, in order. A Choice contributes its selected radio. */
+function bodyControls(page: Page, form: string): Locator[] {
+  if (form === 'project') {
+    return [
+      page.getByRole('textbox', { name: 'Title' }),
+      page.getByRole('textbox', { name: /Description/ }),
+      page.getByRole('button', { name: 'Archive project' }),
+    ];
+  }
+  return [
+    page.getByRole('combobox', { name: 'System' }),
+    page.getByRole('combobox', { name: 'Model' }),
+    page.getByRole('radio', { name: 'high' }),
+    page.getByRole('radio', { name: 'Unset' }),
+    page.getByRole('combobox', { name: 'Runtime' }),
+    page.getByRole('button', { name: 'Advanced' }),
+    page.getByRole('radio', { name: 'New worktree' }),
+    page.getByRole('textbox', { name: /Branch/ }),
+    page.getByRole('checkbox', { name: 'Plan first' }),
+  ];
+}
+
 /** Tabs through every control in the body, forward then back, and returns any it hid. */
-async function hiddenWhileTabbing(page: Page): Promise<string[]> {
+async function hiddenWhileTabbing(page: Page, form: string): Promise<string[]> {
   const hidden: string[] = [];
-  const check = async (step: string) => {
+  const controls = bodyControls(page, form);
+  const check = async (control: Locator, step: string) => {
+    await expect(control).toBeFocused();
     // The scroll that keeps focus in view runs in the same task as the move.
     const at = await placement(page);
-    if (at.inBody && (at.above > 0.5 || at.below > 0.5)) {
+    expect(at.inBody).toBe(true);
+    if (at.above > 0.5 || at.below > 0.5) {
       hidden.push(
         `${step} ${at.name}: ${String(Math.round(at.above))} above, ${String(Math.round(at.below))} below`,
       );
     }
-    return at.inBody;
   };
-  await check('start');
-  for (let step = 0; step < 20; step += 1) {
-    await page.keyboard.press('Tab');
-    if (!(await check('Tab'))) {
-      break;
+  for (const [index, control] of controls.entries()) {
+    if (index > 0) {
+      await page.keyboard.press('Tab');
     }
+    await check(control, index === 0 ? 'start' : 'Tab');
   }
-  for (let step = 0; step < 20; step += 1) {
+  await page.keyboard.press('Tab');
+  await expect(page.locator('[data-slot=form-sheet-footer] :focus')).toBeVisible();
+  for (let index = controls.length - 1; index >= 0; index -= 1) {
     await page.keyboard.press('Shift+Tab');
-    await check('Shift+Tab');
+    await check(controls[index], 'Shift+Tab');
   }
   return hidden;
 }
@@ -161,7 +197,7 @@ for (const { form, width, heights } of SWEEP) {
       });
       const page = await context.newPage();
       await openForm(page, form);
-      for (const hidden of await hiddenWhileTabbing(page)) {
+      for (const hidden of await hiddenWhileTabbing(page, form)) {
         failures.push(`${String(width)}x${String(height)} ${hidden}`);
       }
       for (const cut of await cutAtEnd(page)) {
@@ -193,42 +229,15 @@ function bodyScroll(page: Page): Promise<number> {
   return page.locator('[data-slot=form-sheet-body]').evaluate((element) => element.scrollTop);
 }
 
-type Clearance = {
-  name: string;
-  /** Room between the header and the top of the focused control's outline, in px. */
-  top: number;
-  /** Room between the bottom of its outline and the footer, in px. */
-  bottom: number;
-  /** Room between the body's top and the first block's label: its top padding at rest. */
-  firstBlock: number;
-};
-
 /** Where the focused control's outline sits against the body's edges. */
-function clearance(page: Page): Promise<Clearance> {
-  return page.evaluate(() => {
-    const body = document.querySelector('[data-slot=form-sheet-body]');
-    const focused = document.activeElement;
-    const first = document.querySelector('[data-form-block]');
-    if (body === null || first === null || !(focused instanceof HTMLElement)) {
-      throw new Error('no focused control in a body');
-    }
-    const style = getComputedStyle(focused);
-    const ring =
-      style.outlineStyle === 'none'
-        ? 0
-        : Math.max(
-            0,
-            Number.parseFloat(style.outlineWidth) + Number.parseFloat(style.outlineOffset),
-          );
-    const frame = body.getBoundingClientRect();
-    const rect = focused.getBoundingClientRect();
-    return {
-      bottom: Math.round(frame.bottom - (rect.bottom + ring)),
-      firstBlock: Math.round(first.getBoundingClientRect().top - frame.top),
-      name: (focused.getAttribute('aria-label') ?? focused.textContent ?? '').trim().slice(0, 24),
-      top: Math.round(rect.top - ring - frame.top),
-    };
-  });
+async function clearance(page: Page) {
+  const at = await placement(page);
+  expect(at.inBody).toBe(true);
+  return {
+    bottom: Math.round(-at.below),
+    firstBlock: Math.round(at.firstBlock),
+    top: Math.round(-at.above),
+  };
 }
 
 // oxlint-disable-next-line vitest/prefer-each -- Playwright has no `each`; this is its pattern
@@ -289,8 +298,16 @@ test('arrowing through a phone’s model list leaves the form behind it where it
   const resting = await bodyScroll(page);
   await page.keyboard.press('Enter');
   await page.waitForTimeout(600);
-  const scrolls: number[] = [];
-  for (let step = 0; step < 3; step += 1) {
+  const list = page.getByRole('listbox', { name: 'Model' });
+  await expect(list).toBeVisible();
+  const active = list.locator('[role=option][data-highlighted]');
+  const before = await active.getAttribute('id');
+  expect(before).toBeTruthy();
+  await page.keyboard.press('ArrowDown');
+  await expect(active).toBeVisible();
+  await expect(active).not.toHaveAttribute('id', before ?? '');
+  const scrolls = [await bodyScroll(page)];
+  for (let step = 0; step < 2; step += 1) {
     await page.keyboard.press('ArrowDown');
     scrolls.push(await bodyScroll(page));
   }
