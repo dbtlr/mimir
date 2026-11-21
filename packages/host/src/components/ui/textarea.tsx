@@ -25,7 +25,8 @@ export function Textarea({ className, grow = false, ...props }: TextareaProps) {
       className={mergeClassName(
         TEXT_FIELD_CLASS,
         'py-2.5 leading-[22px]',
-        grow ? 'max-h-[110px] min-h-11 resize-none overflow-y-auto' : 'min-h-20 resize-y',
+        // Three lines (88) to start, in a form; it grows by dragging its corner.
+        grow ? 'max-h-[110px] min-h-11 resize-none overflow-y-auto' : 'min-h-22 resize-y',
         className,
       )}
     />

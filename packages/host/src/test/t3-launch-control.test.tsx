@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -7,6 +7,7 @@ import { connectT3, launchT3, t3Catalog, t3Origin } from '../api/fns/t3';
 import type { T3Catalog, T3LaunchResult } from '../api/fns/t3';
 import { toast } from '../components/patterns/notice';
 import { canLaunchOnT3, T3LaunchControl } from '../components/t3-launch-control';
+import { T3LaunchForm } from '../components/t3-launch-form';
 import { T3_ATTEMPT_PATTERN } from '../server/t3-states';
 import { engineTask } from './node-fixtures';
 import { renderInRouter } from './router';
@@ -58,6 +59,26 @@ async function show(catalog: T3Catalog, launch?: T3LaunchResult, offline = false
 }
 
 const launchCalls = () => vi.mocked(launchT3).mock.calls.map(([options]) => options.data);
+
+/**
+ * The settings form: the Form sheet titled "Launch in T3", which names the task in its context
+ * line (MMR-743). The phone's caret sheet shares the title, so the task tells them apart.
+ */
+const settingsForm = (taskId = 'MMR-9') =>
+  screen.findByRole('dialog', { description: new RegExp(taskId), name: 'Launch in T3' });
+
+/** Choose `option` in the form's Select named `name` (a UI SDK Select, not a native one). */
+async function choose(dialog: HTMLElement, name: string, option: string) {
+  await userEvent.click(within(dialog).getByRole('combobox', { name }));
+  await userEvent.click(await screen.findByRole('option', { name: option }));
+}
+
+/** The options a form's Select named `name` offers, read with its list open. */
+async function optionsOf(dialog: HTMLElement, name: string) {
+  await userEvent.click(within(dialog).getByRole('combobox', { name }));
+  const list = await screen.findByRole('listbox');
+  return list;
+}
 
 /** The action a toast offered, by label. */
 function toastAction(fn: typeof toast.error | typeof toast.success, label: string) {
@@ -171,6 +192,13 @@ describe('the split button', () => {
     expect(input).toEqual({ ...DEFAULT_INPUT, attempt: expect.stringMatching(T3_ATTEMPT_PATTERN) });
   });
 
+  it('draws its caret with the icon set’s chevron, not a text glyph', async () => {
+    await show(connectedCatalog([reachableSystem()]));
+    const caret = await screen.findByRole('button', { name: 'Choose where to launch' });
+    expect(caret.textContent).toBe('');
+    expect(caret.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+  });
+
   it('lists every system in the caret menu, unreachable ones disabled, then Choose settings…', async () => {
     const peer = reachableSystem({ configured: false, environmentId: 'peer', label: 'asgard' });
     await show(connectedCatalog([reachableSystem(), peer, unreachableSystem()]));
@@ -254,8 +282,8 @@ describe('the split button', () => {
     await show(connectedCatalog([reachableSystem(), peer]));
     await userEvent.click(await screen.findByRole('button', { name: 'Choose where to launch' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Launch on asgard' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Launch MMR-9 in T3' });
-    expect(within(dialog).getByRole('combobox', { name: 'System' })).toHaveValue('peer');
+    const dialog = await settingsForm();
+    expect(within(dialog).getByRole('combobox', { name: 'System' })).toHaveTextContent('asgard');
     expect(launchT3).not.toHaveBeenCalled();
   });
 });
@@ -263,10 +291,29 @@ describe('the split button', () => {
 async function openSettings() {
   await userEvent.click(await screen.findByRole('button', { name: 'Choose where to launch' }));
   await userEvent.click(await screen.findByRole('menuitem', { name: 'Choose settings…' }));
-  return screen.findByRole('dialog', { name: 'Launch MMR-9 in T3' });
+  return settingsForm();
 }
 
 describe('the settings dialog', () => {
+  it('clamps a long task title independently of its task ID', () => {
+    stubViewport('phone');
+    const taskTitle = 'A long task title that takes up too much of the header on a narrow screen';
+    render(
+      <T3LaunchForm
+        open
+        taskId="MMR-9"
+        taskTitle={taskTitle}
+        systems={[reachableSystem()]}
+        remembered={null}
+        onLaunch={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    const dialog = screen.getByRole('dialog', { name: 'Launch in T3' });
+    expect(within(dialog).getByText(taskTitle)).toHaveClass('line-clamp-2');
+    expect(within(dialog).getByText('MMR-9')).not.toHaveClass('line-clamp-2');
+  });
+
   it('with no defaults, starts on the configured server even when a peer is listed first', async () => {
     const projects = [{ defaultModelSelection: null, id: 'proj-1', title: 'mimir' }];
     const peer = reachableSystem({
@@ -277,24 +324,22 @@ describe('the settings dialog', () => {
     });
     await show(connectedCatalog([peer, reachableSystem({ projects })]));
     const dialog = await openSettings();
-    expect(within(dialog).getByRole('combobox', { name: 'System' })).toHaveValue('env-1');
+    expect(within(dialog).getByRole('combobox', { name: 'System' })).toHaveTextContent('Valhalla');
   });
 
   it('starts from the defaults and launches the chosen input', async () => {
     await show(connectedCatalog([reachableSystem()]));
     const dialog = await openSettings();
     expect(within(dialog).queryByRole('combobox', { name: 'Project' })).toBeNull();
-    expect(within(dialog).getByRole('combobox', { name: 'Model' })).toHaveValue(
-      JSON.stringify(['claude', 'opus']),
+    expect(within(dialog).getByRole('combobox', { name: 'Model' })).toHaveTextContent(
+      'Claude Opus',
     );
     expect(within(dialog).getByRole('radio', { name: 'high' })).toBeChecked();
 
     await userEvent.click(within(dialog).getByRole('radio', { name: 'low' }));
-    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Thinking' }));
-    await userEvent.selectOptions(
-      within(dialog).getByRole('combobox', { name: 'Runtime mode' }),
-      'approval-required',
-    );
+    const thinking = within(dialog).getByRole('radiogroup', { name: 'Thinking' });
+    await userEvent.click(within(thinking).getByRole('radio', { name: 'On' }));
+    await choose(dialog, 'Runtime', 'Approval required');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Advanced' }));
     await userEvent.click(within(dialog).getByRole('radio', { name: 'Project checkout' }));
     await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Plan first' }));
@@ -344,11 +389,91 @@ describe('the settings dialog', () => {
     expect(within(effort).getByRole('radio', { name: 'Unset' })).toBeChecked();
   });
 
+  it.each([
+    ['a long label', { default: null, values: ['low', 'maximum reasoning depth'] }],
+    ['five displayed choices', { default: null, values: ['low', 'med', 'high', 'max'] }],
+    ['five one-letter choices', { default: null, values: ['a', 'b', 'c', 'd'] }],
+    ['a short label of two words', { default: null, values: ['low', 'a b'] }],
+    ['a nine-letter label beside Unset', { default: null, values: ['ninechars'] }],
+    ['a seven-letter label among three choices', { default: null, values: ['low', 'sevench'] }],
+  ])('uses a Select for %s and segments for four short labels', async (_, option) => {
+    const system = reachableSystem();
+    const claude = system.providers[0]!;
+    const opus = {
+      id: 'opus',
+      label: 'Claude Opus',
+      options: [
+        { default: 'low', id: 'effort', values: ['low', 'med', 'high', 'max'] },
+        { id: 'reasoningBudget', ...option },
+      ],
+    };
+    await show(connectedCatalog([{ ...system, providers: [{ ...claude, models: [opus] }] }]));
+    const dialog = await openSettings();
+    const effort = within(dialog).getByRole('radiogroup', { name: 'Effort' });
+    expect(within(effort).getAllByRole('radio')).toHaveLength(4);
+    expect(within(effort).getByRole('radio', { name: 'low' })).toBeChecked();
+
+    const select = within(dialog).getByRole('combobox', { name: 'Reasoning budget' });
+    expect(select).toHaveTextContent('Unset');
+    await choose(dialog, 'Reasoning budget', option.values.at(-1)!);
+    expect(select).toHaveTextContent(option.values.at(-1)!);
+    await choose(dialog, 'Reasoning budget', 'Unset');
+    expect(select).toHaveTextContent('Unset');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Launch' }));
+
+    await waitFor(() => {
+      expect(launchCalls()[0]?.model.options).toEqual([{ id: 'effort', value: 'low' }]);
+    });
+  });
+
+  it('can set a boolean option off or on and then omit it again', async () => {
+    await show(connectedCatalog([reachableSystem()]));
+    const dialog = await openSettings();
+    const thinking = within(within(dialog).getByRole('radiogroup', { name: 'Thinking' }));
+    const unset = thinking.getByRole('radio', { name: 'Unset' });
+    expect(unset).toBeChecked();
+    for (const name of ['On', 'Off']) {
+      const option = thinking.getByRole('radio', { name });
+      await userEvent.click(option);
+      expect(option).toBeChecked();
+    }
+    await userEvent.click(unset);
+    expect(unset).toBeChecked();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Launch' }));
+    await waitFor(() => {
+      expect(launchT3).toHaveBeenCalledOnce();
+    });
+    expect(launchCalls()[0]?.model.options).toEqual([{ id: 'effort', value: 'high' }]);
+  });
+
+  it('uses a checkbox for a boolean option with a usable default', async () => {
+    const system = reachableSystem();
+    const [provider] = system.providers;
+    if (provider === undefined) {
+      throw new Error('the system fixture has no provider');
+    }
+    const opus = {
+      id: 'opus',
+      label: 'Claude Opus',
+      options: [{ default: true, id: 'thinking', values: [false, true] }],
+    };
+    await show(connectedCatalog([{ ...system, providers: [{ ...provider, models: [opus] }] }]));
+    const dialog = await openSettings();
+    const thinking = within(dialog).getByRole('checkbox', { name: 'Thinking' });
+    expect(thinking).toBeChecked();
+    await userEvent.click(thinking);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Launch' }));
+    await waitFor(() => {
+      expect(launchT3).toHaveBeenCalledOnce();
+    });
+    expect(launchCalls()[0]?.model.options).toEqual([{ id: 'thinking', value: false }]);
+  });
+
   it('sends a branch only for a worktree', async () => {
     await show(connectedCatalog([reachableSystem()]));
     const dialog = await openSettings();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Advanced' }));
-    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Branch' }), ' feat/launch ');
+    await userEvent.type(within(dialog).getByRole('textbox', { name: /^Branch/ }), ' feat/launch ');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Launch' }));
     await waitFor(() => {
       expect(launchT3).toHaveBeenCalledOnce();
@@ -359,11 +484,16 @@ describe('the settings dialog', () => {
   it('limits the runtime modes to the provider’s and groups models by provider', async () => {
     await show(connectedCatalog([reachableSystem()]));
     const dialog = await openSettings();
-    const modes = within(within(dialog).getByRole('combobox', { name: 'Runtime mode' }))
+    const modes = within(await optionsOf(dialog, 'Runtime'))
       .getAllByRole('option')
-      .map((option) => option.getAttribute('value'));
-    expect(modes).toEqual(['approval-required', 'auto-accept-edits', 'full-access']);
-    expect(within(dialog).getByRole('group', { name: 'Claude' })).toBeInTheDocument();
+      .map((option) => option.textContent);
+    expect(modes).toEqual(['Approval required', 'Auto-accept edits', 'Full access']);
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox')).toBeNull();
+    });
+    const models = await optionsOf(dialog, 'Model');
+    expect(within(models).getByRole('group', { name: 'Claude' })).toBeInTheDocument();
   });
 
   it('asks for the project when several match, and launches once one is picked', async () => {
@@ -377,9 +507,9 @@ describe('the settings dialog', () => {
     // No defaults, so the main half opens the settings.
     await screen.findByRole('button', { name: 'Choose where to launch' });
     await userEvent.click(screen.getByRole('button', { name: 'Launch in T3…' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Launch MMR-9 in T3' });
+    const dialog = await settingsForm();
     expect(within(dialog).getByRole('button', { name: 'Launch' })).toBeDisabled();
-    await userEvent.selectOptions(within(dialog).getByRole('combobox', { name: 'Project' }), 'p2');
+    await choose(dialog, 'Project', 'two');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Launch' }));
     await waitFor(() => {
       expect(launchT3).toHaveBeenCalledOnce();
@@ -398,15 +528,46 @@ describe('the settings dialog', () => {
     await screen.findByRole('button', { name: 'Choose where to launch' });
     const trigger = screen.getByRole('button', { name: 'Launch in T3…' });
     await userEvent.click(trigger);
-    const dialog = await screen.findByRole('dialog', { name: 'Launch MMR-9 in T3' });
-    await userEvent.selectOptions(within(dialog).getByRole('combobox', { name: 'Project' }), 'p2');
+    const dialog = await settingsForm();
+    await choose(dialog, 'Project', 'two');
     expect(within(dialog).getByRole('button', { name: 'Launch' })).toBeEnabled();
 
     // Dispatch through the same control while the modal blocks pointer interaction.
     fireEvent.click(trigger);
-    const replacement = await screen.findByRole('dialog', { name: 'Launch MMR-9 in T3' });
-    expect(within(replacement).getByRole('combobox', { name: 'Project' })).toHaveValue('');
+    const replacement = await settingsForm();
+    expect(within(replacement).getByRole('combobox', { name: 'Project' })).toHaveTextContent(
+      'Choose a project…',
+    );
     expect(within(replacement).getByRole('button', { name: 'Launch' })).toBeDisabled();
+  });
+
+  // MMR-742's finding: the old dialog dropped focus to <body> on close on a desktop.
+  it('returns focus to the caret when settings opened from its menu close', async () => {
+    await show(connectedCatalog([reachableSystem()]));
+    const dialog = await openSettings();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(screen.getByRole('button', { name: 'Choose where to launch' })).toHaveFocus();
+  });
+
+  it('returns focus to the main half when it opened the settings', async () => {
+    const system = reachableSystem({
+      projects: [
+        { defaultModelSelection: null, id: 'p1', title: 'one' },
+        { defaultModelSelection: null, id: 'p2', title: 'two' },
+      ],
+    });
+    await show(connectedCatalog([system]));
+    await screen.findByRole('button', { name: 'Choose where to launch' });
+    await userEvent.click(screen.getByRole('button', { name: 'Launch in T3…' }));
+    const dialog = await settingsForm();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(dialog).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: 'Launch in T3…' })).toHaveFocus();
   });
 
   it('closes on Cancel without launching', async () => {

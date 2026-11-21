@@ -1,8 +1,8 @@
 import type { EngineNode } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { createContext, useCallback, useContext, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import type { ReactNode, RefObject } from 'react';
 
 import type { T3Catalog, T3LaunchInput, T3System } from '../api/fns/t3';
 import { t3CatalogQuery, t3OriginQuery, useConnectT3, useLaunchT3 } from '../api/t3-queries';
@@ -20,8 +20,9 @@ import { ActionMenu } from './patterns/action-menu';
 import type { ActionMenuEntry } from './patterns/action-menu';
 import { toast } from './patterns/notice';
 import { announceLaunch } from './t3-launch-answers';
-import { T3LaunchDialog } from './t3-launch-dialog';
+import { T3LaunchForm } from './t3-launch-form';
 import { actionButtonVariants, ActionButton } from './ui/action-button';
+import { ChevronDownIcon } from './ui/icons';
 
 type ReachableSystem = Extract<T3System, { status: 'reachable' }>;
 type Connected = Extract<T3Catalog, { state: 'connected' }>;
@@ -31,22 +32,79 @@ export function canLaunchOnT3(node: EngineNode): boolean {
   return node.type === 'task' && (node.status === 'ready' || node.status === 'awaiting');
 }
 
-/** What the settings dialog opens with, and the launch it hands its choice to. */
+/** What the settings form opens with, and the launch it hands its choice to. */
 type SettingsRequest = {
   taskId: string;
+  taskTitle: string;
   systems: ReachableSystem[];
   remembered: RememberedChoice | null;
   environmentId?: string;
   run: (choice: LaunchChoice) => void;
+  /**
+   * The control focus returns to when the form closes: the half of the split
+   * button that asked. A menu row that asked is gone by then, so it names its
+   * trigger. Once that control is gone too (a phone's Actions sheet closed
+   * behind it), focus stays where the page's own handoff puts it.
+   */
+  opener: () => HTMLElement | null;
 };
 
 const OpenSettings = createContext<((request: SettingsRequest) => void) | null>(null);
 
+/** The element when it is still on the page and can take focus, else nothing. */
+function usable(element: HTMLElement | null | undefined): HTMLElement | null {
+  return element?.isConnected === true &&
+    !(element instanceof HTMLButtonElement && element.disabled)
+    ? element
+    : null;
+}
+
+/** The newest element of `trail` still usable: what focus left last that is still there. */
+function lastUsable(trail: readonly HTMLElement[]): HTMLElement | null {
+  for (let i = trail.length - 1; i >= 0; i -= 1) {
+    const found = usable(trail[i]);
+    if (found !== null) {
+      return found;
+    }
+  }
+  return null;
+}
+
+/** How many recent focus targets the host keeps. */
+const TRAIL_LENGTH = 8;
+
 /**
- * Holds Launch in T3's settings dialog above the controls that open it. On a
+ * The elements that last took focus, newest last. When the control that asked
+ * for the settings is gone by the time the form closes (a phone's Actions
+ * sheet closed behind it), focus walks back to the newest one still on the
+ * page, as the chip that opened that sheet, never to the page's body.
+ *
+ * This stays with T3 rather than in `opener.ts`: the general rule there
+ * (`useFinalFocus`) leaves focus to the page's own handoff once the opener is
+ * gone (MMR-474). Only this host outlives the sheet that held its trigger, so
+ * only it knows a chain of openers to walk back through; another overlay's
+ * opener names its own fallback, as Settings › Notifications names a row.
+ */
+function useFocusTrail(trail: RefObject<HTMLElement[]>) {
+  useEffect(() => {
+    const record = (event: FocusEvent) => {
+      if (event.target instanceof HTMLElement) {
+        trail.current = [...trail.current, event.target].slice(-TRAIL_LENGTH);
+      }
+    };
+    document.addEventListener('focusin', record);
+    return () => {
+      document.removeEventListener('focusin', record);
+    };
+  }, [trail]);
+}
+
+/**
+ * Holds Launch in T3's settings form above the controls that open it. On a
  * phone the control sits in a record's chip sheet, which closes on the choice
- * and unmounts it, so a dialog the control held would close with it; one held
- * here outlives that sheet. A control with no host above it makes its own.
+ * and unmounts it, so a form the control held would close with it; one held
+ * here outlives that sheet. It closes when the task loses launch eligibility.
+ * A control with no host above it makes its own.
  */
 export function T3LaunchSettingsHost({
   children,
@@ -55,30 +113,45 @@ export function T3LaunchSettingsHost({
   children: ReactNode;
   eligible?: boolean;
 }) {
+  // The request stays through the form's close, so its exit and focus return can run.
   const [request, setRequest] = useState<(SettingsRequest & { id: number }) | null>(null);
+  const [open, setOpen] = useState(false);
   const requestId = useRef(0);
+  const trail = useRef<HTMLElement[]>([]);
+  useFocusTrail(trail);
   const openSettings = useCallback((next: SettingsRequest) => {
     requestId.current += 1;
-    setRequest({ ...next, id: requestId.current });
+    // Where focus was on the way here, newest last: the control, the sheet it sat in, the
+    // chip that opened that sheet. Read now, before the form takes focus.
+    const before = [...trail.current];
+    setRequest({
+      ...next,
+      id: requestId.current,
+      opener: () => next.opener() ?? lastUsable(before),
+    });
+    setOpen(true);
   }, []);
-  if (!eligible && request !== null) {
-    setRequest(null);
+  if (!eligible && open) {
+    setOpen(false);
   }
   return (
     <OpenSettings.Provider value={openSettings}>
       {children}
-      {eligible && request !== null && (
-        <T3LaunchDialog
+      {request !== null && (
+        <T3LaunchForm
           key={request.id}
+          open={eligible && open}
           taskId={request.taskId}
+          taskTitle={request.taskTitle}
           systems={request.systems}
           remembered={request.remembered}
           initialEnvironmentId={request.environmentId}
+          finalFocus={request.opener}
           onClose={() => {
-            setRequest(null);
+            setOpen(false);
           }}
           onLaunch={(choice) => {
-            setRequest(null);
+            setOpen(false);
             request.run(choice);
           }}
         />
@@ -198,6 +271,7 @@ function LaunchOnT3({
       catalog={data}
       project={project}
       taskId={node.id}
+      taskTitle={node.title}
       disabled={offline || launch.isPending}
       onRun={run}
     />
@@ -235,16 +309,20 @@ function ConnectedLaunch({
   catalog,
   project,
   taskId,
+  taskTitle,
   disabled,
   onRun,
 }: {
   catalog: Connected;
   project: string;
   taskId: string;
+  taskTitle: string;
   disabled: boolean;
   onRun: (choice: LaunchChoice) => void;
 }) {
   const openSettings = useContext(OpenSettings);
+  const main = useRef<HTMLButtonElement>(null);
+  const caret = useRef<HTMLButtonElement>(null);
   if (catalog.noRemote) {
     return <Unavailable reason="This project has no git remote for T3 to match." />;
   }
@@ -257,18 +335,28 @@ function ConnectedLaunch({
   const defaultLabel = catalog.systems.find(
     (s) => s.environmentId === defaults?.environmentId,
   )?.label;
-  const onSettings = (environmentId?: string) => {
-    openSettings?.({ environmentId, remembered, run: onRun, systems: launchable, taskId });
+  const onSettings = (environmentId: string | undefined, from: 'main' | 'menu') => {
+    const returnTo = from === 'main' ? main : caret;
+    openSettings?.({
+      environmentId,
+      opener: () => usable(returnTo.current),
+      remembered,
+      run: onRun,
+      systems: launchable,
+      taskId,
+      taskTitle,
+    });
   };
 
   return (
     <span className="inline-flex">
       <button
+        ref={main}
         type="button"
         disabled={disabled}
         onClick={() => {
           if (defaults === null) {
-            onSettings();
+            onSettings(undefined, 'main');
           } else {
             onRun(defaults);
           }
@@ -281,6 +369,7 @@ function ConnectedLaunch({
         title="Launch in T3"
         trigger={
           <button
+            ref={caret}
             type="button"
             disabled={disabled}
             aria-label="Choose where to launch"
@@ -290,7 +379,7 @@ function ConnectedLaunch({
               'rounded-l-none px-2',
             )}
           >
-            <span aria-hidden>▾</span>
+            <ChevronDownIcon className="size-4 md:size-4" />
           </button>
         }
         entries={[
@@ -303,7 +392,7 @@ function ConnectedLaunch({
               label: `Launch on ${system.label}`,
               onSelect: () => {
                 if (choice === null) {
-                  onSettings(system.environmentId);
+                  onSettings(system.environmentId, 'menu');
                 } else {
                   onRun(choice);
                 }
@@ -316,7 +405,7 @@ function ConnectedLaunch({
             kind: 'action',
             label: 'Choose settings…',
             onSelect: () => {
-              onSettings(defaults?.environmentId);
+              onSettings(defaults?.environmentId, 'menu');
             },
           },
         ]}

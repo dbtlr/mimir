@@ -1,5 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { afterEach, describe, expect, vi } from 'vitest';
 
 import { create } from '../api/fns/shell';
@@ -24,7 +26,41 @@ function wrap() {
   return onOpenChange;
 }
 
+/** A page whose button opens the sheet, as the project picker's "+ New project" does. */
+function Opener() {
+  const [open, setOpen] = useState(false);
+  return (
+    <QueryClientProvider client={new QueryClient()}>
+      <button
+        type="button"
+        onClick={() => {
+          setOpen(true);
+        }}
+      >
+        New project
+      </button>
+      <NewProjectSheet open={open} onOpenChange={setOpen} />
+    </QueryClientProvider>
+  );
+}
+
 describe('newProjectSheet (MMR-230)', () => {
+  it('reopens empty after Escape abandons its edits', async () => {
+    const user = userEvent.setup();
+    render(<Opener />);
+    await user.click(screen.getByRole('button', { name: 'New project' }));
+    await user.type(await screen.findByLabelText(/title/i), 'Signal relay');
+    await user.type(screen.getByLabelText(/description/i), 'Cross-site relay');
+    await user.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    await user.click(screen.getByRole('button', { name: 'New project' }));
+    await expect(screen.findByLabelText(/title/i)).resolves.toHaveValue('');
+    expect(screen.getByLabelText(/key/i)).toHaveValue('');
+    expect(screen.getByLabelText(/description/i)).toHaveValue('');
+  });
+
   it('focuses the title field on open', async () => {
     wrap();
     await waitFor(() => {

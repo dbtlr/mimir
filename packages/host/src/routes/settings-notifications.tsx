@@ -6,12 +6,12 @@ import type { PushDevice, PushDeviceList, PushEventKind } from '../api/fns/push'
 import { pushDevicesQuery, pushStatusQuery } from '../api/push-queries';
 import { ACTION_MENU_ANCHORED_QUERY, ActionMenu } from '../components/patterns/action-menu';
 import type { ActionMenuEntry } from '../components/patterns/action-menu';
+import { ContentSheet } from '../components/patterns/content-sheet';
 import { DestructiveConfirm } from '../components/patterns/destructive-confirm';
 import { KindSwitches } from '../components/push-kind-switches';
 import type { KindSwitchesProps } from '../components/push-kind-switches';
 import { SETTINGS_CARD, SettingsGroup, SettingsPage } from '../components/settings-page';
 import { ActionButton } from '../components/ui/action-button';
-import { Sheet, SheetClose, SheetContent, SheetTitle } from '../components/ui/sheet';
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/cn';
 import { focusMain } from '../lib/focus-main';
@@ -274,8 +274,10 @@ function RemoveConfirm({
   );
 }
 
-// The list scrolls on a short screen, so every switch stays reachable above Done.
-const KINDS_BLOCK = 'min-h-0 overflow-y-auto rounded-lg border border-line bg-well-850';
+// Hairline-separated rows on the sheet itself, never a card inside it (ADR 0019, MMR-743),
+// their text on the sheet's own edge. The list scrolls on a short screen, so every switch
+// stays reachable above Done.
+const KINDS_BLOCK = 'min-h-0 overflow-y-auto [&_label]:px-0';
 
 /** The row that opened another browser's switches, for Done to return focus to. */
 const rowOpener = (endpoint: string) =>
@@ -310,42 +312,34 @@ function KindsSurface({
     // A row that is gone, or a list that is no longer shown, leaves the page itself to take focus.
     const row = last.gone ? null : rowOpener(last.endpoint);
     if (row === null) {
+      // The page's main takes focus; hand it back as the target, so the sheet's close keeps it there.
       focusMain();
-      return false;
+      return document.activeElement instanceof HTMLElement ? document.activeElement : null;
     }
     return row;
   };
-  const body = device !== undefined && (
-    <>
-      <SheetTitle className="text-body font-semibold text-ink-bright">{device.label}</SheetTitle>
-      <KindSwitches
-        {...switches}
-        device={device}
-        own={false}
-        everyOffText={THAT_EVERY_KIND_OFF_TEXT}
-        className={KINDS_BLOCK}
-      />
-      <div className="flex justify-end">
-        <SheetClose render={<ActionButton variant="outline" className="min-h-11 px-4" />}>
-          Done
-        </SheetClose>
-      </div>
-    </>
-  );
-  const onOpenChange = (open: boolean) => {
-    if (!open) {
-      onClose();
-    }
-  };
+  // The title stays through the close, while `device` is already gone.
+  const [title, setTitle] = useState(device?.label ?? '');
+  if (device !== undefined && device.label !== title) {
+    setTitle(device.label);
+  }
   return (
-    <Sheet open={device !== undefined} onOpenChange={onOpenChange}>
-      <SheetContent
-        className="gap-2 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
-        finalFocus={finalFocus}
-      >
-        {body}
-      </SheetContent>
-    </Sheet>
+    <ContentSheet
+      open={device !== undefined}
+      onClose={onClose}
+      title={title}
+      finalFocus={finalFocus}
+    >
+      {device !== undefined && (
+        <KindSwitches
+          {...switches}
+          device={device}
+          own={false}
+          everyOffText={THAT_EVERY_KIND_OFF_TEXT}
+          className={KINDS_BLOCK}
+        />
+      )}
+    </ContentSheet>
   );
 }
 

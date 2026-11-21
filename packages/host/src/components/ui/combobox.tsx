@@ -17,7 +17,7 @@ import type { ComponentProps, ReactNode } from 'react';
 
 import { mergeClassName } from './class-name';
 import { FIELD_LABEL_CLASS } from './field';
-import { TEXT_FIELD_CLASS } from './input';
+import { CONTROL_EDGE_CLASS, TEXT_FIELD_CLASS } from './input';
 import {
   PICKER_CHECK_CLASS,
   PICKER_EMPTY_CLASS,
@@ -60,7 +60,7 @@ export function ComboboxTrigger({
     <SdkComboboxTrigger
       aria-label="Show options"
       className={mergeClassName(
-        'group/trigger absolute top-1/2 right-1 flex size-9 -translate-y-1/2 items-center justify-center rounded text-ink-dim outline-none hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent data-[disabled]:opacity-50',
+        'group/trigger absolute top-1/2 right-1 flex size-9 -translate-y-1/2 items-center justify-center rounded text-ink-dim outline-none hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent data-[disabled]:opacity-50',
         className,
       )}
       {...props}
@@ -76,6 +76,43 @@ export function ComboboxTrigger({
         className="size-4 transition-transform group-data-[open]/trigger:rotate-180"
       >
         <path d="m6 9 6 6 6-6" />
+      </svg>
+    </SdkComboboxTrigger>
+  );
+}
+
+/**
+ * A trigger that is the field itself: a 44px control showing the chosen record
+ * and a chevron, which opens a popup holding the filter input ("Input in the
+ * Popup"). A Record picker in a form uses it, so its value can set a key in
+ * mono beside a title in sans, which an input cannot.
+ */
+export function ComboboxButton({
+  className,
+  children,
+  ...props
+}: Omit<ComponentProps<typeof SdkComboboxTrigger>, 'children'> & { children?: ReactNode }) {
+  return (
+    <SdkComboboxTrigger
+      className={mergeClassName(
+        CONTROL_EDGE_CLASS,
+        'inline-flex h-11 w-full min-w-0 items-center justify-between gap-3 px-3 text-left data-[open]:border-accent data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40',
+        className,
+      )}
+      {...props}
+    >
+      <span className="min-w-0 truncate">{children}</span>
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 12 12"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="size-3.5 shrink-0 text-ink-dim"
+      >
+        <path d="m2.5 4.5 3.5 3.5 3.5-3.5" />
       </svg>
     </SdkComboboxTrigger>
   );
@@ -169,7 +206,7 @@ export function ComboboxChipsInput({
   return (
     <SdkComboboxInput
       className={mergeClassName(
-        'min-w-24 flex-1 bg-transparent py-1 text-[15px] text-ink-bright outline-none placeholder:text-ink-ghost data-[disabled]:cursor-not-allowed',
+        'min-w-24 flex-1 bg-transparent py-1 text-[15px] text-ink-bright outline-none placeholder:text-ink-dim data-[disabled]:cursor-not-allowed',
         className,
       )}
       {...props}

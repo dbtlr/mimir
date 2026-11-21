@@ -20,15 +20,33 @@ import { cn } from '../../lib/cn';
 export const DESTRUCTIVE_OUTLINE =
   'inset-ring inset-ring-status-blocked/35 text-status-blocked-foreground hover:bg-line/50';
 
+/*
+ * A disabled solid is a quiet button, not a faded one (DESIGN.md, Color roles):
+ * well-800 with an ink-dim label (4.5:1 or better in both themes) and an inset
+ * edge that keeps its shape on a well-850 footer, where the fill alone differs
+ * by under 1.1:1. The other variants are hairlines already, so they fade.
+ */
+const QUIET_DISABLED =
+  'disabled:bg-well-800 disabled:text-ink-dim disabled:inset-ring disabled:inset-ring-ink-ghost';
+
 export const actionButtonVariants = cva(
-  'inline-flex items-center justify-center gap-1.5 font-semibold whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40',
+  'inline-flex items-center justify-center gap-1.5 font-semibold whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none',
   {
+    compoundVariants: [
+      { className: QUIET_DISABLED, variant: ['action', 'attention'] },
+      {
+        className: 'disabled:opacity-40',
+        variant: ['attentionOutline', 'destructiveOutline', 'outline'],
+      },
+    ],
     defaultVariants: { size: 'default', variant: 'action' },
     variants: {
       // `sm` is the dialog-footer density that the form/dialog submit buttons
-      // route through; `default` is the primary surface button (radius 8).
+      // route through; `default` is the primary surface button (radius 8);
+      // `form` is a Form sheet's footer button, 44 tall like the controls above it.
       size: {
         default: 'rounded-lg px-3 py-1.5 text-body',
+        form: 'h-11 rounded-lg px-5 text-label',
         sm: 'rounded-md px-3 py-1.5 text-xs',
       },
       variant: {
@@ -37,6 +55,9 @@ export const actionButtonVariants = cva(
         attentionOutline:
           'inset-ring inset-ring-attention/45 text-attention-foreground hover:bg-attention/10',
         destructiveOutline: DESTRUCTIVE_OUTLINE,
+        /** A Form sheet's Cancel and Archive: an outline whose edge meets 3:1 (DESIGN.md). */
+        formOutline:
+          'inset-ring inset-ring-ink-faint text-ink-bright hover:inset-ring-ink-dim disabled:opacity-40',
         outline:
           'inset-ring inset-ring-line-bright text-ink hover:bg-line/50 hover:text-ink-bright',
       },

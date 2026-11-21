@@ -47,9 +47,11 @@ export function DrawerBackdrop({ className, ...props }: ComponentProps<typeof Sd
  * UI SDK sets position and translate; the panel gives size, surface, and
  * corners per edge. A bottom sheet caps at the visible viewport so the
  * on-screen keyboard never covers a field; a form sheet fills that height.
+ * The panel is well-850, so a well-950 control on it reads by its ground as
+ * well as its edge (DESIGN.md, Color roles).
  */
 const PANEL_CLASS =
-  'group/drawer flex flex-col gap-3 overflow-y-auto border-line bg-well-900 p-4 text-ink shadow-2xl outline-none ' +
+  'group/drawer flex flex-col gap-3 overflow-y-auto border-line bg-well-850 p-4 text-ink shadow-2xl outline-none ' +
   'data-[side=bottom]:max-h-[min(88dvh,var(--visual-viewport-height,100dvh))] data-[side=bottom]:w-full data-[side=bottom]:rounded-t-xl data-[side=bottom]:border-t data-[side=bottom]:pb-[max(1rem,env(safe-area-inset-bottom))] ' +
   'data-[side=left]:h-dvh data-[side=left]:w-[min(86vw,320px)] data-[side=left]:border-r ' +
   'data-[side=right]:h-dvh data-[side=right]:border-l';
@@ -59,12 +61,15 @@ const SIZE_CLASS = {
   form: 'data-[side=bottom]:h-[var(--visual-viewport-height,100dvh)] data-[side=bottom]:max-h-none data-[side=bottom]:rounded-none data-[side=bottom]:border-t-0 data-[side=right]:w-[min(100vw,640px)]',
 } as const;
 
-/** The bar that shows a bottom sheet can be dragged down; hidden on other edges. */
+/**
+ * The bar that shows a bottom sheet can be dragged down; hidden on other edges,
+ * and on a form sheet, which fills the screen and closes from its top bar.
+ */
 function DrawerGrip() {
   return (
     <div
       aria-hidden="true"
-      className="mx-auto -mt-1 hidden h-1 w-10 shrink-0 rounded-full bg-ink-faint group-data-[side=bottom]/drawer:block"
+      className="mx-auto -mt-1 hidden h-1 w-10 shrink-0 rounded-full bg-ink-faint group-data-[side=bottom]/drawer:block group-data-[size=form]/drawer:hidden"
       data-slot="drawer-grip"
     />
   );

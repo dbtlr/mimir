@@ -36,6 +36,10 @@
   --text-dossier: 1.0625rem; /* 17px — record title, 600 */
   --text-card-mobile: 0.9375rem; /* 15px — card titles on mobile, 500 */
   --text-body: 0.875rem; /* 14px — card title 500 / body 400 at lh 1.65 */
+  /* 14px with its own 20px line: a field label, a button label, a segment's text.
+     A label is not prose, so it does not take body's 23px line. */
+  --text-label: 0.875rem;
+  --text-label--line-height: 1.25rem;
   --text-meta: 0.8125rem; /* 13px — secondary / meta */
   --text-mono-id: 0.71875rem; /* 11.5px — mono IDs */
   --text-tag: 0.6875rem; /* 11px — tags */
@@ -134,6 +138,36 @@ body {
 }
 
 /*
+ * Elevation that switches with the theme (MMR-743). The `--shadow-*` ramp in
+ * @theme is light-only (`light:shadow-menu`); these carry a dark value too and
+ * the light theme overrides them, so a utility reads one name in both. `edge`
+ * sits under a Form sheet's pinned header once its body scrolls; `toast` lifts
+ * a Notice over the page's cards; `sheet-up` separates a bottom list from the
+ * scrim above it.
+ */
+:root {
+  /* Instrument Sans's x-height, as a share of its size (0.51; JetBrains Mono's is 0.55,
+     measured in Chromium). A mono value in a menu or a control beside sans text sets
+     `font-size-adjust` to it, so its x-height matches the sans around it (MMR-743). */
+  --mono-adjust: 0.51;
+  --elevation-edge: 0 1px 0 rgba(0, 0, 0, 0.35), 0 4px 8px -2px rgba(0, 0, 0, 0.45);
+  --elevation-toast: 0 0 #0000;
+  --elevation-sheet-up: 0 0 #0000;
+}
+
+@utility elevation-edge {
+  box-shadow: var(--elevation-edge);
+}
+
+@utility elevation-toast {
+  box-shadow: var(--elevation-toast);
+}
+
+@utility elevation-sheet-up {
+  box-shadow: var(--elevation-sheet-up);
+}
+
+/*
  * The type-scale base. Meridian's px scale is authored against the 16px
  * browser default, so `100%` renders the semantic rem tokens spec-true.
  * `%` rather than px keeps the user's browser font-size preference honored.
@@ -158,6 +192,24 @@ body {
   button:not(:disabled),
   [role='button']:not([aria-disabled='true']) {
     cursor: pointer;
+  }
+}
+
+/*
+ * A Select's sheet viewport (UI SDK) mounts in place, beside its trigger, once
+ * the trigger takes focus, and becomes a top-layer popover only when it first
+ * opens. Until then it is an empty block in the field's column, where the
+ * column's gap would add 8 under the field (DESIGN.md, A form), so it sits out
+ * of flow. Once it is a popover the UA hides it while closed.
+ */
+@layer base {
+  [data-slot='select-viewport']:not([popover]) {
+    position: absolute;
+  }
+
+  /* The bottom list's scrim blurs as the overlay scrim does (`OVERLAY_BACKDROP_CLASS`). */
+  [data-slot='select-viewport']::backdrop {
+    backdrop-filter: blur(2px);
   }
 }
 
@@ -206,6 +258,13 @@ body {
   --color-ink-dim: #5a6b77;
   --color-ink-faint: #8496a3;
   --color-ink-ghost: #9faeba; /* derived — spec gap */
+
+  /* elevation (see --elevation-edge above). The toast's is the menu's drop plus a
+     2px contact shadow: lighter than the overlay ramp, so a Notice over a card
+     floats without washing the card out (MMR-743). */
+  --elevation-edge: 0 1px 0 rgba(20, 45, 65, 0.06), 0 4px 8px -2px rgba(23, 36, 47, 0.1);
+  --elevation-toast: 0 8px 24px rgba(23, 36, 47, 0.12), 0 2px 6px rgba(23, 36, 47, 0.1);
+  --elevation-sheet-up: 0 -12px 32px rgba(23, 36, 47, 0.14);
 
   /* hairlines */
   --color-line: rgba(20, 45, 65, 0.12);

@@ -1,5 +1,3 @@
-import { Dialog } from '@base-ui-components/react/dialog';
-import { SEED_KIND_VALUES } from '@mimir/contract';
 import type { SeedKind } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
@@ -8,15 +6,22 @@ import type { ReactNode } from 'react';
 
 import { useFileSeed } from '../api/seed-mutations';
 import { projectsQuery } from '../api/shell-queries';
-import { cn } from '../lib/cn';
 import { useHotkey } from '../lib/use-hotkey';
+import {
+  FormField,
+  FormRecordPicker,
+  FormSheet,
+  FormTextArea,
+  requestFormCommit,
+} from './patterns/form-sheet';
 import { toast } from './patterns/notice';
-import { ActionButton } from './ui/action-button';
+import { useOpeningKey } from './patterns/opening';
+import { SegmentedControl } from './ui/segmented-control';
 
 /** The global capture opener, provided by {@link SeedCaptureProvider}. */
 const SeedCaptureContext = createContext<(() => void) | null>(null);
 
-/** Open the capture popover from anywhere under the provider (nav button, etc.). */
+/** Open the seed form from anywhere under the provider (nav button, etc.). */
 export function useSeedCapture(): () => void {
   const open = useContext(SeedCaptureContext);
   if (open === null) {
@@ -25,178 +30,134 @@ export function useSeedCapture(): () => void {
   return open;
 }
 
+/** A seed's kinds, in sentence case (MMR-743): the value stays the contract's word. */
+const KIND_OPTIONS = [
+  { label: 'Idea', value: 'idea' },
+  { label: 'Bug', value: 'bug' },
+  { label: 'Feature', value: 'feature' },
+] as const satisfies readonly { label: string; value: SeedKind }[];
+
 /**
- * Hosts the global "file a seed" popover (Meridian 12c, MMR-247) so it works
- * from any surface without leaving it. Lives in the Shell; the `s` hotkey and
- * any `useSeedCapture()` caller open it. There is no global "+" affordance in
- * the Shell (the authoring sheet's "+ New task" is scoped to the work page's head, MMR-227),
- * so the mobile long-press trigger is deliberately skipped — see the task notes.
+ * Hosts the global "File a seed" form (Meridian 12c, MMR-247) so it works from
+ * any surface without leaving it: the seed form in the Form sheet (ADR 0019,
+ * MMR-736). Lives in the Shell; the `s` hotkey and any `useSeedCapture()`
+ * caller open it. There is no global "+" affordance in the Shell (the authoring
+ * sheet's "+ New task" is scoped to the work page's head, MMR-227), so the
+ * mobile long-press trigger is deliberately skipped — see the task notes.
  */
 export function SeedCaptureProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
-  // Guard the hotkey while open — the popup itself carries role="dialog", so
+  // Each opening starts a fresh form.
+  const opening = useOpeningKey(open);
+  // Guard the hotkey while open — the sheet itself carries role="dialog", so
   // the in-hook dialog check also covers it; disabling is the cheaper belt.
-  useHotkey('s', () => setOpen(true), { enabled: !open });
-  const openCapture = useMemo(() => () => setOpen(true), []);
+  const openCapture = useMemo(
+    () => () => {
+      setOpen(true);
+    },
+    [],
+  );
+  useHotkey('s', openCapture, { enabled: !open });
 
   return (
     <SeedCaptureContext.Provider value={openCapture}>
       {children}
-      <SeedCaptureDialog open={open} onOpenChange={setOpen} />
+      <SeedForm
+        key={opening}
+        open={open}
+        onClose={() => {
+          setOpen(false);
+        }}
+      />
     </SeedCaptureContext.Provider>
   );
 }
 
-function SeedCaptureDialog({
-  open,
-  onOpenChange,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-50 bg-well-950/70 backdrop-blur-[2px]" />
-        <Dialog.Popup className="fixed top-[18%] left-1/2 z-50 flex w-[min(92vw,480px)] -translate-x-1/2 flex-col gap-3 rounded-2xl border border-line-bright bg-well-850 p-4 shadow-2xl outline-none light:shadow-overlay">
-          {open && <SeedCaptureForm onClose={() => onOpenChange(false)} />}
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
-  );
-}
-
 /**
- * Three fields, no more (12c): kind pills (default `idea`), one capture field,
- * and an optional project select (the current project when on `/p/$key`, else the
- * first project). The capture field is one blob with commit-message semantics
- * (MMR-263): the first line is the title, the rest is the body. Enter files;
- * Shift+Enter adds a newline. Success closes, toasts, and resets.
+ * Three fields, no more (12c): Kind (default Idea), the capture field, and the
+ * project (the current one on `/p/$key` when the picker offers it, none on an
+ * archived one, else the first). The capture field is
+ * one blob with commit-message semantics (MMR-263): the first line is the
+ * title, the rest is the body. Enter files; Shift+Enter adds a newline. Success
+ * closes and toasts; a refusal keeps the form and its fields.
  */
-function SeedCaptureForm({ onClose }: { onClose: () => void }) {
+function SeedForm({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { key } = useParams({ strict: false });
   const projects = useQuery(projectsQuery);
   const projectItems = projects.data ?? [];
-  const defaultProject = key ?? projectItems[0]?.id ?? '';
+  const defaultProject = key ?? projectItems[0]?.id;
 
   const [kind, setKind] = useState<SeedKind>('idea');
   const [title, setTitle] = useState('');
-  const [project, setProject] = useState(defaultProject);
-  const titleRef = useRef<HTMLTextAreaElement>(null);
+  const [project, setProject] = useState<string | null | undefined>(undefined);
+  const seedField = useRef<HTMLTextAreaElement>(null);
 
   const file = useFileSeed();
-  const effectiveProject = project !== '' ? project : defaultProject;
-  const canFile = !file.isPending && title.trim() !== '' && effectiveProject !== '';
-
-  function reset() {
-    setKind('idea');
-    setTitle('');
-    setProject(defaultProject);
-    titleRef.current?.focus();
+  const requestedProject = project === undefined ? defaultProject : project;
+  const effectiveProject = projectItems.find((item) => item.id === requestedProject)?.id ?? null;
+  if (open && project === undefined && effectiveProject !== null) {
+    setProject(effectiveProject);
+  } else if (typeof project === 'string' && effectiveProject === null) {
+    setProject(null);
   }
-
-  async function submit() {
-    if (!canFile) {
-      return;
-    }
-    try {
-      // Never send `requester` — a console-filed seed is self-filed (server → "you").
-      // Send the whole capture blob as `title`; the server splits the first line
-      // off as the title and the rest into the `## Seed Description` body (MMR-263).
-      const seed = await file.mutateAsync({
-        kind,
-        project: effectiveProject,
-        title,
-      });
-      toast.success(`Filed ${seed.id}`);
-      reset();
-      onClose();
-    } catch {
-      // toasted by the hook; the popover stays open with its fields intact
-    }
-  }
+  const canFile = title.trim() !== '' && effectiveProject !== null;
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        void submit();
+    <FormSheet
+      open={open}
+      onClose={onClose}
+      title="File a seed"
+      commitLabel="File seed"
+      commitDisabled={!canFile}
+      initialFocus={seedField}
+      onCommit={async () => {
+        if (effectiveProject === null) {
+          return;
+        }
+        // Never send `requester` — a console-filed seed is self-filed (server → "you").
+        // Send the whole capture blob as `title`; the server splits the first line
+        // off as the title and the rest into the `## Seed Description` body (MMR-263).
+        // A refusal is toasted by the hook, and the form stays with its fields.
+        const seed = await file.mutateAsync({ kind, project: effectiveProject, title });
+        toast.success(`Filed ${seed.id}`);
       }}
-      className="flex flex-col gap-3"
     >
-      <Dialog.Title className="sr-only">File a seed</Dialog.Title>
-      <div className="flex items-center gap-2">
-        <span className="microlabel font-mono text-accent-foreground">File a seed</span>
-        <Dialog.Close
-          aria-label="Close"
-          className="ml-auto rounded font-mono text-micro text-ink-ghost hover:text-ink-dim"
-        >
-          esc
-        </Dialog.Close>
-      </div>
-
-      <div role="group" aria-label="Kind" className="flex gap-1.5">
-        {SEED_KIND_VALUES.map((k) => (
-          <button
-            key={k}
-            type="button"
-            aria-pressed={kind === k}
-            onClick={() => setKind(k)}
-            className={cn(
-              'rounded-full px-3 py-1 text-xs font-semibold inset-ring transition-colors',
-              kind === k
-                ? 'bg-line text-ink-bright inset-ring-line'
-                : 'text-ink-dim inset-ring-line hover:text-ink-bright',
-            )}
-          >
-            {k}
-          </button>
-        ))}
-      </div>
-
-      <textarea
-        ref={titleRef}
-        aria-label="Seed"
-        // autofocus lands on the capture field the moment the popover opens
-        // oxlint-disable-next-line jsx-a11y/no-autofocus
-        autoFocus
-        rows={3}
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        onKeyDown={(e) => {
-          // Enter files; Shift+Enter inserts a newline (the body). Guard IME
-          // composition so an in-progress candidate commit never files.
-          if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-            e.preventDefault();
-            void submit();
-          }
-        }}
-        placeholder="First line is the title. Shift+Enter for a body line."
-        className="resize-none rounded-[10px] border border-line-bright bg-well-900 px-3.5 py-2.5 text-card-mobile leading-[1.5] text-ink-bright caret-accent outline-none placeholder:text-ink-ghost focus-visible:border-accent/60"
+      <FormField label="Kind" choice>
+        <SegmentedControl<SeedKind>
+          size="field"
+          ariaLabel="Kind"
+          options={KIND_OPTIONS}
+          value={kind}
+          onChange={setKind}
+        />
+      </FormField>
+      <FormField label="Seed" help="First line is the title. Shift+Enter for a body line.">
+        <FormTextArea
+          ref={seedField}
+          value={title}
+          onChange={(event) => {
+            setTitle(event.target.value);
+          }}
+          onKeyDown={(event) => {
+            // Enter files; Shift+Enter inserts a newline (the body). Guard IME
+            // composition so an in-progress candidate commit never files.
+            if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+              event.preventDefault();
+              requestFormCommit(event.currentTarget);
+            }
+          }}
+          className="caret-accent"
+        />
+      </FormField>
+      <FormRecordPicker
+        label="Project"
+        records={projectItems.map((p) => ({ id: p.id, title: p.title }))}
+        value={effectiveProject}
+        onValueChange={setProject}
+        placeholder="Choose a project…"
+        searchLabel="Find a project"
+        emptyText="No projects match."
       />
-
-      <div className="flex items-center gap-2">
-        <label className="sr-only" htmlFor="seed-capture-project">
-          Project
-        </label>
-        <select
-          id="seed-capture-project"
-          value={effectiveProject}
-          onChange={(e) => setProject(e.target.value)}
-          className="rounded-[7px] border border-line bg-well-900 px-2.5 py-1.5 text-meta text-ink-bright outline-none focus-visible:border-accent/60"
-        >
-          {projectItems.length === 0 && <option value="">No projects</option>}
-          {projectItems.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.id} — {p.title}
-            </option>
-          ))}
-        </select>
-        <span className="text-tag text-ink-ghost">optional</span>
-        <ActionButton size="sm" type="submit" disabled={!canFile} className="ml-auto font-bold">
-          File ↵
-        </ActionButton>
-      </div>
-    </form>
+    </FormSheet>
   );
 }

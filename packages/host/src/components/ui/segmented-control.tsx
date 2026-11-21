@@ -20,14 +20,32 @@ import { cn } from '../../lib/cn';
 export const segmentedTrackClass =
   'inline-flex gap-px rounded-lg bg-well-850 p-0.5 inset-ring inset-ring-line';
 
+/*
+ * A form's track (DESIGN.md, Sizes): the field's full width on the control
+ * ground, its edge ink-faint like every control's, 50 tall on a phone (a 3px
+ * inset leaves each segment a 44 tap target) and 44 from `md` up.
+ */
+const FIELD_TRACK_CLASS =
+  'flex h-[50px] w-full gap-0.5 rounded-lg bg-well-950 p-[3px] inset-ring inset-ring-ink-faint md:h-11';
+
+/*
+ * Segment text is 14/20 at 500 in sentence case (a provider's values keep their
+ * own case). The selected segment is an accent wash with a full-strength ring,
+ * so the state reads without hue alone; focus is a 2px ring inset inside the
+ * segment that replaces the selection ring while it shows.
+ */
 export const segmentVariants = cva(
-  'microlabel rounded-md px-2.5 py-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-accent',
+  'rounded-md px-2.5 py-1 text-label font-medium transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent focus-visible:inset-ring-0',
   {
-    defaultVariants: { active: false },
+    defaultVariants: { active: false, size: 'compact' },
     variants: {
       active: {
-        false: 'text-ink-dim hover:text-ink',
-        true: 'bg-accent/12 text-accent-foreground inset-ring inset-ring-accent/24',
+        false: 'text-ink-dim hover:text-ink-bright',
+        true: 'bg-accent/12 text-accent-foreground inset-ring inset-ring-accent',
+      },
+      size: {
+        compact: '',
+        field: 'min-w-0 flex-1 truncate px-3 md:px-5',
       },
     },
   },
@@ -74,17 +92,21 @@ export function SegmentedControl<T extends string>({
   ariaLabel,
   className,
   segmentClassName,
+  size = 'compact',
 }: {
   options: readonly SegmentedOption<T>[];
   value: T;
   onChange: (value: T) => void;
   ariaLabel: string;
+  /** `field` spans a form field's width at the control height; `compact` sits inline. */
+  size?: 'compact' | 'field';
   className?: string;
   /** Per-segment overrides (e.g. the authoring sheet's pill-shaped, mixed-case type selector). */
   segmentClassName?: string;
 }) {
   return (
     <SdkSegmentedControl<T>
+      // Inside a Form sheet field, UI SDK's Field also ties the group to the field's label.
       aria-label={ariaLabel}
       value={value}
       onValueChange={(next) => {
@@ -92,7 +114,7 @@ export function SegmentedControl<T extends string>({
           onChange(next);
         }
       }}
-      className={cn(segmentedTrackClass, className)}
+      className={cn(size === 'field' ? FIELD_TRACK_CLASS : segmentedTrackClass, className)}
       onKeyDownCapture={(e) => {
         handleKeyDownCapture(e, options, onChange);
       }}
@@ -101,7 +123,10 @@ export function SegmentedControl<T extends string>({
         <SegmentedControlItem
           key={option.value}
           value={option.value}
-          className={cn(segmentVariants({ active: value === option.value }), segmentClassName)}
+          className={cn(
+            segmentVariants({ active: value === option.value, size }),
+            segmentClassName,
+          )}
         >
           {option.label}
         </SegmentedControlItem>

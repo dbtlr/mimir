@@ -15,7 +15,7 @@ export function Switch({ className, ...props }: ComponentProps<typeof SdkSwitch>
     <SdkSwitch
       className={mergeClassName(
         'relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full bg-ink-faint p-[3px] transition-colors outline-none',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent',
         'data-[checked]:bg-accent data-[disabled]:cursor-default data-[disabled]:opacity-60',
         className,
       )}

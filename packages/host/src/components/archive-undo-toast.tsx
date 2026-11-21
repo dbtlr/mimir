@@ -16,8 +16,14 @@ export function archivedUndoToast(
   onUnarchive: () => void,
   options?: { duration?: number },
 ): void {
-  toast(`Archived ${title}`, {
-    action: { label: 'Undo', onClick: onUnarchive },
-    duration: options?.duration,
-  });
+  // The project's name is ink-bright 600 in the Notice's ink line (DESIGN.md, Toast).
+  toast(
+    <>
+      Archived <b>{title}</b>
+    </>,
+    {
+      action: { label: 'Undo', onClick: onUnarchive },
+      duration: options?.duration,
+    },
+  );
 }

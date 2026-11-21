@@ -1,9 +1,11 @@
 import { QueryClient } from '@tanstack/react-query';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
 import { seedCreate } from '../api/fns/browse';
+import { projects as fetchProjects } from '../api/fns/shell';
+import { projectsQuery } from '../api/shell-queries';
 import { engineSeed } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
@@ -49,7 +51,7 @@ const renderApp = async (initial = '/p/MMR/seeds') =>
     )
   ).router;
 
-describe('seed capture popover (12c, MMR-247)', () => {
+describe('seed form (12c, MMR-247; the Form sheet, MMR-743)', () => {
   it('files the right body (project/title/kind, no requester) and resets on success', async () => {
     mockApi();
     vi.mocked(seedCreate).mockResolvedValue(engineSeed({ id: 'MMR-s7' }));
@@ -57,12 +59,12 @@ describe('seed capture popover (12c, MMR-247)', () => {
     const user = userEvent.setup();
 
     await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
-    // the popover is up
+    // the form is up
     await screen.findByLabelText('Seed');
 
-    await user.click(screen.getByRole('button', { name: 'bug' }));
+    await user.click(screen.getByRole('radio', { name: 'Bug' }));
     await user.type(screen.getByLabelText('Seed'), 'Tree lens loses scroll');
-    await user.click(screen.getByRole('button', { name: 'File ↵' }));
+    await user.click(screen.getByRole('button', { name: 'File seed' }));
 
     await waitFor(() => {
       expect(seedCreate).toHaveBeenCalledWith({
@@ -71,28 +73,30 @@ describe('seed capture popover (12c, MMR-247)', () => {
     });
     // never carries requester — a console-filed seed is self-filed
     expect(vi.mocked(seedCreate).mock.calls[0]?.[0].data).not.toHaveProperty('requester');
-    // success toasts and the popover closes (fields reset behind it)
+    // success toasts and the form closes (fields reset behind it)
     expect(toast.success).toHaveBeenCalledWith('Filed MMR-s7');
     await waitFor(() => {
       expect(screen.queryByLabelText('Seed')).toBeNull();
     });
   });
 
-  // ADR 0019 §1 (MMR-626): seed kind is a category, so the picked kind draws in ink.
-  it('a picked kind draws in ink, never a status hue', async () => {
+  // ADR 0019 §1 (MMR-626): seed kind is a category, so the picked kind never wears a status hue.
+  // The Form sheet (MMR-743) draws Kind as a Segmented Control, whose pick is the accent
+  // selection wash every Choice shares, where the pills drew it in ink.
+  it('a picked kind takes the selection wash, never a status hue', async () => {
     mockApi();
     await renderApp();
     const user = userEvent.setup();
 
     await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
     await screen.findByLabelText('Seed');
-    for (const kind of ['bug', 'idea', 'feature']) {
-      const pill = screen.getByRole('button', { name: kind });
-      await user.click(pill);
-      expect(pill).toHaveAttribute('aria-pressed', 'true');
-      expect(pill.className).not.toMatch(/status-/);
-      expect(pill.className.split(/\s+/)).toEqual(
-        expect.arrayContaining(['bg-line', 'text-ink-bright']),
+    for (const kind of ['Bug', 'Idea', 'Feature']) {
+      const segment = screen.getByRole('radio', { name: kind });
+      await user.click(segment);
+      expect(segment).toBeChecked();
+      expect(segment.className).not.toMatch(/status-/);
+      expect(segment.className.split(/\s+/)).toEqual(
+        expect.arrayContaining(['bg-accent/12', 'text-accent-foreground']),
       );
     }
   });
@@ -104,7 +108,7 @@ describe('seed capture popover (12c, MMR-247)', () => {
 
     await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
     const field = await screen.findByLabelText('Seed');
-    await user.click(screen.getByRole('button', { name: 'bug' }));
+    await user.click(screen.getByRole('radio', { name: 'Bug' }));
 
     await user.type(field, 'title line');
     // Shift+Enter inserts a newline — it must NOT file.
@@ -119,6 +123,189 @@ describe('seed capture popover (12c, MMR-247)', () => {
         data: { kind: 'bug', project: 'MMR', title: 'title line\nbody line' },
       });
     });
+  });
+
+  it('enter on an empty seed field files nothing', async () => {
+    mockApi();
+    await renderApp();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
+    const field = await screen.findByLabelText('Seed');
+    await user.click(field);
+    await user.keyboard('{Enter}');
+    expect(seedCreate).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Seed')).toBeInTheDocument();
+  });
+
+  it('locks the seed draft while filing and restores its fields after refusal', async () => {
+    mockApi();
+    const held = Promise.withResolvers<Awaited<ReturnType<typeof seedCreate>>>();
+    vi.mocked(seedCreate).mockReturnValueOnce(held.promise);
+    await renderApp();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
+    const field = await screen.findByLabelText('Seed');
+    const bug = screen.getByRole('radio', { name: 'Bug' });
+    const project = screen.getByRole('button', { name: /Project MMR/ });
+    await user.type(field, 'Keep this seed{Enter}');
+
+    expect(field).toHaveAttribute('readonly');
+    expect(field).toHaveFocus();
+    expect(bug).toHaveAttribute('aria-disabled', 'true');
+    expect(project).toBeDisabled();
+    await user.keyboard(' lost edit');
+    await user.click(bug);
+    expect(field).toHaveValue('Keep this seed');
+    expect(screen.getByRole('radio', { name: 'Idea' })).toBeChecked();
+
+    await act(async () => {
+      held.reject(new Error('Write refused'));
+    });
+    expect(field).not.toHaveAttribute('readonly');
+    expect(bug).not.toHaveAttribute('aria-disabled', 'true');
+    expect(project).toBeEnabled();
+    await user.type(field, ' and revise it');
+    expect(field).toHaveValue('Keep this seed and revise it');
+  });
+
+  it('on a project the picker does not offer (archived), chooses none and holds File seed', async () => {
+    serveShell({
+      archived: [engineProject({ id: 'OLD', status: 'done', title: 'Old project' })],
+      projects: [
+        engineProject({ id: 'MMR', title: 'Mimir' }),
+        engineProject({ id: 'NRN', status: 'ready', title: 'Norn' }),
+      ],
+    });
+    serveBrowse();
+    await renderApp('/p/OLD');
+    const user = userEvent.setup();
+    await screen.findByText(/Old project/);
+    await user.keyboard('s');
+    const field = await screen.findByLabelText('Seed');
+    await user.type(field, 'Filed where it shows');
+    // The picker shows no project, so the form files to none rather than one it hides.
+    expect(screen.getByRole('button', { name: 'Project Choose a project…' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'File seed' })).toBeDisabled();
+    await user.keyboard('{Enter}');
+    expect(seedCreate).not.toHaveBeenCalled();
+  });
+
+  it('keeps an offered choice on refresh and requires a new choice when it disappears', async () => {
+    const mimir = engineProject({ id: 'MMR', title: 'Mimir' });
+    const norn = engineProject({ id: 'NRN', status: 'ready', title: 'Norn' });
+    serveShell({ projects: [mimir, norn] });
+    serveBrowse();
+    vi.mocked(seedCreate).mockResolvedValue(engineSeed({ id: 'MMR-s7' }));
+    const client = new QueryClient({ defaultOptions: { queries: { refetchInterval: false } } });
+    await renderShell('/p/MMR/seeds', client);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
+    const field = await screen.findByLabelText('Seed');
+    await user.type(field, 'Keep this draft');
+    const choose = async (name: RegExp) => {
+      await user.click(screen.getByRole('button', { name: /^Project / }));
+      await user.click(await screen.findByRole('option', { name }));
+    };
+    await choose(/Norn/);
+    const file = screen.getByRole('button', { name: 'File seed' });
+    const refresh = async (projects: (typeof mimir)[]) => {
+      await act(async () => {
+        client.setQueryData(projectsQuery.queryKey, projects);
+      });
+    };
+
+    await refresh([mimir, { ...norn, title: 'Norn renamed' }]);
+    await expect(
+      screen.findByRole('button', { name: /Project NRN.*Norn renamed/ }),
+    ).resolves.toBeVisible();
+    expect(file).toBeEnabled();
+
+    await refresh([mimir]);
+    await expect(
+      screen.findByRole('button', { name: 'Project Choose a project…' }),
+    ).resolves.toBeVisible();
+    expect(file).toBeDisabled();
+    await user.click(field);
+    await user.keyboard('{Enter}');
+    expect(seedCreate).not.toHaveBeenCalled();
+
+    await refresh([mimir, norn]);
+    expect(file).toBeDisabled();
+    await choose(/Mimir/);
+    await user.click(file);
+    await waitFor(() => {
+      expect(seedCreate).toHaveBeenCalledWith({
+        data: { kind: 'idea', project: 'MMR', title: 'Keep this draft' },
+      });
+    });
+  });
+
+  it.each([true, false])(
+    'pins the unscoped default until it disappears (available at opening: %s)',
+    async (availableAtOpening) => {
+      const mimir = engineProject({ id: 'MMR', title: 'Mimir' });
+      const first = engineProject({ id: 'AAA', title: 'First' });
+      serveShell({ projects: availableAtOpening ? [mimir] : [] });
+      serveBrowse();
+      const client = new QueryClient({ defaultOptions: { queries: { refetchInterval: false } } });
+      await renderShell('/', client);
+      const user = userEvent.setup();
+      await user.keyboard('s');
+      await user.type(await screen.findByLabelText('Seed'), 'Keep my destination');
+      const refresh = async (projects: (typeof mimir)[]) => {
+        vi.mocked(fetchProjects).mockResolvedValue(projects);
+        await act(async () => {
+          client.setQueryData(projectsQuery.queryKey, projects);
+        });
+      };
+      if (!availableAtOpening) {
+        await refresh([mimir]);
+      }
+      await expect(
+        screen.findByRole('button', { name: /Project MMR.*Mimir/ }),
+      ).resolves.toBeVisible();
+
+      await refresh([first, { ...mimir, title: 'Mimir refreshed' }]);
+      await expect(
+        screen.findByRole('button', { name: /Project MMR.*Mimir refreshed/ }),
+      ).resolves.toBeVisible();
+      const file = screen.getByRole('button', { name: 'File seed' });
+      expect(file).toBeEnabled();
+
+      await refresh([first]);
+      await expect(
+        screen.findByRole('button', { name: 'Project Choose a project…' }),
+      ).resolves.toBeVisible();
+      expect(file).toBeDisabled();
+      expect(screen.getByLabelText('Seed')).toHaveValue('Keep my destination');
+
+      await user.keyboard('{Escape}');
+      await waitFor(() => expect(screen.queryByLabelText('Seed')).toBeNull());
+      await user.keyboard('s');
+      await expect(
+        screen.findByRole('button', { name: /Project AAA.*First/ }),
+      ).resolves.toBeVisible();
+    },
+  );
+
+  it('reopens fresh after Escape abandons its edits: Idea and an empty seed', async () => {
+    mockApi();
+    await renderApp();
+    const user = userEvent.setup();
+    const opener = await screen.findByRole('button', { name: '+ File a seed' });
+
+    await user.click(opener);
+    await user.click(await screen.findByRole('radio', { name: 'Bug' }));
+    await user.type(screen.getByLabelText('Seed'), 'Abandoned thought');
+    await user.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Seed')).toBeNull();
+    });
+
+    await user.click(opener);
+    await expect(screen.findByLabelText('Seed')).resolves.toHaveValue('');
+    expect(screen.getByRole('radio', { name: 'Idea' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Bug' })).not.toBeChecked();
   });
 
   it('opens on the global `s` hotkey', async () => {

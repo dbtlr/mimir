@@ -44,7 +44,7 @@ export function CommandInput({ className, ...props }: ComponentProps<typeof SdkC
       </svg>
       <SdkCommandInput
         className={mergeClassName(
-          'min-w-0 flex-1 bg-transparent text-base text-ink-bright outline-none placeholder:text-ink-faint',
+          'min-w-0 flex-1 bg-transparent text-base text-ink-bright outline-none placeholder:text-ink-dim',
           className,
         )}
         {...props}
@@ -103,13 +103,13 @@ export function CommandShortcut({
   );
 }
 
-/** The key-hint line under the results, as in the jump palette. */
+/** The key-hint line under the results, as in the jump palette: 12px ink-dim, the floor for text. */
 export function CommandFooter({ className, ...props }: ComponentProps<'div'>) {
   return (
     <div
       aria-hidden="true"
       className={cn(
-        'flex flex-wrap gap-3.5 border-t border-line px-4 py-2 font-mono text-micro text-ink-faint',
+        'flex flex-wrap gap-x-4 gap-y-1 border-t border-line px-4 py-2 text-xs text-ink-dim',
         className,
       )}
       {...props}

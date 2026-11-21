@@ -165,6 +165,27 @@ describe('startingChoice', () => {
   it('is null for a system with no model to start from', () => {
     expect(startingChoice(reachableSystem({ providers: [] }), null)).toBeNull();
   });
+
+  it('starts with a model whose provider offers a runtime mode', () => {
+    const system = reachableSystem();
+    const [claude] = system.providers;
+    if (claude === undefined) {
+      throw new Error('the system fixture has no provider');
+    }
+    expect(
+      startingChoice(
+        {
+          ...system,
+          projects: [{ defaultModelSelection: null, id: 'p1', title: 'mimir' }],
+          providers: [{ ...claude, providerInstanceId: 'no-runtime', runtimeModes: [] }, claude],
+        },
+        null,
+      ),
+    ).toMatchObject({
+      model: { instanceId: 'claude', model: 'opus' },
+      runtimeMode: 'full-access',
+    });
+  });
 });
 
 describe('the remembered choice', () => {

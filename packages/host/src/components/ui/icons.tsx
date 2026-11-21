@@ -97,3 +97,56 @@ export function SettingsIcon({ className }: IconProps) {
     </Icon>
   );
 }
+
+export function ChevronDownIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="m6 9 6 6 6-6" />
+    </Icon>
+  );
+}
+
+export function ChevronRightIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="m9 6 6 6-6 6" />
+    </Icon>
+  );
+}
+
+/*
+ * Key glyphs for a key hint (the jump palette's footer), drawn on the same
+ * grid rather than taken from the system font, so they match its weight.
+ */
+
+export function ArrowUpIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="M12 19V5m-6 6 6-6 6 6" />
+    </Icon>
+  );
+}
+
+export function ArrowDownIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="M12 5v14m-6-6 6 6 6-6" />
+    </Icon>
+  );
+}
+
+export function EnterKeyIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="M19 5v7a3 3 0 0 1-3 3H5m4-4-4 4 4 4" />
+    </Icon>
+  );
+}
+
+export function CommandKeyIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="M9 9V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V9Z" />
+    </Icon>
+  );
+}

@@ -184,6 +184,18 @@ export function KitPage() {
             Disabled
           </ActionButton>
         </div>
+        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-well-850 p-4">
+          <ActionButton size="form" variant="formOutline">
+            Cancel
+          </ActionButton>
+          <ActionButton size="form">Create project</ActionButton>
+          <ActionButton size="form" disabled>
+            File seed
+          </ActionButton>
+          <ActionButton size="form" variant="formOutline">
+            Archive project
+          </ActionButton>
+        </div>
       </Section>
 
       <Section title="Badges">

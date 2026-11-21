@@ -712,8 +712,9 @@ describe('sidebar breakpoint', () => {
       expect(el).not.toBeNull();
       return el as HTMLElement;
     });
-    expect(region).toHaveClass('max-sm:top-[calc(var(--top-bar-height,0px)+0.5rem)]');
-    expect(region).not.toHaveClass('max-sm:top-4');
+    // A phone is below `md` (DESIGN.md), where the Notice moves to the top.
+    expect(region).toHaveClass('max-md:top-[calc(var(--top-bar-height,0px)+0.5rem)]');
+    expect(region).not.toHaveClass('max-md:top-4');
     const shell = region.closest<HTMLElement>('[style*="--top-bar-height"]');
     expect(shell?.style.getPropertyValue('--top-bar-height')).toBe('57px');
   });
@@ -728,6 +729,29 @@ describe('sidebar breakpoint', () => {
       return el as HTMLElement;
     });
     expect(region).toHaveClass('bottom-4', 'left-4');
+  });
+
+  // DESIGN.md (Toast): 20 above the content area, not on the version footer's hairline.
+  it('lifts the desktop toasts 20 above the version footer the shell measures', async () => {
+    const measured = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect');
+    measured.mockImplementation(function footerRect(this: HTMLElement) {
+      return this.tagName === 'FOOTER' ? new DOMRect(0, 776, 1024, 24) : new DOMRect();
+    });
+    onTestFinished(() => {
+      measured.mockRestore();
+    });
+    await renderAt('/p/MMR');
+    await sidebar();
+    notice('Saved above the footer');
+    const region = await waitFor(() => {
+      const el = screen.getByText('Saved above the footer').closest('[class*="fixed"]');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+    expect(region).toHaveClass('md:bottom-[calc(var(--version-footer-height,0px)+1.25rem)]');
+    expect(region).not.toHaveClass('md:bottom-5');
+    const shell = region.closest<HTMLElement>('[style*="--version-footer-height"]');
+    expect(shell?.style.getPropertyValue('--version-footer-height')).toBe('24px');
   });
 
   it('moves the Notice toasts clear of the sidebar too', async () => {
