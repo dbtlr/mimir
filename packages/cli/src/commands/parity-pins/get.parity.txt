@@ -1212,7 +1212,7 @@ exit 2
 |   "hints": [
 |     "'--tz' resolves a bare date in a query and renders its results; use it with list, next, artifacts, seeds"
 |   ],
-|   "message": "Unknown option \"--tz\". Supply a declared option; prefix a hyphenated path with \"./\"."
+|   "message": "Unknown option \"--tz\". Supply a declared option, or pass it as an argument after \"--\"."
 | }
 
 ### get argv: MMR-3 (terminal)

@@ -448,13 +448,6 @@ function header(verb: UniformVerb) {
   };
 }
 
-/** A verb without a reason takes no words after `--` either; Loom hands them over, so refuse them rather than drop them. */
-function refuseStray(passthrough: readonly string[]): void {
-  if (passthrough.length > 0) {
-    throw new MimirUsageError(`unexpected argument: ${passthrough.join(' ')}`);
-  }
-}
-
 const SUBJECT_DESCRIPTIONS = {
   project: 'The project key (bare KEY).',
   task: 'The task: KEY-seq.',
@@ -494,8 +487,7 @@ function plainTask(verb: UniformVerb, ports: Ports) {
     .option('ascii', asciiOption)
     .result<LifecycleEcho>({ views: echoViews })
     .views({ records: echoViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out, passthrough }) => {
-      refuseStray(passthrough);
+    .action(async ({ args, host, options, out }) => {
       const presentation = presentationOf(host, options.ascii);
       await out.results(await runVerb(ports, { id: args.id, presentation, reason: '', verb }));
     });
@@ -511,10 +503,8 @@ function reasonedTask(verb: UniformVerb, ports: Ports) {
     .option('ascii', asciiOption)
     .result<LifecycleEcho>({ views: echoViews })
     .views({ records: echoViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out, passthrough }) => {
-      await out.results(
-        await run(args.id, reasonWords(args.reason, passthrough), options.ascii, host),
-      );
+    .action(async ({ args, host, options, out }) => {
+      await out.results(await run(args.id, reasonWords(args.reason), options.ascii, host));
     });
 }
 
@@ -531,8 +521,7 @@ function projectVerb(verb: UniformVerb, ports: Ports) {
       .option('ascii', asciiOption)
       .result<LifecycleEcho>({ views: echoViews })
       .views({ records: echoViews.records }, { default: 'records' })
-      .action(async ({ args, host, options, out, passthrough }) => {
-        refuseStray(passthrough);
+      .action(async ({ args, host, options, out }) => {
         await out.results(await run(args.key, '', options.ascii, host));
       });
   }
@@ -541,10 +530,8 @@ function projectVerb(verb: UniformVerb, ports: Ports) {
     .option('ascii', asciiOption)
     .result<LifecycleEcho>({ views: echoViews })
     .views({ records: echoViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out, passthrough }) => {
-      await out.results(
-        await run(args.key, reasonWords(args.reason, passthrough), options.ascii, host),
-      );
+    .action(async ({ args, host, options, out }) => {
+      await out.results(await run(args.key, reasonWords(args.reason), options.ascii, host));
     });
 }
 
@@ -630,8 +617,7 @@ function handleVerb(verb: 'queue' | 'start', ports: Ports) {
     .option('ascii', asciiOption)
     .result<LifecycleEcho>({ views: echoViews })
     .views({ records: echoViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out, passthrough }) => {
-      refuseStray(passthrough);
+    .action(async ({ args, host, options, out }) => {
       if (args.id.trim() === '') {
         throw new MimirUsageError(`${verb} requires an id (KEY-seq)`);
       }
@@ -697,14 +683,14 @@ function blockCommand(ports: Ports) {
     .option('ascii', asciiOption)
     .result<LifecycleEcho>({ views: echoViews })
     .views({ records: echoViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out, passthrough }) => {
+    .action(async ({ args, host, options, out }) => {
       const presentation = presentationOf(host, options.ascii);
       await out.results(
         await runVerb(ports, {
           id: args.id,
           on: options.on,
           presentation,
-          reason: reasonWords(args.reason, passthrough),
+          reason: reasonWords(args.reason),
           verb: 'block',
         }),
       );

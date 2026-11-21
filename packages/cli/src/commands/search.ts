@@ -69,9 +69,9 @@ export function searchCommand(ports: Ports) {
     .option('ascii', asciiOption)
     .result<SearchValue>({ views })
     .views({ table: views.table }, { default: 'table' })
-    .action(async ({ args, host, options, out, passthrough }) => {
+    .action(async ({ args, host, options, out }) => {
       // Every value is read before the store opens, so a wrong invocation never opens it.
-      const query = reasonWords(args.query, passthrough).trim();
+      const query = reasonWords(args.query).trim();
       if (query === '') {
         throw new MimirUsageError(
           'search needs a query',

@@ -187,6 +187,7 @@ function initiativeCommand(ports: Ports) {
     .option('ascii', asciiOption)
     .result<NodeEcho>({ views: nodeEchoViews })
     .views({ records: nodeEchoViews.records }, { default: 'records' })
+    .passthrough({ description: 'The title, when it leads with a dash.' })
     .action(async ({ args, host, options, out, passthrough }) => {
       const title = requireTitle(args.title, passthrough, 'initiative');
       const parent = requireParentKind(
@@ -242,6 +243,7 @@ function phaseCommand(ports: Ports) {
     .option('ascii', asciiOption)
     .result<NodeEcho>({ views: nodeEchoViews })
     .views({ records: nodeEchoViews.records }, { default: 'records' })
+    .passthrough({ description: 'The title, when it leads with a dash.' })
     .action(async ({ args, host, options, out, passthrough }) => {
       const title = requireTitle(args.title, passthrough, 'phase');
       const parent = requireParentKind(
@@ -333,6 +335,7 @@ function taskCommand(ports: Ports) {
     .option('ascii', asciiOption)
     .result<NodeEcho>({ views: nodeEchoViews })
     .views({ records: nodeEchoViews.records }, { default: 'records' })
+    .passthrough({ description: 'The title, when it leads with a dash.' })
     .action(async ({ args, host, options, out, passthrough }) => {
       const title = requireTitle(args.title, passthrough, 'task');
       const parent = requireParentKind(

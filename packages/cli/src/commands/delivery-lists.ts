@@ -40,10 +40,10 @@ export function limitationVerb(ports: Ports) {
     .option('ascii', asciiOption)
     .result<DeliveryValue>({ views: deliveryEchoViews })
     .views({ records: deliveryEchoViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out, passthrough }) => {
+    .action(async ({ args, host, options, out }) => {
       const delivery = await (
         await ports.engine()
-      ).deliveryLimitation({ id: args.id, text: reasonWords(args.text, passthrough) });
+      ).deliveryLimitation({ id: args.id, text: reasonWords(args.text) });
       await out.results({
         delivery: encodeDelivery(delivery),
         presentation: presentationOf(host, options.ascii),
@@ -82,8 +82,8 @@ export function declineVerb(ports: Ports) {
     .option('ascii', asciiOption)
     .result<DeliveryValue>({ views: deliveryEchoViews })
     .views({ records: deliveryEchoViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out, passthrough }) => {
-      const reason = options.reason ?? reasonWords(args.words, passthrough);
+    .action(async ({ args, host, options, out }) => {
+      const reason = options.reason ?? reasonWords(args.words);
       const delivery = await (
         await ports.engine()
       ).deliveryDecline({ finding: args.finding, id: args.id, reason });

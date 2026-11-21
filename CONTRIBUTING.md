@@ -418,7 +418,10 @@ compatibility review.
   file name sets the kind: `breaking.<slug>.md` for a change a user must adapt
   to (it ends with a `### Migration` section), `feature.<slug>.md` for a
   feature, and `<slug>.md` for a fix; the task id is the conventional slug.
-  The kinds decide the next version, so a cycle that changes the Engine
+  The kinds decide the next version: below 1.0 a breaking or feature fragment
+  bumps the minor and a fix the patch
+  ([ADR 0047](docs/decisions/0047-below-1-0-a-feature-advances-the-minor.md)).
+  A cycle that changes the Engine
   contract, additively included, carries a breaking fragment; the guard
   refuses an Engine schema snapshot or `MIN_CLIENT` change without one. `packages/cli/CHANGELOG.md` itself is written only at the
   release cut, so parallel PRs never conflict on it. Run

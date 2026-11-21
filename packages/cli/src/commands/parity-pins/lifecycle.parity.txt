@@ -159,9 +159,9 @@ exit 2
 --- stdout
 --- failure
 | {
-|   "code": "usage",
+|   "code": "unexpected-argument",
 |   "hints": [],
-|   "message": "unexpected argument: x"
+|   "message": "Command \"queue\" accepts 1 argument. Remove the extra values."
 | }
 --- state
 unchanged
@@ -721,7 +721,7 @@ exit 2
 |   "hints": [
 |     "'--on' names the owner at block (you|others), the prerequisites at depend/undepend, and a date filter at list, next, artifacts, seeds"
 |   ],
-|   "message": "Unknown option \"--on\". Supply a declared option; prefix a hyphenated path with \"./\"."
+|   "message": "Unknown option \"--on\". Supply a declared option, or pass it as an argument after \"--\"."
 | }
 --- state
 unchanged
@@ -785,9 +785,9 @@ exit 2
 --- stdout
 --- failure
 | {
-|   "code": "usage",
+|   "code": "unexpected-argument",
 |   "hints": [],
-|   "message": "unexpected argument: x"
+|   "message": "Command \"start\" accepts 1 argument. Remove the extra values."
 | }
 --- state
 unchanged
@@ -1207,9 +1207,9 @@ exit 2
 --- stdout
 --- failure
 | {
-|   "code": "usage",
+|   "code": "unexpected-argument",
 |   "hints": [],
-|   "message": "unexpected argument: x"
+|   "message": "Command \"done\" accepts 1 argument. Remove the extra values."
 | }
 --- state
 unchanged
@@ -2238,7 +2238,7 @@ exit 2
 |   "hints": [
 |     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
 |   ],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
+|   "message": "Unknown option \"--parent\". Supply a declared option, or pass it as an argument after \"--\"."
 | }
 --- state
 unchanged

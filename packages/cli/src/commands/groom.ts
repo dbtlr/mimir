@@ -56,7 +56,7 @@ export function groomCommand(ports: Ports) {
     .option('ascii', asciiOption)
     .result<Notice>({ views: noticeViews })
     .views({ records: noticeViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out, passthrough }) => {
+    .action(async ({ args, host, options, out }) => {
       // Ids run up to the first state word, each possibly comma-separated; the
       // rest is the note. Loom's declared `state` is only the second word.
       const tail = [args.ids, args.state, ...args.note];
@@ -78,7 +78,7 @@ export function groomCommand(ports: Ports) {
         );
       }
       const ids = tokens.map((token) => nodeToken(ports.grammar, token, 'task'));
-      const note = reasonWords(tail.slice(stateAt + 1), passthrough);
+      const note = reasonWords(tail.slice(stateAt + 1));
       const engine = await ports.engine();
       const groomed = await withListHint(ids, () =>
         engine.groom({ ids, note: note === '' ? undefined : note, state }),

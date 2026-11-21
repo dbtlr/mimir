@@ -1,10 +1,11 @@
 mimir create delivery · Create an attempt to deliver a phase.
 
 USAGE
-  mimir create delivery [title] --phase <text> [options]
+  mimir create delivery [title] --phase <text> [options] [-- <args>...]
 
 ARGUMENTS
-  title  The delivery title.
+  title         The delivery title.
+  -- <args>...  The title, when it leads with a dash.
 
 OPTIONS
       --phase <text>      The phase this attempt delivers.  (required)
@@ -18,6 +19,7 @@ OPTIONS
       --time-cap <text>   A positive whole number of minutes.
       --ascii             Print without color, in ASCII glyphs.
   -f, --format <format>   Select the output format, records by default. One of: ids, json, jsonl, records, table.
+      --fields <fields>   Select top-level fields of json and jsonl output, as a comma list.  (repeatable)
 
 GLOBAL OPTIONS
   -h, --help      Show this help.

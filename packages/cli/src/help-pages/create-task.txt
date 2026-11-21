@@ -1,10 +1,11 @@
 mimir create task · Create a task under a phase or initiative.
 
 USAGE
-  mimir create task [title] --parent <id> [options]
+  mimir create task [title] --parent <id> [options] [-- <args>...]
 
 ARGUMENTS
-  title  The task's title.
+  title         The task's title.
+  -- <args>...  The title, when it leads with a dash.
 
 OPTIONS
       --parent <id>        The parent phase or initiative (KEY-seq).  (required)
@@ -22,6 +23,7 @@ OPTIONS
       --groomed            Born groomed: carved from a finished design.
       --ascii              Print without color, in ASCII glyphs.
   -f, --format <format>    Select the output format, records by default. One of: ids, json, jsonl, records, table.
+      --fields <fields>    Select top-level fields of json and jsonl output, as a comma list.  (repeatable)
 
 GLOBAL OPTIONS
   -h, --help      Show this help.

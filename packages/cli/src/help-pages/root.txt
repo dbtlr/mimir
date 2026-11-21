@@ -4,7 +4,7 @@ USAGE
   mimir <command> [options]
 
 COMMANDS
-  mcp [command]      Serve this application's tools to an MCP client over stdin and stdout.
+  mcp [command]      Serve this application's tools to an MCP client, over stdin and stdout or, with --http, over HTTP.
   skills <command>   Install this application's agent skills.
   self-update        Replace this application with another release.
   get                Read one full record: a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), a seed (KEY-sN), a delivery (KEY-dN), or a decision (KEY-qN).

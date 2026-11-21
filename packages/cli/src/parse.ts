@@ -290,10 +290,10 @@ export function parseFilters(
 }
 
 /**
- * The reason a verb records: the words before `--` and the words after it,
- * joined by single spaces. After `--` Loom stops reading options, so a reason
- * that begins with a dash (`park MMR-3 -- -1 day`) survives as text.
+ * The reason a verb records: its words joined by single spaces. Words after
+ * `--` fill the same argument, so a reason that begins with a dash
+ * (`park MMR-3 -- -1 day`) survives as text.
  */
-export function reasonWords(words: readonly string[], afterDashes: readonly string[]): string {
-  return [...words, ...afterDashes].join(' ');
+export function reasonWords(words: readonly string[]): string {
+  return words.join(' ');
 }

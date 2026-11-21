@@ -1042,7 +1042,7 @@ exit 2
 |   "hints": [
 |     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
 |   ],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
+|   "message": "Unknown option \"--parent\". Supply a declared option, or pass it as an argument after \"--\"."
 | }
 --- state
 unchanged

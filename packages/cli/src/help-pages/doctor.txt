@@ -6,6 +6,7 @@ USAGE
 OPTIONS
   -s, --scope <KEY|all>  Limit local store checks to a project. Defaults to the clone binding; all checks every project. Remote client checks are install-wide.
   -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+      --fields <fields>  Select top-level fields of json and jsonl output, as a comma list.  (repeatable)
 
 GLOBAL OPTIONS
   -h, --help      Show this help.

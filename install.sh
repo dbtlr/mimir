@@ -1,5 +1,5 @@
 #!/bin/sh
-# Managed by loom init. sha256:af66a32d3cf4d507b865464eb0f287f4d7d6153c4e3b405f993e94ad7e70216b
+# Managed by loom init. sha256:22bcf0e09d0063c353086c75660730d55919d1b8d9576fc3c20bfd1d0abc8476
 # Installs this application from its GitHub releases: it downloads the binary for this platform,
 # verifies it against the release's SHA256SUMS, moves it into place, and records the installation
 # in install.json, so self-update may later replace the binary. Run it with --help for its usage.
@@ -17,7 +17,7 @@ fail() {
 }
 
 usage() {
-  printf '%s\n' 'Usage: install.sh [--dir <directory>] [--skip-post-install] [<version>]'
+  printf '%s\n' 'Usage: install.sh [--dir <directory>] [--skip-post-install] [--unmanaged] [<version>]'
 }
 
 print_help() {
@@ -33,6 +33,7 @@ print_help() {
     'Options:' \
     '  --dir <directory>    The absolute directory to install into. By default, $HOME/.local/bin.' \
     '  --skip-post-install  Install without running the post-install command.' \
+    '  --unmanaged          Install a side copy: no installation record, PATH advice, or post-install command.' \
     '  -h, --help           Print this help.'
 }
 
@@ -45,6 +46,7 @@ argument_error() {
 parse_arguments() {
   dir=
   dir_given=
+  unmanaged=
   version=
   version_given=
   skip_post_install=
@@ -56,6 +58,9 @@ parse_arguments() {
         ;;
       --skip-post-install)
         skip_post_install=1
+        ;;
+      --unmanaged)
+        unmanaged=1
         ;;
       --dir)
         [ $# -ge 2 ] || argument_error '--dir needs a directory.'
@@ -83,6 +88,7 @@ parse_arguments() {
     esac
     shift
   done
+  [ -z "$unmanaged" ] || [ -n "$dir_given" ] || argument_error '--unmanaged needs --dir <directory>, the directory for the side copy.'
   while :; do
     case $dir in
       / | '') break ;;
@@ -190,6 +196,12 @@ if [ -n "$home_needed" ]; then
 fi
 record="$state/$app/installation"
 mkdir -p "$record" 2>/dev/null || { echo "$app: The installation record's directory $record cannot be created. Make it a directory you can write to, then run the installer again." >&2; exit 1; }
+}
+
+check_install_path() {
+  case $target in
+    *[\"\\]* | *[[:cntrl:]]*) echo "$app: The install path holds a quote, a backslash, or a control character. Choose another install directory." >&2; exit 1 ;;
+  esac
 }
 
 fetch() {
@@ -321,6 +333,11 @@ print_command_line() {
 }
 
 run_post_install() {
+  if [ -n "$unmanaged" ]; then
+    say "Skipped the post-install command, which would point shared setup at this copy. Run it only to make this copy the one that is set up:"
+    with_post_install_words print_command_line
+    return 0
+  fi
   if [ -n "$skip_post_install" ]; then
     say "Skipped the post-install command. Run it to finish setting up $app:"
     with_post_install_words print_command_line
@@ -343,6 +360,7 @@ run_post_install() {
 }
 
 print_message() {
+  [ -z "$unmanaged" ] || return 0
   printf '%s' "$message" | while IFS= read -r line || [ -n "$line" ]; do say "$line"; done
 }
 
@@ -367,11 +385,19 @@ main() {
   find_downloader
   find_digest_tool
   check_install_directory
-  prepare_record
+  if [ -z "$unmanaged" ]; then
+    prepare_record
+  else
+    check_install_path
+  fi
   install_binary
-  write_record
+  if [ -z "$unmanaged" ]; then
+    write_record
+  fi
   say "Installed $target."
-  advise_path
+  if [ -z "$unmanaged" ]; then
+    advise_path
+  fi
   run_post_install
   print_message
 }

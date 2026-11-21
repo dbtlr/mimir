@@ -222,7 +222,9 @@ test.each<{ argv: string[] }>([
 
 test('a by-name create with an unknown option gets no dash hint', async () => {
   const app = appFor(['mcp', 'serve']);
-  const outcome = await app.invoke(['create', 'task'], {
+  // An untyped path, so the undeclared option reaches the run instead of the type checker.
+  const createTask: readonly string[] = ['create', 'task'];
+  const outcome = await app.invoke(createTask, {
     args: { title: 'Ship docs' },
     options: { bogus: 'x' },
   });

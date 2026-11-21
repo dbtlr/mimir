@@ -168,11 +168,11 @@ function scratchWriteCommands(ports: Ports) {
     .option('ascii', asciiOption)
     .result<ScratchEcho>({ views: scratchEchoViews })
     .views({ records: scratchEchoViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out, passthrough }) => {
+    .action(async ({ args, host, options, out }) => {
       const notify = (line: string): void => {
         void out.print(line);
       };
-      const words = reasonWords(args.words, passthrough);
+      const words = reasonWords(args.words);
       const title = required(
         options.title ?? (words === '' ? undefined : words),
         'scratch create requires a title',
@@ -247,8 +247,8 @@ function scratchWriteCommands(ports: Ports) {
     .option('ascii', asciiOption)
     .result<ScratchEcho>({ views: scratchEchoViews })
     .views({ records: scratchEchoViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out, passthrough }) => {
-      const inline = reasonWords(args.text, passthrough) || undefined;
+    .action(async ({ args, host, options, out }) => {
+      const inline = reasonWords(args.text) || undefined;
       // Piped stdin only stands in for a checkpoint when no text was typed; a path is explicit.
       if (inline !== undefined && options.file?.path !== undefined) {
         throw new MimirUsageError(
@@ -293,13 +293,13 @@ function scratchWriteCommands(ports: Ports) {
     .option('ascii', asciiOption)
     .result<ScratchEcho>({ views: scratchEchoViews })
     .views({ records: scratchEchoViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out, passthrough }) => {
+    .action(async ({ args, host, options, out }) => {
       const { action, id } = args;
       if (action !== 'add' && action !== 'complete' && action !== 'supersede') {
         throw new MimirUsageError('scratch agenda requires add, complete, or supersede');
       }
       const expectedUpdatedAt = guard(options['expected-updated-at']);
-      const words = [...args.words, ...passthrough];
+      const words = args.words;
       const [first, ...rest] = words;
       // Every usage refusal comes before the store opens.
       let write: (engine: Engine) => Promise<unknown>;

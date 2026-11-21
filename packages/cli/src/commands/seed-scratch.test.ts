@@ -58,6 +58,7 @@ test('the scratch checkpoint tool lists its inputs by name', () => {
     'file',
     'ascii',
     'format',
+    'fields',
   ]);
 });
 

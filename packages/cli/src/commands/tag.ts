@@ -53,13 +53,12 @@ function taggingCommand(ports: Ports, tagging: Tagging) {
     .option('ascii', asciiOption)
     .result<Notice>({ views: noticeViews })
     .views({ records: noticeViews.records }, { default: 'records' })
-    .action(async ({ args, host, options, out, passthrough }) => {
+    .action(async ({ args, host, options, out }) => {
       const ids = splitCsv(args.ids);
       if (ids.length === 0) {
         throw new MimirUsageError(`${tagging.verb} requires ids (comma-separated)`);
       }
-      // Words after `--` are tags too, so a tag may lead with a dash.
-      const given = [...args.tags, ...passthrough];
+      const given = args.tags;
       if (given.length === 0) {
         throw new MimirUsageError(`${tagging.verb} requires at least one tag`);
       }
