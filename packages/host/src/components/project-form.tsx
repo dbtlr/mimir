@@ -18,7 +18,7 @@ import { ActionButton } from './ui/action-button';
 export type EditedProject = Pick<EngineNode, 'id' | 'title' | 'description'>;
 
 export type ProjectFormValues = {
-  title: string;
+  title?: string;
   /** `null` clears the description; `undefined` leaves it. */
   description?: string | null;
 };
@@ -60,7 +60,8 @@ export type ProjectFormProps = {
 export function ProjectForm(props: ProjectFormProps) {
   const { open, onClose } = props;
   const editing = props.mode === 'edit' ? props.project : undefined;
-  const [title, setTitle] = useState(editing?.title ?? '');
+  const [originalTitle] = useState(editing?.title ?? '');
+  const [title, setTitle] = useState(originalTitle);
   const [originalDescription] = useState(editing?.description ?? '');
   const [description, setDescription] = useState(originalDescription);
   const [key, setKey] = useState('');
@@ -90,7 +91,7 @@ export function ProjectForm(props: ProjectFormProps) {
     try {
       await props.onSave({
         ...(body === undefined ? {} : { description: body }),
-        title: trimmedTitle,
+        ...(trimmedTitle === originalTitle.trim() ? {} : { title: trimmedTitle }),
       });
     } finally {
       writing.current = false;
@@ -125,7 +126,7 @@ export function ProjectForm(props: ProjectFormProps) {
       }
       note={props.mode === 'create' ? 'Joins the project list on the review page.' : undefined}
       commitLabel={props.mode === 'create' ? 'Create project' : 'Save'}
-      commitDisabled={!canSend}
+      commitDisabled={!canSend || (props.mode === 'edit' && props.offline)}
       pending={props.mode === 'edit' && props.archiving}
       canCommit={() => !writing.current}
       onCommit={send}

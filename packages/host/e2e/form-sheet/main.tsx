@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
+import { NoticeHost, toast } from '../../src/components/patterns/notice';
 import { ProjectForm } from '../../src/components/project-form';
 import { T3LaunchForm } from '../../src/components/t3-launch-form';
 import { reachableSystem } from '../../src/test/t3-fixtures';
@@ -23,6 +24,24 @@ function Harness() {
   const close = () => {
     setOpen(false);
   };
+  if (form === 'notice') {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => {
+            toast.error('T3 opened a thread but could not finish the launch', {
+              action: { label: 'Retry', onClick: () => undefined },
+              cancel: { label: 'Open in T3', onClick: () => undefined },
+            });
+          }}
+        >
+          Show notice
+        </button>
+        <NoticeHost />
+      </>
+    );
+  }
   return (
     <main className="p-4">
       <button
@@ -37,7 +56,7 @@ function Harness() {
         <T3LaunchForm
           open={open}
           taskId="MMR-743"
-          taskTitle="Form sheet pattern"
+          taskTitle={params.get('taskTitle') ?? 'Form sheet pattern'}
           systems={[reachableSystem()]}
           remembered={null}
           onLaunch={close}

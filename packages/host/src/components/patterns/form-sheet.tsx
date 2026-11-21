@@ -1,3 +1,4 @@
+import { onlineManager } from '@tanstack/react-query';
 import {
   createContext,
   useContext,
@@ -6,6 +7,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 import type { ComponentProps, ReactNode, RefObject } from 'react';
 
@@ -29,6 +31,7 @@ import { BLOCK_PROPS, BLOCK_SELECTOR } from './form-block';
 import { useFinalFocus } from './opener';
 import type { FinalFocus } from './opener';
 import { useOpening } from './opening';
+import { RecordPicker } from './record-picker';
 
 /*
  * Form sheet (ADR 0019, MMR-736): use it to create or edit a record with
@@ -517,6 +520,9 @@ export type FormSheetProps = {
   children: ReactNode;
 };
 
+const subscribeOnline = (onChange: () => void) => onlineManager.subscribe(onChange);
+const isOnline = () => onlineManager.isOnline();
+
 export function FormSheet({
   open,
   onClose,
@@ -534,14 +540,16 @@ export function FormSheet({
 }: FormSheetProps) {
   const desktop = useDrawerSide() === 'right';
   const returnTo = useFinalFocus(open, finalFocus);
-  const { busy, commit } = useOpening(open, pending, commitDisabled);
+  const online = useSyncExternalStore(subscribeOnline, isOnline, () => true);
+  const disabled = commitDisabled || !online;
+  const { busy, commit } = useOpening(open, pending, disabled);
   const body = useRef<HTMLDivElement>(null);
   const commitButton = useRef<HTMLButtonElement>(null);
   const noteId = useId();
   const [scrolled, setScrolled] = useState(false);
 
   const send = () => {
-    if (busy || commitDisabled || canCommit?.() === false) {
+    if (busy || disabled || !isOnline() || canCommit?.() === false) {
       return;
     }
     void commit(commitButton.current, onCommit, onClose);
@@ -635,7 +643,7 @@ export function FormSheet({
               size="form"
               aria-busy={busy}
               aria-describedby={note === undefined ? undefined : noteId}
-              disabled={busy || commitDisabled}
+              disabled={busy || disabled}
               className="max-md:flex-1"
             >
               {commitLabel}
@@ -658,6 +666,8 @@ export function requestFormCommit(from: HTMLElement) {
 
 export type FormFieldProps = {
   label: string;
+  /** Disable a Select or Segmented Control while the form holds a commit. */
+  choice?: boolean;
   /** Marks the field optional, beside its label. A required field has no marker. */
   optional?: boolean;
   /** Help, only for a surprising input: a format, or behavior its label does not say. */
@@ -671,9 +681,21 @@ export type FormFieldProps = {
  * One field: its label (14/20 ink 500), its control 8 below, and its help 8
  * below that (13/20 ink-dim, at most 440 wide). Fields sit 24 apart.
  */
-export function FormField({ label, optional = false, help, children, className }: FormFieldProps) {
+export function FormField({
+  label,
+  choice = false,
+  optional = false,
+  help,
+  children,
+  className,
+}: FormFieldProps) {
+  const busy = useFormSheetBusy();
   return (
-    <Field {...BLOCK_PROPS} className={cn(BLOCK_PROPS.className, className)}>
+    <Field
+      {...BLOCK_PROPS}
+      disabled={choice && busy}
+      className={cn(BLOCK_PROPS.className, className)}
+    >
       <FieldLabel className="flex items-baseline">
         {label}
         {optional && <FieldOptional />}
@@ -685,8 +707,9 @@ export function FormField({ label, optional = false, help, children, className }
 }
 
 /** A one-line text box at the control height. */
-export function FormTextInput(props: ComponentProps<typeof Input>) {
-  return <Input {...props} />;
+export function FormTextInput({ readOnly, ...props }: ComponentProps<typeof Input>) {
+  const busy = useFormSheetBusy();
+  return <Input {...props} readOnly={busy || readOnly} />;
 }
 
 /**
@@ -694,8 +717,17 @@ export function FormTextInput(props: ComponentProps<typeof Input>) {
  * the grip, a browser's own mark in the control's corner, reads as stray on a
  * sheet whose width is fixed.
  */
-export function FormTextArea({ className, ...props }: ComponentProps<typeof Textarea>) {
-  return <Textarea {...props} className={cn('resize-none', className)} />;
+export function FormTextArea({ className, readOnly, ...props }: ComponentProps<typeof Textarea>) {
+  const busy = useFormSheetBusy();
+  return (
+    <Textarea {...props} readOnly={busy || readOnly} className={cn('resize-none', className)} />
+  );
+}
+
+/** A record picker that holds its selection while the sheet commits. */
+export function FormRecordPicker({ disabled, ...props }: ComponentProps<typeof RecordPicker>) {
+  const busy = useFormSheetBusy();
+  return <RecordPicker {...props} disabled={busy || disabled} />;
 }
 
 /**
@@ -714,6 +746,7 @@ export function FormCheckRow({
   disabled?: boolean;
 }) {
   const id = useId();
+  const busy = useFormSheetBusy();
   return (
     <div
       {...BLOCK_PROPS}
@@ -725,7 +758,7 @@ export function FormCheckRow({
       <Checkbox
         id={id}
         checked={checked}
-        disabled={disabled}
+        disabled={busy || disabled}
         onCheckedChange={(next) => {
           onCheckedChange(next === true);
         }}

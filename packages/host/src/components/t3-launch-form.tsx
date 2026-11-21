@@ -34,6 +34,9 @@ const RUNTIME_LABELS: Record<T3RuntimeMode, string> = {
 
 const modelValue = (instanceId: string, model: string) => JSON.stringify([instanceId, model]);
 
+// At a 390px viewport, four segments leave about 60px for text in each.
+const SEGMENT_LABEL_LIMITS = [0, 8, 8, 6, 4];
+
 /** The chosen options in the model's own order, with `chosen` replacing or removing one. */
 function withOption(
   model: T3Model | undefined,
@@ -77,8 +80,8 @@ function SystemName({ label }: { label: string }) {
 }
 
 /**
- * Boolean options with a usable default can use a checkbox. Other options use
- * a Segmented Control, with "Unset" when the launch can omit the option.
+ * Boolean options with a usable default can use a checkbox. Short rows use
+ * segments, and longer labels or lists use a Select. Omissible options have Unset.
  */
 function OptionField({
   option,
@@ -105,23 +108,47 @@ function OptionField({
     );
   }
   const index = chosen === undefined ? -1 : option.values.indexOf(chosen);
+  const value = index === -1 ? '' : String(index);
+  const options = [
+    ...(hasDefault ? [] : [{ label: 'Unset', value: '' }]),
+    ...option.values.map((item, i) => {
+      const booleanLabel = item === true ? 'On' : 'Off';
+      return { label: boolean ? booleanLabel : String(item), value: String(i) };
+    }),
+  ];
+  const limit = SEGMENT_LABEL_LIMITS[options.length] ?? 0;
+  const fitsTrack =
+    limit > 0 && options.every((item) => item.label.length <= limit && !/\s/.test(item.label));
+  const choose = (next: string) => onChange(next === '' ? undefined : option.values[Number(next)]);
   return (
-    <FormField label={label}>
-      <SegmentedControl
-        size="field"
-        ariaLabel={label}
-        value={index === -1 ? '' : String(index)}
-        onChange={(next) => {
-          onChange(next === '' ? undefined : option.values[Number(next)]);
-        }}
-        options={[
-          ...(hasDefault ? [] : [{ label: 'Unset', value: '' }]),
-          ...option.values.map((value, i) => {
-            const booleanLabel = value === true ? 'On' : 'Off';
-            return { label: boolean ? booleanLabel : String(value), value: String(i) };
-          }),
-        ]}
-      />
+    <FormField label={label} choice>
+      {fitsTrack ? (
+        <SegmentedControl
+          size="field"
+          ariaLabel={label}
+          value={value}
+          onChange={choose}
+          options={options}
+        />
+      ) : (
+        <Select
+          value={index === -1 && hasDefault ? null : value}
+          onValueChange={(next) => {
+            if (next !== null) {
+              choose(next);
+            }
+          }}
+        >
+          <SelectTrigger>{options.find((item) => item.value === value)?.label}</SelectTrigger>
+          <SelectContent label={label}>
+            {options.map((item) => (
+              <SelectItem key={item.value} value={item.value} label={item.label}>
+                <span className="block wrap-anywhere whitespace-normal">{item.label}</span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
     </FormField>
   );
 }
@@ -225,17 +252,17 @@ export function T3LaunchForm({
       onClose={onClose}
       title="Launch in T3"
       context={
-        <>
-          <span className="mr-2 font-mono">{taskId}</span>
-          {taskTitle}
-        </>
+        <span className="flex items-start gap-2">
+          <span className="shrink-0 font-mono whitespace-nowrap">{taskId}</span>{' '}
+          <span className="line-clamp-2 min-w-0 wrap-anywhere">{taskTitle}</span>
+        </span>
       }
       commitLabel="Launch"
       commitDisabled={!complete}
       finalFocus={finalFocus}
       onCommit={launch}
     >
-      <FormField label="System">
+      <FormField label="System" choice>
         <Select
           value={environmentId}
           onValueChange={(next) => {
@@ -257,7 +284,7 @@ export function T3LaunchForm({
         </Select>
       </FormField>
       {system !== undefined && system.projects.length > 1 && choice !== null && (
-        <FormField label="Project">
+        <FormField label="Project" choice>
           <Select
             value={choice.projectId === '' ? null : choice.projectId}
             onValueChange={(next) => {
@@ -284,7 +311,7 @@ export function T3LaunchForm({
       )}
       {system !== undefined && choice !== null && (
         <>
-          <FormField label="Model">
+          <FormField label="Model" choice>
             <Select
               value={modelValue(choice.model.instanceId, choice.model.model)}
               onValueChange={(next) => {
@@ -332,7 +359,7 @@ export function T3LaunchForm({
                 }}
               />
             ))}
-          <FormField label="Runtime">
+          <FormField label="Runtime" choice>
             <Select
               value={choice.runtimeMode}
               onValueChange={(next) => {
@@ -355,7 +382,7 @@ export function T3LaunchForm({
             </Select>
           </FormField>
           <FormGroup title="Advanced" collapsible>
-            <FormField label="Workspace">
+            <FormField label="Workspace" choice>
               <SegmentedControl
                 size="field"
                 ariaLabel="Workspace"

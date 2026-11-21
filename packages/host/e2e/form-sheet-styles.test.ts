@@ -68,6 +68,58 @@ function accentColor(page: Page) {
   });
 }
 
+test('a long T3 task title takes two lines beside its ID at 390 × 500', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { height: 500, width: 390 } });
+  const page = await context.newPage();
+  const taskTitle = 'Continue a linked workspace and preserve the current draft '.repeat(5).trim();
+  await page.goto(`${harness.origin}?form=t3&taskTitle=${encodeURIComponent(taskTitle)}`);
+  const header = page.locator('[data-slot=form-sheet-header]');
+  const title = header.getByText(taskTitle, { exact: true });
+  const id = header.getByText('MMR-743', { exact: true });
+  await expect(id).toBeVisible();
+  await expect(title).toHaveCSS('-webkit-line-clamp', '2');
+  const dimensions = await title.evaluate((element) => ({
+    height: element.clientHeight,
+    line: Number.parseFloat(getComputedStyle(element).lineHeight),
+    textHeight: element.scrollHeight,
+  }));
+  expect(dimensions.height).toBe(2 * dimensions.line);
+  expect(dimensions.textHeight).toBeGreaterThan(dimensions.height);
+  await expect(id).toHaveCSS('white-space', 'nowrap');
+  await expect(page.getByRole('button', { name: 'Launch' })).toBeInViewport();
+  await context.close();
+});
+
+test('a two-action Notice gives its message the full row at 1280px', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { height: 800, width: 1280 } });
+  const page = await context.newPage();
+  await page.goto(`${harness.origin}?form=notice`);
+  await page.getByRole('button', { name: 'Show notice' }).click();
+  const notice = page.locator('[data-slot=toast]');
+  const rows = await notice.evaluate((element) => {
+    const message = element.querySelector('[data-slot=toast-title]')?.parentElement;
+    const [first, second] = element.querySelectorAll('button');
+    if (message === null || message === undefined || first === undefined || second === undefined) {
+      throw new Error('The Notice is missing its message or actions');
+    }
+    const style = getComputedStyle(element);
+    return {
+      available:
+        element.clientWidth -
+        Number.parseFloat(style.paddingLeft) -
+        Number.parseFloat(style.paddingRight),
+      firstTop: first.getBoundingClientRect().top,
+      messageBottom: message.getBoundingClientRect().bottom,
+      messageWidth: message.clientWidth,
+      secondTop: second.getBoundingClientRect().top,
+    };
+  });
+  expect(rows.messageWidth).toBe(rows.available);
+  expect(rows.firstTop).toBeGreaterThan(rows.messageBottom);
+  expect(rows.secondTop).toBe(rows.firstTop);
+  await context.close();
+});
+
 test('a field’s focus ring is its accent edge joined by a 1px solid outline', async ({
   browser,
 }) => {

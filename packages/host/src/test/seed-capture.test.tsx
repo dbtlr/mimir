@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
 import { seedCreate } from '../api/fns/browse';
+import { projects as fetchProjects } from '../api/fns/shell';
 import { projectsQuery } from '../api/shell-queries';
 import { engineSeed } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
@@ -136,6 +137,37 @@ describe('seed form (12c, MMR-247; the Form sheet, MMR-743)', () => {
     expect(screen.getByLabelText('Seed')).toBeInTheDocument();
   });
 
+  it('locks the seed draft while filing and restores its fields after refusal', async () => {
+    mockApi();
+    const held = Promise.withResolvers<Awaited<ReturnType<typeof seedCreate>>>();
+    vi.mocked(seedCreate).mockReturnValueOnce(held.promise);
+    await renderApp();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
+    const field = await screen.findByLabelText('Seed');
+    const bug = screen.getByRole('radio', { name: 'Bug' });
+    const project = screen.getByRole('button', { name: /Project MMR/ });
+    await user.type(field, 'Keep this seed{Enter}');
+
+    expect(field).toHaveAttribute('readonly');
+    expect(field).toHaveFocus();
+    expect(bug).toHaveAttribute('aria-disabled', 'true');
+    expect(project).toBeDisabled();
+    await user.keyboard(' lost edit');
+    await user.click(bug);
+    expect(field).toHaveValue('Keep this seed');
+    expect(screen.getByRole('radio', { name: 'Idea' })).toBeChecked();
+
+    await act(async () => {
+      held.reject(new Error('Write refused'));
+    });
+    expect(field).not.toHaveAttribute('readonly');
+    expect(bug).not.toHaveAttribute('aria-disabled', 'true');
+    expect(project).toBeEnabled();
+    await user.type(field, ' and revise it');
+    expect(field).toHaveValue('Keep this seed and revise it');
+  });
+
   it('on a project the picker does not offer (archived), chooses none and holds File seed', async () => {
     serveShell({
       archived: [engineProject({ id: 'OLD', status: 'done', title: 'Old project' })],
@@ -207,6 +239,54 @@ describe('seed form (12c, MMR-247; the Form sheet, MMR-743)', () => {
       });
     });
   });
+
+  it.each([true, false])(
+    'pins the unscoped default until it disappears (available at opening: %s)',
+    async (availableAtOpening) => {
+      const mimir = engineProject({ id: 'MMR', title: 'Mimir' });
+      const first = engineProject({ id: 'AAA', title: 'First' });
+      serveShell({ projects: availableAtOpening ? [mimir] : [] });
+      serveBrowse();
+      const client = new QueryClient({ defaultOptions: { queries: { refetchInterval: false } } });
+      await renderShell('/', client);
+      const user = userEvent.setup();
+      await user.keyboard('s');
+      await user.type(await screen.findByLabelText('Seed'), 'Keep my destination');
+      const refresh = async (projects: (typeof mimir)[]) => {
+        vi.mocked(fetchProjects).mockResolvedValue(projects);
+        await act(async () => {
+          client.setQueryData(projectsQuery.queryKey, projects);
+        });
+      };
+      if (!availableAtOpening) {
+        await refresh([mimir]);
+      }
+      await expect(
+        screen.findByRole('button', { name: /Project MMR.*Mimir/ }),
+      ).resolves.toBeVisible();
+
+      await refresh([first, { ...mimir, title: 'Mimir refreshed' }]);
+      await expect(
+        screen.findByRole('button', { name: /Project MMR.*Mimir refreshed/ }),
+      ).resolves.toBeVisible();
+      const file = screen.getByRole('button', { name: 'File seed' });
+      expect(file).toBeEnabled();
+
+      await refresh([first]);
+      await expect(
+        screen.findByRole('button', { name: 'Project Choose a project…' }),
+      ).resolves.toBeVisible();
+      expect(file).toBeDisabled();
+      expect(screen.getByLabelText('Seed')).toHaveValue('Keep my destination');
+
+      await user.keyboard('{Escape}');
+      await waitFor(() => expect(screen.queryByLabelText('Seed')).toBeNull());
+      await user.keyboard('s');
+      await expect(
+        screen.findByRole('button', { name: /Project AAA.*First/ }),
+      ).resolves.toBeVisible();
+    },
+  );
 
   it('reopens fresh after Escape abandons its edits: Idea and an empty seed', async () => {
     mockApi();

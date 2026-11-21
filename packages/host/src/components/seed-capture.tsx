@@ -7,10 +7,15 @@ import type { ReactNode } from 'react';
 import { useFileSeed } from '../api/seed-mutations';
 import { projectsQuery } from '../api/shell-queries';
 import { useHotkey } from '../lib/use-hotkey';
-import { FormField, FormSheet, FormTextArea, requestFormCommit } from './patterns/form-sheet';
+import {
+  FormField,
+  FormRecordPicker,
+  FormSheet,
+  FormTextArea,
+  requestFormCommit,
+} from './patterns/form-sheet';
 import { toast } from './patterns/notice';
 import { useOpeningKey } from './patterns/opening';
-import { RecordPicker } from './patterns/record-picker';
 import { SegmentedControl } from './ui/segmented-control';
 
 /** The global capture opener, provided by {@link SeedCaptureProvider}. */
@@ -90,7 +95,9 @@ function SeedForm({ open, onClose }: { open: boolean; onClose: () => void }) {
   const file = useFileSeed();
   const requestedProject = project === undefined ? defaultProject : project;
   const effectiveProject = projectItems.find((item) => item.id === requestedProject)?.id ?? null;
-  if (typeof project === 'string' && effectiveProject === null) {
+  if (open && project === undefined && effectiveProject !== null) {
+    setProject(effectiveProject);
+  } else if (typeof project === 'string' && effectiveProject === null) {
     setProject(null);
   }
   const canFile = title.trim() !== '' && effectiveProject !== null;
@@ -115,7 +122,7 @@ function SeedForm({ open, onClose }: { open: boolean; onClose: () => void }) {
         toast.success(`Filed ${seed.id}`);
       }}
     >
-      <FormField label="Kind">
+      <FormField label="Kind" choice>
         <SegmentedControl<SeedKind>
           size="field"
           ariaLabel="Kind"
@@ -142,7 +149,7 @@ function SeedForm({ open, onClose }: { open: boolean; onClose: () => void }) {
           className="caret-accent"
         />
       </FormField>
-      <RecordPicker
+      <FormRecordPicker
         label="Project"
         records={projectItems.map((p) => ({ id: p.id, title: p.title }))}
         value={effectiveProject}

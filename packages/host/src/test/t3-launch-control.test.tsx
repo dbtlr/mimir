@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -7,6 +7,7 @@ import { connectT3, launchT3, t3Catalog, t3Origin } from '../api/fns/t3';
 import type { T3Catalog, T3LaunchResult } from '../api/fns/t3';
 import { toast } from '../components/patterns/notice';
 import { canLaunchOnT3, T3LaunchControl } from '../components/t3-launch-control';
+import { T3LaunchForm } from '../components/t3-launch-form';
 import { T3_ATTEMPT_PATTERN } from '../server/t3-states';
 import { engineTask } from './node-fixtures';
 import { renderInRouter } from './router';
@@ -294,6 +295,25 @@ async function openSettings() {
 }
 
 describe('the settings dialog', () => {
+  it('clamps a long task title independently of its task ID', () => {
+    stubViewport('phone');
+    const taskTitle = 'A long task title that takes up too much of the header on a narrow screen';
+    render(
+      <T3LaunchForm
+        open
+        taskId="MMR-9"
+        taskTitle={taskTitle}
+        systems={[reachableSystem()]}
+        remembered={null}
+        onLaunch={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    const dialog = screen.getByRole('dialog', { name: 'Launch in T3' });
+    expect(within(dialog).getByText(taskTitle)).toHaveClass('line-clamp-2');
+    expect(within(dialog).getByText('MMR-9')).not.toHaveClass('line-clamp-2');
+  });
+
   it('with no defaults, starts on the configured server even when a peer is listed first', async () => {
     const projects = [{ defaultModelSelection: null, id: 'proj-1', title: 'mimir' }];
     const peer = reachableSystem({
@@ -367,6 +387,39 @@ describe('the settings dialog', () => {
     expect(within(tier).getByRole('radio', { name: 'default' })).toBeChecked();
     const effort = within(dialog).getByRole('radiogroup', { name: 'Reasoning effort' });
     expect(within(effort).getByRole('radio', { name: 'Unset' })).toBeChecked();
+  });
+
+  it.each([
+    ['a long label', { default: null, values: ['low', 'maximum reasoning depth'] }],
+    ['five displayed choices', { default: null, values: ['low', 'med', 'high', 'max'] }],
+  ])('uses a Select for %s and segments for four short labels', async (_, option) => {
+    const system = reachableSystem();
+    const claude = system.providers[0]!;
+    const opus = {
+      id: 'opus',
+      label: 'Claude Opus',
+      options: [
+        { default: 'low', id: 'effort', values: ['low', 'med', 'high', 'max'] },
+        { id: 'reasoningBudget', ...option },
+      ],
+    };
+    await show(connectedCatalog([{ ...system, providers: [{ ...claude, models: [opus] }] }]));
+    const dialog = await openSettings();
+    const effort = within(dialog).getByRole('radiogroup', { name: 'Effort' });
+    expect(within(effort).getAllByRole('radio')).toHaveLength(4);
+    expect(within(effort).getByRole('radio', { name: 'low' })).toBeChecked();
+
+    const select = within(dialog).getByRole('combobox', { name: 'Reasoning budget' });
+    expect(select).toHaveTextContent('Unset');
+    await choose(dialog, 'Reasoning budget', option.values.at(-1)!);
+    expect(select).toHaveTextContent(option.values.at(-1)!);
+    await choose(dialog, 'Reasoning budget', 'Unset');
+    expect(select).toHaveTextContent('Unset');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Launch' }));
+
+    await waitFor(() => {
+      expect(launchCalls()[0]?.model.options).toEqual([{ id: 'effort', value: 'low' }]);
+    });
   });
 
   it('can set a boolean option off or on and then omit it again', async () => {

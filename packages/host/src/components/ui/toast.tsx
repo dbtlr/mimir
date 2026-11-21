@@ -47,11 +47,11 @@ function ToastBody({
   wrapActions: boolean;
 }) {
   return (
-    <SdkToast className={cn(TOAST_CLASS, wrapActions && 'max-md:flex-wrap')}>
+    <SdkToast className={cn(TOAST_CLASS, wrapActions && 'flex-wrap')}>
       <div
         className={cn(
           'flex min-w-0 flex-1 flex-col gap-0.5 py-2.5',
-          wrapActions && 'max-md:flex-[0_0_100%] max-md:wrap-anywhere',
+          wrapActions && 'flex-[0_0_100%] wrap-anywhere',
         )}
       >
         <SdkToastTitle className="text-label text-ink [&_b]:font-semibold [&_b]:text-ink-bright" />
@@ -70,7 +70,7 @@ function ToastBody({
         aria-label="Dismiss"
         className={cn(
           'inline-flex size-11 shrink-0 items-center justify-center rounded-md text-ink-dim transition-colors hover:bg-line/50 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent md:size-9',
-          wrapActions && 'max-md:ml-auto',
+          wrapActions && 'ml-auto',
         )}
       >
         <svg

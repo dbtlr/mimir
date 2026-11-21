@@ -83,7 +83,7 @@ describe('Notice banner', () => {
 });
 
 describe('Notice second button', () => {
-  it('gives the message its own row above wrapping actions on a phone', async () => {
+  it('gives the message its own row above two actions at every width', async () => {
     render(<NoticeHost />);
     act(() => {
       toast.error('T3 opened a thread but could not finish the launch', {
@@ -93,11 +93,11 @@ describe('Notice second button', () => {
     });
     const retry = await screen.findByRole('button', { name: 'Retry' });
     const notice = retry.closest('[data-slot="toast"]');
-    // A phone is below `md`, where the rest of the Notice switches too (DESIGN.md, Toast).
-    expect(notice).toHaveClass('max-md:flex-wrap');
+    expect(notice).toHaveClass('flex-wrap');
     expect(notice).not.toHaveClass('max-sm:flex-wrap');
+    expect(notice).not.toHaveClass('max-md:flex-wrap');
     expect(notice?.querySelector('[data-slot="toast-title"]')?.parentElement).toHaveClass(
-      'max-md:flex-[0_0_100%]',
+      'flex-[0_0_100%]',
     );
   });
 

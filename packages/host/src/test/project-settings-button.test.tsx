@@ -1,6 +1,7 @@
 import type { EngineNode } from '@mimir/contract';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
@@ -36,6 +37,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  onlineManager.setOnline(true);
   vi.clearAllMocks();
   vi.useRealTimers();
   vi.unstubAllGlobals();
@@ -125,6 +127,80 @@ describe('projectSettingsButton', () => {
     expect(data.description).toBeUndefined();
   });
 
+  it('a description-only save leaves a title received during the edit alone', async () => {
+    const client = new QueryClient();
+    const settings = (project: typeof baseProject) => (
+      <QueryClientProvider client={client}>
+        <ProjectSettingsButton project={project} />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(settings(baseProject));
+    openSheet();
+    rerender(settings({ ...baseProject, title: 'Name from refresh' }));
+    fireEvent.change(screen.getByLabelText(/description/i), { target: { value: 'New desc' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await vi.waitFor(() => {
+      expect(updateProject).toHaveBeenCalledWith({ data: { description: 'New desc', id: 'MMR' } });
+    });
+    expect(vi.mocked(updateProject).mock.lastCall?.[0].data.name).toBeUndefined();
+  });
+
+  it('keeps project fields read-only while saving and restores editing after refusal', async () => {
+    const held = Promise.withResolvers<Awaited<ReturnType<typeof updateProject>>>();
+    vi.mocked(updateProject).mockReturnValueOnce(held.promise);
+    wrap(<ProjectSettingsButton project={baseProject} />);
+    openSheet();
+    const title = screen.getByLabelText('Title');
+    const description = screen.getByLabelText(/description/i);
+    fireEvent.change(title, { target: { value: 'Renamed' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(title).toHaveAttribute('readonly');
+    expect(description).toHaveAttribute('readonly');
+    await userEvent.type(title, ' lost edit');
+    expect(title).toHaveValue('Renamed');
+    expect(description).toHaveValue(baseProject.description);
+
+    await act(async () => {
+      held.reject(new Error('Write refused'));
+    });
+    expect(title).not.toHaveAttribute('readonly');
+    expect(description).not.toHaveAttribute('readonly');
+    await userEvent.type(title, ' again');
+    expect(title).toHaveValue('Renamed again');
+  });
+
+  it.each(['Escape', 'Cancel'])(
+    'an offline submit leaves the sheet dismissible by %s',
+    async (dismiss) => {
+      stubViewport('desktop');
+      wrap(<ProjectSettingsButton project={baseProject} />);
+      openSheet();
+      const dialog = screen.getByRole('dialog', { name: 'Project settings' });
+      const save = within(dialog).getByRole<HTMLButtonElement>('button', { name: 'Save' });
+      const title = within(dialog).getByLabelText('Title');
+      fireEvent.change(title, { target: { value: 'Offline draft' } });
+      expect(save).toBeEnabled();
+
+      act(() => onlineManager.setOnline(false));
+      // An Enter or requestSubmit can reach the form even when its button is disabled.
+      expect(save.form).not.toBeNull();
+      if (save.form !== null) {
+        fireEvent.submit(save.form);
+      }
+      expect(title).toHaveValue('Offline draft');
+      if (dismiss === 'Escape') {
+        await userEvent.keyboard('{Escape}');
+      } else {
+        await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+      }
+      expect(screen.queryByRole('dialog', { name: 'Project settings' })).toBeNull();
+      expect(save).toBeDisabled();
+      expect(updateProject).not.toHaveBeenCalled();
+    },
+  );
+
   it.each([
     { before: null, reverted: false },
     { before: null, reverted: true },
@@ -173,9 +249,10 @@ describe('projectSettingsButton', () => {
 
     expect(screen.getByLabelText('Title')).toHaveValue('Norn');
     expect(screen.getByLabelText(/description/i)).toHaveValue('Norn description');
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Renamed Norn' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await vi.waitFor(() => {
-      expect(updateProject).toHaveBeenCalledWith({ data: { id: 'NRN', name: 'Norn' } });
+      expect(updateProject).toHaveBeenCalledWith({ data: { id: 'NRN', name: 'Renamed Norn' } });
     });
   });
 
@@ -188,7 +265,7 @@ describe('projectSettingsButton', () => {
 
     await vi.waitFor(() => {
       expect(updateProject).toHaveBeenCalledWith({
-        data: { description: null, id: 'MMR', name: 'My Project' },
+        data: { description: null, id: 'MMR' },
       });
     });
   });
