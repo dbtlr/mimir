@@ -197,7 +197,11 @@ options that fit on one row are a Segmented Control, options whose labels run
 past a word are a Radio, and a longer fixed list is a Select. One recorded
 exception: Launch in T3's Workspace stays a Segmented Control, as in the source
 mock, though "Project checkout" and "New worktree" run past a word; its two
-options fit one row at every width. A form should not need a stacked choice
+options fit one row at every width. A second: a T3 model option's values come
+from the provider, unknown in advance, so it takes a Segmented Control only when
+every label is one short word (at most 8 characters for one or two choices, 6
+for three, 4 for four, counting Unset) and a Select otherwise, never a Radio.
+A form should not need a stacked choice
 list; where a Radio stacks, it follows these numbers:
 
 | Stacked choice list | Phone | Desktop |

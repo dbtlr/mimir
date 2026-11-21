@@ -392,6 +392,10 @@ describe('the settings dialog', () => {
   it.each([
     ['a long label', { default: null, values: ['low', 'maximum reasoning depth'] }],
     ['five displayed choices', { default: null, values: ['low', 'med', 'high', 'max'] }],
+    ['five one-letter choices', { default: null, values: ['a', 'b', 'c', 'd'] }],
+    ['a short label of two words', { default: null, values: ['low', 'a b'] }],
+    ['a nine-letter label beside Unset', { default: null, values: ['ninechars'] }],
+    ['a seven-letter label among three choices', { default: null, values: ['low', 'sevench'] }],
   ])('uses a Select for %s and segments for four short labels', async (_, option) => {
     const system = reachableSystem();
     const claude = system.providers[0]!;
