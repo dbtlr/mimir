@@ -100,8 +100,8 @@ export function Walkthrough({
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [screen]);
   const holdsFocus = useHoldFocus(heading, busy);
-  const header = useRef<HTMLElement | null>(null);
-  useLayerTopBar(header);
+  const top = useRef<HTMLDivElement | null>(null);
+  useLayerTopBar(top);
   const state = useMemo(() => ({ busy, commit, heading }), [busy, commit]);
   return (
     <WalkthroughContext value={state}>
@@ -126,29 +126,28 @@ export function Walkthrough({
           finalFocus={returnTo}
           className="gap-0 overflow-hidden p-0"
         >
-          {banner}
-          <header
-            ref={header}
-            className="flex items-center gap-3 border-b border-line bg-well-950 px-5 py-3 md:px-6"
-          >
-            <DialogClose aria-label={closeLabel} disabled={busy} className={iconButtonClass}>
-              <CloseIcon />
-            </DialogClose>
-            <DialogTitle className="flex min-w-0 flex-1 items-baseline gap-2 text-base font-semibold text-ink-bright">
-              {title}
-            </DialogTitle>
-            {progress !== null && progress !== undefined && (
-              // On a phone the segmented bar shows the progress, and the title takes the room.
-              <p
-                className={cn(
-                  'text-meta leading-5 font-semibold whitespace-nowrap text-attention-foreground',
-                  steps !== null && steps !== undefined && 'max-md:sr-only',
-                )}
-              >
-                {progress}
-              </p>
-            )}
-          </header>
+          <div ref={top}>
+            {banner}
+            <header className="flex items-center gap-3 border-b border-line bg-well-950 px-5 py-3 md:px-6">
+              <DialogClose aria-label={closeLabel} disabled={busy} className={iconButtonClass}>
+                <CloseIcon />
+              </DialogClose>
+              <DialogTitle className="flex min-w-0 flex-1 items-baseline gap-2 text-base font-semibold text-ink-bright">
+                {title}
+              </DialogTitle>
+              {progress !== null && progress !== undefined && (
+                // On a phone the segmented bar shows the progress, and the title takes the room.
+                <p
+                  className={cn(
+                    'text-meta leading-5 font-semibold whitespace-nowrap text-attention-foreground',
+                    steps !== null && steps !== undefined && 'max-md:sr-only',
+                  )}
+                >
+                  {progress}
+                </p>
+              )}
+            </header>
+          </div>
           {steps !== null && steps !== undefined && <StepBar {...steps} />}
           <div className="flex min-h-0 flex-1">
             {aside}
@@ -201,10 +200,15 @@ function useHoldFocus(heading: RefObject<HTMLHeadingElement | null>, busy: boole
  */
 export const LAYER_TOP_BAR_VARIABLE = '--layer-top-bar-height';
 
-/** While the layer is open, sets `LAYER_TOP_BAR_VARIABLE` on the root from its header's measured bottom. */
-function useLayerTopBar(header: RefObject<HTMLElement | null>) {
+/**
+ * While the layer is open, sets `LAYER_TOP_BAR_VARIABLE` on the root from the
+ * measured top of the layer: the banner, when one shows, and the header. It
+ * reads layout offsets, not the bounding box, so the layer's entry scale does
+ * not skew it; the layer covers the viewport from its top edge.
+ */
+function useLayerTopBar(top: RefObject<HTMLElement | null>) {
   useLayoutEffect(() => {
-    const node = header.current;
+    const node = top.current;
     if (node === null) {
       return undefined;
     }
@@ -212,21 +216,17 @@ function useLayerTopBar(header: RefObject<HTMLElement | null>) {
     const measure = () => {
       root.style.setProperty(
         LAYER_TOP_BAR_VARIABLE,
-        `${String(node.getBoundingClientRect().bottom)}px`,
+        `${String(node.offsetTop + node.offsetHeight)}px`,
       );
     };
     measure();
-    // The offline banner above the header moves it, so the whole layer is watched too.
     const observer = new ResizeObserver(measure);
     observer.observe(node);
-    if (node.parentElement !== null) {
-      observer.observe(node.parentElement);
-    }
     return () => {
       observer.disconnect();
       root.style.removeProperty(LAYER_TOP_BAR_VARIABLE);
     };
-  }, [header]);
+  }, [top]);
 }
 
 /** The phone's progress: one segment for each step, done ones dimmer violet, the current one full. */

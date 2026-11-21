@@ -882,7 +882,7 @@ agent's briefing. The chips stay as MMR-695 defines them.
   delivery" and the project key, then the progress as "N of M", or "Check
   and send" on the check step. On a phone the segmented bar under the header
   shows the progress instead, and the progress text is left to a screen
-  reader, so the title has the header's width. Close is an icon button named "Close the
+  reader, so the title has the header's width and may take a second line. Close is an icon button named "Close the
   walkthrough". Close leaves the mode and shows the page; the browser's
   Back returns to the history entry before the walkthrough, which is the page when
   the walkthrough opened from it. Both keep the answers chosen so far

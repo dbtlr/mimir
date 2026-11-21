@@ -317,9 +317,10 @@ describe('WalkthroughRow', () => {
 
 describe('Walkthrough header', () => {
   it('sets the layer top bar height on the root while open, for the phone Notice, and clears it on close', async () => {
-    const measured = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect');
-    measured.mockImplementation(function headerRect(this: HTMLElement) {
-      return this.tagName === 'HEADER' ? new DOMRect(0, 0, 390, 69) : new DOMRect();
+    // jsdom lays nothing out: the layer's top (its banner and header) measures 69 here.
+    const measured = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get');
+    measured.mockImplementation(function topHeight(this: HTMLElement) {
+      return this.querySelector(':scope > header') === null ? 0 : 69;
     });
     onTestFinished(() => {
       measured.mockRestore();
