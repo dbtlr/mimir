@@ -370,6 +370,7 @@ function KitWalkthrough({ onClose }: { onClose: () => void }) {
                 await settleSoon();
                 onClose();
               }}
+              pendingLabel="Sending…"
             >
               Confirm and send
             </WalkthroughCommit>

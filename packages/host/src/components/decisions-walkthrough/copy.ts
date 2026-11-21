@@ -62,6 +62,9 @@ export function sendLabel(count: number): string {
   return `Send ${String(count)} ${count === 1 ? 'answer' : 'answers'}`;
 }
 
+/** A Send's commit while its write runs, as the console's other in-flight labels read ("Refreshing…"). */
+export const SENDING = 'Sending…';
+
 /** "3 decisions", "1 decision". */
 export function decisionCount(count: number): string {
   return `${String(count)} ${count === 1 ? 'decision' : 'decisions'}`;

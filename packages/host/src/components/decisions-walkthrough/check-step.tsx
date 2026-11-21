@@ -7,7 +7,7 @@ import {
   WalkthroughRow,
   useWalkthroughBusy,
 } from '../patterns/walkthrough';
-import { checkEffect, sendLabel, sendLine } from './copy';
+import { SENDING, checkEffect, sendLabel, sendLine } from './copy';
 import { CheckGlyph, SendGlyph } from './icons';
 import { answerText, isBlankCustom, noteOf, verdictOf } from './model';
 import type { Selection, WalkDecision } from './model';
@@ -98,6 +98,7 @@ export function CheckStep({
           <WalkthroughCommit
             disabled={offline || blank !== undefined || entries.length === 0}
             onCommit={onSend}
+            pendingLabel={SENDING}
           >
             {sendLabel(entries.length)}
           </WalkthroughCommit>

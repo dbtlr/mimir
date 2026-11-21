@@ -502,6 +502,41 @@ test('focus lands on each screen heading and never on a committing button', asyn
   });
 });
 
+/*
+ * A double click's second click lands on the next screen's button in the same
+ * place: `detail` 2 on a button that was not there for the first.
+ */
+test('a double click on Continue moves exactly one step', async () => {
+  const { layer } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  fireEvent.click(next(layer), { detail: 1 });
+  await heading(layer, 'Question 2?');
+  fireEvent.click(next(layer), { detail: 2 });
+  await act(() => Promise.resolve());
+  expect(within(layer).getByRole('heading', { name: 'Question 2?' })).toBeInTheDocument();
+  // A key's activation has no click count, and still moves on.
+  fireEvent.click(next(layer), { detail: 0 });
+  await heading(layer, 'Question 3?');
+});
+
+test('a double click on Review shows the check step and writes nothing', async () => {
+  const { layer } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  fireEvent.click(next(layer));
+  await heading(layer, 'Question 2?');
+  fireEvent.click(next(layer));
+  await heading(layer, 'Question 3?');
+  fireEvent.click(next(layer), { detail: 1 });
+  await heading(layer, 'Check your answers');
+  fireEvent.click(button(layer, 'Send 3 answers'), { detail: 2 });
+  await act(() => Promise.resolve());
+  expect(answerDecisions).not.toHaveBeenCalled();
+  expect(within(layer).getByRole('heading', { name: 'Check your answers' })).toBeInTheDocument();
+  fireEvent.click(button(layer, 'Send 3 answers'), { detail: 0 });
+  await heading(layer, 'Answers sent');
+  expect(answerDecisions).toHaveBeenCalledTimes(1);
+});
+
 test('offline disables Send while stepping still works', async () => {
   const { layer, qc } = await openDelivery();
   await heading(layer, 'Question 1?');
@@ -548,6 +583,42 @@ test('a decision that leaves the live read says so and is left out of Send', asy
   ]);
 });
 
+test('a decision resolved elsewhere while its answers hold focus returns focus to the step heading', async () => {
+  const { layer, qc } = await openDelivery();
+  const question = await heading(layer, 'Question 1?');
+  const answer = within(layer).getByRole('radio', { name: /^Keep/ });
+  act(() => answer.focus());
+  expect(answer).toHaveFocus();
+  vi.mocked(deliveryPage).mockResolvedValue(page(decisions().filter((d) => d.id !== 'MMR-q1')));
+  await act(() => qc.refetchQueries({ queryKey: ['nodes', 'delivery', 'MMR-d3'] }));
+  await waitFor(() => expect(layer).toHaveTextContent('This decision no longer waits on you'));
+  await waitFor(() => expect(question).toHaveFocus());
+});
+
+test('a decision resolved elsewhere while its note holds focus returns focus to the step heading', async () => {
+  const { layer, qc } = await openDelivery();
+  const question = await heading(layer, 'Question 1?');
+  const note = within(layer).getByRole('textbox', { name: /Add a note/ });
+  act(() => note.focus());
+  vi.mocked(deliveryPage).mockResolvedValue(page(decisions().filter((d) => d.id !== 'MMR-q1')));
+  await act(() => qc.refetchQueries({ queryKey: ['nodes', 'delivery', 'MMR-d3'] }));
+  await waitFor(() => expect(within(layer).queryByRole('textbox')).toBeNull());
+  await waitFor(() => expect(question).toHaveFocus());
+});
+
+test('a check-step entry that drops out while its Change holds focus returns focus to the heading', async () => {
+  const { layer, qc } = await openDelivery();
+  await heading(layer, 'Question 1?');
+  await toCheck(layer);
+  const check = await heading(layer, 'Check your answers');
+  const change = button(layer, 'Change your answer to MMR-q2');
+  act(() => change.focus());
+  vi.mocked(deliveryPage).mockResolvedValue(page(decisions().filter((d) => d.id !== 'MMR-q2')));
+  await act(() => qc.refetchQueries({ queryKey: ['nodes', 'delivery', 'MMR-d3'] }));
+  await waitFor(() => expect(change).not.toBeInTheDocument());
+  await waitFor(() => expect(check).toHaveFocus());
+});
+
 test('a write in flight disables Send, Back, Change, and Close', async () => {
   const gate = Promise.withResolvers<Awaited<ReturnType<typeof answerDecisions>>>();
   vi.mocked(answerDecisions).mockReturnValue(gate.promise);
@@ -556,7 +627,7 @@ test('a write in flight disables Send, Back, Change, and Close', async () => {
   await toCheck(layer);
   fireEvent.click(button(layer, 'Send 3 answers'));
   await waitFor(() => {
-    expect(button(layer, 'Send 3 answers')).toBeDisabled();
+    expect(button(layer, 'Sending…')).toBeDisabled();
   });
   expect(button(layer, 'Back')).toBeDisabled();
   expect(button(layer, 'Change your answer to MMR-q1')).toBeDisabled();
@@ -628,7 +699,7 @@ test('Escape does nothing while a Send is in flight', async () => {
   await toCheck(layer);
   fireEvent.click(button(layer, 'Send 3 answers'));
   await waitFor(() => {
-    expect(button(layer, 'Send 3 answers')).toBeDisabled();
+    expect(button(layer, 'Sending…')).toBeDisabled();
   });
   fireEvent.keyDown(within(layer).getByRole('heading', { name: 'Check your answers' }), {
     key: 'Escape',
@@ -669,7 +740,7 @@ test('a Send in flight keeps its answers on screen when the read drops them firs
   await toCheck(layer);
   fireEvent.click(button(layer, 'Send 3 answers'));
   await waitFor(() => {
-    expect(button(layer, 'Send 3 answers')).toBeDisabled();
+    expect(button(layer, 'Sending…')).toBeDisabled();
   });
   // The write's refetch lands before its answer: the read no longer holds the sent decisions.
   expect(noteChip()).not.toBeNull();
@@ -679,7 +750,7 @@ test('a Send in flight keeps its answers on screen when the read drops them firs
   await waitFor(() => {
     expect(noteChip()).toBeNull();
   });
-  expect(button(layer, 'Send 3 answers')).toBeDisabled();
+  expect(button(layer, 'Sending…')).toBeDisabled();
   expect(within(layer).getAllByRole('button', { name: /^Change your answer/ })).toHaveLength(3);
   expect(layer).not.toHaveTextContent('No longer waits on you');
   gate.resolve({ results: [recorded('MMR-q1', 'confirmed')], wake: { state: 'sent' } });
@@ -812,7 +883,7 @@ test('the rail’s entries cannot be activated while a Send writes', async () =>
   await toCheck(layer);
   fireEvent.click(button(layer, 'Send 3 answers'));
   await waitFor(() => {
-    expect(button(layer, 'Send 3 answers')).toBeDisabled();
+    expect(button(layer, 'Sending…')).toBeDisabled();
   });
   const rail = within(layer).getByRole('navigation', { name: 'Decisions' });
   for (const entry of within(rail).getAllByRole('button')) {
@@ -907,7 +978,7 @@ test('clicking a detail while a Send writes leaves the selection alone', async (
   await heading(layer, 'Question 1?');
   fireEvent.click(button(layer, 'Confirm and send (MMR-q1)'));
   await waitFor(() => {
-    expect(button(layer, 'Confirm and send (MMR-q1)')).toBeDisabled();
+    expect(button(layer, 'Sending…')).toBeDisabled();
   });
   fireEvent.click(within(layer).getByText(/First line/));
   expect(within(layer).getByRole('radio', { name: /^Keep/ })).toBeChecked();

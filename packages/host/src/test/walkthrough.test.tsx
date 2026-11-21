@@ -72,7 +72,7 @@ function Harness({
         {step === 0 ? (
           <WalkthroughNext onClick={() => setStep(1)}>Continue</WalkthroughNext>
         ) : (
-          <WalkthroughCommit disabled={commitDisabled} onCommit={onCommit}>
+          <WalkthroughCommit disabled={commitDisabled} onCommit={onCommit} pendingLabel="Sending…">
             Send
           </WalkthroughCommit>
         )}
@@ -143,6 +143,7 @@ describe('Walkthrough', () => {
     expect(onCommit).toHaveBeenCalledOnce();
     expect(send).toBeDisabled();
     expect(send).toHaveAttribute('aria-busy', 'true');
+    expect(send).toHaveAccessibleName('Sending…');
     expect(within(layer).getByRole('button', { name: 'Back' })).toBeDisabled();
     expect(within(layer).getByRole('button', { name: 'Close the walkthrough' })).toBeDisabled();
     const note = within(layer).getByRole('textbox', { name: 'Add a note' });
@@ -156,6 +157,7 @@ describe('Walkthrough', () => {
       await call.promise;
     });
     await waitFor(() => expect(send).toBeEnabled());
+    expect(send).toHaveAccessibleName('Send');
     expect(note).not.toHaveAttribute('readonly');
   });
 

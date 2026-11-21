@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useId, useMemo, useRef } from 'react';
-import type { ComponentProps, ReactNode, RefObject } from 'react';
+import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef } from 'react';
+import type { ComponentProps, MouseEvent, ReactNode, RefObject } from 'react';
 
 import { cn } from '../../lib/cn';
 import { ActionButton } from '../ui/action-button';
@@ -88,6 +88,7 @@ export function Walkthrough({
     // When the screen changes, its new heading takes focus.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [screen]);
+  const holdsFocus = useHoldFocus(heading, busy);
   const state = useMemo(() => ({ busy, commit, heading }), [busy, commit]);
   return (
     <WalkthroughContext value={state}>
@@ -106,6 +107,7 @@ export function Walkthrough({
         }}
       >
         <DialogContent
+          ref={holdsFocus}
           size="full"
           initialFocus={() => heading.current}
           finalFocus={returnTo}
@@ -133,6 +135,38 @@ export function Walkthrough({
         </DialogContent>
       </Dialog>
     </WalkthroughContext>
+  );
+}
+
+/**
+ * Keeps focus in the layer when what held it leaves the screen, as when a
+ * refresh drops the decision whose answers had focus: once the layer's content
+ * changes and focus has fallen to the body, the screen's heading takes it.
+ * While a commit runs, and until its refusal has given focus back to the
+ * commit, it waits. Returns the ref callback for the layer's content.
+ */
+function useHoldFocus(heading: RefObject<HTMLHeadingElement | null>, busy: boolean) {
+  const held = useRef(busy);
+  // Passive, so it frees after the commit's own refocus effect, which useOpening runs first.
+  useEffect(() => {
+    held.current = busy;
+  }, [busy]);
+  return useCallback(
+    (layer: HTMLElement | null) => {
+      if (layer === null) {
+        return;
+      }
+      const doc = layer.ownerDocument;
+      const observer = new MutationObserver(() => {
+        const { activeElement, body } = doc;
+        if (!held.current && (activeElement === null || activeElement === body)) {
+          heading.current?.focus();
+        }
+      });
+      observer.observe(layer, { childList: true, subtree: true });
+      return () => observer.disconnect();
+    },
+    [heading],
   );
 }
 
@@ -243,6 +277,15 @@ function BackGlyph() {
 /** The screen's one solid action: full width beside Back below `md`, 220 wide from `md` up. */
 const SOLID_CLASS = 'md:col-start-3 md:min-w-[220px]';
 
+/**
+ * A double click's second click lands on the next screen's button in the same
+ * place, before the operator has seen that screen: it is not a press. A key's
+ * activation has no click count (`detail` 0) and always counts.
+ */
+function isRepeatClick(event: MouseEvent<HTMLButtonElement>): boolean {
+  return event.detail > 1;
+}
+
 export type WalkthroughCommitProps = Omit<ComponentProps<'button'>, 'onClick'> & {
   /**
    * Writes. A write returns its promise (a mutation's `mutateAsync`), which
@@ -250,13 +293,20 @@ export type WalkthroughCommitProps = Omit<ComponentProps<'button'>, 'onClick'> &
    * dropped focus here. The caller's call reports why.
    */
   onCommit: () => void | Promise<void>;
+  /** The label while the write runs, such as "Sending…"; it names the button then. */
+  pendingLabel: ReactNode;
 };
 
-/** The screen's one solid action when it writes: it runs once at a time and holds the layer while it runs. */
+/**
+ * The screen's one solid action when it writes: it runs once at a time, holds
+ * the layer while it runs, and reads `pendingLabel` until it settles.
+ */
 export function WalkthroughCommit({
   className,
   disabled,
   onCommit,
+  pendingLabel,
+  children,
   ...props
 }: WalkthroughCommitProps) {
   const { busy, commit } = useWalkthrough();
@@ -266,24 +316,40 @@ export function WalkthroughCommit({
       aria-busy={busy}
       disabled={busy || disabled === true}
       className={cn(SOLID_CLASS, className)}
-      onClick={(event) => void commit(event.currentTarget, onCommit, () => undefined)}
+      onClick={(event) => {
+        if (!isRepeatClick(event)) {
+          void commit(event.currentTarget, onCommit, () => undefined);
+        }
+      }}
       {...props}
-    />
+    >
+      {busy ? pendingLabel : children}
+    </ActionButton>
   );
 }
 
 /**
  * The screen's one solid action when it only moves on and writes nothing,
- * such as "Confirm and continue". Each press moves one screen; it holds while
- * a commit runs.
+ * such as "Confirm and continue". Each press moves one screen, and the second
+ * click of a double click is ignored; it holds while a commit runs.
  */
-export function WalkthroughNext({ className, disabled, ...props }: ComponentProps<'button'>) {
+export function WalkthroughNext({
+  className,
+  disabled,
+  onClick,
+  ...props
+}: ComponentProps<'button'>) {
   const { busy } = useWalkthrough();
   return (
     <ActionButton
       size="form"
       disabled={busy || disabled === true}
       className={cn(SOLID_CLASS, className)}
+      onClick={(event) => {
+        if (!isRepeatClick(event)) {
+          onClick?.(event);
+        }
+      }}
       {...props}
     />
   );

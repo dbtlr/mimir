@@ -9,8 +9,9 @@ import {
   WalkthroughNext,
   WalkthroughNote,
   WalkthroughRow,
+  useWalkthroughBusy,
 } from '../patterns/walkthrough';
-import { effectLine, stepButtonLabel } from './copy';
+import { SENDING, effectLine, stepButtonLabel } from './copy';
 import type { StepTarget } from './copy';
 import { AgentGlyph } from './icons';
 import { isBlankCustom, optionDetail, verdictOf } from './model';
@@ -174,6 +175,7 @@ export function Step({
   const commits = target === 'send';
   const blocked = gone ? commits : isBlankCustom(selection) || (commits && offline);
   const label = gone ? goneLabel(target) : stepButtonLabel(verdict, target);
+  const busy = useWalkthroughBusy();
   return (
     <section aria-label={`Decision ${decision.id}`} className="flex min-h-0 flex-1 flex-col">
       <WalkthroughBody>
@@ -228,9 +230,11 @@ export function Step({
           )}
           {commits ? (
             <WalkthroughCommit
-              aria-label={`${label} (${decision.id})`}
+              // While it writes, the button is named by its pending label alone.
+              aria-label={busy ? undefined : `${label} (${decision.id})`}
               disabled={blocked}
               onCommit={onNext}
+              pendingLabel={SENDING}
             >
               {label}
             </WalkthroughCommit>
