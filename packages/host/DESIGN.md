@@ -11,7 +11,7 @@ Every value is marked:
 - **adopted (MMR-743)**: proposed with the Form sheet's mock, approved with
   it, and now carried by the primitives and patterns. The reason given beside
   one says what the code did before.
-- **adopted (MMR-743)**: missing from or different in the code. Each carries a one-line
+- **proposed**: missing from or different in the code. Each carries a one-line
   reason and needs the operator's ruling before a primitive adopts it.
 
 A screen that meets these numbers breathes. When in doubt, add space between
@@ -42,9 +42,9 @@ branch names, timestamps-as-data. Both are self-hosted through Fontsource
 | Floor: tags, IDs, captions | 12 / 16 | 400–600 | ink-dim or brighter | `text-xs` | **proposed**: `text-mono-id` (11.5), `text-tag` (11), `text-micro` (10.5) rise to 12px, per MMR-718's "nothing under 12px" |
 
 `text-body` is one size with one line height: 14 / 23, for prose. A label is
-not prose, so it gets its own token. **Proposed**: `--text-label` (14px) with
-a paired 20px line height, for a field label, a button label, and a segment's
-text; `text-body` keeps 14 / 23 for body copy.
+not prose, so it gets its own token: `--text-label` (14px) with a paired 20px
+line height, for a field label, a button label, and a segment's text
+(**adopted (MMR-743)**, `styles.css`); `text-body` keeps 14 / 23 for body copy.
 
 Rules:
 
@@ -105,7 +105,7 @@ are measured against `well-850` / `well-900` / `well-950`.
 | Body text | `ink` | 10.0 / 10.6 / 10.8 | 9.3 / 8.0 / 8.8 | prose, field labels |
 | Secondary text | `ink-dim` | 6.6 / 7.0 / 7.2 | 5.5 / 4.8 / 5.2 | help, meta, context line, optional marker |
 | Faint | `ink-faint` | 3.2 / 3.4 / 3.5 | 3.1 / 2.6 / 2.9 | non-text only: a control's edge, an off switch, a grip, disabled glyphs |
-| Ghost | `ink-ghost` | 2.5 / 2.6 / 2.7 | 2.3 / 2.0 / 2.2 | decoration only. **Proposed**: no longer placeholder ink (2.7:1 dark, 2.2:1 light on `well-950`); see the placeholder rule below |
+| Ghost | `ink-ghost` | 2.5 / 2.6 / 2.7 | 2.3 / 2.0 / 2.2 | decoration only, never placeholder ink (2.7:1 dark, 2.2:1 light on `well-950`); see the placeholder rule below. **Adopted (MMR-743)** in the text field and the search boxes of the Record picker and the jump palette; the composer, the authoring sheet, and pairing keep an `ink-ghost` placeholder until they move onto the patterns |
 | Accent | `accent`, `accent-foreground` | 8.7, 10.5 on 850 | 3.7, 6.8 on 850 | focus, selection washes and rings, links (`-foreground` as text) |
 | Action | `action` / `action-foreground` | 8.0:1 | 9.5:1 | the one solid button per surface |
 | Danger | `status-blocked-foreground` | 8.7 on 850 | 6.3 on 850 | error text, the destructive outline's label |
@@ -121,37 +121,36 @@ All existing (`styles.css`). Rules:
   title. Shift+Enter for a body line.", or the Key's "It can't change
   later". A prompt for what to write ("What is this project for?") gets
   neither a placeholder nor a help line; the label carries the field. Help
-  is 13/20 `ink-dim` (6.6:1 dark, 5.5:1 light on `well-850`). **Proposed**:
-  today Description's prompt is a placeholder in `ink-faint`, 2.7:1 dark
-  and 2.2:1 light. Outside a form,
-  where a placeholder remains (a search box), it is `ink-dim`: 7.2:1 dark,
-  5.2:1 light on `well-950`.
+  is 13/20 `ink-dim` (6.6:1 dark, 5.5:1 light on `well-850`). Outside a
+  form, where a placeholder remains (a search box), it is `ink-dim`: 7.2:1
+  dark, 5.2:1 light on `well-950`.
 - **A disabled commit is a quiet button, not a faded one.** Fill `well-800`,
   label `ink-dim` (6.4:1 dark, 5.1:1 light on `well-800`), and a 1px
   `ink-ghost` inset edge so the shape holds on a `well-850` footer (the
   fill alone differs by 1.04:1 dark, 1.08:1 light; a `line-bright` edge, 1.4:1,
   faded out on a phone's bottom bar, so the edge steps up to `ink-ghost`,
   about 2.5:1 dark and 2.2:1 light). Disabled controls are
-  exempt from the 3:1 edge rule, but their label still meets 4.5:1.
-  **Proposed**: today `disabled:opacity-40`, which drops the label to about
-  2:1.
+  exempt from the 3:1 edge rule, but their label still meets 4.5:1
+  (**adopted (MMR-743)**, `QUIET_DISABLED` in `action-button.tsx`; an
+  outline button, a hairline already, still fades to 40%).
 - **Surfaces, from deepest to most raised**: `well-950` (top bar, input
   ground), `well-900` (page), `well-850` (card, panel, menu), `well-800`
   (nested block). Depth is tone, not shadow, in dark; light adds the
   `shadow-card` / `shadow-menu` / `shadow-overlay` ramp (existing).
 - **Form surfaces: the panel is `well-850` and a control's ground is
-  `well-950`.** **Proposed**: the Drawer and Dialog panels are `well-900` today,
-  and a `well-950` input on `well-900` differs by under 2% luminance, so the
-  control reads only by its edge.
+  `well-950`.** The Drawer's panel is `well-850` (**adopted (MMR-743)**).
+  **Proposed**: the Dialog panel is `well-900` today, and a `well-950` input
+  on `well-900` differs by under 2% luminance, so a control in a Dialog reads
+  only by its edge.
 - **The overlay scrim** is `well-950` at 70% with a 2px blur (existing,
   `OVERLAY_BACKDROP_CLASS`).
 - **Control edges meet 3:1 against the surface they sit on.** Where the edge
   is what identifies the control (Input, Textarea, Select trigger, Segmented
   track, Combobox, a menu that floats over the sheet, an outline button), the
   edge is `ink-faint`: 3.2:1 on `well-850` in dark, 3.1:1 in light. Hover
-  raises it to `ink-dim`. **Proposed**: `TEXT_FIELD_CLASS` uses `line-bright`,
-  which measures 1.4:1 dark and 1.5:1 light, so a field on a sheet reads only
-  by its ground. Checkbox and radio boxes already use `ink-dim` (existing).
+  raises it to `ink-dim` (**adopted (MMR-743)**, `CONTROL_EDGE_CLASS`; the
+  `line-bright` edge it replaced measured 1.4:1 dark and 1.5:1 light).
+  Checkbox and radio boxes already use `ink-dim` (existing).
   `line` and `line-bright` stay for structure: rules, panel edges, a toast's
   edge, never the edge that tells you where to type.
 - **Accent is a wash, never a surface fill.** A selected segment is
@@ -193,8 +192,13 @@ only inside compact chips and menus (existing, `gap-1.5`); forms do not use it.
 Help is not bound by a narrow control: it starts 8 below the control and
 wraps at the 440 help measure, not the control's edge.
 
-A form should not need a stacked choice list: four or fewer options are a
-Segmented Control, more are a Select. If one remains, it follows these numbers:
+A form picks its Choice as ADR 0019's MMR-736 refinement does: a few one-word
+options that fit on one row are a Segmented Control, options whose labels run
+past a word are a Radio, and a longer fixed list is a Select. One recorded
+exception: Launch in T3's Workspace stays a Segmented Control, as in the source
+mock, though "Project checkout" and "New worktree" run past a word; its two
+options fit one row at every width. A form should not need a stacked choice
+list; where a Radio stacks, it follows these numbers:
 
 | Stacked choice list | Phone | Desktop |
 | --- | --- | --- |
@@ -210,7 +214,7 @@ there, prefer a Select.
 
 | Where | Phone (< 768) | Desktop (≥ 768) | Mark |
 | --- | --- | --- | --- |
-| Side padding: header, body, footer | 20 | 32 | **adopted (MMR-743)**: Drawer is `p-4` (16) at every width |
+| Side padding of a Form sheet or a Content sheet: header, body, footer | 20 | 32 | **adopted (MMR-743)** in `FormSheet` and `ContentSheet`: Drawer is `p-4` (16) at every width. An Action menu's sheet keeps its own rule: 44 rows across its width, ending in a Cancel row |
 | Header | 20 top and bottom after `env(safe-area-inset-top)`: 68 tall with a title alone, 92 with a context line. The close's 44 hit area centers on the title line | 28 top, 20 bottom; the close's 36 hit area centers on the title line | **adopted (MMR-743)** |
 | Body | 24 top, 32 bottom | 32 top, 40 bottom | **adopted (MMR-743)** |
 | Footer | 12 top, 12 + `env(safe-area-inset-bottom)` bottom | 16 top and bottom | **adopted (MMR-743)** |
@@ -267,7 +271,7 @@ stay put while the body scrolls. Nothing below a form's commit row scrolls.
 
 | Where | Phone (< 768) | Desktop (≥ 768) | Mark |
 | --- | --- | --- | --- |
-| Place | top, 8 below the app bar's bottom hairline, 14 from the sides, the phone page's gutter, so its edges line up with the cards below it; it never covers the bar or sits on its hairline | bottom left on the content column's 20 gutter: 20 from the content area's left edge (past the sidebar when it shows) and 20 from the bottom, 356 wide | **adopted (MMR-743)**: `toast.tsx` places it 16 below the viewport top on a phone, over the app bar, and 16 from the window's left edge on desktop, over the sidebar |
+| Place | top, 8 below the app bar's bottom hairline, 14 from the sides, the phone page's gutter, so its edges line up with the cards below it; it never covers the bar or sits on its hairline | bottom left on the content column's 20 gutter: 20 from the content area's left edge (past the sidebar when it shows) and 20 above the content area's bottom edge, past the version footer's strip, 356 wide | **adopted (MMR-743)**: `toast.tsx` places it 16 below the viewport top on a phone, over the app bar, and 16 from the window's left edge on desktop, over the sidebar; the shell measures the footer as `--version-footer-height` |
 | Surface | `well-850`, 8 radius, and an edge brighter than a card's `line`: in dark a 1px `ink-ghost` edge (about 2.5:1), since tone and edge alone carry it; in light a 1px `line-bright` edge with the menu's drop (`0 8px 24px`, `#17242f` at 12%) plus a 2px contact shadow (`0 2px 6px`, at 10%). The overlay ramp's 48px drop washed out the card under it, so the light shadow is the menu's | same | **adopted (MMR-743)**: today `well-900` (the page's own fill) with `shadow-2xl` |
 | Padding | 4 around the action, 16 before the text | same | **adopted (MMR-743)** |
 | Text | 14 / 20 ink; the record's name ink-bright 600 | same | **adopted (MMR-743)** |
@@ -332,7 +336,7 @@ text's row and the close glyph.
 | Focus on a button, checkbox, or the close | 2px `accent` outline, 2px offset | existing (`actionButtonVariants`) |
 | A menu over a sheet | `well-800`, 1px `ink-faint` edge, `shadow-menu` in light, 8 radius, 4 inset | **adopted (MMR-743)**: `SelectContent` is `well-850` with `line-bright`, which vanishes over a `well-850` sheet |
 | A Select's menu, desktop | opens 8 below the trigger, which clears the trigger's 1px focus ring by 7; at least the trigger's width. It either covers every block below it whole (a field, a hairline, a heading) or ends at least 12 above the next one; if neither fits, it flips above or caps its height and scrolls. Groups are set off by their heading (12 above it after the first group), not by a rule | **adopted (MMR-743)** |
-| A Select's menu, phone | a bottom list: a content-sized bottom sheet over the overlay scrim, `well-850`, 12 top corners, a decorative `ink-faint` grip, the field's label as a 16/600 heading, 44 rows with text at the 20 gutter, a tick on the chosen row, and the home-indicator inset below the last row. Its top edge is a 1px `ink-faint` seam, 3:1 against the scrim in both themes (a `line-bright` seam measured 1.4:1 in light); in light it also casts a shadow upward (`0 -12px 32px`, `#17242f` at 14%) so the sheet separates from a light scrim. Its height is at most `100dvh - env(safe-area-inset-top) - 64`, so the scrim stays visible and tappable above it; a longer list scrolls inside, under its pinned grip and heading, with the home-indicator inset kept below the last row | **adopted (MMR-743)**: a popover on a phone lands over the next fields and cuts them |
+| A Select's menu, phone | a bottom list: a content-sized bottom sheet over the overlay scrim (70% `well-950` with its 2px blur), `well-850`, 12 top corners, a decorative `ink-faint` grip, the field's label as a 16/600 heading, 44 rows with text at the 20 gutter, a tick on the chosen row and no highlight on it when a tap opens the list (the highlight is the keyboard's), and the home-indicator inset below the last row. Its top edge is a 1px `ink-faint` seam, 3:1 against the scrim in both themes (a `line-bright` seam measured 1.4:1 in light); in light it also casts a shadow upward (`0 -12px 32px`, `#17242f` at 14%) so the sheet separates from a light scrim. Its height is at most `100dvh - env(safe-area-inset-top) - 64`, so the scrim stays visible and tappable above it; a longer list scrolls inside, under its pinned grip and heading, with the home-indicator inset kept below the last row | **adopted (MMR-743)**: a popover on a phone lands over the next fields and cuts them |
 
 Hairlines divide groups; they never box a single field. A group is never a
 card inside a sheet.
@@ -382,6 +386,11 @@ phone, full screen                      desktop, 640 panel
 - On a phone the close is in the top bar and the commit is full width in the
   bottom bar; there is no Cancel. On desktop the footer is Cancel then the
   commit, right-aligned, in that DOM order.
+- **Phone tab order.** With no Cancel on a phone, the last control of the body
+  sits next to the commit in tab order: in Project settings, Tab from Archive
+  project lands on Save, and Shift+Tab from Save lands on Archive. Archive
+  runs at once, so a slip of one key archives; its Notice's Undo softens that,
+  and Archive is held while a Save runs.
 - A destructive or lifecycle group (Archive) is the last group of the
   scrolling body, in DOM order. No CSS `order` rearranges a form.
 - Rarely used settings sit in a collapsed group (Advanced) at the end of the
