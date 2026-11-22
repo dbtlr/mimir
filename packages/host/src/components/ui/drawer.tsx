@@ -18,7 +18,9 @@ import { OVERLAY_BACKDROP_CLASS, OVERLAY_DESCRIPTION_CLASS, OVERLAY_TITLE_CLASS 
  * from `md` up it is a panel from the right, 440px for content and 640px for
  * a form. A left drawer is the phone sidebar (MMR-730). UI SDK fixes `side` per
  * Drawer, so `Drawer` picks it from the viewport unless the caller passes one;
- * a drawer that crosses `md` while open slides to the new edge.
+ * a drawer that crosses `md` while open slides to the new edge. The preview
+ * panel (MMR-720) is its own size: a content-sized bottom sheet capped at 88%
+ * of the visible viewport, and from `md` a 440 panel under the top bar.
  */
 
 /** Trigger and Close carry behavior only; render Close as an ActionButton. */
@@ -59,6 +61,10 @@ const PANEL_CLASS =
 const SIZE_CLASS = {
   content: 'data-[side=right]:w-[min(100vw,440px)]',
   form: 'data-[side=bottom]:h-[var(--visual-viewport-height,100dvh)] data-[side=bottom]:max-h-none data-[side=bottom]:rounded-none data-[side=bottom]:border-t-0 data-[side=right]:w-[min(100vw,640px)]',
+  // The panel starts at the top bar's measured bottom, so the bar stays in reach beside it.
+  preview:
+    'data-[side=bottom]:max-h-[calc(var(--visual-viewport-height,100dvh)*0.88)] data-[side=bottom]:border-sheet-seam light:data-[side=bottom]:elevation-sheet-up ' +
+    'data-[side=right]:mt-(--top-bar-height) data-[side=right]:h-[calc(100dvh-var(--top-bar-height,0px))] data-[side=right]:w-[min(100vw,440px)] data-[side=right]:border-ink-ghost light:data-[side=right]:border-line-bright light:data-[side=right]:shadow-overlay',
 } as const;
 
 /**
@@ -69,7 +75,7 @@ function DrawerGrip() {
   return (
     <div
       aria-hidden="true"
-      className="mx-auto -mt-1 hidden h-1 w-10 shrink-0 rounded-full bg-ink-faint group-data-[side=bottom]/drawer:block group-data-[size=form]/drawer:hidden"
+      className="mx-auto -mt-1 hidden h-1 w-10 shrink-0 rounded-full bg-ink-faint group-data-[side=bottom]/drawer:block group-data-[size=form]/drawer:hidden group-data-[size=preview]/drawer:mt-2"
       data-slot="drawer-grip"
     />
   );
