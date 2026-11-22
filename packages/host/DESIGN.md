@@ -121,7 +121,7 @@ are measured against `well-850` / `well-900` / `well-950`.
 | Accent | `accent`, `accent-foreground` | 8.7, 10.5 on 850 | 3.7, 6.8 on 850 | focus, selection washes and rings, links (`-foreground` as text) |
 | Action | `action` / `action-foreground` | 8.0:1 | 9.5:1 | the one solid button per surface |
 | Danger | `status-blocked-foreground` | 8.7 on 850 | 6.3 on 850 | error text, the destructive outline's label |
-| Sheet seam | `sheet-seam` | 3:1 or better on the scrim | 3:1 or better on the scrim | the top edge of a phone bottom sheet over the scrim: the preview panel's bottom sheet and a Select's bottom list. Its value is chosen by measurement against the rendered scrim (see Preview panel) |
+| Sheet seam | `sheet-seam` | `ink-dim`: 3.98–7.15 against the rendered scrim | `ink`: 4.38–7.29 against the rendered scrim | the top edge of a phone bottom sheet over the scrim: the preview panel's bottom sheet and a Select's bottom list. Its value was chosen by measurement against the rendered scrim (see Preview panel) |
 
 All existing (`styles.css`), except `sheet-seam`, **adopted (MMR-720)**. Rules:
 
@@ -439,7 +439,14 @@ Rules:
   feed scroll positions, over the page and over a card, and its value is
   chosen by measurement in the build. `ink-faint` does not: it measures about
   2.7–2.8:1 against the light scrim. A Select's bottom list uses the same
-  token.
+  token. Measured in Chromium at 390 (MMR-720), the seam's pixels against the
+  scrim's pixels just above it, at 12 points across the sheet's width, for four
+  cards at five feed scroll positions: `ink-dim` in dark holds 3.98:1 at worst,
+  where the scrim lies over a solid action, and `ink` in light 4.38:1. The
+  candidates that failed: `ink-faint` in dark fell to 1.95:1 over that action,
+  and the `ink-faint`/`ink-dim` mix in light (`#7a8b98`, about 3.2:1 against the
+  flat scrim) measured 2.06–2.75:1, since the sheet's upward shadow darkens the
+  scrim at the seam.
 
 ## Sizes
 
