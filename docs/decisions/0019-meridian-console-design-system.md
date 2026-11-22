@@ -1461,9 +1461,10 @@ uppercase pill, and lower still on the 12% wash the pill sat on.
   off switch, a grip, a separator, a disabled glyph. This ends DESIGN.md's
   standing exemption for the authoring sheet's and pairing's `ink-ghost`
   placeholders: they draw in `ink-dim`, as a search box's does.
-- **Demotion stops at `ink-dim`.** §7's demotion still drops an ink tier: a
-  demoted row's title (a done row, a going-cold row) drops from `ink-bright`,
-  but no text drops below `ink-dim`. A status word is never demoted.
+- **Demotion stops at `ink-dim`.** §7's demotion still drops ink: a demoted
+  row's title (a done, abandoned, or going-cold row) draws in `ink-dim`, the
+  demoted ink MMR-619 names, and no text drops below it. A status word never
+  drops an ink tier; the offline page's filter (§7) is a separate demotion.
 - **Titles lead.** A row or card title in a feed is 16px at weight 500 in
   `ink-bright` (`text-title`), at every width; it replaces the phone-only
   15px `text-card-mobile`. Its meta line is 13px `ink-dim` (`text-meta`).

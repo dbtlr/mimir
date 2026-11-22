@@ -75,7 +75,7 @@ Rules:
   line may pass 70.
 - **No line of a paragraph is a single word.** Tune the measure until the
   last line holds a phrase, and check both widths.
-- **Mono sizes match their neighbors.** An ID inside a 13px meta line is 13px
+- **Mono sizes match their neighbors on a shared line.** An ID inside a 13px meta line is 13px
   mono, not a smaller step.
 - **A mono value beside sans matches its x-height.** JetBrains Mono's x-height
   is 0.55 of its size and Instrument Sans's 0.51, so at one size the mono
@@ -124,9 +124,9 @@ All existing (`styles.css`). Rules:
   so the grey statuses read as well as the bright ones (`abandoned` as text
   measured 1.8:1 on a dark card). On a record header the status leads the
   line, then a `line` hairline, then the type and ID in `ink-dim`.
-- **Demotion stops at `ink-dim`.** A demoted row's title (done, going cold)
-  drops a tier from `ink-bright`, never below `ink-dim`; a status word is
-  never demoted.
+- **Demotion stops at `ink-dim`.** A demoted row's title (done, abandoned,
+  going cold) draws in `ink-dim`, never fainter; a status word never drops
+  an ink tier.
 - **A form field has no placeholder, and help text is only for a surprising
   input.** A field gets a help line only when it behaves in a way its label
   doesn't say, or needs a specific format: the seed's "First line is the
