@@ -236,6 +236,7 @@ beforeEach(async () => {
   time = new Date('2026-11-08T12:00:00.000Z');
   runs = createRunStore({
     clock: () => time.toISOString(),
+    databaseClock: () => time.toISOString(),
     db: fixture.db,
     dialect: sqliteDialect,
   });
