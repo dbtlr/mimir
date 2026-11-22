@@ -56,7 +56,7 @@ export function DoctorRecord({ record }: { record: WireDoctorRecord }) {
           {record.cause}
         </span>
         <span className="min-w-0 truncate text-sm font-medium text-ink-bright">{record.id}</span>
-        <span className="ml-auto shrink-0 font-mono text-tag text-ink-faint">{record.locator}</span>
+        <span className="ml-auto shrink-0 font-mono text-tag text-ink-dim">{record.locator}</span>
         <CopyLocation locator={record.locator} />
       </div>
       <p className="text-tag text-ink-dim">{record.note}</p>

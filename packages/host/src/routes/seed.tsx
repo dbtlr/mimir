@@ -81,7 +81,7 @@ const LANE_BADGE: Record<SeedLane, string> = {
   parked: 'text-status-parked inset-ring-line-bright',
   promoted: 'text-ink-dim inset-ring-line-bright',
   ready: 'bg-attention/12 text-attention inset-ring-attention/30',
-  settled: 'text-ink-faint inset-ring-line',
+  settled: 'text-ink-dim inset-ring-line',
   untriaged: 'bg-accent/12 text-accent-foreground inset-ring-accent/30',
 };
 
@@ -99,7 +99,7 @@ function ProjectName({ id, title }: { id: string; title?: string }) {
     <span className="inline-flex items-baseline gap-1.5">
       <span aria-hidden className="size-2 self-center rounded-[2px] inset-ring inset-ring-accent" />
       {title !== undefined && <span className="font-semibold text-ink-bright">{title}</span>}
-      <span className="font-mono text-mono-id text-ink-faint">{id}</span>
+      <span className="font-mono text-mono-id text-ink-dim">{id}</span>
     </span>
   );
 }
@@ -126,7 +126,7 @@ function RequestCard({
       )}
       <span className="text-ink-dim">{requester === null ? 'ask' : 'asks'}</span>
       <ProjectName id={seed.project} title={titleOf(seed.project)} />
-      <span className="ml-auto text-tag text-ink-faint">
+      <span className="ml-auto text-tag text-ink-dim">
         filed {calendarDate(seed.createdAt)} · {ago(seed.createdAt)}
       </span>
     </div>
@@ -164,10 +164,10 @@ function OutcomeSection({
 }) {
   return (
     <section aria-label="What came of it" className="flex flex-col gap-1.5">
-      <h2 className="microlabel border-b border-line pb-1.5 text-ink-faint">What came of it</h2>
+      <h2 className="microlabel border-b border-line pb-1.5 text-ink-dim">What came of it</h2>
       {outcomes.length === 0 && upstreamRead === 'pending' && <Skeleton className="h-5 w-2/3" />}
       {outcomes.length === 0 && upstreamRead === 'answered' && (
-        <p className="text-xs text-ink-faint">
+        <p className="text-xs text-ink-dim">
           Nothing yet. No task has been promoted from this seed, and none waits on it.
         </p>
       )}
@@ -183,12 +183,12 @@ function OutcomeSection({
                 <span className="shrink-0 font-mono text-mono-id text-accent-foreground">{id}</span>
                 <span className="min-w-0 flex-1 truncate">{node?.title}</span>
                 {upstream && node !== undefined && (
-                  <span className="microlabel shrink-0 text-ink-faint">
+                  <span className="microlabel shrink-0 text-ink-dim">
                     {isSettledTask(node) ? 'named it upstream' : 'waits on it'}
                   </span>
                 )}
                 {node !== undefined && (
-                  <span className="shrink-0 font-mono text-mono-id text-ink-faint">
+                  <span className="shrink-0 font-mono text-mono-id text-ink-dim">
                     {recordStanding(node)}
                   </span>
                 )}
@@ -198,7 +198,7 @@ function OutcomeSection({
         </ul>
       )}
       {upstreamRead === 'failed' && (
-        <p className="text-xs text-ink-faint">Couldn’t check which tasks wait on this seed.</p>
+        <p className="text-xs text-ink-dim">Couldn’t check which tasks wait on this seed.</p>
       )}
     </section>
   );
@@ -272,7 +272,7 @@ function SeedEditForm({
   const [description, setDescription] = useState(seed.description ?? '');
   const field =
     'rounded-[9px] border border-line-bright bg-well-900 px-3 py-2 text-body text-ink caret-accent outline-none focus-visible:border-accent/60';
-  const label = 'microlabel text-ink-faint';
+  const label = 'microlabel text-ink-dim';
   return (
     <form
       className="flex flex-col gap-3"
@@ -456,7 +456,7 @@ function SeedRecord({ seedId }: { seedId: string }) {
         </Link>
       </nav>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-mono-id text-ink-faint">{seedId} · seed</span>
+        <span className="font-mono text-mono-id text-ink-dim">{seedId} · seed</span>
         <SeedKindChip kind={data.kind} />
         <span
           className={cn(
@@ -467,7 +467,7 @@ function SeedRecord({ seedId }: { seedId: string }) {
           {laneLabel(data)}
         </span>
         {fromOtherBoard && data.requester !== null && (
-          <span className="text-tag text-ink-faint">
+          <span className="text-tag text-ink-dim">
             from{' '}
             <Link to="/p/$key" params={{ key: data.requester }} className={crumb}>
               {titleOf(data.requester) ?? data.requester}

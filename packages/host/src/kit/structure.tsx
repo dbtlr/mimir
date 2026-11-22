@@ -13,7 +13,7 @@ function ShippedRows() {
     <ul className="flex flex-col divide-y divide-line border-t border-line">
       {SHIPPED_ROWS.map(([id, title]) => (
         <li className="flex items-baseline gap-3 py-2 text-sm text-ink" key={id}>
-          <span className="text-mono-id font-mono text-ink-faint">{id}</span>
+          <span className="text-mono-id font-mono text-ink-dim">{id}</span>
           {title}
         </li>
       ))}

@@ -143,7 +143,7 @@ function DeliveryRecord({ id }: { id: string }) {
         <span>{d.id}</span>
       </nav>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-mono-id text-ink-faint">{d.id} · delivery</span>
+        <span className="font-mono text-mono-id text-ink-dim">{d.id} · delivery</span>
         <DeliveryWords delivery={d} />
       </div>
       <h1
@@ -245,7 +245,7 @@ function DeliveryRecord({ id }: { id: string }) {
       <RailSection label="Recent run journal" className="lg:border-b-0 lg:pb-0">
         {journal.map((entry) => (
           <p key={entry.number} className="text-xs wrap-anywhere text-ink-dim">
-            <time className="mr-2 text-ink-faint">{absoluteTime(entry.at)}</time>
+            <time className="mr-2 text-ink-dim">{absoluteTime(entry.at)}</time>
             <span>{entry.content}</span>
           </p>
         ))}

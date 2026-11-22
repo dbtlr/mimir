@@ -37,7 +37,7 @@ type Outcome = { verdict: 'approved' | 'denied'; device: string };
 function Detail({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <>
-      <dt className="text-tag text-ink-faint">{label}</dt>
+      <dt className="text-tag text-ink-dim">{label}</dt>
       <dd className="text-meta text-ink">{children}</dd>
     </>
   );
@@ -135,7 +135,7 @@ export function PairPage() {
       <OfflineBanner {...conn} />
       <main className="mx-auto flex w-full max-w-[560px] min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5">
         <div className="flex flex-col gap-3">
-          <h1 className="microlabel text-ink-faint">Pair a device</h1>
+          <h1 className="microlabel text-ink-dim">Pair a device</h1>
           <input
             aria-label="Pairing code"
             value={typed}
@@ -149,7 +149,7 @@ export function PairPage() {
               setDenyingCode(undefined);
               void navigate({ replace: true, search: { code: next === '' ? undefined : next } });
             }}
-            className="w-full rounded-lg border border-line-bright bg-well-950 px-3.5 py-3 font-mono text-xl tracking-[0.18em] text-ink-bright placeholder:text-ink-ghost focus-visible:outline-2 focus-visible:outline-accent"
+            className="w-full rounded-lg border border-line-bright bg-well-950 px-3.5 py-3 font-mono text-xl tracking-[0.18em] text-ink-bright placeholder:text-ink-dim focus-visible:outline-2 focus-visible:outline-accent"
           />
         </div>
 

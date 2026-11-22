@@ -115,7 +115,7 @@ export function FocusQueue({ offline }: { offline: boolean }) {
       )}
       {next !== undefined && (
         <section aria-label="Up next" className="flex flex-col gap-1">
-          <h2 className="microlabel text-ink-faint">Up next</h2>
+          <h2 className="microlabel text-ink-dim">Up next</h2>
           <p className="flex flex-wrap items-baseline gap-x-2 text-meta text-ink-dim">
             <span className="font-mono text-mono-id text-accent-foreground">
               {projectKeyOf(needsYouId(next))}
@@ -265,7 +265,7 @@ function FocusCard({
 function Context({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="rounded-sm border-l-2 border-attention bg-well-800 px-3 py-2 text-meta">
-      <span className="microlabel block text-ink-faint">{label}</span>
+      <span className="microlabel block text-ink-dim">{label}</span>
       {children}
     </div>
   );

@@ -26,10 +26,10 @@ function DoctorGroup({ group }: { group: WireDoctorGroup }) {
   return (
     <div className="overflow-hidden rounded-xl border border-line bg-well-850">
       <div className="flex items-center gap-2.5 border-b border-line bg-well-950 px-4 py-2.5">
-        <span className="min-w-0 truncate font-mono text-[11.5px] text-ink-dim">
+        <span className="min-w-0 truncate font-mono text-mono-id text-ink-dim">
           {group.project}
         </span>
-        <span className="ml-auto shrink-0 text-tag text-ink-faint">
+        <span className="ml-auto shrink-0 text-tag text-ink-dim">
           {findingCount(group.finding_count)}
         </span>
       </div>
@@ -61,11 +61,11 @@ export function DoctorPage() {
           <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">
             Record health
           </h1>
-          <span className="font-mono text-[11.5px] text-ink-faint">
+          <span className="font-mono text-mono-id text-ink-dim">
             {project !== undefined && project !== '' ? `${project} · ` : ''}mimir doctor
           </span>
           {facet !== undefined && (
-            <span className="ml-auto text-tag text-ink-faint">
+            <span className="ml-auto text-tag text-ink-dim">
               last scan {ago(facet.scanned_at)} · rescans with poll
             </span>
           )}

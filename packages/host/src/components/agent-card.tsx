@@ -76,7 +76,7 @@ function Meter({
           }}
         />
       </div>
-      <p className="flex justify-between gap-3 text-meta text-ink-faint">
+      <p className="flex justify-between gap-3 text-meta text-ink-dim">
         <span>{label}</span>
         {trailing !== undefined && <span>{trailing}</span>}
       </p>
@@ -134,9 +134,9 @@ function Frame({
         )}
       >
         {dot && <StatusDot status="in_progress" />}
-        <h2 className={cn('microlabel', tone === 'plain' && 'text-ink-faint')}>{title}</h2>
+        <h2 className={cn('microlabel', tone === 'plain' && 'text-ink-dim')}>{title}</h2>
         {model !== undefined && (
-          <span className="ml-auto font-mono text-mono-id text-ink-faint">{model}</span>
+          <span className="ml-auto font-mono text-mono-id text-ink-dim">{model}</span>
         )}
         {action}
       </div>
@@ -152,7 +152,7 @@ function Say({ children }: { children: ReactNode }) {
 /** The token file's age, since a setup-token token lasts one year. */
 function TokenAge({ modifiedAt }: { modifiedAt: Date }) {
   return (
-    <p className="text-tag text-ink-faint">
+    <p className="text-tag text-ink-dim">
       Token file updated {ago(modifiedAt)}. A setup-token token lasts one year.
     </p>
   );
@@ -207,7 +207,7 @@ function StoppedRun({ run }: { run: AgentRunView }) {
       <Say>
         You stopped this run {ago(run.endedAt ?? run.startedAt)}. Its notes stay on the task.
       </Say>
-      {run.stopDetail !== null && <p className="text-meta text-ink-faint">{run.stopDetail}</p>}
+      {run.stopDetail !== null && <p className="text-meta text-ink-dim">{run.stopDetail}</p>}
       <p>
         {run.chargedTokens === run.usedTokens
           ? `Used ${used} tokens, counted toward today.`
@@ -379,7 +379,7 @@ function Active({
           ) : (
             <Say>
               {view.run.outcome ?? 'The run ended without an outcome.'}{' '}
-              <span className="text-ink-faint">{ago(view.run.endedAt ?? view.run.startedAt)}</span>
+              <span className="text-ink-dim">{ago(view.run.endedAt ?? view.run.startedAt)}</span>
             </Say>
           )}
           <div className="flex items-center gap-3">{button}</div>

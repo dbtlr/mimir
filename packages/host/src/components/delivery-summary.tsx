@@ -102,15 +102,15 @@ export function PhaseDeliveries({ id }: { id: string }) {
   }
   return (
     <section aria-label="Live deliveries" className="flex flex-col gap-2">
-      <h2 className="microlabel text-ink-faint">Live deliveries</h2>
+      <h2 className="microlabel text-ink-dim">Live deliveries</h2>
       {query.data.map(({ delivery, members }) => (
         <Link
           key={delivery.id}
           {...deliveryLink(delivery.id)}
           className={`flex flex-col gap-2 rounded-lg border border-line bg-well-950 p-3 wrap-anywhere ${PHONE_TOUCH_TARGET}`}
         >
-          <span className="font-mono text-mono-id text-ink-faint">{delivery.id}</span>
-          <strong className="text-meta text-ink-bright">{delivery.title}</strong>
+          <span className="font-mono text-mono-id text-ink-dim">{delivery.id}</span>
+          <strong className="text-title font-medium text-ink-bright">{delivery.title}</strong>
           <DeliveryWords delivery={delivery} />
           <DeliveryTime delivery={delivery} />
           <DistributionBar distribution={memberDistribution(members)} />

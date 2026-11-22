@@ -33,7 +33,7 @@ export const SEED_LANE_INK: Record<SeedLane, string> = {
   parked: 'text-status-parked',
   promoted: 'text-ink-dim',
   ready: 'text-attention',
-  settled: 'text-ink-ghost',
+  settled: 'text-ink-dim',
   untriaged: 'text-accent-foreground',
 };
 

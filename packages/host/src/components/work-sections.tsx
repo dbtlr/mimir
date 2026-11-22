@@ -49,7 +49,7 @@ import { NeedsYouRow, RowTail, StartAction, needsYouActions } from './work-rows'
 /** An empty section's line: a bold lead and what its emptiness means. */
 export function Empty({ lead, children }: { lead: string; children?: ReactNode }) {
   return (
-    <p className="px-1 py-2 text-xs text-ink-faint">
+    <p className="px-1 py-2 text-xs text-ink-dim">
       <strong className="font-semibold text-ink-dim">{lead}</strong>
       {children !== undefined && <> {children}</>}
     </p>
@@ -277,7 +277,7 @@ function FrontierRow({ row, actions }: { row: FrontierTask; actions?: ReactNode 
       title={row.task.title}
       leading={<StatusDot status={row.task.status} />}
       beforeTitle={
-        row.breakDown && <span className="microlabel text-ink-faint">{row.task.type}</span>
+        row.breakDown && <span className="microlabel text-ink-dim">{row.task.type}</span>
       }
       afterTitle={
         <>
@@ -293,7 +293,7 @@ function FrontierRow({ row, actions }: { row: FrontierTask; actions?: ReactNode 
 /** A frontier subgroup's heading: its name, and the plain-type reading of what it holds. */
 function SubgroupHeading({ name, hint }: { name: string; hint: string }) {
   return (
-    <h3 className="microlabel mb-1 text-ink-faint">
+    <h3 className="microlabel mb-1 text-ink-dim">
       {name}
       <span className="ml-2 font-sans text-meta font-normal tracking-normal text-ink-dim normal-case">
         {hint}
@@ -306,7 +306,7 @@ function UnlockGroup({ group }: { group: WorkReport['frontier']['nextToUnlock'][
   return (
     <div className="mt-1.5">
       <p className="mb-0.5 flex flex-wrap items-baseline gap-x-1.5 text-tag">
-        <span className="microlabel text-ink-faint">After</span>{' '}
+        <span className="microlabel text-ink-dim">After</span>{' '}
         <Link
           {...nodeLink(group.prerequisite.id)}
           className="font-mono text-mono-id text-accent-foreground hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
@@ -399,7 +399,7 @@ function FrontierSection({
           )}
           {frontier.waitingOnOthers.length > 0 && (
             <details>
-              <summary className="microlabel cursor-pointer text-ink-faint focus-visible:outline-2 focus-visible:outline-accent">
+              <summary className="microlabel cursor-pointer text-ink-dim focus-visible:outline-2 focus-visible:outline-accent">
                 Waiting on others · {frontier.waitingOnOthers.length}
               </summary>
               <div className="mt-1">
@@ -425,7 +425,7 @@ function ShippedRow({ row, zone }: { row: ShippedTask; zone: string }) {
       leading={<StatusDot status={row.task.status} />}
       struck={abandoned}
       afterTitle={
-        <span className="ml-auto font-mono text-mono-id text-ink-faint">
+        <span className="ml-auto font-mono text-mono-id text-ink-dim">
           {shippedTime(row.finishedAt, zone)}
         </span>
       }
@@ -465,7 +465,7 @@ export function ShippedDayGroup({
   }, [expanded]);
   return (
     <div ref={dayRef} className="mt-1.5">
-      <h3 className="mb-0.5 font-mono text-tag text-ink-faint">{label}</h3>
+      <h3 className="mb-0.5 font-mono text-tag text-ink-dim">{label}</h3>
       {shown.map((row) => (
         <ShippedRow key={row.task.id} row={row} zone={zone} />
       ))}

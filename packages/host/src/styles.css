@@ -34,16 +34,18 @@
   --text-page: 1.75rem; /* 28px — page title, weight 700 */
   --text-header: 1.3125rem; /* 21px — section header, 700, tracking -0.01em */
   --text-dossier: 1.0625rem; /* 17px — record title, 600 */
-  --text-card-mobile: 0.9375rem; /* 15px — card titles on mobile, 500 */
-  --text-body: 0.875rem; /* 14px — card title 500 / body 400 at lh 1.65 */
+  --text-title: 1rem; /* 16px — a feed row or card title, 500, at every width (MMR-718) */
+  --text-title--line-height: 1.375rem;
+  --text-body: 0.875rem; /* 14px — body 400 at lh 1.65 */
   /* 14px with its own 20px line: a field label, a button label, a segment's text.
      A label is not prose, so it does not take body's 23px line. */
   --text-label: 0.875rem;
   --text-label--line-height: 1.25rem;
   --text-meta: 0.8125rem; /* 13px — secondary / meta */
-  --text-mono-id: 0.71875rem; /* 11.5px — mono IDs */
-  --text-tag: 0.6875rem; /* 11px — tags */
-  --text-micro: 0.65625rem; /* 10.5px — the all-caps microlabel idiom */
+  /* The 12px floor (ADR 0019, MMR-718): nothing that carries information is smaller. */
+  --text-mono-id: 0.78125rem; /* 12.5px — an ID alone in a row's ID column */
+  --text-tag: 0.75rem; /* 12px — tags */
+  --text-micro: 0.75rem; /* 12px — the all-caps microlabel idiom */
 
   /* the well — page/panel depths (flat; tone carries elevation) */
   --color-well-950: #0b0f14; /* top bar, list spines */
@@ -56,8 +58,8 @@
   --color-ink-bright: #e6edf2; /* titles, card text */
   --color-ink: #b9c4cd; /* body */
   --color-ink-dim: #8fa0ae; /* secondary */
-  --color-ink-faint: #5b6b78; /* IDs, metadata */
-  --color-ink-ghost: #4d5866; /* hints, folded sets */
+  --color-ink-faint: #5b6b78; /* non-text only: edges, grips, separators (MMR-718) */
+  --color-ink-ghost: #4d5866; /* decoration only */
 
   /* hairlines — structure carried by lines, not elevation */
   --color-line: rgba(140, 190, 215, 0.1);
@@ -219,13 +221,13 @@ body {
   transition: filter 400ms ease;
 }
 
-/* micro-label: the control-room caption idiom — Meridian micro spec (10.5/600).
+/* micro-label: the control-room caption idiom — 12/600, tracked 0.1em (MMR-718).
    Layered as a component so single-purpose utility overrides (the authoring
    type selector's mixed-case pills) can win —
    unlayered it would outrank every utility in the cascade. */
 @layer components {
   .microlabel {
-    @apply font-sans text-micro font-semibold tracking-[0.13em] uppercase;
+    @apply font-sans text-micro font-semibold tracking-[0.1em] uppercase;
   }
 }
 

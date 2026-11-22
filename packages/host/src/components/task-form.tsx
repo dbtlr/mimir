@@ -102,7 +102,7 @@ export function TaskForm({ initial, submitting, onSubmit, onCancel }: TaskFormPr
             />
           )}
         </form.Field>
-        <p className="text-micro text-ink-faint">Short one-line lede for list views (optional)</p>
+        <p className="text-micro text-ink-dim">Short one-line lede for list views (optional)</p>
       </div>
 
       {/* Description — always visible, not behind disclosure (MMR-75) */}

@@ -125,7 +125,7 @@ export function ProjectPicker({
                 <span
                   className={cn(
                     'font-mono text-meta font-bold text-ink-bright',
-                    frozen !== undefined && 'text-ink-faint',
+                    frozen !== undefined && 'text-ink-dim',
                   )}
                 >
                   {context.key}
@@ -133,7 +133,7 @@ export function ProjectPicker({
                 <span
                   className={cn(
                     'min-w-0 flex-1 truncate text-body font-semibold text-ink-bright',
-                    frozen !== undefined && 'text-ink-faint',
+                    frozen !== undefined && 'text-ink-dim',
                   )}
                 >
                   {current?.title}
@@ -428,7 +428,7 @@ function AllProjectsOption({
     >
       <AllProjectsGlyph />
       <span className="shrink-0 text-meta font-semibold text-ink-bright">All projects</span>
-      <span className="min-w-0 flex-1 truncate text-xs text-ink-faint">
+      <span className="min-w-0 flex-1 truncate text-xs text-ink-dim">
         Work across every project
       </span>
       <NeedsYouCount count={needsYou} />

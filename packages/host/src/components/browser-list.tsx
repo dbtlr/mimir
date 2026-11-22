@@ -30,7 +30,7 @@ export function BrowserPage({
     <div className="mx-auto w-full max-w-[900px] px-4 pt-4 pb-8 md:px-5">
       <header className="mb-3 flex flex-wrap items-center gap-2.5">
         <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">{title}</h1>
-        {count !== undefined && <span className="text-meta text-ink-faint">{count}</span>}
+        {count !== undefined && <span className="text-meta text-ink-dim">{count}</span>}
         {action !== undefined && <div className="ml-auto">{action}</div>}
       </header>
       {children}
@@ -66,7 +66,7 @@ export function BrowserSearch({
         }}
         aria-label={label}
         placeholder={placeholder}
-        className="min-w-0 flex-1 bg-transparent text-meta text-ink-bright caret-accent outline-none placeholder:text-ink-faint"
+        className="min-w-0 flex-1 bg-transparent text-meta text-ink-bright caret-accent outline-none placeholder:text-ink-dim"
       />
     </label>
   );
@@ -200,7 +200,7 @@ export function BrowserGroup({
         className={cn(
           'mb-2 block border-b border-line pb-1.5 focus-visible:outline-2 focus-visible:outline-accent',
           MICROLABEL,
-          labelClassName ?? 'text-ink-faint',
+          labelClassName ?? 'text-ink-dim',
         )}
       >
         {heading}
@@ -274,13 +274,15 @@ export function BrowserRow({
         actionsBelow ? 'flex-wrap' : 'max-md:flex-wrap',
       )}
     >
-      {leading !== undefined && <span className="flex h-5 shrink-0 items-center">{leading}</span>}
+      {leading !== undefined && (
+        <span className="flex h-[22px] shrink-0 items-center">{leading}</span>
+      )}
       {/* Two columns: the id keeps its own, and everything after it (a
           wrapping title, its chips, the lede, the meta line) hangs in the
           title column instead of dropping under the id. Baseline alignment
           pins the id to the first line. */}
       <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-2">
-        <span id={idLabel} className="font-mono text-mono-id text-ink-faint">
+        <span id={idLabel} className="font-mono text-mono-id text-ink-dim">
           {id}
         </span>
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -289,7 +291,7 @@ export function BrowserRow({
             {...to}
             aria-describedby={idLabel}
             className={cn(
-              'min-w-0 text-body wrap-anywhere outline-none after:absolute after:inset-0',
+              'min-w-0 text-title font-medium wrap-anywhere outline-none after:absolute after:inset-0',
               demoted ? 'text-ink-dim' : 'text-ink-bright',
               struck && 'line-through decoration-ink-ghost',
             )}
@@ -299,12 +301,10 @@ export function BrowserRow({
           {afterTitle}
         </div>
         {lede !== undefined && lede !== null && lede !== '' && (
-          <p className="col-start-2 truncate text-[0.78125rem] text-ink-dim max-md:hidden">
-            {lede}
-          </p>
+          <p className="col-start-2 truncate text-meta text-ink-dim max-md:hidden">{lede}</p>
         )}
         {meta !== undefined && (
-          <div className="col-start-2 text-mono-id wrap-anywhere text-ink-faint">{meta}</div>
+          <div className="col-start-2 text-meta wrap-anywhere text-ink-dim">{meta}</div>
         )}
       </div>
       {actions !== undefined && (
@@ -326,7 +326,7 @@ export function BrowserRow({
 
 /** The empty state shared by all three browsers. */
 export function BrowserEmpty({ children }: { children: ReactNode }) {
-  return <p className="px-4 py-10 text-center text-xs text-ink-faint">{children}</p>;
+  return <p className="px-4 py-10 text-center text-xs text-ink-dim">{children}</p>;
 }
 
 /**

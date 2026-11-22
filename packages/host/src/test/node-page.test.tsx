@@ -460,7 +460,10 @@ describe('container page (MMR-450)', () => {
     await expect(
       screen.findByRole('heading', { level: 1, name: 'SQLite replaces Norn' }),
     ).resolves.toBeDefined();
-    expect(screen.getByText('MMR-2 · phase')).toBeDefined();
+    // The status line's ID is mono inside a sans line (MMR-718), so match the line's whole text.
+    expect(
+      screen.getByText((_, el) => el?.tagName === 'SPAN' && el.textContent === 'MMR-2 · phase'),
+    ).toBeDefined();
     expect(
       screen.getByRole('link', { name: /Hosted and external backends/ }).getAttribute('href'),
     ).toBe('/p/MMR/1');

@@ -33,7 +33,7 @@ export function SettingsPage({
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">{title}</h1>
         {subtitle !== undefined && (
-          <span className="font-mono text-[11.5px] text-ink-faint">{subtitle}</span>
+          <span className="font-mono text-mono-id text-ink-dim">{subtitle}</span>
         )}
         {actions !== undefined && <div className="ml-auto">{actions}</div>}
       </div>
@@ -50,7 +50,7 @@ export const SETTINGS_CARD =
 export function SettingsGroup({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section aria-label={title} className="flex flex-col gap-1.5">
-      <h2 className="microlabel px-1 text-ink-faint">{title}</h2>
+      <h2 className="microlabel px-1 text-ink-dim">{title}</h2>
       {children}
     </section>
   );

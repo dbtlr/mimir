@@ -87,8 +87,8 @@ function DirectionDialog({
           className="fixed top-1/2 left-1/2 z-[60] flex max-h-[85dvh] w-[min(92vw,640px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-line-bright bg-well-850 shadow-2xl outline-none light:shadow-overlay"
         >
           <header className="flex items-center gap-2.5 border-b border-line px-5 py-3.5">
-            <Dialog.Title className="microlabel text-ink-faint">Direction</Dialog.Title>
-            <span className="shrink-0 font-mono text-mono-id text-ink-faint">
+            <Dialog.Title className="microlabel text-ink-dim">Direction</Dialog.Title>
+            <span className="shrink-0 font-mono text-mono-id text-ink-dim">
               {subjectId(subject)}
             </span>
             <span className="min-w-0 truncate text-tag text-ink-dim">{title}</span>
@@ -101,7 +101,7 @@ function DirectionDialog({
             <>
               <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
                 {next === undefined || next.trim() === '' ? (
-                  <p className="text-xs text-ink-ghost">No direction set</p>
+                  <p className="text-xs text-ink-dim">No direction set</p>
                 ) : (
                   <MarkdownBody>{next}</MarkdownBody>
                 )}
@@ -132,7 +132,7 @@ function DirectionDialog({
                 />
               </div>
               <div className="flex items-center gap-2.5 border-t border-line px-5 py-3">
-                <p className="min-w-0 flex-1 truncate text-tag text-ink-faint">
+                <p className="min-w-0 flex-1 truncate text-tag text-ink-dim">
                   Replaces the whole text. Agents rewrite this at session end.
                 </p>
                 <button
@@ -196,7 +196,7 @@ export function DirectionPanel({
   return (
     <div className="flex flex-col gap-2">
       {empty ? (
-        <p className="text-xs text-ink-ghost">No direction set</p>
+        <p className="text-xs text-ink-dim">No direction set</p>
       ) : (
         <MarkdownBody className="max-w-none" clamp={6} onClampMeasure={setMeasure}>
           {next}

@@ -1107,7 +1107,10 @@ describe('work page head', () => {
     expect(screen.getByRole('button', { name: 'Project settings' })).toBeDefined();
     expect(screen.getAllByRole('button', { name: 'New task' }).length).toBeGreaterThan(0);
     expect(screen.queryByRole('tablist')).toBeNull();
-    expect(screen.getByText('MMR · project')).toBeDefined();
+    // The status line's ID is mono inside a sans line (MMR-718), so match the line's whole text.
+    expect(
+      screen.getByText((_, el) => el?.tagName === 'SPAN' && el.textContent === 'MMR · project'),
+    ).toBeDefined();
     expect(screen.getByText('1 in progress · 1 parked · 3 done')).toBeDefined();
     expect(screen.queryByRole('navigation', { name: 'Path' })).toBeNull();
   });
@@ -1122,7 +1125,10 @@ describe('work page head', () => {
     // Phone only: the sidebar outline carries the place from md up.
     expect(parent.className).toContain('lg:hidden');
     expect(screen.queryByRole('navigation', { name: 'Path' })).toBeNull();
-    expect(screen.getByText('MMR-105 · phase')).toBeDefined();
+    // The status line's ID is mono inside a sans line (MMR-718), so match the line's whole text.
+    expect(
+      screen.getByText((_, el) => el?.tagName === 'SPAN' && el.textContent === 'MMR-105 · phase'),
+    ).toBeDefined();
     expect(screen.queryByRole('button', { name: 'Project settings' })).toBeNull();
 
     fireEvent.click(screen.getAllByRole('button', { name: 'New task' })[0] as HTMLElement);

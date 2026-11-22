@@ -16,7 +16,7 @@ export const cardVariants = cva('rounded-[10px] border border-line bg-well-850 l
   variants: {
     variant: {
       default: '',
-      recessed: 'bg-well-recessed text-ink-ghost light:shadow-none',
+      recessed: 'bg-well-recessed text-ink-dim light:shadow-none',
     },
   },
 });

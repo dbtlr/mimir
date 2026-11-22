@@ -37,7 +37,7 @@ function StripCount({
 }) {
   if (n === 0) {
     return (
-      <span aria-hidden className="text-right font-mono text-mono-id text-ink-ghost">
+      <span aria-hidden className="text-right font-mono text-mono-id text-ink-dim">
         —
       </span>
     );
@@ -71,7 +71,7 @@ function HealthStrip({ projects }: { projects: ReviewReport['projects'] }) {
   }
   return (
     <RailSection label="Projects" count={projects.length}>
-      <div aria-hidden className={cn(STRIP_COLUMNS, 'px-1 font-mono text-micro text-ink-faint')}>
+      <div aria-hidden className={cn(STRIP_COLUMNS, 'px-1 font-mono text-micro text-ink-dim')}>
         <span />
         <span />
         <span className="text-right">you</span>
@@ -129,7 +129,7 @@ function MinuteGroup({
 }) {
   return (
     <section aria-label={label} className="flex flex-col">
-      <h3 className="microlabel mb-0.5 text-ink-faint">
+      <h3 className="microlabel mb-0.5 text-ink-dim">
         {label} · {count}
       </h3>
       {children}
@@ -206,7 +206,7 @@ function FindingsRows({ triage }: { triage: ReviewReport['triage'] }) {
               <span className="min-w-0 flex-1 text-meta text-ink">
                 {group.findings} {group.findings === 1 ? 'finding' : 'findings'}
               </span>
-              <span className="text-tag text-ink-faint">Doctor →</span>
+              <span className="text-tag text-ink-dim">Doctor →</span>
             </Link>
           </li>
         ))}
@@ -237,7 +237,7 @@ function MinuteSection({ report, offline }: { report: ReviewReport; offline: boo
       headingRef={headingRef}
     >
       {total === 0 ? (
-        <p className="text-xs text-ink-faint">Nothing is waiting for a spare minute.</p>
+        <p className="text-xs text-ink-dim">Nothing is waiting for a spare minute.</p>
       ) : (
         <div className="flex flex-col gap-3">
           {report.runnable.length > 0 && (

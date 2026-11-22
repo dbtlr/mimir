@@ -44,7 +44,7 @@ export function RailSection({
         id={headingId}
         ref={headingRef}
         tabIndex={headingRef === undefined ? undefined : -1}
-        className="microlabel text-ink-faint focus-visible:outline-2 focus-visible:outline-accent"
+        className="microlabel text-ink-dim focus-visible:outline-2 focus-visible:outline-accent"
       >
         {label}
         {count !== undefined && ` · ${String(count)}`}
@@ -107,7 +107,7 @@ function RailChips({ chips, label }: { chips: readonly RailChip[]; label: string
           >
             {chip.label}
             {chip.count !== undefined && (
-              <span className="font-mono text-micro text-ink-faint">{chip.count}</span>
+              <span className="font-mono text-micro text-ink-dim">{chip.count}</span>
             )}
           </button>
         ))}
@@ -123,7 +123,7 @@ function RailChips({ chips, label }: { chips: readonly RailChip[]; label: string
         {active !== undefined && (
           <SheetContent side="bottom" aria-describedby={undefined}>
             <div className="flex items-center border-b border-line px-5 py-3">
-              <SheetTitle className="microlabel text-ink-faint">{active.label}</SheetTitle>
+              <SheetTitle className="microlabel text-ink-dim">{active.label}</SheetTitle>
               <SheetClose aria-label="Close" className={cn(iconButtonClass, '-mr-2 ml-auto')}>
                 <CloseIcon />
               </SheetClose>

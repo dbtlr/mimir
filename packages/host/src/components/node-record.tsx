@@ -47,7 +47,7 @@ export function RefRow({ refNode }: { refNode: NodeRef }) {
 /** Links to a record's artifacts, each at its own page (MMR-452). */
 export function ArtifactLinks({ artifacts }: { artifacts?: readonly RecordArtifact[] }) {
   if (artifacts === undefined || artifacts.length === 0) {
-    return <p className="text-xs text-ink-faint">None yet.</p>;
+    return <p className="text-xs text-ink-dim">None yet.</p>;
   }
   return (
     <div className="flex flex-col gap-0.5">
@@ -71,13 +71,13 @@ export function ArtifactLinks({ artifacts }: { artifacts?: readonly RecordArtifa
 export function DescriptionSection({ description }: { description?: string | null }) {
   return (
     <section className="flex flex-col gap-1.5">
-      <h2 className="microlabel border-b border-line pb-1.5 text-ink-faint">Description</h2>
+      <h2 className="microlabel border-b border-line pb-1.5 text-ink-dim">Description</h2>
       {description != null && description.trim() !== '' ? (
         <MarkdownBody breaks className="max-w-none">
           {description}
         </MarkdownBody>
       ) : (
-        <p className="text-xs text-ink-faint">No description.</p>
+        <p className="text-xs text-ink-dim">No description.</p>
       )}
     </section>
   );
@@ -240,7 +240,7 @@ export function VerdictBlock({
 
   return (
     <div className="flex flex-col gap-2.5 rounded-lg border border-line bg-well-850 p-3.5">
-      {heading && <p className="microlabel text-ink-faint">In review</p>}
+      {heading && <p className="microlabel text-ink-dim">In review</p>}
       {summary !== undefined && <p className="text-xs leading-relaxed text-ink">{summary}</p>}
       {node.externalRef != null && <ExternalRef value={node.externalRef} />}
       <div className="flex gap-2">

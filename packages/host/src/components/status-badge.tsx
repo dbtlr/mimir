@@ -3,32 +3,32 @@ import type { StatusWord } from '@mimir/contract';
 import { cn } from '../lib/cn';
 import { STATUS_META } from '../lib/status';
 import { StatusDot } from './status-dot';
-import { statusChipVariants } from './ui/badge';
 
 /**
- * A status word as a wash chip — the CVA kit variant, dot + label inside.
- * `pill` swaps the compact chip shape for the header pill idiom
- * (rounded-full, uppercase, tracked) used on page headers.
+ * A status word: its dot in the status hue, then its label in bright semibold
+ * ink. Only the dot carries the hue, so a grey status (parked, abandoned)
+ * reads as well as a bright one (ADR 0019, MMR-718).
  */
-export function StatusBadge({
-  status,
-  className,
-  pill,
-}: {
-  status: StatusWord;
-  className?: string;
-  pill?: boolean;
-}) {
-  const { label } = STATUS_META[status];
+export function StatusBadge({ status, className }: { status: StatusWord; className?: string }) {
   return (
-    <span
-      className={cn(
-        statusChipVariants({ shape: pill === true ? 'pill' : 'chip', status }),
-        className,
-      )}
-    >
+    <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap', className)}>
       <StatusDot status={status} />
-      {pill === true ? label.toUpperCase() : label}
+      <span className="text-meta font-semibold text-ink-bright">{STATUS_META[status].label}</span>
     </span>
+  );
+}
+
+/**
+ * A record header's status line after its status: a hairline, then the
+ * record's ID (mono, at the line's 13px) and type in dim ink (ADR 0019, MMR-718).
+ */
+export function StatusLineId({ id, type }: { id: string; type: string }) {
+  return (
+    <>
+      <span aria-hidden className="h-3.5 w-px bg-line-bright" />
+      <span className="text-meta text-ink-dim">
+        <span className="font-mono">{id}</span> · {type}
+      </span>
+    </>
   );
 }

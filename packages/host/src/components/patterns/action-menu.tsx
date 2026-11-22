@@ -344,7 +344,7 @@ function SheetChoice({ choice }: { choice: ActionMenuChoice }) {
   const labelId = useId();
   return (
     <div className="flex flex-col">
-      <p id={labelId} className="microlabel px-2 py-1 text-ink-faint">
+      <p id={labelId} className="microlabel px-2 py-1 text-ink-dim">
         {choice.label}
       </p>
       <RadioGroup

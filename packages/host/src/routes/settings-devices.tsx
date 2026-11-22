@@ -40,7 +40,7 @@ function ListCard({
       aria-label={title}
       className="overflow-hidden rounded-xl border border-line bg-well-850"
     >
-      <h2 className="microlabel border-b border-line bg-well-950 px-4 py-2.5 text-ink-faint">
+      <h2 className="microlabel border-b border-line bg-well-950 px-4 py-2.5 text-ink-dim">
         {title}
       </h2>
       {pending && <Skeleton className="m-3 h-10" />}

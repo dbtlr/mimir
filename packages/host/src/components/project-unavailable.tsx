@@ -29,10 +29,10 @@ function ArchivedProjectPage({ project, offline }: { project: EngineNode; offlin
         <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">
           {project.title}
         </h1>
-        <span className="rounded-[5px] px-[7px] py-[3px] font-mono text-tag text-ink-faint inset-ring inset-ring-line-bright">
+        <span className="rounded-[5px] px-[7px] py-[3px] font-mono text-tag text-ink-dim inset-ring inset-ring-line-bright">
           {project.id}
         </span>
-        <span className="font-mono text-tag text-ink-faint">
+        <span className="font-mono text-tag text-ink-dim">
           Archived{archivedOn !== undefined && ` · ❄ ${archivedOn}`}
         </span>
       </div>

@@ -32,7 +32,7 @@ export function TabsTab({ className, ...props }: ComponentProps<typeof SdkTabsTa
   return (
     <SdkTabsTab
       className={mergeClassName(
-        '-mb-px flex shrink-0 cursor-pointer items-center gap-1.5 border-b-2 border-transparent px-0.5 py-2 text-sm font-medium text-ink-dim transition-colors outline-none hover:text-ink focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-accent data-[disabled]:cursor-not-allowed data-[disabled]:text-ink-faint data-[disabled]:hover:text-ink-faint data-[selected]:border-accent data-[selected]:font-semibold data-[selected]:text-ink-bright',
+        '-mb-px flex shrink-0 cursor-pointer items-center gap-1.5 border-b-2 border-transparent px-0.5 py-2 text-sm font-medium text-ink-dim transition-colors outline-none hover:text-ink focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-accent data-[disabled]:cursor-not-allowed data-[disabled]:text-ink-dim data-[disabled]:hover:text-ink-dim data-[selected]:border-accent data-[selected]:font-semibold data-[selected]:text-ink-bright',
         className,
       )}
       {...props}
@@ -42,7 +42,7 @@ export function TabsTab({ className, ...props }: ComponentProps<typeof SdkTabsTa
 
 /** A tab's count ("Artifacts 3"). */
 export function TabsCount({ className, ...props }: ComponentProps<'span'>) {
-  return <span className={cn('text-mono-id font-mono text-ink-faint', className)} {...props} />;
+  return <span className={cn('text-mono-id font-mono text-ink-dim', className)} {...props} />;
 }
 
 export function TabsPanel({ className, ...props }: ComponentProps<typeof SdkTabsPanel>) {

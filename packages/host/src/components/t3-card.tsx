@@ -75,7 +75,7 @@ export function T3Card({ outcome }: { outcome: T3CallbackReason | undefined }) {
       aria-label="T3 Code"
       className="overflow-hidden rounded-xl border border-line bg-well-850"
     >
-      <h2 className="microlabel border-b border-line bg-well-950 px-4 py-2.5 text-ink-faint">
+      <h2 className="microlabel border-b border-line bg-well-950 px-4 py-2.5 text-ink-dim">
         T3 Code
       </h2>
       <div className="flex flex-col gap-2.5 px-4 py-4 text-xs text-ink-dim">
@@ -99,7 +99,7 @@ export function T3Card({ outcome }: { outcome: T3CallbackReason | undefined }) {
             >
               {control}
             </ActionButton>
-            <p className="text-ink-faint">
+            <p className="text-ink-dim">
               On T3&apos;s screen, pick full access if launched threads should run without approval
               prompts.
             </p>

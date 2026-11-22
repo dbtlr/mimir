@@ -85,7 +85,7 @@ function TaskNeedsYouRow({
         beforeTitle={
           <>
             <NeedsYouReason row={row} />
-            {current && <span className="microlabel text-ink-faint">This page</span>}
+            {current && <span className="microlabel text-ink-dim">This page</span>}
           </>
         }
         actions={actions}
@@ -102,7 +102,7 @@ function TaskNeedsYouRow({
             )}
             {row.question !== null && (
               <blockquote className="mt-1 max-w-prose rounded-sm border-l-2 border-attention bg-well-850 px-2.5 py-1.5">
-                <span className="microlabel block text-ink-faint">Latest question</span>
+                <span className="microlabel block text-ink-dim">Latest question</span>
                 <span className="text-meta whitespace-pre-line text-attention-foreground">
                   {row.question}
                 </span>
@@ -144,7 +144,7 @@ export function NeedsYouRow({
           <>
             <span className="microlabel text-attention-foreground">Stopped</span>
             <span className="text-tag text-ink-dim">{d.lifecycle}</span>
-            {current && <span className="microlabel text-ink-faint">This page</span>}
+            {current && <span className="microlabel text-ink-dim">This page</span>}
           </>
         }
         meta={<p className="text-meta text-ink-dim">{d.hold_reason}</p>}
@@ -178,7 +178,7 @@ export function DecisionRow({
       <span className="text-tag text-attention-foreground">
         {decision.id} · {decision.class}
       </span>
-      <h3 className="text-meta font-semibold text-ink-bright">{decision.question}</h3>
+      <h3 className="text-title font-medium text-ink-bright">{decision.question}</h3>
       <ol className="list-inside list-decimal text-meta text-ink">
         {decision.options.map((option, index) => (
           <li key={option} className={index + 1 === decision.taken ? 'font-semibold' : undefined}>

@@ -28,7 +28,7 @@ export function VersionFooter({ ref }: { ref?: Ref<HTMLElement> }) {
     >
       <span
         data-testid="console-version"
-        className="font-mono text-micro text-ink-ghost"
+        className="font-mono text-micro text-ink-dim"
         title={
           serverVersion === undefined
             ? `console ${BUILD_VERSION}`

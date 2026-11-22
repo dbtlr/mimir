@@ -105,7 +105,7 @@ function FeedRow({ item }: { item: FeedItem }) {
         {item.variant === 'created' && <span className="text-meta text-ink-dim">Created</span>}
         {item.variant === 'transition' && <TransitionLine entry={item.entry} />}
         {item.variant === 'annotation' && <TimelineNote content={item.content} />}
-        <time className="font-mono text-micro text-ink-faint">{ago(item.at)}</time>
+        <time className="font-mono text-micro text-ink-dim">{ago(item.at)}</time>
       </div>
     </li>
   );
@@ -131,7 +131,7 @@ export function FeedList({
     return <Skeleton className="h-12 w-full" />;
   }
   if (items.length === 0) {
-    return <p className="text-xs text-ink-faint">{empty}</p>;
+    return <p className="text-xs text-ink-dim">{empty}</p>;
   }
   return (
     <ol

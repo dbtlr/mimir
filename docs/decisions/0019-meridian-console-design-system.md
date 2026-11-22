@@ -1490,7 +1490,7 @@ uppercase pill, and lower still on the 12% wash the pill sat on.
   word and its ground disagree. Sentence-case section headings in place of
   the microlabel: a better read in the mocks, but they belong to MMR-719's
   section head, so they wait for it.
-- `packages/host/src/test/readable-type.test.ts` fails if a type token
+- `packages/host/src/test/readable-type.test.tsx` fails if a type token
   under the floor returns or a status word takes a status hue, and its
   source scan fails if `text-ink-faint`, `text-ink-ghost`, or a literal size
   under 12px reappears outside its listed decoration uses.
