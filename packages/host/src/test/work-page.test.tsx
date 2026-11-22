@@ -296,6 +296,10 @@ describe('work page sections', () => {
     expect(now).toHaveTextContent('Reserved task');
     expect(now).toHaveTextContent('Queued');
     expect(now).not.toHaveTextContent('Started');
+    // The status word reads in bright ink; only its dot carries the hue (MMR-718).
+    const word = within(now).getByText('Queued');
+    expect(word).toHaveClass('text-ink-bright');
+    expect(word.className).not.toMatch(/status-/);
   });
 
   it('shows a task in review in Now as work in flight, with nothing to approve', async () => {
@@ -479,6 +483,13 @@ describe('work page sections', () => {
     expect(within(shipped).getByRole('link', { name: 'Converge needs consent' })).toBeDefined();
     expect(shipped).toHaveTextContent('Abandoned: moot under ADR 0032');
     expect(shipped).toHaveTextContent('14:05');
+    // An abandoned row's word is the bright status word, and its title is demoted (MMR-718).
+    const abandoned = within(shipped).getByText('Abandoned');
+    expect(abandoned).toHaveClass('text-ink-bright');
+    expect(abandoned.className).not.toMatch(/status-/);
+    expect(within(shipped).getByRole('link', { name: 'Converge needs consent' })).toHaveClass(
+      'text-ink-dim',
+    );
   });
 
   // Going cold is a modifier in glyph plus demoted ink, never a status hue

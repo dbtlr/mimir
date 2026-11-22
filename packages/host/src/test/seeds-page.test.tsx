@@ -81,6 +81,10 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
     const promoted = screen.getByText('Promoted · 1');
     expect(untriaged.compareDocumentPosition(ready) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
     expect(ready.compareDocumentPosition(promoted) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    // A lane header is a group label in dim ink, as the tasks list's are; no lane hue (MMR-718).
+    for (const header of [untriaged, ready, promoted]) {
+      expect(header).toHaveClass('text-ink-dim');
+    }
   });
 
   it('shows the to-triage and to-resolve counts in the header', async () => {

@@ -121,6 +121,12 @@ describe('the Settings index', () => {
     await waitFor(async () => {
       await expect(row('/settings/connections')).resolves.toHaveTextContent(`Connections${word}`);
     });
+    // A connected value reads in the done hue's text tone, never its 4.0:1 base (MMR-718).
+    const value = within(await row('/settings/connections')).getByText(word);
+    expect(value.className.includes('text-status-done-foreground')).toBe(
+      status.state === 'connected',
+    );
+    expect(value.className).not.toMatch(/text-status-done(?!-)/);
   });
 
   it("shows the console's own version on About, not the host's", async () => {
