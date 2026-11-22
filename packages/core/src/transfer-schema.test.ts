@@ -217,3 +217,44 @@ test('a version this binary does not know is refused, never read lossily', () =>
     message: 'unsupported transfer document schema version 16',
   });
 });
+
+// An older export can carry a rank on a task outside the rankable set (MMR-700):
+// the import clears it, as it releases a terminal hold, so reorder cannot move it.
+const outsideRankableSet = [
+  { hold: 'none', lifecycle: 'under_review' },
+  { hold: 'none', lifecycle: 'staged' },
+  { hold: 'blocked', lifecycle: 'todo' },
+  { hold: 'parked', lifecycle: 'todo' },
+  { hold: 'none', lifecycle: 'done' },
+  { hold: 'blocked', lifecycle: 'abandoned' },
+] as const;
+
+function rankedTask(lifecycle: string, hold: string): { id: string; input: StoreExport } {
+  const input = structuredClone(document);
+  const task = input.nodes.find((node) => node.type === 'task' && node.hold === 'blocked');
+  if (task === undefined) {
+    throw new Error('the fixture has no blocked task');
+  }
+  const terminal = lifecycle === 'done' || lifecycle === 'abandoned';
+  Object.assign(task, {
+    block_owner: hold === 'blocked' ? 'you' : null,
+    completed_at: terminal ? '2026-09-03T00:00:00.000Z' : null,
+    hold,
+    hold_reason: hold === 'none' ? null : 'left behind',
+    lifecycle,
+    rank: 4096,
+  });
+  return { id: task.id, input };
+}
+
+test.each(outsideRankableSet)('a $lifecycle task held $hold imports with rank null', (row) => {
+  const { id, input } = rankedTask(row.lifecycle, row.hold);
+  const parsed = parseTransferDocument(input).nodes.find((node) => node.id === id);
+  expect(parsed).toMatchObject({ rank: null });
+});
+
+test('a rankable task keeps its rank', () => {
+  const { id, input } = rankedTask('todo', 'none');
+  const parsed = parseTransferDocument(input).nodes.find((node) => node.id === id);
+  expect(parsed).toMatchObject({ lifecycle: 'todo', rank: 4096 });
+});

@@ -24,6 +24,7 @@ import { defaultBlockOwner } from './block-owner';
 import type { StoreExport } from './export';
 import { STORE_EXPORT_SCHEMA_VERSION } from './export';
 import { holdsNoHold, RELEASED_HOLD } from './hold-release';
+import { isRankable } from './rank';
 import { isScratchpadId } from './scratchpads/store';
 
 // Plain text, not the canonical-instant grammar: import copies stored facts as they
@@ -156,6 +157,11 @@ export const transferSchema = z.object({
       // residue: it still reaches the validator and is refused.
       .transform((node) => {
         const released = holdsNoHold(node.lifecycle) ? terminalRelease(node.hold) : undefined;
+        // A task outside the rankable set imports unranked (MMR-700): an older
+        // export can carry the rank it held before it left the set, and reorder
+        // would otherwise move it. The hold read here is the one after release.
+        const hold = released && 'hold' in released ? released.hold : node.hold;
+        const unranked = node.type === 'task' && !isRankable(node.lifecycle, hold);
         return {
           ...node,
           block_owner:
@@ -165,6 +171,7 @@ export const transferSchema = z.object({
           worker_harness: node.worker_harness ?? null,
           worker_session: node.worker_session ?? null,
           ...released,
+          ...(unranked ? { rank: null } : {}),
         };
       }),
   ),

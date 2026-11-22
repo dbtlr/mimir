@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, test } from 'bun:test';
 
 import { createProject } from './create';
 import type { ExportedBodySections, StoreExport } from './export';
+import { reorder } from './mutations/data';
 import { bootPglite } from './store-postgres/testing';
 import {
   backends,
@@ -92,6 +93,65 @@ describe.each(backends)('$name', (backend) => {
       await target.store.import(document, { dryRun: false, mode: 'fresh' });
       const imported = (await target.store.export()).nodes.find((n) => n.id === reviewed.id);
       expect(imported).toMatchObject({ lifecycle: 'staged', rank: null });
+    } finally {
+      await target.close();
+    }
+  });
+  // An older export can rank a task outside the rankable set (MMR-700): the
+  // import stores no rank for it, so `reorder` refuses it, while a rankable
+  // task keeps the rank it had.
+  test.each([
+    { hold: 'none', lifecycle: 'under_review' },
+    { hold: 'none', lifecycle: 'staged' },
+    { hold: 'blocked', lifecycle: 'todo' },
+    { hold: 'none', lifecycle: 'done' },
+  ] as const)(
+    'an import clears the rank of a $lifecycle task held $hold, and reorder refuses it',
+    async ({ hold, lifecycle }) => {
+      const document = structuredClone(source.document);
+      const task = document.nodes.find((node) => node.type === 'task' && node.hold === 'blocked');
+      if (task === undefined) {
+        throw new Error('the fixture has no blocked task');
+      }
+      Object.assign(task, {
+        block_owner: hold === 'blocked' ? 'you' : null,
+        completed_at: lifecycle === 'done' ? '2026-09-03T00:00:00.000Z' : null,
+        hold,
+        hold_reason: hold === 'blocked' ? 'left behind' : null,
+        lifecycle,
+        rank: 4096,
+      });
+      const target = await backend.make();
+      try {
+        await target.store.import(document, { dryRun: false, mode: 'fresh' });
+        const nodes = (await target.store.export()).nodes;
+        expect(nodes.find((n) => n.id === task.id)).toMatchObject({ lifecycle, rank: null });
+        expect(await refusalOf(reorder(target.store, task.id, 'top'))).toContain(
+          'outside the rankable set',
+        );
+      } finally {
+        await target.close();
+      }
+    },
+  );
+  test('an import keeps the rank of a rankable task', async () => {
+    const document = structuredClone(source.document);
+    const task = document.nodes.find((node) => node.type === 'task' && node.hold === 'blocked');
+    if (task === undefined) {
+      throw new Error('the fixture has no blocked task');
+    }
+    Object.assign(task, {
+      block_owner: null,
+      hold: 'none',
+      hold_reason: null,
+      lifecycle: 'todo',
+      rank: 4096,
+    });
+    const target = await backend.make();
+    try {
+      await target.store.import(document, { dryRun: false, mode: 'fresh' });
+      const imported = (await target.store.export()).nodes.find((n) => n.id === task.id);
+      expect(imported).toMatchObject({ lifecycle: 'todo', rank: 4096 });
     } finally {
       await target.close();
     }
