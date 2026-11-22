@@ -171,8 +171,8 @@ test('the release lane reports the test budget without ever failing the job', as
   expect(steps.indexOf(budget!)).toBeGreaterThan(steps.indexOf(tests!));
   expect(budget?.['continue-on-error']).toBe(true);
   // It still reports after a failed suite, but not on pull requests, which run test:native.
-  expect(budget?.if).toContain('!cancelled()');
-  expect(budget?.if).toContain("github.event_name != 'pull_request'");
+  // Exact, so no runner.os or matrix clause can drop the darwin-arm64 row.
+  expect(budget?.if).toBe("${{ !cancelled() && github.event_name != 'pull_request' }}");
 });
 
 /**
