@@ -81,7 +81,9 @@ absorbing it as an ever-growing list of refinements.
    composite before implementation locks them.
 
 8. **The motion budget is exhaustive.** Three movers: the in-progress pulse
-   dot, the detail panel/sheet slide, and note expand/collapse. Nothing else
+   dot, the detail panel/sheet slide, and note expand/collapse. (2026-11-22,
+   MMR-720: the preview panel's slide includes the sidebar's exit and the
+   feed column's re-centre that travel with it.) Nothing else
    moves — no hover lifts, no springs. Adding a fourth mover is a revisit of
    this ADR, not a styling choice.
 
@@ -1243,7 +1245,9 @@ What a surface holds decides which one is used:
   every width, as the MMR-703 refinement set out.
 - **Sheet**: content or a form. It is UI SDK's Drawer: below `md`, a sheet
   from the bottom (full screen for a form); from `md` up, a panel from the
-  right, 440px for content and 640px for a form.
+  right, 440px for content and 640px for a form. A Sheet is modal, with one
+  exception (2026-11-22, MMR-720): the preview panel is non-modal from `md`
+  up, a Drawer with `modal={false}` and no scrim, and modal below `md`.
 - **Popup**: a short list anchored to its button, either a menu or a
   picker's results.
 
@@ -1264,6 +1268,7 @@ the MMR-635 red hairline in both shapes.
 | Record picker | a record found by search | Popup; a Dialog for the jump palette | Combobox, Listbox, Command |
 | Form sheet | creating or editing a record, with several fields | Sheet | Drawer, Field, Input, Textarea, Token Input, with Choice and Record picker |
 | Content sheet | a record's or a row's content and settings that apply as they change, closed by Done or the caller's own actions | Sheet, 440 from `md` up | Drawer |
+| Preview panel | a feed card's key facts, its one action, and Open, opened by the card's tap (MMR-720) | Sheet, 440 from `md` up and non-modal there; a modal bottom sheet below `md` | Drawer |
 | Composer | text added in place, such as an annotation | inline | Textarea |
 | Action menu | a list of actions, including a record's More | Popup, or a Sheet below `md` | Menu, Drawer, Separator, Radio |
 | Suggestion | a one-time offer on a page | card | `ConfirmCard`'s `card` surface |
@@ -1548,7 +1553,7 @@ cards, not those rows or the focus queue's card.
   head. This narrows §6: the microlabel stays the one all-caps idiom, for
   column and lane captions, and no longer captions a feed section. The
   MMR-718 refinement left that choice to this block.
-- **A feed card is one link, with at most one button stacked over it.** It reads
+- **A feed card is one target, with at most one button stacked over it.** It reads
   top down: a status line, the title (16px/500, `text-title`), an optional
   detail line (13px `ink-dim`, two lines at most), an optional chip row, and
   an optional button. The status line leads with what the item is and the
@@ -1562,13 +1567,14 @@ cards, not those rows or the focus queue's card.
   _Decisions_ after an attention dot, set as a status word is (13px,
   semibold, `ink-bright`); it names a set, not a delivery's lifecycle, so
   MMR-680's ink chips do not apply to it. Which ID such a card shows and
-  where its link leads are the Needs you deck's to settle (MMR-721). Chips (size, grooming, stale) sit in their own row under the title,
+  where its preview's Open leads are the Needs you deck's to settle (MMR-721). Chips (size, grooming, stale) sit in their own row under the title,
   never on the status line, so a long title never leaves a chip alone on a
-  line. The whole card is one link whose accessible description is its
-  status line and chip row. Its one button is stacked over that link as a
-  separate target, so a tap beside the button still follows the link. The
-  card's tap opens its preview (the MMR-720 refinement below), and the
-  preview's Open reaches the record's page.
+  line. The whole card is one stretched target whose accessible description
+  is its status line and chip row. Its one button is stacked over that
+  target as a separate target, so a tap beside the button still reaches the
+  card. The stretched target was a link to the record's page until MMR-720
+  made it a button that opens the card's preview (the MMR-720 refinement
+  below); the preview's Open reaches the record's page.
   A going-cold card's title is demoted to `ink-dim` (§7, MMR-718).
 - **A row group is a list of doors.** Each row is one link, at least 44px
   tall on a phone and 36px on desktop: an optional key in a mono column of
@@ -1625,60 +1631,74 @@ cards, not those rows or the focus queue's card.
 
 ## Refinement (2026-11-22, MMR-720): the preview panel
 
-Tapping a feed card opens its preview (principle 4 of MMR-a420). The preview
-panel is a pattern in `components/patterns/feed`, built on Drawer beside the
-MMR-719 blocks. A feature hands it the record's facts, the card's action, and
-Open through slots, so the pattern reads no data of its own. The operator
-picked its form from the third round of mocks, after blind design review of
-each round (MMR-720). `packages/host/DESIGN.md` holds its numbers, under Feed
-blocks.
+Tapping a feed card opens its preview (principle 4 of MMR-a420). The
+**preview panel** is a pattern in `components/patterns/feed`, built on Drawer
+beside the MMR-719 blocks. On a phone it shows as a bottom sheet, and on
+desktop as a panel from the right. A feature hands it the record's facts, the
+card's action, and Open through slots, so the pattern reads no data of its
+own. The operator picked its form from the third round of mocks, after blind
+design review of each round (MMR-720). `packages/host/DESIGN.md` holds its
+numbers, under Feed blocks.
 
-The panel changes no page by itself: `/kit` shows it with sample data, and
-each page task from MMR-722 on passes the facts its feed already has. It
-keeps no URL state. Back does not close it, no link opens it, and Open
-navigates to the record's page.
+The preview panel changes no page by itself: `/kit` shows it with sample
+data, and each page task from MMR-722 on passes the facts its feed already
+has. It keeps no URL state. Back does not close it, no link opens it, and
+Open navigates to the record's page.
 
 - **A preview offers nothing the card does not.** It shows the card's status
   line and title, the facts that matter, the card's one action, and Open
   (principle 4). It adds no third action, and it does not show the record's
   full description: Open reaches the record's page for the rest.
 - **On desktop the panel is non-modal.** A 440 panel slides in from the
-  right, starting below the 48 top bar, so the bar's needs-you pill and More
-  stay in reach. Unlike the Content sheet, it draws no backdrop and does not
-  dim the feed, because the feed stays live beside it: clicking another card
-  switches the preview to that card. On a switch the selected card's ring
-  moves, the panel's content changes in place at once, and its body scrolls
-  back to the top.
+  right, starting at the top bar's measured bottom (`--top-bar-height`), so
+  the bar's needs-you pill and More stay in reach. It is a Drawer with
+  `modal={false}`: unlike the Content sheet, it draws no scrim and leaves the
+  feed usable, because the feed stays live beside it and clicking another
+  card switches the preview to that card. A non-modal Drawer closes on an
+  outside press only with `closeOnOutsidePress`, so the click rules below
+  are the pattern's to apply. This is the one non-modal Sheet (the Sheet
+  surface and the patterns table above). On a switch the selected card's
+  ring moves, the panel's content changes in place at once, and its body
+  scrolls back to the top.
 - **The card's tap is a button that opens the preview.** The stretched
   target that MMR-719 made a link becomes a button with
   `aria-haspopup="dialog"`, because a tap no longer navigates. Open in the
-  preview is the link to the record's page.
-- **Focus moves to the panel, but on desktop no trap holds it there.** Opening or
-  switching moves focus to the panel's title, so a screen reader announces
-  the record. The title shows a ring only for keyboard focus
+  preview panel is the link to the record's page.
+- **Focus moves to the panel, but on desktop no trap holds it there.**
+  Opening or switching moves focus to the panel's title, so a screen reader
+  announces the record. The title shows a ring only for keyboard focus
   (`:focus-visible`). Shift+Tab from the title goes back to the opened card,
   and Tab from the panel's last button goes on to the card after the opened
   one. Escape closes the panel, from the panel or from the feed. Closing
-  returns focus to the card that opened the latest preview. The phone sheet
-  sits over a scrim, so it is modal like any other sheet and holds focus
-  until it closes.
+  returns focus to the card that opened the latest preview: a switch makes
+  the newly clicked card the opener. On a phone the bottom sheet sits over a
+  scrim, so it is a modal Drawer like any other sheet and holds focus until
+  it closes.
 - **What a click does while the panel is open.** Clicking the opened card
   closes the panel. Clicking another card switches it, but clicking that
   card's button runs the button's action. See all or a sidebar link
   navigates and closes the panel. Clicking empty feed space closes it.
-- **Below 1600 the sidebar yields.** While the panel is open the 256
-  sidebar slides out with it and comes back when it closes. At 1280,
-  keeping the sidebar would leave the feed 584 beside the panel, one column;
-  without it the feed has 840, two columns. From 1600 up the sidebar stays,
-  and the feed column re-centres 220 to the left, half the panel's width, in
-  step with the panel's slide, and moves back as the panel closes.
-- **A feed's columns follow its own width, not the viewport's.** A card grid
-  shows two columns only when two cards of 300 or more fit, which is 652 of
-  room beside the panel. This changes the MMR-719 refinement's card grid,
-  which turned two columns at `md`: `CardGrid`'s `md:grid-cols-2` becomes a
-  container query. A closed feed beside the sidebar is one column below
-  about 908, and an open one at 1024 is one column, where the `md` rule
-  would have drawn two cards of 266.
+- **The desktop layout makes room for the panel in three ranges.** The
+  console's sidebar sits beside the page from 1024 (`DESKTOP` in
+  `routes/shell.tsx`) and is a drawer below it.
+  - From 768 to 1023 there is no sidebar column. The panel sits beside the
+    feed, and the feed's columns follow the container rule below.
+  - From 1024 to 1599 the 256 sidebar yields while the panel is open: it
+    slides out with the panel and comes back when the panel closes. At 1280,
+    keeping the sidebar would leave the feed 584 beside the panel, one
+    column; without it the feed has 840, two columns.
+  - From 1600 up the sidebar stays, and the feed column re-centres 220 to
+    the left, half the panel's width, in step with the panel's slide, and
+    moves back as the panel closes.
+- **A feed's columns follow its own width, not the viewport's.** From `md`
+  up, a card grid shows two columns only when two cards of 300 or more fit:
+  612 of grid, or 652 of room with the column's 20 gutters. This changes the
+  MMR-719 refinement's card grid, which turned two columns at `md`:
+  `CardGrid`'s `md:grid-cols-2` becomes a container query. A closed feed
+  keeps two columns at every desktop width, since 768 without a sidebar
+  column and 1024 beside it both leave a 728 grid. An open feed is one
+  column from 768 to 1091 and two from 1092. At 1024 the `md` rule would
+  have drawn two cards of 266 beside the panel.
 - **The opened card stays in view.** A reflow on open, switch, or close can
   move the opened card, as when two columns become one. After any such
   reflow, the opened card scrolls into view. The feed and the panel scroll
@@ -1686,29 +1706,32 @@ navigates to the record's page.
 - **The footer is Open, then the card's action.** Open is always an outline,
   and it stands alone when the card has no button. The card's action follows
   it as the panel's one solid button, even where the card draws that action
-  as an outline (a task's Answer).
-- **The body leads with why the item is here.** Under the header's status
-  line and title, the body opens with a lead in complete sentences, then the
-  facts as a definition list. A task's lead says what it waits on ("Needs an
-  answer before it can start.", then the question). A seed's lead is its
-  card's detail sentence, followed by its text in 14px `ink`, cut at the end
-  of a sentence. A decision bundle's lead is "This delivery has N
-  provisional decisions." (for a project's decisions without a delivery,
-  "This project has N provisional decisions without a delivery."); its facts
-  name the affected tasks, and the
-  delivery or project where the header does not already name it. It does
-  not list the decisions, which the walkthrough holds. A relation (a parent, a dependency, a bundle's task) is plain text,
-  its ID and title, not a link. No fact repeats the status line, so there is
-  no Lane, Project, or Oldest row: the status line already shows a seed's
-  lane, a bundle's project, and the age.
-- **The card whose preview is open is selected.** It takes the selection
-  idiom of DESIGN.md's Color roles, an `accent` wash and a 1px `accent` ring,
-  and the ring moves when the preview switches. The card's outline button
+  as an outline (a task's Answer). The panel is its own surface, so its
+  solid action may stand beside a feed that shows solid buttons of its own.
+- **The body opens with the reason the item is here.** Under the header's
+  status line and title, the body opens with the reason, in complete
+  sentences, then the facts as a definition list. A task's reason says what
+  it waits on ("Needs an answer before it can start.", then the question). A
+  seed's reason is its card's detail sentence, followed by its text in 14px
+  `ink`, cut at the end of a sentence. A decision bundle's reason is "This
+  delivery has N provisional decisions." (for a project's decisions without
+  a delivery, "This project has N provisional decisions without a
+  delivery."); its facts name the affected tasks, and the delivery or
+  project where the header does not already name it. It does not list the
+  decisions, which the walkthrough holds. A relation (a parent, a
+  dependency, a bundle's task) is plain text, its ID and title, not a link.
+  No fact repeats the status line, so there is no Lane, Project, or Oldest
+  row: the status line already shows a seed's lane, a bundle's project, and
+  the age.
+- **The card whose preview is open is selected.** Its fill takes a 7%
+  `accent` wash mixed into `well-850`, lighter than a selected segment's
+  `accent/12`, and its 1px edge turns `accent`, as a selected segment's ring
+  is. The ring moves when the preview switches. The card's outline button
   takes an `ink-dim` edge, since its `ink-faint` edge falls under 3:1 on the
   wash.
-- **On a phone the preview is a bottom sheet that fits its content.** It
-  grows with its content up to 88% of the screen, over a tappable scrim. The
-  grip, the header with Close centred on the status line, and the footer
+- **On a phone the preview panel is a bottom sheet that fits its content.**
+  It grows with its content up to 88% of the screen, over a tappable scrim.
+  The grip, the header with Close centred on the status line, and the footer
   stay put, and only the body scrolls. The footer splits into two equal
   tracks, so a long action label wraps inside its button instead of
   squeezing Open. Each button is 44 or taller, and the footer pads for the
@@ -1719,15 +1742,14 @@ navigates to the record's page.
   themes. `ink-faint`, which DESIGN.md gave the Select bottom list's seam,
   measures under 3:1 against the light scrim, so the Select bottom list
   takes the same token.
-- **The panel's motion stays within §8.** The sidebar's exit and the feed
-  column's re-centring travel with the panel's slide, as one movement of
-  §8's panel slide. A switch adds no cross-fade, which would be a fourth
-  mover. Under `prefers-reduced-motion` the panel does not slide: the panel,
-  the sidebar, and the feed column change at once.
+- **The panel moves as §8 now states.** §8's panel slide includes the
+  sidebar's exit and the feed column's re-centre that travel with it (the
+  2026-11-22 amendment to §8). A switch adds no cross-fade, which would be a
+  fourth mover. Under `prefers-reduced-motion` the panel does not slide: the
+  panel, the sidebar, and the feed column change at once.
 - **Considered and rejected.**
-  - A dimmed backdrop on desktop, as the Content sheet draws: a click on
-    another card would land on the backdrop and close the panel instead of
-    switching it.
+  - A scrim on desktop, as the Content sheet draws: a click on another card
+    would land on the scrim and close the panel instead of switching it.
   - The record's full description in the body: the preview shows the facts
     that matter, and Open reaches the rest.
   - A third action in the footer: the preview never offers more than the
