@@ -1433,3 +1433,50 @@ refinements left open, and records two exceptions.
   converges it onto Combobox and Listbox; until then its group headings use
   the menu group heading (13/20, ink-dim, sentence case) so it reads as the
   other pickers do.
+
+## Refinement (2026-11-22, MMR-718): readable type, and the status word in bright ink
+
+Measured on a phone on 2026-11-18: meta lines and IDs at 11.5px and
+timestamps at 10.5px, all in `ink-faint`, which measures 3.4:1 on the dark
+page (`well-900`) and 2.6:1 on the light one, below AA's 4.5:1. Row titles
+were 14px at regular weight, the same as body text, so a feed's titles did
+not lead. Status words carried their hue as text, so the grey statuses were
+the hardest to read: `parked` measures 2.5:1 and `abandoned` 1.8:1 against a
+dark card (`well-850`), and `abandoned` 3.9:1 on a light one, in a 10.5px
+uppercase pill.
+
+- **Nothing that carries information is under 12px.** `text-tag` and
+  `text-micro` rise to 12px. `text-mono-id` rises to 12.5px: a mono ID beside
+  13px sans meta reads at about its x-height. An ID inside a meta line takes
+  the line's 13px, as DESIGN.md's mono rule says. Decoration (a grip, a
+  separator dot) is exempt.
+- **Text that carries information is `ink-dim` or brighter.** `ink-faint`
+  and `ink-ghost` draw only what carries no information: a control's edge, an
+  off switch, a grip, a separator, a disabled glyph. §7's demotion still
+  drops an ink tier, but text stops at `ink-dim`.
+- **Titles lead.** A row or card title in a feed is 16px at weight 500 in
+  `ink-bright` (`text-title`), at every width; it replaces the phone-only
+  15px `text-card-mobile`. Its meta line is 13px `ink-dim` (`text-meta`).
+- **The microlabel stays the one all-caps idiom (§6), at 12px.** It is
+  600-weight, tracked 0.1em (from 0.13em, which spread a 12px word too far),
+  and `ink-dim` or brighter. Whether feed sections keep it is MMR-719's
+  section head.
+- **A status word is bright; only its dot carries the hue.** A status reads
+  as its dot in the status hue followed by its label in `ink-bright`,
+  semibold, 13px, sentence case, with no wash and no ring. On a record
+  header the status leads the line, then a hairline, then the record's type
+  and ID in `ink-dim`. This narrows §1's "tinted chips" for status: dots,
+  card borders, and bar segments keep the hue, and a status no longer
+  renders as a tinted chip. Every status word then measures 15:1 or better
+  in both themes, `parked` and `abandoned` included.
+- **Considered and rejected.** Brightening `ink-faint` until it passes 4.5:1:
+  one token change, but `ink-faint` would become a second `ink-dim`, and
+  every control edge and grip that uses it would brighten with it. Keeping
+  the tinted pill with a bright word: the wash still carries the hue, so the
+  word and its ground disagree. Sentence-case section headings in place of
+  the microlabel: a better read in the mocks, but they belong to MMR-719's
+  section head, so they wait for it.
+- `packages/host/src/test/readable-type.test.ts` fails if a type token
+  under the floor returns or a status word takes a status hue, and its
+  source scan fails if `text-ink-faint`, `text-ink-ghost`, or a literal size
+  under 12px reappears outside its listed decoration uses.

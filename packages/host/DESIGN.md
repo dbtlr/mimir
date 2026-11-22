@@ -32,6 +32,7 @@ branch names, timestamps-as-data. Both are self-hosted through Fontsource
 | Section header on a page | 21 / 28, tracking -0.01em | 700 | ink-bright | `text-header` | existing |
 | Sheet or Dialog title (a form) | 21 / 28, tracking -0.01em | 600 | ink-bright | `text-header` | **adopted (MMR-743)** in the Form sheet; a Dialog's question title keeps `OVERLAY_TITLE_CLASS` (14px) |
 | Record title | 17 / 24 | 600 | ink-bright | `text-dossier` | existing |
+| Row or card title in a feed | 16 / 22 | 500 | ink-bright | `text-title` | **adopted (MMR-718)**: rows were `text-body` (14, regular) and phone cards `text-card-mobile` (15); a title must lead its meta |
 | Group heading inside a form (Advanced, Lifecycle) | 16 / 24 | 600 | ink-bright | `text-base` | **adopted (MMR-743)**: groups today use the 10.5px microlabel, under the floor |
 | Control text (input value, option label, select value) | 15 / 22 | 400 | ink-bright | `text-[15px] leading-[22px]` (Input, Textarea) | existing |
 | Field label | 14 / 20 | 500 | ink | `text-label` | **adopted (MMR-743)**: `FIELD_LABEL_CLASS` is 12px ink-dim; a label must read before its control |
@@ -39,7 +40,10 @@ branch names, timestamps-as-data. Both are self-hosted through Fontsource
 | Button label | 14 / 20 | 600 | per variant | `text-label` | size and weight existing (ActionButton `default`); the token **adopted (MMR-743)** |
 | Help, context line, meta, a footer note, a group's explanation (Lifecycle) | 13 / 20, measure 440, `text-wrap: pretty` | 400 | ink-dim | `text-meta` | **adopted (MMR-743)** for help: `FieldDescription` is 12px ink-faint (2.6:1 on light) |
 | Group heading inside a menu (a provider over its models) | 13 / 20 | 500 | ink-dim | `text-meta` | **adopted (MMR-743)** |
-| Floor: tags, IDs, captions | 12 / 16 | 400–600 | ink-dim or brighter | `text-xs` | **proposed**: `text-mono-id` (11.5), `text-tag` (11), `text-micro` (10.5) rise to 12px, per MMR-718's "nothing under 12px" |
+| Status word | 13 / 18 | 600 | ink-bright; the hue only on its dot | `text-meta` | **adopted (MMR-718)**: the word drew in its status hue on a 12% wash, uppercase at 10.5 on headers |
+| Record ID on its own (a row's ID column, a header's status line) | 12.5 / 18, mono | 400 | ink-dim | `text-mono-id` | **adopted (MMR-718)**: was 11.5 in ink-faint; inside a meta line an ID takes the line's 13 |
+| Microlabel (the one all-caps idiom) | 12 / 16, tracking 0.1em, uppercase | 600 | ink-dim or brighter | `.microlabel` (`text-micro`) | **adopted (MMR-718)**: was 10.5, tracked 0.13em, often ink-faint |
+| Floor: tags, captions | 12 / 16 | 400–600 | ink-dim or brighter | `text-xs`, `text-tag` | **adopted (MMR-718)**: `text-tag` (11) and `text-micro` (10.5) rose to 12 |
 
 `text-body` is one size with one line height: 14 / 23, for prose. A label is
 not prose, so it gets its own token: `--text-label` (14px) with a paired 20px
@@ -115,6 +119,11 @@ All existing (`styles.css`). Rules:
 - **Text that carries information is `ink-dim` or brighter**: 4.5:1 or better
   on every well in both themes. `ink-faint` and `ink-ghost` never carry it
   (MMR-718).
+- **A status word is `ink-bright`; only its dot carries the hue** (ADR 0019,
+  MMR-718). The word is 13/18 semibold, sentence case, with no wash or ring,
+  so the grey statuses read as well as the bright ones (`abandoned` as text
+  measured 1.8:1 on a dark card). On a record header the status leads the
+  line, then a `line` hairline, then the type and ID in `ink-dim`.
 - **A form field has no placeholder, and help text is only for a surprising
   input.** A field gets a help line only when it behaves in a way its label
   doesn't say, or needs a specific format: the seed's "First line is the
