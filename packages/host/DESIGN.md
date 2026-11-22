@@ -347,15 +347,15 @@ column says otherwise.
 | | Name | `text-title` in ink, a step under a card title's ink-bright, so a door does not read as a work item; two lines at most | **adopted (MMR-719)** |
 | | Count and chevron | 13 / 20 ink-dim, right-aligned; the chevron ink-dim, decoration | **adopted (MMR-719)** |
 | | The capped group's last row | the same row shape, its name in `accent-foreground` ("5 more projects"), underlined on hover, a link to the list with a filter set | **adopted (MMR-719)** |
-| Day fold | Trigger | a row 44 tall on a phone and 36 on desktop, its text at the section head's left edge: the Collapsible primitive's 16 chevron (right when closed, down when open), the day label, the count; it opens at once, with none of the Collapsible primitive's height animation or chevron turn (ADR 0019 §8) | **adopted (MMR-719)** |
+| Day fold | Trigger | a row 44 tall on a phone and 36 on desktop, its chevron at the section head's left edge: the Collapsible primitive's 16 chevron (right when closed, down when open), the day label, the count; it opens at once, with none of the Collapsible primitive's height animation or chevron turn (ADR 0019 §8) | **adopted (MMR-719)** |
 | | Finished row | a link, at least 44 tall on a phone and 36 on desktop: the status dot centred in a 16 column (as the chevron above it), the title `text-title` in ink-dim on one line, 8 after it so it lines up with the day label, the time 13 mono ink-dim at the right | **adopted (MMR-719)** |
 | | Abandoned row | adds a second line, 13 / 20: the status word (ink-bright, 600, as every status word), then the reason in ink-dim | **adopted (MMR-719)** |
 | | Show N more | a text button 44 tall on a phone and 36 on desktop, 14 / 20, 500, `accent-foreground`, underlined on hover; indented 28 to line up with the row titles | **adopted (MMR-719)** |
 | Shipped summary | Chart | a 1px `line` baseline under the plot, so a zero day reads as zero; seven columns, 8 apart, each a 16 count row, an 84 plot, and a 32 two-line label row; bars at most 44 wide, 3 top radius, in `status-done`; any day above zero at least 4 tall, so a smaller day never draws taller; the columns share the card's width | **adopted (MMR-719)** |
 | | Labels | counts and day names 12 / 16 ink-dim; today's in ink-bright, 600, with "so far" under its name | **adopted (MMR-719)** |
 | | Today's bar | a solid fill mixed 45% `status-done` into `well-850` (a mixed color, not opacity), with a 1px `status-done` edge, which the 4 floor keeps around a fill | **adopted (MMR-719)** |
-| | Counts over 999 | shortened on screen to four characters (1.2k, 12k, 1.2M, 1B; a value that would round to 1000 of a unit moves up), which fit a 28 column at 320; exact in the chart's accessible name | **adopted (MMR-719)** |
-| Quiet line, quiet sentence | Text | `text-body` in ink, no frame, at the section head's left edge | **adopted (MMR-719)** |
+| | Counts over 999 | shortened on screen to four characters (1.2k, 12k, 1.2M, 1B, 1T; a value that would round to 1000 of a unit moves up), which fit a 28 column at 320; exact in the chart's accessible name | **adopted (MMR-719)** |
+| Quiet line, quiet sentence | Text | `text-body` in ink, no frame, at the section head's left edge, 32 from the block above. A quiet line takes a section's place; it never sits under a section's own head | **adopted (MMR-719)** |
 
 ## Sizes
 

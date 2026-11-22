@@ -139,6 +139,17 @@ describe('feed row group', () => {
     expect(within(list).queryByText('Muninn')).toBeNull();
   });
 
+  it('keeps focus on a door when an earlier row drops to zero', async () => {
+    const spare = (seeds: number) => [
+      { count: seeds, name: 'Seeds to triage', to: { to: '/' } as const },
+      { count: 15, name: 'To groom', to: { params: { key: 'MMR' }, to: '/p/$key' } as const },
+    ];
+    const { rerender } = await renderInRouter(<RowGroup label="Spare" rows={spare(12)} />);
+    screen.getByRole('link', { name: 'To groom 15' }).focus();
+    rerender(<RowGroup label="Spare" rows={spare(0)} />);
+    expect(screen.getByRole('link', { name: 'To groom 15' })).toHaveFocus();
+  });
+
   it('offers no door to more when nothing more is there', async () => {
     await renderInRouter(
       <RowGroup
@@ -248,6 +259,25 @@ describe('feed day folds', () => {
     expect(screen.getByRole('link')).toHaveAccessibleName('Done: One 09:00');
   });
 
+  it('hands focus past a revealed row’s disabled control to the one that takes it', async () => {
+    const row = (name: string) => (
+      <div key={name}>
+        <button type="button" disabled tabIndex={0}>
+          Undo
+        </button>
+        <a href={`/${name}`}>{name}</a>
+      </div>
+    );
+    await renderInRouter(
+      <DayFolds
+        days={[{ count: 2, key: 'd', label: 'Today', rows: [row('one'), row('two')] }]}
+        cap={1}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Show 1 more' }));
+    expect(screen.getByRole('link', { name: 'two' })).toHaveFocus();
+  });
+
   it('shows a capped day’s rest in place and moves focus to the first row it revealed', async () => {
     await renderInRouter(<DayFolds days={days} cap={2} />);
     expect(screen.queryByRole('link', { name: /Loom 0\.20/ })).toBeNull();
@@ -288,7 +318,7 @@ describe('shipped summary', () => {
     expect(
       [
         999, 1000, 1234, 9949, 9950, 10_000, 12_400, 999_499, 999_500, 1_000_000, 12_400_000,
-        999_500_000, 2_500_000_000,
+        999_500_000, 2_500_000_000, 999_500_000_000,
       ].map(shortCount),
     ).toEqual([
       '999',
@@ -304,6 +334,7 @@ describe('shipped summary', () => {
       '12M',
       '1B',
       '2.5B',
+      '1T',
     ]);
   });
 

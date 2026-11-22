@@ -30,12 +30,13 @@ const UNITS = [
   { size: 1e3, suffix: 'k' },
   { size: 1e6, suffix: 'M' },
   { size: 1e9, suffix: 'B' },
+  { size: 1e12, suffix: 'T' },
 ] as const;
 
 /**
  * A count as the chart shows it, four characters at most so it stays inside
  * its column on a 320px phone: exact up to 999, then 1.2k, 12k, 999k, 1M, and
- * on up. One decimal under 10 of a unit, none above. A value that would round
+ * on up to 999T. One decimal under 10 of a unit, none above. A value that would round
  * to 1000 of a unit moves up to the next one (999,500 is 1M, not 1000k).
  */
 export function shortCount(count: number): string {

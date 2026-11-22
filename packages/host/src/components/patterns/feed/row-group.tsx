@@ -32,10 +32,14 @@ export function RowGroup({
   return (
     <ul aria-label={label} className="m-0 list-none divide-y divide-line p-0">
       {rows
-        .filter((row) => row.count > 0)
-        .map((row, index) => (
-          // A key is unique in a project list; unkeyed rows may share a name.
-          <li key={row.key ?? `${String(index)}:${row.name}`}>
+        // Keys come from a row's place in the full list, before rows counting
+        // zero drop out, so a row reaching zero never shifts its neighbours'
+        // keys (which would remount them and drop focus), and unkeyed rows that
+        // share a name stay apart.
+        .map((row, index) => ({ key: row.key ?? `${String(index)}:${row.name}`, row }))
+        .filter(({ row }) => row.count > 0)
+        .map(({ key, row }) => (
+          <li key={key}>
             <Door row={row} />
           </li>
         ))}

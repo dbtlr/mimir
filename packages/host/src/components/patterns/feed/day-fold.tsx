@@ -69,9 +69,21 @@ export function FinishedRow({
   );
 }
 
-/** What can take focus in a revealed row, skipping disabled controls. */
-const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+/** What may take focus in a revealed row, before the checks in `firstFocusable`. */
+const FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+/**
+ * The first element in `root` that can take keyboard focus: not disabled (by
+ * itself or a disabled fieldset, which `:disabled` covers) and not a hidden
+ * input.
+ */
+function firstFocusable(root: Element | undefined): HTMLElement | undefined {
+  return [...(root?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])].find(
+    (element) =>
+      !element.matches(':disabled') &&
+      !(element instanceof HTMLInputElement && element.type === 'hidden'),
+  );
+}
 
 /** One day's fold: its trigger row and its rows, capped with an in-place Show N more. */
 export function DayFold({
@@ -105,7 +117,7 @@ export function DayFold({
   useEffect(() => {
     if (expanded && justExpanded.current) {
       justExpanded.current = false;
-      listRef.current?.children[cap]?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+      firstFocusable(listRef.current?.children[cap])?.focus();
     }
   }, [expanded, cap]);
   return (
