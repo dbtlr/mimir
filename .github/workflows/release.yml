@@ -71,8 +71,18 @@ jobs:
           if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
             bun run test:native
           else
-            bun run test
+            bun run test --reporter=junit --reporter-outfile="$RUNNER_TEMP/bun-junit.xml"
           fi
+
+      # Report-only: the budget's limits are calibrated for the Linux gate, so
+      # this step never fails the job (continue-on-error). It exists so drift
+      # on macOS, where the v0.28.0 clone symlink test took 5 s against 0.56 s
+      # on Linux, shows in the release log. It runs after a failed suite too,
+      # and not on pull requests, which run test:native and write no report.
+      - name: Report the test budget
+        if: ${{ !cancelled() && github.event_name != 'pull_request' }}
+        continue-on-error: true
+        run: bun run test:budget bun "$RUNNER_TEMP/bun-junit.xml"
 
       # Stamp the build's version into packages/cli/package.json, which
       # `loom build --release` bakes into the binary's release facts, which

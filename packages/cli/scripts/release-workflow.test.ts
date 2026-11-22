@@ -112,6 +112,9 @@ test.each([
   { code: 17, event: 'push', suite: 'test' },
   { code: 0, event: 'workflow_dispatch', suite: 'test' },
 ])('$event selects $suite and propagates exit $code', async ({ code, event, suite }) => {
+  // Only the full lane writes the junit report the budget step reads.
+  const flags =
+    suite === 'test' ? ' --reporter=junit --reporter-outfile=$RUNNER_TEMP/bun-junit.xml' : '';
   const workflow = workflowSchema.parse(Bun.YAML.parse(await Bun.file(workflowPath).text()));
   const step = workflow.jobs.build.steps.find((candidate) => candidate.id === 'tests');
   expect(step?.if).toBeUndefined();
@@ -134,6 +137,7 @@ test.each([
         GITHUB_EVENT_NAME: event,
         MIMIR_TEST_EXIT: String(code),
         PATH: `${directory}:${process.env.PATH ?? ''}`,
+        RUNNER_TEMP: '/runner-temp',
       },
       stderr: 'pipe',
       stdout: 'pipe',
@@ -144,10 +148,31 @@ test.each([
       new Response(child.stderr).text(),
     ]);
     expect(exit, stderr).toBe(code);
-    expect(stdout).toBe(`run ${suite}\n`);
+    expect(stdout).toBe(`run ${suite}${flags.replace('$RUNNER_TEMP', '/runner-temp')}\n`);
   } finally {
     await rm(directory, { force: true, recursive: true });
   }
+});
+
+// The v0.28.0 failure was macOS-only, and the Linux gate cannot see it. The
+// release lane reports its own timings, never failing: the limits are
+// calibrated for Linux.
+test('the release lane reports the test budget without ever failing the job', async () => {
+  const { steps } = workflowSchema.parse(Bun.YAML.parse(await Bun.file(workflowPath).text())).jobs
+    .build;
+  const tests = steps.find((candidate) => candidate.id === 'tests');
+  expect(tests?.run).toContain(
+    'bun run test --reporter=junit --reporter-outfile="$RUNNER_TEMP/bun-junit.xml"',
+  );
+  const budget = steps.find(
+    (candidate) => candidate.run === 'bun run test:budget bun "$RUNNER_TEMP/bun-junit.xml"',
+  );
+  expect(budget).toBeDefined();
+  expect(steps.indexOf(budget!)).toBeGreaterThan(steps.indexOf(tests!));
+  expect(budget?.['continue-on-error']).toBe(true);
+  // It still reports after a failed suite, but not on pull requests, which run test:native.
+  // Exact, so no runner.os or matrix clause can drop the darwin-arm64 row.
+  expect(budget?.if).toBe(`\${{ !cancelled() && github.event_name != 'pull_request' }}`);
 });
 
 /**
