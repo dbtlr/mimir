@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { setImmediate as nextMacrotask } from 'node:timers/promises';
 
 import { sql } from 'kysely';
 
@@ -13,6 +14,7 @@ import { pairTestDevice } from '../testing/store';
 import { createTokenStore } from '../tokens';
 import { openExistingSqlite, openSqlite, SQLITE_FILE } from './client';
 import { createSqliteStore, readSchemaVersion, sqliteDialect } from './dialect';
+import { whileBusy } from './driver';
 import { statements as initStatements } from './migrations/0001-init';
 import { statements as groomingStatements } from './migrations/0002-grooming';
 import { statements as blockOwnerStatements } from './migrations/0003-block-owner';
@@ -630,6 +632,39 @@ test("a writer waits out another process's lock without stalling the event loop"
   } finally {
     other.close();
     await handle.close();
+  }
+});
+
+test('the busy retry waits only asynchronously: never a synchronous sleep, always a real timer wait', async () => {
+  const syncSleep = spyOn(Bun, 'sleepSync').mockReturnValue(undefined);
+  // Each wait settles on a later macrotask, so a retry that calls the sleep
+  // without awaiting it reaches its next try before the wait has finished.
+  let settledWaits = 0;
+  const asyncSleep = spyOn(Bun, 'sleep').mockImplementation(async () => {
+    await nextMacrotask();
+    settledWaits += 1;
+  });
+  try {
+    let tries = 0;
+    const result = await whileBusy(60_000, () => {
+      expect(settledWaits).toBe(tries);
+      tries += 1;
+      if (tries <= 8) {
+        throw Object.assign(new Error('database is locked'), { code: 'SQLITE_BUSY' });
+      }
+      return 'written';
+    });
+    expect(result).toBe('written');
+    // Eight busy tries mean eight waits, each a positive timer wait: a zero
+    // wait only yields, so it is the tell of a sleep done synchronously first.
+    expect(asyncSleep.mock.calls).toHaveLength(8);
+    for (const [pause] of asyncSleep.mock.calls) {
+      expect(pause).toBeGreaterThan(0);
+    }
+    expect(syncSleep).not.toHaveBeenCalled();
+  } finally {
+    syncSleep.mockRestore();
+    asyncSleep.mockRestore();
   }
 });
 
