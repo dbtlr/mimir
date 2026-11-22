@@ -52,7 +52,7 @@ function Door({ row, more = false }: { row: RowGroupRow; more?: boolean }) {
     <Link
       {...row.to}
       className={cn(
-        'flex min-h-11 items-center gap-3 rounded-md px-1 text-ink-bright no-underline md:min-h-9',
+        'flex min-h-11 items-center gap-3 rounded-md px-1 py-2.5 text-ink-bright no-underline md:min-h-9 md:py-1.5',
         'transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent',
       )}
     >
@@ -61,7 +61,8 @@ function Door({ row, more = false }: { row: RowGroupRow; more?: boolean }) {
       )}{' '}
       <span
         className={cn(
-          'line-clamp-2 min-w-0 flex-1 py-2.5 text-title font-medium wrap-anywhere md:py-1.5',
+          // The clamp sits on an unpadded box, so no part of a third line shows.
+          'line-clamp-2 min-w-0 flex-1 text-title font-medium wrap-anywhere',
           more && FEED_LINK_CLASS,
         )}
       >

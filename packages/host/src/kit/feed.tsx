@@ -66,7 +66,7 @@ const SPARE_MINUTE: RowGroupRow[] = [
   { count: 0, name: 'Waiting on others', to: tasks('MMR', 'awaiting') },
 ];
 
-function finished(id: string, status: Status, title: string, time: string, reason?: string) {
+function finished(id: string, status: Status, title: string, time: string, absorbedBy?: string) {
   return (
     <FinishedRow
       key={id}
@@ -76,9 +76,10 @@ function finished(id: string, status: Status, title: string, time: string, reaso
       title={title}
       time={time}
       note={
-        reason === undefined ? undefined : (
+        absorbedBy === undefined ? undefined : (
           <>
-            <StatusWord>Abandoned</StatusWord>: {reason}
+            <StatusWord>Abandoned</StatusWord>: absorbed by{' '}
+            <span className="font-mono">{absorbedBy}</span>
           </>
         )
       }
@@ -99,7 +100,7 @@ const DAYS = [
         'abandoned',
         'Move the stop-run dialog onto ConfirmCard',
         '05:12',
-        'absorbed by MMR-740',
+        'MMR-740',
       ),
       finished('MMR-750', 'done', 'Declare release.yml’s macOS build row as a Hugi lane', '04:40'),
       finished('MMR-743', 'done', 'Forms share one Form sheet and one Record picker', '03:58'),
@@ -228,10 +229,13 @@ export function FeedKit() {
         <FeedSection title="Finished, last 7 days" count={191}>
           <DayFolds days={DAYS} cap={4} />
         </FeedSection>
-        <FeedSection title="A quiet project">
+        {/* A quiet page: the quiet line stands where Needs you would be, and
+            the quiet sentence for the sections that would follow. */}
+        <div className="mt-8 border-t border-line pt-6">
+          <p className="m-0 text-meta text-ink-dim">A quiet project page:</p>
           <Quiet>Nothing needs you.</Quiet>
           <Quiet>Nothing is running, nothing shipped this week, and nothing is going cold.</Quiet>
-        </FeedSection>
+        </div>
         <FeedSection title="Long data" count={1204}>
           <CardGrid>
             <FeedCard
