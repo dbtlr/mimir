@@ -97,7 +97,9 @@ export function FeedCard({
         // The button is held to the card's bottom, so in a grid row of unequal
         // cards the buttons line up. Only the button takes pointer events above
         // the stretched link, so a tap beside it still reaches the card's link.
-        <div className="pointer-events-none relative mt-auto flex pt-3 *:pointer-events-auto *:relative *:z-10">
+        // The card holds the button at 44 on a phone and 36 on desktop, whatever
+        // size the caller's button sets.
+        <div className="pointer-events-none relative mt-auto flex pt-3 *:pointer-events-auto *:relative *:z-10 *:min-h-11 md:*:min-h-9">
           {action}
         </div>
       )}

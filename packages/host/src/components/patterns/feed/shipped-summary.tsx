@@ -89,7 +89,7 @@ export function ShippedSummary({
       <div role="img" aria-label={chartName(days)} className="relative flex gap-2">
         {/* The shared baseline, under the plot (16 count row + 4 gap + 84 plot),
             so a zero day reads as zero rather than as a gap. */}
-        <span aria-hidden className="absolute inset-x-0 top-[104px] h-px bg-line-bright" />
+        <span aria-hidden className="absolute inset-x-0 top-[104px] h-px bg-ink-faint" />
         {days.map((day, index) => {
           const today = index === days.length - 1;
           // Any day above zero keeps 4px, so today's outline still frames a
@@ -99,7 +99,7 @@ export function ShippedSummary({
             <div
               key={day.short}
               aria-hidden="true"
-              className="grid min-w-0 flex-1 grid-rows-[16px_84px_32px] justify-items-center gap-y-1"
+              className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[16px_84px_32px] justify-items-center gap-y-1"
             >
               <span
                 className={cn(
