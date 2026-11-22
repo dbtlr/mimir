@@ -334,27 +334,27 @@ column says otherwise.
 | --- | --- | --- | --- |
 | Section head | Row | 44 tall on a phone, 36 on desktop, with or without See all; 8 to the content below | **adopted (MMR-719)** |
 | | Name and count | `text-section` ink-bright, then the count 13 / 20 ink-dim, 8 apart, both inside the `h2` | **adopted (MMR-719)** |
-| | See all | 13 / 20, 500, `accent-foreground`, right-aligned; a 44 hit area on a phone; its accessible name names the section ("See all in Now") | **adopted (MMR-719)** |
+| | See all | 13 / 20, 500, `accent-foreground`, underlined on hover (hover keeps the ink: `accent` measures 3.1:1 on a light page), right-aligned; a 44 hit area on a phone; its accessible name names the section ("See all in Now") | **adopted (MMR-719)** |
 | Card | Surface | `well-850`, 1px `line` edge (`line-bright` on hover), 10 radius, `shadow-card` in light; padding 12 top, 16 sides, 16 bottom | **adopted (MMR-719)**; surface existing (`Card`) |
 | | Status line | 13 / 20 ink-dim: the status badge, or for a set of decisions the word _Decisions_ after an attention dot, then the ID in 13px mono, 8 apart; the age right-aligned on line 1; 8 below it to the title | **adopted (MMR-719)** |
 | | Title | `text-title`, wraps; a long word breaks rather than overflow | existing role (MMR-718) |
 | | Detail | 13 / 20 ink-dim, 4 below the title, two lines at most | **adopted (MMR-719)** |
-| | Chip row | the row chips (size, grooming, stale), 4 apart, wrapping; 8 below the title or detail | **adopted (MMR-719)** |
+| | Chip row | the row chips (size, grooming, stale), 4 apart, wrapping; 8 below the title or detail. Chips and button form the card's foot, held to its bottom, so they line up across a grid row | **adopted (MMR-719)** |
 | | Button | one at most; 44 tall on a phone, 36 on desktop; 12 below the content above it | **adopted (MMR-719)** |
 | | Between cards | 8 in a stack; 12 in a desktop grid | **adopted (MMR-719)** |
 | Row group | Row | a link, at least 44 tall on a phone and 36 on desktop, a `line` hairline between rows | **adopted (MMR-719)** |
 | | Key | `text-mono-id` ink-dim, in a column at least 48 wide | **adopted (MMR-719)** |
-| | Name | `text-title`, two lines at most | **adopted (MMR-719)** |
+| | Name | `text-title` in ink, a step under a card title's ink-bright, so a door does not read as a work item; two lines at most | **adopted (MMR-719)** |
 | | Count and chevron | 13 / 20 ink-dim, right-aligned; the chevron ink-dim, decoration | **adopted (MMR-719)** |
-| | The capped group's last row | the same row shape, its name in `accent-foreground` ("5 more projects"), a link to the list with a filter set | **adopted (MMR-719)** |
-| Day fold | Trigger | a row 44 tall on a phone and 36 on desktop: a 14 chevron (right when closed, down when open), the day label, the count; it opens at once, with none of the Collapsible primitive's height animation or chevron turn (ADR 0019 §8) | **adopted (MMR-719)** |
+| | The capped group's last row | the same row shape, its name in `accent-foreground` ("5 more projects"), underlined on hover, a link to the list with a filter set | **adopted (MMR-719)** |
+| Day fold | Trigger | a row 44 tall on a phone and 36 on desktop: the Collapsible primitive's 16 chevron (right when closed, down when open), the day label, the count; it opens at once, with none of the Collapsible primitive's height animation or chevron turn (ADR 0019 §8) | **adopted (MMR-719)** |
 | | Finished row | a link, at least 44 tall on a phone and 36 on desktop: the status dot, the title `text-title` in ink-dim on one line, the time 13 mono ink-dim at the right | **adopted (MMR-719)** |
 | | Abandoned row | adds a second line, 13 / 20: the status word (ink-bright, 600, as every status word), then the reason in ink-dim | **adopted (MMR-719)** |
-| | Show N more | a text button 44 tall on a phone and 36 on desktop, 14 / 20, 500, `accent-foreground` | **adopted (MMR-719)** |
+| | Show N more | a text button 44 tall on a phone and 36 on desktop, 14 / 20, 500, `accent-foreground`, underlined on hover; indented 21 to line up with the row titles | **adopted (MMR-719)** |
 | Shipped summary | Chart | seven columns, 8 apart, each a 16 count row, an 84 plot, and a 32 two-line label row; bars at most 44 wide, 3 top radius, in `status-done`; the chart at most 520 wide | **adopted (MMR-719)** |
 | | Labels | counts and day names 12 / 16 ink-dim; today's in ink-bright, 600, with "so far" under its name | **adopted (MMR-719)** |
-| | Today's bar | a solid fill mixed 45% `status-done` into `well-850` (a mixed color, not opacity), with a 1px `status-done` edge | **adopted (MMR-719)** |
-| | Counts over 9,999 | shortened on screen (12.4k); exact in the chart's accessible name | **adopted (MMR-719)** |
+| | Today's bar | a solid fill mixed 45% `status-done` into `well-850` (a mixed color, not opacity), with a 1px `status-done` edge; at least 4 tall when its count is above zero, so the edge frames a fill (other bars at least 2) | **adopted (MMR-719)** |
+| | Counts over 999 | shortened on screen to four characters (1.2k, 12k, 1.2M), which fit a 28 column at 320; exact in the chart's accessible name | **adopted (MMR-719)** |
 | Quiet line, quiet sentence | Text | `text-body` in ink, no frame, with the page gutter | **adopted (MMR-719)** |
 
 ## Sizes

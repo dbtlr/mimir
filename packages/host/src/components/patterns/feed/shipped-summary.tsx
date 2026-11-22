@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { cn } from '../../../lib/cn';
+import { cardVariants } from '../../ui/card';
 
 /** One day of the chart: its count, its full name for the accessible name, and its short label. */
 export type ShippedDay = {
@@ -14,21 +15,48 @@ export type ShippedDay = {
 /** The chart's plot height in px; the tallest bar fills it. */
 const PLOT = 84;
 
-/** A count as the chart shows it: exact up to 9,999, shortened past it (12.4k). */
+/** A number to `digits` places, without a trailing `.0`. */
+function trim(value: number, digits: number): string {
+  return value.toFixed(digits).replace(/\.0$/u, '');
+}
+
+/** A count in full, with thousands separators. */
+function exact(count: number): string {
+  return count.toLocaleString('en-US');
+}
+
+/**
+ * A count as the chart shows it, four characters at most so it stays inside
+ * its column on a 320px phone: exact up to 999, then 1.2k, 12k, and 1.2M.
+ */
 export function shortCount(count: number): string {
-  if (count <= 9999) {
-    return count.toLocaleString('en-US');
+  if (count < 1000) {
+    return String(count);
   }
-  return `${(count / 1000).toFixed(1).replace(/\.0$/u, '')}k`;
+  if (count < 9950) {
+    return `${trim(count / 1000, 1)}k`;
+  }
+  // Rounding can carry into the next unit (999,600 → 1000k), so M starts where
+  // the rounded k value would reach 1000.
+  if (count < 999_500) {
+    return `${trim(count / 1000, 0)}k`;
+  }
+  const millions = count / 1_000_000;
+  return `${trim(millions, millions < 9.95 ? 1 : 0)}M`;
 }
 
 /** The sentence a screen reader hears for the chart, with every exact count. */
 export function chartName(days: readonly ShippedDay[]): string {
-  const past = days.slice(0, -1).map((day) => `${day.name} ${day.count.toLocaleString('en-US')}`);
   const today = days.at(-1);
-  const last =
-    today === undefined ? '' : `, and ${today.count.toLocaleString('en-US')} so far ${today.name}`;
-  return `Shipped each day for the last ${String(days.length)} days: ${past.join(', ')}${last}.`;
+  if (today === undefined) {
+    return 'Nothing shipped to show.';
+  }
+  const past = days.slice(0, -1).map((day) => `${day.name} ${exact(day.count)}`);
+  const sofar = `${exact(today.count)} so far ${today.name}`;
+  const span = days.length === 1 ? 'today' : `each day for the last ${String(days.length)} days`;
+  return past.length === 0
+    ? `Shipped ${span}: ${sofar}.`
+    : `Shipped ${span}: ${past.join(', ')}, and ${sofar}.`;
 }
 
 /**
@@ -48,11 +76,14 @@ export function ShippedSummary({
 }) {
   const max = Math.max(1, ...days.map((day) => day.count));
   return (
-    <div className="rounded-[10px] border border-line bg-well-850 px-4 pt-3.5 light:shadow-card">
+    <div className={cn(cardVariants(), 'px-4 pt-3.5', breakdown === undefined && 'pb-3.5')}>
       <div role="img" aria-label={chartName(days)} className="flex max-w-[520px] gap-2">
         {days.map((day, index) => {
           const today = index === days.length - 1;
-          const height = day.count === 0 ? 0 : Math.max(2, Math.round((day.count / max) * PLOT));
+          // A partial day keeps 4px so its outline still frames a fill.
+          const floor = today ? 4 : 2;
+          const height =
+            day.count === 0 ? 0 : Math.max(floor, Math.round((day.count / max) * PLOT));
           return (
             <div
               key={day.short}

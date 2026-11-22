@@ -3,7 +3,8 @@ import { useId } from 'react';
 import type { ReactNode } from 'react';
 
 import { cn } from '../../../lib/cn';
-import type { FeedLink } from './section-head';
+import { cardVariants } from '../../ui/card';
+import type { FeedLink } from './link';
 
 /**
  * A feed card (ADR 0019, MMR-719 refinement): a status line, the title, an
@@ -47,9 +48,17 @@ export function FeedCard({
 }) {
   const statusId = useId();
   const chipsId = useId();
-  const describedBy = chips === undefined ? statusId : `${statusId} ${chipsId}`;
+  // A slot given `false` or `null` (`chips={stale && <StaleBadge />}`) is empty.
+  const hasChips = chips !== undefined && chips !== null && chips !== false;
+  const hasAction = action !== undefined && action !== null && action !== false;
+  const describedBy = hasChips ? `${statusId} ${chipsId}` : statusId;
   return (
-    <article className="relative flex flex-col rounded-[10px] border border-line bg-well-850 px-4 pt-3 pb-4 transition-colors hover:border-line-bright light:shadow-card">
+    <article
+      className={cn(
+        cardVariants(),
+        'relative flex flex-col px-4 pt-3 pb-4 transition-colors hover:border-line-bright',
+      )}
+    >
       <div id={statusId} className="mb-2 flex items-start gap-2 text-meta text-ink-dim">
         <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5 wrap-anywhere">
           {lead}
@@ -68,7 +77,10 @@ export function FeedCard({
         <Link
           {...to}
           aria-describedby={describedBy}
-          className="outline-none after:absolute after:inset-0 after:rounded-[10px] after:content-[''] focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-accent"
+          // The ring is drawn on the stretched overlay, so it rings the whole
+          // card. `outline-none` sets the outline style the overlay inherits, so
+          // the overlay sets its own style back to solid.
+          className="outline-none after:absolute after:inset-0 after:rounded-[10px] after:content-[''] focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-accent"
         >
           {title}
         </Link>
@@ -76,16 +88,22 @@ export function FeedCard({
       {detail !== undefined && (
         <p className="mt-1 mb-0 line-clamp-2 text-meta text-ink-dim wrap-anywhere">{detail}</p>
       )}
-      {chips !== undefined && (
-        <div id={chipsId} className="mt-auto flex flex-wrap gap-1 pt-2">
-          {chips}
-        </div>
-      )}
-      {action !== undefined && (
-        // Only the button takes pointer events above the stretched link, so a
-        // tap beside it still reaches the card's link.
-        <div className="pointer-events-none relative mt-3 flex *:pointer-events-auto *:relative *:z-10">
-          {action}
+      {(hasChips || hasAction) && (
+        // The foot sits at the card's bottom, so in a grid row of unequal
+        // cards the chips and buttons line up.
+        <div className="mt-auto">
+          {hasChips && (
+            <div id={chipsId} className="flex flex-wrap gap-1 pt-2">
+              {chips}
+            </div>
+          )}
+          {hasAction && (
+            // Only the button takes pointer events above the stretched link, so
+            // a tap beside it still reaches the card's link.
+            <div className="pointer-events-none relative mt-3 flex *:pointer-events-auto *:relative *:z-10">
+              {action}
+            </div>
+          )}
         </div>
       )}
     </article>

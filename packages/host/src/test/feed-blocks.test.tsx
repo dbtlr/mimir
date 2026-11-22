@@ -6,7 +6,7 @@ import { FeedCard } from '../components/patterns/feed/card';
 import { DayFolds, FinishedRow } from '../components/patterns/feed/day-fold';
 import { RowGroup } from '../components/patterns/feed/row-group';
 import { FeedSection } from '../components/patterns/feed/section-head';
-import { ShippedSummary } from '../components/patterns/feed/shipped-summary';
+import { ShippedSummary, chartName, shortCount } from '../components/patterns/feed/shipped-summary';
 import { nodeLink } from '../lib/record-url';
 import { renderInRouter } from './router';
 
@@ -21,14 +21,14 @@ describe('feed section head', () => {
     await renderInRouter(
       <FeedSection
         title="Now"
-        count={9}
+        count={1204}
         seeAll={{ params: { key: 'MMR' }, search: { status: 'live' }, to: '/p/$key/tasks' }}
       >
         <p>body</p>
       </FeedSection>,
     );
-    const section = screen.getByRole('region', { name: 'Now 9' });
-    expect(within(section).getByRole('heading', { level: 2, name: 'Now 9' })).toBeVisible();
+    const section = screen.getByRole('region', { name: 'Now 1,204' });
+    expect(within(section).getByRole('heading', { level: 2, name: 'Now 1,204' })).toBeVisible();
     const seeAll = within(section).getByRole('link', { name: 'See all in Now' });
     expect(seeAll).toHaveTextContent('See all');
     expect(seeAll).toHaveAttribute('href', '/p/MMR/tasks?status=live');
@@ -65,6 +65,22 @@ describe('feed card', () => {
     expect(link).toHaveAccessibleName('Send an encrypted Web Push');
     expect(link).toHaveAttribute('href', '/p/MMR/709');
     expect(link).toHaveAccessibleDescription('In progress MMR-709 50m Size large');
+  });
+
+  it('is described by its status line alone when it has no chips', async () => {
+    await renderInRouter(
+      <FeedCard
+        to={nodeLink('MMR-715')}
+        lead={<span>Under review</span>}
+        id="MMR-715"
+        age="15m"
+        title="Mobile top bar"
+        chips={false}
+      />,
+    );
+    expect(screen.getByRole('link', { name: 'Mobile top bar' })).toHaveAccessibleDescription(
+      'Under review MMR-715 15m',
+    );
   });
 
   it('keeps its one button a separate target that acts without following the link', async () => {
@@ -122,6 +138,19 @@ describe('feed row group', () => {
     );
     expect(within(list).queryByText('Muninn')).toBeNull();
   });
+
+  it('offers no door to more when nothing more is there', async () => {
+    await renderInRouter(
+      <RowGroup
+        label="By project"
+        rows={[
+          { count: 3, key: 'MMR', name: 'Mimir', to: { params: { key: 'MMR' }, to: '/p/$key' } },
+        ]}
+        more={{ count: 0, name: '0 more projects', to: { to: '/' } }}
+      />,
+    );
+    expect(screen.getAllByRole('link')).toHaveLength(1);
+  });
 });
 
 function finished(id: string, title: string, time: string, note?: string) {
@@ -156,6 +185,12 @@ describe('feed day folds', () => {
       label: 'Saturday 21 November',
       rows: [finished('MMR-697', 'MCP hints', '22:41')],
     },
+    {
+      count: 1,
+      key: '2026-11-20',
+      label: 'Friday 20 November',
+      rows: [finished('MMR-712', 'Notification kinds', '19:02')],
+    },
   ];
 
   it('opens only the latest day, and opens another on a press', async () => {
@@ -164,6 +199,10 @@ describe('feed day folds', () => {
     const saturday = screen.getByRole('button', { name: 'Saturday 21 November 1' });
     expect(today).toHaveAttribute('aria-expanded', 'true');
     expect(saturday).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: 'Friday 20 November 1' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
     expect(screen.queryByRole('link', { name: /MCP hints/ })).toBeNull();
     await userEvent.click(saturday);
     expect(saturday).toHaveAttribute('aria-expanded', 'true');
@@ -178,9 +217,22 @@ describe('feed day folds', () => {
     );
     expect(
       screen.getByRole('link', {
-        name: 'Stop-run dialog Abandoned: absorbed by MMR-740 05:12',
+        name: 'Abandoned: Stop-run dialog Abandoned: absorbed by MMR-740 05:12',
       }),
     ).toBeVisible();
+  });
+
+  it('opens the new day alone when a new latest day arrives', async () => {
+    const { rerender } = await renderInRouter(<DayFolds days={days.slice(1)} cap={2} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Friday 20 November 1' }));
+    rerender(<DayFolds days={days} cap={2} />);
+    expect(screen.getByRole('button', { name: 'Today 3' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    for (const name of ['Saturday 21 November 1', 'Friday 20 November 1']) {
+      expect(screen.getByRole('button', { name })).toHaveAttribute('aria-expanded', 'false');
+    }
   });
 
   it('shows a capped day’s rest in place and moves focus to the first row it revealed', async () => {
@@ -211,8 +263,26 @@ describe('shipped summary', () => {
         name: 'Shipped each day for the last 7 days: Monday 41, Tuesday 12,400, Wednesday 50, Thursday 0, Friday 12, Saturday 6, and 7 so far today.',
       }),
     ).toBeVisible();
-    expect(screen.getByText('12.4k')).toBeVisible();
-    expect(screen.getByText('so far')).toBeVisible();
+    expect(screen.getByText('12k')).toBeVisible();
+    // Today is the last column, not the first.
+    const columns = screen.getByRole('img').children;
+    expect(columns[columns.length - 1]).toHaveTextContent('so far');
+    expect(columns[0]).not.toHaveTextContent('so far');
     expect(screen.getByText('by project')).toBeVisible();
+  });
+
+  it('keeps every shortened count to four characters, up through millions', () => {
+    expect(
+      [999, 1000, 1234, 9949, 9950, 10_000, 12_400, 999_499, 999_500, 1_000_000, 12_400_000].map(
+        shortCount,
+      ),
+    ).toEqual(['999', '1k', '1.2k', '9.9k', '10k', '10k', '12k', '999k', '1M', '1M', '12M']);
+  });
+
+  it('reads a short week without a dangling list', () => {
+    expect(chartName([{ count: 3, name: 'today', short: 'Today' }])).toBe(
+      'Shipped today: 3 so far today.',
+    );
+    expect(chartName([])).toBe('Nothing shipped to show.');
   });
 });

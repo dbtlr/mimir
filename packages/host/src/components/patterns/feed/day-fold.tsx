@@ -2,8 +2,10 @@ import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { cn } from '../../../lib/cn';
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from '../../ui/collapsible';
-import type { FeedLink } from './section-head';
+import { FEED_FOCUS_RING, FEED_LINK_TEXT } from './link';
+import type { FeedLink } from './link';
 
 /*
  * Day folds (ADR 0019, MMR-719 refinement): finished work grouped by day,
@@ -14,8 +16,9 @@ import type { FeedLink } from './section-head';
 
 /**
  * One finished row: the status dot, the title (one line, demoted to ink-dim),
- * and the time in mono. `status` names the status for assistive tech when no
- * `note` carries it; an abandoned row's `note` is its status word and reason.
+ * and the time in mono. `status` leads the row's accessible name on every row,
+ * so done and abandoned rows read alike. An abandoned row's `note` is its
+ * second line: the feature's StatusWord, then the reason.
  */
 export function FinishedRow({
   to,
@@ -28,22 +31,25 @@ export function FinishedRow({
   to: FeedLink;
   /** The status dot, from the feature. */
   dot: ReactNode;
-  /** The status's display label ("Done"), read before the title. */
+  /** The status's display label ("Done", "Abandoned"), read before the title. */
   status: string;
   title: string;
   /** When it finished ("08:06"). */
   time: string;
-  /** A second line: an abandoned row's status word and reason. */
+  /** A second line: an abandoned row's status word and its reason. */
   note?: ReactNode;
 }) {
   return (
     <Link
       {...to}
-      className="flex min-h-11 items-start gap-2.5 rounded-md px-1 py-2.5 no-underline transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent md:min-h-9 md:py-1.5"
+      className={cn(
+        'flex min-h-11 items-start gap-2.5 rounded-md px-1 py-2.5 no-underline transition-colors hover:bg-well-800 md:min-h-9 md:py-1.5',
+        FEED_FOCUS_RING,
+      )}
     >
       <span className="mt-2 flex shrink-0">{dot}</span>
       <span className="min-w-0 flex-1">
-        {note === undefined && <span className="sr-only">{status}:</span>}{' '}
+        <span className="sr-only">{status}:</span>{' '}
         <span className="block truncate text-title font-medium text-ink-dim">{title}</span>
         {note !== undefined && (
           <>
@@ -63,15 +69,21 @@ export function DayFold({
   count,
   rows,
   cap,
-  defaultOpen = false,
+  open,
+  onOpenChange,
 }: {
   label: string;
+  /**
+   * How many finished that day. It may exceed `rows` when a page loads only
+   * part of the day; Show N more counts only the rows it was given.
+   */
   count: number;
   /** The day's finished rows, newest first. */
   rows: readonly ReactNode[];
   /** Rows shown before Show N more. */
   cap: number;
-  defaultOpen?: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const listRef = useRef<HTMLUListElement>(null);
@@ -83,11 +95,19 @@ export function DayFold({
   useEffect(() => {
     if (expanded && justExpanded.current) {
       justExpanded.current = false;
-      listRef.current?.querySelectorAll('a')[cap]?.focus();
+      listRef.current?.children[cap]
+        ?.querySelector<HTMLElement>('a[href], button, [tabindex]:not([tabindex="-1"])')
+        ?.focus();
     }
   }, [expanded, cap]);
   return (
-    <Collapsible defaultOpen={defaultOpen} className="border-line not-first:border-t">
+    <Collapsible
+      open={open}
+      onOpenChange={(next) => {
+        onOpenChange(next);
+      }}
+      className="border-line not-first:border-t"
+    >
       <CollapsibleTrigger
         animated={false}
         className="min-h-11 gap-2 px-1 py-0 text-label font-medium text-ink-dim hover:text-ink md:min-h-9"
@@ -110,7 +130,12 @@ export function DayFold({
               justExpanded.current = true;
               setExpanded(true);
             }}
-            className="flex min-h-11 items-center rounded-md border-0 bg-transparent pr-1 pl-6 text-label font-medium text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent md:min-h-9"
+            // Indented to the titles' left edge: 4 of padding, the 7px dot, and its 10 gap.
+            className={cn(
+              'flex min-h-11 items-center rounded-md border-0 bg-transparent pr-1 pl-[21px] text-label font-medium md:min-h-9',
+              FEED_LINK_TEXT,
+              FEED_FOCUS_RING,
+            )}
           >
             Show {hidden} more
           </button>
@@ -129,18 +154,44 @@ export type FoldDay = {
   rows: readonly ReactNode[];
 };
 
-/** Days of finished work, newest first; only the latest day starts open. */
+/**
+ * Days of finished work, newest first; only the latest day starts open. When a
+ * new latest day arrives (the day rolls over and a refetch adds it), the folds
+ * start over: the new day opens and the others close.
+ */
 export function DayFolds({ days, cap }: { days: readonly FoldDay[]; cap: number }) {
+  const latest = days[0]?.key;
+  const [openFor, setOpenFor] = useState(latest);
+  const [open, setOpen] = useState<ReadonlySet<string>>(
+    () => new Set(latest === undefined ? [] : [latest]),
+  );
+  // Adjusting state while rendering, React's pattern for state derived from a
+  // prop: a new latest day resets which folds are open.
+  if (openFor !== latest) {
+    setOpenFor(latest);
+    setOpen(new Set(latest === undefined ? [] : [latest]));
+  }
   return (
     <div className="flex flex-col">
-      {days.map((day, index) => (
+      {days.map((day) => (
         <DayFold
           key={day.key}
           label={day.label}
           count={day.count}
           rows={day.rows}
           cap={cap}
-          defaultOpen={index === 0}
+          open={open.has(day.key)}
+          onOpenChange={(next) => {
+            setOpen((current) => {
+              const updated = new Set(current);
+              if (next) {
+                updated.add(day.key);
+              } else {
+                updated.delete(day.key);
+              }
+              return updated;
+            });
+          }}
         />
       ))}
     </div>

@@ -26,9 +26,14 @@ export function PriorityBadge({ priority }: { priority: Priority }) {
 
 const SIZE_GLYPH: Record<Size, string> = { large: 'l', medium: 'm', small: 's' };
 
-/** Size signal chip. */
+/** Size signal chip: the glyph on screen, the size in words for assistive tech. */
 export function SizeBadge({ size }: { size: Size }) {
-  return <Badge variant="mono">{SIZE_GLYPH[size]}</Badge>;
+  return (
+    <Badge variant="mono">
+      <span aria-hidden>{SIZE_GLYPH[size]}</span>
+      <span className="sr-only">Size {size}</span>
+    </Badge>
+  );
 }
 
 /**

@@ -1,8 +1,8 @@
 import { Link } from '@tanstack/react-router';
 
 import { cn } from '../../../lib/cn';
-import { FEED_LINK_CLASS } from './section-head';
-import type { FeedLink } from './section-head';
+import { FEED_FOCUS_RING, FEED_LINK_TEXT } from './link';
+import type { FeedLink } from './link';
 
 /** One door in a row group: an optional key, a name, and its count. */
 export type RowGroupRow = {
@@ -34,7 +34,7 @@ export function RowGroup({
       {rows
         .filter((row) => row.count > 0)
         .map((row) => (
-          <li key={row.key ?? row.name}>
+          <li key={`${row.key ?? ''}:${row.name}`}>
             <Door row={row} />
           </li>
         ))}
@@ -53,7 +53,8 @@ function Door({ row, more = false }: { row: RowGroupRow; more?: boolean }) {
       {...row.to}
       className={cn(
         'flex min-h-11 items-center gap-3 rounded-md px-1 py-2.5 text-ink-bright no-underline md:min-h-9 md:py-1.5',
-        'transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent',
+        'transition-colors hover:bg-well-800',
+        FEED_FOCUS_RING,
       )}
     >
       {row.key !== undefined && (
@@ -63,7 +64,7 @@ function Door({ row, more = false }: { row: RowGroupRow; more?: boolean }) {
         className={cn(
           // The clamp sits on an unpadded box, so no part of a third line shows.
           'line-clamp-2 min-w-0 flex-1 text-title font-medium wrap-anywhere',
-          more && FEED_LINK_CLASS,
+          more ? FEED_LINK_TEXT : 'text-ink',
         )}
       >
         {row.name}
