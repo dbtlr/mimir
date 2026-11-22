@@ -168,7 +168,9 @@ export function PairPage() {
           )}
 
           {code !== undefined && decided === undefined && lookup.isError && (
-            <p className="text-xs text-status-blocked">Unreachable — is the Mimir host running?</p>
+            <p className="text-xs text-status-blocked-foreground">
+              Unreachable — is the Mimir host running?
+            </p>
           )}
 
           {code !== undefined && decided === undefined && request === null && (

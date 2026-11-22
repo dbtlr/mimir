@@ -207,6 +207,26 @@ test('draws the stop and each open decision in attention, and nothing else', asy
   }
 });
 
+test('reads a member row’s status word in bright ink, the hue only on its dot', async () => {
+  const page = fixture();
+  vi.mocked(deliveryPage).mockResolvedValue({
+    ...page,
+    members: [
+      ...page.members,
+      engineTask({ id: 'MMR-5', status: 'parked', title: 'Wire the rail' }),
+    ],
+  });
+  await open();
+  const link = await screen.findByRole('link', { name: /Wire the rail/ });
+  const row = link.closest<HTMLElement>('[data-row-id]');
+  if (row === null) {
+    throw new Error('the member has no row');
+  }
+  const word = within(row).getByText('Parked');
+  expect(word).toHaveClass('text-ink-bright');
+  expect(word.className).not.toMatch(/status-/);
+});
+
 test('shows a paused notice in ink and elapsed time without a cap', async () => {
   const data = fixture();
   data.delivery.hold = 'paused';

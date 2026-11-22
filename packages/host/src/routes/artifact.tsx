@@ -13,7 +13,7 @@ import { MetaRow } from '../components/node-record';
 import { OfflineBanner } from '../components/offline-banner';
 import { RailSection, RecordLayout, RecordPending } from '../components/record-layout';
 import type { RailChip } from '../components/record-layout';
-import { StatusDot } from '../components/status-dot';
+import { StatusBadge, StatusLineId } from '../components/status-badge';
 import { ActionButton } from '../components/ui/action-button';
 import { sharedPathOf, subtreeOf } from '../lib/ancestry';
 import { splitKindTags } from '../lib/artifacts';
@@ -104,11 +104,8 @@ function AttachedRow({ link, node }: { link: AttachedLink; node?: LinkedNode }) 
     <Link {...nodeLink(link.id)} className={row}>
       <span className="shrink-0 font-mono text-mono-id text-accent-foreground">{link.id}</span>
       <span className="min-w-0 flex-1 truncate">{node?.title ?? link.title}</span>
-      {standing !== undefined && (
-        <span className="inline-flex shrink-0 items-center gap-1.5">
-          {status !== undefined && <StatusDot status={status} />}
-          <span className="text-meta font-semibold text-ink-bright">{standing}</span>
-        </span>
+      {status !== undefined && standing !== undefined && (
+        <StatusBadge status={status} label={standing} className="shrink-0" />
       )}
     </Link>
   );
@@ -329,7 +326,7 @@ function ArtifactRecord({ artifactId }: { artifactId: string }) {
         ))}
       </nav>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-mono-id text-ink-dim">{artifactId} · artifact</span>
+        <StatusLineId id={artifactId} type="artifact" hairline={false} />
         {kind !== undefined && (
           <span className="rounded-full bg-well-800 px-2 py-0.5 font-mono text-micro text-ink-dim inset-ring inset-ring-line">
             {kind}

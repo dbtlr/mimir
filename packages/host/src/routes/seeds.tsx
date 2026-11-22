@@ -38,7 +38,7 @@ const SEARCH_DEBOUNCE_MS = 250;
 
 const ALL = '';
 
-/** The header's faint count: untriaged and ready-to-resolve seeds, a zero half omitted. */
+/** The header's dim count: untriaged and ready-to-resolve seeds, a zero half omitted. */
 function summaryText(toTriage: number, toResolve: number): string | undefined {
   const parts = [
     toTriage > 0 ? `${String(toTriage)} to triage` : undefined,
@@ -248,7 +248,7 @@ export function SeedsPage() {
               <BrowserEmpty>No seeds match.</BrowserEmpty>
             )}
             {seeds.isError && !loaded && (
-              <p className="p-4 text-xs text-status-blocked">
+              <p className="p-4 text-xs text-status-blocked-foreground">
                 Unreachable — is the Mimir host running?
               </p>
             )}

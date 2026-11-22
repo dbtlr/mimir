@@ -304,6 +304,10 @@ describe('work page sections', () => {
     const now = await section('Now · 1');
     expect(hrefOf(now, 'Extract the seam')).toBe('/p/MMR/12');
     expect(now).toHaveTextContent(/Under review\s*·\s*submitted 20m ago/);
+    // The status word reads in bright ink; only its dot carries the hue (MMR-718).
+    const word = within(now).getByText('Under review');
+    expect(word).toHaveClass('text-ink-bright');
+    expect(word.className).not.toMatch(/status-/);
     expect(now).not.toHaveTextContent(/started/i);
     expect(within(now).queryByRole('button', { name: 'Approve' })).toBeNull();
     expect(within(now).queryByRole('button', { name: 'Send back…' })).toBeNull();

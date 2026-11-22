@@ -24,6 +24,7 @@ import { DistributionBar } from '../components/distribution-bar';
 import { OfflineBanner } from '../components/offline-banner';
 import { Reason } from '../components/patterns/reason';
 import { RailSection, RecordLayout, RecordPending } from '../components/record-layout';
+import { StatusLineId, StatusWord } from '../components/status-badge';
 import { StatusDot } from '../components/status-dot';
 import { ActionButton } from '../components/ui/action-button';
 import { DecisionRow } from '../components/work-rows';
@@ -143,7 +144,7 @@ function DeliveryRecord({ id }: { id: string }) {
         <span>{d.id}</span>
       </nav>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-mono-id text-ink-dim">{d.id} · delivery</span>
+        <StatusLineId id={d.id} type="delivery" hairline={false} />
         <DeliveryWords delivery={d} />
       </div>
       <h1
@@ -363,11 +364,7 @@ function DeliveryRecord({ id }: { id: string }) {
                 id={task.id}
                 title={task.title}
                 leading={<StatusDot status={task.status} />}
-                meta={
-                  <span className="font-semibold text-ink-bright">
-                    {STATUS_META[task.status].label}
-                  </span>
-                }
+                meta={<StatusWord>{STATUS_META[task.status].label}</StatusWord>}
               />
             ))}
         </BrowserGroup>

@@ -14,7 +14,7 @@ import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/legacy-menu';
  * a microlabel. Every row is a real link to its record's page.
  */
 
-/** The centred column with the page header: title, a faint count, and an optional action. */
+/** The centred column with the page header: title, a dim count, and an optional action. */
 export function BrowserPage({
   title,
   count,
@@ -165,12 +165,9 @@ export function MenuChip({
   );
 }
 
-/** The mono uppercase microlabel every group header and fold uses. */
-const MICROLABEL = 'font-mono text-micro font-semibold tracking-[0.13em] uppercase';
-
 /**
  * One group: a microlabel header (`In progress · 2`, `Today`) over its rows.
- * `labelClassName` carries a lane colour; the default is the faint ink tier.
+ * `labelClassName` carries a lane colour; the default is dim ink.
  * `hint` adds the question the group answers (the work page's sections).
  * `headingRef` makes the heading focusable, so focus can land there when a row
  * leaves the group (useRowFocusHandoff).
@@ -198,14 +195,13 @@ export function BrowserGroup({
         ref={headingRef}
         tabIndex={headingRef === undefined ? undefined : -1}
         className={cn(
-          'mb-2 block border-b border-line pb-1.5 focus-visible:outline-2 focus-visible:outline-accent',
-          MICROLABEL,
+          'microlabel mb-2 block border-b border-line pb-1.5 focus-visible:outline-2 focus-visible:outline-accent',
           labelClassName ?? 'text-ink-dim',
         )}
       >
         {heading}
         {hint !== undefined && (
-          <span className="ml-2.5 font-sans text-meta font-normal tracking-normal text-ink-dim normal-case">
+          <span className="ml-2.5 text-meta font-normal tracking-normal text-ink-dim normal-case">
             {hint}
           </span>
         )}

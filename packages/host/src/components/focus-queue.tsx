@@ -117,11 +117,11 @@ export function FocusQueue({ offline }: { offline: boolean }) {
         <section aria-label="Up next" className="flex flex-col gap-1">
           <h2 className="microlabel text-ink-dim">Up next</h2>
           <p className="flex flex-wrap items-baseline gap-x-2 text-meta text-ink-dim">
-            <span className="font-mono text-mono-id text-accent-foreground">
+            <span className="font-mono text-accent-foreground">
               {projectKeyOf(needsYouId(next))}
             </span>
             <span className="microlabel text-attention-foreground">{needsYouLabel(next)}</span>
-            <span className="font-mono text-mono-id">{needsYouId(next)}</span>
+            <span className="font-mono">{needsYouId(next)}</span>
             <span className="min-w-0 truncate">{needsYouTitle(next)}</span>
           </p>
         </section>
@@ -211,10 +211,10 @@ function FocusCard({
       aria-labelledby={titleId}
       className="flex flex-col gap-3 rounded-lg border border-line-bright border-l-3 border-l-attention bg-well-850 px-5 py-4 max-md:px-3.5"
     >
-      <p className="flex flex-wrap items-baseline gap-x-2">
-        <span className="font-mono text-mono-id text-accent-foreground">{projectKey}</span>
+      <p className="flex flex-wrap items-baseline gap-x-2 text-meta">
+        <span className="font-mono text-accent-foreground">{projectKey}</span>
         <span className="microlabel text-attention-foreground">{REASON[row.reason]}</span>
-        <span className="font-mono text-mono-id text-ink-dim">{row.task.id}</span>
+        <span className="font-mono text-ink-dim">{row.task.id}</span>
       </p>
       <h2 id={titleId} className="text-dossier font-semibold text-ink-bright">
         {row.task.title}

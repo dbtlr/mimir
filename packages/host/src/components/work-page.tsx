@@ -284,7 +284,7 @@ function WorkBody({
   const activity = useQuery(agentActivityQuery);
   if (work.data === undefined) {
     return work.isError ? (
-      <p className="text-xs text-status-blocked">
+      <p className="text-xs text-status-blocked-foreground">
         {/* An answered failure (an Engine refusal or a host fault) says no more than that; only a request that never got an answer asks about the server. */}
         {isEngineRefusal(work.error) || work.error instanceof HostFaultError
           ? 'Couldn’t load the work page.'

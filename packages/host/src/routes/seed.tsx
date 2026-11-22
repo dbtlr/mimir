@@ -18,8 +18,7 @@ import type { RailChip } from '../components/record-layout';
 import { SeedKindChip } from '../components/seed-kind-chip';
 import { SeedPromoteSheet } from '../components/seed-promote-sheet';
 import { SeedVerbs } from '../components/seed-verbs';
-import { StatusLineId } from '../components/status-badge';
-import { StatusDot } from '../components/status-dot';
+import { LaneBadge, StatusBadge, StatusLineId } from '../components/status-badge';
 import { ActionButton } from '../components/ui/action-button';
 import { Skeleton } from '../components/ui/skeleton';
 import { copyText } from '../lib/clipboard';
@@ -77,15 +76,6 @@ function laneLabel(seed: EngineSeed): string {
     }
   }
 }
-
-/** A lane's dot: the lane's hue sits on the dot, and its word reads in bright ink (MMR-718). */
-const LANE_DOT: Record<SeedLane, string> = {
-  parked: 'bg-status-parked',
-  promoted: 'bg-ink-dim',
-  ready: 'bg-attention',
-  settled: 'bg-ink-faint',
-  untriaged: 'bg-accent',
-};
 
 /** The decision block's wash, keyed to the lane that asks for it. */
 const DECISION_BOX: Record<Exclude<SeedLane, 'settled'>, { box: string; label: string }> = {
@@ -181,7 +171,6 @@ function OutcomeSection({
                 {...nodeLink(id)}
                 className="flex min-w-0 items-center gap-2 rounded-sm px-1 py-1 text-xs text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
               >
-                {node !== undefined && <StatusDot status={node.status} />}
                 <span className="shrink-0 font-mono text-mono-id text-accent-foreground">{id}</span>
                 <span className="min-w-0 flex-1 truncate">{node?.title}</span>
                 {upstream && node !== undefined && (
@@ -190,9 +179,11 @@ function OutcomeSection({
                   </span>
                 )}
                 {node !== undefined && (
-                  <span className="shrink-0 text-meta font-semibold text-ink-bright">
-                    {recordStanding(node)}
-                  </span>
+                  <StatusBadge
+                    status={node.status}
+                    label={recordStanding(node)}
+                    className="shrink-0"
+                  />
                 )}
               </Link>
             </li>
@@ -458,10 +449,7 @@ function SeedRecord({ seedId }: { seedId: string }) {
         </Link>
       </nav>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-          <span aria-hidden className={cn('size-[7px] shrink-0 rounded-full', LANE_DOT[lane])} />
-          <span className="text-meta font-semibold text-ink-bright">{laneLabel(data)}</span>
-        </span>
+        <LaneBadge lane={lane} label={laneLabel(data)} />
         <StatusLineId id={seedId} type="seed" />
         <SeedKindChip kind={data.kind} />
         {fromOtherBoard && data.requester !== null && (

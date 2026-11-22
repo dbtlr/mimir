@@ -19,7 +19,7 @@ function Chevron() {
   return (
     <svg
       aria-hidden="true"
-      className="size-4 shrink-0 text-ink-faint transition-transform duration-150 group-data-[open]:rotate-90"
+      className="size-4 shrink-0 text-ink-dim transition-transform duration-150 group-data-[open]:rotate-90"
       fill="none"
       stroke="currentColor"
       strokeLinecap="round"

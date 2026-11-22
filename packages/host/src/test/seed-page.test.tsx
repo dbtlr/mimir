@@ -86,7 +86,10 @@ describe('seed page (MMR-451)', () => {
     expect(
       screen.getByText((_, el) => el?.tagName === 'SPAN' && el.textContent === 'NRN-s30 · seed'),
     ).toBeInTheDocument();
-    expect(screen.getByText('Untriaged')).toBeInTheDocument();
+    // The lane word reads in bright ink; only its dot carries the hue (MMR-718).
+    const lane = screen.getByText('Untriaged');
+    expect(lane).toHaveClass('text-ink-bright');
+    expect(lane.className).not.toMatch(/status-/);
     expect(screen.getByText('norn 0.48.2').tagName).toBe('STRONG');
     expect(getNode).not.toHaveBeenCalled();
   });
@@ -165,7 +168,9 @@ describe('seed page (MMR-451)', () => {
       const outcome = await screen.findByRole('region', { name: 'What came of it' });
       const link = await within(outcome).findByRole('link', { name: /Shape the session skill/ });
       expect(link).toHaveAttribute('href', '/p/MMR/364');
-      expect(outcome).toHaveTextContent('Abandoned 2026-10-10');
+      const standing = within(link).getByText('Abandoned 2026-10-10');
+      expect(standing).toHaveClass('text-ink-bright');
+      expect(standing.className).not.toMatch(/status-/);
     });
 
     it('lists tasks on any board that name the seed as upstream', async () => {

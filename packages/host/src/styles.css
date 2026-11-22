@@ -27,8 +27,9 @@
 
   /*
    * The Meridian type scale. Semantic steps rendered against the 16px browser
-   * default (html at 100%). Font-size only (no paired line-height) so explicit
-   * `leading-*` keeps governing vertical rhythm. `text-xs`/`sm`/`base`/`lg`
+   * default (html at 100%). Font-size only, so explicit `leading-*` keeps
+   * governing vertical rhythm, except `--text-title` and `--text-label`, which
+   * pair a line height (a title or label is not prose). `text-xs`/`sm`/`base`/`lg`
    * (Tailwind) still carry the 0.75/0.875/1/1.125 steps where needed.
    */
   --text-page: 1.75rem; /* 28px — page title, weight 700 */

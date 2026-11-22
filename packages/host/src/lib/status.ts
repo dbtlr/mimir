@@ -12,7 +12,7 @@ export type StatusMeta = {
   label: string;
   /** Dot/segment fill. */
   dot: string;
-  /** Text in the status color. */
+  /** The status color as `currentColor`, which feeds the dot's pulse glow; no word draws in it (MMR-718). */
   text: string;
   /** Text in the status *foreground* tone — the legible-on-ground text tier. */
   foreground: string;

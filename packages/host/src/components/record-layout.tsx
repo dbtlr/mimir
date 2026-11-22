@@ -214,7 +214,7 @@ export function RecordPending({ unreachable }: { unreachable: boolean }) {
   return (
     <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-2 p-5">
       {unreachable ? (
-        <p className="text-xs text-status-blocked">
+        <p className="text-xs text-status-blocked-foreground">
           Unreachable, and nothing cached yet — is the Mimir host running?
         </p>
       ) : (

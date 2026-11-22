@@ -41,7 +41,7 @@ branch names, timestamps-as-data. Both are self-hosted through Fontsource
 | Help, context line, meta, a footer note, a group's explanation (Lifecycle) | 13 / 20, measure 440, `text-wrap: pretty` | 400 | ink-dim | `text-meta` | **adopted (MMR-743)** for help: `FieldDescription` is 12px ink-faint (2.6:1 on light) |
 | Group heading inside a menu (a provider over its models) | 13 / 20 | 500 | ink-dim | `text-meta` | **adopted (MMR-743)** |
 | Status word | 13 / 20 | 600 | ink-bright; the hue only on its dot | `text-meta` | **adopted (MMR-718)**: the word drew in its status hue on a 12% wash, uppercase at 10.5 on headers |
-| Record ID alone in a row's ID column | 12.5 / 18, mono | 400 | ink-dim | `text-mono-id` | **adopted (MMR-718)**: was 11.5 in ink-faint; an ID that shares a line with sans text (a meta line, a header's status line) takes the line's 13 |
+| Record ID alone in a row's ID column | 12.5, on the row's line, mono | 400 | ink-dim | `text-mono-id` | **adopted (MMR-718)**: was 11.5 in ink-faint; an ID that shares a line with sans text (a meta line, a header's status line) takes the line's 13 |
 | Microlabel (the one all-caps idiom) | 12 / 16, tracking 0.1em, uppercase | 600 | ink-dim or brighter | `.microlabel` (`text-micro`) | **adopted (MMR-718)**: was 10.5, tracked 0.13em, often ink-faint |
 | Floor: tags, captions | 12 / 16 | 400–600 | ink-dim or brighter | `text-xs`, `text-tag` | **adopted (MMR-718)**: `text-tag` (11) and `text-micro` (10.5) rose to 12 |
 
@@ -123,7 +123,7 @@ All existing (`styles.css`). Rules:
   MMR-718). The word is 13/20 semibold, sentence case, with no wash or ring,
   so the grey statuses read as well as the bright ones (`abandoned` as text
   measured 1.8:1 on a dark card). On a record header the status leads the
-  line, then a `line` hairline, then the type and ID in `ink-dim`.
+  line, then a `line-bright` hairline, then the ID and type in `ink-dim`.
 - **Demotion stops at `ink-dim`.** A demoted row's title (done, abandoned,
   going cold) draws in `ink-dim`, never fainter; a status word never drops
   an ink tier.

@@ -31,6 +31,7 @@ import { BrowserGroup, BrowserRow } from './browser-list';
 import { NewTaskButton } from './new-task-button';
 import { OpenInT3 } from './open-in-t3';
 import { StaleBadge } from './signal-badges';
+import { StatusWord } from './status-badge';
 import { StatusDot } from './status-dot';
 import { StopRunDialog } from './stop-run-dialog';
 import type { StopTarget } from './stop-run-dialog';
@@ -140,9 +141,7 @@ export function NowRow({
           <p className="flex flex-wrap items-baseline gap-x-1.5">
             {row.task.status === 'under_review' || row.task.status === 'staged' ? (
               <>
-                <span className="font-semibold text-ink-bright">
-                  {STATUS_META[row.task.status].label}
-                </span>
+                <StatusWord>{STATUS_META[row.task.status].label}</StatusWord>
                 <ContextPart>submitted {ago(row.submittedAt ?? row.startedAt)}</ContextPart>
               </>
             ) : (
@@ -312,7 +311,7 @@ function UnlockGroup({ group }: { group: WorkReport['frontier']['nextToUnlock'][
         <span className="microlabel text-ink-dim">After</span>{' '}
         <Link
           {...nodeLink(group.prerequisite.id)}
-          className="font-mono text-mono-id text-accent-foreground hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
+          className="font-mono text-accent-foreground hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
         >
           {group.prerequisite.id}
         </Link>

@@ -155,7 +155,7 @@ export function KitPage() {
           <Card variant="recessed">
             <CardHeader>
               <p className="text-dossier font-semibold">Recessed card</p>
-              <p className="text-meta">demoted / done — ghost ink on the recessed well</p>
+              <p className="text-meta">demoted / done — dim ink on the recessed well</p>
             </CardHeader>
             <CardContent>
               <p className="text-body">Folded content sits back.</p>

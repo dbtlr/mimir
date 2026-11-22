@@ -33,7 +33,9 @@ absorbing it as an ever-growing list of refinements.
    - **Attention (violet)** — the "needs you" set only: the top-bar badge,
      verdict blocks, under-review emphasis.
    - **Status (×9)** — dots, 2px card left-borders, bar segments, tinted
-     chips. Status hues never fill buttons; control hues never mark state.
+     chips. (For status, the MMR-718 refinement keeps the hue on dots,
+     borders, and bars; a status word draws in `ink-bright`.) Status hues never
+     fill buttons; control hues never mark state.
 
 2. **Attention is violet, deliberately not red.** The attention set leads with
    `under_review` — work asking for a verdict, not work that is broken. Review
@@ -43,9 +45,11 @@ absorbing it as an ever-growing list of refinements.
 
 3. **The status vocabulary is closed at nine and consumed identically
    everywhere** — one mapping for dots, borders, bars, chips, and the mobile
-   status sheet (the ADR 0008 vocabulary, projected visually). _Going cold_ is
-   a temperature **modifier** (glyph + demoted ink riding whatever status or
-   lane a node holds), never a tenth status and never a fifth lane.
+   status sheet (the ADR 0008 vocabulary, projected visually). (The MMR-718
+   refinement keeps the hue on dots, borders, and bars, and retires the status
+   chip.) _Going cold_ is a temperature **modifier** (glyph + demoted ink
+   riding whatever status or lane a node holds), never a tenth status and
+   never a fifth lane.
 
 4. **Review is verdict-first.** Approving or returning submitted work is the
    highest-leverage operator action in the system, so an `under_review` node
@@ -1476,8 +1480,8 @@ uppercase pill, and lower still on the 12% wash the pill sat on.
   as its dot in the status hue followed by its display label (In progress,
   not `in_progress`) in `ink-bright`, semibold, 13px, with no wash and no
   ring. On a record
-  header the status leads the line, then a hairline, then the record's type
-  and ID in `ink-dim`. This narrows §1's "tinted chips" and §3's "chips"
+  header the status leads the line, then a hairline, then the record's ID
+  and type in `ink-dim`. This narrows §1's "tinted chips" and §3's "chips"
   for status: dots, card borders, and bar segments keep the hue, and a
   status no longer renders as a tinted chip. The MMR-438 refinement's red
   for an external block, and every later hue on a status word, sit on the
@@ -1496,7 +1500,14 @@ uppercase pill, and lower still on the 12% wash the pill sat on.
   word and its ground disagree. Sentence-case section headings in place of
   the microlabel: a better read in the mocks, but they belong to MMR-719's
   section head, so they wait for it.
-- `packages/host/src/test/readable-type.test.tsx` fails if a type token
-  under the floor returns or a status word takes a status hue, and its
-  source scan fails if `text-ink-faint`, `text-ink-ghost`, or a literal size
-  under 12px reappears outside its listed decoration uses.
+- `packages/host/src/test/readable-type.test.tsx` fails if a `--text-*`
+  token under the floor returns, in any unit; if a styles.css rule sets a
+  `font-size` under 12px, applies faint text or an undersized size, or sets
+  faint ink as a text colour; and if a console source draws faint text
+  outside its listed decoration uses (as the utility, the `text-(--…)` or
+  `text-[var(…)]` form, or a Typography text variable) or a literal size
+  under 12px in px, rem, em, pt, a keyword, or an unreadable `calc()`. Its
+  status-word cases fail if the shared status word part (`StatusWord`, which
+  `StatusBadge` and the lane badge use) takes a status hue, and the work,
+  seed, artifact, and delivery page tests each check that the word they
+  render is that bright part.

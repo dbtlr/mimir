@@ -674,7 +674,7 @@ function AuthoringSheetBody({
                 className="flex items-center gap-2 self-start rounded focus-visible:outline-2 focus-visible:outline-accent"
               >
                 <span className="microlabel text-ink-dim">Depends on · optional</span>
-                <span aria-hidden className="text-micro text-ink-ghost">
+                <span aria-hidden className="text-micro text-ink-dim">
                   {depsOpen ? '⌃' : '⌄'}
                 </span>
               </button>
@@ -776,7 +776,7 @@ function AuthoringSheetBody({
             className="flex items-center gap-2 self-start rounded focus-visible:outline-2 focus-visible:outline-accent"
           >
             <span className="microlabel text-ink-dim">Signals · optional</span>
-            <span aria-hidden className="text-micro text-ink-ghost">
+            <span aria-hidden className="text-micro text-ink-dim">
               {signalsOpen ? '⌃' : '⌄'}
             </span>
           </button>

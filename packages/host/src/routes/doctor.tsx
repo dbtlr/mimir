@@ -74,7 +74,7 @@ export function DoctorPage() {
         {doctor.isPending && <Skeleton className="h-40" />}
 
         {doctor.isError && facet === undefined && (
-          <p className="text-xs text-status-blocked">
+          <p className="text-xs text-status-blocked-foreground">
             Unreachable, and nothing cached yet — is the Mimir host running?
           </p>
         )}

@@ -165,15 +165,9 @@ export function MetaRow({ label, children }: { label: string; children: ReactNod
 }
 
 /** Hold-reason callout wash, keyed to the hold kind (parked ≠ blocked hue); the label reads in bright ink (MMR-718). */
-const HOLD_CALLOUT: Record<'blocked' | 'parked', { box: string; label: string }> = {
-  blocked: {
-    box: 'bg-status-blocked/10 inset-ring-status-blocked/24',
-    label: 'text-ink-bright',
-  },
-  parked: {
-    box: 'bg-status-parked/10 inset-ring-status-parked/24',
-    label: 'text-ink-bright',
-  },
+const HOLD_CALLOUT: Record<'blocked' | 'parked', string> = {
+  blocked: 'bg-status-blocked/10 inset-ring-status-blocked/24',
+  parked: 'bg-status-parked/10 inset-ring-status-parked/24',
 };
 
 /** The callout's lead: a block names who can clear it; a park, a legacy block without an owner, just the hold. */
@@ -195,10 +189,8 @@ export function HoldCallout({ node }: { node: EngineNode }) {
     return null;
   }
   return (
-    <div
-      className={cn('rounded-lg p-2.5 text-xs text-ink inset-ring', HOLD_CALLOUT[node.hold].box)}
-    >
-      <span className={cn('microlabel mr-2', HOLD_CALLOUT[node.hold].label)}>
+    <div className={cn('rounded-lg p-2.5 text-xs text-ink inset-ring', HOLD_CALLOUT[node.hold])}>
+      <span className="microlabel mr-2 text-ink-bright">
         {holdLabel(node.hold, node.blockOwner)}
       </span>
       <LinkifiedText>{reason}</LinkifiedText>
