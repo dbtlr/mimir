@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { setImmediate as nextMacrotask } from 'node:timers/promises';
 
 import { sql } from 'kysely';
 
@@ -636,10 +637,17 @@ test("a writer waits out another process's lock without stalling the event loop"
 
 test('the busy retry waits only asynchronously: never a synchronous sleep, always a real timer wait', async () => {
   const syncSleep = spyOn(Bun, 'sleepSync').mockReturnValue(undefined);
-  const asyncSleep = spyOn(Bun, 'sleep').mockResolvedValue(undefined);
+  // Each wait settles on a later macrotask, so a retry that calls the sleep
+  // without awaiting it reaches its next try before the wait has finished.
+  let settledWaits = 0;
+  const asyncSleep = spyOn(Bun, 'sleep').mockImplementation(async () => {
+    await nextMacrotask();
+    settledWaits += 1;
+  });
   try {
     let tries = 0;
     const result = await whileBusy(60_000, () => {
+      expect(settledWaits).toBe(tries);
       tries += 1;
       if (tries <= 8) {
         throw Object.assign(new Error('database is locked'), { code: 'SQLITE_BUSY' });
