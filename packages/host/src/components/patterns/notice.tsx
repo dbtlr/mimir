@@ -76,13 +76,25 @@ export const toast = Object.assign(
  * below the layer's header instead, from `--layer-top-bar-height`, which the
  * layer sets on the root while it is open. A Notice floats over what is under it, the first
  * card or a route's banner, and the page does not move for it (DESIGN.md, Toast).
+ * While a desktop preview panel is open (`clearOfPanel`), a toast narrows to
+ * end 20 short of the panel's 440, so the panel never covers it.
  */
-export function NoticeHost({ offsetPastSidebar = false }: { offsetPastSidebar?: boolean }) {
+export function NoticeHost({
+  offsetPastSidebar = false,
+  clearOfPanel = false,
+}: {
+  offsetPastSidebar?: boolean;
+  clearOfPanel?: boolean;
+}) {
   return (
     <ToastStack
       className={cn(
         'max-md:top-[calc(var(--layer-top-bar-height,var(--top-bar-height,0px))+0.5rem)] md:bottom-[calc(var(--version-footer-height,0px)+1.25rem)] md:left-5',
         offsetPastSidebar && 'lg:left-[calc(16rem+20px)]',
+        clearOfPanel &&
+          (offsetPastSidebar
+            ? 'md:max-w-[calc(100vw-16rem-480px)]'
+            : 'md:max-w-[calc(100vw-480px)]'),
       )}
     />
   );

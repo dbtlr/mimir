@@ -2,10 +2,10 @@
 import { act } from '@testing-library/react';
 import { vi } from 'vitest';
 
-/** A named viewport: a desktop, a tablet (between `md` and `lg`), or a phone. */
-export type Viewport = 'desktop' | 'tablet' | 'phone';
+/** A named viewport: a wide desktop (1600 up), a desktop, a tablet (between `md` and `lg`), or a phone. */
+export type Viewport = 'wide' | 'desktop' | 'tablet' | 'phone';
 
-const WIDTH: Record<Viewport, number> = { desktop: 1280, phone: 390, tablet: 900 };
+const WIDTH: Record<Viewport, number> = { desktop: 1280, phone: 390, tablet: 900, wide: 1680 };
 
 /** Whether a `(min-width: Npx)` query holds at `width`; any other query does not. */
 function matchesWidth(query: string, width: number): boolean {
