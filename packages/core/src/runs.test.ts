@@ -27,6 +27,8 @@ async function failureOf(action: Promise<unknown>): Promise<unknown> {
 const STALE_MS = 60_000;
 /** A host clock three minutes ahead of the database's. */
 const skewed = () => new Date(Date.now() + 3 * 60_000).toISOString();
+/** A host clock ten minutes behind the database's. */
+const behind = () => new Date(Date.now() - 10 * 60_000).toISOString();
 const USAGE: RunUsage = {
   cacheReadTokens: 20,
   cacheWriteTokens: 5,
@@ -162,6 +164,25 @@ describe.each([
     const beat = (await hostA.get('r1'))?.heartbeat_at ?? '';
     expect(beat).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/);
     expect(Math.abs(Date.parse(beat) - Date.now())).toBeLessThan(30_000);
+  });
+
+  test('a host whose clock runs behind admits with database time, so another host does not interrupt its run', async () => {
+    const { db } = await fixture();
+    const slow = createRunStore({ clock: behind, db, dialect: backend.dialect });
+    const normal = createRunStore({ db, dialect: backend.dialect });
+    await slow.admit(admission('r1'));
+    expect(await normal.recoverStale(120_000)).toEqual([]);
+    expect((await normal.get('r1'))?.state).toBe('running');
+  });
+
+  test('a host whose clock runs behind heartbeats with database time, so another host does not interrupt its run', async () => {
+    const { db } = await fixture();
+    const slow = createRunStore({ clock: behind, db, dialect: backend.dialect });
+    const normal = createRunStore({ db, dialect: backend.dialect });
+    await normal.admit(admission('r1'));
+    expect(await slow.heartbeat('r1', 'host-a')).toBe('held');
+    expect(await normal.recoverStale(120_000)).toEqual([]);
+    expect((await normal.get('r1'))?.state).toBe('running');
   });
 
   test('admission inserts a running row with its reservation and zero usage', async () => {
