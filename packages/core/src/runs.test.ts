@@ -185,6 +185,25 @@ describe.each([
     expect((await normal.get('r1'))?.state).toBe('running');
   });
 
+  test('by the database clock, a heartbeat older than the window is recovered and a newer one is not', async () => {
+    const { db } = await fixture();
+    const runs = createRunStore({ db, dialect: backend.dialect });
+    const beatAgo = async (ms: number) => {
+      await db
+        .updateTable('runs')
+        .set({ heartbeat_at: new Date(Date.now() - ms).toISOString() })
+        .where('id', '=', 'r1')
+        .execute();
+    };
+    await runs.admit(admission('r1'));
+    await beatAgo(60_000);
+    expect(await runs.recoverStale(120_000)).toEqual([]);
+    await beatAgo(180_000);
+    // Admission recovers the dead host's run and takes the slot.
+    expect(await runs.admit(admission('r2', 'host-b'))).toMatchObject({ admitted: true });
+    expect((await runs.get('r1'))?.state).toBe('interrupted');
+  });
+
   test('admission inserts a running row with its reservation and zero usage', async () => {
     const { runs } = await fixture();
     const result = await runs.admit(admission('r1'));
