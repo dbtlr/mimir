@@ -32,7 +32,9 @@ branch names, timestamps-as-data. Both are self-hosted through Fontsource
 | Section header on a page | 21 / 28, tracking -0.01em | 700 | ink-bright | `text-header` | existing |
 | Sheet or Dialog title (a form) | 21 / 28, tracking -0.01em | 600 | ink-bright | `text-header` | **adopted (MMR-743)** in the Form sheet; a Dialog's question title keeps `OVERLAY_TITLE_CLASS` (14px) |
 | Record title | 17 / 24 | 600 | ink-bright | `text-dossier` | existing |
+| Section head in a feed (Needs you, Now) | 15 / 22 | 600 | ink-bright; its count 13 / 20 ink-dim inside the heading | `text-section` | **adopted (MMR-719)**: feed sections were headed by the 12px all-caps microlabel in ink-dim, the faintest text in the section |
 | Row or card title in a feed | 16 / 22 | 500 | ink-bright | `text-title` | **adopted (MMR-718)**: rows were `text-body` (14, regular) and phone cards `text-card-mobile` (15); a title must lead its meta |
+| Day label of a day fold | 14 / 20 | 500 | ink-dim; its count 13 / 20 ink-dim | `text-label` | **adopted (MMR-719)**: was 12px mono, a date is not machine vocabulary |
 | Group heading inside a form (Advanced, Lifecycle) | 16 / 24 | 600 | ink-bright | `text-base` | **adopted (MMR-743)**: groups today use the 10.5px microlabel, under the floor |
 | Control text (input value, option label, select value) | 15 / 22 | 400 | ink-bright | `text-[15px] leading-[22px]` (Input, Textarea) | existing |
 | Field label | 14 / 20 | 500 | ink | `text-label` | **adopted (MMR-743)**: `FIELD_LABEL_CLASS` is 12px ink-dim; a label must read before its control |
@@ -316,6 +318,40 @@ A Notice that needs to stay longer than a banner would be a banner itself.
 | --- | --- | --- |
 | Page gutter | 20 (`p-5`); 14 on a phone where cards run edge to edge (`max-md:px-3.5`) | existing (`record-layout.tsx`, `focus-queue.tsx`) |
 | Between page sections | 24–40 | existing range (`/kit` uses 40) |
+| Between feed sections | 32 | **adopted (MMR-719)** |
+
+### Feed blocks
+
+The blocks every feed is built from (ADR 0019's MMR-719 refinement), in
+`src/components/patterns/feed`. All values hold at every width unless a
+column says otherwise.
+
+| Block | Part | Value | Mark |
+| --- | --- | --- | --- |
+| Section head | Row | 44 tall on a phone, 36 on desktop, with or without See all; 8 to the content below | **adopted (MMR-719)** |
+| | Name and count | `text-section` ink-bright, then the count 13 / 20 ink-dim, 8 apart, both inside the `h2` | **adopted (MMR-719)** |
+| | See all | 13 / 20, 500, `accent-foreground`, right-aligned; a 44 hit area on a phone; its accessible name names the section ("See all in Now") | **adopted (MMR-719)** |
+| Card | Surface | `well-850`, 1px `line` edge (`line-bright` on hover), 10 radius, `shadow-card` in light; padding 12 top, 16 sides, 16 bottom | **adopted (MMR-719)**; surface existing (`Card`) |
+| | Status line | 13 / 20 ink-dim: the status badge, then the ID in 13px mono, 8 apart; the age right-aligned on line 1; 8 below it to the title | **adopted (MMR-719)** |
+| | Title | `text-title`, wraps; a long word breaks rather than overflow | existing role (MMR-718) |
+| | Detail | 13 / 20 ink-dim, 4 below the title, two lines at most | **adopted (MMR-719)** |
+| | Chip row | the row chips (size, grooming, stale), 4 apart, wrapping; 8 below the title or detail | **adopted (MMR-719)** |
+| | Button | one at most; 44 tall on a phone, 36 on desktop; 12 below the content above it | **adopted (MMR-719)** |
+| | Between cards | 8 in a stack; 12 in a desktop grid | **adopted (MMR-719)** |
+| Row group | Row | a link, 44 tall at least, a `line` hairline between rows | **adopted (MMR-719)** |
+| | Key | `text-mono-id` ink-dim, in a column at least 48 wide | **adopted (MMR-719)** |
+| | Name | `text-title`, two lines at most | **adopted (MMR-719)** |
+| | Count and chevron | 13 / 20 ink-dim, right-aligned; the chevron ink-dim, decoration | **adopted (MMR-719)** |
+| | The capped group's last row | the same row shape, its name in `accent-foreground` ("5 more projects"), a link to the list with a filter set | **adopted (MMR-719)** |
+| Day fold | Trigger | a 44 row: a 14 chevron (right when closed, down when open), the day label, the count; no animation | **adopted (MMR-719)** |
+| | Finished row | a link, 44 tall at least: the status dot, the title `text-title` in ink-dim on one line, the time 13 mono ink-dim at the right | **adopted (MMR-719)** |
+| | Abandoned row | adds a second line, 13 / 20 ink-dim: the status word, then the reason | **adopted (MMR-719)** |
+| | Show N more | a 44 text button, 14 / 20, 500, `accent-foreground` | **adopted (MMR-719)** |
+| Shipped summary | Chart | seven columns, 6 apart, each a 16 count row, an 84 plot, and a 32 two-line label row; bars at most 44 wide, 3 top radius, in `status-done`; the chart at most 520 wide | **adopted (MMR-719)** |
+| | Labels | counts and day names 12 / 16 ink-dim; today's in ink-bright, 600, with "so far" under its name | **adopted (MMR-719)** |
+| | Today's bar | `status-done` at 45% over `well-850`, with a 1px `status-done` edge | **adopted (MMR-719)** |
+| | Counts over 9,999 | shortened on screen (12.4k); exact in the chart's accessible name | **adopted (MMR-719)** |
+| Quiet line, quiet sentence | Text | `text-body` in ink, no frame, with the page gutter | **adopted (MMR-719)** |
 
 ## Sizes
 
