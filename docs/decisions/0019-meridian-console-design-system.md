@@ -82,8 +82,8 @@ absorbing it as an ever-growing list of refinements.
 
 8. **The motion budget is exhaustive.** Three movers: the in-progress pulse
    dot, the detail panel/sheet slide, and note expand/collapse. (2026-11-22,
-   MMR-720: the preview panel's slide includes the sidebar's exit and the
-   feed column's re-centre that travel with it.) Nothing else
+   MMR-720: the preview panel's slide includes the sidebar's exit and return
+   and the feed column's re-centre that travel with it.) Nothing else
    moves — no hover lifts, no springs. Adding a fourth mover is a revisit of
    this ADR, not a styling choice.
 
@@ -1346,7 +1346,7 @@ These building blocks of the readability phase (MMR-717) build on primitives:
 - The preview panel, the Form sheet, and the filter sheet use Drawer.
 - The day fold uses Collapsible.
 - The record header's tabs use Tabs.
-- The phone's sidebar is a left Drawer.
+- The sidebar is a left Drawer below 1024 (`DESKTOP` in `routes/shell.tsx`), on a phone and on a narrow desktop alike (MMR-720).
 - The Needs you deck uses Carousel if the deck's own task proves it fits.
 
 The card, row group, section head, quiet line, and Shipped summary are plain
@@ -1645,13 +1645,13 @@ data, and each page task from MMR-722 on passes the facts its feed already
 has. It keeps no URL state. Back does not close it, no link opens it, and
 Open navigates to the record's page.
 
-- **A preview offers nothing the card does not.** It shows the card's status
+- **A preview offers no action the card does not.** It shows the card's status
   line and title, the facts that matter, the card's one action, and Open
   (principle 4). It adds no third action, and it does not show the record's
   full description: Open reaches the record's page for the rest.
 - **On desktop the panel is non-modal.** A 440 panel slides in from the
   right, starting at the top bar's measured bottom (`--top-bar-height`), so
-  the bar's needs-you pill and More stay in reach. It is a Drawer with
+  the bar's Needs you alert and More stay in reach. It is a Drawer with
   `modal={false}`: unlike the Content sheet, it draws no scrim and leaves the
   feed usable, because the feed stays live beside it and clicking another
   card switches the preview to that card. A non-modal Drawer closes on an
@@ -1667,17 +1667,23 @@ Open navigates to the record's page.
 - **Focus moves to the panel, but on desktop no trap holds it there.**
   Opening or switching moves focus to the panel's title, so a screen reader
   announces the record. The title shows a ring only for keyboard focus
-  (`:focus-visible`). Shift+Tab from the title goes back to the opened card,
-  and Tab from the panel's last button goes on to the card after the opened
-  one. Escape closes the panel, from the panel or from the feed. Closing
+  (`:focus-visible`). Shift+Tab from the title goes back to the selected card,
+  and Tab from the panel's last button goes on to the control after the
+  selected card's stretched target: its own button when it has one, else the
+  next card. Escape closes the topmost layer first: an open menu, the jump palette, or
+  the sidebar drawer before the panel, and the panel from the panel or the
+  feed. Closing
   returns focus to the card that opened the latest preview: a switch makes
   the newly clicked card the opener. On a phone the bottom sheet sits over a
   scrim, so it is a modal Drawer like any other sheet and holds focus until
-  it closes.
-- **What a click does while the panel is open.** Clicking the opened card
+  it closes. When the card's action leaves the panel for another surface, as
+  a bundle's walkthrough does, the panel closes and that surface's opener is
+  the selected card's own button, so focus returns there as ADR 0019's
+  walkthrough rules describe.
+- **What a click does while the panel is open.** Clicking the selected card
   closes the panel. Clicking another card switches it, but clicking that
-  card's button runs the button's action. See all or a sidebar link
-  navigates and closes the panel. Clicking empty feed space closes it.
+  card's button runs the button's action. See all, a sidebar link, or
+  a top-bar control that navigates closes the panel as it navigates. Clicking empty feed space closes it.
 - **The desktop layout makes room for the panel in three ranges.** The
   console's sidebar sits beside the page from 1024 (`DESKTOP` in
   `routes/shell.tsx`) and is a drawer below it.
@@ -1699,15 +1705,15 @@ Open navigates to the record's page.
   column and 1024 beside it both leave a 728 grid. An open feed is one
   column from 768 to 1091 and two from 1092. At 1024 the `md` rule would
   have drawn two cards of 266 beside the panel.
-- **The opened card stays in view.** A reflow on open, switch, or close can
-  move the opened card, as when two columns become one. After any such
-  reflow, the opened card scrolls into view. The feed and the panel scroll
+- **The selected card stays in view.** A reflow on open, switch, or close can
+  move the selected card, as when two columns become one. After any such
+  reflow, the selected card scrolls into view, at once rather than smoothly. The feed and the panel scroll
   separately.
 - **The footer is Open, then the card's action.** Open is always an outline,
   and it stands alone when the card has no button. The card's action follows
   it as the panel's one solid button, even where the card draws that action
   as an outline (a task's Answer). The panel is its own surface, so its
-  solid action may stand beside a feed that shows solid buttons of its own.
+  solid action may stand beside a feed that shows its own one solid button.
 - **The body opens with the reason the item is here.** Under the header's
   status line and title, the body opens with the reason, in complete
   sentences, then the facts as a definition list. A task's reason says what
@@ -1730,7 +1736,7 @@ Open navigates to the record's page.
   takes an `ink-dim` edge, since its `ink-faint` edge falls under 3:1 on the
   wash.
 - **On a phone the preview panel is a bottom sheet that fits its content.**
-  It grows with its content up to 88% of the screen, over a tappable scrim.
+  It grows with its content up to 88% of the visible viewport, over a tappable scrim.
   The grip, the header with Close centred on the status line, and the footer
   stay put, and only the body scrolls. The footer splits into two equal
   tracks, so a long action label wraps inside its button instead of
@@ -1743,7 +1749,7 @@ Open navigates to the record's page.
   measures under 3:1 against the light scrim, so the Select bottom list
   takes the same token.
 - **The panel moves as §8 now states.** §8's panel slide includes the
-  sidebar's exit and the feed column's re-centre that travel with it (the
+  sidebar's exit and return and the feed column's re-centre that travel with it (the
   2026-11-22 amendment to §8). A switch adds no cross-fade, which would be a
   fourth mover. Under `prefers-reduced-motion` the panel does not slide: the
   panel, the sidebar, and the feed column change at once.

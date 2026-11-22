@@ -409,11 +409,11 @@ Rules:
 - **Columns follow the room** (Card grid, above). Beside the open panel the
   feed is two columns of 394 at 1280 and of 424 at 1680, and one column of
   544 at 1024 and of 288 at 768.
-- **The opened card scrolls into view** after any reflow on open, switch, or
+- **The selected card scrolls into view** after any reflow on open, switch, or
   close.
 - **Focus.** Open and switch move focus to the title. On desktop nothing
-  traps it: Shift+Tab from the title reaches the opened card, and Tab from
-  the last footer button reaches the card after it. On a phone the bottom
+  traps it: Shift+Tab from the title reaches the selected card, and Tab from
+  the last footer button reaches the control after the selected card's stretched target (its own button, else the next card). Escape closes the topmost layer first (a menu, the jump palette, or the sidebar drawer), then the panel. On a phone the bottom
   sheet is modal and holds focus until it closes. Closing returns focus to
   the card that opened the latest preview, and a switch makes the newly
   clicked card that opener. `useFinalFocus` (`patterns/opener.ts`) captures
@@ -472,7 +472,7 @@ text's row and the close glyph.
 | Switch, grip, pill | full | existing |
 | Card | 10 | existing (`Card`) |
 | Chart bar, top corners | 3 | **adopted (MMR-719)** |
-| Structure line (section rule, header and footer edges, panel edge) | 1px `line` | existing |
+| Structure line (section rule, header and footer edges, panel edge; the preview panel's desktop edge is its own, under Feed blocks) | 1px `line` | existing |
 | Control edge | 1px `ink-faint`, `ink-dim` on hover, `status-blocked` when invalid, `accent` on focus | **adopted (MMR-743)** `ink-faint` (today `line-bright`, 1.4:1); invalid existing (`TEXT_FIELD_CLASS`) |
 | Focus on a field (Input, Textarea, Select trigger, Combobox) | the edge itself turns `accent` and a 1px `accent` outline at offset 0 joins it: one 2px ring at the control's edge, never a frame inside a frame. 8.7:1 dark, 3.7:1 light on `well-850` | existing border turn (`focus-visible:border-accent`); the joined outline **adopted (MMR-743)** |
 | Focus on a segment | 2px `accent` outline at offset −2, inset inside the segment; while focused it replaces the selection ring (the wash stays). 7.7:1 dark, 3.0:1 light on the wash | **adopted (MMR-743)**: today the button ring, 2px out, which collides with the track |
