@@ -83,6 +83,11 @@ export type RunStore = {
   /** The run holding the single running slot, if any. */
   running: () => Promise<Run | undefined>;
   /**
+   * The database clock's current instant, the time run liveness is judged by
+   * (ADR 0041). A host compares a heartbeat with it, never with its own clock.
+   */
+  databaseNow: () => Promise<string>;
+  /**
    * The task's most recent run that is no longer running: the latest
    * `started_at`, the larger id breaking a tie.
    */
@@ -343,6 +348,14 @@ export function createRunStore({
         state: close.state,
         usage_settled: dialect.codecs.bool.encode(close.usageSettled),
       });
+    },
+    databaseNow: async () => {
+      const { rows } = await sql<{ now: string }>`select ${liveness()} as now`.execute(db);
+      const read = rows[0]?.now;
+      if (read === undefined) {
+        throw new Error('the database returned no time');
+      }
+      return read;
     },
     get,
     heartbeat: (id, runner) => ownedWrite(id, runner, { heartbeat_at: liveness() }),

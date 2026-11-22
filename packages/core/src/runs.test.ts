@@ -185,6 +185,13 @@ describe.each([
     expect((await normal.get('r1'))?.state).toBe('running');
   });
 
+  test('databaseNow reads the database clock in the stored format, whatever the host clock says', async () => {
+    const { db } = await fixture();
+    const now = await createRunStore({ clock: skewed, db, dialect: backend.dialect }).databaseNow();
+    expect(now).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/);
+    expect(Math.abs(Date.parse(now) - Date.now())).toBeLessThan(30_000);
+  });
+
   test('by the database clock, a heartbeat older than the window is recovered and a newer one is not', async () => {
     const { db } = await fixture();
     const runs = createRunStore({ db, dialect: backend.dialect });

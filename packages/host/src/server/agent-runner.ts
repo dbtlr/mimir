@@ -858,8 +858,10 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
   const status: AgentRunner['status'] = async () => {
     const agent = await agentState(settings, connection);
     const holder = await runs.running();
-    const staleBefore = clock().getTime() - timing.staleAfterMs;
-    // Stale as recovery judges it: a heartbeat strictly before the cut-off.
+    // Stale as recovery judges it: a heartbeat strictly before the cut-off, by
+    // the database clock, so a host whose own clock is off agrees with recovery.
+    const staleBefore =
+      holder === undefined ? 0 : Date.parse(await runs.databaseNow()) - timing.staleAfterMs;
     const held = holder === undefined ? undefined : registry.get(holder.id);
     const running =
       holder === undefined
@@ -916,8 +918,12 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
     if (row.runner === options.runnerId) {
       return { answer: 'closing' };
     }
-    // Stale as recovery judges it: a heartbeat strictly before the cut-off.
-    if (new Date(row.heartbeat_at).getTime() < clock().getTime() - timing.staleAfterMs) {
+    // Stale as recovery judges it: a heartbeat strictly before the cut-off, by
+    // the database clock.
+    if (
+      new Date(row.heartbeat_at).getTime() <
+      Date.parse(await runs.databaseNow()) - timing.staleAfterMs
+    ) {
       return { answer: 'stale' };
     }
     return { answer: 'another-host' };
