@@ -185,7 +185,8 @@ ownership refinement), the set's `blocked` member narrows to blocks owned by
 `you`.
 
 - A block owned by `others` keeps the `blocked` status word and its red hue
-  everywhere; it leaves only the needs-you set.
+  everywhere; it leaves only the needs-you set. (Since the MMR-718
+  refinement the red sits on the status dot; the word draws in `ink-bright`.)
 - _Going cold_ is unchanged and still applies to blocks of either owner, so a
   stale external block returns to the set as going cold.
 - The narrowed set applies wherever the console counts what needs the
@@ -374,7 +375,8 @@ operator. The `under_review` status hue is now chartreuse.
   7.21:1 against the light panel. The base, used for dots and borders,
   measures 9.00:1 and 8.54:1 dark, and 3.71:1 and 4.30:1 light. On a
   status chip's 12% wash, the foreground measures 9.56:1 and 8.95:1 dark,
-  and 5.44:1 and 6.24:1 light, all above AA's 4.5:1.
+  and 5.44:1 and 6.24:1 light, all above AA's 4.5:1. (Historical: the
+  MMR-718 refinement retired the status chip and its wash.)
 - **Considered and rejected.** Periwinkle (`#a09cf0` dark, `#605ac4`
   light) kept the cool family but sat ΔE 4.1 from the attention violet.
   Coral (`#ef945f` dark, `#c16229` light) cleared violet but sat about 6
@@ -552,7 +554,8 @@ amber, chartreuse, green, then jade reads as the path to done.
   5.2 dark and `awaiting` and `abandoned` at 4.0 light.
 - **Contrast.** On a status chip's 12% wash, the foreground measures 9.12:1
   against the dark page and 8.55:1 against the dark panel, and 4.91:1 and
-  5.62:1 light, all above AA's 4.5:1. The base, used for dots and borders,
+  5.62:1 light, all above AA's 4.5:1. (Historical: the MMR-718 refinement
+  retired the status chip and its wash.) The base, used for dots and borders,
   measures 8.53:1 and 8.09:1 dark, and 3.61:1 and 4.19:1 light.
 - **Considered and rejected.** Teal (`#45b5b0` dark, `#1b8580` light) drifted
   toward `ready`'s blue. Mint (`#8ad0a8` dark, `#3f9468` light) read as a pale
@@ -601,7 +604,8 @@ and MMR-695 adds the answer and verb controls.
   - A delivery's lifecycle and hold words are not task status words. They
     draw in ink, as text chips, so §3's vocabulary stays closed.
   - Members use the status hues as every task row does, `staged` green
-    included.
+    included. (Since the MMR-718 refinement, a status word draws in ink too,
+    so the hue on its dot is what tells a status from a lifecycle word.)
 - **The phase page.** A phase's page lists its live deliveries (not `landed`
   or `abandoned`) as cards. Each card shows the delivery's id, title,
   lifecycle and hold words, time, and a distribution bar over its members, and
@@ -1443,17 +1447,23 @@ were 14px at regular weight, the same as body text, so a feed's titles did
 not lead. Status words carried their hue as text, so the grey statuses were
 the hardest to read: `parked` measures 2.5:1 and `abandoned` 1.8:1 against a
 dark card (`well-850`), and `abandoned` 3.9:1 on a light one, in a 10.5px
-uppercase pill.
+uppercase pill, and lower still on the 12% wash the pill sat on.
 
 - **Nothing that carries information is under 12px.** `text-tag` and
-  `text-micro` rise to 12px. `text-mono-id` rises to 12.5px: a mono ID beside
-  13px sans meta reads at about its x-height. An ID inside a meta line takes
-  the line's 13px, as DESIGN.md's mono rule says. Decoration (a grip, a
-  separator dot) is exempt.
+  `text-micro` rise to 12px. `text-mono-id` rises to 12.5px, for an ID that
+  stands alone in a row's ID column, half a step under the meta line so it
+  does not compete with the title beside it. An ID that shares a line with
+  sans text, a meta line or a header's status line, takes that line's 13px,
+  as DESIGN.md's mono rule says. Decoration (a grip, a separator dot) is
+  exempt.
 - **Text that carries information is `ink-dim` or brighter.** `ink-faint`
   and `ink-ghost` draw only what carries no information: a control's edge, an
-  off switch, a grip, a separator, a disabled glyph. §7's demotion still
-  drops an ink tier, but text stops at `ink-dim`.
+  off switch, a grip, a separator, a disabled glyph. This ends DESIGN.md's
+  standing exemption for the authoring sheet's and pairing's `ink-ghost`
+  placeholders: they draw in `ink-dim`, as a search box's does.
+- **Demotion stops at `ink-dim`.** §7's demotion still drops an ink tier: a
+  demoted row's title (a done row, a going-cold row) drops from `ink-bright`,
+  but no text drops below `ink-dim`. A status word is never demoted.
 - **Titles lead.** A row or card title in a feed is 16px at weight 500 in
   `ink-bright` (`text-title`), at every width; it replaces the phone-only
   15px `text-card-mobile`. Its meta line is 13px `ink-dim` (`text-meta`).
@@ -1462,13 +1472,16 @@ uppercase pill.
   and `ink-dim` or brighter. Whether feed sections keep it is MMR-719's
   section head.
 - **A status word is bright; only its dot carries the hue.** A status reads
-  as its dot in the status hue followed by its label in `ink-bright`,
-  semibold, 13px, sentence case, with no wash and no ring. On a record
+  as its dot in the status hue followed by its display label (In progress,
+  not `in_progress`) in `ink-bright`, semibold, 13px, with no wash and no
+  ring. On a record
   header the status leads the line, then a hairline, then the record's type
-  and ID in `ink-dim`. This narrows §1's "tinted chips" for status: dots,
-  card borders, and bar segments keep the hue, and a status no longer
-  renders as a tinted chip. Every status word then measures 15:1 or better
-  in both themes, `parked` and `abandoned` included.
+  and ID in `ink-dim`. This narrows §1's "tinted chips" and §3's "chips"
+  for status: dots, card borders, and bar segments keep the hue, and a
+  status no longer renders as a tinted chip. The MMR-438 refinement's red
+  for an external block, and every later hue on a status word, sit on the
+  dot. Every status word then measures 13.6:1 or better on every well in
+  both themes, `parked` and `abandoned` included.
 - **Considered and rejected.** Brightening `ink-faint` until it passes 4.5:1:
   one token change, but `ink-faint` would become a second `ink-dim`, and
   every control edge and grip that uses it would brighten with it. Keeping
