@@ -35,6 +35,8 @@
   --text-page: 1.75rem; /* 28px — page title, weight 700 */
   --text-header: 1.3125rem; /* 21px — section header, 700, tracking -0.01em */
   --text-dossier: 1.0625rem; /* 17px — record title, 600 */
+  --text-section: 0.9375rem; /* 15px — a feed section's head, 600, in ink-bright (MMR-719) */
+  --text-section--line-height: 1.375rem;
   --text-title: 1rem; /* 16px — a feed row or card title, 500, at every width (MMR-718) */
   --text-title--line-height: 1.375rem;
   --text-body: 0.875rem; /* 14px — body 400 at lh 1.65 */

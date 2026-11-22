@@ -4,22 +4,26 @@ import {
 } from '@ui-sdk/react/collapsible';
 import type { ComponentProps, ReactNode } from 'react';
 
+import { cn } from '../../lib/cn';
 import { mergeClassName } from './class-name';
 
 /*
  * The Collapsible primitive (ADR 0046): UI SDK's disclosure behavior in the
- * Meridian look. The feed's day fold ("Tuesday · 6 shipped"; ADR 0019,
- * MMR-717) composes it: a trigger row with a chevron, over a panel that
- * animates its height.
+ * Meridian look: a trigger row with a chevron, over a panel that animates its
+ * height. `animated={false}` drops the height animation and the chevron's
+ * turn, for the feed's day fold, which opens at once (ADR 0019, MMR-719).
  */
 export { Collapsible } from '@ui-sdk/react/collapsible';
 
 /** Our own chevron: UI SDK draws its icons only in web.css, which the console does not load. */
-function Chevron() {
+function Chevron({ animated }: { animated: boolean }) {
   return (
     <svg
       aria-hidden="true"
-      className="size-4 shrink-0 text-ink-dim transition-transform duration-150 group-data-[open]:rotate-90"
+      className={cn(
+        'size-4 shrink-0 text-ink-dim group-data-[open]:rotate-90',
+        animated && 'transition-transform duration-150',
+      )}
       fill="none"
       stroke="currentColor"
       strokeLinecap="round"
@@ -59,10 +63,13 @@ export function CollapsibleTrigger({
   children,
   className,
   chevron = 'start',
+  animated = true,
   ...props
 }: Omit<ComponentProps<typeof SdkCollapsibleTrigger>, 'children'> & {
   children?: ReactNode;
   chevron?: 'start' | 'end';
+  /** False: the chevron turns at once. */
+  animated?: boolean;
 }) {
   return (
     <SdkCollapsibleTrigger
@@ -72,22 +79,27 @@ export function CollapsibleTrigger({
       )}
       {...props}
     >
-      {chevron === 'start' && <Chevron />}
+      {chevron === 'start' && <Chevron animated={animated} />}
       {children}
       {chevron === 'end' && <EndChevron />}
     </SdkCollapsibleTrigger>
   );
 }
 
-/** The folded content; its height animates from `--collapsible-panel-height`. */
+/**
+ * The folded content; its height animates from `--collapsible-panel-height`
+ * unless `animated` is false, when it opens and closes at once.
+ */
 export function CollapsiblePanel({
   className,
+  animated = true,
   ...props
-}: ComponentProps<typeof SdkCollapsiblePanel>) {
+}: ComponentProps<typeof SdkCollapsiblePanel> & { animated?: boolean }) {
   return (
     <SdkCollapsiblePanel
       className={mergeClassName(
-        'h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-150 ease-out data-[ending-style]:h-0 data-[starting-style]:h-0',
+        animated &&
+          'h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-150 ease-out data-[ending-style]:h-0 data-[starting-style]:h-0',
         className,
       )}
       {...props}
