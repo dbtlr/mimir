@@ -81,8 +81,8 @@ Rules:
   last line holds a phrase, and check both widths.
 - **Mono sizes match their neighbors on a shared line.** An ID inside a 13px meta line is 13px
   mono, not a smaller step. A mono value that stands apart on a title row
-  takes the meta size, not the title's: a finished row's time is 13px, and
-  an ID or project key alone in its column is 12.5px (`text-mono-id`).
+  never takes the title's size. A finished row's time is 13px, the meta
+  size. An ID or project key alone in its column is 12.5px (`text-mono-id`).
 - **A mono value beside sans matches its x-height.** JetBrains Mono's x-height
   is 0.55 of its size and Instrument Sans's 0.51, so at one size the mono
   reads larger. A mono value in a menu row or a control's value (a system,
@@ -336,7 +336,7 @@ column says otherwise.
 | | Name and count | `text-section` ink-bright, then the count 13 / 20 ink-dim, 8 apart, both inside the `h2` | **adopted (MMR-719)** |
 | | See all | 13 / 20, 500, `accent-foreground`, right-aligned; a 44 hit area on a phone; its accessible name names the section ("See all in Now") | **adopted (MMR-719)** |
 | Card | Surface | `well-850`, 1px `line` edge (`line-bright` on hover), 10 radius, `shadow-card` in light; padding 12 top, 16 sides, 16 bottom | **adopted (MMR-719)**; surface existing (`Card`) |
-| | Status line | 13 / 20 ink-dim: the status badge (or a bundle's kind, as a bright word after its dot), then the ID in 13px mono, 8 apart; the age right-aligned on line 1; 8 below it to the title | **adopted (MMR-719)** |
+| | Status line | 13 / 20 ink-dim: the status badge, or for a set of decisions the word _Decisions_ after an attention dot, then the ID in 13px mono, 8 apart; the age right-aligned on line 1; 8 below it to the title | **adopted (MMR-719)** |
 | | Title | `text-title`, wraps; a long word breaks rather than overflow | existing role (MMR-718) |
 | | Detail | 13 / 20 ink-dim, 4 below the title, two lines at most | **adopted (MMR-719)** |
 | | Chip row | the row chips (size, grooming, stale), 4 apart, wrapping; 8 below the title or detail | **adopted (MMR-719)** |

@@ -1537,8 +1537,8 @@ decides which blocks it takes (Home in MMR-722, the Needs you page in
 MMR-723, list pages in MMR-724, scoped pages in MMR-727), and until then
 ADR 0013's section rules (Shipped as rows grouped by day among them) and the
 needs-you rows of the MMR-694 and MMR-695 refinements stand. A decision's
-row keeps its answer chips: the card's one-button limit binds cards, not
-those rows.
+row keeps its answer chips: the feed card's one-button limit binds feed
+cards, not those rows or the focus queue's card.
 
 - **A feed section's head is a sentence-case heading, not the microlabel.**
   It reads as the section's name in 15px/600 `ink-bright`, followed by its
@@ -1548,17 +1548,22 @@ those rows.
   head. This narrows §6: the microlabel stays the one all-caps idiom, for
   column and lane captions, and no longer captions a feed section. The
   MMR-718 refinement left that choice to this block.
-- **A card is one link, with at most one button above it.** The card reads
+- **A feed card is one link, with at most one button stacked over it.** It reads
   top down: a status line, the title (16px/500, `text-title`), an optional
   detail line (13px `ink-dim`, two lines at most), an optional chip row, and
-  an optional button. The status line leads with what the item is (a task's
-  status badge, or a bundle's kind) and the record's ID, and keeps the age
+  an optional button. The status line leads with what the item is and the
+  record's ID, and keeps the age
   at its right end on the first line. Each part of the line moves to the
   next line whole, and a long word wraps beside its dot rather than past the
-  card. Chips (size, grooming, stale) sit in their own row under the title,
+  card. A task's card leads with its status badge. A card that stands for
+  a set of provisional decisions (one delivery's, or a project's decisions
+  without a delivery, as the phase design bundles them) leads with the word
+  _Decisions_ after an attention dot, in the status word's bright ink; it
+  names a set, not a delivery's lifecycle, so MMR-680's ink chips do not
+  apply to it. Chips (size, grooming, stale) sit in their own row under the title,
   never on the status line, so a long title never leaves a chip alone on a
   line. The whole card is one link whose accessible description is its
-  status line and chip row. Its one button sits above that link as a
+  status line and chip row. Its one button is stacked over that link as a
   separate target, so a tap beside the button still follows the link. Until
   the preview panel (MMR-720) replaces it, the link opens the record's page.
   A going-cold card's title is demoted to `ink-dim` (§7, MMR-718).
@@ -1572,8 +1577,8 @@ those rows.
   44px tall on a phone and 36px on desktop: a chevron that points right when
   closed and down when open, the day in 14px/500 sans `ink-dim`, and the
   day's count. It opens and closes at once, without the primitive's height
-  animation or chevron turn, within §8's motion budget. Only the latest day
-  starts open. Inside it, finished work is one-line rows, each a link: the
+  animation or chevron turn, within §8's motion budget. Days run newest
+  first, as do the rows within a day, and only the latest day starts open. Inside it, finished work is one-line rows, each a link: the
   status dot, the title demoted to `ink-dim` (§7, MMR-718), and the time in
   mono. An abandoned row adds a second line with its status word in bright
   ink and its reason, and every row's status is in its accessible text. A
@@ -1584,7 +1589,7 @@ those rows.
   Each day is one column, with its count above the bar and its short name
   below, and all columns share one baseline. Bars draw in the `done` hue, as
   §1 keeps hues on bar segments. Today's bar is partial, so it is outlined in
-  the `done` hue over a lighter fill and labelled "so far". The chart's
+  the `done` hue over a weaker fill and labelled "so far". The chart's
   accessible name lists every day's count. Counts past 9,999 are shortened
   on screen (12.4k) and stay exact in the accessible name. A row group of
   counts one level down follows the chart.
