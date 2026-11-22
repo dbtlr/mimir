@@ -61,7 +61,7 @@ export function PickerCheck({ className }: { className?: string }) {
 export function PickerRecord({ id, title }: { id: string; title: string }) {
   return (
     <>
-      <span className="min-w-16 shrink-0 font-mono text-micro text-ink-dim">{id}</span>
+      <span className="min-w-16 shrink-0 font-mono text-mono-id text-ink-dim">{id}</span>
       <span className="min-w-0 flex-1 truncate">{title}</span>
     </>
   );

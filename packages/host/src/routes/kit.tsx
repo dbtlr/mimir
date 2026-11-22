@@ -46,10 +46,10 @@ const HUES = [
 ] as const;
 
 const TYPE_SCALE = [
-  { cls: 'text-page', note: '28 · page title · 700' },
-  { cls: 'text-header', note: '21 · section header · 700' },
-  { cls: 'text-dossier', note: '17 · record title · 600' },
-  { cls: 'text-title', note: '16 · feed title · 500' },
+  { cls: 'text-page', note: '28 · page title · 700', weight: 'font-bold' },
+  { cls: 'text-header', note: '21 · section header · 700', weight: 'font-bold' },
+  { cls: 'text-dossier', note: '17 · record title · 600', weight: 'font-semibold' },
+  { cls: 'text-title', note: '16 · feed title · 500', weight: 'font-medium' },
   { cls: 'text-body', note: '14 · body · 400' },
   { cls: 'text-meta', note: '13 · meta' },
   { cls: 'text-mono-id', mono: true, note: '12.5 · mono id' },
@@ -100,7 +100,14 @@ export function KitPage() {
         <div className="flex flex-col gap-2 rounded-lg border border-line bg-well-850 p-4">
           {TYPE_SCALE.map((t) => (
             <div key={t.cls} className="flex items-baseline gap-4">
-              <span className={cn(t.cls, 'text-ink-bright', 'mono' in t && t.mono && 'font-mono')}>
+              <span
+                className={cn(
+                  t.cls,
+                  'text-ink-bright',
+                  'weight' in t && t.weight,
+                  'mono' in t && t.mono && 'font-mono',
+                )}
+              >
                 Meridian
               </span>
               <span className="text-mono-id font-mono text-ink-dim">{t.note}</span>

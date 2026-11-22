@@ -12,9 +12,9 @@ function ShippedRows() {
   return (
     <ul className="flex flex-col divide-y divide-line border-t border-line">
       {SHIPPED_ROWS.map(([id, title]) => (
-        <li className="flex items-baseline gap-3 py-2 text-sm text-ink" key={id}>
+        <li className="flex items-baseline gap-3 py-2" key={id}>
           <span className="text-mono-id font-mono text-ink-dim">{id}</span>
-          {title}
+          <span className="text-title font-medium text-ink-bright">{title}</span>
         </li>
       ))}
     </ul>

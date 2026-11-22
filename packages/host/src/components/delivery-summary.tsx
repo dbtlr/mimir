@@ -34,12 +34,12 @@ export function DeliveryWords({ delivery }: { delivery: EngineDelivery }) {
 /** A delivery that has not started has no elapsed time (null), so it reads "Not started". */
 export function DeliveryTime({ delivery }: { delivery: EngineDelivery }) {
   if (delivery.elapsed_minutes === null) {
-    return <span className="text-tag text-ink-dim">Not started</span>;
+    return <span className="text-meta text-ink-dim">Not started</span>;
   }
   const elapsed = Math.floor(delivery.elapsed_minutes);
   const cap = delivery.time_cap_minutes;
   return (
-    <div className="flex flex-col gap-1 text-tag text-ink-dim">
+    <div className="flex flex-col gap-1 text-meta text-ink-dim">
       <span>
         {elapsed} min elapsed{cap !== null && ` / ${String(cap)} min cap`}
       </span>

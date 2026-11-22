@@ -66,8 +66,9 @@ export function Empty({ lead, children }: { lead: string; children?: ReactNode }
 function ContextPart({ children, mono = false }: { children: ReactNode; mono?: boolean }) {
   return (
     <>
-      <span aria-hidden>{'\u00a0· '}</span>
-      <span className={cn(mono && 'font-mono break-all')}>{children}</span>
+      {/* The dot is hidden from assistive tech; the space after it is not, so the parts still read apart. */}
+      <span aria-hidden>{'\u00a0·'}</span>{' '}
+      <span className={cn(mono && 'font-mono wrap-anywhere')}>{children}</span>
     </>
   );
 }

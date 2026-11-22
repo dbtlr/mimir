@@ -107,7 +107,7 @@ const FAINT_TEXT =
 /** A literal size: the `text-[…]` utility or an arbitrary `[font-size:…]` property. */
 const LITERAL_SIZE = /(?<![\w-])(?:text-\[([^\]\s]+)\]|\[font-size:([^\]\s]+)\])/g;
 /** An inline style's size or faint colour: `fontSize: 10`, `fontSize: '10px'`, `color: 'var(--color-ink-faint)'`. */
-const INLINE_SIZE = /fontSize\s*:\s*['"`]?([\d.]+(?:px|rem|pt|em|%)?)['"`]?/g;
+const INLINE_SIZE = /fontSize\s*:\s*(?:['"`]([^'"`]+)['"`]|([\d.]+))/g;
 const INLINE_FAINT = /color\s*:\s*['"`]var\(--color-ink-(?:faint|ghost)\)['"`]/g;
 /** A Typography (`prose`) variable set to faint ink; borders and rules are not text. */
 const FAINT_PROSE = /--tw-prose-(?:invert-)?([\w-]+)\s*:\s*var\(--color-ink-(?:faint|ghost)\)/g;
@@ -125,8 +125,9 @@ function smallLiterals(text: string): string[] {
       return !COLOR_VALUE.test(value) && isUndersized(value);
     })
     .map((m) => m[0]);
+  // A bare number is React's px; a quoted value is any CSS size, keywords and calc() included.
   const inline = [...text.matchAll(INLINE_SIZE)]
-    .filter((m) => isUndersized(/^[\d.]+$/.test(m[1] ?? '') ? `${m[1] ?? ''}px` : (m[1] ?? '')))
+    .filter((m) => isUndersized(m[1] ?? `${m[2] ?? ''}px`))
     .map((m) => m[0]);
   return [...classes, ...inline];
 }
@@ -203,7 +204,10 @@ function stylesheetFindings(): string[] {
   }
   // The `font` shorthand: its size is the first length, before any `/line-height`.
   for (const match of STYLES.matchAll(/(?<![\w-])font\s*:\s*([^;}]+)/g)) {
-    const size = /(?:^|\s)([\d.]+(?:px|rem|pt|em|%))(?:\/|\s|$)/.exec(match[1] ?? '')?.[1];
+    const size =
+      /(?:^|\s)([\d.]+(?:px|rem|pt|em|%)|xx-small|x-small|smaller|small|calc\([^)]*\))(?:\/|\s|$)/.exec(
+        match[1] ?? '',
+      )?.[1];
     if (size !== undefined && isUndersized(size)) {
       found.push(match[0].trim());
     }
