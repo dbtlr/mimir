@@ -1594,8 +1594,9 @@ cards, not those rows or the focus queue's card.
   draw in the `done` hue, as §1 keeps hues on bar segments. Today's bar is partial, so it is outlined in
   the `done` hue over a weaker fill and labelled "so far". The chart's
   accessible name lists every day's count. Counts past 999 are shortened on
-  screen to four characters (1.2k, 12k, 1.2M, 1B), so a label stays inside its
-  column on a 320px phone, and stay exact in the accessible name. A row group of
+  screen to four characters (1.2k, 12k, 1.2M, 1B), so on a 320px phone a
+  label stays within its column and the gaps beside it and never touches a
+  neighbour, and stay exact in the accessible name. A row group of
   counts one level down follows the chart.
 - **Quiet states are plain sentences.** A quiet line replaces one empty
   section with a sentence ("Nothing needs you."). A quiet sentence replaces

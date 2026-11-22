@@ -69,20 +69,25 @@ export function FinishedRow({
   );
 }
 
-/** What may take focus in a revealed row, before the checks in `firstFocusable`. */
-const FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
+/** What may take focus in a revealed row, before `focusFirst` tries each. */
+const FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]';
 
 /**
- * The first element in `root` that can take keyboard focus: not disabled (by
- * itself or a disabled fieldset, which `:disabled` covers) and not a hidden
- * input.
+ * Moves focus to the first element in `root` that is in the tab order and
+ * actually takes focus. Each candidate is tried in turn, so whatever makes an
+ * element refuse focus (disabled, a disabled fieldset, hidden, `display:
+ * none`) passes it over without being listed here.
  */
-function firstFocusable(root: Element | undefined): HTMLElement | undefined {
-  return [...(root?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])].find(
-    (element) =>
-      !element.matches(':disabled') &&
-      !(element instanceof HTMLInputElement && element.type === 'hidden'),
-  );
+function focusFirst(root: Element | undefined): void {
+  for (const element of root?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []) {
+    if (element.tabIndex < 0 || element.matches(':disabled')) {
+      continue;
+    }
+    element.focus();
+    if (document.activeElement === element) {
+      return;
+    }
+  }
 }
 
 /** One day's fold: its trigger row and its rows, capped with an in-place Show N more. */
@@ -117,7 +122,7 @@ export function DayFold({
   useEffect(() => {
     if (expanded && justExpanded.current) {
       justExpanded.current = false;
-      firstFocusable(listRef.current?.children[cap])?.focus();
+      focusFirst(listRef.current?.children[cap]);
     }
   }, [expanded, cap]);
   return (
@@ -130,7 +135,8 @@ export function DayFold({
     >
       <CollapsibleTrigger
         animated={false}
-        className="-mx-1 min-h-11 w-[calc(100%+0.5rem)] gap-2 px-1 py-0 text-label font-medium text-ink hover:text-ink-bright md:min-h-9"
+        // Like a row: the ring drawn inside, and a fill on hover.
+        className="-mx-1 min-h-11 w-[calc(100%+0.5rem)] gap-2 px-1 py-0 text-label font-medium text-ink hover:bg-well-800 hover:text-ink-bright focus-visible:-outline-offset-2 md:min-h-9"
       >
         {label}{' '}
         <span className="text-meta font-normal text-ink-dim">{count.toLocaleString('en-US')}</span>

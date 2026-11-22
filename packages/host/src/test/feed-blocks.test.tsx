@@ -24,13 +24,19 @@ function spare(seeds: number) {
   ];
 }
 
-/** A day row whose first control is a disabled button that keeps a tab index. */
+/**
+ * A day row whose first controls cannot take focus (a disabled button that
+ * keeps a tab index, a link out of the tab order), before its own link.
+ */
 function rowWithDisabledFirst(name: string) {
   return (
     <div key={name}>
       <button type="button" disabled tabIndex={0}>
         Undo
       </button>
+      <a href="/skip" tabIndex={-1}>
+        skip
+      </a>
       <a href={`/${name}`}>{name}</a>
     </div>
   );

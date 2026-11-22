@@ -354,7 +354,7 @@ column says otherwise.
 | Shipped summary | Chart | a 1px `line-bright` baseline under the plot (the breakdown's divider stays `line`), so a zero day reads as zero; seven columns, 8 apart, each a 16 count row, an 84 plot, and a 32 two-line label row; bars at most 44 wide, 3 top radius, in `status-done`; any day above zero at least 4 tall, so a smaller day never draws taller; the columns share the card's width | **adopted (MMR-719)** |
 | | Labels | counts and day names 12 / 16 ink-dim; today's in ink-bright, 600, with "so far" under its name | **adopted (MMR-719)** |
 | | Today's bar | a solid fill mixed 45% `status-done` into `well-850` (a mixed color, not opacity), with a 1px `status-done` edge, which the 4 floor keeps around a fill | **adopted (MMR-719)** |
-| | Counts over 999 | shortened on screen to four characters (1.2k, 12k, 1.2M, 1B, 1T; a value that would round to 1000 of a unit moves up), which fit a 28 column at 320; exact in the chart's accessible name | **adopted (MMR-719)** |
+| | Counts over 999 | shortened on screen to four characters (1.2k, 12k, 1.2M, 1B, 1T; a value that would round to 1000 of a unit moves up), so a label stays within its column and the gaps beside it (36 at 320), and neighbours never touch; exact in the chart's accessible name | **adopted (MMR-719)** |
 | Quiet line, quiet sentence | Text | `text-body` (14 / 23) in ink, no frame, at the section head's left edge, 32 from the block above. A quiet line takes a section's place; it never sits under a section's own head | **adopted (MMR-719)** |
 
 ## Sizes
