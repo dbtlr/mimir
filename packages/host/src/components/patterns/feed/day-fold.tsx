@@ -78,16 +78,17 @@ const FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]';
  * element refuse focus (disabled, a disabled fieldset, hidden, `display:
  * none`) passes it over without being listed here.
  */
-function focusFirst(root: Element | undefined): void {
+function focusFirst(root: Element | undefined): boolean {
   for (const element of root?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []) {
     if (element.tabIndex < 0 || element.matches(':disabled')) {
       continue;
     }
     element.focus();
     if (document.activeElement === element) {
-      return;
+      return true;
     }
   }
+  return false;
 }
 
 /** One day's fold: its trigger row and its rows, capped with an in-place Show N more. */
@@ -118,6 +119,7 @@ export function DayFold({
 }) {
   const [expanded, setExpanded] = useState(false);
   const listRef = useRef<HTMLUListElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const justExpanded = useRef(false);
   const shown = expanded ? rows : rows.slice(0, cap);
   const hidden = rows.length - shown.length;
@@ -126,7 +128,12 @@ export function DayFold({
   useEffect(() => {
     if (expanded && justExpanded.current) {
       justExpanded.current = false;
-      focusFirst(listRef.current?.children[cap]);
+      // The first revealed row that holds something focusable; when none
+      // does, the fold's trigger, so focus never falls to the page.
+      const revealed = [...(listRef.current?.children ?? [])].slice(cap);
+      if (!revealed.some((row) => focusFirst(row))) {
+        triggerRef.current?.focus();
+      }
     }
   }, [expanded, cap]);
   return (
@@ -138,6 +145,7 @@ export function DayFold({
       className="border-line not-first:border-t"
     >
       <CollapsibleTrigger
+        ref={triggerRef}
         animated={false}
         // Like a row: the ring drawn inside, and a fill on hover.
         className="-mx-1 min-h-11 w-[calc(100%+0.5rem)] gap-2 px-1 py-0 text-label font-medium text-ink hover:bg-well-800 hover:text-ink-bright focus-visible:-outline-offset-2 md:min-h-9"

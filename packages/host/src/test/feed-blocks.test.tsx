@@ -42,6 +42,20 @@ function rowWithDisabledFirst(name: string) {
   );
 }
 
+/** A day row with nothing to focus. */
+function plainRow(name: string) {
+  return <p key={name}>{name}</p>;
+}
+
+/** A day row that is a bare link. */
+function linkedRow(name: string) {
+  return (
+    <a key={name} href={`/${name}`}>
+      {name}
+    </a>
+  );
+}
+
 describe('feed section head', () => {
   it('names the section and its count in one heading, and its See all opens the filtered list', async () => {
     await renderInRouter(
@@ -169,6 +183,15 @@ describe('feed row group', () => {
     const { rerender } = await renderInRouter(<RowGroup label="Spare" rows={spare(12)} />);
     screen.getByRole('link', { name: 'To groom 15' }).focus();
     rerender(<RowGroup label="Spare" rows={spare(0)} />);
+    expect(screen.getByRole('link', { name: 'To groom 15' })).toHaveFocus();
+  });
+
+  it('keeps focus on a door when an unkeyed row is inserted above it', async () => {
+    const groom = { count: 15, name: 'To groom', to: { to: '/' } as const };
+    const seeds = { count: 12, name: 'Seeds to triage', to: { to: '/' } as const };
+    const { rerender } = await renderInRouter(<RowGroup label="Spare" rows={[groom]} />);
+    screen.getByRole('link', { name: 'To groom 15' }).focus();
+    rerender(<RowGroup label="Spare" rows={[seeds, groom]} />);
     expect(screen.getByRole('link', { name: 'To groom 15' })).toHaveFocus();
   });
 
@@ -309,6 +332,33 @@ describe('feed day folds', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: 'Show 1 more' }));
     expect(screen.getByRole('link', { name: 'two' })).toHaveFocus();
+  });
+
+  it('looks past a revealed row with nothing to focus, and falls back to the day', async () => {
+    const { unmount } = await renderInRouter(
+      <DayFolds
+        days={[
+          {
+            count: 3,
+            key: 'd',
+            label: 'Today',
+            rows: [linkedRow('one'), plainRow('two'), linkedRow('three')],
+          },
+        ]}
+        cap={1}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Show 2 more' }));
+    expect(screen.getByRole('link', { name: 'three' })).toHaveFocus();
+    unmount();
+    await renderInRouter(
+      <DayFolds
+        days={[{ count: 2, key: 'd', label: 'Today', rows: [linkedRow('one'), plainRow('two')] }]}
+        cap={1}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Show 1 more' }));
+    expect(screen.getByRole('button', { name: 'Today 2' })).toHaveFocus();
   });
 
   it('shows a capped day’s rest in place and moves focus to the first row it revealed', async () => {

@@ -32,11 +32,12 @@ export function RowGroup({
   return (
     <ul aria-label={label} className="m-0 list-none divide-y divide-line p-0">
       {rows
-        // Keys come from a row's place in the full list, before rows counting
-        // zero drop out, so a row reaching zero never shifts its neighbours'
-        // keys (which would remount them and drop focus), and unkeyed rows that
-        // share a name stay apart.
-        .map((row, index) => ({ key: row.key ?? `${String(index)}:${row.name}`, row }))
+        // A row's React key is its project key, or for an unkeyed row its name
+        // and how many rows before it share that name. Keys come from the full
+        // list, before rows counting zero drop out, so neither a row reaching
+        // zero nor a row inserted above with another name shifts a neighbour's
+        // key (which would remount a focused door and drop focus).
+        .map((row, index) => ({ key: rowKey(row, rows.slice(0, index)), row }))
         .filter(({ row }) => row.count > 0)
         .map(({ key, row }) => (
           <li key={key}>
@@ -50,6 +51,15 @@ export function RowGroup({
       )}
     </ul>
   );
+}
+
+/** A row's stable React key: its project key, else its name and occurrence. */
+function rowKey(row: RowGroupRow, earlier: readonly RowGroupRow[]): string {
+  if (row.key !== undefined) {
+    return row.key;
+  }
+  const same = earlier.filter((other) => other.key === undefined && other.name === row.name);
+  return `${row.name}#${String(same.length)}`;
 }
 
 function Door({ row, more = false }: { row: RowGroupRow; more?: boolean }) {
