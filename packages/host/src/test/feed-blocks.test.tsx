@@ -16,6 +16,26 @@ import { renderInRouter } from './router';
  * browser's to check; jsdom has no layout.
  */
 
+/** Two "When you have a minute" rows, the first counting `seeds`. */
+function spare(seeds: number) {
+  return [
+    { count: seeds, name: 'Seeds to triage', to: { to: '/' } as const },
+    { count: 15, name: 'To groom', to: { params: { key: 'MMR' }, to: '/p/$key' } as const },
+  ];
+}
+
+/** A day row whose first control is a disabled button that keeps a tab index. */
+function rowWithDisabledFirst(name: string) {
+  return (
+    <div key={name}>
+      <button type="button" disabled tabIndex={0}>
+        Undo
+      </button>
+      <a href={`/${name}`}>{name}</a>
+    </div>
+  );
+}
+
 describe('feed section head', () => {
   it('names the section and its count in one heading, and its See all opens the filtered list', async () => {
     await renderInRouter(
@@ -140,10 +160,6 @@ describe('feed row group', () => {
   });
 
   it('keeps focus on a door when an earlier row drops to zero', async () => {
-    const spare = (seeds: number) => [
-      { count: seeds, name: 'Seeds to triage', to: { to: '/' } as const },
-      { count: 15, name: 'To groom', to: { params: { key: 'MMR' }, to: '/p/$key' } as const },
-    ];
     const { rerender } = await renderInRouter(<RowGroup label="Spare" rows={spare(12)} />);
     screen.getByRole('link', { name: 'To groom 15' }).focus();
     rerender(<RowGroup label="Spare" rows={spare(0)} />);
@@ -260,17 +276,16 @@ describe('feed day folds', () => {
   });
 
   it('hands focus past a revealed row’s disabled control to the one that takes it', async () => {
-    const row = (name: string) => (
-      <div key={name}>
-        <button type="button" disabled tabIndex={0}>
-          Undo
-        </button>
-        <a href={`/${name}`}>{name}</a>
-      </div>
-    );
     await renderInRouter(
       <DayFolds
-        days={[{ count: 2, key: 'd', label: 'Today', rows: [row('one'), row('two')] }]}
+        days={[
+          {
+            count: 2,
+            key: 'd',
+            label: 'Today',
+            rows: [rowWithDisabledFirst('one'), rowWithDisabledFirst('two')],
+          },
+        ]}
         cap={1}
       />,
     );
