@@ -21,7 +21,7 @@ export { ListboxGroup, ListboxSeparator } from '@ui-sdk/react/listbox';
 
 /** One option row: the highlight, the selected check's slot, and the disabled look. */
 export const PICKER_ROW_CLASS =
-  'flex min-w-0 cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 text-sm text-ink outline-none select-none max-md:py-2.5 data-[highlighted]:bg-accent/10 data-[highlighted]:inset-ring data-[highlighted]:inset-ring-accent/25 data-[disabled]:cursor-default data-[disabled]:text-ink-faint';
+  'flex min-w-0 cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 text-sm text-ink outline-none select-none max-md:py-2.5 data-[highlighted]:bg-accent/10 data-[highlighted]:inset-ring data-[highlighted]:inset-ring-accent/25 data-[disabled]:cursor-default data-[disabled]:text-ink-dim';
 
 /**
  * A group's heading ("Recent", "Actions"): 13/20 ink-dim at 500, sentence case,
@@ -61,7 +61,7 @@ export function PickerCheck({ className }: { className?: string }) {
 export function PickerRecord({ id, title }: { id: string; title: string }) {
   return (
     <>
-      <span className="min-w-16 shrink-0 font-mono text-micro text-ink-dim">{id}</span>
+      <span className="min-w-16 shrink-0 font-mono text-mono-id text-ink-dim">{id}</span>
       <span className="min-w-0 flex-1 truncate">{title}</span>
     </>
   );

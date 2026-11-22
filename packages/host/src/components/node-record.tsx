@@ -47,7 +47,7 @@ export function RefRow({ refNode }: { refNode: NodeRef }) {
 /** Links to a record's artifacts, each at its own page (MMR-452). */
 export function ArtifactLinks({ artifacts }: { artifacts?: readonly RecordArtifact[] }) {
   if (artifacts === undefined || artifacts.length === 0) {
-    return <p className="text-xs text-ink-faint">None yet.</p>;
+    return <p className="text-xs text-ink-dim">None yet.</p>;
   }
   return (
     <div className="flex flex-col gap-0.5">
@@ -71,13 +71,13 @@ export function ArtifactLinks({ artifacts }: { artifacts?: readonly RecordArtifa
 export function DescriptionSection({ description }: { description?: string | null }) {
   return (
     <section className="flex flex-col gap-1.5">
-      <h2 className="microlabel border-b border-line pb-1.5 text-ink-faint">Description</h2>
+      <h2 className="microlabel border-b border-line pb-1.5 text-ink-dim">Description</h2>
       {description != null && description.trim() !== '' ? (
         <MarkdownBody breaks className="max-w-none">
           {description}
         </MarkdownBody>
       ) : (
-        <p className="text-xs text-ink-faint">No description.</p>
+        <p className="text-xs text-ink-dim">No description.</p>
       )}
     </section>
   );
@@ -164,16 +164,10 @@ export function MetaRow({ label, children }: { label: string; children: ReactNod
   );
 }
 
-/** Hold-reason callout wash, keyed to the hold kind (parked ≠ blocked hue). */
-const HOLD_CALLOUT: Record<'blocked' | 'parked', { box: string; label: string }> = {
-  blocked: {
-    box: 'bg-status-blocked/10 inset-ring-status-blocked/24',
-    label: 'text-status-blocked',
-  },
-  parked: {
-    box: 'bg-status-parked/10 inset-ring-status-parked/24',
-    label: 'text-status-parked',
-  },
+/** Hold-reason callout wash, keyed to the hold kind (parked ≠ blocked hue); the label reads in bright ink (MMR-718). */
+const HOLD_CALLOUT: Record<'blocked' | 'parked', string> = {
+  blocked: 'bg-status-blocked/10 inset-ring-status-blocked/24',
+  parked: 'bg-status-parked/10 inset-ring-status-parked/24',
 };
 
 /** The callout's lead: a block names who can clear it; a park, a legacy block without an owner, just the hold. */
@@ -195,10 +189,8 @@ export function HoldCallout({ node }: { node: EngineNode }) {
     return null;
   }
   return (
-    <div
-      className={cn('rounded-lg p-2.5 text-xs text-ink inset-ring', HOLD_CALLOUT[node.hold].box)}
-    >
-      <span className={cn('microlabel mr-2', HOLD_CALLOUT[node.hold].label)}>
+    <div className={cn('rounded-lg p-2.5 text-xs text-ink inset-ring', HOLD_CALLOUT[node.hold])}>
+      <span className="microlabel mr-2 text-ink-bright">
         {holdLabel(node.hold, node.blockOwner)}
       </span>
       <LinkifiedText>{reason}</LinkifiedText>
@@ -230,7 +222,7 @@ export function VerdictBlock({
   annotations: readonly NodeAnnotation[] | undefined;
   offline?: boolean;
   onVerb: (v: VerbSpec) => void;
-  /** Label the block "In review", as the record page does. */
+  /** Label the block "Review": the header's status word already names the status (MMR-718). */
   heading?: boolean;
 }) {
   const verbs = availableTransitions(node.status);
@@ -240,7 +232,7 @@ export function VerdictBlock({
 
   return (
     <div className="flex flex-col gap-2.5 rounded-lg border border-line bg-well-850 p-3.5">
-      {heading && <p className="microlabel text-ink-faint">In review</p>}
+      {heading && <p className="microlabel text-ink-dim">Review</p>}
       {summary !== undefined && <p className="text-xs leading-relaxed text-ink">{summary}</p>}
       {node.externalRef != null && <ExternalRef value={node.externalRef} />}
       <div className="flex gap-2">

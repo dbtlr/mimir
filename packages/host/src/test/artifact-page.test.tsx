@@ -124,7 +124,12 @@ describe('artifact page (MMR-452)', () => {
     await expect(
       screen.findByRole('heading', { level: 1, name: spec.title }),
     ).resolves.toBeInTheDocument();
-    expect(screen.getByText('MMR-a232 · artifact')).toBeInTheDocument();
+    // The header's ID is mono inside a sans line (MMR-718), so match the line's whole text.
+    expect(
+      screen.getByText(
+        (_, el) => el?.tagName === 'SPAN' && el.textContent === 'MMR-a232 · artifact',
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText('shaping')).toBeInTheDocument();
     expect(screen.getByText('Frozen 2026-10-06')).toBeInTheDocument();
     expect(screen.getByText(spec.summary ?? '')).toBeInTheDocument();
@@ -156,7 +161,10 @@ describe('artifact page (MMR-452)', () => {
       const link = within(card).getByRole('link', { name: /MMR-432/ });
       expect(link).toHaveAttribute('href', '/p/MMR/432');
       expect(link).toHaveTextContent('serve answers any Host');
-      await waitFor(() => expect(card).toHaveTextContent('done 2026-10-06'));
+      await waitFor(() => expect(card).toHaveTextContent('Done 2026-10-06'));
+      const standing = within(link).getByText('Done 2026-10-06');
+      expect(standing).toHaveClass('text-ink-bright');
+      expect(standing.className).not.toMatch(/status-/);
       expect(getArtifact).toHaveBeenCalledWith({ data: { content: true, id: 'MMR-a232' } });
     });
 
@@ -202,7 +210,7 @@ describe('artifact page (MMR-452)', () => {
 
       const card = await screen.findByRole('group', { name: 'Attached to' });
       await within(card).findByText('Console phase 1, as loaded');
-      expect(card).toHaveTextContent(/as loaded\s*done$/);
+      expect(card).toHaveTextContent(/as loaded\s*Done$/);
     });
   });
 

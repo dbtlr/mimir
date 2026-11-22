@@ -7,7 +7,7 @@ import { cn } from '../../lib/cn';
 /*
  * Vendored shadcn-style card — a flat hairline panel over the well (radius 10).
  * Elevation is tone + line, not shadow, in dark; light gets a single faint lift.
- * `recessed` demotes done / folded content to the recessed well with ghost ink.
+ * `recessed` demotes done / folded content to the recessed well with dim ink.
  * A status left-border is applied by consumers via the literal `border-l-2` +
  * `STATUS_META[...].border` classes, keeping Tailwind extraction literal.
  */
@@ -16,7 +16,7 @@ export const cardVariants = cva('rounded-[10px] border border-line bg-well-850 l
   variants: {
     variant: {
       default: '',
-      recessed: 'bg-well-recessed text-ink-ghost light:shadow-none',
+      recessed: 'bg-well-recessed text-ink-dim light:shadow-none',
     },
   },
 });

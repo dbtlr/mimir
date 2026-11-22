@@ -250,7 +250,7 @@ export function TokenInput({
         onBlur={() => commit(true)}
         className={cn(
           TEXT_FIELD_CLASS,
-          'min-h-11 py-2.5 leading-[26px] data-[empty]:before:text-ink-ghost data-[empty]:before:content-[attr(aria-placeholder)]',
+          'min-h-11 py-2.5 leading-[26px] data-[empty]:before:text-ink-dim data-[empty]:before:content-[attr(aria-placeholder)]',
           className,
         )}
       />

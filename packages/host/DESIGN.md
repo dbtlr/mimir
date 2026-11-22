@@ -32,6 +32,7 @@ branch names, timestamps-as-data. Both are self-hosted through Fontsource
 | Section header on a page | 21 / 28, tracking -0.01em | 700 | ink-bright | `text-header` | existing |
 | Sheet or Dialog title (a form) | 21 / 28, tracking -0.01em | 600 | ink-bright | `text-header` | **adopted (MMR-743)** in the Form sheet; a Dialog's question title keeps `OVERLAY_TITLE_CLASS` (14px) |
 | Record title | 17 / 24 | 600 | ink-bright | `text-dossier` | existing |
+| Row or card title in a feed | 16 / 22 | 500 | ink-bright | `text-title` | **adopted (MMR-718)**: rows were `text-body` (14, regular) and phone cards `text-card-mobile` (15); a title must lead its meta |
 | Group heading inside a form (Advanced, Lifecycle) | 16 / 24 | 600 | ink-bright | `text-base` | **adopted (MMR-743)**: groups today use the 10.5px microlabel, under the floor |
 | Control text (input value, option label, select value) | 15 / 22 | 400 | ink-bright | `text-[15px] leading-[22px]` (Input, Textarea) | existing |
 | Field label | 14 / 20 | 500 | ink | `text-label` | **adopted (MMR-743)**: `FIELD_LABEL_CLASS` is 12px ink-dim; a label must read before its control |
@@ -39,7 +40,10 @@ branch names, timestamps-as-data. Both are self-hosted through Fontsource
 | Button label | 14 / 20 | 600 | per variant | `text-label` | size and weight existing (ActionButton `default`); the token **adopted (MMR-743)** |
 | Help, context line, meta, a footer note, a group's explanation (Lifecycle) | 13 / 20, measure 440, `text-wrap: pretty` | 400 | ink-dim | `text-meta` | **adopted (MMR-743)** for help: `FieldDescription` is 12px ink-faint (2.6:1 on light) |
 | Group heading inside a menu (a provider over its models) | 13 / 20 | 500 | ink-dim | `text-meta` | **adopted (MMR-743)** |
-| Floor: tags, IDs, captions | 12 / 16 | 400–600 | ink-dim or brighter | `text-xs` | **proposed**: `text-mono-id` (11.5), `text-tag` (11), `text-micro` (10.5) rise to 12px, per MMR-718's "nothing under 12px" |
+| Status word | 13 / 20 | 600 | ink-bright; the hue only on its dot | `text-meta` | **adopted (MMR-718)**: the word drew in its status hue on a 12% wash, uppercase at 10.5 on headers |
+| Record ID alone in a row's ID column | 12.5, on the row's line, mono | 400 | ink-dim | `text-mono-id` | **adopted (MMR-718)**: was 11.5 in ink-faint; an ID that shares a line with sans text (a meta line, a header's status line) takes the line's 13 |
+| Microlabel (the one all-caps idiom) | 12, on its context's line; tracking 0.1em, uppercase | 600 | ink-dim or brighter | `.microlabel` (`text-micro`) | **adopted (MMR-718)**: was 10.5, tracked 0.13em, often ink-faint |
+| Floor: tags, captions | 12 / 16 | 400–600 | ink-dim or brighter | `text-xs`, `text-tag` | **adopted (MMR-718)**: `text-tag` (11) and `text-micro` (10.5) rose to 12 |
 
 `text-body` is one size with one line height: 14 / 23, for prose. A label is
 not prose, so it gets its own token: `--text-label` (14px) with a paired 20px
@@ -71,7 +75,7 @@ Rules:
   line may pass 70.
 - **No line of a paragraph is a single word.** Tune the measure until the
   last line holds a phrase, and check both widths.
-- **Mono sizes match their neighbors.** An ID inside a 13px meta line is 13px
+- **Mono sizes match their neighbors on a shared line.** An ID inside a 13px meta line is 13px
   mono, not a smaller step.
 - **A mono value beside sans matches its x-height.** JetBrains Mono's x-height
   is 0.55 of its size and Instrument Sans's 0.51, so at one size the mono
@@ -105,7 +109,7 @@ are measured against `well-850` / `well-900` / `well-950`.
 | Body text | `ink` | 10.0 / 10.6 / 10.8 | 9.3 / 8.0 / 8.8 | prose, field labels |
 | Secondary text | `ink-dim` | 6.6 / 7.0 / 7.2 | 5.5 / 4.8 / 5.2 | help, meta, context line, optional marker |
 | Faint | `ink-faint` | 3.2 / 3.4 / 3.5 | 3.1 / 2.6 / 2.9 | non-text only: a control's edge, an off switch, a grip, disabled glyphs |
-| Ghost | `ink-ghost` | 2.5 / 2.6 / 2.7 | 2.3 / 2.0 / 2.2 | decoration only, never placeholder ink (2.7:1 dark, 2.2:1 light on `well-950`); see the placeholder rule below. **Adopted (MMR-743)** in the text field and the search boxes of the Record picker and the jump palette; and, with MMR-744, the Composer and the Walkthrough's text boxes; the authoring sheet and pairing keep an `ink-ghost` placeholder until they move onto the patterns |
+| Ghost | `ink-ghost` | 2.5 / 2.6 / 2.7 | 2.3 / 2.0 / 2.2 | decoration only, never placeholder ink (2.7:1 dark, 2.2:1 light on `well-950`); see the placeholder rule below. **Adopted (MMR-743)** in the text field and the search boxes of the Record picker and the jump palette; and, with MMR-744, the Composer and the Walkthrough's text boxes; the authoring sheet's and pairing's `ink-ghost` placeholders moved to `ink-dim` with MMR-718 |
 | Accent | `accent`, `accent-foreground` | 8.7, 10.5 on 850 | 3.7, 6.8 on 850 | focus, selection washes and rings, links (`-foreground` as text) |
 | Action | `action` / `action-foreground` | 8.0:1 | 9.5:1 | the one solid button per surface |
 | Danger | `status-blocked-foreground` | 8.7 on 850 | 6.3 on 850 | error text, the destructive outline's label |
@@ -115,6 +119,14 @@ All existing (`styles.css`). Rules:
 - **Text that carries information is `ink-dim` or brighter**: 4.5:1 or better
   on every well in both themes. `ink-faint` and `ink-ghost` never carry it
   (MMR-718).
+- **A status word is `ink-bright`; only its dot carries the hue** (ADR 0019,
+  MMR-718). The word is 13/20 semibold, sentence case, with no wash or ring,
+  so the grey statuses read as well as the bright ones (`abandoned` as text
+  measured 1.8:1 on a dark card). On a record header the status leads the
+  line, then a `line-bright` hairline, then the ID and type in `ink-dim`.
+- **Demotion stops at `ink-dim`.** A demoted row's title (done, abandoned,
+  going cold) draws in `ink-dim`, never fainter; a status word never drops
+  an ink tier.
 - **A form field has no placeholder, and help text is only for a surprising
   input.** A field gets a help line only when it behaves in a way its label
   doesn't say, or needs a specific format: the seed's "First line is the

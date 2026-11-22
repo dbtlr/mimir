@@ -205,11 +205,11 @@ describe('task page (MMR-449)', () => {
     expect(getNode).not.toHaveBeenCalled();
   });
 
-  it('labels the verdict block In review, still offering Approve and Send back…', async () => {
+  it('labels the verdict block Review, still offering Approve and Send back…', async () => {
     serve({ ...sqlite, externalRef: 'https://github.com/x/pull/360', status: 'under_review' });
     await renderRoute(consoleRoutes, '/p/MMR/417', quietClient());
 
-    await expect(screen.findByText('In review')).resolves.toBeDefined();
+    await expect(screen.findByText('Review')).resolves.toBeDefined();
     expect(screen.queryByText(/needs your verdict/i)).toBeNull();
     expect(screen.getByRole('button', { name: 'Approve' })).toBeDefined();
     expect(screen.getByRole('button', { name: 'Send back…' })).toBeDefined();
@@ -406,8 +406,14 @@ describe('task page (MMR-449)', () => {
       status: 'done',
     });
 
+    // Each handle is its own part of the line (MMR-718), so match the handles' whole text.
     await expect(
-      screen.findByText('Main codex/conversation · Worker claude/build-session'),
+      screen.findByText(
+        (_, el) =>
+          el?.tagName === 'SPAN' &&
+          el.textContent?.replaceAll('\u00a0', ' ').trim() ===
+            'Main codex/conversation · Worker claude/build-session',
+      ),
     ).resolves.toBeInTheDocument();
     const link = screen.getByRole('link', { name: 'https://example.com/pull/9' });
     expect(link.getAttribute('href')).toBe('https://example.com/pull/9');
@@ -460,7 +466,10 @@ describe('container page (MMR-450)', () => {
     await expect(
       screen.findByRole('heading', { level: 1, name: 'SQLite replaces Norn' }),
     ).resolves.toBeDefined();
-    expect(screen.getByText('MMR-2 · phase')).toBeDefined();
+    // The status line's ID is mono inside a sans line (MMR-718), so match the line's whole text.
+    expect(
+      screen.getByText((_, el) => el?.tagName === 'SPAN' && el.textContent === 'MMR-2 · phase'),
+    ).toBeDefined();
     expect(
       screen.getByRole('link', { name: /Hosted and external backends/ }).getAttribute('href'),
     ).toBe('/p/MMR/1');
@@ -837,7 +846,7 @@ describe('task page verbs (MMR-453)', () => {
 
     const approve = await screen.findByRole('button', { name: 'Approve' });
     const block = approve.parentElement!.parentElement!;
-    expect(block).toHaveTextContent('In review');
+    expect(block).toHaveTextContent('Review');
     expect(block.className).not.toMatch(/attention/);
     expect(block.querySelectorAll('[class*="attention"]')).toHaveLength(0);
   });

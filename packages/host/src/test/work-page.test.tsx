@@ -296,6 +296,10 @@ describe('work page sections', () => {
     expect(now).toHaveTextContent('Reserved task');
     expect(now).toHaveTextContent('Queued');
     expect(now).not.toHaveTextContent('Started');
+    // The status word reads in bright ink; only its dot carries the hue (MMR-718).
+    const word = within(now).getByText('Queued');
+    expect(word).toHaveClass('text-ink-bright');
+    expect(word.className).not.toMatch(/status-/);
   });
 
   it('shows a task in review in Now as work in flight, with nothing to approve', async () => {
@@ -303,7 +307,11 @@ describe('work page sections', () => {
 
     const now = await section('Now · 1');
     expect(hrefOf(now, 'Extract the seam')).toBe('/p/MMR/12');
-    expect(now).toHaveTextContent(/In review\s*·\s*submitted 20m ago/);
+    expect(now).toHaveTextContent(/Under review\s*·\s*submitted 20m ago/);
+    // The status word reads in bright ink; only its dot carries the hue (MMR-718).
+    const word = within(now).getByText('Under review');
+    expect(word).toHaveClass('text-ink-bright');
+    expect(word.className).not.toMatch(/status-/);
     expect(now).not.toHaveTextContent(/started/i);
     expect(within(now).queryByRole('button', { name: 'Approve' })).toBeNull();
     expect(within(now).queryByRole('button', { name: 'Send back…' })).toBeNull();
@@ -475,6 +483,13 @@ describe('work page sections', () => {
     expect(within(shipped).getByRole('link', { name: 'Converge needs consent' })).toBeDefined();
     expect(shipped).toHaveTextContent('Abandoned: moot under ADR 0032');
     expect(shipped).toHaveTextContent('14:05');
+    // An abandoned row's word is the bright status word, and its title is demoted (MMR-718).
+    const abandoned = within(shipped).getByText('Abandoned');
+    expect(abandoned).toHaveClass('text-ink-bright');
+    expect(abandoned.className).not.toMatch(/status-/);
+    expect(within(shipped).getByRole('link', { name: 'Converge needs consent' })).toHaveClass(
+      'text-ink-dim',
+    );
   });
 
   // Going cold is a modifier in glyph plus demoted ink, never a status hue
@@ -1107,7 +1122,10 @@ describe('work page head', () => {
     expect(screen.getByRole('button', { name: 'Project settings' })).toBeDefined();
     expect(screen.getAllByRole('button', { name: 'New task' }).length).toBeGreaterThan(0);
     expect(screen.queryByRole('tablist')).toBeNull();
-    expect(screen.getByText('MMR · project')).toBeDefined();
+    // The status line's ID is mono inside a sans line (MMR-718), so match the line's whole text.
+    expect(
+      screen.getByText((_, el) => el?.tagName === 'SPAN' && el.textContent === 'MMR · project'),
+    ).toBeDefined();
     expect(screen.getByText('1 in progress · 1 parked · 3 done')).toBeDefined();
     expect(screen.queryByRole('navigation', { name: 'Path' })).toBeNull();
   });
@@ -1122,7 +1140,10 @@ describe('work page head', () => {
     // Phone only: the sidebar outline carries the place from md up.
     expect(parent.className).toContain('lg:hidden');
     expect(screen.queryByRole('navigation', { name: 'Path' })).toBeNull();
-    expect(screen.getByText('MMR-105 · phase')).toBeDefined();
+    // The status line's ID is mono inside a sans line (MMR-718), so match the line's whole text.
+    expect(
+      screen.getByText((_, el) => el?.tagName === 'SPAN' && el.textContent === 'MMR-105 · phase'),
+    ).toBeDefined();
     expect(screen.queryByRole('button', { name: 'Project settings' })).toBeNull();
 
     fireEvent.click(screen.getAllByRole('button', { name: 'New task' })[0] as HTMLElement);

@@ -67,7 +67,7 @@ export function SeedPromoteSheet({
           <span className="microlabel text-accent-foreground">Promote seed</span>
           <span className="inline-flex items-center gap-2">
             <SeedKindChip kind={seed.kind} />
-            <span className="font-mono text-mono-id text-ink-faint">{seed.id}</span>
+            <span className="font-mono text-mono-id text-ink-dim">{seed.id}</span>
           </span>
         </>
       }

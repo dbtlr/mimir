@@ -17,7 +17,7 @@ const twMerge = extendTailwindMerge({
             'page',
             'header',
             'dossier',
-            'card-mobile',
+            'title',
             'body',
             'label',
             'meta',

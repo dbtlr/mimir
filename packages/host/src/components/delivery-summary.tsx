@@ -34,12 +34,12 @@ export function DeliveryWords({ delivery }: { delivery: EngineDelivery }) {
 /** A delivery that has not started has no elapsed time (null), so it reads "Not started". */
 export function DeliveryTime({ delivery }: { delivery: EngineDelivery }) {
   if (delivery.elapsed_minutes === null) {
-    return <span className="text-tag text-ink-dim">Not started</span>;
+    return <span className="text-meta text-ink-dim">Not started</span>;
   }
   const elapsed = Math.floor(delivery.elapsed_minutes);
   const cap = delivery.time_cap_minutes;
   return (
-    <div className="flex flex-col gap-1 text-tag text-ink-dim">
+    <div className="flex flex-col gap-1 text-meta text-ink-dim">
       <span>
         {elapsed} min elapsed{cap !== null && ` / ${String(cap)} min cap`}
       </span>
@@ -102,15 +102,15 @@ export function PhaseDeliveries({ id }: { id: string }) {
   }
   return (
     <section aria-label="Live deliveries" className="flex flex-col gap-2">
-      <h2 className="microlabel text-ink-faint">Live deliveries</h2>
+      <h2 className="microlabel text-ink-dim">Live deliveries</h2>
       {query.data.map(({ delivery, members }) => (
         <Link
           key={delivery.id}
           {...deliveryLink(delivery.id)}
           className={`flex flex-col gap-2 rounded-lg border border-line bg-well-950 p-3 wrap-anywhere ${PHONE_TOUCH_TARGET}`}
         >
-          <span className="font-mono text-mono-id text-ink-faint">{delivery.id}</span>
-          <strong className="text-meta text-ink-bright">{delivery.title}</strong>
+          <span className="font-mono text-mono-id text-ink-dim">{delivery.id}</span>
+          <strong className="text-title font-medium text-ink-bright">{delivery.title}</strong>
           <DeliveryWords delivery={delivery} />
           <DeliveryTime delivery={delivery} />
           <DistributionBar distribution={memberDistribution(members)} />

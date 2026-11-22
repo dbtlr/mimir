@@ -32,7 +32,7 @@ export function NeedsYouCount({ count }: { count: number }) {
 /** The mark of a frozen project, as on an archived project’s page. */
 export function Snowflake() {
   return (
-    <span aria-hidden="true" className="shrink-0 text-tag text-ink-ghost">
+    <span aria-hidden="true" className="shrink-0 text-tag text-ink-dim">
       ❄
     </span>
   );
@@ -78,7 +78,7 @@ export function ProjectRowContent({
       <span
         className={cn(
           'w-10 shrink-0 font-mono text-meta font-bold',
-          frozen ? 'text-ink-ghost' : 'text-ink-bright',
+          frozen ? 'text-ink-dim' : 'text-ink-bright',
         )}
       >
         {project.id}
@@ -141,7 +141,7 @@ export function ProjectOption({
         'group/row cursor-pointer',
         'aria-selected:bg-well-800',
         'aria-[current]:bg-accent/10 aria-[current]:text-ink-bright aria-[current]:inset-ring aria-[current]:inset-ring-accent/28',
-        frozen && 'text-ink-ghost',
+        frozen && 'text-ink-dim',
       )}
     >
       <ProjectRowContent project={project} needsYou={needsYou} />
@@ -156,7 +156,7 @@ export function ProjectOption({
             onTogglePin();
           }}
           className={cn(
-            'flex size-7 shrink-0 items-center justify-center rounded text-ink-faint transition-colors hover:text-ink-bright max-md:size-9',
+            'flex size-7 shrink-0 items-center justify-center rounded text-ink-dim transition-colors hover:text-ink-bright max-md:size-9',
             !pinned &&
               'md:opacity-0 md:group-aria-selected/row:opacity-100 md:group-hover/row:opacity-100',
             pinned && 'text-accent',

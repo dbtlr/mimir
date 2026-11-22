@@ -97,7 +97,7 @@ export function CommandShortcut({
 }: ComponentProps<typeof SdkCommandShortcut>) {
   return (
     <SdkCommandShortcut
-      className={mergeClassName('ml-auto shrink-0 font-mono text-micro text-ink-faint', className)}
+      className={mergeClassName('ml-auto shrink-0 font-mono text-micro text-ink-dim', className)}
       {...props}
     />
   );

@@ -63,11 +63,11 @@ export function SidebarProjects({ onNavigate }: { onNavigate?: () => void }) {
   }
   return (
     <section aria-labelledby={headingId} className="mt-3 flex flex-col gap-0.5">
-      <h2 id={headingId} className="microlabel px-2 pb-1 text-ink-faint">
+      <h2 id={headingId} className="microlabel px-2 pb-1 text-ink-dim">
         Projects
       </h2>
       {failed ? (
-        <p className="px-2 py-1 text-xs text-ink-faint">Couldn’t load the projects.</p>
+        <p className="px-2 py-1 text-xs text-ink-dim">Couldn’t load the projects.</p>
       ) : (
         <ul aria-label={groups.pinned.length > 0 ? 'Pinned projects' : 'Recent projects'}>
           {rows.map((p) => (

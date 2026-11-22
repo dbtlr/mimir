@@ -140,7 +140,7 @@ function OutlineRow({ entry, onNavigate }: { entry: OutlineEntry; onNavigate?: (
       <span className="min-w-0 flex-1 truncate">{entry.title}</span>
       {entry.mark === 'path' && <span className="sr-only">, contains this page</span>}
       {tally !== '' && (
-        <span className="shrink-0 font-mono text-mono-id text-ink-faint">{tally}</span>
+        <span className="shrink-0 font-mono text-mono-id text-ink-dim">{tally}</span>
       )}
     </Link>
   );
@@ -191,7 +191,7 @@ function FinishedInitiativeRows({
             onClick={() => {
               setOpen((v) => !v);
             }}
-            className="flex w-6 shrink-0 items-center justify-center self-stretch rounded-sm text-ink-faint transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent max-lg:w-9"
+            className="flex w-6 shrink-0 items-center justify-center self-stretch rounded-sm text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent max-lg:w-9"
           >
             <svg
               width="12"
@@ -248,7 +248,7 @@ function FinishedFold({
         setOpen(event.currentTarget.open);
       }}
     >
-      <summary className="cursor-pointer rounded-sm px-2 py-1 text-xs text-ink-faint focus-visible:outline-2 focus-visible:outline-accent max-lg:py-2">
+      <summary className="cursor-pointer rounded-sm px-2 py-1 text-xs text-ink-dim focus-visible:outline-2 focus-visible:outline-accent max-lg:py-2">
         {finished.length} finished {finished.length === 1 ? 'initiative' : 'initiatives'}
       </summary>
       <div className="flex flex-col gap-px">
@@ -284,7 +284,7 @@ function Outline({
 }) {
   if (tree === undefined) {
     return unavailable ? (
-      <p className="px-2 py-1 text-xs text-ink-faint">Couldn’t load the structure.</p>
+      <p className="px-2 py-1 text-xs text-ink-dim">Couldn’t load the structure.</p>
     ) : (
       <Skeleton className="mx-2 my-1 h-16" />
     );
@@ -293,7 +293,7 @@ function Outline({
   return (
     <nav aria-label="Outline" className="mb-1 ml-2.5 flex flex-col gap-px">
       {outline.entries.length === 0 && outline.finished.length === 0 && (
-        <p className="px-2 py-1 text-xs text-ink-faint">No initiatives or phases.</p>
+        <p className="px-2 py-1 text-xs text-ink-dim">No initiatives or phases.</p>
       )}
       {outline.entries.map((entry) => (
         <OutlineRow key={entry.id} entry={entry} onNavigate={onNavigate} />
@@ -433,7 +433,7 @@ function SettingsLink({
 }
 
 function SettingsGroupHeading({ children }: { children: string }) {
-  return <p className="microlabel mt-3 mb-1 px-2 text-ink-faint">{children}</p>;
+  return <p className="microlabel mt-3 mb-1 px-2 text-ink-dim">{children}</p>;
 }
 
 /**

@@ -29,7 +29,7 @@ const PANEL_CLASS =
 
 /** One row: highlight fill, destructive colour, and a disabled state that still reads. */
 export const MENU_ITEM_CLASS =
-  'flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-2.5 text-left text-sm text-ink outline-none select-none max-md:min-h-11 md:py-1.5 md:text-xs data-[disabled]:cursor-not-allowed data-[disabled]:text-ink-faint data-[highlighted]:bg-line-bright data-[highlighted]:text-ink-bright data-[destructive]:text-status-blocked-foreground data-[destructive]:data-[highlighted]:text-status-blocked-foreground';
+  'flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-2.5 text-left text-sm text-ink outline-none select-none max-md:min-h-11 md:py-1.5 md:text-xs data-[disabled]:cursor-not-allowed data-[disabled]:text-ink-dim data-[highlighted]:bg-line-bright data-[highlighted]:text-ink-bright data-[destructive]:text-status-blocked-foreground data-[destructive]:data-[highlighted]:text-status-blocked-foreground';
 
 export function MenuContent({
   className,
@@ -145,7 +145,7 @@ export function MenuSeparator({ className, ...props }: ComponentProps<typeof Sdk
 export function MenuGroupLabel({ className, ...props }: ComponentProps<typeof SdkMenuGroupLabel>) {
   return (
     <SdkMenuGroupLabel
-      className={mergeClassName('microlabel px-2 py-1 text-ink-faint', className)}
+      className={mergeClassName('microlabel px-2 py-1 text-ink-dim', className)}
       {...props}
     />
   );

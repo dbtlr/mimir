@@ -353,7 +353,7 @@ export function TasksPage() {
 
             {tasks.isPending && loadedTasks === undefined && <Skeleton className="mt-4 h-40" />}
             {tasks.isError && loadedTasks === undefined && (
-              <p className="py-4 text-xs text-status-blocked">
+              <p className="py-4 text-xs text-status-blocked-foreground">
                 Unreachable — is the Mimir host running?
               </p>
             )}
@@ -388,7 +388,10 @@ export function TasksPage() {
             {hasMore && (
               <>
                 {loadMoreFailed && (
-                  <p role="alert" className="mt-4 text-center text-xs text-status-blocked">
+                  <p
+                    role="alert"
+                    className="mt-4 text-center text-xs text-status-blocked-foreground"
+                  >
                     Couldn't load more finished tasks.
                   </p>
                 )}

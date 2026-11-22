@@ -33,7 +33,7 @@ import { ParentLink } from './parent-link';
 import { ProjectSettingsButton } from './project-settings-button';
 import { RailSection, RecordLayout } from './record-layout';
 import type { RailChip } from './record-layout';
-import { StatusBadge } from './status-badge';
+import { StatusBadge, StatusLineId } from './status-badge';
 import { Skeleton } from './ui/skeleton';
 import { WorkSections } from './work-sections';
 
@@ -47,9 +47,12 @@ import { WorkSections } from './work-sections';
 
 /** `11 done · 2 parked · 1 in progress` — the rollup's counts, in the status system's order. */
 function distributionLegend(distribution: NonNullable<EngineNode['distribution']>): string {
-  return STATUS_ORDER.filter((word) => (distribution[word] ?? 0) > 0)
-    .map((word) => `${String(distribution[word])} ${STATUS_META[word].label.toLowerCase()}`)
-    .join(' · ');
+  return (
+    STATUS_ORDER.filter((word) => (distribution[word] ?? 0) > 0)
+      // A non-breaking space keeps each count with its word when the legend wraps.
+      .map((word) => `${String(distribution[word])}\u00a0${STATUS_META[word].label.toLowerCase()}`)
+      .join(' · ')
+  );
 }
 
 /** The tab a container's page shows: its work sections or its notes. */
@@ -83,10 +86,8 @@ function WorkHead({
     <header className="flex flex-col gap-1.5">
       {!isProject && <ParentLink projectKey={projectKey} tree={tree} nodeId={record.id} />}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-mono-id text-ink-faint">
-          {record.id} · {isProject ? 'project' : record.type}
-        </span>
-        <StatusBadge status={record.status} pill />
+        <StatusBadge status={record.status} />
+        <StatusLineId id={record.id} type={isProject ? 'project' : record.type} />
         {isProject && <FindingsChip projectKey={projectKey} findings={findings} />}
       </div>
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
@@ -108,7 +109,7 @@ function WorkHead({
             distribution={record.distribution}
             className="h-[5px] w-full max-w-[160px]"
           />
-          {legend !== '' && <span className="text-tag text-ink-faint">{legend}</span>}
+          {legend !== '' && <span className="text-tag text-ink-dim">{legend}</span>}
         </div>
       )}
     </header>
@@ -117,7 +118,7 @@ function WorkHead({
 
 /** A small label over a block inside the About rail section. */
 function AboutLabel({ children }: { children: ReactNode }) {
-  return <h3 className="microlabel text-ink-faint">{children}</h3>;
+  return <h3 className="microlabel text-ink-dim">{children}</h3>;
 }
 
 /**
@@ -132,7 +133,7 @@ function AboutPanel({ record, isProject }: { record: EngineNode; isProject: bool
   return (
     <div className="flex flex-col gap-3">
       {description === '' ? (
-        <p className="text-xs text-ink-faint">
+        <p className="text-xs text-ink-dim">
           {isProject ? 'No description yet. Add one in project settings (⚙).' : 'No description.'}
         </p>
       ) : (
@@ -252,7 +253,7 @@ function WorkTabs({ tabs }: { tabs: ContainerTabs }) {
           >
             {label}
             {value === 'timeline' && (
-              <span className="font-mono text-micro text-ink-faint">{timelineCount}</span>
+              <span className="font-mono text-micro text-ink-dim">{timelineCount}</span>
             )}
           </button>
         );
@@ -283,7 +284,7 @@ function WorkBody({
   const activity = useQuery(agentActivityQuery);
   if (work.data === undefined) {
     return work.isError ? (
-      <p className="text-xs text-status-blocked">
+      <p className="text-xs text-status-blocked-foreground">
         {/* An answered failure (an Engine refusal or a host fault) says no more than that; only a request that never got an answer asks about the server. */}
         {isEngineRefusal(work.error) || work.error instanceof HostFaultError
           ? 'Couldn’t load the work page.'

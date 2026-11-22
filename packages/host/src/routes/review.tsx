@@ -52,7 +52,7 @@ function ReviewHead({ count }: { count: number }) {
         <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">
           {count > 0 ? (
             <>
-              Needs you <span className="font-normal text-ink-faint">{count}</span>
+              Needs you <span className="font-normal text-ink-dim">{count}</span>
             </>
           ) : (
             'Nothing needs you'
@@ -81,7 +81,7 @@ function ReviewHead({ count }: { count: number }) {
 /** Needs you's all-clear: nothing waits, so name the work in flight and the last finish. */
 function AllClear({ inFlight, last }: { inFlight: number; last: ReviewReport['lastFinished'] }) {
   return (
-    <p className="px-1 py-2 text-xs text-ink-faint">
+    <p className="px-1 py-2 text-xs text-ink-dim">
       <strong className="font-semibold text-ink-dim">Nothing is waiting on you.</strong>{' '}
       {inFlight > 0
         ? `Agents are working on ${counted(inFlight, 'task')}.`

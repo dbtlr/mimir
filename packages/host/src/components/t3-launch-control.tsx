@@ -298,7 +298,7 @@ function Unavailable({ reason }: { reason: string }) {
       <ActionButton size="sm" variant="outline" disabled title={reason}>
         Launch in T3…
       </ActionButton>
-      <span className="text-tag text-ink-faint">{reason}</span>
+      <span className="text-tag text-ink-dim">{reason}</span>
     </span>
   );
 }

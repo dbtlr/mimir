@@ -1,9 +1,8 @@
 import { createLazyRoute } from '@tanstack/react-router';
 
 import { StatusBadge } from '../components/status-badge';
-import { StatusDot } from '../components/status-dot';
 import { ActionButton } from '../components/ui/action-button';
-import { Badge, statusChipVariants } from '../components/ui/badge';
+import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardHeader } from '../components/ui/card';
 import { ChoiceKit } from '../kit/choice';
 import { OverlaysKit } from '../kit/overlays';
@@ -47,14 +46,14 @@ const HUES = [
 ] as const;
 
 const TYPE_SCALE = [
-  { cls: 'text-page', note: '28 · page title · 700' },
-  { cls: 'text-header', note: '21 · section header · 700' },
-  { cls: 'text-dossier', note: '17 · record title · 600' },
-  { cls: 'text-card-mobile', note: '15 · card title (mobile) · 500' },
+  { cls: 'text-page', note: '28 · page title · 700', weight: 'font-bold' },
+  { cls: 'text-header', note: '21 · section header · 700', weight: 'font-bold' },
+  { cls: 'text-dossier', note: '17 · record title · 600', weight: 'font-semibold' },
+  { cls: 'text-title', note: '16 · feed title · 500', weight: 'font-medium' },
   { cls: 'text-body', note: '14 · body · 400' },
   { cls: 'text-meta', note: '13 · meta' },
-  { cls: 'text-mono-id', mono: true, note: '11.5 · mono id' },
-  { cls: 'text-tag', note: '11 · tag' },
+  { cls: 'text-mono-id', mono: true, note: '12.5 · mono id' },
+  { cls: 'text-tag', note: '12 · tag' },
 ] as const;
 
 export function KitPage() {
@@ -70,7 +69,7 @@ export function KitPage() {
           {WELLS.map((w) => (
             <div key={w.name} className="flex flex-col gap-1">
               <div className={cn('size-16 rounded-lg border border-line', w.cls)} />
-              <span className="text-mono-id font-mono text-ink-faint">{w.name}</span>
+              <span className="text-mono-id font-mono text-ink-dim">{w.name}</span>
             </div>
           ))}
         </div>
@@ -91,7 +90,7 @@ export function KitPage() {
           {HUES.map((h) => (
             <div key={h.name} className="flex flex-col gap-1">
               <div className={cn('size-16 rounded-lg border border-line', h.cls)} />
-              <span className="text-mono-id font-mono text-ink-faint">{h.name}</span>
+              <span className="text-mono-id font-mono text-ink-dim">{h.name}</span>
             </div>
           ))}
         </div>
@@ -101,41 +100,27 @@ export function KitPage() {
         <div className="flex flex-col gap-2 rounded-lg border border-line bg-well-850 p-4">
           {TYPE_SCALE.map((t) => (
             <div key={t.cls} className="flex items-baseline gap-4">
-              <span className={cn(t.cls, 'text-ink-bright', 'mono' in t && t.mono && 'font-mono')}>
+              <span
+                className={cn(
+                  t.cls,
+                  'text-ink-bright',
+                  'weight' in t && t.weight,
+                  'mono' in t && t.mono && 'font-mono',
+                )}
+              >
                 Meridian
               </span>
-              <span className="text-mono-id font-mono text-ink-faint">{t.note}</span>
+              <span className="text-mono-id font-mono text-ink-dim">{t.note}</span>
             </div>
           ))}
-          <p className="microlabel text-ink-dim">microlabel · 10.5 · 600 · tracked · uppercase</p>
+          <p className="microlabel text-ink-dim">microlabel · 12 · 600 · tracked · uppercase</p>
         </div>
       </Section>
 
-      <Section title="Status chips">
+      <Section title="Status words">
         <div className="flex flex-wrap gap-2">
           {STATUS_ORDER.map((s) => (
             <StatusBadge key={s} status={s} />
-          ))}
-        </div>
-      </Section>
-
-      <Section title="Status dots">
-        <div className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-well-850 p-4">
-          {STATUS_ORDER.map((s) => (
-            <div key={s} className="flex items-center gap-1.5">
-              <StatusDot status={s} />
-              <span className="text-meta text-ink-dim">{STATUS_META[s].label}</span>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      <Section title="Wash + ring (per hue)">
-        <div className="flex flex-wrap gap-2">
-          {STATUS_ORDER.map((s) => (
-            <div key={s} className={cn(statusChipVariants({ status: s }), 'px-3 py-2')}>
-              {STATUS_META[s].label}
-            </div>
           ))}
         </div>
       </Section>
@@ -165,7 +150,7 @@ export function KitPage() {
           <Card variant="recessed">
             <CardHeader>
               <p className="text-dossier font-semibold">Recessed card</p>
-              <p className="text-meta">demoted / done — ghost ink on the recessed well</p>
+              <p className="text-meta">demoted / done — dim ink on the recessed well</p>
             </CardHeader>
             <CardContent>
               <p className="text-body">Folded content sits back.</p>

@@ -27,14 +27,13 @@ export const SEED_LANE_LABEL: Record<SeedLane, string> = {
   untriaged: 'Untriaged',
 };
 
-/** Header ink per lane: teal untriaged, violet ready-to-resolve, neutral promoted,
- * the task status palette's parked ink for parked, ghost settled. */
-export const SEED_LANE_INK: Record<SeedLane, string> = {
-  parked: 'text-status-parked',
-  promoted: 'text-ink-dim',
-  ready: 'text-attention',
-  settled: 'text-ink-ghost',
-  untriaged: 'text-accent-foreground',
+/** A lane's dot: the lane's hue sits on the dot, and its word reads in bright ink (MMR-718). */
+export const SEED_LANE_DOT: Record<SeedLane, string> = {
+  parked: 'bg-status-parked',
+  promoted: 'bg-ink-dim',
+  ready: 'bg-attention',
+  settled: 'bg-ink-faint',
+  untriaged: 'bg-accent',
 };
 
 /** What a seed's lane reads: its lifecycle and whether it is ready to resolve. */

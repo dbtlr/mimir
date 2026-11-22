@@ -24,6 +24,7 @@ import { DistributionBar } from '../components/distribution-bar';
 import { OfflineBanner } from '../components/offline-banner';
 import { Reason } from '../components/patterns/reason';
 import { RailSection, RecordLayout, RecordPending } from '../components/record-layout';
+import { StatusLineId, StatusWord } from '../components/status-badge';
 import { StatusDot } from '../components/status-dot';
 import { ActionButton } from '../components/ui/action-button';
 import { DecisionRow } from '../components/work-rows';
@@ -143,7 +144,7 @@ function DeliveryRecord({ id }: { id: string }) {
         <span>{d.id}</span>
       </nav>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-mono-id text-ink-faint">{d.id} · delivery</span>
+        <StatusLineId id={d.id} type="delivery" hairline={false} />
         <DeliveryWords delivery={d} />
       </div>
       <h1
@@ -245,7 +246,7 @@ function DeliveryRecord({ id }: { id: string }) {
       <RailSection label="Recent run journal" className="lg:border-b-0 lg:pb-0">
         {journal.map((entry) => (
           <p key={entry.number} className="text-xs wrap-anywhere text-ink-dim">
-            <time className="mr-2 text-ink-faint">{absoluteTime(entry.at)}</time>
+            <time className="mr-2 text-ink-dim">{absoluteTime(entry.at)}</time>
             <span>{entry.content}</span>
           </p>
         ))}
@@ -348,9 +349,10 @@ function DeliveryRecord({ id }: { id: string }) {
         </BrowserGroup>
         <BrowserGroup label="Progress">
           <DistributionBar distribution={distribution} />
-          <p className="text-tag text-ink-dim">
+          <p className="mt-1.5 text-tag text-ink-dim">
             {STATUS_ORDER.filter((s) => distribution[s])
-              .map((s) => `${String(distribution[s])} ${STATUS_META[s].label.toLowerCase()}`)
+              // A non-breaking space keeps each count with its word when the legend wraps.
+              .map((s) => `${String(distribution[s])}\u00a0${STATUS_META[s].label.toLowerCase()}`)
               .join(' · ')}
           </p>
           {members
@@ -362,7 +364,7 @@ function DeliveryRecord({ id }: { id: string }) {
                 id={task.id}
                 title={task.title}
                 leading={<StatusDot status={task.status} />}
-                meta={STATUS_META[task.status].label}
+                meta={<StatusWord>{STATUS_META[task.status].label}</StatusWord>}
               />
             ))}
         </BrowserGroup>

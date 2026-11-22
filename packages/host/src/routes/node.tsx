@@ -33,7 +33,7 @@ import { OpenInT3 } from '../components/open-in-t3';
 import { ParentLink } from '../components/parent-link';
 import { RailSection, RecordLayout, RecordPending } from '../components/record-layout';
 import type { RailChip } from '../components/record-layout';
-import { StatusBadge } from '../components/status-badge';
+import { StatusBadge, StatusLineId } from '../components/status-badge';
 import {
   T3LaunchControl,
   T3LaunchSettingsHost,
@@ -126,7 +126,7 @@ function ActionsPanel({
         ))}
       </div>
       {awaitsVerdict(node) && (
-        <p className="text-tag text-ink-faint">Approve and Send back sit in the verdict block.</p>
+        <p className="text-tag text-ink-dim">Approve and Send back sit in the verdict block.</p>
       )}
     </div>
   );
@@ -145,22 +145,26 @@ function AgentPanel({
       {node.harness != null && <span className="text-ink">{node.harness}</span>}
       {node.session != null && (
         <span className="text-ink-dim">
-          <span className="microlabel mr-1.5 text-ink-faint">Main session</span>
-          <span className="font-mono break-all">{node.session}</span>
+          <span className="microlabel text-ink-dim">Main session</span>{' '}
+          <span className="inline-block max-w-full font-mono text-mono-id wrap-anywhere">
+            {node.session}
+          </span>
         </span>
       )}
       {node.workerSession != null && (
         <span className="text-ink-dim">
-          <span className="microlabel mr-1.5 text-ink-faint">Worker session</span>
-          {node.workerHarness != null && <span className="mr-1.5">{node.workerHarness}</span>}
-          <span className="font-mono break-all">{node.workerSession}</span>
+          <span className="microlabel text-ink-dim">Worker session</span>{' '}
+          {node.workerHarness != null && <span>{node.workerHarness} </span>}
+          <span className="inline-block max-w-full font-mono text-mono-id wrap-anywhere">
+            {node.workerSession}
+          </span>
         </span>
       )}
       {node.branch != null && (
         <span className="font-mono text-mono-id break-all text-ink-dim">{node.branch}</span>
       )}
       {node.host != null && (
-        <span className="font-mono text-mono-id text-ink-faint">on {node.host}</span>
+        <span className="font-mono text-mono-id text-ink-dim">on {node.host}</span>
       )}
       <OpenInT3
         harness={node.harness}
@@ -171,7 +175,7 @@ function AgentPanel({
       {node.externalRef != null && <ExternalRef value={node.externalRef} />}
       {scratchpads.map((s) => (
         <span key={s.id} className="text-ink-dim">
-          <span className="microlabel mr-1.5 text-ink-faint">Scratchpad</span>
+          <span className="microlabel mr-1.5 text-ink-dim">Scratchpad</span>
           {s.title}
         </span>
       ))}
@@ -374,10 +378,8 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
     <header className="flex flex-col gap-1.5">
       <ParentLink projectKey={projectKey} tree={tree.data} nodeId={nodeId} />
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-mono-id text-ink-faint">
-          {nodeId} · {data.type}
-        </span>
-        <StatusBadge status={data.status} pill />
+        <StatusBadge status={data.status} />
+        <StatusLineId id={nodeId} type={data.type} />
         <GroomingChip node={data} />
       </div>
       <h1 className="text-dossier leading-[1.35] font-bold tracking-[-0.01em] wrap-anywhere text-ink-bright md:text-header">
@@ -418,7 +420,7 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
             <GroomWithAgentCard node={data} offline={offline} />
             <DescriptionSection description={data.description} />
             <section className="flex flex-col gap-3">
-              <h2 className="microlabel border-b border-line pb-1.5 text-ink-faint">
+              <h2 className="microlabel border-b border-line pb-1.5 text-ink-dim">
                 Timeline · {feed.length}
               </h2>
               <FeedList

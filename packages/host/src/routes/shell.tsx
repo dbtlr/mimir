@@ -122,7 +122,7 @@ function ShellContent() {
           {context !== undefined && !desktop && <ProjectDrawer context={context} />}
           <Link
             to="/"
-            className="flex items-center gap-2 rounded font-mono text-card-mobile font-bold max-md:ml-1 tracking-tight text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
+            className="flex items-center gap-2 rounded font-mono text-[15px] font-bold max-md:ml-1 tracking-tight text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
           >
             <BrandMark />
             Mimir

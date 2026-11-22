@@ -44,7 +44,7 @@ export function ProjectUnavailablePage({ projectKey }: { projectKey: string }) {
         <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">
           Project unavailable
         </h1>
-        <span className="rounded-[5px] px-[7px] py-[3px] font-mono text-tag text-ink-faint inset-ring inset-ring-line-bright">
+        <span className="rounded-[5px] px-[7px] py-[3px] font-mono text-tag text-ink-dim inset-ring inset-ring-line-bright">
           {projectKey}
         </span>
       </div>

@@ -18,7 +18,7 @@ import type { RailChip } from '../components/record-layout';
 import { SeedKindChip } from '../components/seed-kind-chip';
 import { SeedPromoteSheet } from '../components/seed-promote-sheet';
 import { SeedVerbs } from '../components/seed-verbs';
-import { StatusDot } from '../components/status-dot';
+import { LaneBadge, StatusBadge, StatusLineId } from '../components/status-badge';
 import { ActionButton } from '../components/ui/action-button';
 import { Skeleton } from '../components/ui/skeleton';
 import { copyText } from '../lib/clipboard';
@@ -77,17 +77,9 @@ function laneLabel(seed: EngineSeed): string {
   }
 }
 
-const LANE_BADGE: Record<SeedLane, string> = {
-  parked: 'text-status-parked inset-ring-line-bright',
-  promoted: 'text-ink-dim inset-ring-line-bright',
-  ready: 'bg-attention/12 text-attention inset-ring-attention/30',
-  settled: 'text-ink-faint inset-ring-line',
-  untriaged: 'bg-accent/12 text-accent-foreground inset-ring-accent/30',
-};
-
 /** The decision block's wash, keyed to the lane that asks for it. */
 const DECISION_BOX: Record<Exclude<SeedLane, 'settled'>, { box: string; label: string }> = {
-  parked: { box: 'bg-well-850 inset-ring-line-bright', label: 'text-status-parked' },
+  parked: { box: 'bg-well-850 inset-ring-line-bright', label: 'text-ink-dim' },
   promoted: { box: 'bg-well-850 inset-ring-line-bright', label: 'text-ink-dim' },
   ready: { box: 'bg-attention/8 inset-ring-attention/30', label: 'text-attention' },
   untriaged: { box: 'bg-accent/6 inset-ring-accent/30', label: 'text-accent-foreground' },
@@ -99,7 +91,7 @@ function ProjectName({ id, title }: { id: string; title?: string }) {
     <span className="inline-flex items-baseline gap-1.5">
       <span aria-hidden className="size-2 self-center rounded-[2px] inset-ring inset-ring-accent" />
       {title !== undefined && <span className="font-semibold text-ink-bright">{title}</span>}
-      <span className="font-mono text-mono-id text-ink-faint">{id}</span>
+      <span className="font-mono text-ink-dim">{id}</span>
     </span>
   );
 }
@@ -126,7 +118,7 @@ function RequestCard({
       )}
       <span className="text-ink-dim">{requester === null ? 'ask' : 'asks'}</span>
       <ProjectName id={seed.project} title={titleOf(seed.project)} />
-      <span className="ml-auto text-tag text-ink-faint">
+      <span className="ml-auto text-tag text-ink-dim">
         filed {calendarDate(seed.createdAt)} · {ago(seed.createdAt)}
       </span>
     </div>
@@ -164,10 +156,10 @@ function OutcomeSection({
 }) {
   return (
     <section aria-label="What came of it" className="flex flex-col gap-1.5">
-      <h2 className="microlabel border-b border-line pb-1.5 text-ink-faint">What came of it</h2>
+      <h2 className="microlabel border-b border-line pb-1.5 text-ink-dim">What came of it</h2>
       {outcomes.length === 0 && upstreamRead === 'pending' && <Skeleton className="h-5 w-2/3" />}
       {outcomes.length === 0 && upstreamRead === 'answered' && (
-        <p className="text-xs text-ink-faint">
+        <p className="text-xs text-ink-dim">
           Nothing yet. No task has been promoted from this seed, and none waits on it.
         </p>
       )}
@@ -179,18 +171,19 @@ function OutcomeSection({
                 {...nodeLink(id)}
                 className="flex min-w-0 items-center gap-2 rounded-sm px-1 py-1 text-xs text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
               >
-                {node !== undefined && <StatusDot status={node.status} />}
                 <span className="shrink-0 font-mono text-mono-id text-accent-foreground">{id}</span>
                 <span className="min-w-0 flex-1 truncate">{node?.title}</span>
                 {upstream && node !== undefined && (
-                  <span className="microlabel shrink-0 text-ink-faint">
+                  <span className="microlabel shrink-0 text-ink-dim">
                     {isSettledTask(node) ? 'named it upstream' : 'waits on it'}
                   </span>
                 )}
                 {node !== undefined && (
-                  <span className="shrink-0 font-mono text-mono-id text-ink-faint">
-                    {recordStanding(node)}
-                  </span>
+                  <StatusBadge
+                    status={node.status}
+                    label={recordStanding(node)}
+                    className="shrink-0"
+                  />
                 )}
               </Link>
             </li>
@@ -198,7 +191,7 @@ function OutcomeSection({
         </ul>
       )}
       {upstreamRead === 'failed' && (
-        <p className="text-xs text-ink-faint">Couldn’t check which tasks wait on this seed.</p>
+        <p className="text-xs text-ink-dim">Couldn’t check which tasks wait on this seed.</p>
       )}
     </section>
   );
@@ -272,7 +265,7 @@ function SeedEditForm({
   const [description, setDescription] = useState(seed.description ?? '');
   const field =
     'rounded-[9px] border border-line-bright bg-well-900 px-3 py-2 text-body text-ink caret-accent outline-none focus-visible:border-accent/60';
-  const label = 'microlabel text-ink-faint';
+  const label = 'microlabel text-ink-dim';
   return (
     <form
       className="flex flex-col gap-3"
@@ -456,18 +449,11 @@ function SeedRecord({ seedId }: { seedId: string }) {
         </Link>
       </nav>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-mono-id text-ink-faint">{seedId} · seed</span>
+        <LaneBadge lane={lane} label={laneLabel(data)} />
+        <StatusLineId id={seedId} type="seed" />
         <SeedKindChip kind={data.kind} />
-        <span
-          className={cn(
-            'inline-flex items-center rounded-full px-2 py-0.5 text-tag font-semibold inset-ring',
-            LANE_BADGE[lane],
-          )}
-        >
-          {laneLabel(data)}
-        </span>
         {fromOtherBoard && data.requester !== null && (
-          <span className="text-tag text-ink-faint">
+          <span className="text-tag text-ink-dim">
             from{' '}
             <Link to="/p/$key" params={{ key: data.requester }} className={crumb}>
               {titleOf(data.requester) ?? data.requester}

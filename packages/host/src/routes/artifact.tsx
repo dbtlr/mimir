@@ -13,7 +13,7 @@ import { MetaRow } from '../components/node-record';
 import { OfflineBanner } from '../components/offline-banner';
 import { RailSection, RecordLayout, RecordPending } from '../components/record-layout';
 import type { RailChip } from '../components/record-layout';
-import { StatusDot } from '../components/status-dot';
+import { StatusBadge, StatusLineId } from '../components/status-badge';
 import { ActionButton } from '../components/ui/action-button';
 import { sharedPathOf, subtreeOf } from '../lib/ancestry';
 import { splitKindTags } from '../lib/artifacts';
@@ -93,7 +93,7 @@ function linkStanding(link: AttachedLink, node: LinkedNode | undefined): string 
   if (node !== undefined) {
     return recordStanding(node);
   }
-  return link.status === undefined ? undefined : STATUS_META[link.status].label.toLowerCase();
+  return link.status === undefined ? undefined : STATUS_META[link.status].label;
 }
 
 /** One attached record: its state, id, and title, linked to its page. */
@@ -102,11 +102,10 @@ function AttachedRow({ link, node }: { link: AttachedLink; node?: LinkedNode }) 
   const standing = linkStanding(link, node);
   return (
     <Link {...nodeLink(link.id)} className={row}>
-      {status !== undefined && <StatusDot status={status} />}
       <span className="shrink-0 font-mono text-mono-id text-accent-foreground">{link.id}</span>
       <span className="min-w-0 flex-1 truncate">{node?.title ?? link.title}</span>
-      {standing !== undefined && (
-        <span className="shrink-0 font-mono text-mono-id text-ink-faint">{standing}</span>
+      {status !== undefined && standing !== undefined && (
+        <StatusBadge status={status} label={standing} className="shrink-0" />
       )}
     </Link>
   );
@@ -133,7 +132,7 @@ function AttachedCard({
       aria-labelledby={labelId}
       className="flex flex-col gap-1 rounded-lg bg-well-850 px-2.5 py-2 inset-ring inset-ring-line"
     >
-      <h2 id={labelId} className="microlabel px-1 text-ink-faint">
+      <h2 id={labelId} className="microlabel px-1 text-ink-dim">
         {label}
       </h2>
       <ul className="flex flex-col">
@@ -174,7 +173,7 @@ function SiblingArtifacts({
             aria-current={a.id === currentId ? 'page' : undefined}
             className={cn(row, 'aria-[current=page]:bg-well-800')}
           >
-            <span className="shrink-0 font-mono text-mono-id text-ink-faint">
+            <span className="shrink-0 font-mono text-mono-id text-ink-dim">
               {a.id.slice(a.id.indexOf('-') + 1)}
             </span>
             <span className="min-w-0 flex-1 truncate">{a.title}</span>
@@ -327,13 +326,13 @@ function ArtifactRecord({ artifactId }: { artifactId: string }) {
         ))}
       </nav>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-mono-id text-ink-faint">{artifactId} · artifact</span>
+        <StatusLineId id={artifactId} type="artifact" hairline={false} />
         {kind !== undefined && (
           <span className="rounded-full bg-well-800 px-2 py-0.5 font-mono text-micro text-ink-dim inset-ring inset-ring-line">
             {kind}
           </span>
         )}
-        <span className="ml-auto font-mono text-micro tracking-[0.1em] text-ink-faint">
+        <span className="ml-auto font-mono text-micro tracking-[0.1em] text-ink-dim">
           <span aria-hidden className="select-none">
             ❄{' '}
           </span>

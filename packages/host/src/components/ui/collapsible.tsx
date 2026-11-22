@@ -19,7 +19,7 @@ function Chevron() {
   return (
     <svg
       aria-hidden="true"
-      className="size-4 shrink-0 text-ink-faint transition-transform duration-150 group-data-[open]:rotate-90"
+      className="size-4 shrink-0 text-ink-dim transition-transform duration-150 group-data-[open]:rotate-90"
       fill="none"
       stroke="currentColor"
       strokeLinecap="round"
@@ -67,7 +67,7 @@ export function CollapsibleTrigger({
   return (
     <SdkCollapsibleTrigger
       className={mergeClassName(
-        'group flex w-full cursor-pointer items-center gap-2 rounded-md py-2 text-left text-sm font-semibold text-ink-bright transition-colors outline-none hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-accent data-[disabled]:cursor-not-allowed data-[disabled]:text-ink-faint',
+        'group flex w-full cursor-pointer items-center gap-2 rounded-md py-2 text-left text-sm font-semibold text-ink-bright transition-colors outline-none hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-accent data-[disabled]:cursor-not-allowed data-[disabled]:text-ink-dim',
         className,
       )}
       {...props}

@@ -24,7 +24,6 @@ import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { seedLink } from '../lib/record-url';
 import {
-  SEED_LANE_INK,
   SEED_LANE_LABEL,
   groupSeedsByLane,
   isSeedKind,
@@ -38,7 +37,7 @@ const SEARCH_DEBOUNCE_MS = 250;
 
 const ALL = '';
 
-/** The header's faint count: untriaged and ready-to-resolve seeds, a zero half omitted. */
+/** The header's dim count: untriaged and ready-to-resolve seeds, a zero half omitted. */
 function summaryText(toTriage: number, toResolve: number): string | undefined {
   const parts = [
     toTriage > 0 ? `${String(toTriage)} to triage` : undefined,
@@ -81,11 +80,7 @@ function FoldedGroup({
   const [shown, setShown] = useState(false);
   const rowsId = useId();
   return (
-    <BrowserGroup
-      label={SEED_LANE_LABEL[lane]}
-      count={seeds.length}
-      labelClassName={SEED_LANE_INK[lane]}
-    >
+    <BrowserGroup label={SEED_LANE_LABEL[lane]} count={seeds.length}>
       <button
         type="button"
         aria-expanded={shown}
@@ -227,12 +222,7 @@ export function SeedsPage() {
               lane === 'parked' || lane === 'settled' ? (
                 <FoldedGroup key={lane} lane={lane} seeds={laneSeeds} />
               ) : (
-                <BrowserGroup
-                  key={lane}
-                  label={SEED_LANE_LABEL[lane]}
-                  count={laneSeeds.length}
-                  labelClassName={SEED_LANE_INK[lane]}
-                >
+                <BrowserGroup key={lane} label={SEED_LANE_LABEL[lane]} count={laneSeeds.length}>
                   {laneSeeds.map((seed) => (
                     <SeedBrowserRow key={seed.id} seed={seed} />
                   ))}
@@ -248,7 +238,7 @@ export function SeedsPage() {
               <BrowserEmpty>No seeds match.</BrowserEmpty>
             )}
             {seeds.isError && !loaded && (
-              <p className="p-4 text-xs text-status-blocked">
+              <p className="p-4 text-xs text-status-blocked-foreground">
                 Unreachable — is the Mimir host running?
               </p>
             )}

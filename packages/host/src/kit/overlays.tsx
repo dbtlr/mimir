@@ -128,11 +128,11 @@ function DrawerKit() {
             <DrawerTitle>MMR-219</DrawerTitle>
             <DrawerDescription>Park the stale review queue</DrawerDescription>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-meta">
-              <dt className="text-ink-faint">Status</dt>
+              <dt className="text-ink-dim">Status</dt>
               <dd className="text-ink">In progress</dd>
-              <dt className="text-ink-faint">Phase</dt>
+              <dt className="text-ink-dim">Phase</dt>
               <dd className="text-ink">Console polish</dd>
-              <dt className="text-ink-faint">Reason</dt>
+              <dt className="text-ink-dim">Reason</dt>
               <dd className="text-ink">Waiting on MMR-221 to land</dd>
             </dl>
             <DrawerFooter>

@@ -474,7 +474,7 @@ function AuthoringSheetBody({
                 segmentClassName="min-h-11 rounded-full px-3 text-mono-id tracking-normal normal-case sm:min-h-0"
               />
             )}
-            <span aria-hidden className="ml-auto font-mono text-micro text-ink-ghost">
+            <span aria-hidden className="ml-auto font-mono text-micro text-ink-dim">
               esc
             </span>
           </header>
@@ -485,12 +485,12 @@ function AuthoringSheetBody({
             aria-label="Title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="rounded-[10px] border border-accent/35 bg-well-900 px-3.5 py-3 text-card-mobile font-medium text-ink-bright caret-accent outline-none placeholder:text-ink-ghost focus-visible:border-accent/60"
+            className="rounded-[10px] border border-accent/35 bg-well-900 px-3.5 py-3 text-[15px] leading-[22px] font-medium text-ink-bright caret-accent outline-none placeholder:text-ink-dim focus-visible:border-accent/60"
           />
 
           {/* ── HOME — the type-governed legal-parent picker ───────────────── */}
           <div className="flex flex-col gap-1.5">
-            <span id="authoring-home-label" className="microlabel text-ink-faint">
+            <span id="authoring-home-label" className="microlabel text-ink-dim">
               Home
             </span>
             <div className="relative">
@@ -506,7 +506,7 @@ function AuthoringSheetBody({
                   'flex w-full items-center gap-2 px-[13px] py-2.5 text-left transition-colors hover:border-line-bright focus-visible:outline-2 focus-visible:outline-accent',
                 )}
               >
-                <span className="shrink-0 font-mono text-mono-id text-ink-faint">
+                <span className="shrink-0 font-mono text-mono-id text-ink-dim">
                   {projKey === '' ? '—' : projKey}
                 </span>
                 <span className="truncate text-meta font-medium text-ink-bright">
@@ -529,7 +529,7 @@ function AuthoringSheetBody({
                       </span>
                     )}
                     {suggestedHome !== undefined && pickedHome?.id === suggestedHome.id && (
-                      <span className="text-micro text-ink-ghost">
+                      <span className="text-micro text-ink-dim">
                         suggested — bug → standing home
                       </span>
                     )}
@@ -589,10 +589,10 @@ function AuthoringSheetBody({
                           </div>
                         )}
                         {homesPending && (
-                          <p className="px-2 py-1.5 text-xs text-ink-faint">loading…</p>
+                          <p className="px-2 py-1.5 text-xs text-ink-dim">loading…</p>
                         )}
                         {!homesPending && homes.length === 0 && (
-                          <p className="px-2 py-1.5 text-xs text-ink-faint">
+                          <p className="px-2 py-1.5 text-xs text-ink-dim">
                             No legal home in {projKey === '' ? 'this project' : projKey}.
                           </p>
                         )}
@@ -633,7 +633,7 @@ function AuthoringSheetBody({
 
           {/* ── description — always visible, markdown ok ──────────────────── */}
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="authoring-description" className="microlabel text-ink-faint">
+            <label htmlFor="authoring-description" className="microlabel text-ink-dim">
               Description
             </label>
             <textarea
@@ -647,10 +647,10 @@ function AuthoringSheetBody({
               }}
               className={cn(
                 FIELD_SHELL,
-                'min-h-16 resize-y px-[13px] py-[11px] text-meta leading-[1.65] text-ink caret-accent outline-none placeholder:text-ink-ghost focus-visible:border-accent/35',
+                'min-h-16 resize-y px-[13px] py-[11px] text-meta leading-[1.65] text-ink caret-accent outline-none placeholder:text-ink-dim focus-visible:border-accent/35',
               )}
             />
-            <p className="text-tag text-ink-ghost">
+            <p className="text-tag text-ink-dim">
               {descriptionPending === true ? 'loading the seed body…' : 'markdown ok'}
             </p>
           </div>
@@ -663,7 +663,7 @@ function AuthoringSheetBody({
         {type === 'task' && (
           <div className="flex flex-col gap-1.5">
             {promote === undefined ? (
-              <label htmlFor="authoring-dep-search" className="microlabel text-ink-faint">
+              <label htmlFor="authoring-dep-search" className="microlabel text-ink-dim">
                 Depends on
               </label>
             ) : (
@@ -673,8 +673,8 @@ function AuthoringSheetBody({
                 onClick={() => setDepsOpen((o) => !o)}
                 className="flex items-center gap-2 self-start rounded focus-visible:outline-2 focus-visible:outline-accent"
               >
-                <span className="microlabel text-ink-faint">Depends on · optional</span>
-                <span aria-hidden className="text-micro text-ink-ghost">
+                <span className="microlabel text-ink-dim">Depends on · optional</span>
+                <span aria-hidden className="text-micro text-ink-dim">
                   {depsOpen ? '⌃' : '⌄'}
                 </span>
               </button>
@@ -694,13 +694,13 @@ function AuthoringSheetBody({
                         className="inline-flex items-center gap-1.5 rounded-full bg-line/70 py-1 pr-1 pl-2.5 inset-ring inset-ring-line-bright"
                       >
                         <StatusDot status={d.status} className="size-[5px]" />
-                        <span className="font-mono text-tag text-ink-faint">{d.id}</span>
+                        <span className="font-mono text-tag text-ink-dim">{d.id}</span>
                         <span className="max-w-48 truncate text-xs text-ink">{d.title}</span>
                         <button
                           type="button"
                           aria-label={`Remove dependency ${d.id}`}
                           onClick={() => setDeps((cur) => cur.filter((x) => x.id !== d.id))}
-                          className="-my-2.5 flex min-h-11 min-w-11 items-center justify-center rounded-full text-ink-faint transition-colors hover:text-ink-bright sm:my-0 sm:min-h-0 sm:min-w-0 sm:px-1"
+                          className="-my-2.5 flex min-h-11 min-w-11 items-center justify-center rounded-full text-ink-dim transition-colors hover:text-ink-bright sm:my-0 sm:min-h-0 sm:min-w-0 sm:px-1"
                         >
                           <CloseIcon className="size-3 [stroke-width:2.5] md:size-3" />
                         </button>
@@ -721,7 +721,7 @@ function AuthoringSheetBody({
                       onChange={(e) => setDepSearch(e.target.value)}
                       onKeyDown={handleDepKey}
                       placeholder="search tasks…"
-                      className="min-w-32 flex-1 bg-transparent text-xs text-ink caret-accent outline-none placeholder:text-ink-faint"
+                      className="min-w-32 flex-1 bg-transparent text-xs text-ink caret-accent outline-none placeholder:text-ink-dim"
                     />
                   </div>
                   {depListOpen && (
@@ -732,10 +732,10 @@ function AuthoringSheetBody({
                       className="absolute inset-x-0 top-full z-20 mt-1 flex max-h-56 flex-col gap-px overflow-y-auto rounded-[9px] border border-line-bright bg-well-850 p-1 shadow-2xl light:shadow-menu"
                     >
                       {depQuery.isPending && (
-                        <p className="px-2 py-1.5 text-xs text-ink-faint">searching…</p>
+                        <p className="px-2 py-1.5 text-xs text-ink-dim">searching…</p>
                       )}
                       {!depQuery.isPending && depOptions.length === 0 && (
-                        <p className="px-2 py-1.5 text-xs text-ink-faint">No tasks match.</p>
+                        <p className="px-2 py-1.5 text-xs text-ink-dim">No tasks match.</p>
                       )}
                       {depOptions.map((n, i) => (
                         <button
@@ -751,14 +751,14 @@ function AuthoringSheetBody({
                           )}
                         >
                           <StatusDot status={n.status} className="size-[5px]" />
-                          <span className="font-mono text-tag text-ink-faint">{n.id}</span>
+                          <span className="font-mono text-tag text-ink-dim">{n.id}</span>
                           <span className="truncate text-xs text-ink">{n.title}</span>
                         </button>
                       ))}
                     </div>
                   )}
                 </div>
-                <p className="text-tag text-ink-ghost">{DEP_HELPER}</p>
+                <p className="text-tag text-ink-dim">{DEP_HELPER}</p>
               </>
             )}
           </div>
@@ -775,8 +775,8 @@ function AuthoringSheetBody({
             onClick={() => setSignalsOpen((o) => !o)}
             className="flex items-center gap-2 self-start rounded focus-visible:outline-2 focus-visible:outline-accent"
           >
-            <span className="microlabel text-ink-faint">Signals · optional</span>
-            <span aria-hidden className="text-micro text-ink-ghost">
+            <span className="microlabel text-ink-dim">Signals · optional</span>
+            <span aria-hidden className="text-micro text-ink-dim">
               {signalsOpen ? '⌃' : '⌄'}
             </span>
           </button>
@@ -837,7 +837,7 @@ function AuthoringSheetBody({
                         type="button"
                         aria-label={`Remove tag ${t}`}
                         onClick={() => setTagsText(tags.filter((x) => x !== t).join(', '))}
-                        className="-my-2.5 flex min-h-11 min-w-11 items-center justify-center rounded-full text-ink-faint transition-colors hover:text-ink-bright sm:my-0 sm:min-h-0 sm:min-w-0 sm:px-1"
+                        className="-my-2.5 flex min-h-11 min-w-11 items-center justify-center rounded-full text-ink-dim transition-colors hover:text-ink-bright sm:my-0 sm:min-h-0 sm:min-w-0 sm:px-1"
                       >
                         <CloseIcon className="size-3 [stroke-width:2.5] md:size-3" />
                       </button>
@@ -881,7 +881,7 @@ function AuthoringSheetBody({
         {/* ── retry posture — the created node stays visible + linked ────── */}
         {created !== null && (
           <p role="status" className={cn(FIELD_SHELL, 'px-3 py-2 text-xs text-ink')}>
-            <span className="font-mono text-tag text-ink-faint">{created.id}</span> created —
+            <span className="font-mono text-tag text-ink-dim">{created.id}</span> created —
             dependencies not yet attached.{' '}
             <Link
               {...nodeLink(created.id)}
@@ -902,9 +902,8 @@ function AuthoringSheetBody({
         {promote !== undefined && (
           <p className="rounded-[9px] bg-accent/5 px-[13px] py-2.5 text-meta leading-[1.5] text-ink-dim inset-ring inset-ring-accent/18">
             The task links back to{' '}
-            <span className="font-mono text-mono-id text-accent-foreground">{promote.seedId}</span>;
-            when it settles, the seed surfaces as ready to resolve — your verdict, never
-            auto-closed.
+            <span className="font-mono text-accent-foreground">{promote.seedId}</span>; when it
+            settles, the seed surfaces as ready to resolve — your verdict, never auto-closed.
           </p>
         )}
 
@@ -963,7 +962,7 @@ function HomeProjectOptions({
   onPick: (id: string) => void;
 }) {
   if (projectItems.length === 0) {
-    return <p className="px-2 py-1.5 text-xs text-ink-faint">No projects yet.</p>;
+    return <p className="px-2 py-1.5 text-xs text-ink-dim">No projects yet.</p>;
   }
   return (
     <>
@@ -979,7 +978,7 @@ function HomeProjectOptions({
             p.id === projKey && 'bg-accent/12 text-ink-bright',
           )}
         >
-          <span className="font-mono text-mono-id text-ink-faint">{p.id}</span>
+          <span className="font-mono text-mono-id text-ink-dim">{p.id}</span>
           <span className="truncate">{p.title}</span>
         </button>
       ))}

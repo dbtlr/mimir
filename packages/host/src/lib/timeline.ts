@@ -44,6 +44,11 @@ const identitySchema = z.object({
 
 /** Identify the main conversation and whole-task worker in historical snapshots. */
 export function sessionIdentity(handles: z.infer<typeof identitySchema>): string {
+  return sessionRoles(handles).join(' · ');
+}
+
+/** Each handle of a snapshot, `Main harness/session` then `Worker harness/session`. */
+export function sessionRoles(handles: z.infer<typeof identitySchema>): string[] {
   const roles: string[] = [];
   if (handles.session != null) {
     roles.push(`Main ${handles.harness == null ? '' : `${handles.harness}/`}${handles.session}`);
@@ -53,7 +58,7 @@ export function sessionIdentity(handles: z.infer<typeof identitySchema>): string
       `Worker ${handles.worker_harness == null ? '' : `${handles.worker_harness}/`}${handles.worker_session}`,
     );
   }
-  return roles.join(' · ');
+  return roles;
 }
 
 /** Keep malformed or older historical snapshots readable instead of failing the timeline. */

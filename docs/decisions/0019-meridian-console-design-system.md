@@ -33,7 +33,9 @@ absorbing it as an ever-growing list of refinements.
    - **Attention (violet)** — the "needs you" set only: the top-bar badge,
      verdict blocks, under-review emphasis.
    - **Status (×9)** — dots, 2px card left-borders, bar segments, tinted
-     chips. Status hues never fill buttons; control hues never mark state.
+     chips. (For status, the MMR-718 refinement keeps the hue on dots,
+     borders, and bars; a status word draws in `ink-bright`.) Status hues never
+     fill buttons; control hues never mark state.
 
 2. **Attention is violet, deliberately not red.** The attention set leads with
    `under_review` — work asking for a verdict, not work that is broken. Review
@@ -43,9 +45,11 @@ absorbing it as an ever-growing list of refinements.
 
 3. **The status vocabulary is closed at nine and consumed identically
    everywhere** — one mapping for dots, borders, bars, chips, and the mobile
-   status sheet (the ADR 0008 vocabulary, projected visually). _Going cold_ is
-   a temperature **modifier** (glyph + demoted ink riding whatever status or
-   lane a node holds), never a tenth status and never a fifth lane.
+   status sheet (the ADR 0008 vocabulary, projected visually). (The MMR-718
+   refinement keeps the hue on dots, borders, and bars, and retires the status
+   chip.) _Going cold_ is a temperature **modifier** (glyph + demoted ink
+   riding whatever status or lane a node holds), never a tenth status and
+   never a fifth lane.
 
 4. **Review is verdict-first.** Approving or returning submitted work is the
    highest-leverage operator action in the system, so an `under_review` node
@@ -185,7 +189,8 @@ ownership refinement), the set's `blocked` member narrows to blocks owned by
 `you`.
 
 - A block owned by `others` keeps the `blocked` status word and its red hue
-  everywhere; it leaves only the needs-you set.
+  everywhere; it leaves only the needs-you set. (Since the MMR-718
+  refinement the red sits on the status dot; the word draws in `ink-bright`.)
 - _Going cold_ is unchanged and still applies to blocks of either owner, so a
   stale external block returns to the set as going cold.
 - The narrowed set applies wherever the console counts what needs the
@@ -374,7 +379,8 @@ operator. The `under_review` status hue is now chartreuse.
   7.21:1 against the light panel. The base, used for dots and borders,
   measures 9.00:1 and 8.54:1 dark, and 3.71:1 and 4.30:1 light. On a
   status chip's 12% wash, the foreground measures 9.56:1 and 8.95:1 dark,
-  and 5.44:1 and 6.24:1 light, all above AA's 4.5:1.
+  and 5.44:1 and 6.24:1 light, all above AA's 4.5:1. (Historical: the
+  MMR-718 refinement retired the status chip and its wash.)
 - **Considered and rejected.** Periwinkle (`#a09cf0` dark, `#605ac4`
   light) kept the cool family but sat ΔE 4.1 from the attention violet.
   Coral (`#ef945f` dark, `#c16229` light) cleared violet but sat about 6
@@ -552,7 +558,8 @@ amber, chartreuse, green, then jade reads as the path to done.
   5.2 dark and `awaiting` and `abandoned` at 4.0 light.
 - **Contrast.** On a status chip's 12% wash, the foreground measures 9.12:1
   against the dark page and 8.55:1 against the dark panel, and 4.91:1 and
-  5.62:1 light, all above AA's 4.5:1. The base, used for dots and borders,
+  5.62:1 light, all above AA's 4.5:1. (Historical: the MMR-718 refinement
+  retired the status chip and its wash.) The base, used for dots and borders,
   measures 8.53:1 and 8.09:1 dark, and 3.61:1 and 4.19:1 light.
 - **Considered and rejected.** Teal (`#45b5b0` dark, `#1b8580` light) drifted
   toward `ready`'s blue. Mint (`#8ad0a8` dark, `#3f9468` light) read as a pale
@@ -601,7 +608,8 @@ and MMR-695 adds the answer and verb controls.
   - A delivery's lifecycle and hold words are not task status words. They
     draw in ink, as text chips, so §3's vocabulary stays closed.
   - Members use the status hues as every task row does, `staged` green
-    included.
+    included. (Since the MMR-718 refinement, a status word draws in ink too,
+    so the hue on its dot is what tells a status from a lifecycle word.)
 - **The phase page.** A phase's page lists its live deliveries (not `landed`
   or `abandoned`) as cards. Each card shows the delivery's id, title,
   lifecycle and hold words, time, and a distribution bar over its members, and
@@ -1433,3 +1441,78 @@ refinements left open, and records two exceptions.
   converges it onto Combobox and Listbox; until then its group headings use
   the menu group heading (13/20, ink-dim, sentence case) so it reads as the
   other pickers do.
+
+## Refinement (2026-11-22, MMR-718): readable type, and the status word in bright ink
+
+Measured on a phone on 2026-11-18: meta lines and IDs at 11.5px and
+timestamps at 10.5px, all in `ink-faint`, which measures 3.4:1 on the dark
+page (`well-900`) and 2.6:1 on the light one, below AA's 4.5:1. Row titles
+were 14px at regular weight, the same as body text, so a feed's titles did
+not lead. Status words carried their hue as text, so the grey statuses were
+the hardest to read: `parked` measures 2.5:1 and `abandoned` 1.8:1 against a
+dark card (`well-850`), and `abandoned` 3.9:1 on a light one, in a 10.5px
+uppercase pill, and lower still on the 12% wash the pill sat on.
+
+- **Nothing that carries information is under 12px.** `text-tag` and
+  `text-micro` rise to 12px. `text-mono-id` rises to 12.5px, for an ID that
+  stands alone in a row's ID column, half a step under the meta line so it
+  does not compete with the title beside it. An ID that shares a line with
+  sans text, a meta line or a header's status line, takes that line's 13px,
+  as DESIGN.md's mono rule says. Decoration (a grip, a separator dot) is
+  exempt.
+- **Text that carries information is `ink-dim` or brighter.** `ink-faint`
+  and `ink-ghost` draw only what carries no information: a control's edge, an
+  off switch, a grip, a separator, a disabled glyph. This ends DESIGN.md's
+  standing exemption for the authoring sheet's and pairing's `ink-ghost`
+  placeholders: they draw in `ink-dim`, as a search box's does.
+- **Demotion stops at `ink-dim`.** §7's demotion still drops ink: a demoted
+  row's title (a done, abandoned, or going-cold row) draws in `ink-dim`, the
+  demoted ink MMR-619 names, and no text drops below it. A status word never
+  drops an ink tier; the offline page's filter (§7) is a separate demotion.
+- **Titles lead.** A row or card title in a feed is 16px at weight 500 in
+  `ink-bright` (`text-title`), at every width; it replaces the phone-only
+  15px `text-card-mobile`. Its meta line is 13px `ink-dim` (`text-meta`).
+- **The microlabel stays the one all-caps idiom (§6), at 12px.** It is
+  600-weight, tracked 0.1em (from 0.13em, which spread a 12px word too far),
+  and `ink-dim` or brighter. Whether feed sections keep it is MMR-719's
+  section head.
+- **A status word is bright; only its dot carries the hue.** A status reads
+  as its dot in the status hue followed by its display label (In progress,
+  not `in_progress`) in `ink-bright`, semibold, 13px, with no wash and no
+  ring. On a record
+  header the status leads the line, then a hairline, then the record's ID
+  and type in `ink-dim`. This narrows §1's "tinted chips" and §3's "chips"
+  for status: dots, card borders, and bar segments keep the hue, and a
+  status no longer renders as a tinted chip. The MMR-438 refinement's red
+  for an external block, and every later hue on a status word, sit on the
+  dot. Every status word then measures 13.6:1 or better on every well in
+  both themes, `parked` and `abandoned` included.
+- **Words beside a status follow it.** A seed's lane reads the same way: a
+  dot in the lane's hue, then its word in bright semibold ink, leading the
+  seed's header line; the seeds list's lane group headers draw in dim ink,
+  as the tasks list's status groups do. A held task's callout keeps its hued wash and edge,
+  and its label reads in `ink-bright`. A delivery's lifecycle and hold words
+  and an artifact's frozen mark are not status words (MMR-680), so they keep
+  their ink chips and their place on the line.
+- **Considered and rejected.** Brightening `ink-faint` until it passes 4.5:1:
+  one token change, but `ink-faint` would become a second `ink-dim`, and
+  every control edge and grip that uses it would brighten with it. Keeping
+  the tinted pill with a bright word: the wash still carries the hue, so the
+  word and its ground disagree. Sentence-case section headings in place of
+  the microlabel: a better read in the mocks, but they belong to MMR-719's
+  section head, so they wait for it.
+- `packages/host/src/test/readable-type.test.tsx` fails if a `--text-*`
+  token under the floor returns, in any unit; if a styles.css rule sets a
+  `font-size` or `font` shorthand under 12px, applies faint text or an
+  undersized size, or sets faint ink as a text colour; and if a console
+  source draws faint text outside its listed decoration uses (as the
+  utility, the `text-(--…)`, `text-[var(…)]`, or `[color:var(…)]` form, an
+  inline style, or a Typography text variable) or a literal size under 12px
+  (in a `text-[…]` utility, a `[font-size:…]` property, or an inline style;
+  in px, rem, em, pt, a keyword, or an unreadable `calc()`). An em size is
+  read against the 13px meta base, so a relative size inside a smaller
+  parent needs a `max()` floor, as the Markdown body's do. Its
+  status-word cases fail if the shared status word part (`StatusWord`, which
+  `StatusBadge` and the lane badge use) takes a status hue, and the work,
+  seed, artifact, and delivery page tests each check that the word they
+  render is that bright part.
