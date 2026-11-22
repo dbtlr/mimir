@@ -41,7 +41,7 @@ export function FeedCard({
   detail?: ReactNode;
   /** The row chips (size, grooming, stale), in their own row under the title. */
   chips?: ReactNode;
-  /** The card's one button. */
+  /** The card's one button, passed itself rather than wrapped, so the card can size it. */
   action?: ReactNode;
   /** A going-cold card: its title is demoted to ink-dim (ADR 0019 §7, MMR-718). */
   cold?: boolean;
