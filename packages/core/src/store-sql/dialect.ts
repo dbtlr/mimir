@@ -50,6 +50,14 @@ export type StoreDialect = {
    */
   lockRunAdmission: (tx: Transaction<DB>) => Promise<void>;
 
+  /**
+   * The database server's clock, `offsetMs` from now, as a stored instant: ISO
+   * 8601 with milliseconds and a Z, the format `Date#toISOString` writes. Run
+   * liveness (heartbeats and the stale cutoff) reads it so hosts need not
+   * agree on wall time (ADR 0041).
+   */
+  databaseInstant: (offsetMs?: number) => Expression<string>;
+
   /** Is this driver error a unique-key violation? */
   isUniqueViolation: (error: unknown) => boolean;
 

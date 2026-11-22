@@ -110,6 +110,11 @@ export const postgresDialect: StoreDialect = {
     await sql`set constraints all immediate`.execute(tx);
   },
   codecs,
+  // statement_timestamp(), not now(): now() is the transaction's start, so
+  // admission's cutoff would predate its wait for the admission lock and keep
+  // a run that went stale during that wait counted as live.
+  databaseInstant: (offsetMs = 0) =>
+    sql<string>`to_char((statement_timestamp() + ${offsetMs}::double precision * interval '1 millisecond') at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`,
   hasSchemaVersionTable,
   isUniqueViolation,
   label: 'Postgres',

@@ -104,6 +104,8 @@ export const sqliteDialect: StoreDialect = {
     }
   },
   codecs,
+  databaseInstant: (offsetMs = 0) =>
+    sql<string>`strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ${`${offsetMs / 1000} seconds`})`,
   hasSchemaVersionTable: async (ex) => {
     const probe = await sql<{ present: number }>`
       select 1 as present from sqlite_schema where type = 'table' and name = 'schema_version'

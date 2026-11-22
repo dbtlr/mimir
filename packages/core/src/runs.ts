@@ -1,4 +1,5 @@
-import type { Kysely, Selectable, Updateable } from 'kysely';
+import type { Expression, Kysely, Selectable, UpdateObject } from 'kysely';
+import { sql } from 'kysely';
 
 import { conflict, validation } from './errors';
 import type { StoreDialect } from './store-sql/dialect';
@@ -82,6 +83,11 @@ export type RunStore = {
   /** The run holding the single running slot, if any. */
   running: () => Promise<Run | undefined>;
   /**
+   * The database clock's current instant, the time run liveness is judged by
+   * (ADR 0041). A host compares a heartbeat with it, never with its own clock.
+   */
+  databaseNow: () => Promise<string>;
+  /**
    * The task's most recent run that is no longer running: the latest
    * `started_at`, the larger id breaking a tie.
    */
@@ -162,14 +168,27 @@ export function createRunStore({
   db,
   dialect,
   clock = now,
+  databaseClock,
 }: {
   db: Kysely<DB>;
   dialect: StoreDialect;
   clock?: () => string;
+  /**
+   * Replaces the database's own clock for heartbeats and the stale cutoff.
+   * Tests use it to move liveness time without waiting; a host leaves it
+   * unset so liveness never rests on hosts agreeing on wall time.
+   */
+  databaseClock?: () => string;
 }): RunStore {
   // Stored instants are canonical, including those from injected clocks.
   const clockMs = () => new Date(clock()).getTime();
   const instant = (ms: number = clockMs()) => new Date(ms).toISOString();
+  // Liveness time: the database's clock, `offsetMs` from now, so a host with a
+  // skewed clock cannot mark another host's live run stale (ADR 0041).
+  const liveness = (offsetMs = 0): Expression<string> =>
+    databaseClock === undefined
+      ? dialect.databaseInstant(offsetMs)
+      : sql<string>`${new Date(new Date(databaseClock()).getTime() + offsetMs).toISOString()}`;
 
   // Postgres returns bigint columns as strings and SQLite stores booleans as 0/1.
   const toRun = (row: Selectable<RunTable>): Run => ({
@@ -216,7 +235,7 @@ export function createRunStore({
   const ownedWrite = async (
     id: string,
     runner: string,
-    set: Updateable<RunTable>,
+    set: UpdateObject<DB, 'runs'>,
   ): Promise<RunWrite> => {
     const result = await dialect.write(db, (tx) =>
       tx
@@ -240,7 +259,7 @@ export function createRunStore({
         state: 'interrupted',
       })
       .where('state', '=', 'running')
-      .where('heartbeat_at', '<', instant(at - staleAfterMs))
+      .where('heartbeat_at', '<', liveness(-staleAfterMs))
       .returning('id')
       .execute();
   };
@@ -285,7 +304,7 @@ export function createRunStore({
           const run = await tx
             .insertInto('runs')
             .values({
-              heartbeat_at: at,
+              heartbeat_at: liveness(),
               id: input.id,
               kind: input.kind,
               model: input.model,
@@ -330,8 +349,16 @@ export function createRunStore({
         usage_settled: dialect.codecs.bool.encode(close.usageSettled),
       });
     },
+    databaseNow: async () => {
+      const { rows } = await sql<{ now: string }>`select ${liveness()} as now`.execute(db);
+      const read = rows[0]?.now;
+      if (read === undefined) {
+        throw new Error('the database returned no time');
+      }
+      return read;
+    },
     get,
-    heartbeat: (id, runner) => ownedWrite(id, runner, { heartbeat_at: instant() }),
+    heartbeat: (id, runner) => ownedWrite(id, runner, { heartbeat_at: liveness() }),
     lastEnded,
     recordUsage: async (id, runner, usage) => {
       assertUsage(usage);

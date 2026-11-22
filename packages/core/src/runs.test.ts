@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, test } from 'bun:test';
 
 import type { Kysely } from 'kysely';
+import { sql } from 'kysely';
 
 import { chargedTokens, createRunStore } from './runs';
 import type { AdmitRun, Run, RunUsage } from './runs';
@@ -25,6 +26,10 @@ async function failureOf(action: Promise<unknown>): Promise<unknown> {
 }
 
 const STALE_MS = 60_000;
+/** A host clock three minutes ahead of the database's. */
+const skewed = () => new Date(Date.now() + 3 * 60_000).toISOString();
+/** A host clock ten minutes behind the database's. */
+const behind = () => new Date(Date.now() - 10 * 60_000).toISOString();
 const USAGE: RunUsage = {
   cacheReadTokens: 20,
   cacheWriteTokens: 5,
@@ -121,7 +126,12 @@ function runsFixture({ dialect, open }: Backend) {
     const handle = await open();
     closes.push(handle.close);
     let time = new Date('2026-11-01T12:00:00.000Z');
-    const runs = createRunStore({ clock: () => time.toISOString(), db: handle.db, dialect });
+    const runs = createRunStore({
+      clock: () => time.toISOString(),
+      databaseClock: () => time.toISOString(),
+      db: handle.db,
+      dialect,
+    });
     return {
       ...handle,
       advance: (ms: number) => {
@@ -132,11 +142,92 @@ function runsFixture({ dialect, open }: Backend) {
   };
 }
 
+describe('Postgres run liveness', () => {
+  const fixture = runsFixture({ dialect: postgresDialect, open: createPgliteTestStore });
+
+  test('reads the time of each statement, not of its transaction, so admission judges staleness after its lock wait', async () => {
+    const { db } = await fixture();
+    const [first, second] = await postgresDialect.write(db, async (tx) => {
+      const read = async () =>
+        (await sql<{ at: string }>`select ${postgresDialect.databaseInstant()} as at`.execute(tx))
+          .rows[0]?.at ?? '';
+      const before = await read();
+      await sql`select pg_sleep(0.05)`.execute(tx);
+      return [before, await read()];
+    });
+    expect(Date.parse(second)).toBeGreaterThan(Date.parse(first));
+  });
+});
+
 describe.each([
   { dialect: sqliteDialect, name: 'SQLite', open: createSqliteTestStore },
   { dialect: postgresDialect, name: 'Postgres', open: createPgliteTestStore },
 ])('$name runs', (backend) => {
   const fixture = runsFixture(backend);
+
+  test('a host whose clock runs ahead does not interrupt a run the database clock says is live', async () => {
+    const { db } = await fixture();
+    const hostA = createRunStore({ db, dialect: backend.dialect });
+    const hostB = createRunStore({ clock: skewed, db, dialect: backend.dialect });
+    await hostA.admit(admission('r1'));
+    expect(await hostA.heartbeat('r1', 'host-a')).toBe('held');
+    expect(await hostB.recoverStale(120_000)).toEqual([]);
+    // Admission on the skewed host is also refused, not given a second slot.
+    expect(await hostB.admit(admission('r2', 'host-b'))).toMatchObject({
+      admitted: false,
+      reason: 'busy',
+    });
+    expect((await hostA.get('r1'))?.state).toBe('running');
+    // Heartbeats keep the stored format, and come from the database's time.
+    const beat = (await hostA.get('r1'))?.heartbeat_at ?? '';
+    expect(beat).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/);
+    expect(Math.abs(Date.parse(beat) - Date.now())).toBeLessThan(30_000);
+  });
+
+  test('a host whose clock runs behind admits with database time, so another host does not interrupt its run', async () => {
+    const { db } = await fixture();
+    const slow = createRunStore({ clock: behind, db, dialect: backend.dialect });
+    const normal = createRunStore({ db, dialect: backend.dialect });
+    await slow.admit(admission('r1'));
+    expect(await normal.recoverStale(120_000)).toEqual([]);
+    expect((await normal.get('r1'))?.state).toBe('running');
+  });
+
+  test('a host whose clock runs behind heartbeats with database time, so another host does not interrupt its run', async () => {
+    const { db } = await fixture();
+    const slow = createRunStore({ clock: behind, db, dialect: backend.dialect });
+    const normal = createRunStore({ db, dialect: backend.dialect });
+    await normal.admit(admission('r1'));
+    expect(await slow.heartbeat('r1', 'host-a')).toBe('held');
+    expect(await normal.recoverStale(120_000)).toEqual([]);
+    expect((await normal.get('r1'))?.state).toBe('running');
+  });
+
+  test('databaseNow reads the database clock in the stored format, whatever the host clock says', async () => {
+    const { db } = await fixture();
+    const now = await createRunStore({ clock: skewed, db, dialect: backend.dialect }).databaseNow();
+    expect(now).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/);
+    expect(Math.abs(Date.parse(now) - Date.now())).toBeLessThan(30_000);
+  });
+
+  test('by the database clock, a heartbeat older than the window is recovered and a newer one is not', async () => {
+    const { db } = await fixture();
+    const runs = createRunStore({ db, dialect: backend.dialect });
+    const beatAgo = async (ms: number) => {
+      await db
+        .updateTable('runs')
+        .set({ heartbeat_at: new Date(Date.now() - ms).toISOString() })
+        .where('id', '=', 'r1')
+        .execute();
+    };
+    await runs.admit(admission('r1'));
+    await beatAgo(60_000);
+    expect(await runs.recoverStale(120_000)).toEqual([]);
+    await beatAgo(180_000);
+    // Admission recovers the dead host's run and takes the slot.
+    expect(await runs.admit(admission('r2', 'host-b'))).toMatchObject({ admitted: true });
+    expect((await runs.get('r1'))?.state).toBe('interrupted');
+  });
 
   test('admission inserts a running row with its reservation and zero usage', async () => {
     const { runs } = await fixture();

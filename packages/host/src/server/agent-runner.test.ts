@@ -236,6 +236,7 @@ beforeEach(async () => {
   time = new Date('2026-11-08T12:00:00.000Z');
   runs = createRunStore({
     clock: () => time.toISOString(),
+    databaseClock: () => time.toISOString(),
     db: fixture.db,
     dialect: sqliteDialect,
   });
@@ -1012,6 +1013,15 @@ describe('admission races and recovery', () => {
 });
 
 describe('status', () => {
+  test('a host whose clock runs ahead judges staleness by the database clock, as recovery does', async () => {
+    await admitOther('live', 'host-b');
+    const { runner: created } = runner(never, {
+      clock: () => new Date(time.getTime() + 180_000),
+    });
+    expect((await created.status()).running).toMatchObject({ run: { id: 'live' }, stale: false });
+    expect(await created.cancelRun('live')).toEqual({ answer: 'another-host' });
+  });
+
   test('flags a running run whose heartbeat is older than the stale window', async () => {
     await admitOther('live', 'host-b');
     const { runner: created } = runner(never);
