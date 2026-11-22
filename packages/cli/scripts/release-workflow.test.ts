@@ -113,7 +113,8 @@ test.each([
   { code: 0, event: 'workflow_dispatch', suite: 'test' },
 ])('$event selects $suite and propagates exit $code', async ({ code, event, suite }) => {
   // Only the full lane writes the junit report the budget step reads.
-  const flags = suite === 'test' ? ' --reporter=junit --reporter-outfile=$RUNNER_TEMP/bun-junit.xml' : '';
+  const flags =
+    suite === 'test' ? ' --reporter=junit --reporter-outfile=$RUNNER_TEMP/bun-junit.xml' : '';
   const workflow = workflowSchema.parse(Bun.YAML.parse(await Bun.file(workflowPath).text()));
   const step = workflow.jobs.build.steps.find((candidate) => candidate.id === 'tests');
   expect(step?.if).toBeUndefined();
@@ -135,8 +136,8 @@ test.each([
         ...process.env,
         GITHUB_EVENT_NAME: event,
         MIMIR_TEST_EXIT: String(code),
-        RUNNER_TEMP: '/runner-temp',
         PATH: `${directory}:${process.env.PATH ?? ''}`,
+        RUNNER_TEMP: '/runner-temp',
       },
       stderr: 'pipe',
       stdout: 'pipe',
