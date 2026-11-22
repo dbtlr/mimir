@@ -43,7 +43,9 @@ export function FinishedRow({
     <Link
       {...to}
       className={cn(
-        'flex min-h-11 items-start gap-2 rounded-md px-1 py-2.5 no-underline transition-colors hover:bg-well-800 md:min-h-9 md:py-1.5',
+        // -mx-1 with px-1: the text sits on the column's edge while the hover
+        // fill and focus ring reach 4 past it; the hairlines stay in the column.
+        '-mx-1 flex min-h-11 items-start gap-2 rounded-md px-1 py-2.5 no-underline transition-colors hover:bg-well-800 md:min-h-9 md:py-1.5',
         FEED_FOCUS_RING,
       )}
     >
@@ -116,7 +118,7 @@ export function DayFold({
     >
       <CollapsibleTrigger
         animated={false}
-        className="min-h-11 gap-2 px-1 py-0 text-label font-medium text-ink-dim hover:text-ink md:min-h-9"
+        className="-mx-1 min-h-11 w-[calc(100%+0.5rem)] gap-2 px-1 py-0 text-label font-medium text-ink-dim hover:text-ink md:min-h-9"
       >
         {label}{' '}
         <span className="text-meta font-normal text-ink-dim">{count.toLocaleString('en-US')}</span>
@@ -136,9 +138,10 @@ export function DayFold({
               justExpanded.current = true;
               setExpanded(true);
             }}
-            // Indented to the titles' left edge: 4 of padding, the 16 dot column, and its 8 gap.
+            // Pulled 4 left like the rows, then indented to the titles' left
+            // edge: 4 of padding, the 16 dot column, and its 8 gap.
             className={cn(
-              'flex min-h-11 items-center rounded-md border-0 bg-transparent pr-1 pl-7 text-label font-medium md:min-h-9',
+              '-ml-1 flex min-h-11 items-center rounded-md border-0 bg-transparent pr-1 pl-7 text-label font-medium md:min-h-9',
               FEED_LINK_TEXT,
               FEED_FOCUS_RING,
             )}
@@ -178,9 +181,7 @@ export function DayFolds({ days, cap }: { days: readonly FoldDay[]; cap: number 
     setOpen(new Set(latest === undefined ? [] : [latest]));
   }
   return (
-    // -mx-1 lines the day labels up with the section head while the hover
-    // fill and focus ring still reach past it.
-    <div className="-mx-1 flex flex-col">
+    <div className="flex flex-col">
       {days.map((day) => (
         <DayFold
           key={day.key}

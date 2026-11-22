@@ -30,9 +30,7 @@ export function RowGroup({
   more?: { name: string; count: number; to: FeedLink };
 }) {
   return (
-    // -mx-1 lines the row text up with the section head while the hover fill
-    // and focus ring still reach past it.
-    <ul aria-label={label} className="-mx-1 my-0 list-none divide-y divide-line p-0">
+    <ul aria-label={label} className="m-0 list-none divide-y divide-line p-0">
       {rows
         .filter((row) => row.count > 0)
         .map((row, index) => (
@@ -55,7 +53,9 @@ function Door({ row, more = false }: { row: RowGroupRow; more?: boolean }) {
     <Link
       {...row.to}
       className={cn(
-        'group flex min-h-11 items-center gap-3 rounded-md px-1 py-2.5 text-ink-bright no-underline md:min-h-9 md:py-1.5',
+        // -mx-1 with px-1: the text sits on the column's edge while the hover
+        // fill and focus ring reach 4 past it; the hairlines stay in the column.
+        'group -mx-1 flex min-h-11 items-center gap-3 rounded-md px-1 py-2.5 text-ink-bright no-underline md:min-h-9 md:py-1.5',
         'transition-colors hover:bg-well-800',
         FEED_FOCUS_RING,
       )}

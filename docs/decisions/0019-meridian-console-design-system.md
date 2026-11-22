@@ -1554,8 +1554,9 @@ cards, not those rows or the focus queue's card.
   an optional button. The status line leads with what the item is and the
   record's ID, and keeps the age
   at its right end on the first line. Each part of the line moves to the
-  next line whole, and a long word wraps beside its dot rather than past the
-  card. A task's card leads with its status badge. A card that stands for
+  next line whole. A status's dot and word never part (status words are a
+  closed set of short words); a long name after them, such as a project's,
+  wraps rather than run past the card. A task's card leads with its status badge. A card that stands for
   a set of provisional decisions (one delivery's, or a project's decisions
   without a delivery, as the phase design bundles them) leads with the word
   _Decisions_ after an attention dot, set as a status word is (13px,
