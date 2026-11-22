@@ -25,6 +25,8 @@ async function failureOf(action: Promise<unknown>): Promise<unknown> {
 }
 
 const STALE_MS = 60_000;
+/** A host clock three minutes ahead of the database's. */
+const skewed = () => new Date(Date.now() + 3 * 60_000).toISOString();
 const USAGE: RunUsage = {
   cacheReadTokens: 20,
   cacheWriteTokens: 5,
@@ -121,7 +123,12 @@ function runsFixture({ dialect, open }: Backend) {
     const handle = await open();
     closes.push(handle.close);
     let time = new Date('2026-11-01T12:00:00.000Z');
-    const runs = createRunStore({ clock: () => time.toISOString(), db: handle.db, dialect });
+    const runs = createRunStore({
+      clock: () => time.toISOString(),
+      databaseClock: () => time.toISOString(),
+      db: handle.db,
+      dialect,
+    });
     return {
       ...handle,
       advance: (ms: number) => {
@@ -137,6 +144,25 @@ describe.each([
   { dialect: postgresDialect, name: 'Postgres', open: createPgliteTestStore },
 ])('$name runs', (backend) => {
   const fixture = runsFixture(backend);
+
+  test('a host whose clock runs ahead does not interrupt a run the database clock says is live', async () => {
+    const { db } = await fixture();
+    const hostA = createRunStore({ db, dialect: backend.dialect });
+    const hostB = createRunStore({ clock: skewed, db, dialect: backend.dialect });
+    await hostA.admit(admission('r1'));
+    expect(await hostA.heartbeat('r1', 'host-a')).toBe('held');
+    expect(await hostB.recoverStale(120_000)).toEqual([]);
+    // Admission on the skewed host is also refused, not given a second slot.
+    expect(await hostB.admit(admission('r2', 'host-b'))).toMatchObject({
+      admitted: false,
+      reason: 'busy',
+    });
+    expect((await hostA.get('r1'))?.state).toBe('running');
+    // Heartbeats keep the stored format, and come from the database's time.
+    const beat = (await hostA.get('r1'))?.heartbeat_at ?? '';
+    expect(beat).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/);
+    expect(Math.abs(Date.parse(beat) - Date.now())).toBeLessThan(30_000);
+  });
 
   test('admission inserts a running row with its reservation and zero usage', async () => {
     const { runs } = await fixture();

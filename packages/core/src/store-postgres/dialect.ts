@@ -110,6 +110,8 @@ export const postgresDialect: StoreDialect = {
     await sql`set constraints all immediate`.execute(tx);
   },
   codecs,
+  databaseInstant: (offsetMs = 0) =>
+    sql<string>`to_char((now() + ${offsetMs}::double precision * interval '1 millisecond') at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`,
   hasSchemaVersionTable,
   isUniqueViolation,
   label: 'Postgres',
