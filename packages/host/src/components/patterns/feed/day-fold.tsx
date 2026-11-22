@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { cn } from '../../../lib/cn';
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from '../../ui/collapsible';
@@ -105,8 +105,12 @@ export function DayFold({
    * part of the day; Show N more counts only the rows it was given.
    */
   count: number;
-  /** The day's finished rows, newest first. */
-  rows: readonly ReactNode[];
+  /**
+   * The day's finished rows, newest first, each an element keyed by its
+   * record's ID, so a refetch that adds a row keeps every other row (and the
+   * focus on it) attached to its own record.
+   */
+  rows: readonly ReactElement[];
   /** Rows shown before Show N more. */
   cap: number;
   open: boolean;
@@ -143,10 +147,8 @@ export function DayFold({
       </CollapsibleTrigger>
       <CollapsiblePanel animated={false}>
         <ul ref={listRef} className="m-0 list-none divide-y divide-line p-0">
-          {shown.map((row, index) => (
-            // Rows are the caller's elements in a fixed order; position is their identity here.
-            // oxlint-disable-next-line react/no-array-index-key
-            <li key={index}>{row}</li>
+          {shown.map((row) => (
+            <li key={row.key}>{row}</li>
           ))}
         </ul>
         {hidden > 0 && (
@@ -178,7 +180,8 @@ export type FoldDay = {
   key: string;
   label: string;
   count: number;
-  rows: readonly ReactNode[];
+  /** The day's rows, each an element keyed by its record's ID. */
+  rows: readonly ReactElement[];
 };
 
 /**

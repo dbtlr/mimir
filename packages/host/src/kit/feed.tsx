@@ -109,7 +109,7 @@ const DAYS = [
     ],
   },
   {
-    count: 6,
+    count: 1,
     key: '2026-11-21',
     label: 'Saturday 21 November',
     rows: [
@@ -122,7 +122,7 @@ const DAYS = [
     ],
   },
   {
-    count: 12,
+    count: 1,
     key: '2026-11-20',
     label: 'Friday 20 November',
     rows: [finished('MMR-712', 'done', 'Choose what notifies each browser', '19:02')],
@@ -281,9 +281,9 @@ export function FeedKit() {
                   rows={[
                     {
                       count: 12_018,
-                      key: 'HUGIX',
+                      key: 'HUGI',
                       name: 'Hugi continuous integration lanes with audit and reporting for every runner',
-                      to: project('HUGIX'),
+                      to: project('HUGI'),
                     },
                   ]}
                 />

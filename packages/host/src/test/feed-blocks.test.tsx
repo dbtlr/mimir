@@ -255,6 +255,18 @@ describe('feed day folds', () => {
     ).toBeVisible();
   });
 
+  it('keeps focus on its record when a refetch adds a newer row above it', async () => {
+    const day = (rows: ReturnType<typeof finished>[]) => [
+      { count: rows.length, key: 'today', label: 'Today', rows },
+    ];
+    const older = finished('MMR-718', 'Readable type', '08:06');
+    const { rerender } = await renderInRouter(<DayFolds days={day([older])} cap={3} />);
+    screen.getByRole('link', { name: 'Done: Readable type 08:06' }).focus();
+    rerender(<DayFolds days={day([finished('MMR-750', 'Newer', '09:30'), older])} cap={3} />);
+    expect(document.activeElement).toHaveAccessibleName('Done: Readable type 08:06');
+    expect(document.activeElement).toHaveAttribute('href', '/p/MMR/718');
+  });
+
   it('opens the new day alone when a new latest day arrives', async () => {
     const { rerender } = await renderInRouter(<DayFolds days={days.slice(1)} cap={2} />);
     await userEvent.click(screen.getByRole('button', { name: 'Friday 20 November 1' }));
