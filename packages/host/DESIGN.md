@@ -35,7 +35,7 @@ branch names, timestamps-as-data. Both are self-hosted through Fontsource
 | Record title | 17 / 24 | 600 | ink-bright | `text-dossier` | existing |
 | Section head in a feed (Needs you, Now) | 15 / 22 | 600 | ink-bright; its count 13 / 20 ink-dim inside the heading | `text-section` | **adopted (MMR-719)**: feed sections were headed by the 12px all-caps microlabel in ink-dim, the faintest text in the section |
 | Row or card title in a feed | 16 / 22 | 500 | ink-bright | `text-title` | **adopted (MMR-718)**: rows were `text-body` (14, regular) and phone cards `text-card-mobile` (15); a title must lead its meta |
-| Day label of a day fold | 14 / 20 | 500 | ink-dim; its count 13 / 20 ink-dim | `text-label` | **adopted (MMR-719)**: was 12px mono, a date is not machine vocabulary |
+| Day label of a day fold | 14 / 20 | 500 | ink, one step above the ink-dim rows it heads; its count 13 / 20 ink-dim | `text-label` | **adopted (MMR-719)**: was 12px mono, a date is not machine vocabulary |
 | Group heading inside a form (Advanced, Lifecycle) | 16 / 24 | 600 | ink-bright | `text-base` | **adopted (MMR-743)**: groups today use the 10.5px microlabel, under the floor |
 | Control text (input value, option label, select value) | 15 / 22 | 400 | ink-bright | `text-[15px] leading-[22px]` (Input, Textarea) | existing |
 | Field label | 14 / 20 | 500 | ink | `text-label` | **adopted (MMR-743)**: `FIELD_LABEL_CLASS` is 12px ink-dim; a label must read before its control |
@@ -351,11 +351,11 @@ column says otherwise.
 | | Finished row | a link, at least 44 tall on a phone and 36 on desktop: the status dot centred in a 16 column (as the chevron above it), the title `text-title` in ink-dim on one line, 8 after it so it lines up with the day label, the time 13 mono ink-dim at the right | **adopted (MMR-719)** |
 | | Abandoned row | adds a second line, 13 / 20: the status word (ink-bright, 600, as every status word), then the reason in ink-dim | **adopted (MMR-719)** |
 | | Show N more | a text button 44 tall on a phone and 36 on desktop, 14 / 20, 500, `accent-foreground`, underlined on hover; indented 28 to line up with the row titles | **adopted (MMR-719)** |
-| Shipped summary | Chart | a 1px `line` baseline under the plot, so a zero day reads as zero; seven columns, 8 apart, each a 16 count row, an 84 plot, and a 32 two-line label row; bars at most 44 wide, 3 top radius, in `status-done`; any day above zero at least 4 tall, so a smaller day never draws taller; the columns share the card's width | **adopted (MMR-719)** |
+| Shipped summary | Chart | a 1px `line-bright` baseline under the plot (the breakdown's divider stays `line`), so a zero day reads as zero; seven columns, 8 apart, each a 16 count row, an 84 plot, and a 32 two-line label row; bars at most 44 wide, 3 top radius, in `status-done`; any day above zero at least 4 tall, so a smaller day never draws taller; the columns share the card's width | **adopted (MMR-719)** |
 | | Labels | counts and day names 12 / 16 ink-dim; today's in ink-bright, 600, with "so far" under its name | **adopted (MMR-719)** |
 | | Today's bar | a solid fill mixed 45% `status-done` into `well-850` (a mixed color, not opacity), with a 1px `status-done` edge, which the 4 floor keeps around a fill | **adopted (MMR-719)** |
 | | Counts over 999 | shortened on screen to four characters (1.2k, 12k, 1.2M, 1B, 1T; a value that would round to 1000 of a unit moves up), which fit a 28 column at 320; exact in the chart's accessible name | **adopted (MMR-719)** |
-| Quiet line, quiet sentence | Text | `text-body` in ink, no frame, at the section head's left edge, 32 from the block above. A quiet line takes a section's place; it never sits under a section's own head | **adopted (MMR-719)** |
+| Quiet line, quiet sentence | Text | `text-body` (14 / 23) in ink, no frame, at the section head's left edge, 32 from the block above. A quiet line takes a section's place; it never sits under a section's own head | **adopted (MMR-719)** |
 
 ## Sizes
 

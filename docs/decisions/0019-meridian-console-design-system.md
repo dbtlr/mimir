@@ -1577,7 +1577,7 @@ cards, not those rows or the focus queue's card.
   page with a filter set (principles 2 and 6 of MMR-a420).
 - **A day fold is a disclosure built on Collapsible.** Its trigger is a row
   44px tall on a phone and 36px on desktop: a chevron that points right when
-  closed and down when open, the day in 14px/500 sans `ink-dim`, and the
+  closed and down when open, the day in 14px/500 sans `ink`, and the
   day's count. It opens and closes at once, without the primitive's height
   animation or chevron turn, within §8's motion budget. Days run newest
   first, as do the rows within a day, and only the latest day starts open. Inside it, finished work is one-line rows, each a link: the

@@ -7,5 +7,7 @@ import type { ReactNode } from 'react';
  * once what the rest of a page's empty sections would have said.
  */
 export function Quiet({ children }: { children: ReactNode }) {
-  return <p className="mt-8 mb-0 max-w-prose text-body text-ink first:mt-0">{children}</p>;
+  return (
+    <p className="mt-8 mb-0 max-w-prose text-body leading-[1.65] text-ink first:mt-0">{children}</p>
+  );
 }

@@ -130,7 +130,7 @@ export function DayFold({
     >
       <CollapsibleTrigger
         animated={false}
-        className="-mx-1 min-h-11 w-[calc(100%+0.5rem)] gap-2 px-1 py-0 text-label font-medium text-ink-dim hover:text-ink md:min-h-9"
+        className="-mx-1 min-h-11 w-[calc(100%+0.5rem)] gap-2 px-1 py-0 text-label font-medium text-ink hover:text-ink-bright md:min-h-9"
       >
         {label}{' '}
         <span className="text-meta font-normal text-ink-dim">{count.toLocaleString('en-US')}</span>
