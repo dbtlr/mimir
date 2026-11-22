@@ -43,11 +43,15 @@ export function FinishedRow({
     <Link
       {...to}
       className={cn(
-        'flex min-h-11 items-start gap-2.5 rounded-md px-1 py-2.5 no-underline transition-colors hover:bg-well-800 md:min-h-9 md:py-1.5',
+        'flex min-h-11 items-start gap-2 rounded-md px-1 py-2.5 no-underline transition-colors hover:bg-well-800 md:min-h-9 md:py-1.5',
         FEED_FOCUS_RING,
       )}
     >
-      <span className="mt-2 flex shrink-0">{dot}</span>
+      {/* The dot sits in a 16 column, as the fold's chevron does, so the title
+          lines up with the day label. It is hidden: the status is in words. */}
+      <span aria-hidden className="mt-2 flex w-4 shrink-0 justify-center">
+        {dot}
+      </span>
       <span className="min-w-0 flex-1">
         <span className="sr-only">{status}:</span>{' '}
         <span className="block truncate text-title font-medium text-ink-dim">{title}</span>
@@ -62,6 +66,10 @@ export function FinishedRow({
     </Link>
   );
 }
+
+/** What can take focus in a revealed row, skipping disabled controls. */
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** One day's fold: its trigger row and its rows, capped with an in-place Show N more. */
 export function DayFold({
@@ -95,9 +103,7 @@ export function DayFold({
   useEffect(() => {
     if (expanded && justExpanded.current) {
       justExpanded.current = false;
-      listRef.current?.children[cap]
-        ?.querySelector<HTMLElement>('a[href], button, [tabindex]:not([tabindex="-1"])')
-        ?.focus();
+      listRef.current?.children[cap]?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
     }
   }, [expanded, cap]);
   return (
@@ -130,9 +136,9 @@ export function DayFold({
               justExpanded.current = true;
               setExpanded(true);
             }}
-            // Indented to the titles' left edge: 4 of padding, the 7px dot, and its 10 gap.
+            // Indented to the titles' left edge: 4 of padding, the 16 dot column, and its 8 gap.
             className={cn(
-              'flex min-h-11 items-center rounded-md border-0 bg-transparent pr-1 pl-[21px] text-label font-medium md:min-h-9',
+              'flex min-h-11 items-center rounded-md border-0 bg-transparent pr-1 pl-7 text-label font-medium md:min-h-9',
               FEED_LINK_TEXT,
               FEED_FOCUS_RING,
             )}
@@ -172,7 +178,9 @@ export function DayFolds({ days, cap }: { days: readonly FoldDay[]; cap: number 
     setOpen(new Set(latest === undefined ? [] : [latest]));
   }
   return (
-    <div className="flex flex-col">
+    // -mx-1 lines the day labels up with the section head while the hover
+    // fill and focus ring still reach past it.
+    <div className="-mx-1 flex flex-col">
       {days.map((day) => (
         <DayFold
           key={day.key}

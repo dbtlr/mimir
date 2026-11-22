@@ -37,11 +37,14 @@ function Chevron({ animated }: { animated: boolean }) {
 }
 
 /** A form group's chevron, after its heading: down while folded, up while open. */
-function EndChevron() {
+function EndChevron({ animated }: { animated: boolean }) {
   return (
     <svg
       aria-hidden="true"
-      className="size-4 shrink-0 text-ink-dim transition-transform duration-150 group-data-[open]:rotate-180"
+      className={cn(
+        'size-4 shrink-0 text-ink-dim group-data-[open]:rotate-180',
+        animated && 'transition-transform duration-150',
+      )}
       fill="none"
       stroke="currentColor"
       strokeLinecap="round"
@@ -81,7 +84,7 @@ export function CollapsibleTrigger({
     >
       {chevron === 'start' && <Chevron animated={animated} />}
       {children}
-      {chevron === 'end' && <EndChevron />}
+      {chevron === 'end' && <EndChevron animated={animated} />}
     </SdkCollapsibleTrigger>
   );
 }

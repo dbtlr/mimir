@@ -25,24 +25,32 @@ function exact(count: number): string {
   return count.toLocaleString('en-US');
 }
 
+/** The units a count shortens to, smallest first. */
+const UNITS = [
+  { size: 1e3, suffix: 'k' },
+  { size: 1e6, suffix: 'M' },
+  { size: 1e9, suffix: 'B' },
+] as const;
+
 /**
  * A count as the chart shows it, four characters at most so it stays inside
- * its column on a 320px phone: exact up to 999, then 1.2k, 12k, and 1.2M.
+ * its column on a 320px phone: exact up to 999, then 1.2k, 12k, 999k, 1M, and
+ * on up. One decimal under 10 of a unit, none above. A value that would round
+ * to 1000 of a unit moves up to the next one (999,500 is 1M, not 1000k).
  */
 export function shortCount(count: number): string {
   if (count < 1000) {
     return String(count);
   }
-  if (count < 9950) {
-    return `${trim(count / 1000, 1)}k`;
+  let shown = '';
+  for (const unit of UNITS) {
+    const value = count / unit.size;
+    shown = `${trim(value, value < 9.95 ? 1 : 0)}${unit.suffix}`;
+    if (Number.parseFloat(shown) < 1000) {
+      return shown;
+    }
   }
-  // Rounding can carry into the next unit (999,600 → 1000k), so M starts where
-  // the rounded k value would reach 1000.
-  if (count < 999_500) {
-    return `${trim(count / 1000, 0)}k`;
-  }
-  const millions = count / 1_000_000;
-  return `${trim(millions, millions < 9.95 ? 1 : 0)}M`;
+  return shown;
 }
 
 /** The sentence a screen reader hears for the chart, with every exact count. */
@@ -77,13 +85,12 @@ export function ShippedSummary({
   const max = Math.max(1, ...days.map((day) => day.count));
   return (
     <div className={cn(cardVariants(), 'px-4 pt-3.5', breakdown === undefined && 'pb-3.5')}>
-      <div role="img" aria-label={chartName(days)} className="flex max-w-[520px] gap-2">
+      <div role="img" aria-label={chartName(days)} className="flex gap-2">
         {days.map((day, index) => {
           const today = index === days.length - 1;
-          // A partial day keeps 4px so its outline still frames a fill.
-          const floor = today ? 4 : 2;
-          const height =
-            day.count === 0 ? 0 : Math.max(floor, Math.round((day.count / max) * PLOT));
+          // Any day above zero keeps 4px, so today's outline still frames a
+          // fill and a small day never draws shorter than a smaller one.
+          const height = day.count === 0 ? 0 : Math.max(4, Math.round((day.count / max) * PLOT));
           return (
             <div
               key={day.short}

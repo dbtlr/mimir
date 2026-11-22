@@ -88,22 +88,17 @@ export function FeedCard({
       {detail !== undefined && (
         <p className="mt-1 mb-0 line-clamp-2 text-meta text-ink-dim wrap-anywhere">{detail}</p>
       )}
-      {(hasChips || hasAction) && (
-        // The foot sits at the card's bottom, so in a grid row of unequal
-        // cards the chips and buttons line up.
-        <div className="mt-auto">
-          {hasChips && (
-            <div id={chipsId} className="flex flex-wrap gap-1 pt-2">
-              {chips}
-            </div>
-          )}
-          {hasAction && (
-            // Only the button takes pointer events above the stretched link, so
-            // a tap beside it still reaches the card's link.
-            <div className="pointer-events-none relative mt-3 flex *:pointer-events-auto *:relative *:z-10">
-              {action}
-            </div>
-          )}
+      {hasChips && (
+        <div id={chipsId} className="flex flex-wrap gap-1 pt-2">
+          {chips}
+        </div>
+      )}
+      {hasAction && (
+        // The button is held to the card's bottom, so in a grid row of unequal
+        // cards the buttons line up. Only the button takes pointer events above
+        // the stretched link, so a tap beside it still reaches the card's link.
+        <div className="pointer-events-none relative mt-auto flex pt-3 *:pointer-events-auto *:relative *:z-10">
+          {action}
         </div>
       )}
     </article>

@@ -1588,11 +1588,12 @@ cards, not those rows or the focus queue's card.
   revealed row.
 - **The Shipped summary is a seven-day column chart, then a row group.**
   Each day is one column, with its count above the bar and its short name
-  below, and all columns share one baseline. Bars draw in the `done` hue, as
-  §1 keeps hues on bar segments. Today's bar is partial, so it is outlined in
+  below, and all columns share one baseline. Any day above zero draws at
+  least 4px, so a smaller day never draws taller than a larger one. Bars
+  draw in the `done` hue, as §1 keeps hues on bar segments. Today's bar is partial, so it is outlined in
   the `done` hue over a weaker fill and labelled "so far". The chart's
   accessible name lists every day's count. Counts past 999 are shortened on
-  screen to four characters (1.2k, 12k, 1.2M), so a label stays inside its
+  screen to four characters (1.2k, 12k, 1.2M, 1B), so a label stays inside its
   column on a 320px phone, and stay exact in the accessible name. A row group of
   counts one level down follows the chart.
 - **Quiet states are plain sentences.** A quiet line replaces one empty

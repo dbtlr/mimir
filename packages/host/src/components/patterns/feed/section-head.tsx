@@ -27,7 +27,7 @@ export function SectionHead({
   seeAll?: FeedLink;
 }) {
   return (
-    <div className="mb-2 flex min-h-11 items-center gap-2 md:min-h-9">
+    <div className="mb-3 flex min-h-11 items-center gap-2 md:min-h-9">
       <h2 id={id} className="m-0 min-w-0 text-section font-semibold text-ink-bright wrap-anywhere">
         {title}
         {count !== undefined && ' '}

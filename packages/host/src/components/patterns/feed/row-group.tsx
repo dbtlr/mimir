@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router';
 
 import { cn } from '../../../lib/cn';
-import { FEED_FOCUS_RING, FEED_LINK_TEXT } from './link';
+import { FEED_FOCUS_RING } from './link';
 import type { FeedLink } from './link';
 
 /** One door in a row group: an optional key, a name, and its count. */
@@ -30,11 +30,14 @@ export function RowGroup({
   more?: { name: string; count: number; to: FeedLink };
 }) {
   return (
-    <ul aria-label={label} className="m-0 list-none divide-y divide-line p-0">
+    // -mx-1 lines the row text up with the section head while the hover fill
+    // and focus ring still reach past it.
+    <ul aria-label={label} className="-mx-1 my-0 list-none divide-y divide-line p-0">
       {rows
         .filter((row) => row.count > 0)
-        .map((row) => (
-          <li key={`${row.key ?? ''}:${row.name}`}>
+        .map((row, index) => (
+          // A key is unique in a project list; unkeyed rows may share a name.
+          <li key={row.key ?? `${String(index)}:${row.name}`}>
             <Door row={row} />
           </li>
         ))}
@@ -52,7 +55,7 @@ function Door({ row, more = false }: { row: RowGroupRow; more?: boolean }) {
     <Link
       {...row.to}
       className={cn(
-        'flex min-h-11 items-center gap-3 rounded-md px-1 py-2.5 text-ink-bright no-underline md:min-h-9 md:py-1.5',
+        'group flex min-h-11 items-center gap-3 rounded-md px-1 py-2.5 text-ink-bright no-underline md:min-h-9 md:py-1.5',
         'transition-colors hover:bg-well-800',
         FEED_FOCUS_RING,
       )}
@@ -64,7 +67,8 @@ function Door({ row, more = false }: { row: RowGroupRow; more?: boolean }) {
         className={cn(
           // The clamp sits on an unpadded box, so no part of a third line shows.
           'line-clamp-2 min-w-0 flex-1 text-title font-medium wrap-anywhere',
-          more ? FEED_LINK_TEXT : 'text-ink',
+          // The door's underline answers a hover anywhere on its row.
+          more ? 'text-accent-foreground group-hover:underline' : 'text-ink',
         )}
       >
         {row.name}

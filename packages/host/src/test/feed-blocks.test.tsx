@@ -235,6 +235,19 @@ describe('feed day folds', () => {
     }
   });
 
+  it('keeps a dot’s own text out of the row’s name', async () => {
+    await renderInRouter(
+      <FinishedRow
+        to={nodeLink('MMR-1')}
+        dot={<span>Completed</span>}
+        status="Done"
+        title="One"
+        time="09:00"
+      />,
+    );
+    expect(screen.getByRole('link')).toHaveAccessibleName('Done: One 09:00');
+  });
+
   it('shows a capped day’s rest in place and moves focus to the first row it revealed', async () => {
     await renderInRouter(<DayFolds days={days} cap={2} />);
     expect(screen.queryByRole('link', { name: /Loom 0\.20/ })).toBeNull();
@@ -273,10 +286,25 @@ describe('shipped summary', () => {
 
   it('keeps every shortened count to four characters, up through millions', () => {
     expect(
-      [999, 1000, 1234, 9949, 9950, 10_000, 12_400, 999_499, 999_500, 1_000_000, 12_400_000].map(
-        shortCount,
-      ),
-    ).toEqual(['999', '1k', '1.2k', '9.9k', '10k', '10k', '12k', '999k', '1M', '1M', '12M']);
+      [
+        999, 1000, 1234, 9949, 9950, 10_000, 12_400, 999_499, 999_500, 1_000_000, 12_400_000,
+        999_500_000, 2_500_000_000,
+      ].map(shortCount),
+    ).toEqual([
+      '999',
+      '1k',
+      '1.2k',
+      '9.9k',
+      '10k',
+      '10k',
+      '12k',
+      '999k',
+      '1M',
+      '1M',
+      '12M',
+      '1B',
+      '2.5B',
+    ]);
   });
 
   it('reads a short week without a dangling list', () => {
