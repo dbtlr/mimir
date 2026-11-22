@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, test } from 'bun:test';
 
 import type { Kysely } from 'kysely';
+import { sql } from 'kysely';
 
 import { chargedTokens, createRunStore } from './runs';
 import type { AdmitRun, Run, RunUsage } from './runs';
@@ -140,6 +141,23 @@ function runsFixture({ dialect, open }: Backend) {
     };
   };
 }
+
+describe('Postgres run liveness', () => {
+  const fixture = runsFixture({ dialect: postgresDialect, open: createPgliteTestStore });
+
+  test('reads the time of each statement, not of its transaction, so admission judges staleness after its lock wait', async () => {
+    const { db } = await fixture();
+    const [first, second] = await postgresDialect.write(db, async (tx) => {
+      const read = async () =>
+        (await sql<{ at: string }>`select ${postgresDialect.databaseInstant()} as at`.execute(tx))
+          .rows[0]?.at ?? '';
+      const before = await read();
+      await sql`select pg_sleep(0.05)`.execute(tx);
+      return [before, await read()];
+    });
+    expect(Date.parse(second)).toBeGreaterThan(Date.parse(first));
+  });
+});
 
 describe.each([
   { dialect: sqliteDialect, name: 'SQLite', open: createSqliteTestStore },
