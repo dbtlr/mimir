@@ -55,11 +55,12 @@ export function RowGroup({
 
 /** A row's stable React key: its project key, else its name and occurrence. */
 function rowKey(row: RowGroupRow, earlier: readonly RowGroupRow[]): string {
+  // Two namespaces, so a caller's key can never equal a derived one.
   if (row.key !== undefined) {
-    return row.key;
+    return `key:${row.key}`;
   }
   const same = earlier.filter((other) => other.key === undefined && other.name === row.name);
-  return `${row.name}#${String(same.length)}`;
+  return `name:${row.name}#${String(same.length)}`;
 }
 
 function Door({ row, more = false }: { row: RowGroupRow; more?: boolean }) {
