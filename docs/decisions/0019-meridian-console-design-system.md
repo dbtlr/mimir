@@ -66,7 +66,8 @@ absorbing it as an ever-growing list of refinements.
    for all prose and UI text; a monospace (JetBrains Mono) strictly for
    machine vocabulary — ids, keys, tags, timestamps-as-data. The uppercase
    microlabel is the single all-caps idiom (column/lane/section captions).
-   Fonts are self-hosted (the console is a PWA; no runtime font CDN).
+   (The MMR-719 refinement gives a feed section a sentence-case head, so the
+   microlabel no longer captions one.) Fonts are self-hosted (the console is a PWA; no runtime font CDN).
 
 7. **Light mode is a translation, not a recolor.** Six conversion rules cover
    every surface; anything unlisted converts by token table alone: washes gain
@@ -1516,3 +1517,107 @@ uppercase pill, and lower still on the 12% wash the pill sat on.
   `StatusBadge` and the lane badge use) takes a status hue, and the work,
   seed, artifact, and delivery page tests each check that the word they
   render is that bright part.
+
+## Refinement (2026-11-22, MMR-719): the feed blocks
+
+The readability phase (MMR-717, design of record in artifact MMR-a420)
+rebuilds the console's feeds from shared blocks. This refinement records six
+of them: the section head, the card, the row group, the day fold, the
+Shipped summary, and the quiet line and quiet sentence. The Needs you deck
+(MMR-721) and the preview panel (MMR-720) are recorded by their own tasks.
+The six live together in `components/patterns/feed`, so a page assembles
+them rather than drawing its own. Like the other patterns, they import
+primitives only, and a feature hands them its own parts (a status badge, a
+chip) through slots. The operator picked their form from the third round of
+mocks, after blind design review of each round (MMR-719: chips on their own
+row, and 15px heads). `packages/host/DESIGN.md` holds their numbers.
+
+The blocks change no page by themselves. The task that rebuilds a page
+decides which blocks it takes (Home in MMR-722, the Needs you page in
+MMR-723, list pages in MMR-724, scoped pages in MMR-727), and until then
+ADR 0013's section rules (Shipped as rows grouped by day among them) and the
+needs-you rows of the MMR-694 and MMR-695 refinements stand. A decision's
+row keeps its answer chips: the feed card's one-button limit binds feed
+cards, not those rows or the focus queue's card.
+
+- **A feed section's head is a sentence-case heading, not the microlabel.**
+  It reads as the section's name in 15px/600 `ink-bright`, followed by its
+  count in 13px `ink-dim` inside the same heading, and ends in an optional
+  _See all_ link at the right. Its row is 44px tall on a phone, with or
+  without the link, so every section starts at the same distance from its
+  head. This narrows §6: the microlabel stays the one all-caps idiom, for
+  column and lane captions, and no longer captions a feed section. The
+  MMR-718 refinement left that choice to this block.
+- **A feed card is one link, with at most one button stacked over it.** It reads
+  top down: a status line, the title (16px/500, `text-title`), an optional
+  detail line (13px `ink-dim`, two lines at most), an optional chip row, and
+  an optional button. The status line leads with what the item is and the
+  record's ID, and keeps the age
+  at its right end on the first line. Each part of the line moves to the
+  next line whole. A status's dot and word never part (status words are a
+  closed set of short words); a long name after them, such as a project's,
+  wraps rather than run past the card. A task's card leads with its status badge. A card that stands for
+  a set of provisional decisions (one delivery's, or a project's decisions
+  without a delivery, as the phase design bundles them) leads with the word
+  _Decisions_ after an attention dot, set as a status word is (13px,
+  semibold, `ink-bright`); it names a set, not a delivery's lifecycle, so
+  MMR-680's ink chips do not apply to it. Which ID such a card shows and
+  where its link leads are the Needs you deck's to settle (MMR-721). Chips (size, grooming, stale) sit in their own row under the title,
+  never on the status line, so a long title never leaves a chip alone on a
+  line. The whole card is one link whose accessible description is its
+  status line and chip row. Its one button is stacked over that link as a
+  separate target, so a tap beside the button still follows the link. Until
+  the preview panel (MMR-720) replaces it, the link opens the record's page.
+  A going-cold card's title is demoted to `ink-dim` (§7, MMR-718).
+- **A row group is a list of doors.** Each row is one link, at least 44px
+  tall on a phone and 36px on desktop: an optional key in a mono column of
+  fixed minimum width, a name (16px/500, two lines at most), and a count.
+  A row whose count is zero is left out. When the group is capped, its last
+  row is a link of the same shape ("5 more projects") that opens the list
+  page with a filter set (principles 2 and 6 of MMR-a420).
+- **A day fold is a disclosure built on Collapsible.** Its trigger is a row
+  44px tall on a phone and 36px on desktop: a chevron that points right when
+  closed and down when open, the day in 14px/500 sans `ink`, and the
+  day's count. It opens and closes at once, without the primitive's height
+  animation or chevron turn, within §8's motion budget. Days run newest
+  first, as do the rows within a day, and only the latest day starts open. Inside it, finished work is one-line rows, each a link: the
+  status dot, the title demoted to `ink-dim` (§7, MMR-718), and the time in
+  mono. An abandoned row adds a second line with its status word in bright
+  ink and its reason, and every row's status is in its accessible text. A
+  day with more rows than its cap (the caller's to set) ends in a _Show N
+  more_ button that reveals the rest in place and moves focus to the first
+  revealed row.
+- **The Shipped summary is a seven-day column chart, then a row group.**
+  Each day is one column, with its count above the bar and its short name
+  below, and all columns share one baseline. Any day above zero draws at
+  least 4px, so a smaller day never draws taller than a larger one. Bars
+  draw in the `done` hue, as §1 keeps hues on bar segments. Today's bar is partial, so it is outlined in
+  the `done` hue over a weaker fill and labelled "so far". The chart's
+  accessible name lists every day's count. Counts past 999 are shortened on
+  screen to four characters (1.2k, 12k, 1.2M, 1B), so on a 320px phone a
+  label stays within its column and the gaps beside it and never touches a
+  neighbour, and stay exact in the accessible name. A row group of
+  counts one level down follows the chart.
+- **Quiet states are plain sentences.** A quiet line replaces one empty
+  section with a sentence ("Nothing needs you."). A quiet sentence replaces
+  the rest of a page's empty sections with one sentence. Both are body text
+  in `ink`, with no frame: a card reads as something to tap, and a quiet
+  state offers nothing to tap. This departs from MMR-a420's block table,
+  which offered "one card" for the quiet sentence.
+- **Considered and rejected.**
+  - Chips on the status line: it kept a card a line shorter, but at 320px
+    the chips wrapped and pushed the line to two rows.
+  - Keeping the microlabel for section heads: at 12px `ink-dim` it was the
+    faintest text in the section it headed.
+  - A 16px/600 head: on a scoped page it sat one pixel under the 17px/600
+    record title above it.
+  - A list chart of horizontal bars: it took 180px against the columns'
+    110px.
+  - A framed quiet card: it read as tappable.
+- `packages/host/src/test/feed-blocks.test.tsx` checks each block's
+  behavior: the head's count and link; the card's single link
+  and separate button, and its description; the row group's door; the fold's
+  disclosure, focus after _Show N more_, and only the latest day open; and
+  the chart's accessible name, shortened counts, and partial day. The
+  readable-type guard covers their type and ink; sizes and wrapping are
+  checked in a real browser, as jsdom has no layout.
