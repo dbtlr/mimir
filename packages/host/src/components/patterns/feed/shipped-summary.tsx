@@ -93,7 +93,7 @@ export function ShippedSummary({
         {days.map((day, index) => {
           const today = index === days.length - 1;
           // Any day above zero keeps 4px, so today's outline still frames a
-          // fill and a small day never draws shorter than a smaller one.
+          // fill and a smaller day never draws taller than a larger one.
           const height = day.count === 0 ? 0 : Math.max(4, Math.round((day.count / max) * PLOT));
           return (
             <div
