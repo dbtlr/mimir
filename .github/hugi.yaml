@@ -1,0 +1,6 @@
+# Hugi runs the macOS row of release.yml's build job in a virtual machine on its own host and posts
+# a commit status for it. A declared job may not have needs. See dbtlr/hugi, ADR-0004.
+lanes:
+  - workflow: release.yml
+    jobs: [build]
+    matrix: { os: macos-latest }
