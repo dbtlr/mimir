@@ -146,14 +146,18 @@ function AgentPanel({
       {node.session != null && (
         <span className="text-ink-dim">
           <span className="microlabel mr-1.5 text-ink-dim">Main session</span>
-          <span className="font-mono break-all">{node.session}</span>
+          <span className="inline-block max-w-full font-mono text-mono-id wrap-anywhere">
+            {node.session}
+          </span>
         </span>
       )}
       {node.workerSession != null && (
         <span className="text-ink-dim">
           <span className="microlabel mr-1.5 text-ink-dim">Worker session</span>
           {node.workerHarness != null && <span className="mr-1.5">{node.workerHarness}</span>}
-          <span className="font-mono break-all">{node.workerSession}</span>
+          <span className="inline-block max-w-full font-mono text-mono-id wrap-anywhere">
+            {node.workerSession}
+          </span>
         </span>
       )}
       {node.branch != null && (

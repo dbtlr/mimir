@@ -406,8 +406,14 @@ describe('task page (MMR-449)', () => {
       status: 'done',
     });
 
+    // Each handle is its own part of the line (MMR-718), so match the handles' whole text.
     await expect(
-      screen.findByText('Main codex/conversation · Worker claude/build-session'),
+      screen.findByText(
+        (_, el) =>
+          el?.tagName === 'SPAN' &&
+          el.textContent?.replaceAll('\u00a0', ' ').trim() ===
+            'Main codex/conversation · Worker claude/build-session',
+      ),
     ).resolves.toBeInTheDocument();
     const link = screen.getByRole('link', { name: 'https://example.com/pull/9' });
     expect(link.getAttribute('href')).toBe('https://example.com/pull/9');

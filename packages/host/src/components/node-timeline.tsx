@@ -2,11 +2,12 @@ import { useState } from 'react';
 
 import { cn } from '../lib/cn';
 import { ago } from '../lib/time';
-import { describeTransition, sessionIdentity } from '../lib/timeline';
+import { describeTransition, sessionRoles } from '../lib/timeline';
 import type { FeedItem, HistoryEntry } from '../lib/timeline';
 import { LinkifiedText } from './linkified-text';
 import { MarkdownBody } from './markdown-body';
 import type { ClampMeasure } from './markdown-body';
+import { MetaPart } from './meta-part';
 import { Skeleton } from './ui/skeleton';
 
 /** Filled dot color per transition destination; unmapped destinations stay neutral. */
@@ -40,17 +41,22 @@ function FeedDot({ item }: { item: FeedItem }) {
 
 function TransitionLine({ entry }: { entry: HistoryEntry }) {
   const { label, detail } = describeTransition(entry);
-  const identity =
-    entry.kind === 'assignment' || entry.handles === undefined
-      ? ''
-      : sessionIdentity(entry.handles);
+  const roles =
+    entry.kind === 'assignment' || entry.handles === undefined ? [] : sessionRoles(entry.handles);
   return (
     <p className="text-meta text-ink">
       <span className="font-medium">{label}</span>
-      {detail != null && <span className="ml-1.5 font-mono text-ink-dim">{detail}</span>}
-      {identity !== '' && (
-        // Wraps at the spaces between handles first, and inside an id only when one cannot fit a line.
-        <span className="ml-1.5 font-mono wrap-anywhere text-ink-dim">{identity}</span>
+      {detail != null && <span className="font-mono text-ink-dim"> {detail}</span>}
+      {roles.length > 0 && (
+        // A real space, not a margin, so the label and the handles read apart (MMR-718).
+        <span className="text-ink-dim">
+          {' '}
+          {roles.map((role, index) => (
+            <MetaPart key={role} mono first={index === 0}>
+              {role}
+            </MetaPart>
+          ))}
+        </span>
       )}
       {entry.reason != null && (
         <span className="text-ink-dim">

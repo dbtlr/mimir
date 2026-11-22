@@ -28,6 +28,7 @@ import {
   shippedTime,
 } from '../lib/work-page';
 import { BrowserGroup, BrowserRow } from './browser-list';
+import { MetaPart } from './meta-part';
 import { NewTaskButton } from './new-task-button';
 import { OpenInT3 } from './open-in-t3';
 import { StaleBadge } from './signal-badges';
@@ -55,21 +56,6 @@ export function Empty({ lead, children }: { lead: string; children?: ReactNode }
       <strong className="font-semibold text-ink-dim">{lead}</strong>
       {children !== undefined && <> {children}</>}
     </p>
-  );
-}
-
-/**
- * One part of a Now row's agent context, set off from the one before by a
- * middle dot. The line flows as text, and a non-breaking space binds the dot to
- * the part before it, so a wrapped line never opens with a dot (MMR-718).
- */
-function ContextPart({ children, mono = false }: { children: ReactNode; mono?: boolean }) {
-  return (
-    <>
-      {/* The dot is hidden from assistive tech; the space after it is not, so the parts still read apart. */}
-      <span aria-hidden>{'\u00a0·'}</span>{' '}
-      <span className={cn(mono && 'font-mono wrap-anywhere')}>{children}</span>
-    </>
   );
 }
 
@@ -147,7 +133,7 @@ export function NowRow({
             {row.task.status === 'under_review' || row.task.status === 'staged' ? (
               <>
                 <StatusWord>{STATUS_META[row.task.status].label}</StatusWord>
-                <ContextPart>submitted {ago(row.submittedAt ?? row.startedAt)}</ContextPart>
+                <MetaPart>submitted {ago(row.submittedAt ?? row.startedAt)}</MetaPart>
               </>
             ) : (
               <span>
@@ -159,20 +145,20 @@ export function NowRow({
                 {ago(row.startedAt)}
               </span>
             )}
-            {row.task.harness != null && <ContextPart>{row.task.harness}</ContextPart>}
+            {row.task.harness != null && <MetaPart>{row.task.harness}</MetaPart>}
             {row.task.workerSession != null && (
-              <ContextPart>
+              <MetaPart>
                 worker {row.task.workerHarness != null && `${row.task.workerHarness} `}
                 {row.task.workerSession}
-              </ContextPart>
+              </MetaPart>
             )}
-            {row.task.branch != null && <ContextPart mono>{row.task.branch}</ContextPart>}
-            {row.scratchpads.length > 0 && <ContextPart>Scratchpad open</ContextPart>}
+            {row.task.branch != null && <MetaPart mono>{row.task.branch}</MetaPart>}
+            {row.scratchpads.length > 0 && <MetaPart>Scratchpad open</MetaPart>}
             {agent !== undefined && (
-              <ContextPart>
+              <MetaPart>
                 Agent {agent.stopping ? 'stopping after its current step' : 'grooming'}
                 {agent.stale ? ', stopped reporting' : ''}
-              </ContextPart>
+              </MetaPart>
             )}{' '}
             <OpenInT3 harness={row.task.harness} host={row.task.host} session={row.task.session} />
           </p>
@@ -208,10 +194,10 @@ export function AgentNowRow({ run, stopButton }: { run: AgentRun; stopButton?: R
               ? 'Stopping after its current step'
               : `Grooming, started ${ago(run.startedAt)}`}
           </span>
-          {run.stale && <ContextPart>stopped reporting</ContextPart>}
-          <ContextPart>
+          {run.stale && <MetaPart>stopped reporting</MetaPart>}
+          <MetaPart>
             {formatTokens(run.usedTokens)} of {formatTokens(run.reservedTokens)} tokens
-          </ContextPart>
+          </MetaPart>
         </p>
       }
       actions={stopButton}
