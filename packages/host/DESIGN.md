@@ -8,8 +8,9 @@ pattern set); this file holds the numbers. Tokens live in
 Every value is marked:
 
 - **existing**: in the code today; the source is cited.
-- **adopted (MMR-743)**: proposed with the Form sheet's mock, approved with
-  it, and now carried by the primitives and patterns. The reason given beside
+- **adopted (MMR-…)**: proposed with that task's mock, approved with it,
+  and now carried by the primitives and patterns (MMR-743 the Form sheet,
+  MMR-718 readable type, MMR-719 the feed blocks). The reason given beside
   one says what the code did before.
 - **proposed**: missing from or different in the code. Each carries a one-line
   reason and needs the operator's ruling before a primitive adopts it.
@@ -43,14 +44,15 @@ branch names, timestamps-as-data. Both are self-hosted through Fontsource
 | Help, context line, meta, a footer note, a group's explanation (Lifecycle) | 13 / 20, measure 440, `text-wrap: pretty` | 400 | ink-dim | `text-meta` | **adopted (MMR-743)** for help: `FieldDescription` is 12px ink-faint (2.6:1 on light) |
 | Group heading inside a menu (a provider over its models) | 13 / 20 | 500 | ink-dim | `text-meta` | **adopted (MMR-743)** |
 | Status word | 13 / 20 | 600 | ink-bright; the hue only on its dot | `text-meta` | **adopted (MMR-718)**: the word drew in its status hue on a 12% wash, uppercase at 10.5 on headers |
-| Record ID alone in a row's ID column | 12.5, on the row's line, mono | 400 | ink-dim | `text-mono-id` | **adopted (MMR-718)**: was 11.5 in ink-faint; an ID that shares a line with sans text (a meta line, a header's status line) takes the line's 13 |
+| Record ID or project key alone in a row's ID or key column | 12.5, on the row's line, mono | 400 | ink-dim | `text-mono-id` | **adopted (MMR-718)**: was 11.5 in ink-faint; an ID that shares a line with sans text (a meta line, a header's status line) takes the line's 13 |
 | Microlabel (the one all-caps idiom) | 12, on its context's line; tracking 0.1em, uppercase | 600 | ink-dim or brighter | `.microlabel` (`text-micro`) | **adopted (MMR-718)**: was 10.5, tracked 0.13em, often ink-faint |
 | Floor: tags, captions | 12 / 16 | 400–600 | ink-dim or brighter | `text-xs`, `text-tag` | **adopted (MMR-718)**: `text-tag` (11) and `text-micro` (10.5) rose to 12 |
 
 `text-body` is one size with one line height: 14 / 23, for prose. A label is
 not prose, so it gets its own token: `--text-label` (14px) with a paired 20px
-line height, for a field label, a button label, and a segment's text
-(**adopted (MMR-743)**, `styles.css`); `text-body` keeps 14 / 23 for body copy.
+line height, for a field label, a button label, a segment's text, a day
+fold's label, and a text button such as _Show N more_ (**adopted
+(MMR-743)**, `styles.css`; the last two MMR-719); `text-body` keeps 14 / 23 for body copy.
 
 Rules:
 
@@ -78,7 +80,9 @@ Rules:
 - **No line of a paragraph is a single word.** Tune the measure until the
   last line holds a phrase, and check both widths.
 - **Mono sizes match their neighbors on a shared line.** An ID inside a 13px meta line is 13px
-  mono, not a smaller step.
+  mono, not a smaller step. A mono value that stands apart on a title row
+  takes the meta size, not the title's: a finished row's time is 13px, and
+  an ID or project key alone in its column is 12.5px (`text-mono-id`).
 - **A mono value beside sans matches its x-height.** JetBrains Mono's x-height
   is 0.55 of its size and Instrument Sans's 0.51, so at one size the mono
   reads larger. A mono value in a menu row or a control's value (a system,
@@ -332,24 +336,24 @@ column says otherwise.
 | | Name and count | `text-section` ink-bright, then the count 13 / 20 ink-dim, 8 apart, both inside the `h2` | **adopted (MMR-719)** |
 | | See all | 13 / 20, 500, `accent-foreground`, right-aligned; a 44 hit area on a phone; its accessible name names the section ("See all in Now") | **adopted (MMR-719)** |
 | Card | Surface | `well-850`, 1px `line` edge (`line-bright` on hover), 10 radius, `shadow-card` in light; padding 12 top, 16 sides, 16 bottom | **adopted (MMR-719)**; surface existing (`Card`) |
-| | Status line | 13 / 20 ink-dim: the status badge, then the ID in 13px mono, 8 apart; the age right-aligned on line 1; 8 below it to the title | **adopted (MMR-719)** |
+| | Status line | 13 / 20 ink-dim: the status badge (or a bundle's kind, as a bright word after its dot), then the ID in 13px mono, 8 apart; the age right-aligned on line 1; 8 below it to the title | **adopted (MMR-719)** |
 | | Title | `text-title`, wraps; a long word breaks rather than overflow | existing role (MMR-718) |
 | | Detail | 13 / 20 ink-dim, 4 below the title, two lines at most | **adopted (MMR-719)** |
 | | Chip row | the row chips (size, grooming, stale), 4 apart, wrapping; 8 below the title or detail | **adopted (MMR-719)** |
 | | Button | one at most; 44 tall on a phone, 36 on desktop; 12 below the content above it | **adopted (MMR-719)** |
 | | Between cards | 8 in a stack; 12 in a desktop grid | **adopted (MMR-719)** |
-| Row group | Row | a link, 44 tall at least, a `line` hairline between rows | **adopted (MMR-719)** |
+| Row group | Row | a link, at least 44 tall on a phone and 36 on desktop, a `line` hairline between rows | **adopted (MMR-719)** |
 | | Key | `text-mono-id` ink-dim, in a column at least 48 wide | **adopted (MMR-719)** |
 | | Name | `text-title`, two lines at most | **adopted (MMR-719)** |
 | | Count and chevron | 13 / 20 ink-dim, right-aligned; the chevron ink-dim, decoration | **adopted (MMR-719)** |
 | | The capped group's last row | the same row shape, its name in `accent-foreground` ("5 more projects"), a link to the list with a filter set | **adopted (MMR-719)** |
-| Day fold | Trigger | a 44 row: a 14 chevron (right when closed, down when open), the day label, the count; no animation | **adopted (MMR-719)** |
-| | Finished row | a link, 44 tall at least: the status dot, the title `text-title` in ink-dim on one line, the time 13 mono ink-dim at the right | **adopted (MMR-719)** |
-| | Abandoned row | adds a second line, 13 / 20 ink-dim: the status word, then the reason | **adopted (MMR-719)** |
-| | Show N more | a 44 text button, 14 / 20, 500, `accent-foreground` | **adopted (MMR-719)** |
-| Shipped summary | Chart | seven columns, 6 apart, each a 16 count row, an 84 plot, and a 32 two-line label row; bars at most 44 wide, 3 top radius, in `status-done`; the chart at most 520 wide | **adopted (MMR-719)** |
+| Day fold | Trigger | a row 44 tall on a phone and 36 on desktop: a 14 chevron (right when closed, down when open), the day label, the count; it opens at once, with none of the Collapsible primitive's height animation or chevron turn (ADR 0019 §8) | **adopted (MMR-719)** |
+| | Finished row | a link, at least 44 tall on a phone and 36 on desktop: the status dot, the title `text-title` in ink-dim on one line, the time 13 mono ink-dim at the right | **adopted (MMR-719)** |
+| | Abandoned row | adds a second line, 13 / 20: the status word (ink-bright, 600, as every status word), then the reason in ink-dim | **adopted (MMR-719)** |
+| | Show N more | a text button 44 tall on a phone and 36 on desktop, 14 / 20, 500, `accent-foreground` | **adopted (MMR-719)** |
+| Shipped summary | Chart | seven columns, 8 apart, each a 16 count row, an 84 plot, and a 32 two-line label row; bars at most 44 wide, 3 top radius, in `status-done`; the chart at most 520 wide | **adopted (MMR-719)** |
 | | Labels | counts and day names 12 / 16 ink-dim; today's in ink-bright, 600, with "so far" under its name | **adopted (MMR-719)** |
-| | Today's bar | `status-done` at 45% over `well-850`, with a 1px `status-done` edge | **adopted (MMR-719)** |
+| | Today's bar | a solid fill mixed 45% `status-done` into `well-850` (a mixed color, not opacity), with a 1px `status-done` edge | **adopted (MMR-719)** |
 | | Counts over 9,999 | shortened on screen (12.4k); exact in the chart's accessible name | **adopted (MMR-719)** |
 | Quiet line, quiet sentence | Text | `text-body` in ink, no frame, with the page gutter | **adopted (MMR-719)** |
 
@@ -382,6 +386,8 @@ text's row and the close glyph.
 | Button, Segmented track, Dialog | 8 (`rounded-lg`) | existing |
 | Bottom sheet top corners (content size) | 12 (`rounded-t-xl`) | existing; a form sheet on a phone is full screen and square |
 | Switch, grip, pill | full | existing |
+| Card | 10 | existing (`Card`) |
+| Chart bar, top corners | 3 | **adopted (MMR-719)** |
 | Structure line (section rule, header and footer edges, panel edge) | 1px `line` | existing |
 | Control edge | 1px `ink-faint`, `ink-dim` on hover, `status-blocked` when invalid, `accent` on focus | **adopted (MMR-743)** `ink-faint` (today `line-bright`, 1.4:1); invalid existing (`TEXT_FIELD_CLASS`) |
 | Focus on a field (Input, Textarea, Select trigger, Combobox) | the edge itself turns `accent` and a 1px `accent` outline at offset 0 joins it: one 2px ring at the control's edge, never a frame inside a frame. 8.7:1 dark, 3.7:1 light on `well-850` | existing border turn (`focus-visible:border-accent`); the joined outline **adopted (MMR-743)** |

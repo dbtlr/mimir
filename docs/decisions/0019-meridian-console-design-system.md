@@ -1520,15 +1520,25 @@ uppercase pill, and lower still on the 12% wash the pill sat on.
 
 ## Refinement (2026-11-22, MMR-719): the feed blocks
 
-The readability phase (MMR-717) builds every feed from six blocks: the
-section head, the card, the row group, the day fold, the Shipped summary,
-and the quiet line and quiet sentence. They live together in
-`components/patterns/feed`, so a page assembles them rather than drawing its
-own. Like the other patterns, they import primitives only, and a feature
-hands them its own parts (a status badge, a chip) through slots. The
-operator picked their form from mocks after three rounds of blind design
-review (MMR-719, variant B with H2 heads). `packages/host/DESIGN.md` holds
-their numbers.
+The readability phase (MMR-717, design of record in artifact MMR-a420)
+rebuilds the console's feeds from shared blocks. This refinement records six
+of them: the section head, the card, the row group, the day fold, the
+Shipped summary, and the quiet line and quiet sentence. The Needs you deck
+(MMR-721) and the preview panel (MMR-720) are recorded by their own tasks.
+The six live together in `components/patterns/feed`, so a page assembles
+them rather than drawing its own. Like the other patterns, they import
+primitives only, and a feature hands them its own parts (a status badge, a
+chip) through slots. The operator picked their form from the third round of
+mocks, after blind design review of each round (MMR-719: chips on their own
+row, and 15px heads). `packages/host/DESIGN.md` holds their numbers.
+
+The blocks change no page by themselves. The task that rebuilds a page
+decides which blocks it takes (Home in MMR-722, the Needs you page in
+MMR-723, list pages in MMR-724, scoped pages in MMR-727), and until then
+ADR 0013's section rules (Shipped as rows grouped by day among them) and the
+needs-you rows of the MMR-694 and MMR-695 refinements stand. A decision's
+row keeps its answer chips: the card's one-button limit binds cards, not
+those rows.
 
 - **A feed section's head is a sentence-case heading, not the microlabel.**
   It reads as the section's name in 15px/600 `ink-bright`, followed by its
@@ -1552,47 +1562,52 @@ their numbers.
   separate target, so a tap beside the button still follows the link. Until
   the preview panel (MMR-720) replaces it, the link opens the record's page.
   A going-cold card's title is demoted to `ink-dim` (§7, MMR-718).
-- **A row group is a list of doors.** Each row is one link at least 44px
-  tall: an optional key in a mono column of fixed minimum width, a name
-  (16px/500, two lines at most), and a count. When the group is capped, its
-  last row is a link of the same shape ("5 more projects") that opens the
-  list page with a filter set (principle 2 of the phase's design).
-- **A day fold is a disclosure built on Collapsible.** Its trigger is a 44px
-  row: a chevron that points right when closed and down when open, the day
-  in 14px/500 sans `ink-dim`, and the day's count. It opens and closes at
-  once, with no animation, within §8's motion budget. Only the latest day
+- **A row group is a list of doors.** Each row is one link, at least 44px
+  tall on a phone and 36px on desktop: an optional key in a mono column of
+  fixed minimum width, a name (16px/500, two lines at most), and a count.
+  A row whose count is zero is left out. When the group is capped, its last
+  row is a link of the same shape ("5 more projects") that opens the list
+  page with a filter set (principles 2 and 6 of MMR-a420).
+- **A day fold is a disclosure built on Collapsible.** Its trigger is a row
+  44px tall on a phone and 36px on desktop: a chevron that points right when
+  closed and down when open, the day in 14px/500 sans `ink-dim`, and the
+  day's count. It opens and closes at once, without the primitive's height
+  animation or chevron turn, within §8's motion budget. Only the latest day
   starts open. Inside it, finished work is one-line rows, each a link: the
   status dot, the title demoted to `ink-dim` (§7, MMR-718), and the time in
-  mono. An abandoned row adds a second line with its status word and reason,
-  and every row's status is in its accessible text. A day with more rows
-  than its cap ends in a _Show N more_ button that reveals the rest in place
-  and moves focus to the first revealed row.
+  mono. An abandoned row adds a second line with its status word in bright
+  ink and its reason, and every row's status is in its accessible text. A
+  day with more rows than its cap (the caller's to set) ends in a _Show N
+  more_ button that reveals the rest in place and moves focus to the first
+  revealed row.
 - **The Shipped summary is a seven-day column chart, then a row group.**
   Each day is one column, with its count above the bar and its short name
   below, and all columns share one baseline. Bars draw in the `done` hue, as
   §1 keeps hues on bar segments. Today's bar is partial, so it is outlined in
   the `done` hue over a lighter fill and labelled "so far". The chart's
-  accessible name lists every day's count. Large counts are shortened on
-  screen (1.2k) and stay exact in the accessible name. A row group of counts
-  one level down follows the chart.
+  accessible name lists every day's count. Counts past 9,999 are shortened
+  on screen (12.4k) and stay exact in the accessible name. A row group of
+  counts one level down follows the chart.
 - **Quiet states are plain sentences.** A quiet line replaces one empty
   section with a sentence ("Nothing needs you."). A quiet sentence replaces
   the rest of a page's empty sections with one sentence. Both are body text
   in `ink`, with no frame: a card reads as something to tap, and a quiet
-  state offers nothing to tap. This departs from the phase design's block
-  table, which offered "one card" for the quiet sentence.
+  state offers nothing to tap. This departs from MMR-a420's block table,
+  which offered "one card" for the quiet sentence.
 - **Considered and rejected.**
   - Chips on the status line: it kept a card a line shorter, but at 320px
     the chips wrapped and pushed the line to two rows.
   - Keeping the microlabel for section heads: at 12px `ink-dim` it was the
     faintest text in the section it headed.
-  - A 16px/600 head: it matched the record title's weight on scoped pages.
+  - A 16px/600 head: on a scoped page it sat one pixel under the 17px/600
+    record title above it.
   - A list chart of horizontal bars: it took 180px against the columns'
     110px.
   - A framed quiet card: it read as tappable.
 - `packages/host/src/test/feed-blocks.test.tsx` checks each block's
-  behavior: the head's count, link, and row height; the card's single link
+  behavior: the head's count and link; the card's single link
   and separate button, and its description; the row group's door; the fold's
   disclosure, focus after _Show N more_, and only the latest day open; and
   the chart's accessible name, shortened counts, and partial day. The
-  readable-type guard covers their type and ink.
+  readable-type guard covers their type and ink; sizes and wrapping are
+  checked in a real browser, as jsdom has no layout.
