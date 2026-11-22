@@ -167,8 +167,8 @@ export function MenuChip({
 
 /**
  * One group: a microlabel header (`In progress · 2`, `Today`) over its rows.
- * `labelClassName` carries a lane colour; the default is dim ink.
- * `hint` adds the question the group answers (the work page's sections).
+ * `labelClassName` carries the attention hue on a needs-you group; the default
+ * is dim ink. `hint` adds the question the group answers (the work page's sections).
  * `headingRef` makes the heading focusable, so focus can land there when a row
  * leaves the group (useRowFocusHandoff).
  */
@@ -300,7 +300,7 @@ export function BrowserRow({
           <p className="col-start-2 truncate text-meta text-ink-dim max-md:hidden">{lede}</p>
         )}
         {meta !== undefined && (
-          <div className="col-start-2 text-meta wrap-anywhere text-ink-dim">{meta}</div>
+          <div className="col-start-2 mt-0.5 text-meta wrap-anywhere text-ink-dim">{meta}</div>
         )}
       </div>
       {actions !== undefined && (

@@ -86,7 +86,7 @@ function DirectionDialog({
           aria-describedby={undefined}
           className="fixed top-1/2 left-1/2 z-[60] flex max-h-[85dvh] w-[min(92vw,640px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-line-bright bg-well-850 shadow-2xl outline-none light:shadow-overlay"
         >
-          <header className="flex items-center gap-2.5 border-b border-line px-5 py-3.5 text-tag">
+          <header className="flex items-center gap-2.5 border-b border-line px-5 py-3.5 text-meta">
             <Dialog.Title className="microlabel text-ink-dim">Direction</Dialog.Title>
             <span className="shrink-0 font-mono text-ink-dim">{subjectId(subject)}</span>
             <span className="min-w-0 truncate text-ink-dim">{title}</span>

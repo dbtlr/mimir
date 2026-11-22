@@ -20,7 +20,7 @@ function ProjectHeading({ project }: { project: { key: string; name: string } })
         params={{ key: project.key }}
         className={cn(PROJECT_LINK, 'inline-flex items-baseline gap-2 hover:text-ink-bright')}
       >
-        <span className="font-mono text-mono-id text-accent-foreground">{project.key}</span>
+        <span className="font-mono text-meta text-accent-foreground">{project.key}</span>
         <span className="text-meta font-semibold text-ink">{project.name}</span>
       </Link>
     </h3>

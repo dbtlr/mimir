@@ -58,13 +58,17 @@ export function Empty({ lead, children }: { lead: string; children?: ReactNode }
   );
 }
 
-/** One part of a Now row's agent context, set off from the one before by a middle dot. */
+/**
+ * One part of a Now row's agent context, set off from the one before by a
+ * middle dot. The line flows as text, and a non-breaking space binds the dot to
+ * the part before it, so a wrapped line never opens with a dot (MMR-718).
+ */
 function ContextPart({ children, mono = false }: { children: ReactNode; mono?: boolean }) {
   return (
-    <span className="flex gap-1.5">
-      <span aria-hidden>·</span>
+    <>
+      <span aria-hidden>{'\u00a0· '}</span>
       <span className={cn(mono && 'font-mono break-all')}>{children}</span>
-    </span>
+    </>
   );
 }
 
@@ -138,7 +142,7 @@ export function NowRow({
       actions={stopButton}
       meta={
         <div className="flex flex-col gap-0.5">
-          <p className="flex flex-wrap items-baseline gap-x-1.5">
+          <p>
             {row.task.status === 'under_review' || row.task.status === 'staged' ? (
               <>
                 <StatusWord>{STATUS_META[row.task.status].label}</StatusWord>
@@ -146,7 +150,12 @@ export function NowRow({
               </>
             ) : (
               <span>
-                {row.task.status === 'queued' ? 'Queued' : 'Started'} {ago(row.startedAt)}
+                {row.task.status === 'queued' ? (
+                  <StatusWord>{STATUS_META.queued.label}</StatusWord>
+                ) : (
+                  'Started'
+                )}{' '}
+                {ago(row.startedAt)}
               </span>
             )}
             {row.task.harness != null && <ContextPart>{row.task.harness}</ContextPart>}
@@ -163,7 +172,7 @@ export function NowRow({
                 Agent {agent.stopping ? 'stopping after its current step' : 'grooming'}
                 {agent.stale ? ', stopped reporting' : ''}
               </ContextPart>
-            )}
+            )}{' '}
             <OpenInT3 harness={row.task.harness} host={row.task.host} session={row.task.session} />
           </p>
           {row.latestNote !== null && (
@@ -192,7 +201,7 @@ export function AgentNowRow({ run, stopButton }: { run: AgentRun; stopButton?: R
         </>
       }
       meta={
-        <p className="flex flex-wrap items-baseline gap-x-1.5">
+        <p>
           <span>
             {run.stopping
               ? 'Stopping after its current step'
@@ -307,7 +316,7 @@ function SubgroupHeading({ name, hint }: { name: string; hint: string }) {
 function UnlockGroup({ group }: { group: WorkReport['frontier']['nextToUnlock'][number] }) {
   return (
     <div className="mt-1.5">
-      <p className="mb-0.5 flex flex-wrap items-baseline gap-x-1.5 text-tag">
+      <p className="mb-0.5 flex flex-wrap items-baseline gap-x-1.5 text-meta">
         <span className="microlabel text-ink-dim">After</span>{' '}
         <Link
           {...nodeLink(group.prerequisite.id)}
@@ -426,6 +435,7 @@ function ShippedRow({ row, zone }: { row: ShippedTask; zone: string }) {
       title={row.task.title}
       leading={<StatusDot status={row.task.status} />}
       struck={abandoned}
+      demoted={abandoned}
       afterTitle={
         <span className="ml-auto font-mono text-mono-id text-ink-dim">
           {shippedTime(row.finishedAt, zone)}
@@ -434,7 +444,7 @@ function ShippedRow({ row, zone }: { row: ShippedTask; zone: string }) {
       meta={
         abandoned ? (
           <span className="text-meta text-ink-dim">
-            Abandoned
+            <StatusWord>{STATUS_META.abandoned.label}</StatusWord>
             {row.abandonReason === null ? '' : `: ${row.abandonReason}`}
           </span>
         ) : undefined

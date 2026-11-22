@@ -902,9 +902,8 @@ function AuthoringSheetBody({
         {promote !== undefined && (
           <p className="rounded-[9px] bg-accent/5 px-[13px] py-2.5 text-meta leading-[1.5] text-ink-dim inset-ring inset-ring-accent/18">
             The task links back to{' '}
-            <span className="font-mono text-mono-id text-accent-foreground">{promote.seedId}</span>;
-            when it settles, the seed surfaces as ready to resolve — your verdict, never
-            auto-closed.
+            <span className="font-mono text-accent-foreground">{promote.seedId}</span>; when it
+            settles, the seed surfaces as ready to resolve — your verdict, never auto-closed.
           </p>
         )}
 

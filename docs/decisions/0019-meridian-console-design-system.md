@@ -1489,7 +1489,8 @@ uppercase pill, and lower still on the 12% wash the pill sat on.
   both themes, `parked` and `abandoned` included.
 - **Words beside a status follow it.** A seed's lane reads the same way: a
   dot in the lane's hue, then its word in bright semibold ink, leading the
-  seed's header line. A held task's callout keeps its hued wash and edge,
+  seed's header line; the seeds list's lane group headers draw in dim ink,
+  as the tasks list's status groups do. A held task's callout keeps its hued wash and edge,
   and its label reads in `ink-bright`. A delivery's lifecycle and hold words
   and an artifact's frozen mark are not status words (MMR-680), so they keep
   their ink chips and their place on the line.
@@ -1502,11 +1503,15 @@ uppercase pill, and lower still on the 12% wash the pill sat on.
   section head, so they wait for it.
 - `packages/host/src/test/readable-type.test.tsx` fails if a `--text-*`
   token under the floor returns, in any unit; if a styles.css rule sets a
-  `font-size` under 12px, applies faint text or an undersized size, or sets
-  faint ink as a text colour; and if a console source draws faint text
-  outside its listed decoration uses (as the utility, the `text-(--…)` or
-  `text-[var(…)]` form, or a Typography text variable) or a literal size
-  under 12px in px, rem, em, pt, a keyword, or an unreadable `calc()`. Its
+  `font-size` or `font` shorthand under 12px, applies faint text or an
+  undersized size, or sets faint ink as a text colour; and if a console
+  source draws faint text outside its listed decoration uses (as the
+  utility, the `text-(--…)`, `text-[var(…)]`, or `[color:var(…)]` form, an
+  inline style, or a Typography text variable) or a literal size under 12px
+  (in a `text-[…]` utility, a `[font-size:…]` property, or an inline style;
+  in px, rem, em, pt, a keyword, or an unreadable `calc()`). An em size is
+  read against the 13px meta base, so a relative size inside a smaller
+  parent needs a `max()` floor, as the Markdown body's do. Its
   status-word cases fail if the shared status word part (`StatusWord`, which
   `StatusBadge` and the lane badge use) takes a status hue, and the work,
   seed, artifact, and delivery page tests each check that the word they

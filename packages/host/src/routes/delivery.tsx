@@ -349,7 +349,7 @@ function DeliveryRecord({ id }: { id: string }) {
         </BrowserGroup>
         <BrowserGroup label="Progress">
           <DistributionBar distribution={distribution} />
-          <p className="text-tag text-ink-dim">
+          <p className="mt-1.5 text-tag text-ink-dim">
             {STATUS_ORDER.filter((s) => distribution[s])
               // A non-breaking space keeps each count with its word when the legend wraps.
               .map((s) => `${String(distribution[s])}\u00a0${STATUS_META[s].label.toLowerCase()}`)

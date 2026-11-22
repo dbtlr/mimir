@@ -49,7 +49,10 @@ function TransitionLine({ entry }: { entry: HistoryEntry }) {
       <span className="font-medium">{label}</span>
       {detail != null && <span className="ml-1.5 font-mono text-tag text-ink-dim">{detail}</span>}
       {identity !== '' && (
-        <span className="ml-1.5 font-mono text-tag break-all text-ink-dim">{identity}</span>
+        // inline-block moves a session id to its own line whole when it fits there.
+        <span className="ml-1.5 inline-block max-w-full font-mono text-tag break-all text-ink-dim">
+          {identity}
+        </span>
       )}
       {entry.reason != null && (
         <span className="text-ink-dim">

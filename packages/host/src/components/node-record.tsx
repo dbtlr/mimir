@@ -222,7 +222,7 @@ export function VerdictBlock({
   annotations: readonly NodeAnnotation[] | undefined;
   offline?: boolean;
   onVerb: (v: VerbSpec) => void;
-  /** Label the block "In review", as the record page does. */
+  /** Label the block "Review": the header's status word already names the status (MMR-718). */
   heading?: boolean;
 }) {
   const verbs = availableTransitions(node.status);
@@ -232,7 +232,7 @@ export function VerdictBlock({
 
   return (
     <div className="flex flex-col gap-2.5 rounded-lg border border-line bg-well-850 p-3.5">
-      {heading && <p className="microlabel text-ink-dim">In review</p>}
+      {heading && <p className="microlabel text-ink-dim">Review</p>}
       {summary !== undefined && <p className="text-xs leading-relaxed text-ink">{summary}</p>}
       {node.externalRef != null && <ExternalRef value={node.externalRef} />}
       <div className="flex gap-2">

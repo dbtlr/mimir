@@ -50,6 +50,8 @@ function absolutePx(value: string): number | undefined {
  * the 13px meta base; `max(N, …)` reads its first argument, the floor
  * markdown-body.tsx sets on its relative sizes; anything it cannot read counts
  * as undersized, so an unreadable size fails loudly rather than slipping past.
+ * Known limit: an em or % size is read against 13px, so `0.95em` inside a 12px
+ * parent (11.4px) passes; a relative size under the meta base needs a `max()`.
  */
 function isUndersized(value: string): boolean {
   const size = value.trim().replace(/^length:/, '');
@@ -79,13 +81,17 @@ function isUndersized(value: string): boolean {
 /** An arbitrary `text-[…]` value Tailwind reads as a colour, not a size. */
 const COLOR_VALUE = /^(?:#|color:|var\(|rgba?\(|hsla?\(|okl(?:ch|ab)\(|color-mix\()/;
 
-/** The `--text-<step>` sizes declared in the theme (sub-properties such as `--line-height` excluded). */
-function typeTokens(): Map<string, string> {
-  const tokens = new Map<string, string>();
+/**
+ * Every `--text-<step>` declaration in styles.css, the theme's and any scoped
+ * redeclaration alike, as `[name, value]` (sub-properties such as
+ * `--line-height` excluded).
+ */
+function typeTokens(): [string, string][] {
+  const tokens: [string, string][] = [];
   for (const match of STYLES.matchAll(/--text-([\w-]+?)\s*:\s*([^;}]+)/g)) {
     const name = match[1] ?? '';
     if (!name.includes('--')) {
-      tokens.set(name, (match[2] ?? '').trim());
+      tokens.push([name, (match[2] ?? '').trim()]);
     }
   }
   return tokens;
@@ -97,8 +103,12 @@ function typeTokens(): Map<string, string> {
  * the utility, the CSS-variable shorthand, and an arbitrary `var(…)`.
  */
 const FAINT_TEXT =
-  /(?<![\w-])text-(?:ink-(?:faint|ghost)(?![\w-])|\((?:color:)?--color-ink-(?:faint|ghost)\)|\[(?:color:)?var\(--color-ink-(?:faint|ghost)\)\])/g;
-const LITERAL_SIZE = /(?<![\w-])text-\[([^\]\s]+)\]/g;
+  /(?<![\w-])(?:text-(?:ink-(?:faint|ghost)(?![\w-])|\((?:color:)?--color-ink-(?:faint|ghost)\)|\[(?:color:)?var\(--color-ink-(?:faint|ghost)\)\])|\[color:var\(--color-ink-(?:faint|ghost)\)\])/g;
+/** A literal size: the `text-[…]` utility or an arbitrary `[font-size:…]` property. */
+const LITERAL_SIZE = /(?<![\w-])(?:text-\[([^\]\s]+)\]|\[font-size:([^\]\s]+)\])/g;
+/** An inline style's size or faint colour: `fontSize: 10`, `fontSize: '10px'`, `color: 'var(--color-ink-faint)'`. */
+const INLINE_SIZE = /fontSize\s*:\s*['"`]?([\d.]+(?:px|rem|pt|em|%)?)['"`]?/g;
+const INLINE_FAINT = /color\s*:\s*['"`]var\(--color-ink-(?:faint|ghost)\)['"`]/g;
 /** A Typography (`prose`) variable set to faint ink; borders and rules are not text. */
 const FAINT_PROSE = /--tw-prose-(?:invert-)?([\w-]+)\s*:\s*var\(--color-ink-(?:faint|ghost)\)/g;
 const NON_TEXT_PROSE = /(?:borders|hr)$/;
@@ -109,9 +119,16 @@ function faintProseCount(text: string): number {
 
 /** The literal text sizes under the floor in a class list or source. */
 function smallLiterals(text: string): string[] {
-  return [...text.matchAll(LITERAL_SIZE)]
-    .filter((m) => !COLOR_VALUE.test(m[1] ?? '') && isUndersized(m[1] ?? ''))
+  const classes = [...text.matchAll(LITERAL_SIZE)]
+    .filter((m) => {
+      const value = m[1] ?? m[2] ?? '';
+      return !COLOR_VALUE.test(value) && isUndersized(value);
+    })
     .map((m) => m[0]);
+  const inline = [...text.matchAll(INLINE_SIZE)]
+    .filter((m) => isUndersized(/^[\d.]+$/.test(m[1] ?? '') ? `${m[1] ?? ''}px` : (m[1] ?? '')))
+    .map((m) => m[0]);
+  return [...classes, ...inline];
 }
 
 /**
@@ -160,7 +177,10 @@ function scan(): { faint: Map<string, number>; small: string[] } {
   for (const path of sourceFiles(SRC)) {
     const file = relative(SRC, path);
     const text = readFileSync(path, 'utf8');
-    const count = [...text.matchAll(FAINT_TEXT)].length + faintProseCount(text);
+    const count =
+      [...text.matchAll(FAINT_TEXT)].length +
+      [...text.matchAll(INLINE_FAINT)].length +
+      faintProseCount(text);
     if (count > 0) {
       faint.set(file, count);
     }
@@ -178,6 +198,13 @@ function stylesheetFindings(): string[] {
   const found: string[] = [];
   for (const match of STYLES.matchAll(/(?<![\w-])font-size\s*:\s*([^;}]+)/g)) {
     if (isUndersized(match[1] ?? '')) {
+      found.push(match[0].trim());
+    }
+  }
+  // The `font` shorthand: its size is the first length, before any `/line-height`.
+  for (const match of STYLES.matchAll(/(?<![\w-])font\s*:\s*([^;}]+)/g)) {
+    const size = /(?:^|\s)([\d.]+(?:px|rem|pt|em|%))(?:\/|\s|$)/.exec(match[1] ?? '')?.[1];
+    if (size !== undefined && isUndersized(size)) {
       found.push(match[0].trim());
     }
   }
@@ -203,8 +230,8 @@ function stylesheetFindings(): string[] {
 describe('readable type (MMR-718)', () => {
   it('declares no type token under the 12px floor', () => {
     const tokens = typeTokens();
-    expect(tokens.size).toBeGreaterThan(5);
-    const under = [...tokens]
+    expect(tokens.length).toBeGreaterThan(5);
+    const under = tokens
       .filter(([, value]) => isUndersized(value))
       .map(([name, value]) => `--text-${name}: ${value}`);
     expect(under).toEqual([]);

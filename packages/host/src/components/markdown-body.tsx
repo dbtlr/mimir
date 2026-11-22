@@ -70,7 +70,7 @@ const HEADING_PROSE = cn(
   '[&_h3]:text-[1.2em] [&_h3]:font-bold [&_h3]:tracking-tight',
   '[&_h4]:text-[1.1em] [&_h4]:font-semibold',
   '[&_h5]:text-[1em] [&_h5]:font-semibold [&_h5]:text-ink-bright',
-  '[&_h6]:text-[max(12px,0.8em)] [&_h6]:font-semibold [&_h6]:tracking-wider [&_h6]:text-ink-dim [&_h6]:uppercase',
+  '[&_h6]:text-[max(12px,0.8em)] [&_h6]:font-semibold [&_h6]:tracking-[0.1em] [&_h6]:text-ink-dim [&_h6]:uppercase',
   // A body that opens with a heading starts flush; the last block adds no tail.
   '[&>:first-child]:mt-0 [&>:last-child]:mb-0',
 );
@@ -111,8 +111,10 @@ const BLOCK_PROSE = cn(
   'prose-hr:my-6',
   'prose-th:font-semibold prose-th:text-ink-bright',
   // The table fills the measure; the wrapper from BODY_COMPONENTS scrolls it.
-  // prose-sm sets tables and kbd at 0.857em; the 12px floor holds them (MMR-718).
-  'prose-table:my-0 prose-table:w-full prose-table:text-[max(12px,0.857em)]',
+  // prose-sm sets tables and kbd at 0.857em: a table takes the 13px meta size, and kbd keeps the 12px floor (MMR-718).
+  'prose-table:my-0 prose-table:w-full prose-table:text-meta',
+  // A footnote marker and a caption carry information too, so they keep the floor.
+  '[&_sup]:text-[max(12px,0.75em)] prose-figcaption:text-[max(12px,0.857em)]',
   'prose-img:h-auto prose-img:max-w-full prose-img:rounded',
   'prose-kbd:text-[max(12px,0.857em)] prose-kbd:rounded prose-kbd:border prose-kbd:border-line-bright prose-kbd:shadow-none',
 );

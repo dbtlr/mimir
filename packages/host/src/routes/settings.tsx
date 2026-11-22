@@ -54,7 +54,7 @@ function Row({
           className={cn(
             'ml-auto min-w-0 truncate text-ink-dim',
             tone === 'attention' && 'font-semibold text-attention-foreground',
-            tone === 'ok' && 'text-status-done',
+            tone === 'ok' && 'text-status-done-foreground',
           )}
         >
           {value}

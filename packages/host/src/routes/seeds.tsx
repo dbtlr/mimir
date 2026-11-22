@@ -24,7 +24,6 @@ import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { seedLink } from '../lib/record-url';
 import {
-  SEED_LANE_INK,
   SEED_LANE_LABEL,
   groupSeedsByLane,
   isSeedKind,
@@ -81,11 +80,7 @@ function FoldedGroup({
   const [shown, setShown] = useState(false);
   const rowsId = useId();
   return (
-    <BrowserGroup
-      label={SEED_LANE_LABEL[lane]}
-      count={seeds.length}
-      labelClassName={SEED_LANE_INK[lane]}
-    >
+    <BrowserGroup label={SEED_LANE_LABEL[lane]} count={seeds.length}>
       <button
         type="button"
         aria-expanded={shown}
@@ -227,12 +222,7 @@ export function SeedsPage() {
               lane === 'parked' || lane === 'settled' ? (
                 <FoldedGroup key={lane} lane={lane} seeds={laneSeeds} />
               ) : (
-                <BrowserGroup
-                  key={lane}
-                  label={SEED_LANE_LABEL[lane]}
-                  count={laneSeeds.length}
-                  labelClassName={SEED_LANE_INK[lane]}
-                >
+                <BrowserGroup key={lane} label={SEED_LANE_LABEL[lane]} count={laneSeeds.length}>
                   {laneSeeds.map((seed) => (
                     <SeedBrowserRow key={seed.id} seed={seed} />
                   ))}

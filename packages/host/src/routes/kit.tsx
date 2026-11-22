@@ -1,7 +1,6 @@
 import { createLazyRoute } from '@tanstack/react-router';
 
 import { StatusBadge } from '../components/status-badge';
-import { StatusDot } from '../components/status-dot';
 import { ActionButton } from '../components/ui/action-button';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardHeader } from '../components/ui/card';
@@ -115,17 +114,6 @@ export function KitPage() {
         <div className="flex flex-wrap gap-2">
           {STATUS_ORDER.map((s) => (
             <StatusBadge key={s} status={s} />
-          ))}
-        </div>
-      </Section>
-
-      <Section title="Status dots">
-        <div className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-well-850 p-4">
-          {STATUS_ORDER.map((s) => (
-            <div key={s} className="flex items-center gap-1.5">
-              <StatusDot status={s} />
-              <span className="text-meta text-ink-dim">{STATUS_META[s].label}</span>
-            </div>
           ))}
         </div>
       </Section>

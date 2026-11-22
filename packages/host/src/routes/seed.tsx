@@ -91,7 +91,7 @@ function ProjectName({ id, title }: { id: string; title?: string }) {
     <span className="inline-flex items-baseline gap-1.5">
       <span aria-hidden className="size-2 self-center rounded-[2px] inset-ring inset-ring-accent" />
       {title !== undefined && <span className="font-semibold text-ink-bright">{title}</span>}
-      <span className="font-mono text-mono-id text-ink-dim">{id}</span>
+      <span className="font-mono text-ink-dim">{id}</span>
     </span>
   );
 }
