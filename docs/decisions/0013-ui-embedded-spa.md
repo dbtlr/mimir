@@ -551,7 +551,8 @@ refinement's rail and the MMR-476 refinement's top bar are revised:
     page rail's Structure section (MMR-467 refinement) moves into it.
 
   On a phone the sidebar is a drawer, and a single parent link stands above a
-  record's id in place of the breadcrumb.
+  record's id in place of the breadcrumb. (The sidebar is a drawer below
+  1024, a narrow desktop included: ADR 0019's MMR-720 refinement.)
 - **The top bar keeps the brand, the jump palette, _Needs you_, and the theme
   toggle.** The _Tasks_, _Artifacts_, and _Seeds_ links, and the phone overflow
   menu's section items, move into the sidebar.

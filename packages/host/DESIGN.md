@@ -378,7 +378,7 @@ follow Sheets, panels, dialogs; the rest is its own.
 | Height | fits its content, up to 88% of the visible viewport; the grip, header, and footer stay put and only the body scrolls | the panel's full height below the bar; the header and footer stay put and only the body scrolls | **adopted (MMR-720)** |
 | Grip | 40 × 4, full radius, `ink-faint` (decoration), 8 below the sheet's top edge | none | **adopted (MMR-720)**: `DrawerGrip` sits 12 below the edge |
 | Header | 12 top (below the grip), 16 bottom, 20 left, 56 right to clear Close; a `line` hairline under it | 28 top, 20 bottom, 32 left, 64 right; a `line` hairline under it | **adopted (MMR-720)** |
-| Status line | the card's own status line (13 / 20 `ink-dim`: the lead, the ID in 13 mono, the age at the right), 8 above the title | same | **adopted (MMR-720)** |
+| Status line | the card's own status line (13 / 20 `ink-dim`: the status badge (or _Decisions_ after its dot), the ID in 13 mono, the age at the right), 8 above the title | same | **adopted (MMR-720)** |
 | Title | `text-dossier`, 17 / 24, 600, `ink-bright`; it wraps, a long word breaks, and it is never clamped. It takes focus on open and switch (`tabindex="-1"`); on `:focus-visible` only, the 2px `accent` outline at 2px offset that a button takes, with a 4 radius | same | **adopted (MMR-720)**: a Content sheet's title is 14px |
 | Close | a 44 hit area, 20 glyph, `ink-dim`, centred on the status line, 8 from the right edge; named "Close preview" | a 36 hit area, 18 glyph, centred on the status line, 22 from the right edge | **adopted (MMR-720)** |
 | Body | 24 top, 32 bottom, 20 sides | 32 top, 40 bottom, 32 sides | **adopted (MMR-720)**, the Form sheet's |
@@ -412,7 +412,7 @@ Rules:
 - **The selected card scrolls into view** after any reflow on open, switch, or
   close.
 - **Focus.** Open and switch move focus to the title. On desktop nothing
-  traps it: Shift+Tab from the title reaches the selected card, and Tab from
+  traps it: Close follows the title in tab order, so Shift+Tab from the title reaches the selected card, and Tab from
   the last footer button reaches the control after the selected card's stretched target (its own button, else the next card). Escape closes the topmost layer first (a menu, the jump palette, or the sidebar drawer), then the panel. On a phone the bottom
   sheet is modal and holds focus until it closes. Closing returns focus to
   the card that opened the latest preview, and a switch makes the newly

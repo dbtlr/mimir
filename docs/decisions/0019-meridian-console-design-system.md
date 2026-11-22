@@ -1647,7 +1647,7 @@ Open navigates to the record's page.
 
 - **A preview offers no action the card does not.** It shows the card's status
   line and title, the facts that matter, the card's one action, and Open
-  (principle 4). It adds no third action, and it does not show the record's
+  (MMR-a420's principle 4). It adds no third action, and it does not show the record's
   full description: Open reaches the record's page for the rest.
 - **On desktop the panel is non-modal.** A 440 panel slides in from the
   right, starting at the top bar's measured bottom (`--top-bar-height`), so
@@ -1667,7 +1667,8 @@ Open navigates to the record's page.
 - **Focus moves to the panel, but on desktop no trap holds it there.**
   Opening or switching moves focus to the panel's title, so a screen reader
   announces the record. The title shows a ring only for keyboard focus
-  (`:focus-visible`). Shift+Tab from the title goes back to the selected card,
+  (`:focus-visible`). Close follows the title in tab order. Shift+Tab from the title goes back
+  to the selected card,
   and Tab from the panel's last button goes on to the control after the
   selected card's stretched target: its own button when it has one, else the
   next card. Escape closes the topmost layer first: an open menu, the jump palette, or
@@ -1678,8 +1679,8 @@ Open navigates to the record's page.
   scrim, so it is a modal Drawer like any other sheet and holds focus until
   it closes. When the card's action leaves the panel for another surface, as
   a bundle's walkthrough does, the panel closes and that surface's opener is
-  the selected card's own button, so focus returns there as ADR 0019's
-  walkthrough rules describe.
+  the selected card's own button, so focus returns there as the MMR-714
+  refinement describes.
 - **What a click does while the panel is open.** Clicking the selected card
   closes the panel. Clicking another card switches it, but clicking that
   card's button runs the button's action. See all, a sidebar link, or
@@ -1759,7 +1760,7 @@ Open navigates to the record's page.
   - The record's full description in the body: the preview shows the facts
     that matter, and Open reaches the rest.
   - A third action in the footer: the preview never offers more than the
-    card (principle 4).
+    card (MMR-a420's principle 4).
   - A cross-fade on switch, which round 3's mock drew: it would add a fourth
     mover to §8's exhaustive budget.
   - A list of a bundle's decisions: the walkthrough holds them, and the
