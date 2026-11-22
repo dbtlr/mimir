@@ -303,7 +303,7 @@ describe('work page sections', () => {
 
     const now = await section('Now · 1');
     expect(hrefOf(now, 'Extract the seam')).toBe('/p/MMR/12');
-    expect(now).toHaveTextContent(/In review\s*·\s*submitted 20m ago/);
+    expect(now).toHaveTextContent(/Under review\s*·\s*submitted 20m ago/);
     expect(now).not.toHaveTextContent(/started/i);
     expect(within(now).queryByRole('button', { name: 'Approve' })).toBeNull();
     expect(within(now).queryByRole('button', { name: 'Send back…' })).toBeNull();

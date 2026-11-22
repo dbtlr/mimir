@@ -1483,6 +1483,12 @@ uppercase pill, and lower still on the 12% wash the pill sat on.
   for an external block, and every later hue on a status word, sit on the
   dot. Every status word then measures 13.6:1 or better on every well in
   both themes, `parked` and `abandoned` included.
+- **Words beside a status follow it.** A seed's lane reads the same way: a
+  dot in the lane's hue, then its word in bright semibold ink, leading the
+  seed's header line. A held task's callout keeps its hued wash and edge,
+  and its label reads in `ink-bright`. A delivery's lifecycle and hold words
+  and an artifact's frozen mark are not status words (MMR-680), so they keep
+  their ink chips and their place on the line.
 - **Considered and rejected.** Brightening `ink-faint` until it passes 4.5:1:
   one token change, but `ink-faint` would become a second `ink-dim`, and
   every control edge and grip that uses it would brighten with it. Keeping

@@ -18,6 +18,7 @@ import type { RailChip } from '../components/record-layout';
 import { SeedKindChip } from '../components/seed-kind-chip';
 import { SeedPromoteSheet } from '../components/seed-promote-sheet';
 import { SeedVerbs } from '../components/seed-verbs';
+import { StatusLineId } from '../components/status-badge';
 import { StatusDot } from '../components/status-dot';
 import { ActionButton } from '../components/ui/action-button';
 import { Skeleton } from '../components/ui/skeleton';
@@ -77,17 +78,18 @@ function laneLabel(seed: EngineSeed): string {
   }
 }
 
-const LANE_BADGE: Record<SeedLane, string> = {
-  parked: 'text-status-parked inset-ring-line-bright',
-  promoted: 'text-ink-dim inset-ring-line-bright',
-  ready: 'bg-attention/12 text-attention inset-ring-attention/30',
-  settled: 'text-ink-dim inset-ring-line',
-  untriaged: 'bg-accent/12 text-accent-foreground inset-ring-accent/30',
+/** A lane's dot: the lane's hue sits on the dot, and its word reads in bright ink (MMR-718). */
+const LANE_DOT: Record<SeedLane, string> = {
+  parked: 'bg-status-parked',
+  promoted: 'bg-ink-dim',
+  ready: 'bg-attention',
+  settled: 'bg-ink-faint',
+  untriaged: 'bg-accent',
 };
 
 /** The decision block's wash, keyed to the lane that asks for it. */
 const DECISION_BOX: Record<Exclude<SeedLane, 'settled'>, { box: string; label: string }> = {
-  parked: { box: 'bg-well-850 inset-ring-line-bright', label: 'text-status-parked' },
+  parked: { box: 'bg-well-850 inset-ring-line-bright', label: 'text-ink-dim' },
   promoted: { box: 'bg-well-850 inset-ring-line-bright', label: 'text-ink-dim' },
   ready: { box: 'bg-attention/8 inset-ring-attention/30', label: 'text-attention' },
   untriaged: { box: 'bg-accent/6 inset-ring-accent/30', label: 'text-accent-foreground' },
@@ -188,7 +190,7 @@ function OutcomeSection({
                   </span>
                 )}
                 {node !== undefined && (
-                  <span className="shrink-0 font-mono text-mono-id text-ink-dim">
+                  <span className="shrink-0 text-meta font-semibold text-ink-bright">
                     {recordStanding(node)}
                   </span>
                 )}
@@ -456,16 +458,12 @@ function SeedRecord({ seedId }: { seedId: string }) {
         </Link>
       </nav>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-mono-id text-ink-dim">{seedId} · seed</span>
-        <SeedKindChip kind={data.kind} />
-        <span
-          className={cn(
-            'inline-flex items-center rounded-full px-2 py-0.5 text-tag font-semibold inset-ring',
-            LANE_BADGE[lane],
-          )}
-        >
-          {laneLabel(data)}
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+          <span aria-hidden className={cn('size-[7px] shrink-0 rounded-full', LANE_DOT[lane])} />
+          <span className="text-meta font-semibold text-ink-bright">{laneLabel(data)}</span>
         </span>
+        <StatusLineId id={seedId} type="seed" />
+        <SeedKindChip kind={data.kind} />
         {fromOtherBoard && data.requester !== null && (
           <span className="text-tag text-ink-dim">
             from{' '}

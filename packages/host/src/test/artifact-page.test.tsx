@@ -156,7 +156,7 @@ describe('artifact page (MMR-452)', () => {
       const link = within(card).getByRole('link', { name: /MMR-432/ });
       expect(link).toHaveAttribute('href', '/p/MMR/432');
       expect(link).toHaveTextContent('serve answers any Host');
-      await waitFor(() => expect(card).toHaveTextContent('done 2026-10-06'));
+      await waitFor(() => expect(card).toHaveTextContent('Done 2026-10-06'));
       expect(getArtifact).toHaveBeenCalledWith({ data: { content: true, id: 'MMR-a232' } });
     });
 
@@ -202,7 +202,7 @@ describe('artifact page (MMR-452)', () => {
 
       const card = await screen.findByRole('group', { name: 'Attached to' });
       await within(card).findByText('Console phase 1, as loaded');
-      expect(card).toHaveTextContent(/as loaded\s*done$/);
+      expect(card).toHaveTextContent(/as loaded\s*Done$/);
     });
   });
 

@@ -47,9 +47,12 @@ import { WorkSections } from './work-sections';
 
 /** `11 done · 2 parked · 1 in progress` — the rollup's counts, in the status system's order. */
 function distributionLegend(distribution: NonNullable<EngineNode['distribution']>): string {
-  return STATUS_ORDER.filter((word) => (distribution[word] ?? 0) > 0)
-    .map((word) => `${String(distribution[word])} ${STATUS_META[word].label.toLowerCase()}`)
-    .join(' · ');
+  return (
+    STATUS_ORDER.filter((word) => (distribution[word] ?? 0) > 0)
+      // A non-breaking space keeps each count with its word when the legend wraps.
+      .map((word) => `${String(distribution[word])}\u00a0${STATUS_META[word].label.toLowerCase()}`)
+      .join(' · ')
+  );
 }
 
 /** The tab a container's page shows: its work sections or its notes. */

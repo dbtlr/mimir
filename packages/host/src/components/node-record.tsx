@@ -164,15 +164,15 @@ export function MetaRow({ label, children }: { label: string; children: ReactNod
   );
 }
 
-/** Hold-reason callout wash, keyed to the hold kind (parked ≠ blocked hue). */
+/** Hold-reason callout wash, keyed to the hold kind (parked ≠ blocked hue); the label reads in bright ink (MMR-718). */
 const HOLD_CALLOUT: Record<'blocked' | 'parked', { box: string; label: string }> = {
   blocked: {
     box: 'bg-status-blocked/10 inset-ring-status-blocked/24',
-    label: 'text-status-blocked',
+    label: 'text-ink-bright',
   },
   parked: {
     box: 'bg-status-parked/10 inset-ring-status-parked/24',
-    label: 'text-status-parked',
+    label: 'text-ink-bright',
   },
 };
 

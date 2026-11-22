@@ -16,6 +16,7 @@ import type { AgentRun } from '../lib/agent-card';
 import { formatTokens } from '../lib/agent-card';
 import { cn } from '../lib/cn';
 import { nodeLink } from '../lib/record-url';
+import { STATUS_META } from '../lib/status';
 import { ago, relativeTime } from '../lib/time';
 import { PHONE_TOUCH_TARGET } from '../lib/touch-target';
 import { useRowFocusHandoff } from '../lib/use-row-focus-handoff';
@@ -139,7 +140,9 @@ export function NowRow({
           <p className="flex flex-wrap items-baseline gap-x-1.5">
             {row.task.status === 'under_review' || row.task.status === 'staged' ? (
               <>
-                <span>{row.task.status === 'staged' ? 'Staged' : 'In review'}</span>
+                <span className="font-semibold text-ink-bright">
+                  {STATUS_META[row.task.status].label}
+                </span>
                 <ContextPart>submitted {ago(row.submittedAt ?? row.startedAt)}</ContextPart>
               </>
             ) : (

@@ -350,7 +350,8 @@ function DeliveryRecord({ id }: { id: string }) {
           <DistributionBar distribution={distribution} />
           <p className="text-tag text-ink-dim">
             {STATUS_ORDER.filter((s) => distribution[s])
-              .map((s) => `${String(distribution[s])} ${STATUS_META[s].label.toLowerCase()}`)
+              // A non-breaking space keeps each count with its word when the legend wraps.
+              .map((s) => `${String(distribution[s])}\u00a0${STATUS_META[s].label.toLowerCase()}`)
               .join(' · ')}
           </p>
           {members
@@ -362,7 +363,11 @@ function DeliveryRecord({ id }: { id: string }) {
                 id={task.id}
                 title={task.title}
                 leading={<StatusDot status={task.status} />}
-                meta={STATUS_META[task.status].label}
+                meta={
+                  <span className="font-semibold text-ink-bright">
+                    {STATUS_META[task.status].label}
+                  </span>
+                }
               />
             ))}
         </BrowserGroup>

@@ -135,7 +135,7 @@ export const isSettledTask = (node: Pick<EngineNode, 'status'>): boolean =>
  * change says nothing about when it settled, and it gets the word alone.
  */
 export function recordStanding(node: Standing): string {
-  const word = STATUS_META[node.status].label.toLowerCase();
+  const word = STATUS_META[node.status].label;
   if (node.type !== 'task' || !isSettledTask(node)) {
     return word;
   }

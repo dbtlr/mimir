@@ -30,7 +30,7 @@ export const SEED_LANE_LABEL: Record<SeedLane, string> = {
 /** Header ink per lane: teal untriaged, violet ready-to-resolve, neutral promoted,
  * the task status palette's parked ink for parked, ghost settled. */
 export const SEED_LANE_INK: Record<SeedLane, string> = {
-  parked: 'text-status-parked',
+  parked: 'text-ink-dim',
   promoted: 'text-ink-dim',
   ready: 'text-attention',
   settled: 'text-ink-dim',

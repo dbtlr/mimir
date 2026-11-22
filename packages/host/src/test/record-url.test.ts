@@ -120,7 +120,7 @@ describe('recordLink (MMR-455)', () => {
 
 describe('recordStanding', () => {
   it('gives a container or an unsettled task its word alone, with no date', () => {
-    expect(recordStanding(engineNode({ status: 'done', type: 'phase' }))).toBe('done');
-    expect(recordStanding(engineNode({ status: 'ready', type: 'task' }))).toBe('ready');
+    expect(recordStanding(engineNode({ status: 'done', type: 'phase' }))).toBe('Done');
+    expect(recordStanding(engineNode({ status: 'ready', type: 'task' }))).toBe('Ready');
   });
 });

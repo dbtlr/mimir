@@ -93,7 +93,7 @@ function linkStanding(link: AttachedLink, node: LinkedNode | undefined): string 
   if (node !== undefined) {
     return recordStanding(node);
   }
-  return link.status === undefined ? undefined : STATUS_META[link.status].label.toLowerCase();
+  return link.status === undefined ? undefined : STATUS_META[link.status].label;
 }
 
 /** One attached record: its state, id, and title, linked to its page. */
@@ -102,11 +102,13 @@ function AttachedRow({ link, node }: { link: AttachedLink; node?: LinkedNode }) 
   const standing = linkStanding(link, node);
   return (
     <Link {...nodeLink(link.id)} className={row}>
-      {status !== undefined && <StatusDot status={status} />}
       <span className="shrink-0 font-mono text-mono-id text-accent-foreground">{link.id}</span>
       <span className="min-w-0 flex-1 truncate">{node?.title ?? link.title}</span>
       {standing !== undefined && (
-        <span className="shrink-0 font-mono text-mono-id text-ink-dim">{standing}</span>
+        <span className="inline-flex shrink-0 items-center gap-1.5">
+          {status !== undefined && <StatusDot status={status} />}
+          <span className="text-meta font-semibold text-ink-bright">{standing}</span>
+        </span>
       )}
     </Link>
   );
