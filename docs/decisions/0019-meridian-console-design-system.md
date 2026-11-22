@@ -1558,9 +1558,10 @@ cards, not those rows or the focus queue's card.
   card. A task's card leads with its status badge. A card that stands for
   a set of provisional decisions (one delivery's, or a project's decisions
   without a delivery, as the phase design bundles them) leads with the word
-  _Decisions_ after an attention dot, in the status word's bright ink; it
-  names a set, not a delivery's lifecycle, so MMR-680's ink chips do not
-  apply to it. Chips (size, grooming, stale) sit in their own row under the title,
+  _Decisions_ after an attention dot, set as a status word is (13px,
+  semibold, `ink-bright`); it names a set, not a delivery's lifecycle, so
+  MMR-680's ink chips do not apply to it. Which ID such a card shows and
+  where its link leads are the Needs you deck's to settle (MMR-721). Chips (size, grooming, stale) sit in their own row under the title,
   never on the status line, so a long title never leaves a chip alone on a
   line. The whole card is one link whose accessible description is its
   status line and chip row. Its one button is stacked over that link as a
