@@ -6,8 +6,9 @@ import type { FeedLink } from './link';
 
 /** One door in a row group: an optional key, a name, and its count. */
 export type RowGroupRow = {
-  /** A project key, set in mono in its own column. */
+  /** A project key, set in mono in its own column, unique within the group. */
   key?: string;
+  /** The row's label; a row without a key needs a name unique within the group. */
   name: string;
   count: number;
   to: FeedLink;
@@ -32,15 +33,11 @@ export function RowGroup({
   return (
     <ul aria-label={label} className="m-0 list-none divide-y divide-line p-0">
       {rows
-        // A row's React key is its project key, or for an unkeyed row its name
-        // and how many rows before it share that name. Keys come from the full
-        // list, before rows counting zero drop out, so neither a row reaching
-        // zero nor a row inserted above with another name shifts a neighbour's
-        // key (which would remount a focused door and drop focus).
-        .map((row, index) => ({ key: rowKey(row, rows.slice(0, index)), row }))
-        .filter(({ row }) => row.count > 0)
-        .map(({ key, row }) => (
-          <li key={key}>
+        .filter((row) => row.count > 0)
+        .map((row) => (
+          // Keyed by the row itself, so neither a row reaching zero nor a row
+          // inserted or moved remounts a focused door and drops its focus.
+          <li key={rowKey(row)}>
             <Door row={row} />
           </li>
         ))}
@@ -53,14 +50,13 @@ export function RowGroup({
   );
 }
 
-/** A row's stable React key: its project key, else its name and occurrence. */
-function rowKey(row: RowGroupRow, earlier: readonly RowGroupRow[]): string {
-  // Two namespaces, so a caller's key can never equal a derived one.
-  if (row.key !== undefined) {
-    return `key:${row.key}`;
-  }
-  const same = earlier.filter((other) => other.key === undefined && other.name === row.name);
-  return `name:${row.name}#${String(same.length)}`;
+/**
+ * A row's stable React key: its project key, else its name. An unkeyed row's
+ * name is a fixed label ("Seeds to triage"), unique within its group. Two
+ * namespaces keep a caller's key from ever equalling a name.
+ */
+function rowKey(row: RowGroupRow): string {
+  return row.key === undefined ? `name:${row.name}` : `key:${row.key}`;
 }
 
 function Door({ row, more = false }: { row: RowGroupRow; more?: boolean }) {
