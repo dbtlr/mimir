@@ -453,6 +453,30 @@ const inSection = (name: string) =>
     name: 'Send an encrypted Web Push',
   });
 
+/** MMR-709 in Needs you (while `both`) and in In flight, in one feed. */
+function Sections({ both }: { both: boolean }) {
+  return (
+    <FeedPreview preview={(key) => PREVIEWS[key]}>
+      {both ? (
+        <section aria-label="Needs you">
+          <FeedCard
+            previewKey="MMR-709"
+            lead={<span>In progress</span>}
+            title="Send an encrypted Web Push"
+          />
+        </section>
+      ) : null}
+      <section aria-label="In flight">
+        <FeedCard
+          previewKey="MMR-709"
+          lead={<span>In progress</span>}
+          title="Send an encrypted Web Push"
+        />
+      </section>
+    </FeedPreview>
+  );
+}
+
 describe('preview panel: the selected card', () => {
   it('marks the selected card and gives it the accent edge, and only that card', async () => {
     await renderFeed();
@@ -498,6 +522,16 @@ describe('preview panel: the selected card', () => {
     await userEvent.click(inSection('In flight'));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(inSection('In flight')).toHaveFocus();
+  });
+
+  it('closes when the selected copy of a card leaves, though another copy of its record stays', async () => {
+    stubViewport('desktop');
+    const { rerender } = await renderInRouter(<Sections both />);
+    await userEvent.click(inSection('Needs you'));
+    expect(panel()).toHaveAccessibleName('Send an encrypted Web Push');
+    rerender(<Sections both={false} />);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(inSection('In flight')).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('scrolls into view on open, and again when a reflow changes the feed’s width', async () => {

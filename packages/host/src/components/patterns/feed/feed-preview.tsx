@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -23,6 +24,8 @@ type Selection = { card: string; key: string };
 type FeedPreviewState = {
   selected: string | null;
   toggle: (selection: Selection, opener: HTMLElement) => void;
+  /** A card leaving, or showing another record: it is no longer the selected one. */
+  release: (selection: Selection) => void;
 };
 
 const FeedPreviewContext = createContext<FeedPreviewState | null>(null);
@@ -37,7 +40,15 @@ export function useCardPreview(key: string): {
   if (state === null) {
     throw new Error('A FeedCard opens its preview, so it sits inside a FeedPreview.');
   }
-  const { selected, toggle } = state;
+  const { selected, toggle, release } = state;
+  // The selected copy of a card can leave while another copy of its record stays,
+  // so the selection follows the card itself, not only its record's preview.
+  useLayoutEffect(
+    () => () => {
+      release({ card, key });
+    },
+    [card, key, release],
+  );
   return {
     selected: selected === card,
     toggle: (opener) => {
@@ -187,7 +198,14 @@ export function FeedPreview({
     setFollowed(cardOf(button));
   }, []);
 
-  const state = useMemo(() => ({ selected: selected?.card ?? null, toggle }), [selected, toggle]);
+  const release = useCallback(({ card, key }: Selection) => {
+    setSelected((current) => (current?.card === card && current.key === key ? null : current));
+  }, []);
+
+  const state = useMemo(
+    () => ({ release, selected: selected?.card ?? null, toggle }),
+    [release, selected, toggle],
+  );
 
   // A reflow (two columns becoming one beside the panel) can move the card.
   useEffect(() => {
