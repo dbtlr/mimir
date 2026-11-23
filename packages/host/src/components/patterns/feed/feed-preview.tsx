@@ -118,6 +118,8 @@ export function FeedPreview({
   // The card followed through reflows, until the panel has closed.
   const [followed, setFollowed] = useState<HTMLElement | null>(null);
   const opener = useRef<HTMLElement | null>(null);
+  // The card's own button, once the card's action has closed the panel: the next surface's opener.
+  const handedTo = useRef<HTMLElement | null>(null);
   const feed = useRef<HTMLDivElement>(null);
   const href = useRouterState({ select: (state) => state.location.href });
   const [seenHref, setSeenHref] = useState(href);
@@ -165,6 +167,7 @@ export function FeedPreview({
         ...action,
         onAction: () => {
           const own = cardOf(opener.current)?.querySelector<HTMLElement>(CARD_BUTTON) ?? null;
+          handedTo.current = own;
           setSelected(null);
           action.onAction(own);
         },
@@ -174,6 +177,7 @@ export function FeedPreview({
 
   const toggle = useCallback((key: string, card: HTMLElement) => {
     opener.current = card;
+    handedTo.current = null;
     setSelected((current) => (current === key ? null : key));
     setShown((current) => (current === key ? current : key));
     setFollowed(cardOf(card));
@@ -240,7 +244,13 @@ export function FeedPreview({
         onClose={close}
         preview={content}
         shownKey={shown ?? undefined}
-        finalFocus={() => (usable(opener.current) ? opener.current : null)}
+        finalFocus={() => {
+          // A modal sheet holds focus until it closes, so the hand-off lands here.
+          if (usable(handedTo.current)) {
+            return handedTo.current;
+          }
+          return usable(opener.current) ? opener.current : null;
+        }}
         tabBack={() => (usable(opener.current) ? opener.current : null)}
         tabOn={(panel) =>
           usable(opener.current) ? tabNeighbour({ from: opener.current, skip: panel }) : null

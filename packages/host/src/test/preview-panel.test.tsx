@@ -459,6 +459,18 @@ describe('preview panel footer', () => {
     expect(open.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it('on a phone, closes for the card’s action with focus on the card’s own button', async () => {
+    await renderFeed('phone');
+    // The feature moves nothing itself: the sheet lands focus on the next surface's opener.
+    handedOn.mockReturnValueOnce(undefined);
+    await userEvent.click(card('Keep run logs and make them readable'));
+    await userEvent.click(within(panel()).getByRole('button', { name: 'Answer HUGI-15' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    const own = screen.getByRole('button', { name: 'Answer HUGI-15' });
+    expect(handedOn).toHaveBeenCalledExactlyOnceWith(own);
+    expect(own).toHaveFocus();
+  });
+
   it('closes for the card’s action and hands it the card’s own button, where focus can land', async () => {
     await renderFeed();
     await userEvent.click(card('Keep run logs and make them readable'));
