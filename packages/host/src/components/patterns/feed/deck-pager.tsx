@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import { cn } from '../../../lib/cn';
 import { IconButton } from '../../ui/icon-button';
 import { ChevronLeftIcon, ChevronRightIcon } from '../../ui/icons';
@@ -47,11 +49,25 @@ function PagerArrow({
   );
 }
 
-/** A number that holds the width of the total's digits, so the arrows never shift as it grows. */
-function Held({ value, digits }: { value: number; digits: number }) {
+/**
+ * Text that holds the width of `digits` tabular digits (and `dashes` en dashes),
+ * right-aligned, so the arrows never shift as the numbers grow.
+ */
+function Held({
+  children,
+  digits,
+  dashes = 0,
+}: {
+  children: ReactNode;
+  digits: number;
+  dashes?: number;
+}) {
   return (
-    <span className="inline-block text-right" style={{ minWidth: `${String(digits)}ch` }}>
-      {value}
+    <span
+      className="inline-block text-right"
+      style={{ minWidth: `calc(${String(digits)}ch + ${String(dashes * 0.5)}em)` }}
+    >
+      {children}
     </span>
   );
 }
@@ -72,7 +88,7 @@ export function PhonePager({
       <PagerArrow turn={-1} label="Previous card" atEnd={index === 0} onTurn={onTurn} />
       <p className="m-0 min-w-16 text-center text-meta text-ink-dim tabular-nums">
         <span className="font-semibold text-ink-bright">
-          <Held value={index + 1} digits={digits} />
+          <Held digits={digits}>{index + 1}</Held>
         </span>{' '}
         of {count}
       </p>
@@ -99,7 +115,9 @@ export function DesktopPager({
     <div data-slot="deck-pager" className="flex items-center gap-3">
       <p className="m-0 text-meta text-ink-dim tabular-nums">
         <span className="font-semibold text-ink-bright">
-          <Held value={first} digits={digits} />–<Held value={last} digits={digits} />
+          <Held digits={2 * digits} dashes={1}>
+            {first}–{last}
+          </Held>
         </span>{' '}
         of {count}
       </p>

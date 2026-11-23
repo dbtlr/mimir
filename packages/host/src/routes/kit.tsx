@@ -5,6 +5,7 @@ import { ActionButton } from '../components/ui/action-button';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardHeader } from '../components/ui/card';
 import { ChoiceKit } from '../kit/choice';
+import { DeckKit } from '../kit/deck';
 import { FeedKit } from '../kit/feed';
 import { OverlaysKit } from '../kit/overlays';
 import { PatternsKit } from '../kit/patterns';
@@ -208,6 +209,7 @@ export function KitPage() {
       <StructureKit />
       <FeedKit />
       <PreviewKit />
+      <DeckKit />
     </main>
   );
 }
