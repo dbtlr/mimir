@@ -6,10 +6,10 @@ import { cn } from '../../../lib/cn';
 import { ActionButton, actionButtonVariants } from '../../ui/action-button';
 import { Drawer, DrawerBackdrop, DrawerContent, DrawerTitle, useDrawerSide } from '../../ui/drawer';
 import { CloseIcon } from '../../ui/icons';
-import { restingRoom, restsOf } from '../form-sheet';
-import type { BlockExtent } from '../form-sheet';
 import type { FinalFocus } from '../opener';
 import type { FeedLink } from './link';
+import { endRoom, previewRests, settleAt } from './preview-rests';
+import type { BodyRests, RestBlock } from './preview-rests';
 import { FeedStatusLine } from './status-line';
 import { tabNeighbour, tabSequence } from './tab-order';
 
@@ -376,60 +376,44 @@ function PreviewContent({
 }
 
 /** The extent of an element in its scroll parent's scroll space. */
-function extentOf(element: Element, origin: number): BlockExtent {
+function extentOf(element: Element, origin: number): RestBlock {
   const rect = element.getBoundingClientRect();
   return { bottom: rect.bottom - origin, top: rect.top - origin };
 }
 
 /**
- * Where the body rests (DESIGN.md, Preview panel: a capped sheet rests on a
- * whole fact): the top, the reason, the text, and each fact. The fact list's
- * hairline makes no rest of its own, so the first fact's rest hides it whole
- * and puts that fact 20 below the header.
+ * The body's blocks and where it rests (`previewRests`): the reason and the
+ * text after it as one block, since the text carries on from the reason, then
+ * the fact list's hairline, which no rest sits on, and each fact.
  */
-function measureRests(element: HTMLElement): number[] {
+function measureRests(element: HTMLElement): BodyRests {
   const origin = element.getBoundingClientRect().top - element.scrollTop;
   const content = element.firstElementChild;
   if (content === null) {
-    return [];
+    return { free: [], rests: [] };
   }
-  const blocks: BlockExtent[] = [];
-  let hairline: number | undefined;
+  const blocks: RestBlock[] = [];
+  let prose: RestBlock | undefined;
   for (const child of content.children) {
     if (child.tagName === 'DL') {
       const top = child.getBoundingClientRect().top - origin;
-      hairline = blocks.length;
-      blocks.push({ bottom: top + 1, top: top + 1 });
+      blocks.push({ bottom: top + 1, rests: false, top });
       for (const fact of child.children) {
         blocks.push(extentOf(fact, origin));
       }
+    } else if (prose === undefined) {
+      prose = extentOf(child, origin);
+      blocks.push(prose);
     } else {
-      blocks.push(extentOf(child, origin));
+      prose.bottom = extentOf(child, origin).bottom;
     }
   }
   const topPadding = Number.parseFloat(getComputedStyle(element).paddingTop);
-  const rests = restsOf(blocks, false, Number.isNaN(topPadding) ? 0 : topPadding);
-  return hairline === undefined ? rests : rests.filter((_, index) => index !== hairline);
-}
-
-/**
- * Where a scroll that stopped at `scrollTop` settles, having moved from the
- * rest at `from`: on a rest already, it stays; otherwise it goes on to the
- * next rest the way it moved, so a short swipe still gets somewhere. The rests
- * are the body's own, its top, and its end.
- */
-function settleRest(element: HTMLElement, from: number): number {
-  const end = element.scrollHeight - element.clientHeight;
-  const at = element.scrollTop;
-  const rests = [0, end, ...measureRests(element)]
-    .filter((rest) => rest >= 0 && rest <= end)
-    .toSorted((x, y) => x - y);
-  if (rests.some((rest) => Math.abs(rest - at) < 1)) {
-    return at;
-  }
-  return at > from
-    ? (rests.find((rest) => rest > at) ?? end)
-    : (rests.findLast((rest) => rest < at) ?? 0);
+  return previewRests({
+    blocks,
+    height: element.clientHeight,
+    topPadding: Number.isNaN(topPadding) ? 0 : topPadding,
+  });
 }
 
 /**
@@ -466,7 +450,7 @@ function PreviewBody({
     const measure = () => {
       if (element.clientHeight > 0) {
         const naturalEnd = element.scrollHeight - roomRef.current - element.clientHeight;
-        const next = restingRoom(naturalEnd, measureRests(element));
+        const next = endRoom({ naturalEnd, ...measureRests(element) });
         if (next !== roomRef.current) {
           roomRef.current = next;
           setRoom(next);
@@ -477,7 +461,14 @@ function PreviewBody({
     // Where the body last came to rest, so a settle knows which way it moved.
     let rested = element.scrollTop;
     const settle = () => {
-      const rest = settleRest(element, rested);
+      const { rests, free } = measureRests(element);
+      const rest = settleAt({
+        at: element.scrollTop,
+        end: element.scrollHeight - element.clientHeight,
+        free,
+        from: rested,
+        rests,
+      });
       rested = rest;
       if (Math.abs(rest - element.scrollTop) >= 1) {
         const reduced = element.ownerDocument.defaultView?.matchMedia(

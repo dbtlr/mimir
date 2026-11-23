@@ -425,8 +425,19 @@ Rules:
   and the column change at once.
 - **A capped sheet rests on a whole fact.** When the body runs past the 88%
   cap, it scrolls under the pinned bars by the resting rules of Sheets,
-  panels, dialogs: a rest hides the fact list's hairline whole and puts the
-  first fact 20 below the header. A swipe or scroll that stops between rests
+  panels, dialogs (`patterns/feed/preview-rests.ts`). Neither bar cuts a
+  block at a rest: the fact at the footer is whole or hidden under it, and the
+  block at the header sits below it with the block above hidden whole. The
+  reason and the text after it rest as one block, since 12 apart neither
+  could keep the field gap. A rest hides the fact list's hairline whole and
+  puts the first fact 20 below the header, or as little as 14 where the footer
+  would otherwise cut the fact it meets, and a later fact 14, the list's own
+  row gap. Where no rest clears both bars within a body's height of the
+  last, so a block would never show whole, the rest keeps the header clean and
+  the footer may cut. A fact taller than the body (a bundle's long Tasks)
+  rests at its top and where its bottom meets the footer, and scrolls freely
+  from its top onward, wherever the footer cuts no other block, so every
+  relation in it can be read. A swipe or scroll that stops between rests
   glides on to the next rest the way it moved (at once under reduced motion),
   so the sheet never rests on a clipped sentence. Once the body has scrolled, the header
   gains the pinned header's scroll shadow. While the body continues under the

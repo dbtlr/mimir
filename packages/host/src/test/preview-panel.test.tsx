@@ -40,6 +40,7 @@ const PREVIEWS: Record<string, Preview> = {
     lead: <span>Ready</span>,
     open: nodeLink('HUGI-15'),
     reason: 'Needs an answer before it can start.',
+    text: 'Keep every lane’s log for 14 days.',
     title: 'Keep run logs and make them readable',
   },
   'MMR-709': {
@@ -554,16 +555,17 @@ const rectAt = (top: number, height: number) =>
 
 /**
  * HUGI-15's capped body, laid out as jsdom cannot: 200 tall at 100, the reason
- * 24–99, the fact list from 119 (its hairline at 120), and the two facts at
- * 140–162 and 176–198, in the body's scroll space. Its rests are 0, 120 (the
- * hairline hidden, the first fact 20 below the header), and 162.
+ * 24–99 and its text 111–157, 12 below it, the fact list from 177 (its hairline
+ * 177–178), and the two facts at 198–220 and 234–256, in the body's scroll
+ * space. The reason and its text rest as one block, so the rests are 0, 178
+ * (the hairline hidden, the first fact 20 below the header), and 220, the end.
  */
 function layOutCappedBody(element: HTMLElement) {
-  const content = element.firstElementChild;
+  const [reason, text] = element.firstElementChild?.children ?? [];
   const list = element.querySelector('dl');
   const facts = [...element.querySelectorAll('[data-slot="preview-fact"]')];
   Object.defineProperty(element, 'clientHeight', { configurable: true, value: 200 });
-  Object.defineProperty(element, 'scrollHeight', { configurable: true, value: 362 });
+  Object.defineProperty(element, 'scrollHeight', { configurable: true, value: 420 });
   const at = (top: number, height: number) => rectAt(100 + top - element.scrollTop, height);
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function layout(
     this: HTMLElement,
@@ -571,14 +573,17 @@ function layOutCappedBody(element: HTMLElement) {
     if (this === element) {
       return rectAt(100, 200);
     }
-    if (this === content?.firstElementChild) {
+    if (this === reason) {
       return at(24, 75);
     }
+    if (this === text) {
+      return at(111, 46);
+    }
     if (this === list) {
-      return at(119, 79);
+      return at(177, 79);
     }
     const fact = facts.indexOf(this);
-    return fact === -1 ? DOMRect.fromRect() : at(140 + fact * 36, 22);
+    return fact === -1 ? DOMRect.fromRect() : at(198 + fact * 36, 22);
   });
   element.style.paddingTop = '24px';
 }
@@ -604,7 +609,7 @@ describe('preview panel on a phone', () => {
     fireEvent.scroll(element);
     expect(footer).toHaveAttribute('data-continues');
     expect(footer.className.split(/\s+/)).toContain('data-continues:border-line-bright');
-    element.scrollTop = 162;
+    element.scrollTop = 220;
     fireEvent.scroll(element);
     expect(footer).not.toHaveAttribute('data-continues');
     vi.restoreAllMocks();
@@ -627,15 +632,15 @@ describe('preview panel on a phone', () => {
       fireEvent.scroll(element);
       fireEvent(element, new Event('scrollend'));
     };
-    // A short swipe down that stops with the reason cut under the header goes on, not back.
-    stopAt(30);
-    expect(scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({ top: 120 }));
-    stopAt(150);
-    expect(scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({ top: 162 }));
-    stopAt(130);
-    expect(scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({ top: 120 }));
+    // A short swipe down goes on past the reason and its text, which rest as one, to the first fact.
+    stopAt(50);
+    expect(scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({ top: 178 }));
+    stopAt(200);
+    expect(scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({ top: 220 }));
+    stopAt(190);
+    expect(scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({ top: 178 }));
     scrollTo.mockClear();
-    stopAt(120);
+    stopAt(178);
     expect(scrollTo).not.toHaveBeenCalled();
     vi.restoreAllMocks();
   });
