@@ -7,6 +7,7 @@ import { CardGrid } from '../components/patterns/feed/card-grid';
 import { FeedPreview } from '../components/patterns/feed/feed-preview';
 import type { Preview } from '../components/patterns/feed/preview-panel';
 import { ActionButton } from '../components/ui/action-button';
+import { Menu, MenuContent, MenuItem, MenuTrigger } from '../components/ui/menu';
 import { nodeLink } from '../lib/record-url';
 import { renderInRouter } from './router';
 import { stubViewport } from './viewport';
@@ -99,6 +100,57 @@ function Feed({ gone }: { gone?: string }) {
       <button type="button">After the feed</button>
     </>
   );
+}
+
+/** A feed whose one card sits beside a menu, for the Escape order. */
+function FeedWithMenu() {
+  return (
+    <FeedPreview preview={(key) => PREVIEWS[key]}>
+      <FeedCard
+        previewKey="MMR-709"
+        lead={<span>In progress</span>}
+        title="Send an encrypted Web Push"
+      />
+      <Menu>
+        <MenuTrigger render={<ActionButton variant="outline" />}>Sort</MenuTrigger>
+        <MenuContent>
+          <MenuItem>Newest first</MenuItem>
+        </MenuContent>
+      </Menu>
+    </FeedPreview>
+  );
+}
+
+/** A ResizeObserver jsdom lacks: `resize(element)` runs the observers watching `element`. */
+function stubResizeObserver() {
+  const watching = new Map<Element, Set<() => void>>();
+  class FakeResizeObserver {
+    readonly #report: () => void;
+    readonly #targets = new Set<Element>();
+    constructor(report: () => void) {
+      this.#report = report;
+    }
+    observe(target: Element) {
+      this.#targets.add(target);
+      watching.set(target, (watching.get(target) ?? new Set()).add(this.#report));
+    }
+    unobserve(target: Element) {
+      watching.get(target)?.delete(this.#report);
+    }
+    disconnect() {
+      for (const target of this.#targets) {
+        watching.get(target)?.delete(this.#report);
+      }
+    }
+  }
+  vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+  return (element: Element) => {
+    act(() => {
+      for (const report of watching.get(element) ?? []) {
+        report();
+      }
+    });
+  };
 }
 
 async function renderFeed(viewport: Viewport = 'desktop') {
@@ -254,6 +306,58 @@ describe('preview panel: open, switch, close', () => {
     await renderFeed();
     await userEvent.click(card('Send an encrypted Web Push'));
     card('Mobile top bar').focus();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe('preview panel: the selected card', () => {
+  it('marks the selected card and gives it the accent edge, and only that card', async () => {
+    await renderFeed();
+    await userEvent.click(card('Send an encrypted Web Push'));
+    const selected = card('Send an encrypted Web Push').closest('[data-slot="feed-card"]');
+    const other = card('Mobile top bar').closest('[data-slot="feed-card"]');
+    expect(selected).toHaveAttribute('data-selected');
+    expect(selected?.className.split(/\s+/)).toContain('data-selected:border-accent');
+    expect(other).not.toHaveAttribute('data-selected');
+  });
+
+  it('scrolls into view on open, and again when a reflow changes the feed’s width', async () => {
+    const resize = stubResizeObserver();
+    const scrolled = vi.spyOn(Element.prototype, 'scrollIntoView');
+    await renderFeed();
+    const feed = document.querySelector<HTMLElement>('[data-slot="feed-preview"]');
+    if (feed === null) {
+      throw new Error('no feed');
+    }
+    let width = 1240;
+    vi.spyOn(feed, 'getBoundingClientRect').mockImplementation(() =>
+      DOMRect.fromRect({ height: 600, width }),
+    );
+    await userEvent.click(card('Mobile top bar'));
+    const selected = card('Mobile top bar').closest('[data-slot="feed-card"]');
+    expect(scrolled.mock.contexts).toEqual([selected]);
+    expect(scrolled).toHaveBeenLastCalledWith({ behavior: 'instant', block: 'nearest' });
+    scrolled.mockClear();
+    resize(feed);
+    expect(scrolled).not.toHaveBeenCalled();
+    width = 800;
+    resize(feed);
+    expect(scrolled.mock.contexts).toEqual([selected]);
+    vi.restoreAllMocks();
+  });
+});
+
+describe('preview panel: Escape and the layers above it', () => {
+  it('closes an open menu in the feed first, then the panel', async () => {
+    stubViewport('desktop');
+    await renderInRouter(<FeedWithMenu />);
+    await userEvent.click(card('Send an encrypted Web Push'));
+    await userEvent.click(screen.getByRole('button', { name: 'Sort' }));
+    expect(screen.getByRole('menu')).toBeVisible();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(panel()).toBeVisible();
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).toBeNull();
   });

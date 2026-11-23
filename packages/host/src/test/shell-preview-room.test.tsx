@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { cleanup, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -22,7 +22,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function renderShellWithFeed(viewport: Viewport, sidebar = true) {
+async function renderShellWithFeed(viewport: Viewport | number, sidebar = true) {
   stubViewport(viewport);
   return renderInRouter(
     <PreviewRoomProvider>
@@ -75,6 +75,18 @@ describe('shell room for the preview panel', () => {
     await renderShellWithFeed('wide');
     await userEvent.click(screen.getByRole('button', { name: 'A task' }));
     expect(sidebarSlot()).not.toHaveAttribute('inert');
+    expect(content()).toHaveAttribute('data-preview-room');
+  });
+
+  it('lets the sidebar yield up to 1599 and keeps it from 1600', async () => {
+    await renderShellWithFeed(1599);
+    await userEvent.click(screen.getByRole('button', { name: 'A task' }));
+    expect(sidebarSlot()).toHaveAttribute('data-yielded');
+    cleanup();
+    vi.unstubAllGlobals();
+    await renderShellWithFeed(1600);
+    await userEvent.click(screen.getByRole('button', { name: 'A task' }));
+    expect(sidebarSlot()).not.toHaveAttribute('data-yielded');
     expect(content()).toHaveAttribute('data-preview-room');
   });
 
