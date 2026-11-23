@@ -36,7 +36,7 @@ function HomeHead({ report, zone }: { report: ReviewReport; zone: string }) {
   const shipped = shippedWeek({ projects: report.projects, rows: report.shipped, zone }).total;
   return (
     <header className="mb-8 border-b border-line pb-5">
-      <h1 className="m-0 text-page font-bold text-ink-bright">{homeDay(zone)}</h1>
+      <h1 className="m-0 text-page leading-9 font-bold text-ink-bright">{homeDay(zone)}</h1>
       <p className="mt-1 mb-0 max-w-[62ch] text-body text-ink">
         {homeSummary({ cards, items: report.queue.length, running: report.now.length, shipped })}
       </p>

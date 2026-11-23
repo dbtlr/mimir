@@ -37,8 +37,8 @@ function ArchivedProjectPage({ project, offline }: { project: EngineNode; offlin
         </span>
       </div>
       <p className="text-xs leading-relaxed text-ink-dim">
-        This project is frozen. It is hidden from the switcher’s active list, the review page, and
-        every other default view, and nothing is deleted. Unarchive it to work in it again.
+        This project is frozen. It is hidden from the switcher’s active list, Home, and every other
+        default view, and nothing is deleted. Unarchive it to work in it again.
       </p>
       <div className="flex items-center gap-4">
         <ActionButton
@@ -58,7 +58,7 @@ function ArchivedProjectPage({ project, offline }: { project: EngineNode; offlin
           to="/"
           className="text-xs font-semibold text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
         >
-          ← Back to the review page
+          ← Back to Home
         </Link>
       </div>
     </main>

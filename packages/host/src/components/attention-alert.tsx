@@ -119,7 +119,7 @@ function NeedsYouPanel({
       </section>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
         <Link to="/" className={cn(PROJECT_LINK, 'text-meta text-ink-dim hover:text-ink-bright')}>
-          Open review page
+          Open Home
         </Link>
         {count > 0 && (
           <Link

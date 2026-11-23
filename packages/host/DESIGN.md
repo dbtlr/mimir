@@ -622,7 +622,7 @@ The forms built on these numbers (MMR-743), for checking a build against them:
   placeholder). Key is 128 wide; its help, "Suggested from the title. It
   can't change later: it names every ID (`KEY-1`, `KEY-2`, …).", starts 8
   below it, wraps at 440, and quotes the real key once one exists. The footer
-  note is "Joins the project list on the review page." Create project waits
+  note is "Joins the project list in the sidebar." Create project waits
   for a title and a key.
 - **Project settings.** The same form without Key; the context line reads
   "Project key `MMR`". Save stays enabled while the title is set. Lifecycle

@@ -216,7 +216,7 @@ function FormSheetSample() {
         open={open}
         onClose={() => setOpen(false)}
         title="New project"
-        note="Joins the project list on the review page."
+        note="Joins the project list in the sidebar."
         commitLabel="Create project"
         commitDisabled={title.trim() === ''}
         onCommit={() => undefined}

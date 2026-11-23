@@ -84,7 +84,7 @@ describe('an archived project’s address (MMR-506)', () => {
 
     const notice = await screen.findByText(/This project is frozen/);
     expect(notice).toHaveTextContent('switcher’s active list');
-    expect(notice).toHaveTextContent('review page');
+    expect(notice).toHaveTextContent('Home');
     expect(notice).not.toHaveTextContent('board');
   });
 

@@ -203,13 +203,11 @@ describe('the Needs you popover', () => {
     expect(within(panel).queryByText('This page')).toBeNull();
   });
 
-  it('links to the review page and the focus queue', async () => {
+  it('links to Home and the focus queue', async () => {
     await renderAt('/p/MMR/tasks', twoProjects());
     const panel = await openAlert('3 need you');
 
-    expect(within(panel).getByRole('link', { name: 'Open review page' }).getAttribute('href')).toBe(
-      '/',
-    );
+    expect(within(panel).getByRole('link', { name: 'Open Home' }).getAttribute('href')).toBe('/');
     expect(
       within(panel).getByRole('link', { name: 'Work through these · 3' }).getAttribute('href'),
     ).toBe('/?mode=focus');
@@ -363,7 +361,7 @@ describe('the Needs you popover', () => {
       expect(within(panel).queryByRole('link', { name: 'Ship the plugin' })).toBeNull();
     });
     expect(screen.getByRole('dialog', { name: 'Needs you' })).toBe(panel);
-    expect(within(panel).getByRole('link', { name: 'Open review page' })).toBeDefined();
+    expect(within(panel).getByRole('link', { name: 'Open Home' })).toBeDefined();
     await expect(screen.findByRole('button', { name: '2 need you' })).resolves.toBeDefined();
   });
 

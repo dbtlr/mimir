@@ -21,7 +21,7 @@ export function NotFoundPage({
       <p className="text-xs leading-relaxed text-ink-dim">{children}</p>
       {projectKey === undefined ? (
         <Link to="/" className={back}>
-          ← Back to the review page
+          ← Back to Home
         </Link>
       ) : (
         <Link to="/p/$key" params={{ key: projectKey }} className={back}>
@@ -56,7 +56,7 @@ export function ProjectUnavailablePage({ projectKey }: { projectKey: string }) {
         to="/"
         className="text-xs font-semibold text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
       >
-        ← Back to the review page
+        ← Back to Home
       </Link>
     </main>
   );
