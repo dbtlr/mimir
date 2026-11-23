@@ -23,10 +23,14 @@ afterEach(() => {
 });
 
 const answered = vi.fn();
+// The panel's action hands on the card's own button; this one moves focus to it, as a next surface's opener would.
+const handedOn = vi.fn((button: HTMLElement | null) => {
+  button?.focus();
+});
 
 const PREVIEWS: Record<string, Preview> = {
   'HUGI-15': {
-    action: { label: 'Answer', name: 'Answer HUGI-15', onAction: answered },
+    action: { label: 'Answer', name: 'Answer HUGI-15', onAction: handedOn },
     facts: [
       { label: 'Parent', value: 'Hugi 0.4: run logs' },
       { label: 'Size', value: 'Medium' },
@@ -91,6 +95,7 @@ function Feed() {
 async function renderFeed(viewport: Viewport = 'desktop') {
   stubViewport(viewport);
   answered.mockClear();
+  handedOn.mockClear();
   return renderInRouter(<Feed />);
 }
 
@@ -272,8 +277,17 @@ describe('preview panel footer', () => {
     const action = within(panel()).getByRole('button', { name: 'Answer HUGI-15' });
     expect(action.className.split(/\s+/)).toContain('bg-action');
     expect(open.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    await userEvent.click(action);
-    expect(answered).toHaveBeenCalledOnce();
+  });
+
+  it('closes for the card’s action and hands it the card’s own button, where focus can land', async () => {
+    await renderFeed();
+    await userEvent.click(card('Keep run logs and make them readable'));
+    await userEvent.click(within(panel()).getByRole('button', { name: 'Answer HUGI-15' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    const own = screen.getByRole('button', { name: 'Answer HUGI-15' });
+    expect(handedOn).toHaveBeenCalledExactlyOnceWith(own);
+    expect(own).toHaveFocus();
+    expect(answered).not.toHaveBeenCalled();
   });
 
   it('is Open alone when the card has no action', async () => {

@@ -15,12 +15,17 @@ import { FeedStatusLine } from './status-line';
 /** One fact in a preview's definition list. */
 export type PreviewFact = { label: string; value: ReactNode };
 
-/** The card's one action, which the preview offers as its one solid button. */
+/**
+ * The card's one action, which the preview offers as its one solid button.
+ * The panel closes as it runs, and `onAction` gets the selected card's own
+ * button: when the action leaves the panel for another surface (a bundle's
+ * walkthrough), that button is the surface's opener.
+ */
 export type PreviewAction = {
   label: string;
   /** The accessible name, when the label alone does not say what it acts on ("Answer HUGI-15"). */
   name?: string;
-  onAction: () => void;
+  onAction: (cardButton: HTMLElement | null) => void;
 };
 
 /**
@@ -264,7 +269,7 @@ function PreviewContent({
             variant="action"
             aria-label={action.name}
             onClick={() => {
-              action.onAction();
+              action.onAction(null);
             }}
             className={FOOTER_BUTTON}
           >

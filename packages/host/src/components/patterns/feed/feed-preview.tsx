@@ -45,6 +45,9 @@ export function useCardPreview(key: string): {
 const CONTROL =
   'a, button, input, select, textarea, summary, label, [role], [tabindex], [contenteditable], [data-slot="drawer-viewport"]';
 
+/** A card's own button, stacked over its stretched target. */
+const CARD_BUTTON = '[data-slot="feed-card-action"] > *';
+
 const TABBABLE =
   'a[href], button:not(:disabled), input:not(:disabled):not([type=hidden]), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
 
@@ -102,8 +105,8 @@ export function FeedPreview({
     setSeenHref(href);
     setSelected(null);
   }
-  const content = shown === null ? undefined : preview(shown);
-  const open = selected !== null && content !== undefined;
+  const given = shown === null ? undefined : preview(shown);
+  const open = selected !== null && given !== undefined;
   // The phone's sheet is modal over a scrim; only the desktop panel needs room beside the feed.
   const desktop = useDrawerSide() === 'right';
   const feedId = useId();
@@ -125,6 +128,25 @@ export function FeedPreview({
       opener.current.focus({ preventScroll: true });
     }
   }, []);
+
+  // The card's action closes the panel first, then runs with the card's own button.
+  const content = useMemo(() => {
+    const action = given?.action;
+    if (given === undefined || action === undefined) {
+      return given;
+    }
+    return {
+      ...given,
+      action: {
+        ...action,
+        onAction: () => {
+          const own = cardOf(opener.current)?.querySelector<HTMLElement>(CARD_BUTTON) ?? null;
+          setSelected(null);
+          action.onAction(own);
+        },
+      },
+    };
+  }, [given]);
 
   const toggle = useCallback((key: string, card: HTMLElement) => {
     opener.current = card;
