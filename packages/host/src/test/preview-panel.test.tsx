@@ -379,9 +379,14 @@ describe('preview panel: Escape and the layers above it', () => {
     await renderInRouter(<FeedWithMenu />);
     await userEvent.click(card('Send an encrypted Web Push'));
     await userEvent.click(screen.getByRole('button', { name: 'Sort' }));
-    expect(screen.getByRole('menu')).toBeVisible();
+    // The menu takes focus once it has opened; Escape before that would land on the feed.
+    await waitFor(() => {
+      expect(screen.getByRole('menu').contains(document.activeElement)).toBe(true);
+    });
     await userEvent.keyboard('{Escape}');
-    expect(screen.queryByRole('menu')).toBeNull();
+    await waitFor(() => {
+      expect(screen.queryByRole('menu')).toBeNull();
+    });
     expect(panel()).toBeVisible();
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).toBeNull();
