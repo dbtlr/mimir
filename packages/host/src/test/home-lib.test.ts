@@ -52,6 +52,12 @@ describe('the summary sentence', () => {
     );
   });
 
+  it('writes thousands with a separator', () => {
+    expect(homeSummary({ cards: 1234, items: 2345, running: 1234, shipped: 1234 })).toBe(
+      '1,234 cards need you, holding 2,345 items. 1,234 tasks are running, and 1,234 have shipped this week.',
+    );
+  });
+
   it('says plainly which parts are quiet on a mixed page', () => {
     expect(homeSummary({ cards: 0, items: 0, running: 3, shipped: 0 })).toBe(
       '3 tasks are running, and nothing has shipped this week.',
@@ -138,6 +144,76 @@ describe('the Shipped week', () => {
     expect(week.total).toBe(1);
     expect(week.days.at(-1)?.count).toBe(1);
     expect(week.byProject).toEqual([{ count: 1, key: 'MMR', name: 'Mimir' }]);
+  });
+
+  it('puts a row on the day it finished in the zone, not in UTC', () => {
+    // 23:50 on Sunday in New York is 04:50 on Monday in UTC.
+    const week = shippedWeek({
+      now: NOW,
+      projects,
+      rows: [row('MMR-1', new Date('2026-11-23T04:50:00.000Z'))],
+      zone: ZONE,
+    });
+    expect(week.days.slice(-2).map((day) => day.count)).toEqual([1, 0]);
+  });
+
+  it('ends the week on today in the zone, not in UTC', () => {
+    // 21:00 on Monday in New York is already Tuesday in UTC.
+    const week = shippedWeek({
+      now: Date.parse('2026-11-24T02:00:00.000Z'),
+      projects,
+      rows: [row('MMR-1', daysAgo(0, 20))],
+      zone: ZONE,
+    });
+    expect(week.days[0]?.name).toBe('Tuesday');
+    expect(week.days.at(-1)).toEqual({ count: 1, name: 'today', short: 'Today' });
+  });
+
+  it('keeps seven calendar days across the end of daylight saving time', () => {
+    // New York leaves EDT at 02:00 on 1 November 2026, so one day is 25 hours long.
+    const week = shippedWeek({
+      now: Date.parse('2026-11-03T23:30:00-05:00'),
+      projects,
+      rows: [
+        row('MMR-1', new Date('2026-10-28T00:10:00-04:00')),
+        row('MMR-2', new Date('2026-10-27T23:50:00-04:00')),
+        row('MMR-3', new Date('2026-11-01T01:30:00-05:00')),
+        row('MMR-4', new Date('2026-11-03T23:20:00-05:00')),
+      ],
+      zone: ZONE,
+    });
+    expect(week.days.map((day) => day.count)).toEqual([1, 0, 0, 0, 1, 0, 1]);
+    expect(week.days[0]?.name).toBe('Wednesday');
+  });
+
+  it('keeps seven calendar days across the start of daylight saving time', () => {
+    // Berlin enters CEST at 02:00 on 29 March 2026, so one day is 23 hours long.
+    const week = shippedWeek({
+      now: Date.parse('2026-03-31T00:05:00+02:00'),
+      projects,
+      rows: [
+        row('MMR-1', new Date('2026-03-25T00:01:00+01:00')),
+        row('MMR-2', new Date('2026-03-24T23:59:00+01:00')),
+        row('MMR-3', new Date('2026-03-30T23:59:00+02:00')),
+        row('MMR-4', new Date('2026-03-31T00:01:00+02:00')),
+      ],
+      zone: 'Europe/Berlin',
+    });
+    expect(week.days.map((day) => day.count)).toEqual([1, 0, 0, 0, 0, 1, 1]);
+    expect(week.days[0]?.name).toBe('Wednesday');
+  });
+
+  it('turns the day at midnight in a zone east of UTC', () => {
+    const week = shippedWeek({
+      now: Date.parse('2026-11-23T00:30:00+13:00'),
+      projects,
+      rows: [
+        row('MMR-1', new Date('2026-11-23T00:10:00+13:00')),
+        row('MMR-2', new Date('2026-11-22T23:50:00+13:00')),
+      ],
+      zone: 'Pacific/Auckland',
+    });
+    expect(week.days.slice(-2).map((day) => day.count)).toEqual([1, 1]);
   });
 
   it('keeps a project’s key as its name when the project list does not hold it', () => {

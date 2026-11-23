@@ -129,15 +129,16 @@ function quiet(overrides: Partial<ReviewReport> = {}): ReviewReport {
   });
 }
 
-async function openHome(served: ReviewReport, viewport: Viewport = 'desktop', path = '/') {
-  stubViewport(viewport);
+/** Opens Home at `viewport`; the returned `resize` moves the viewport as a window resize does. */
+async function openHome(served: ReviewReport, viewport: Viewport | number = 'desktop', path = '/') {
+  const resize = stubViewport(viewport);
   serveViews({ review: served });
   serveShell();
   // A fresh read, as the shell's polling keeps it: the focus queue fixes its list from one.
   const client = new QueryClient({ defaultOptions: { queries: { staleTime: 5_000 } } });
   const view = await renderRoute(consoleRoutes, path, client);
   await screen.findByRole('heading', { level: 1 });
-  return view;
+  return { ...view, resize };
 }
 
 const section = (name: RegExp) => screen.getByRole('region', { name });
@@ -200,6 +201,36 @@ describe('Home at / (ADR 0013, MMR-722 refinement)', () => {
     expect(titles).toEqual(NINE.slice(0, shown).map((row) => row.task.title));
   });
 
+  it.each<[number, number, string]>([
+    [767, 9, 'Now 4 of 9'],
+    [767, 5, 'Now 4 of 5'],
+    [767, 4, 'Now 4'],
+    [768, 9, 'Now 6 of 9'],
+    [768, 7, 'Now 6 of 7'],
+    [768, 6, 'Now 6'],
+  ])(
+    'caps Now at four below 768 and six from 768 (%ipx, %i running)',
+    async (width, total, head) => {
+      await openHome(busy({ now: NINE.slice(0, total) }), width);
+
+      expect(within(section(/^Now/)).getByRole('heading', { level: 2 })).toHaveTextContent(head);
+    },
+  );
+
+  it('changes Now’s cap live when the viewport crosses 768', async () => {
+    const { resize } = await openHome(busy(), 1280);
+
+    const cards = () => within(section(/^Now/)).getAllByRole('button');
+    expect(cards()).toHaveLength(6);
+    resize(767);
+    expect(within(section(/^Now/)).getByRole('heading', { level: 2 })).toHaveTextContent(
+      'Now 4 of 9',
+    );
+    expect(cards()).toHaveLength(4);
+    resize(768);
+    expect(cards()).toHaveLength(6);
+  });
+
   it('counts Now plainly when every card shows', async () => {
     await openHome(busy({ now: NINE.slice(0, 3) }));
 
@@ -231,6 +262,15 @@ describe('Home at / (ADR 0013, MMR-722 refinement)', () => {
     ).getAllByRole('listitem');
     expect(rows.map((row) => row.textContent)).toEqual(['MMR Mimir 2', 'LM Loom CLI 1']);
     expect(within(week).queryByRole('link')).toBeNull();
+  });
+
+  it('puts a shipped task on the day it finished in the browser’s zone', async () => {
+    // 23:50 on Sunday in New York is 04:50 on Monday in UTC.
+    await openHome(busy({ shipped: [shipped('MMR-1', new Date('2026-11-23T04:50:00.000Z'))] }));
+
+    expect(within(section(/^Shipped this week/)).getByRole('img')).toHaveAccessibleName(
+      'Shipped each day for the last 7 days: Tuesday 0, Wednesday 0, Thursday 0, Friday 0, Saturday 0, Sunday 1, and 0 so far today.',
+    );
   });
 
   it('hides Shipped when nothing shipped this week', async () => {

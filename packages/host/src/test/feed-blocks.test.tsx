@@ -219,7 +219,7 @@ describe('feed row group', () => {
     expect(screen.getAllByRole('link')).toHaveLength(1);
   });
 
-  it('draws a row with no destination as a plain row: no link, no chevron', async () => {
+  it('draws a row with no destination as a plain row: no link, no chevron, no hover fill', async () => {
     await renderInRouter(
       <RowGroup
         label="When you have a minute"
@@ -236,8 +236,10 @@ describe('feed row group', () => {
     expect(items[0]).toHaveTextContent('Seeds to triage 7');
     expect(within(items[0]!).queryByRole('link')).toBeNull();
     expect(items[0]!.querySelector('svg')).toBeNull();
+    expect(items[0]!.querySelector('[class*="hover:bg-"]')).toBeNull();
     expect(within(items[1]!).getByRole('link', { name: 'Ready to start 12' })).toBeVisible();
     expect(items[1]!.querySelector('svg')).not.toBeNull();
+    expect(items[1]!.querySelector('[class*="hover:bg-"]')).not.toBeNull();
   });
 
   it('frames a standalone group in a card when asked, and leaves it unframed by default', async () => {
