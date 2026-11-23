@@ -1,5 +1,5 @@
-import { restingRoom } from '../form-sheet';
-import type { BlockExtent } from '../form-sheet';
+import { restingRoom } from '../resting-body';
+import type { BlockExtent } from '../resting-body';
 
 /*
  * Where a preview's body rests (DESIGN.md, Preview panel: a capped sheet rests
