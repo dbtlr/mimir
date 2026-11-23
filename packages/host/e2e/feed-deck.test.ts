@@ -314,14 +314,16 @@ test.describe('desktop deck', () => {
     const head = page.locator('h2', { hasText: 'Needs you' }).locator('..');
     // Narrow the page until the name, the pager, and See all only just fit at 10 cards.
     await page.evaluate(() => {
-      const width = (selector: string) =>
-        document.querySelector(selector)?.getBoundingClientRect().width ?? 0;
-      const needed =
-        width('[data-slot="section-name"]') +
-        12 +
-        width('[data-slot="section-pager"] > *') +
-        12 +
-        width('[data-slot="section-see-all"]');
+      // The name, the pager, and See all, with the head's two 12 gaps between them.
+      const needed = [
+        '[data-slot="section-name"]',
+        '[data-slot="section-pager"] > *',
+        '[data-slot="section-see-all"]',
+      ].reduce(
+        (sum, selector) =>
+          sum + (document.querySelector(selector)?.getBoundingClientRect().width ?? 0),
+        24,
+      );
       const main = document.querySelector('main');
       if (main !== null) {
         // The main's 20 gutters each side, and 2 to spare.
