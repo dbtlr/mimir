@@ -430,8 +430,10 @@ Rules:
   glides on to the next rest the way it moved (at once under reduced motion),
   so the sheet never rests on a clipped sentence. Once the body has scrolled, the header
   gains the pinned header's scroll shadow. While the body continues under the
-  footer, the footer gains the same shadow on its top edge as the overflow
-  cue, and loses it when the body reaches its end.
+  footer, the footer shows the overflow cue: its hairline steps from `line` to
+  `line-bright` and its top edge gains the same shadow, and both go when the
+  body reaches its end. The hairline carries the cue in dark, where the shadow
+  does not show on `well-850`.
 - **Swipe-down closes the sheet only from the body's top.** With the body
   scrolled, the gesture scrolls the body back up. A tap on the scrim closes
   the sheet.

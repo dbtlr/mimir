@@ -435,6 +435,24 @@ describe('preview panel on a phone', () => {
     expect(panelTitle()).toHaveFocus();
   });
 
+  it('cues a body that runs on under the footer with a brighter footer hairline, in both themes', async () => {
+    await renderFeed('phone');
+    await userEvent.click(card('Keep run logs and make them readable'));
+    const element = body();
+    const footer = panel().querySelector('[data-slot="preview-footer"]');
+    if (element === null || footer === null) {
+      throw new Error('no body or footer');
+    }
+    layOutCappedBody(element);
+    fireEvent.scroll(element);
+    expect(footer).toHaveAttribute('data-continues');
+    expect(footer.className.split(/\s+/)).toContain('data-continues:border-line-bright');
+    element.scrollTop = 162;
+    fireEvent.scroll(element);
+    expect(footer).not.toHaveAttribute('data-continues');
+    vi.restoreAllMocks();
+  });
+
   it('settles a capped body’s scroll on the next rest the way it moved, a whole fact under the header', async () => {
     await renderFeed('phone');
     await userEvent.click(card('Keep run logs and make them readable'));
