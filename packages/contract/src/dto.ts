@@ -912,6 +912,17 @@ export type ReviewColdTask = { project: string; task: NodeView };
 export type ReviewReport = {
   /** Only projects with at least one needs-you row. */
   needsYou: ReviewNeedsYouGroup[];
+  /** What the Needs you deck shows that the rows do not carry (ADR 0019, MMR-721 refinement). */
+  needsYouFacts: {
+    /** One per delivery the deck shows: each delivery a provisional decision in `needsYou` names, and each stopped delivery row. */
+    deliveries: { id: string; title: string; phase: { id: string; title: string | null } }[];
+    /** One per bundle: the delivery's provisional decisions, or a project's decisions without a delivery. */
+    bundles: {
+      set: { kind: 'delivery'; id: string } | { kind: 'project'; key: string };
+      /** Distinct task ids the bundle's decisions link that are not abandoned, by the same test `workBuiltOnIt` uses; in first-seen order. */
+      tasks: string[];
+    }[];
+  };
   /** Every member’s kind and id in the shared five-kind order. */
   queue: { kind: WorkNeedsYouRow['kind']; id: string }[];
   /** Only projects with something to triage, most first. */

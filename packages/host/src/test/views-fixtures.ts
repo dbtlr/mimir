@@ -38,6 +38,7 @@ export function engineReview(overrides: Partial<ReviewReport> = {}): ReviewRepor
     goingCold: [],
     lastFinished: null,
     needsYou: [],
+    needsYouFacts: { bundles: [], deliveries: [] },
     now: [],
     projects: [],
     queue: [],

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, setSystemTime, test } from 'bun:test';
 
 import { createInitiative, createPhase, createProject, createTask } from '../create';
+import { LocalEngine } from '../engine';
 import {
   abandonTask,
   archiveProject,
@@ -38,7 +39,7 @@ afterEach(async () => {
 });
 
 /** Create a project with one phase for its tasks. */
-async function project(key: string, name = key): Promise<void> {
+async function project(key: string, name = key): Promise<string> {
   await createProject(store, { key, name });
   const init = await createInitiative(store, {
     projectId: await projectIdOf(store, key),
@@ -48,7 +49,8 @@ async function project(key: string, name = key): Promise<void> {
     parentId: await nodeIdOf(store, `${key}-${String(init.seq)}`),
     title: 'phase',
   });
-  phases.set(key, `${key}-${String(phase.seq)}`);
+  phases.set(key, phase.id);
+  return phase.id;
 }
 
 /** Create a task in the project's phase; returns its rendered id. */
@@ -114,6 +116,109 @@ test('needsYou are you-blocked and needs-answers tasks, each with its reason', a
   ]);
   expect(group?.rows[1]?.question).toBe('which database?');
   expect(group?.rows[0]?.question).toBeNull();
+});
+
+test('a delivery bundle carries the delivery and phase titles', async () => {
+  const phase = await project('MMR');
+  const engine = new LocalEngine(store);
+  const delivery = await engine.deliveryCreate({ phase, tasks: [], title: 'Ship the report' });
+  await engine.decide({
+    class: 'other',
+    delivery: delivery.id,
+    options: ['A', 'B'],
+    question: 'Which option?',
+    recommended: 1,
+  });
+
+  const { needsYouFacts } = await engine.console.review({ timeZone: 'UTC' });
+  expect(needsYouFacts).toEqual({
+    bundles: [{ set: { id: delivery.id, kind: 'delivery' }, tasks: [] }],
+    deliveries: [
+      { id: delivery.id, phase: { id: phase, title: 'phase' }, title: 'Ship the report' },
+    ],
+  });
+});
+
+test('stopped deliveries carry phase titles and retain the ID when a phase is missing', async () => {
+  const phase = await project('MMR');
+  const missingPhase = await project('OLD');
+  const engine = new LocalEngine(store);
+  const stopped = await engine.deliveryCreate({ phase, tasks: [], title: 'Needs a key' });
+  const missing = await engine.deliveryCreate({
+    phase: missingPhase,
+    tasks: [],
+    title: 'Needs a plan',
+  });
+  await engine.deliveryBlock({ id: stopped.id, reason: 'Key' });
+  await engine.deliveryBlock({ id: missing.id, reason: 'Plan' });
+
+  // The database enforces the phase reference. Omit its node from the read snapshot.
+  const loadWorkingSet = store.loadWorkingSet;
+  store.loadWorkingSet = async () => {
+    const set = await loadWorkingSet();
+    return { ...set, nodes: set.nodes.filter((node) => node.id !== missingPhase) };
+  };
+  const { needsYouFacts } = await engine.console.review({ timeZone: 'UTC' });
+  expect(needsYouFacts.bundles).toEqual([]);
+  expect(needsYouFacts.deliveries.toSorted((a, b) => cmpStr(a.id, b.id))).toEqual([
+    { id: stopped.id, phase: { id: phase, title: 'phase' }, title: 'Needs a key' },
+    { id: missing.id, phase: { id: missingPhase, title: null }, title: 'Needs a plan' },
+  ]);
+});
+
+test('a stopped delivery and its bundle share facts with distinct non-abandoned tasks in queue order', async () => {
+  const phase = await project('MMR');
+  const engine = new LocalEngine(store);
+  const first = await task('MMR', 'First by task ID');
+  const abandoned = await task('MMR', 'Dropped');
+  const last = await task('MMR', 'Last by task ID');
+  const delivery = await engine.deliveryCreate({ phase, tasks: [], title: 'Ship' });
+  const decide = (prompt: string, tasks: string[]) =>
+    engine.decide({
+      class: 'other',
+      delivery: delivery.id,
+      options: ['A', 'B'],
+      question: prompt,
+      recommended: 1,
+      tasks,
+    });
+  try {
+    setSystemTime(new Date('2026-11-20T12:00:00Z'));
+    await decide('Older', [first, abandoned, last]);
+    setSystemTime(new Date('2026-11-21T12:00:00Z'));
+    await decide('Newer', [last]);
+  } finally {
+    setSystemTime();
+  }
+  await abandonTask(store, abandoned, 'Scope cut');
+  await completeTask(store, last);
+  await engine.deliveryBlock({ id: delivery.id, reason: 'Waiting for a key' });
+
+  const { needsYouFacts } = await engine.console.review({ timeZone: 'UTC' });
+  expect(needsYouFacts).toEqual({
+    bundles: [{ set: { id: delivery.id, kind: 'delivery' }, tasks: [last, first] }],
+    deliveries: [{ id: delivery.id, phase: { id: phase, title: 'phase' }, title: 'Ship' }],
+  });
+});
+
+test('a project bundle carries the tasks linked by its decisions without a delivery', async () => {
+  await project('MMR');
+  const engine = new LocalEngine(store);
+  const linked = await task('MMR', 'Use the chosen option');
+  await engine.decide({
+    class: 'other',
+    options: ['A', 'B'],
+    project: 'MMR',
+    question: 'Which option?',
+    recommended: 1,
+    tasks: [linked],
+  });
+
+  const { needsYouFacts } = await engine.console.review({ timeZone: 'UTC' });
+  expect(needsYouFacts).toEqual({
+    bundles: [{ set: { key: 'MMR', kind: 'project' }, tasks: [linked] }],
+    deliveries: [],
+  });
 });
 
 test('now lists a review by when it was submitted, other rows by when they started', async () => {
@@ -370,6 +475,7 @@ test('an all-clear store has no needsYou, queue, or triage but still lists its p
   await project('AAA', 'Alpha');
   await task('AAA', 'plain');
   const report = await review();
+  expect(report.needsYouFacts).toEqual({ bundles: [], deliveries: [] });
   const { needsYou, goingCold, now, queue, runnable, shipped, triage } = report;
   expect({ goingCold, needsYou, now, queue, runnable, shipped, triage }).toEqual({
     goingCold: [],
