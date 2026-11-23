@@ -1,7 +1,6 @@
 import { Fragment, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { GroomingBadge } from '../components/grooming-chip';
 import { AttentionLead } from '../components/needs-you-deck-view';
 import { FeedDeck } from '../components/patterns/feed/deck';
 import type { DeckCard, DeckWrite } from '../components/patterns/feed/deck';
@@ -109,21 +108,14 @@ function question(id: string, title: string, ask: string, age: string): MakeSamp
           button?.focus();
         },
       },
-      card: {
-        age,
-        chips: <GroomingBadge state="needs_answers" />,
-        detail: ask,
-        id,
-        lead: <StatusBadge status="ready" />,
-        title,
-      },
+      card: { age, detail: ask, id, lead: <AttentionLead word="Question" />, title },
       key,
       previewKey: key,
     },
     preview: {
       age,
       id,
-      lead: <StatusBadge status="ready" />,
+      lead: <AttentionLead word="Question" />,
       open: nodeLink(id),
       reason: (
         <>

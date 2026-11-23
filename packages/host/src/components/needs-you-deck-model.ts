@@ -20,9 +20,13 @@ type DeliveryRow = Extract<NeedsYouRow, { kind: 'delivery' }>;
 type TaskRow = Extract<NeedsYouRow, { kind: 'task' }>;
 type Facts = ReviewReport['needsYouFacts'];
 
-/** What a card leads with: an attention dot and a word, or the task's status badge. */
+/**
+ * What a card leads with: an attention dot and a word, or the task's status
+ * badge. A question leads with _Question_, which says why it is here, so its
+ * card carries no _Needs answers_ chip (MMR-752).
+ */
 export type NeedsYouLead =
-  | { kind: 'attention'; word: 'Decisions' | 'Stopped' }
+  | { kind: 'attention'; word: 'Decisions' | 'Question' | 'Stopped' }
   | { kind: 'status'; status: StatusWord };
 
 /** Where the preview's Open leads. */
@@ -51,8 +55,6 @@ export type NeedsYouCard = {
   project?: string;
   title: string;
   detail?: string;
-  /** The _Needs answers_ chip. */
-  needsAnswers: boolean;
   /** The instant the card's age counts from. */
   at: Instant;
   action?: NeedsYouAction;
@@ -113,7 +115,6 @@ function deliveryBundle(
     id,
     key: entryName(bundle.set),
     lead: { kind: 'attention', word: 'Decisions' },
-    needsAnswers: false,
     preview: {
       facts: entry === undefined ? taskFacts : [...taskFacts, phaseFact(entry.phase)],
       open: { id, kind: 'delivery' },
@@ -144,7 +145,6 @@ function projectBundle(
     id: key,
     key: entryName(bundle.set),
     lead: { kind: 'attention', word: 'Decisions' },
-    needsAnswers: false,
     preview: {
       facts: taskFacts,
       open: { key, kind: 'project' },
@@ -191,7 +191,6 @@ function stoppedDelivery(
     id: delivery.id,
     key: delivery.id,
     lead: { kind: 'attention', word: 'Stopped' },
-    needsAnswers: false,
     preview: {
       facts: [...decisions, phaseFact(phase)],
       open: { id: delivery.id, kind: 'delivery' },
@@ -237,8 +236,7 @@ function taskCard(row: TaskRow, project: string): NeedsYouCard {
     detail,
     id: task.id,
     key: task.id,
-    lead: { kind: 'status', status: task.status },
-    needsAnswers: asks,
+    lead: asks ? { kind: 'attention', word: 'Question' } : { kind: 'status', status: task.status },
     preview: {
       facts: factsOfTask(task),
       open: { id: task.id, kind: 'task' },

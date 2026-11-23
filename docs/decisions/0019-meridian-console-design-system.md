@@ -1574,7 +1574,8 @@ cards, not those rows or the focus queue's card.
   semibold, `ink-bright`); it names a set, not a delivery's lifecycle, so
   MMR-680's ink chips do not apply to it. (2026-11-23, MMR-721: a stopped
   delivery's card leads with _Stopped_ after an attention dot, set the same
-  way.) Which ID such a card shows and
+  way. 2026-11-23, MMR-752: in the Needs you deck, a task that needs answers
+  leads with _Question_ after an attention dot, set the same way.) Which ID such a card shows and
   where its preview's Open leads are settled by the MMR-721 refinement below. Chips (size, grooming, stale) sit in their own row under the title,
   never on the status line, so a long title never leaves a chip alone on a
   line. The whole card is one stretched target whose accessible description
@@ -1862,10 +1863,16 @@ higher ones. The preview carries the card's one solid action (MMR-720).
   card in Needs you." Its other fact is the phase. Open goes to the
   delivery's page. This card and the same delivery's bundle are two cards
   with two identities (The deck's state).
-- **A task that needs answers** leads with its status badge and its ID,
-  shows its question as the detail and the _Needs answers_ chip, and
-  carries _Answer…_, which opens the existing answer dialog unchanged
-  (`GroomingAnswerDialog`). Its preview is the MMR-720 task preview.
+- **A task that needs answers** leads with an attention dot and
+  _Question_, set as a status word, then its ID, as the _Stopped_ and
+  _Decisions_ cards lead; its preview's status line leads the same way. It
+  shows its question as the detail and carries _Answer…_, which opens the
+  existing answer dialog unchanged (`GroomingAnswerDialog`). It carries no
+  _Needs answers_ chip, since the lead already says why it is here. Its
+  preview is otherwise the MMR-720 task preview. (2026-11-23, MMR-752: this
+  replaces the status badge and chip the card first led with. The lead is
+  the deck's alone: a task's card in Now or a list keeps its status badge
+  and grooming chip.)
 - **A task blocked on you** leads with its status badge and shows its block
   reason as the detail. It has no button, so in a grid row it keeps the
   room at its foot (MMR-719). Its preview opens with "Blocked on you." in

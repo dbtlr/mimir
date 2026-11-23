@@ -266,7 +266,7 @@ describe('a stopped delivery', () => {
 });
 
 describe('a task', () => {
-  it('that needs answers shows its question, the chip, and Answer…', () => {
+  it('that needs answers leads with Question, shows its question, and Answer…', () => {
     const [card] = needsYouCards(report([question('FLT-8')]));
     expect(card).toMatchObject({
       action: {
@@ -279,8 +279,7 @@ describe('a task', () => {
       at: hoursAgo(2),
       detail: 'Where does the pin live?',
       id: 'FLT-8',
-      lead: { kind: 'status', status: 'ready' },
-      needsAnswers: true,
+      lead: { kind: 'attention', word: 'Question' },
       project: 'Fleet',
       title: 'Task FLT-8',
     });
@@ -295,7 +294,6 @@ describe('a task', () => {
     expect(card).toMatchObject({
       detail: 'Approve the account.',
       lead: { kind: 'status', status: 'blocked' },
-      needsAnswers: false,
     });
     expect(card?.action).toBeUndefined();
     expect(card?.preview.reason).toEqual({

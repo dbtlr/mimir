@@ -151,6 +151,20 @@ describe('the cards', () => {
       expect.stringContaining('MMR-7 Mimir'),
     );
   });
+
+  it('lead a question with Question and show no Needs answers chip, and a block on you with its status', async () => {
+    await mount(TEN, 'desktop');
+    const asked = target('Task FLT-8');
+    expect(asked).toHaveAccessibleDescription(expect.stringContaining('Question FLT-8 Fleet'));
+    expect(asked).not.toHaveAccessibleDescription(expect.stringMatching(/ready|needs answers/iu));
+    expect(target('Task MMR-7')).toHaveAccessibleDescription(
+      expect.stringContaining('Blocked MMR-7 Mimir'),
+    );
+    await userEvent.click(asked);
+    const panel = await screen.findByRole('dialog', { name: 'Task FLT-8' });
+    expect(within(panel).getByText('Question')).toBeVisible();
+    expect(within(panel).queryByText(/^ready$/iu)).not.toBeInTheDocument();
+  });
 });
 
 describe('Review N decisions', () => {
