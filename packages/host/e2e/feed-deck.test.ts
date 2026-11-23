@@ -307,6 +307,36 @@ test.describe('desktop deck', () => {
     expect(gap).toBe(12);
   });
 
+  test('the head wraps its pager when its content widens with no resize of the head', async ({
+    page,
+  }) => {
+    await openDeck(page, DESKTOP);
+    const head = page.locator('h2', { hasText: 'Needs you' }).locator('..');
+    // Narrow the page until the name, the pager, and See all only just fit at 10 cards.
+    await page.evaluate(() => {
+      const width = (selector: string) =>
+        document.querySelector(selector)?.getBoundingClientRect().width ?? 0;
+      const needed =
+        width('[data-slot="section-name"]') +
+        12 +
+        width('[data-slot="section-pager"] > *') +
+        12 +
+        width('[data-slot="section-see-all"]');
+      const main = document.querySelector('main');
+      if (main !== null) {
+        // The main's 20 gutters each side, and 2 to spare.
+        main.style.width = `${String(Math.ceil(needed) + 42)}px`;
+      }
+    });
+    await expect(head).not.toHaveAttribute('data-wrapped');
+    // A third digit in the count and the range widens the content; the head keeps its width.
+    await page.getByRole('button', { name: '120 cards' }).click();
+    await expect(page.getByRole('heading', { name: 'Needs you 120' })).toBeVisible();
+    await expect(head).toHaveAttribute('data-wrapped', '');
+    await page.getByRole('button', { name: '10 cards' }).click();
+    await expect(head).not.toHaveAttribute('data-wrapped');
+  });
+
   test('crossing 768 keeps the current card, and focus on it', async ({ page }) => {
     await openDeck(page, DESKTOP);
     await page.getByRole('button', { name: 'Next page' }).click();

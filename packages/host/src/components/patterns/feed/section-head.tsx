@@ -84,7 +84,8 @@ const PAGER_GAP = 12;
 /**
  * Whether the head's pager wraps to a line of its own under the name: when the
  * name, the pager, and See all do not fit on one line. The pager reserves its
- * widest width itself, so a page turn never changes the answer.
+ * widest width itself, so a page turn never changes the answer; a count that
+ * gains a digit, or See all arriving, can, without the head itself resizing.
  */
 function usePagerWrap(hasPager: boolean) {
   const head = useRef<HTMLDivElement>(null);
@@ -109,13 +110,43 @@ function usePagerWrap(hasPager: boolean) {
       setWrapped(element.clientWidth > 0 && needed > element.clientWidth);
     };
     measure();
-    if (typeof ResizeObserver === 'undefined') {
+    if (typeof ResizeObserver === 'undefined' || typeof MutationObserver === 'undefined') {
       return undefined;
     }
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
+    // The head and each part measured, so a part that widens in place remeasures
+    // too. The name is watched through its heading: an inline box reports no size.
+    const parts = () =>
+      new Set<Element>([
+        element,
+        ...element.querySelectorAll(
+          'h2, [data-slot="section-pager"] > *, [data-slot="section-see-all"]',
+        ),
+      ]);
+    const resized = new ResizeObserver(measure);
+    let watched = parts();
+    for (const part of watched) {
+      resized.observe(part);
+    }
+    // A part that is added or replaced (See all arriving, a new pager) is watched in its place.
+    const replaced = new MutationObserver(() => {
+      const next = parts();
+      for (const part of watched) {
+        if (!next.has(part)) {
+          resized.unobserve(part);
+        }
+      }
+      for (const part of next) {
+        if (!watched.has(part)) {
+          resized.observe(part);
+        }
+      }
+      watched = next;
+      measure();
+    });
+    replaced.observe(element, { childList: true, subtree: true });
     return () => {
-      observer.disconnect();
+      resized.disconnect();
+      replaced.disconnect();
     };
   }, [hasPager]);
   return { head, wrapped };
