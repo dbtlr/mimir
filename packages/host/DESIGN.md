@@ -11,7 +11,7 @@ Every value is marked:
 - **adopted (MMR-…)**: proposed with that task's mock, approved with it,
   and now carried by the primitives and patterns (MMR-743 the Form sheet,
   MMR-718 readable type, MMR-719 the feed blocks, MMR-720 the preview
-  panel, MMR-721 the Needs you deck). The reason given beside
+  panel, MMR-721 the Needs you deck, MMR-722 Home). The reason given beside
   one says what the code did before.
 - **proposed**: missing from or different in the code. Each carries a one-line
   reason and needs the operator's ruling before a primitive adopts it.
@@ -327,6 +327,7 @@ A Notice that needs to stay longer than a banner would be a banner itself.
 | Where | Value | Mark |
 | --- | --- | --- |
 | Page gutter | 20 (`p-5`); 14 on a phone where cards run edge to edge (`max-md:px-3.5`) | existing (`record-layout.tsx`, `focus-queue.tsx`) |
+| Home's page head | the page title (`text-page`, the day: "Monday, 23 November"), 4 to the one summary sentence (`text-body` ink, at most 62ch), then 20 to a `line` hairline and 32 from it to the first section; the column 900 at most, 16 top on a phone and 24 on desktop | **adopted (MMR-722)** |
 | Between page sections | 24–40 | existing range (`/kit` uses 40) |
 | Between feed sections | 32 | **adopted (MMR-719)** |
 
@@ -340,6 +341,7 @@ column says otherwise.
 | --- | --- | --- | --- |
 | Section head | Row | 44 tall on a phone, 36 on desktop, with or without See all; 12 to the content below. A desktop head whose pager wraps grows by one row (Needs you deck, Pager) | **adopted (MMR-719)** |
 | | Name and count | `text-section` ink-bright, then the count 13 / 20 ink-dim, 8 apart, both inside the `h2` | **adopted (MMR-719)** |
+| | A worded count | the same 13 / 20 ink-dim count, as words the caller gives: Now capped on Home reads "6 of 9" on desktop and "4 of 9" on a phone when the cap hides cards, else the plain count; the Needs you deck on Home reads "10 cards, 26 items", its cards then the records they hold (the top-bar alert's count), singular at one ("1 card, 1 item") | **adopted (MMR-722)** |
 | | See all | 13 / 20, 500, `accent-foreground`, underlined on hover (hover keeps the ink: `accent` measures 3.1:1 on a light page), right-aligned; a 44 hit area on a phone; its accessible name names the section ("See all in Now") | **adopted (MMR-719)** |
 | Card | Surface | `well-850`, 1px `line` edge (`line-bright` on hover), 10 radius, `shadow-card` in light; padding 12 top, 16 sides, 16 bottom | **adopted (MMR-719)**; surface existing (`Card`) |
 | | Status line | 13 / 20 ink-dim: the status badge, or for a set of decisions the word _Decisions_ after an attention dot, or _Stopped_ after an attention dot for a stopped delivery, or in the Needs you deck _Question_ after an attention dot for a task that needs answers (MMR-752), then the ID in 13px mono, 8 apart; the age right-aligned on line 1; 8 below it to the title | **adopted (MMR-719)** |
@@ -354,6 +356,8 @@ column says otherwise.
 | | Name | `text-title` in ink, a step under a card title's ink-bright, so a door does not read as a work item; two lines at most | **adopted (MMR-719)** |
 | | Count and chevron | 13 / 20 ink-dim, right-aligned; the chevron ink-dim, decoration | **adopted (MMR-719)** |
 | | The capped group's last row | the same row shape, its name in `accent-foreground` ("5 more projects"), underlined on hover, a link to the list with a filter set | **adopted (MMR-719)** |
+| | Plain row | a row with no destination: the same height, key, name, and count, not a link, with no chevron and no hover fill. Home's Shipped rows by project and spare-minute rows, until the list pages give them a destination | **adopted (MMR-722)** |
+| | Framed group | a group that is a section's whole block may sit in a card's frame: `well-850`, 1px `line` edge, 10 radius, `shadow-card` in light, 16 sides, no top or bottom padding, so the first and last rows' 44 / 36 hold; it matches the Shipped summary's card (Home's When you have a minute). A departure from the unframed row group, recorded as seed MMR-s110 for the design system to settle | **adopted (MMR-722)**, departure (MMR-s110) |
 | Day fold | Trigger | a row 44 tall on a phone and 36 on desktop, its chevron at the section head's left edge: the Collapsible primitive's 16 chevron (right when closed, down when open), the day label, the count; it opens at once, with none of the Collapsible primitive's height animation or chevron turn (ADR 0019 §8) | **adopted (MMR-719)** |
 | | Finished row | a link, at least 44 tall on a phone and 36 on desktop: the status dot centred in a 16 column (as the chevron above it), the title `text-title` in ink-dim on one line, 8 after it so it lines up with the day label, the time 13 mono ink-dim at the right | **adopted (MMR-719)** |
 | | Abandoned row | adds a second line, 13 / 20: the status word (ink-bright, 600, as every status word), then the reason in ink-dim | **adopted (MMR-719)** |

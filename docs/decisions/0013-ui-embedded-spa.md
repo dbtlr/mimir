@@ -580,6 +580,11 @@ Considered and rejected:
 
 ## Refinement (2026-10-13, MMR-503): `/` is a cross-project work page, and the sidebar's context can be All projects
 
+_Amended 2026-11-23 (MMR-722): `/` is Home, one feed column with no rail. The
+main column's three sections, the rail's project health strip, and _When you
+have a minute_'s four row lists below are superseded by the MMR-722
+refinement; the switcher and sidebar rules stand._
+
 The MMR-476 refinement made `/` a review page with a triage table and a
 project rail; the MMR-492 refinement then gave every project a work page and a
 sidebar. Beside the work page, the review page's two sections and its
@@ -876,3 +881,69 @@ it, and features build from the patterns in ADR 0019's MMR-736 refinement.
   - The seed composer becomes the seed form in the Form sheet, which keeps
     the `s` hotkey and Enter to file; its own _esc_ close becomes the sheet's
     close.
+
+## Refinement (2026-11-23, MMR-722): Home
+
+The readability phase (MMR-717, design of record in artifact MMR-a420) rebuilds
+`/` from ADR 0019's feed blocks. The page is now called Home. It is one feed
+column, 900 wide at most, with no rail: the projects are listed in the
+sidebar, so the project health strip retires. This revises the MMR-503
+refinement's main column and rail; the focus queue at `/?mode=focus` is
+unchanged, and the MMR-734 refinement's suggestion card keeps its place above
+Needs you.
+
+- **A page head names the day and summarises it in one sentence.** The page
+  title is the day in the browser's zone ("Monday, 23 November"). The
+  sentence under it counts what needs you, what runs, and what shipped this
+  week: "10 cards need you, holding 26 items. 9 tasks are running, and 104
+  have shipped this week." Each clause names its own part, so a mixed page
+  says which parts are quiet ("Nothing is running, and 12 tasks have shipped
+  this week."); the needs-you clause is left out when nothing needs you, and
+  "holding N items" when each card is one item. A page where nothing needs
+  you, runs, or shipped reads "A quiet week: nothing is running, and nothing
+  has shipped this week." A hairline divides the head from the feed, 20 below
+  the sentence and 32 above the first section.
+- **The sections run in this order**, each left out when it has nothing to
+  show, as MMR-a420's principle 6 sets:
+  1. the one-time notifications card, when it applies;
+  2. _Needs you_, the Needs you deck (ADR 0019, MMR-721 refinement), whose
+     cards open their preview; with no cards, the quiet line "Nothing needs
+     you." takes its place;
+  3. _Now_, title cards for the tasks in flight (status, ID, project, and
+     age on the status line; no detail), most recently started first, four
+     on a phone and six from 768. A card opens its preview, which states the
+     status and when it began, and the harness and branch when the task has
+     them;
+  4. _Shipped this week_, the Shipped summary: seven days ending today, and
+     the done tasks by project, most first. An abandoned task did not ship
+     and is not counted;
+  5. _When you have a minute_, count rows in a framed row group: Seeds to
+     triage (untriaged seeds across projects), Ready to start (the runnable
+     tasks), Going cold, and Doctor findings. A row at zero is left out.
+- **The counts.** The deck's head reads both numbers, "N cards, M items": the
+  cards it shows, and the needs-you records they hold, which is the count the
+  top-bar alert shows. The alert does not change. This narrows ADR 0019's
+  MMR-721 rule that the deck's head counts cards alone, for Home. Now's head
+  reads "6 of 9" on a desktop and "4 of 9" on a phone when the cap hides
+  cards, and the plain count otherwise. Shipped's head counts the week's done
+  tasks, the number the page sentence uses.
+- **No See all, and plain rows, until the list pages land.** Home has no See
+  all link. A row with no destination is plain, with no chevron and no hover
+  fill: Shipped's rows by project and the spare-minute rows (ADR 0019,
+  MMR-722 refinement). The MMR-724 list pages will give them destinations.
+- **Home's spare-minute work no longer acts in place.** The rail's runnable
+  tasks with _Start_ and untriaged seeds with their verbs (the MMR-476 and
+  MMR-503 refinements' in-place triage) are now counts. The seeds page and each project's work page still list them and
+  act on them. The deck's own actions (_Clear stop_, _Answer…_, _Review N
+  decisions_) act from Home, and the alert's panel keeps its grouped rows.
+
+Considered and rejected (mocked as variants A and C beside the chosen B):
+
+- **The deck leading the page, with no page head** (A). Its alert counted
+  cards too, which changes the MMR-476 rule that the alert counts records,
+  and the Needs you page title and the project list would have to follow.
+- **Needs you as the page's one 21px header over a tighter glance tier**
+  (C). Its alert and deck head counted items and only the pager counted
+  cards, which breaks ADR 0019's MMR-721 rule that the head's count and the
+  pager's N match, and it departed from the 15px feed section head and the
+  32 section gap for this page.
