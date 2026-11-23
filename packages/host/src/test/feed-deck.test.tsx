@@ -227,6 +227,32 @@ describe('desktop deck', () => {
     expect(status()).toHaveTextContent('1–4 of 9');
   });
 
+  it('follows the previewed card to the page that now holds it when focus is outside the deck', async () => {
+    const { refetch } = await renderDeck(cardsOf(keys(8)), 'desktop');
+    await userEvent.click(target('T-2'));
+    act(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    });
+    await act(() => Promise.resolve());
+    refetch(cardsOf(['T-1', 'T-3', 'T-4', 'T-5', 'T-6', 'T-2', 'T-7', 'T-8']));
+    expect(screen.getByRole('heading', { name: /^Needs you/u }).parentElement).toHaveTextContent('5–8 of 8');
+    expect(screen.getByRole('dialog')).toHaveAccessibleName('Card T-2');
+  });
+
+  it('closes the preview when a refetch moves its card off the page a focused card holds', async () => {
+    const { refetch } = await renderDeck(cardsOf(keys(8)), 'desktop');
+    await userEvent.click(target('T-2'));
+    act(() => {
+      target('T-3').focus();
+    });
+    refetch(cardsOf(['T-1', 'T-3', 'T-4', 'T-5', 'T-6', 'T-2', 'T-7', 'T-8']));
+    expect(screen.getByRole('heading', { name: /^Needs you/u }).parentElement).toHaveTextContent('1–4 of 8');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(target('T-3')).toHaveFocus();
+  });
+
   it('keeps the current card when the viewport crosses 768', async () => {
     const { resize } = await renderDeck(cardsOf(keys(10)), 'desktop');
     await userEvent.click(screen.getByRole('button', { name: 'Next page' }));
@@ -351,6 +377,19 @@ describe('writes', () => {
     });
     expect(button).not.toHaveAttribute('aria-disabled');
     expect(button).toHaveFocus();
+  });
+
+  it('leaves focus where the operator moved it when a write is refused', async () => {
+    const calls: { write?: () => void } = {};
+    await renderDeck([deckCard('D-1', stopAction('D-1', calls)), ...cardsOf(['D-2'])], 'desktop');
+    await userEvent.click(screen.getByRole('button', { name: 'Clear stop D-1' }));
+    act(() => {
+      target('D-2').focus();
+    });
+    act(() => {
+      calls.write?.();
+    });
+    expect(target('D-2')).toHaveFocus();
   });
 
   it('disables writes offline but keeps navigation live', async () => {
