@@ -1351,7 +1351,9 @@ These building blocks of the readability phase (MMR-717) build on primitives:
 - The day fold uses Collapsible.
 - The record header's tabs use Tabs.
 - The sidebar is a left Drawer below 1024 (`DESKTOP` in `routes/shell.tsx`), on a phone and on a narrow desktop alike (MMR-720).
-- The Needs you deck uses Carousel if the deck's own task proves it fits.
+- The phone Needs you deck uses `SwipeTrack`, a primitive over UI SDK's
+  `bindDrag`, because Carousel did not fit (MMR-721 refinement, Considered
+  and rejected).
 
 The card, row group, section head, quiet line, and Shipped summary are plain
 markup over the tokens and need no headless part.
@@ -2001,9 +2003,10 @@ that moves focus into the deck first brings its card into view.
   current card, wherever a refetch moves it. On desktop the current card is
   anchored while a card holds focus or has the open preview: the page shown
   is then the one that holds it, page ⌊k/4⌋ for the card at index k,
-  counted from 0. While nothing anchors it, desktop keeps its page number,
-  clamped to the last page when the deck shrinks, and the page refills from
-  its neighbours; the shown page's first card becomes current. A change of
+  counted from 0. While nothing anchors it, the next refetch keeps desktop's
+  page number, clamped to the last page when the deck shrinks, and the page
+  refills from its neighbours; the shown page's first card then becomes
+  current. Releasing focus alone changes no current card. A change of
   page the operator did not make, by an anchored card moving to another
   page or by the clamp, announces the new range as a page turn does.
 - **Focus outranks the preview as an anchor.** When focus is on one card
@@ -2032,10 +2035,12 @@ that moves focus into the deck first brings its card into view.
   the shown page's cards with no card focused and no preview open, only the rule that keeps the page number applies: the page is
   clamped and refilled, its first card becomes current, and a last page
   left empty turns back one.
-- **When no old card survives a refetch but cards remain,** the new card at
-  the old current card's former index, clamped to the new last card,
-  becomes current, and focus that was in the deck moves to its target. The
-  quiet line comes only when no card remains.
+- **When no old card survives a refetch but cards remain,** on the phone
+  and on an anchored desktop deck the new card at the old current card's
+  former index, clamped to the new last card, becomes current, and focus
+  that was in the deck moves to its target. An unanchored desktop deck
+  keeps its page by the rule above. The quiet line comes only when no card
+  remains.
 - **A card that leaves while it holds no focus moves no focus.** When
   _Clear stop_ on card 2 succeeds after the operator moved on to card 5,
   the phone keeps showing card 5 and focus stays where it is. On desktop,
@@ -2158,10 +2163,11 @@ then settles on one card. When a card leaves, the phone's successor slides
 into its place as a turn does. Under `prefers-reduced-motion`, a turn from
 an arrow, a key, or a tap happens at once; a swipe may still track the
 finger, but its settle and the reflow after a card leaves happen at once.
-The deck then moves by UI SDK's pointer driver, as the phone preview sheet
-does (DESIGN.md, Preview panel), because a native scroll-snap settle
-slides even under reduced motion. UI SDK offers that driver choice on
-`Drawer`; its `Carousel` pages by native scrolling and offers none.
+The deck moves by `SwipeTrack` (`components/ui/swipe-track.tsx`), a
+primitive that follows the pointer with UI SDK's `bindDrag` and turns the
+row with a transform; under reduced motion its transitions are off
+(`motion-reduce:transition-none`), so a turn and a settle land at once. A
+native scroll-snap settle would slide even under reduced motion.
 The desktop deck never slides: a page turn, and a page refilling after a
 card leaves, happen at once, so they add no motion.
 
@@ -2177,3 +2183,9 @@ card leaves, happen at once, so they add no motion.
   pages.
 - **Counting records in the head:** the pager's N would not match it, and a
   bundle of 12 decisions would read as 12 of something the deck shows once.
+- **UI SDK's `Carousel` for the phone deck:** it pages by native scroll
+  snap and failed four checks. The last card rested at the end of the
+  content (x=60 at 390), not on the 14 gutter. A mouse drag past either end
+  sprang back. Its scroll-snap settle is the browser's own animation, which
+  slides even under reduced motion. Its peek is `inert`, so a tap on it
+  turns nothing. `SwipeTrack` replaces it (Motion).
