@@ -431,7 +431,7 @@ Rules:
   unchecked radios right after a card with no button. A preview that needs
   such a control in a fact revisits this rule first (MMR-s106).
 - **A switch changes the content in place at once** and resets the body's
-  scroll to the top; a cross-fade would be a fourth mover (ADR 0019 §8).
+  scroll to the top; a cross-fade would be a fifth mover (ADR 0019 §8).
   Under `prefers-reduced-motion` there is no slide; the panel, the sidebar,
   and the column change at once. The phone sheet then uses UI SDK's pointer
   driver: on a touch screen `driver="auto"` picks the scroll-snap driver,
@@ -487,7 +487,7 @@ preview panel uses.
 | Where | Phone (< 768) | Desktop (≥ 768) | Mark |
 | --- | --- | --- | --- |
 | Layout | one card at a time, its left edge on the page's 14 gutter; the deck runs past the right gutter to the screen's edge. The card is the width less 14, the 8 gap, and the 38 peek: 330 at 390, 260 at 320 | a page of four cards in the Card grid, 12 apart: two by two at two columns, four stacked at one column (beside the open preview panel from 768 to 1091) | **adopted (MMR-721)** |
-| Peek | the next card's first 38 at the screen's right edge, 8 after the current card, in full ink; out of the tab order and `aria-hidden`, but not the HTML `inert` attribute, since a tap on it turns the deck. None at the last card, whose right stays empty | none | **adopted (MMR-721)** |
+| Peek | the next card's first 38 at the screen's right edge, 8 after the current card, in full ink; out of the tab order and `aria-hidden`, but not the HTML `inert` attribute, since a tap on it turns the deck. Its tap target takes in the 8 gap, 46 wide, meeting the 44 minimum (Sizes). None at the last card, whose right stays empty | none | **adopted (MMR-721)** |
 | Height | every card takes the deck's tallest card's height, so the pager never moves | with more than one page, every page holds two rows of the deck's tallest card (four rows at one column), so a short last page keeps its height and the next section never moves; one page draws its own rows | **adopted (MMR-721)** |
 | Pager | centred under the deck, 8 below the cards: Previous, the position, Next, 12 apart | in the section head, right-aligned before See all: the range, then the two arrows 8 apart; 12 between the range, the arrows, and See all. When the head cannot hold it on one line (the 288 column beside the panel at 768), the range and arrows wrap together to a line under the name, at the right; the head grows by that line, a second row as tall as the arrows (36), and keeps its 12 to the cards | **adopted (MMR-721)** |
 | Arrow | 44 square | 36 square | **adopted (MMR-721)** |
@@ -497,7 +497,7 @@ preview panel uses.
 | Card button | an outline, the Card block's (1px `ink-faint` edge, `ink-bright` label), for every kind; on the selected card its edge steps to `ink-dim` (Preview panel, The selected card); never solid, never the attention outline; the preview carries the solid (Preview panel, The card's action) | same | **adopted (MMR-721)** |
 | One card | fills the width between the gutters; no peek, no pager | one page: no range or arrows (likewise for four or fewer) | **adopted (MMR-721)** |
 | No cards | the quiet line "Nothing needs you." in the section's place, with no head (Quiet line) | same | **adopted (MMR-721)** |
-| Turn | slides to rest with no overshoot; at once under `prefers-reduced-motion`, where a swipe may track the finger but its settle and the reflow after a card leaves happen at once (ADR 0019 §8) | at once, no slide | **adopted (MMR-721)** |
+| Turn | slides to rest with no overshoot, and after a card leaves the successor slides into its place as a turn does; at once under `prefers-reduced-motion`, where a swipe may track the finger but its settle and the reflow after a card leaves happen at once (ADR 0019 §8) | at once, no slide: a page turn, and a page refilling after a card leaves | **adopted (MMR-721)** |
 
 ## Sizes
 
