@@ -13,6 +13,7 @@ import {
 import type { MouseEvent, ReactNode } from 'react';
 
 import { useDrawerSide } from '../../ui/drawer';
+import { cardButton } from './card-button';
 import { PreviewPanel } from './preview-panel';
 import type { Preview } from './preview-panel';
 import { usePreviewClaim } from './preview-room';
@@ -115,9 +116,6 @@ const CONTROL = [
   ...CONTROL_ROLES.map((role) => `[role="${role}"]`),
 ].join(', ');
 
-/** A card's own button, stacked over its stretched target. */
-const CARD_BUTTON = '[data-slot="feed-card-action"] > *';
-
 /** The card a stretched target belongs to. */
 function cardOf(opener: HTMLElement | null): HTMLElement | null {
   return opener?.closest<HTMLElement>('[data-slot="feed-card"]') ?? null;
@@ -203,7 +201,7 @@ export function FeedPreview({
       action: {
         ...action,
         onAction: () => {
-          const own = cardOf(opener.current)?.querySelector<HTMLElement>(CARD_BUTTON) ?? null;
+          const own = cardButton(cardOf(opener.current));
           handedTo.current = own;
           action.onAction(own);
         },

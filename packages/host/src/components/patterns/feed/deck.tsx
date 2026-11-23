@@ -16,6 +16,7 @@ import { ActionButton } from '../../ui/action-button';
 import { useDrawerSide } from '../../ui/drawer';
 import { SwipeTrack } from '../../ui/swipe-track';
 import { FeedCard } from './card';
+import { cardButton } from './card-button';
 import { CardGrid } from './card-grid';
 import { DECK_PAGE, deckRange, pageCount, pageOf, reconcileCurrent } from './deck-model';
 import { DesktopPager, PhonePager } from './deck-pager';
@@ -120,7 +121,6 @@ const SLOT = [
 ] as const;
 
 const TARGET = '[data-slot="feed-card-target"]';
-const OWN_BUTTON = '[data-slot="feed-card-action"] > *';
 const PANEL = '[data-slot="drawer-content"]';
 
 /** The deck's card element for an identity. */
@@ -394,7 +394,7 @@ function DeckBody({
 
   const focusIn = (key: string, part: 'button' | 'target') => {
     const card = cardElement(root.current, key);
-    const button = part === 'button' ? card?.querySelector<HTMLElement>(OWN_BUTTON) : null;
+    const button = part === 'button' ? cardButton(card) : null;
     (button ?? card?.querySelector<HTMLElement>(TARGET))?.focus({ preventScroll: !desktop });
   };
 
