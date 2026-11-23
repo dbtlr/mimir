@@ -15,6 +15,7 @@ import { useDrawerSide } from '../../ui/drawer';
 import { PreviewPanel } from './preview-panel';
 import type { Preview } from './preview-panel';
 import { usePreviewClaim } from './preview-room';
+import { tabNeighbour } from './tab-order';
 
 type FeedPreviewState = {
   selected: string | null;
@@ -84,26 +85,9 @@ const CONTROL = [
 /** A card's own button, stacked over its stretched target. */
 const CARD_BUTTON = '[data-slot="feed-card-action"] > *';
 
-const TABBABLE =
-  'a[href], button:not(:disabled), input:not(:disabled):not([type=hidden]), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
-
 /** The card a stretched target belongs to. */
 function cardOf(opener: HTMLElement | null): HTMLElement | null {
   return opener?.closest<HTMLElement>('[data-slot="feed-card"]') ?? null;
-}
-
-/** The first control in document order after `from`, outside `skip`, that Tab would reach. */
-function tabbableAfter(from: HTMLElement, skip: Element | null): HTMLElement | null {
-  const all = [...from.ownerDocument.querySelectorAll<HTMLElement>(TABBABLE)].filter(
-    (element) =>
-      element === from ||
-      (element.tabIndex >= 0 &&
-        element.closest('[inert]') === null &&
-        skip?.contains(element) !== true &&
-        element.checkVisibility()),
-  );
-  const index = all.indexOf(from);
-  return index === -1 ? null : (all[index + 1] ?? null);
 }
 
 /** Whether an element is still on the page and can take focus. */
@@ -258,7 +242,9 @@ export function FeedPreview({
         shownKey={shown ?? undefined}
         finalFocus={() => (usable(opener.current) ? opener.current : null)}
         tabBack={() => (usable(opener.current) ? opener.current : null)}
-        tabOn={(panel) => (usable(opener.current) ? tabbableAfter(opener.current, panel) : null)}
+        tabOn={(panel) =>
+          usable(opener.current) ? tabNeighbour({ from: opener.current, skip: panel }) : null
+        }
         onClosed={() => {
           setFollowed(null);
         }}

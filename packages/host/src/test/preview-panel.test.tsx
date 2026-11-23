@@ -89,7 +89,14 @@ function Feed({ gone }: { gone?: string }) {
           />
         </CardGrid>
         <div role="img" aria-label="Lanes this week" />
+        <div inert>
+          <button type="button">Behind a dialog</button>
+        </div>
+        <button type="button" hidden>
+          Folded away
+        </button>
       </FeedPreview>
+      <button type="button">After the feed</button>
     </>
   );
 }
@@ -98,7 +105,12 @@ async function renderFeed(viewport: Viewport = 'desktop') {
   stubViewport(viewport);
   answered.mockClear();
   handedOn.mockClear();
-  return renderInRouter(<Feed />);
+  const rendered = await renderInRouter(<Feed />);
+  // jsdom lays nothing out, so a hidden control is shown to `checkVisibility` unless told.
+  for (const hidden of document.querySelectorAll<HTMLElement>('[hidden]')) {
+    Object.defineProperty(hidden, 'checkVisibility', { configurable: true, value: () => false });
+  }
+  return rendered;
 }
 
 const card = (title: string) => screen.getByRole('button', { name: title });
@@ -283,6 +295,51 @@ describe('preview panel: tab order on desktop', () => {
     within(panel()).getByRole('link', { name: 'Open MMR-709' }).focus();
     await userEvent.tab();
     expect(card('Mobile top bar')).toHaveFocus();
+  });
+});
+
+describe('preview panel: tab order from outside on desktop', () => {
+  it('Tab from the selected card goes into the panel, to its title', async () => {
+    await renderFeed();
+    await userEvent.click(card('Send an encrypted Web Push'));
+    card('Send an encrypted Web Push').focus();
+    await userEvent.tab();
+    expect(panelTitle()).toHaveFocus();
+  });
+
+  it('Shift+Tab from the control after the selected card goes back into the panel, to its last button', async () => {
+    await renderFeed();
+    await userEvent.click(card('Keep run logs and make them readable'));
+    screen
+      .getAllByRole('button', { name: 'Answer HUGI-15' })
+      .find((button) => !panel().contains(button))
+      ?.focus();
+    await userEvent.tab({ shift: true });
+    expect(within(panel()).getByRole('button', { name: 'Answer HUGI-15' })).toHaveFocus();
+  });
+
+  it('Tab from the feed’s last card goes past the panel to the control after it', async () => {
+    await renderFeed();
+    await userEvent.click(card('Keep run logs and make them readable'));
+    card('Mobile top bar').focus();
+    await userEvent.tab();
+    expect(screen.getByRole('button', { name: 'After the feed' })).toHaveFocus();
+  });
+
+  it('Shift+Tab from the control after the panel goes past it to the feed’s last card', async () => {
+    await renderFeed();
+    await userEvent.click(card('Keep run logs and make them readable'));
+    screen.getByRole('button', { name: 'After the feed' }).focus();
+    await userEvent.tab({ shift: true });
+    expect(card('Mobile top bar')).toHaveFocus();
+  });
+
+  it('Tab from the last button of the last card’s panel skips the panel, a closed region, and a hidden control', async () => {
+    await renderFeed();
+    await userEvent.click(card('Mobile top bar'));
+    within(panel()).getByRole('link', { name: 'Open MMR-715' }).focus();
+    await userEvent.tab();
+    expect(screen.getByRole('button', { name: 'After the feed' })).toHaveFocus();
   });
 });
 

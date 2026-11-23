@@ -413,7 +413,7 @@ Rules:
   close.
 - **Focus.** Open and switch move focus to the title. On desktop nothing
   traps it: Close follows the title in tab order, so Shift+Tab from the title reaches the selected card, and Tab from
-  the last footer button reaches the control after the selected card's stretched target (its own button, else the next card). Escape closes the topmost layer first (a menu, the jump palette, or the sidebar drawer), then the panel. On a phone the bottom
+  the last footer button reaches the control after the selected card's stretched target (its own button, else the next card). The panel holds that place both ways: Tab from the card's target reaches the title, Shift+Tab from the control after it reaches the last footer button, and Tab from anywhere else passes the panel by, so focus never loops back into it and Tab past the page's end leaves the document. Escape closes the topmost layer first (a menu, the jump palette, or the sidebar drawer), then the panel. On a phone the bottom
   sheet is modal and holds focus until it closes. Closing returns focus to
   the card that opened the latest preview, and a switch makes the newly
   clicked card that opener. `useFinalFocus` (`patterns/opener.ts`) captures

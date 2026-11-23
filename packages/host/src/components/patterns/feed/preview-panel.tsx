@@ -11,6 +11,7 @@ import type { BlockExtent } from '../form-sheet';
 import type { FinalFocus } from '../opener';
 import type { FeedLink } from './link';
 import { FeedStatusLine } from './status-line';
+import { tabNeighbour, tabSequence } from './tab-order';
 
 /** One fact in a preview's definition list. */
 export type PreviewFact = { label: string; value: ReactNode };
@@ -74,9 +75,6 @@ export type PreviewPanelProps = {
   onClosed?: () => void;
 };
 
-const TABBABLE =
-  'a[href], button:not(:disabled), input:not(:disabled):not([type=hidden]), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
-
 /** A button in the footer: on a phone it shares the row in equal tracks and wraps its label. */
 const FOOTER_BUTTON =
   'max-md:h-auto max-md:min-h-11 max-md:min-w-0 max-md:px-3 max-md:py-2.5 max-md:text-center max-md:whitespace-normal';
@@ -104,6 +102,8 @@ export function PreviewPanel({
   const desktop = useDrawerSide() === 'right';
   const title = useRef<HTMLHeadingElement>(null);
 
+  useTabFromOutside({ active: open && desktop && preview !== undefined, tabBack, tabOn, title });
+
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (!desktop || event.key !== 'Tab') {
       return;
@@ -111,7 +111,7 @@ export function PreviewPanel({
     // The panel sits after the selected card in the tab order, the title
     // first though it is out of the sequence (`tabindex="-1"`): Shift+Tab from
     // Close, the first control, reaches the title, and from the title the card.
-    const controls = [...event.currentTarget.querySelectorAll<HTMLElement>(TABBABLE)];
+    const controls = tabSequence(event.currentTarget);
     let next: HTMLElement | null | undefined;
     if (event.shiftKey && event.target === title.current) {
       next = tabBack?.();
@@ -164,6 +164,96 @@ export function PreviewPanel({
       </DrawerContent>
     </Drawer>
   );
+}
+
+/** Where a Tab from outside the panel goes, or `leave` when only the panel is left before the page's end. */
+type TabFromOutside = HTMLElement | 'leave' | null;
+
+/**
+ * The desktop panel's place in the tab order from outside it: it sits after
+ * the selected card's stretched target (`card`) and before the control after
+ * it (`cardNext`). Tab from anywhere else passes the panel by, so focus never
+ * loops back into it and Tab past the page's end leaves the document. `null`
+ * leaves the key to the browser.
+ */
+function tabFromOutside({
+  from,
+  backward,
+  panel,
+  title,
+  card,
+  cardNext,
+}: {
+  from: HTMLElement;
+  backward: boolean;
+  panel: HTMLElement;
+  title: HTMLElement | null;
+  card: HTMLElement | null;
+  cardNext: HTMLElement | null;
+}): TabFromOutside {
+  if (!backward && from === card) {
+    return title;
+  }
+  if (backward && from === cardNext) {
+    return tabSequence(panel).at(-1) ?? title;
+  }
+  const native = tabNeighbour({ backward, from, skip: null });
+  if (native === null || !panel.contains(native)) {
+    return null;
+  }
+  return tabNeighbour({ backward, from, skip: panel }) ?? 'leave';
+}
+
+/** Carries Tab from outside the open desktop panel by `tabFromOutside`'s order. */
+function useTabFromOutside({
+  active,
+  tabBack,
+  tabOn,
+  title,
+}: {
+  active: boolean;
+  tabBack: (() => HTMLElement | null) | undefined;
+  tabOn: ((panel: HTMLElement) => HTMLElement | null) | undefined;
+  title: RefObject<HTMLHeadingElement | null>;
+}) {
+  useEffect(() => {
+    if (!active) {
+      return undefined;
+    }
+    const owner = title.current?.ownerDocument ?? document;
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== 'Tab' || event.defaultPrevented || event.altKey || event.ctrlKey) {
+        return;
+      }
+      const panel = title.current?.closest<HTMLElement>('[data-slot="drawer-content"]') ?? null;
+      const from = event.target;
+      if (panel === null || !(from instanceof HTMLElement) || panel.contains(from)) {
+        return;
+      }
+      const next = tabFromOutside({
+        backward: event.shiftKey,
+        card: tabBack?.() ?? null,
+        cardNext: tabOn?.(panel) ?? null,
+        from,
+        panel,
+        title: title.current,
+      });
+      if (next === 'leave') {
+        // Nothing but the panel lies ahead: it sits out this one key, so focus leaves the page.
+        panel.inert = true;
+        setTimeout(() => {
+          panel.inert = false;
+        }, 0);
+      } else if (next !== null) {
+        event.preventDefault();
+        next.focus();
+      }
+    };
+    owner.addEventListener('keydown', onKey);
+    return () => {
+      owner.removeEventListener('keydown', onKey);
+    };
+  }, [active, tabBack, tabOn, title]);
 }
 
 /** The header, body, and footer of one record's preview. */
