@@ -475,6 +475,31 @@ describe('focus after a dialog opened from a card', () => {
   });
 });
 
+describe('focus lost to a removal', () => {
+  const answer: DeckAction = { kind: 'dialog', label: 'Answer…', name: 'Answer A', run: vi.fn() };
+
+  it('still anchors a refetch on the card whose dialog closed, before focus is restored', async () => {
+    const { refetch } = await renderDeck(
+      [deckCard('A', answer), ...cardsOf(keys(7))],
+      'desktop',
+    );
+    screen.getByRole('button', { name: 'Answer A' }).focus();
+    const closeDialog = openOutsideDialog();
+    // A browser that blurs a removed element fires focusout as the dialog goes.
+    act(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      closeDialog();
+    });
+    await act(() => Promise.resolve());
+    refetch([...cardsOf(['T-1', 'T-2', 'T-3', 'T-4', 'T-5']), deckCard('A', answer)]);
+    expect(screen.getByRole('heading', { name: /^Needs you/u }).parentElement).toHaveTextContent(
+      '5–6 of 6',
+    );
+  });
+});
+
 /** A dialog outside the deck that takes focus, as the answer dialog does; returns its close. */
 function openOutsideDialog(): () => void {
   const dialog = document.createElement('div');
