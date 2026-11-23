@@ -158,6 +158,7 @@ export function PreviewPanel({
             open={open}
             preview={preview}
             title={title}
+            settles={!desktop}
             onClose={onClose}
           />
         )}
@@ -261,11 +262,14 @@ function PreviewContent({
   open,
   preview,
   title,
+  settles,
   onClose,
 }: {
   open: boolean;
   preview: Preview;
   title: RefObject<HTMLHeadingElement | null>;
+  /** Whether a scroll settles on a rest: the phone's capped sheet. */
+  settles: boolean;
   onClose: () => void;
 }) {
   const [scrolled, setScrolled] = useState(false);
@@ -306,7 +310,7 @@ function PreviewContent({
           <CloseIcon className="size-5 md:size-[18px]" />
         </button>
       </header>
-      <PreviewBody onScrolled={setScrolled} onContinues={setContinues}>
+      <PreviewBody settles={settles} onScrolled={setScrolled} onContinues={setContinues}>
         <div className="text-base leading-[25px] text-pretty text-ink-bright [&_b]:font-semibold [&_strong]:font-semibold">
           {preview.reason}
         </div>
@@ -409,15 +413,39 @@ function measureRests(element: HTMLElement): number[] {
 }
 
 /**
+ * Where a scroll that stopped at `scrollTop` settles, having moved from the
+ * rest at `from`: on a rest already, it stays; otherwise it goes on to the
+ * next rest the way it moved, so a short swipe still gets somewhere. The rests
+ * are the body's own, its top, and its end.
+ */
+function settleRest(element: HTMLElement, from: number): number {
+  const end = element.scrollHeight - element.clientHeight;
+  const at = element.scrollTop;
+  const rests = [0, end, ...measureRests(element)]
+    .filter((rest) => rest >= 0 && rest <= end)
+    .toSorted((x, y) => x - y);
+  if (rests.some((rest) => Math.abs(rest - at) < 1)) {
+    return at;
+  }
+  return at > from
+    ? (rests.find((rest) => rest > at) ?? end)
+    : (rests.findLast((rest) => rest < at) ?? 0);
+}
+
+/**
  * The body, the one part that scrolls. It adds the bottom room the end of its
  * scroll needs to rest cleanly, and reports whether it has scrolled (the
  * header's shadow) and whether it runs on under the footer (the footer's cue).
+ * When it `settles` (the phone's capped sheet), a swipe or scroll that comes to
+ * a stop between rests glides on to the next one, so it rests on a whole fact.
  */
 function PreviewBody({
+  settles,
   onScrolled,
   onContinues,
   children,
 }: {
+  settles: boolean;
   onScrolled: (scrolled: boolean) => void;
   onContinues: (continues: boolean) => void;
   children: ReactNode;
@@ -446,8 +474,23 @@ function PreviewBody({
       }
       report();
     };
+    // Where the body last came to rest, so a settle knows which way it moved.
+    let rested = element.scrollTop;
+    const settle = () => {
+      const rest = settleRest(element, rested);
+      rested = rest;
+      if (Math.abs(rest - element.scrollTop) >= 1) {
+        const reduced = element.ownerDocument.defaultView?.matchMedia(
+          '(prefers-reduced-motion: reduce)',
+        ).matches;
+        element.scrollTo({ behavior: reduced === true ? 'instant' : 'smooth', top: rest });
+      }
+    };
     measure();
     element.addEventListener('scroll', report, { passive: true });
+    if (settles) {
+      element.addEventListener('scrollend', settle);
+    }
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
     observer?.observe(element);
     const content = element.firstElementChild;
@@ -456,9 +499,10 @@ function PreviewBody({
     }
     return () => {
       element.removeEventListener('scroll', report);
+      element.removeEventListener('scrollend', settle);
       observer?.disconnect();
     };
-  }, [onScrolled, onContinues]);
+  }, [settles, onScrolled, onContinues]);
 
   return (
     <div

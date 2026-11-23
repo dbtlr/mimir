@@ -426,7 +426,9 @@ Rules:
 - **A capped sheet rests on a whole fact.** When the body runs past the 88%
   cap, it scrolls under the pinned bars by the resting rules of Sheets,
   panels, dialogs: a rest hides the fact list's hairline whole and puts the
-  first fact 20 below the header. Once the body has scrolled, the header
+  first fact 20 below the header. A swipe or scroll that stops between rests
+  glides on to the next rest the way it moved (at once under reduced motion),
+  so the sheet never rests on a clipped sentence. Once the body has scrolled, the header
   gains the pinned header's scroll shadow. While the body continues under the
   footer, the footer gains the same shadow on its top edge as the overflow
   cue, and loses it when the body reaches its end.

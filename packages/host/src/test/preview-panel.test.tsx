@@ -1,4 +1,4 @@
-import { act, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -391,6 +391,41 @@ describe('preview panel footer', () => {
   });
 });
 
+/** A rect 300 wide at `top`, for a layout jsdom lacks. */
+const rectAt = (top: number, height: number) =>
+  DOMRect.fromRect({ height, width: 300, x: 0, y: top });
+
+/**
+ * HUGI-15's capped body, laid out as jsdom cannot: 200 tall at 100, the reason
+ * 24–99, the fact list from 119 (its hairline at 120), and the two facts at
+ * 140–162 and 176–198, in the body's scroll space. Its rests are 0, 120 (the
+ * hairline hidden, the first fact 20 below the header), and 162.
+ */
+function layOutCappedBody(element: HTMLElement) {
+  const content = element.firstElementChild;
+  const list = element.querySelector('dl');
+  const facts = [...element.querySelectorAll('[data-slot="preview-fact"]')];
+  Object.defineProperty(element, 'clientHeight', { configurable: true, value: 200 });
+  Object.defineProperty(element, 'scrollHeight', { configurable: true, value: 362 });
+  const at = (top: number, height: number) => rectAt(100 + top - element.scrollTop, height);
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function layout(
+    this: HTMLElement,
+  ) {
+    if (this === element) {
+      return rectAt(100, 200);
+    }
+    if (this === content?.firstElementChild) {
+      return at(24, 75);
+    }
+    if (this === list) {
+      return at(119, 79);
+    }
+    const fact = facts.indexOf(this);
+    return fact === -1 ? DOMRect.fromRect() : at(140 + fact * 36, 22);
+  });
+  element.style.paddingTop = '24px';
+}
+
 describe('preview panel on a phone', () => {
   it('is a modal bottom sheet', async () => {
     await renderFeed('phone');
@@ -398,5 +433,35 @@ describe('preview panel on a phone', () => {
     expect(panel()).toHaveAttribute('aria-modal', 'true');
     expect(document.querySelector('[data-slot="drawer-backdrop"]')).not.toBeNull();
     expect(panelTitle()).toHaveFocus();
+  });
+
+  it('settles a capped body’s scroll on the next rest the way it moved, a whole fact under the header', async () => {
+    await renderFeed('phone');
+    await userEvent.click(card('Keep run logs and make them readable'));
+    const element = body();
+    if (element === null) {
+      throw new Error('no body');
+    }
+    layOutCappedBody(element);
+    const scrollTo = vi.fn((options: ScrollToOptions) => {
+      element.scrollTop = options.top ?? element.scrollTop;
+    });
+    element.scrollTo = scrollTo as typeof element.scrollTo;
+    const stopAt = (top: number) => {
+      element.scrollTop = top;
+      fireEvent.scroll(element);
+      fireEvent(element, new Event('scrollend'));
+    };
+    // A short swipe down that stops with the reason cut under the header goes on, not back.
+    stopAt(30);
+    expect(scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({ top: 120 }));
+    stopAt(150);
+    expect(scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({ top: 162 }));
+    stopAt(130);
+    expect(scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({ top: 120 }));
+    scrollTo.mockClear();
+    stopAt(120);
+    expect(scrollTo).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
   });
 });
