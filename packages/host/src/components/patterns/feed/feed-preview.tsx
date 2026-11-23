@@ -213,7 +213,12 @@ export function FeedPreview({
   }, [followed]);
 
   const onFeedClick = (event: MouseEvent<HTMLDivElement>) => {
-    if (selected === null || !(event.target instanceof Element)) {
+    // A click in something the feed portals out bubbles here through React, but lands outside the feed.
+    if (
+      selected === null ||
+      !(event.target instanceof Element) ||
+      !event.currentTarget.contains(event.target)
+    ) {
       return;
     }
     const control = event.target.closest(CONTROL);

@@ -1,6 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { FeedCard } from '../components/patterns/feed/card';
@@ -367,6 +368,30 @@ describe('preview panel: open, switch, close', () => {
     await userEvent.click(card('Send an encrypted Web Push'));
     await userEvent.click(screen.getByRole('img', { name: 'Lanes this week' }));
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('stays open for a click in something the feed portals out, a control or not', async () => {
+    stubViewport('desktop');
+    await renderInRouter(
+      <FeedPreview preview={(key) => PREVIEWS[key]}>
+        <FeedCard
+          previewKey="MMR-709"
+          lead={<span>In progress</span>}
+          title="Send an encrypted Web Push"
+        />
+        {createPortal(
+          <div role="img" aria-label="Portaled chart">
+            <button type="button">Portaled sort</button>
+          </div>,
+          document.body,
+        )}
+      </FeedPreview>,
+    );
+    await userEvent.click(card('Send an encrypted Web Push'));
+    await userEvent.click(screen.getByRole('button', { name: 'Portaled sort' }));
+    expect(panel()).toBeVisible();
+    await userEvent.click(screen.getByRole('img', { name: 'Portaled chart' }));
+    expect(panel()).toBeVisible();
   });
 
   it('stays open for a click outside the feed', async () => {
