@@ -673,6 +673,44 @@ function layOutCappedBody(element: HTMLElement, scrollHeight = 420) {
 }
 
 describe('preview panel on a phone', () => {
+  it.each([
+    [false, 'scroll-snap'],
+    [true, 'pointer'],
+  ] as const)(
+    'on a touch screen with reduced motion %s, moves the sheet by the %s driver',
+    async (reduced, driver) => {
+      await renderFeed('phone');
+      // A touch screen 390 wide, as the drawer reads one; reduced motion matches only when asked.
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        addEventListener: () => undefined,
+        matches:
+          /pointer:\s*coarse|hover:\s*none/.test(query) ||
+          (reduced && query.includes('prefers-reduced-motion')),
+        media: query,
+        removeEventListener: () => undefined,
+      }));
+      Object.defineProperty(navigator, 'maxTouchPoints', { configurable: true, value: 5 });
+      // The scroll-snap driver watches its snap points with one; jsdom has none.
+      vi.stubGlobal(
+        'IntersectionObserver',
+        class {
+          observe() {}
+          unobserve() {}
+          disconnect() {}
+          takeRecords() {
+            return [];
+          }
+        },
+      );
+      try {
+        await userEvent.click(card('Send an encrypted Web Push'));
+        expect(panel()).toHaveAttribute('data-driver', driver);
+      } finally {
+        Reflect.deleteProperty(navigator, 'maxTouchPoints');
+      }
+    },
+  );
+
   it('is a modal bottom sheet', async () => {
     await renderFeed('phone');
     await userEvent.click(card('Send an encrypted Web Push'));

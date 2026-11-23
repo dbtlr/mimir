@@ -422,7 +422,9 @@ Rules:
 - **A switch changes the content in place at once** and resets the body's
   scroll to the top; a cross-fade would be a fourth mover (ADR 0019 §8).
   Under `prefers-reduced-motion` there is no slide; the panel, the sidebar,
-  and the column change at once.
+  and the column change at once. The phone sheet then uses UI SDK's pointer
+  driver: on a touch screen `driver="auto"` picks the scroll-snap driver,
+  which slides even under reduced motion.
 - **A capped sheet scrolls freely and rests clean at its end and on focus.**
   When the body runs past the 88% cap, it scrolls under the pinned bars by
   the rules of Sheets, panels, dialogs (`patterns/resting-body.ts`, which the
