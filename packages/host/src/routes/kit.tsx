@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader } from '../components/ui/card';
 import { ChoiceKit } from '../kit/choice';
 import { DeckKit } from '../kit/deck';
 import { FeedKit } from '../kit/feed';
+import { NeedsYouDeckKit } from '../kit/needs-you-deck';
 import { OverlaysKit } from '../kit/overlays';
 import { PatternsKit } from '../kit/patterns';
 import { PickersKit } from '../kit/pickers';
@@ -210,6 +211,7 @@ export function KitPage() {
       <FeedKit />
       <PreviewKit />
       <DeckKit />
+      <NeedsYouDeckKit />
     </main>
   );
 }

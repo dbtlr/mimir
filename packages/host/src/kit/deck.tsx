@@ -2,10 +2,11 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { GroomingBadge } from '../components/grooming-chip';
+import { AttentionLead } from '../components/needs-you-deck-view';
 import { FeedDeck } from '../components/patterns/feed/deck';
 import type { DeckCard, DeckWrite } from '../components/patterns/feed/deck';
 import type { Preview } from '../components/patterns/feed/preview-panel';
-import { StatusBadge, StatusWord } from '../components/status-badge';
+import { StatusBadge } from '../components/status-badge';
 import { ActionButton } from '../components/ui/action-button';
 import { deliveryLink, nodeLink } from '../lib/record-url';
 import { Section } from './section';
@@ -18,16 +19,6 @@ import { Section } from './section';
  * stop stays in flight until Land or Refuse settles it. No page mounts the
  * deck yet (Home, MMR-722).
  */
-
-/** An attention dot and a word: the lead of a stopped delivery or a set of decisions. */
-function AttentionLead({ word }: { word: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span aria-hidden className="inline-block size-[7px] shrink-0 rounded-full bg-attention" />
-      <StatusWord>{word}</StatusWord>
-    </span>
-  );
-}
 
 type Sample = { card: DeckCard; preview: Omit<Preview, 'action'> };
 
