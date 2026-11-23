@@ -465,7 +465,9 @@ function measureRests(element: HTMLElement): MeasuredRests {
  * (`useRestingBody`): a scroll left mid-way stays, the end of its scroll rests
  * on a whole fact, and a control the keyboard focuses out of view scrolls to a
  * rest that shows it whole. It reports whether it has scrolled (the header's
- * shadow) and whether it runs on under the footer (the footer's cue).
+ * shadow) and whether it runs on under the footer (the footer's cue). While
+ * its content overflows it is a named tab stop, between Close and the footer,
+ * so the keyboard can scroll it (WCAG 2.1.1).
  */
 function PreviewBody({
   onScrolled,
@@ -478,6 +480,7 @@ function PreviewBody({
 }) {
   const body = useRef<HTMLDivElement>(null);
   const room = useRestingBody({ body, measure: measureRests });
+  const [overflows, setOverflows] = useState(false);
 
   useLayoutEffect(() => {
     const element = body.current;
@@ -487,6 +490,7 @@ function PreviewBody({
     const report = () => {
       onScrolled(element.scrollTop > 0);
       onContinues(element.scrollTop + element.clientHeight < element.scrollHeight - 1);
+      setOverflows(element.scrollHeight - 1 > element.clientHeight);
     };
     report();
     element.addEventListener('scroll', report, { passive: true });
@@ -506,8 +510,9 @@ function PreviewBody({
     <div
       ref={body}
       data-slot="preview-body"
+      {...(overflows ? { 'aria-label': 'Details', role: 'region', tabIndex: 0 } : {})}
       style={room > 0 ? { paddingBottom: `calc(var(--preview-body-end) + ${String(room)}px)` } : {}}
-      className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-6 pb-(--preview-body-end) [--preview-body-end:2rem] md:px-8 md:pt-8 md:[--preview-body-end:2.5rem]"
+      className="min-h-0 flex-1 overflow-y-auto overscroll-contain outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent px-5 pt-6 pb-(--preview-body-end) [--preview-body-end:2rem] md:px-8 md:pt-8 md:[--preview-body-end:2.5rem]"
     >
       <div>{children}</div>
     </div>

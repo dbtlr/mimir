@@ -564,6 +564,37 @@ describe('preview panel: tab order on desktop', () => {
     expect(card('Send an encrypted Web Push')).toHaveFocus();
   });
 
+  it('steps through the body between Close and Open while it overflows, and passes it by once it fits', async () => {
+    const resize = stubResizeObserver();
+    await renderFeed();
+    await userEvent.click(card('Keep run logs and make them readable'));
+    const element = body();
+    if (element === null) {
+      throw new Error('no body');
+    }
+    const close = within(panel()).getByRole('button', { name: 'Close preview' });
+    const open = within(panel()).getByRole('link', { name: 'Open HUGI-15' });
+    layOutCappedBody(element);
+    resize(element);
+    expect(element).toHaveAttribute('tabindex', '0');
+    expect(element).toHaveAccessibleName('Details');
+    expect(element.className.split(/\s+/)).toContain('focus-visible:outline-accent');
+    close.focus();
+    await userEvent.tab();
+    expect(element).toHaveFocus();
+    await userEvent.tab();
+    expect(open).toHaveFocus();
+    await userEvent.tab({ shift: true });
+    expect(element).toHaveFocus();
+    layOutCappedBody(element, 200);
+    resize(element);
+    expect(element).not.toHaveAttribute('tabindex');
+    close.focus();
+    await userEvent.tab();
+    expect(open).toHaveFocus();
+    vi.restoreAllMocks();
+  });
+
   it('Tab from the last button goes on to the selected card’s own button', async () => {
     await renderFeed();
     await userEvent.click(card('Keep run logs and make them readable'));
@@ -975,6 +1006,25 @@ describe('preview panel on a phone', () => {
     element.scrollTop = 220;
     fireEvent.scroll(element);
     expect(footer).not.toHaveAttribute('data-continues');
+    vi.restoreAllMocks();
+  });
+
+  it('puts an overflowing body in the sheet’s tab order, after Close and before Open', async () => {
+    const resize = stubResizeObserver();
+    await renderFeed('phone');
+    await userEvent.click(card('Keep run logs and make them readable'));
+    const element = body();
+    if (element === null) {
+      throw new Error('no body');
+    }
+    expect(element).not.toHaveAttribute('tabindex');
+    layOutCappedBody(element);
+    resize(element);
+    within(panel()).getByRole('button', { name: 'Close preview' }).focus();
+    await userEvent.tab();
+    expect(element).toHaveFocus();
+    await userEvent.tab();
+    expect(within(panel()).getByRole('link', { name: 'Open HUGI-15' })).toHaveFocus();
     vi.restoreAllMocks();
   });
 
