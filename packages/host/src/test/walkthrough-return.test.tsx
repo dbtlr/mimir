@@ -8,7 +8,7 @@ import {
 } from '@tanstack/react-router';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { expect, it } from 'vitest';
+import { expect, test } from 'vitest';
 
 import {
   RETURN_TARGET_ATTRIBUTE,
@@ -81,9 +81,9 @@ async function mount(resolve: ReturnTargetResolver) {
   return router;
 }
 
-it('focuses the control on the page when a resolver answers later that it placed nothing', async () => {
+test('focuses the control on the page when a resolver answers later that it placed nothing', async () => {
   const router = await mount(() => Promise.resolve(false));
-  await router.navigate({ state: markState({ entry: ENTRY, opener: '/' }), to: '/walkthrough' });
+  router.history.push('/walkthrough', markState({ entry: ENTRY, opener: '/' }));
   await userEvent.click(await screen.findByRole('button', { name: 'Close the walkthrough' }));
   const entry = await screen.findByRole('button', { name: 'Review 1 decision' });
   await waitFor(() => expect(entry).toHaveFocus());

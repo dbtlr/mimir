@@ -258,7 +258,8 @@ test.describe('desktop deck', () => {
       if (next === null || link === null) {
         return null;
       }
-      const text = link.getBoundingClientRect().left + Number.parseFloat(getComputedStyle(link).paddingLeft);
+      const text =
+        link.getBoundingClientRect().left + Number.parseFloat(getComputedStyle(link).paddingLeft);
       return Math.round(text - next.getBoundingClientRect().right);
     });
     expect(gap).toBe(12);

@@ -122,41 +122,28 @@ export function useReturnTargetResolver(resolve: ReturnTargetResolver): void {
  * Focus the control named `entry`: a registered surface first, then the
  * control on the page, else the page's main region.
  */
-function focusReturnTarget(entry: string | undefined): void {
+async function focusReturnTarget(entry: string | undefined): Promise<void> {
   if (entry === undefined) {
     focusMain();
     return;
   }
-  askInTurn([...resolvers], entry);
+  // A surface that answers at once is not awaited, so with none placing focus the page's control takes it in the same turn.
+  for (const surface of resolvers) {
+    const placed = surface.current(entry);
+    if (placed === true || (placed !== false && (await placedLater(placed)))) {
+      return;
+    }
+  }
+  focusNamed(entry);
 }
 
-/** Asks each surface in turn, waiting on one that answers later; with none placing focus, the page's control. */
-function askInTurn(
-  surfaces: readonly { current: ReturnTargetResolver }[],
-  entry: string,
-): void {
-  const [surface, ...rest] = surfaces;
-  if (surface === undefined) {
-    focusNamed(entry);
-    return;
+/** A later answer; one that fails placed nothing. */
+async function placedLater(answer: Promise<boolean>): Promise<boolean> {
+  try {
+    return await answer;
+  } catch {
+    return false;
   }
-  const placed = surface.current(entry);
-  if (typeof placed === 'boolean') {
-    if (!placed) {
-      askInTurn(rest, entry);
-    }
-    return;
-  }
-  void placed.then(
-    (later) => {
-      if (!later) {
-        askInTurn(rest, entry);
-      }
-    },
-    () => {
-      askInTurn(rest, entry);
-    },
-  );
 }
 
 /** Focus the control on the page named `entry`, else the page's main region. */
@@ -188,7 +175,7 @@ export function useOpenerFocus(): void {
     const request = pendingFocus;
     pendingFocus = undefined;
     if (request !== undefined && request.opener === pathname) {
-      focusReturnTarget(request.entry);
+      void focusReturnTarget(request.entry);
     }
   }, [href, pathname]);
 }

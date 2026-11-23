@@ -237,7 +237,9 @@ describe('desktop deck', () => {
     });
     await act(() => Promise.resolve());
     refetch(cardsOf(['T-1', 'T-3', 'T-4', 'T-5', 'T-6', 'T-2', 'T-7', 'T-8']));
-    expect(screen.getByRole('heading', { name: /^Needs you/u }).parentElement).toHaveTextContent('5–8 of 8');
+    expect(screen.getByRole('heading', { name: /^Needs you/u }).parentElement).toHaveTextContent(
+      '5–8 of 8',
+    );
     expect(screen.getByRole('dialog')).toHaveAccessibleName('Card T-2');
   });
 
@@ -248,7 +250,9 @@ describe('desktop deck', () => {
       target('T-3').focus();
     });
     refetch(cardsOf(['T-1', 'T-3', 'T-4', 'T-5', 'T-6', 'T-2', 'T-7', 'T-8']));
-    expect(screen.getByRole('heading', { name: /^Needs you/u }).parentElement).toHaveTextContent('1–4 of 8');
+    expect(screen.getByRole('heading', { name: /^Needs you/u }).parentElement).toHaveTextContent(
+      '1–4 of 8',
+    );
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(target('T-3')).toHaveFocus();
   });
@@ -479,10 +483,7 @@ describe('focus lost to a removal', () => {
   const answer: DeckAction = { kind: 'dialog', label: 'Answer…', name: 'Answer A', run: vi.fn() };
 
   it('still anchors a refetch on the card whose dialog closed, before focus is restored', async () => {
-    const { refetch } = await renderDeck(
-      [deckCard('A', answer), ...cardsOf(keys(7))],
-      'desktop',
-    );
+    const { refetch } = await renderDeck([deckCard('A', answer), ...cardsOf(keys(7))], 'desktop');
     screen.getByRole('button', { name: 'Answer A' }).focus();
     const closeDialog = openOutsideDialog();
     // A browser that blurs a removed element fires focusout as the dialog goes.

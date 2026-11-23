@@ -269,7 +269,8 @@ function useBleedToScreenEdge(root: RefObject<HTMLElement | null>, active: boole
     };
     measure();
     globalThis.addEventListener('resize', measure);
-    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure);
+    const observer =
+      typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure);
     observer?.observe(section);
     return () => {
       globalThis.removeEventListener('resize', measure);
@@ -533,7 +534,8 @@ function DeckBody({
       if (Object.hasOwn(departed, key)) {
         setDeparted(({ [key]: _spent, ...rest }) => rest);
       }
-      const to = keys.includes(key) ? key : live ? successor : current;
+      const fallback = live ? successor : current;
+      const to = keys.includes(key) ? key : fallback;
       if (to === null || !keys.includes(to)) {
         quietLine.current?.focus();
         return;

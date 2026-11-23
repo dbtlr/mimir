@@ -15,7 +15,11 @@ const wide = params.get('gutter') === 'wide';
 
 function DeckRoot() {
   return (
-    <main className={wide ? 'mx-auto max-w-[900px] px-5 py-4' : 'mx-auto max-w-[900px] px-3.5 py-4 md:px-5'}>
+    <main
+      className={
+        wide ? 'mx-auto max-w-[900px] px-5 py-4' : 'mx-auto max-w-[900px] px-3.5 py-4 md:px-5'
+      }
+    >
       <DeckDemo initial={initial} />
       <button type="button" className="mt-8">
         After the deck

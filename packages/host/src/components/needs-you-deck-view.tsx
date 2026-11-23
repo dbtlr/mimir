@@ -155,11 +155,11 @@ export function NeedsYouDeckView({
     () => new Set(cards.filter((card) => card.action?.kind === 'review').map((card) => card.key)),
     [cards],
   );
-  useReturnTargetResolver((entry) =>
-    bundles.has(entry)
-      ? Promise.resolve().then(() => deck.current?.turnTo(entry) ?? false)
-      : false,
-  );
+  const turnAfterCommit = async (entry: string): Promise<boolean> => {
+    await Promise.resolve();
+    return deck.current?.turnTo(entry) ?? false;
+  };
+  useReturnTargetResolver((entry) => (bundles.has(entry) ? turnAfterCommit(entry) : false));
 
   // The effect can run inside React's commit, where the deck's turn could not render at once.
   useEffect(() => {
