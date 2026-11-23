@@ -910,7 +910,8 @@ Needs you.
      cards open their preview; with no cards, the quiet line "Nothing needs
      you." takes its place;
   3. _Now_, title cards for the tasks in flight (status, ID, project, and
-     age on the status line; no detail), most recently started first, four
+     age on the status line; no detail), most recent move first (the latest
+     submit, else the start, the moment the card's age counts from), four
      on a phone and six from 768. A card opens its preview, which states the
      status and when it began, and the harness and branch when the task has
      them;
@@ -933,8 +934,10 @@ Needs you.
   MMR-722 refinement). The MMR-724 list pages will give them destinations.
 - **Home's spare-minute work no longer acts in place.** The rail's runnable
   tasks with _Start_ and untriaged seeds with their verbs (the MMR-476 and
-  MMR-503 refinements' in-place triage) are now counts. The seeds page and each project's work page still list them and
-  act on them. The deck's own actions (_Clear stop_, _Answer…_, _Review N
+  MMR-503 refinements' in-place triage) are now counts. Each project's work
+  page still lists the runnable tasks and acts on them. The Seeds page lists
+  the untriaged seeds and links to each one; the triage verbs are on each
+  seed's own page. The deck's own actions (_Clear stop_, _Answer…_, _Review N
   decisions_) act from Home, and the alert's panel keeps its grouped rows.
 
 Considered and rejected (mocked as variants A and C beside the chosen B):

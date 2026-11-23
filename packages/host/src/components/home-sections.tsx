@@ -70,8 +70,9 @@ function nowPreview(row: NowRow, project: string | undefined): Preview {
 }
 
 /**
- * Now: title cards for the tasks in flight, most recently started first, four
- * on a phone and six from 768. The head counts what shows of the whole ("6
+ * Now: title cards for the tasks in flight, most recent move first (the
+ * report's order: the latest submit, else the start), four on a phone and six
+ * from 768. The head counts what shows of the whole ("6
  * of 9") when the cap hides cards. A card opens its preview, as the deck's do.
  */
 export function NowSection({ report }: { report: ReviewReport }) {

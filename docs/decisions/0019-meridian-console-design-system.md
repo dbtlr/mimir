@@ -273,7 +273,9 @@ revised:
   _Going cold_ count, and each work page keeps its _Going cold_ section.
 - **One set, one count.** The alert, the review page's title count, and the
   project list's decision counts are the same set, so they never disagree.
-  A work page's _Needs you_ is that set within its scope.
+  A work page's _Needs you_ is that set within its scope. (2026-11-23,
+  MMR-722: Home's page title names the day and carries no count; the alert
+  and the Needs you deck head's items count read this set.)
 - **Lanes retire with the Overview.** §9's Lane is retired as a concept, not
   only as the Overview's grouping: the `attention` facet that carries it
   leaves the facet set (the projects read, `get --col attention`, and MCP
@@ -450,7 +452,9 @@ against the page and 2.89:1 against a panel, below AA's 4.5:1.
   row, and 6.1 from `done`'s text green.
 - `packages/host/src/test/role-hues.test.ts` fails if either theme declares
   a `--color-cold` token, and the review page's test fails unless the cold
-  count draws in `text-ink-dim`.
+  count draws in `text-ink-dim`. (2026-11-23, MMR-722: the cold count left
+  with Home's project health strip, and its test with it; the
+  `role-hues.test.ts` check stands.)
 
 ## Refinement (2026-11-03, MMR-620): the stale chip draws in ink
 
@@ -709,7 +713,8 @@ leading record is newest by its kind's clock, then to the project key.
   whether work is built on it), or `task` (the existing task row). The focus
   queue is the same order as a list of `{ kind, id }`. A count is the list's
   length, so the alert, the review page's title, and the project list never
-  disagree.
+  disagree. (2026-11-23, MMR-722: Home's page title names the day and carries
+  no count.)
 - **The rename.** The review report called its groups of tasks that need the
   operator `decisions`, which ADR 0043 now names a record.
   - `ReviewReport.decisions` becomes `needsYou`.
@@ -1820,7 +1825,8 @@ with their answer chips.
   how many decisions it holds, so no record is out of sight. On a page that
   shows both, the alert and the deck's head can read different numbers.
   (2026-11-23, MMR-722: on Home the head reads both counts, "N cards, M
-  items", the second the alert's; see the MMR-722 refinement below.)
+  items", the second the alert's; see the MMR-722 refinement below. Home's
+  page title names the day and carries no count.)
 
 ### The cards
 
