@@ -1,5 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { FeedCard } from '../components/patterns/feed/card';
@@ -143,6 +144,35 @@ function FeedWithDisclosure() {
       </details>
       <FeedCard previewKey="MMR-715" lead={<span>Under review</span>} title="Mobile top bar" />
     </FeedPreview>
+  );
+}
+
+/** A feed whose card with no button is followed by `after`, then another card. */
+function FeedWithAfterCard({ after }: { after: ReactNode }) {
+  return (
+    <FeedPreview preview={(key) => PREVIEWS[key]}>
+      <FeedCard
+        previewKey="MMR-709"
+        lead={<span>In progress</span>}
+        title="Send an encrypted Web Push"
+      />
+      {after}
+      <FeedCard previewKey="MMR-715" lead={<span>Under review</span>} title="Mobile top bar" />
+    </FeedPreview>
+  );
+}
+
+/** Three radios named `size`, `checked` among them when given. */
+function SizeRadios({ checked }: { checked?: string }) {
+  return (
+    <fieldset>
+      {['Small', 'Medium', 'Large'].map((size) => (
+        <label key={size}>
+          <input type="radio" name="size" value={size} defaultChecked={size === checked} />
+          {size}
+        </label>
+      ))}
+    </fieldset>
   );
 }
 
@@ -535,6 +565,54 @@ describe('preview panel: tab order through a disclosure', () => {
     await renderInRouter(<FeedWithDisclosure />);
     await userEvent.click(card('Send an encrypted Web Push'));
     screen.getByText('Why it runs long').focus();
+    await userEvent.tab({ shift: true });
+    expect(within(panel()).getByRole('link', { name: 'Open MMR-709' })).toHaveFocus();
+  });
+});
+
+describe('preview panel: tab order into an editor and a radio group', () => {
+  it('Tab from the last button reaches an editing host after the card, which has no tabindex', async () => {
+    stubViewport('desktop');
+    await renderInRouter(
+      <FeedWithAfterCard
+        after={
+          <div contentEditable suppressContentEditableWarning aria-label="Note">
+            <b>Draft</b>
+          </div>
+        }
+      />,
+    );
+    const editor = screen.getByRole('generic', { name: 'Note' });
+    for (const element of [editor, ...editor.querySelectorAll('*')]) {
+      // Chromium reports an editing host and what it holds as editable; jsdom does not.
+      Object.defineProperty(element, 'isContentEditable', { configurable: true, value: true });
+    }
+    await userEvent.click(card('Send an encrypted Web Push'));
+    within(panel()).getByRole('link', { name: 'Open MMR-709' }).focus();
+    await userEvent.tab();
+    expect(editor).toHaveFocus();
+  });
+
+  it.each([
+    ['Medium', 'Medium'],
+    [undefined, 'Small'],
+  ])(
+    'Tab from the last button reaches a radio group at its stop (checked: %s)',
+    async (checked, stop) => {
+      stubViewport('desktop');
+      await renderInRouter(<FeedWithAfterCard after={<SizeRadios checked={checked} />} />);
+      await userEvent.click(card('Send an encrypted Web Push'));
+      within(panel()).getByRole('link', { name: 'Open MMR-709' }).focus();
+      await userEvent.tab();
+      expect(screen.getByRole('radio', { name: stop })).toHaveFocus();
+    },
+  );
+
+  it('Shift+Tab from an unchecked group’s first radio goes back into the panel, to its last button', async () => {
+    stubViewport('desktop');
+    await renderInRouter(<FeedWithAfterCard after={<SizeRadios />} />);
+    await userEvent.click(card('Send an encrypted Web Push'));
+    screen.getByRole('radio', { name: 'Small' }).focus();
     await userEvent.tab({ shift: true });
     expect(within(panel()).getByRole('link', { name: 'Open MMR-709' })).toHaveFocus();
   });
