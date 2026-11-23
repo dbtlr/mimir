@@ -342,7 +342,7 @@ column says otherwise.
 | | Name and count | `text-section` ink-bright, then the count 13 / 20 ink-dim, 8 apart, both inside the `h2` | **adopted (MMR-719)** |
 | | See all | 13 / 20, 500, `accent-foreground`, underlined on hover (hover keeps the ink: `accent` measures 3.1:1 on a light page), right-aligned; a 44 hit area on a phone; its accessible name names the section ("See all in Now") | **adopted (MMR-719)** |
 | Card | Surface | `well-850`, 1px `line` edge (`line-bright` on hover), 10 radius, `shadow-card` in light; padding 12 top, 16 sides, 16 bottom | **adopted (MMR-719)**; surface existing (`Card`) |
-| | Status line | 13 / 20 ink-dim: the status badge, or for a set of decisions the word _Decisions_ after an attention dot, or _Stopped_ after an attention dot for a stopped delivery, then the ID in 13px mono, 8 apart; the age right-aligned on line 1; 8 below it to the title | **adopted (MMR-719)** |
+| | Status line | 13 / 20 ink-dim: the status badge, or for a set of decisions the word _Decisions_ after an attention dot, or _Stopped_ after an attention dot for a stopped delivery, or in the Needs you deck _Question_ after an attention dot for a task that needs answers (MMR-752), then the ID in 13px mono, 8 apart; the age right-aligned on line 1; 8 below it to the title | **adopted (MMR-719)** |
 | | Title | `text-title`, wraps; a long word breaks rather than overflow | existing role (MMR-718) |
 | | Detail | 13 / 20 ink-dim, 4 below the title, two lines at most | **adopted (MMR-719)** |
 | | Chip row | the row chips (size, grooming, stale), 4 apart, wrapping; 8 below the title or detail, staying with the content they describe | **adopted (MMR-719)** |
@@ -378,7 +378,7 @@ follow Sheets, panels, dialogs; the rest is its own.
 | Height | fits its content, up to 88% of the visible viewport; the grip, header, and footer stay put and only the body scrolls | the panel's full height below the bar; the header and footer stay put and only the body scrolls | **adopted (MMR-720)** |
 | Grip | 40 × 4, full radius, `ink-faint` (decoration), 8 below the sheet's top edge | none | **adopted (MMR-720)**: `DrawerGrip` sits 12 below the edge |
 | Header | 12 top (below the grip), 16 bottom, 20 left, 56 right to clear Close; a `line` hairline under it | 28 top, 20 bottom, 32 left, 64 right; a `line` hairline under it | **adopted (MMR-720)** |
-| Status line | the card's own status line (13 / 20 `ink-dim`: the status badge (or _Decisions_ or _Stopped_ after its dot), the ID in 13 mono, the age at the right), 8 above the title | same | **adopted (MMR-720)** |
+| Status line | the card's own status line (13 / 20 `ink-dim`: the status badge (or _Decisions_, _Stopped_, or _Question_ after its dot), the ID in 13 mono, the age at the right), 8 above the title | same | **adopted (MMR-720)** |
 | Title | `text-dossier`, 17 / 24, 600, `ink-bright`; it wraps, a long word breaks, and it is never clamped. It takes focus on open and switch (`tabindex="-1"`); on `:focus-visible` only, the 2px `accent` outline at 2px offset that a button takes, with a 4 radius | same | **adopted (MMR-720)**: a Content sheet's title is 14px |
 | Close | a 44 hit area, 20 glyph, `ink-dim`, centred on the status line, 8 from the right edge; named "Close preview" | a 36 hit area, 18 glyph, centred on the status line, 22 from the right edge | **adopted (MMR-720)** |
 | Body | 24 top, 32 bottom, 20 sides | 32 top, 40 bottom, 32 sides | **adopted (MMR-720)**, the Form sheet's |

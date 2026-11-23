@@ -7,7 +7,6 @@ import { deliveryLink, nodeLink } from '../lib/record-url';
 import { relativeTime } from '../lib/time';
 import { markState, useOpenerPath, useReturnTargetResolver } from '../lib/walkthrough-mark';
 import { entryName } from './decisions-entry';
-import { GroomingBadge } from './grooming-chip';
 import { needsYouCards } from './needs-you-deck-model';
 import type {
   NeedsYouCard,
@@ -46,7 +45,7 @@ export type NeedsYouWrites = {
   }>;
 };
 
-/** An attention dot and a word: the lead of a stopped delivery or a set of decisions. */
+/** An attention dot and a word: the lead of a stopped delivery, a set of decisions, or a question. */
 export function AttentionLead({ word }: { word: string }) {
   return (
     <span className="inline-flex items-center gap-1.5">
@@ -228,7 +227,6 @@ export function NeedsYouDeckView({
     action: actionOf(card),
     card: {
       age: relativeTime(card.at),
-      chips: card.needsAnswers ? <GroomingBadge state="needs_answers" /> : undefined,
       detail: card.detail,
       id: card.id,
       lead: leadOf(card.lead),
