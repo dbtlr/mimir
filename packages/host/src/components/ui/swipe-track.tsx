@@ -68,12 +68,13 @@ export function SwipeTrack({
 }: SwipeTrackProps) {
   const viewport = useRef<HTMLDivElement>(null);
   const track = useRef<HTMLDivElement>(null);
-  const stopDrag = useRef<(() => void) | undefined>(undefined);
+  // Ends the drag in progress as its own end would, without a turn: a new press or an unmount.
+  const letGo = useRef<(() => void) | undefined>(undefined);
   const shown = useRef({ index, itemKey });
 
   useEffect(
     () => () => {
-      stopDrag.current?.();
+      letGo.current?.();
     },
     [],
   );
@@ -103,7 +104,7 @@ export function SwipeTrack({
     if (!enabled || event.button !== 0 || row === null || element === null || count < 2) {
       return;
     }
-    stopDrag.current?.();
+    letGo.current?.();
     const startX = event.clientX;
     const startY = event.clientY;
     const step = stepOf(row, gap);
@@ -111,18 +112,25 @@ export function SwipeTrack({
     const most = index < count - 1 ? step : 0;
     const least = index > 0 ? -step : 0;
     let moved = 0;
-    const release = () => {
+    let started = false;
+    // Puts the row back and reports the drag's end, once, if it began.
+    const release = (turn?: SwipeTurn) => {
+      letGo.current = undefined;
+      if (!started) {
+        return;
+      }
+      started = false;
       delete row.dataset.dragging;
       row.style.setProperty('--swipe-drag', '0px');
+      if (turn !== undefined) {
+        onTurn(turn);
+      }
+      onDragChange?.(false);
     };
     const drag: BindDragOptions = {
       onEnd: (_event, canceled) => {
-        stopDrag.current = undefined;
-        release();
-        if (!canceled && Math.abs(moved) > step / 2) {
-          onTurn(moved < 0 ? 1 : -1);
-        }
-        onDragChange?.(false);
+        const turns = !canceled && Math.abs(moved) > step / 2;
+        release(turns ? turnOf(moved) : undefined);
       },
       onMove: ({ x }) => {
         moved = Math.min(-least, Math.max(-most, x - startX));
@@ -133,13 +141,18 @@ export function SwipeTrack({
         if (Math.abs(move.clientY - startY) > Math.abs(move.clientX - startX)) {
           return false;
         }
+        started = true;
         row.dataset.dragging = '';
         onDragChange?.(true);
         return true;
       },
       threshold: dragThreshold,
     };
-    stopDrag.current = bindDrag(element, event.nativeEvent, drag);
+    const stop = bindDrag(element, event.nativeEvent, drag);
+    letGo.current = () => {
+      stop();
+      release();
+    };
   };
 
   const style: CSSProperties & Record<`--${string}`, string | number> = {
@@ -188,6 +201,11 @@ export function SwipeTrack({
       )}
     </div>
   );
+}
+
+/** The turn a drag by `moved` px asks for: a drag to the left turns on one. */
+function turnOf(moved: number): SwipeTurn {
+  return moved < 0 ? 1 : -1;
 }
 
 /** How far one turn moves the row: a slide and the gap after it. */

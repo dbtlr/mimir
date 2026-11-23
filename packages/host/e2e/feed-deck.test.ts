@@ -160,6 +160,48 @@ test.describe('phone deck', () => {
     await expect.poll(() => left(page, '2 of 9')).toBe(GUTTER);
   });
 
+  test('a press that replaces a drag lets that drag go, so a refetch applies', async ({ page }) => {
+    await openDeck(page);
+    const box = await group(page, '1 of 10').boundingBox();
+    const y = (box?.y ?? 0) + 40;
+    await page.mouse.move(300, y);
+    await page.mouse.down();
+    await page.mouse.move(150, y, { steps: 10 });
+    await expect(page.locator('[data-slot="swipe-track"]')).toHaveAttribute('data-dragging', '');
+    // A finger lands while the mouse still holds the drag: its press replaces the drag.
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent', {
+      touchPoints: [{ x: 200, y }],
+      type: 'touchStart',
+    });
+    await expect(page.locator('[data-slot="swipe-track"]')).not.toHaveAttribute('data-dragging');
+    await expect.poll(() => left(page, '1 of 10')).toBe(GUTTER);
+    await page.getByRole('button', { name: 'Card 2 leaves' }).evaluate((button) => {
+      if (button instanceof HTMLElement) {
+        button.click();
+      }
+    });
+    await expect(page.locator('[data-slot="deck-pager"] p')).toHaveText('1 of 9');
+    await cdp.send('Input.dispatchTouchEvent', { touchPoints: [], type: 'touchEnd' });
+    await cdp.detach();
+    await page.mouse.up();
+  });
+
+  test('a drag the track unmounts under lets go, so a refetch applies', async ({ page }) => {
+    await openDeck(page);
+    const box = await group(page, '1 of 10').boundingBox();
+    const y = (box?.y ?? 0) + 40;
+    await page.mouse.move(300, y);
+    await page.mouse.down();
+    await page.mouse.move(150, y, { steps: 10 });
+    // Crossing 768 mid-drag swaps the phone track for the desktop grid.
+    await page.setViewportSize(DESKTOP);
+    await expect(page.locator('[data-slot="swipe-track"]')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Card 2 leaves' }).click();
+    await expect(page.getByRole('heading', { name: /Needs you\s*9$/u })).toBeVisible();
+    await page.mouse.up();
+  });
+
   test('the deck runs from the page’s gutter to the screen’s right edge, whatever the gutter', async ({
     page,
   }) => {
