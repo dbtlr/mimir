@@ -243,7 +243,6 @@ describe('Home at / (ADR 0013, MMR-722 refinement)', () => {
       await client.invalidateQueries();
     });
     await waitFor(() => expect(fourth).not.toBeInTheDocument());
-    await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     await waitFor(() => expect(nowCards()).toContain(document.activeElement));
   });
@@ -257,7 +256,6 @@ describe('Home at / (ADR 0013, MMR-722 refinement)', () => {
       resize(767);
     });
     expect(sixth).not.toBeInTheDocument();
-    await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     await waitFor(() => expect(nowCards()).toContain(document.activeElement));
   });
