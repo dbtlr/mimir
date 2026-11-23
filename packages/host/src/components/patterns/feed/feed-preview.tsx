@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -13,7 +14,7 @@ import type { MouseEvent, ReactNode } from 'react';
 import { useDrawerSide } from '../../ui/drawer';
 import { PreviewPanel } from './preview-panel';
 import type { Preview } from './preview-panel';
-import { useClaimPreviewRoom } from './preview-room';
+import { usePreviewClaim } from './preview-room';
 
 type FeedPreviewState = {
   selected: string | null;
@@ -76,7 +77,8 @@ function usable(element: HTMLElement | null): element is HTMLElement {
  * which card is selected and applies the panel's rules: a tap on another card
  * switches the preview and makes that card the opener; a tap on the selected
  * card, a press in empty feed space, Escape from the feed or the panel, Close,
- * or a navigation closes it; and closing returns focus to the latest opener.
+ * a navigation, or a card in another feed on the page (the page has one
+ * preview) closes it; and closing returns focus to the latest opener.
  * After a reflow on open, switch, or close, the selected card scrolls into
  * view at once. `preview` maps a card's `previewKey` to what its preview shows.
  */
@@ -104,7 +106,16 @@ export function FeedPreview({
   const open = selected !== null && content !== undefined;
   // The phone's sheet is modal over a scrim; only the desktop panel needs room beside the feed.
   const desktop = useDrawerSide() === 'right';
-  useClaimPreviewRoom(open && desktop);
+  const feedId = useId();
+  const owner = usePreviewClaim({ open, owner: feedId, panel: desktop });
+  // A card in another feed on the page took the preview: this feed's panel closes.
+  const [seenOwner, setSeenOwner] = useState(owner);
+  if (seenOwner !== owner) {
+    setSeenOwner(owner);
+    if (owner !== null && owner !== feedId) {
+      setSelected(null);
+    }
+  }
 
   const close = useCallback(() => {
     setSelected(null);

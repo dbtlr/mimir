@@ -44,6 +44,17 @@ async function renderShellWithFeed(viewport: Viewport, sidebar = true) {
   );
 }
 
+/** A feed of one task card, whose preview names the task. */
+function taskFeed(id: string, title: string) {
+  return (
+    <FeedPreview
+      preview={() => ({ lead: <span>Ready</span>, open: nodeLink(id), reason: 'Ready.', title })}
+    >
+      <FeedCard previewKey={id} lead={<span>Ready</span>} title={title} />
+    </FeedPreview>
+  );
+}
+
 const sidebarSlot = () => screen.getByRole('complementary', { hidden: true }).parentElement;
 const content = () => screen.getByRole('main').parentElement;
 
@@ -71,6 +82,32 @@ describe('shell room for the preview panel', () => {
     await renderShellWithFeed('tablet', false);
     await userEvent.click(screen.getByRole('button', { name: 'A task' }));
     expect(content()).toHaveAttribute('data-preview-room');
+  });
+
+  it('keeps one preview a page: a card in a second feed closes the first feed’s panel, and the room stays until the last one closes', async () => {
+    stubViewport('desktop');
+    await renderInRouter(
+      <PreviewRoomProvider>
+        <ShellColumns sidebar={<aside aria-label="Project">Sidebar</aside>}>
+          <main>
+            {taskFeed('MMR-1', 'A task')}
+            {taskFeed('MMR-2', 'Another task')}
+          </main>
+        </ShellColumns>
+      </PreviewRoomProvider>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'A task' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Another task' }));
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    expect(screen.getByRole('dialog')).toHaveAccessibleName('Another task');
+    expect(screen.getByRole('button', { name: 'A task' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(content()).toHaveAttribute('data-preview-room');
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(content()).not.toHaveAttribute('data-preview-room');
   });
 
   it('makes no room on a phone, where the preview is a modal sheet', async () => {
