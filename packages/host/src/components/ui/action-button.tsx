@@ -25,9 +25,10 @@ export const DESTRUCTIVE_OUTLINE =
  * well-800 with an ink-dim label (4.5:1 or better in both themes) and an inset
  * edge that keeps its shape on a well-850 footer, where the fill alone differs
  * by under 1.1:1. The other variants are hairlines already, so they fade.
+ * `aria-disabled` looks the same: a write that keeps focus while it cannot run.
  */
 const QUIET_DISABLED =
-  'disabled:bg-well-800 disabled:text-ink-dim disabled:inset-ring disabled:inset-ring-ink-ghost';
+  'disabled:bg-well-800 disabled:text-ink-dim disabled:inset-ring disabled:inset-ring-ink-ghost aria-disabled:bg-well-800 aria-disabled:text-ink-dim aria-disabled:inset-ring aria-disabled:inset-ring-ink-ghost aria-disabled:hover:bg-well-800';
 
 export const actionButtonVariants = cva(
   'inline-flex items-center justify-center gap-1.5 font-semibold whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none',
@@ -35,7 +36,7 @@ export const actionButtonVariants = cva(
     compoundVariants: [
       { className: QUIET_DISABLED, variant: ['action', 'attention'] },
       {
-        className: 'disabled:opacity-40',
+        className: 'disabled:opacity-40 aria-disabled:opacity-40',
         variant: ['attentionOutline', 'destructiveOutline', 'outline'],
       },
     ],
@@ -57,7 +58,7 @@ export const actionButtonVariants = cva(
         destructiveOutline: DESTRUCTIVE_OUTLINE,
         /** A Form sheet's Cancel and Archive: an outline whose edge meets 3:1 (DESIGN.md). */
         formOutline:
-          'inset-ring inset-ring-ink-faint text-ink-bright hover:inset-ring-ink-dim disabled:opacity-40',
+          'inset-ring inset-ring-ink-faint text-ink-bright hover:inset-ring-ink-dim disabled:opacity-40 aria-disabled:opacity-40 aria-disabled:hover:inset-ring-ink-faint',
         outline:
           'inset-ring inset-ring-line-bright text-ink hover:bg-line/50 hover:text-ink-bright',
       },

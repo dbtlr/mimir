@@ -27,6 +27,13 @@ export type PreviewAction = {
   /** The accessible name, when the label alone does not say what it acts on ("Answer HUGI-15"). */
   name?: string;
   onAction: (cardButton: HTMLElement | null) => void;
+  /**
+   * The action cannot run now (offline, or its write in flight): it stays
+   * focusable and `aria-disabled`, and a press does nothing (MMR-721).
+   */
+  disabled?: boolean;
+  /** A write that runs in place: the preview stays open while it is in flight (MMR-721). */
+  keepsOpen?: boolean;
 };
 
 /**
@@ -417,8 +424,14 @@ function PreviewContent({
             size="form"
             variant="action"
             aria-label={action.name}
+            aria-disabled={action.disabled === true ? true : undefined}
             onClick={() => {
-              onClose();
+              if (action.disabled === true) {
+                return;
+              }
+              if (action.keepsOpen !== true) {
+                onClose();
+              }
               action.onAction(null);
             }}
             className={FOOTER_BUTTON}

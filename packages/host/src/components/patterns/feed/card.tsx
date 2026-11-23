@@ -75,6 +75,7 @@ export function FeedCard({
       >
         <button
           type="button"
+          data-slot="feed-card-target"
           aria-haspopup="dialog"
           aria-expanded={selected}
           aria-describedby={describedBy}

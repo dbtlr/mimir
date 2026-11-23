@@ -26,6 +26,11 @@ type FeedPreviewState = {
   toggle: (selection: Selection, opener: HTMLElement) => void;
   /** A card leaving, or showing another record: it is no longer the selected one. */
   release: (selection: Selection) => void;
+  /** The `previewKey` of the open preview's card. */
+  openKey: string | null;
+  /** Whether the preview is the phone's modal sheet rather than the desktop panel. */
+  modal: boolean;
+  close: () => void;
 };
 
 const FeedPreviewContext = createContext<FeedPreviewState | null>(null);
@@ -55,6 +60,19 @@ export function useCardPreview(key: string): {
       toggle({ card, key }, opener);
     },
   };
+}
+
+/**
+ * The feed's open preview, for a block that pages its cards (the Needs you
+ * deck, MMR-721): which card's preview is open, whether it is the phone's
+ * modal sheet, and a way to close it, as a desktop page turn does.
+ */
+export function useFeedPreviewControl(): Pick<FeedPreviewState, 'openKey' | 'modal' | 'close'> {
+  const state = useContext(FeedPreviewContext);
+  if (state === null) {
+    throw new Error('A paged block reads its preview, so it sits inside a FeedPreview.');
+  }
+  return { close: state.close, modal: state.modal, openKey: state.openKey };
 }
 
 /** The roles of a control; a press on any other role (a chart's `img`) is on empty space. */
@@ -123,9 +141,12 @@ function usable(element: HTMLElement | null): element is HTMLElement {
  */
 export function FeedPreview({
   preview,
+  fallbackFocus,
   children,
 }: {
   preview: (key: string) => Preview | undefined;
+  /** Where focus goes when the panel closes and the card that opened it has left (MMR-721). */
+  fallbackFocus?: () => HTMLElement | null;
   children: ReactNode;
 }) {
   const [selected, setSelected] = useState<Selection | null>(null);
@@ -202,9 +223,10 @@ export function FeedPreview({
     setSelected((current) => (current?.card === card && current.key === key ? null : current));
   }, []);
 
+  const openKey = open ? selected.key : null;
   const state = useMemo(
-    () => ({ release, selected: selected?.card ?? null, toggle }),
-    [release, selected, toggle],
+    () => ({ close, modal: !desktop, openKey, release, selected: selected?.card ?? null, toggle }),
+    [close, desktop, openKey, release, selected, toggle],
   );
 
   // A reflow (two columns becoming one beside the panel) can move the card.
@@ -280,7 +302,10 @@ export function FeedPreview({
           if (usable(handedTo.current)) {
             return handedTo.current;
           }
-          return usable(opener.current) ? opener.current : null;
+          if (usable(opener.current)) {
+            return opener.current;
+          }
+          return fallbackFocus?.() ?? null;
         }}
         tabBack={() => (usable(opener.current) ? opener.current : null)}
         tabOn={(panel) =>
