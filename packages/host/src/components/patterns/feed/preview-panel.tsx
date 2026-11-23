@@ -44,8 +44,16 @@ export type Preview = {
   text?: ReactNode;
   facts?: readonly PreviewFact[];
   open: FeedLink;
+  /** The ID Open leads to when the header names no record (a delivery's bundle), for Open's name. */
+  openId?: string;
   action?: PreviewAction;
 };
+
+/** Open's accessible name: "Open" and the ID it leads to, the record's own or the bundle's destination. */
+function openName({ id, openId }: Preview): string | undefined {
+  const target = id ?? openId;
+  return target === undefined ? undefined : `Open ${target}`;
+}
 
 /** A relation in a fact (a parent, a dependency, a bundle's task): plain text, its ID then its title. */
 export function PreviewRelation({ id, title }: { id: string; title: string }) {
@@ -349,7 +357,7 @@ function PreviewContent({
       >
         <Link
           {...preview.open}
-          aria-label={preview.id === undefined ? undefined : `Open ${preview.id}`}
+          aria-label={openName(preview)}
           className={cn(
             actionButtonVariants({ size: 'form', variant: 'formOutline' }),
             FOOTER_BUTTON,

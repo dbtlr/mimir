@@ -489,7 +489,42 @@ describe('preview panel: tab order through a disclosure', () => {
   });
 });
 
+/** A delivery's bundle and a project's, whose headers name no record. */
+const BUNDLES: Record<string, Preview> = {
+  'loom-cli': {
+    lead: <span>Decisions</span>,
+    open: nodeLink('LM'),
+    reason: 'This project has 2 provisional decisions.',
+    title: 'Loom CLI',
+  },
+  'web-push': {
+    lead: <span>Decisions</span>,
+    open: nodeLink('MMR-706'),
+    openId: 'MMR-706',
+    reason: 'This delivery has 12 provisional decisions.',
+    title: 'Web Push notifications',
+  },
+};
+
 describe('preview panel footer', () => {
+  it('names Open by where it leads when the header names no record: a delivery’s ID, else nothing more', async () => {
+    stubViewport('desktop');
+    await renderInRouter(
+      <FeedPreview preview={(key) => BUNDLES[key]}>
+        <FeedCard
+          previewKey="web-push"
+          lead={<span>Decisions</span>}
+          title="Web Push notifications"
+        />
+        <FeedCard previewKey="loom-cli" lead={<span>Decisions</span>} title="Loom CLI" />
+      </FeedPreview>,
+    );
+    await userEvent.click(card('Web Push notifications'));
+    expect(within(panel()).getByRole('link', { name: 'Open MMR-706' })).toBeVisible();
+    await userEvent.click(card('Loom CLI'));
+    expect(within(panel()).getByRole('link', { name: 'Open' })).toBeVisible();
+  });
+
   it('is Open, always an outline, then the card’s action as the one solid button', async () => {
     await renderFeed();
     await userEvent.click(card('Keep run logs and make them readable'));
