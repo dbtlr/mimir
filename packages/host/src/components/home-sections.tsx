@@ -1,3 +1,5 @@
+import { useRef } from 'react';
+
 import type { ReviewReport } from '../api/view-queries';
 import { minuteRows, nowCount, nowShown } from '../lib/home';
 import type { ShippedWeek } from '../lib/home';
@@ -78,6 +80,7 @@ function nowPreview(row: NowRow, project: string | undefined): Preview {
  */
 export function NowSection({ report }: { report: ReviewReport }) {
   const desktop = useMediaQuery(DESKTOP);
+  const body = useRef<HTMLDivElement>(null);
   const rows = report.now;
   if (rows.length === 0) {
     return null;
@@ -88,25 +91,31 @@ export function NowSection({ report }: { report: ReviewReport }) {
   return (
     <FeedSection title="Now" count={nowCount(rows.length, { desktop })}>
       <FeedPreview
+        // When a refetch or a narrower cap drops the card that opened the preview, focus a shown card.
+        fallbackFocus={() =>
+          body.current?.querySelector<HTMLElement>('[data-slot="feed-card-target"]') ?? null
+        }
         preview={(key) => {
           const row = byId.get(key);
           return row === undefined ? undefined : nowPreview(row, names.get(row.project));
         }}
       >
-        <CardGrid>
-          {shown.map((row) => (
-            <FeedCard
-              key={row.task.id}
-              previewKey={row.task.id}
-              lead={<StatusBadge status={row.task.status} />}
-              id={row.task.id}
-              project={names.get(row.project)}
-              age={relativeTime(since(row))}
-              title={row.task.title}
-              cold={row.stale}
-            />
-          ))}
-        </CardGrid>
+        <div ref={body}>
+          <CardGrid>
+            {shown.map((row) => (
+              <FeedCard
+                key={row.task.id}
+                previewKey={row.task.id}
+                lead={<StatusBadge status={row.task.status} />}
+                id={row.task.id}
+                project={names.get(row.project)}
+                age={relativeTime(since(row))}
+                title={row.task.title}
+                cold={row.stale}
+              />
+            ))}
+          </CardGrid>
+        </div>
       </FeedPreview>
     </FeedSection>
   );

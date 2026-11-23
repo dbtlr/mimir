@@ -248,6 +248,20 @@ describe('Home at / (ADR 0013, MMR-722 refinement)', () => {
     await waitFor(() => expect(nowCards()).toContain(document.activeElement));
   });
 
+  it('hands focus to a shown Now card when narrowing past 768 drops the preview’s opener', async () => {
+    const { resize } = await openHome(busy(), 1280);
+    const sixth = nowCards()[5]!;
+    await userEvent.click(sixth);
+    await screen.findByRole('dialog');
+    act(() => {
+      resize(767);
+    });
+    expect(sixth).not.toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(nowCards()).toContain(document.activeElement));
+  });
+
   it('counts Now plainly when every card shows', async () => {
     await openHome(busy({ now: NINE.slice(0, 3) }));
 
