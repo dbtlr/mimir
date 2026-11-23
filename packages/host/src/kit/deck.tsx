@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { GroomingBadge } from '../components/grooming-chip';
@@ -25,8 +25,8 @@ type Sample = { card: DeckCard; preview: Omit<Preview, 'action'> };
 /** A sample card under a key, its own by default; the 120 cards' clones take a generated one. */
 type MakeSample = (key?: string) => Sample;
 
-/** The write the deck last started, until a control settles it. */
-type Held = { key: string; write: DeckWrite } | null;
+/** A write the deck started on the card with `key`, until a control settles it. */
+type Held = { key: string; write: DeckWrite };
 
 function stopped(
   id: string,
@@ -226,8 +226,19 @@ function Control({ children, onClick }: { children: ReactNode; onClick: () => vo
 
 /** The deck and its controls, also the Chromium harness's page (e2e/feed-deck.test.ts). */
 export function DeckDemo({ initial = 10 }: { initial?: number }) {
-  const [held, setHeld] = useState<Held>(null);
-  const all = samples(setHeld);
+  // Every write in flight by its card's key: the deck lets several run at once.
+  const [held, setHeld] = useState<ReadonlyMap<string, DeckWrite>>(() => new Map());
+  const hold = ({ key, write }: Held) => {
+    setHeld((current) => new Map(current).set(key, write));
+  };
+  const release = (key: string) => {
+    setHeld((current) => {
+      const next = new Map(current);
+      next.delete(key);
+      return next;
+    });
+  };
+  const all = samples(hold);
   const [shown, setShown] = useState(() => sized(all, initial).map((sample) => sample.card.key));
   const [offline, setOffline] = useState(false);
   const byKey = new Map(sized(all, 120).map((sample) => [sample.card.key, sample]));
@@ -251,27 +262,27 @@ export function DeckDemo({ initial = 10 }: { initial?: number }) {
         <Control onClick={() => setOffline((value) => !value)}>
           {offline ? 'Go online' : 'Go offline'}
         </Control>
-        {held !== null && (
-          <>
+        {[...held].map(([key, write]) => (
+          <Fragment key={key}>
             <Control
               onClick={() => {
-                held.write.landed();
-                setShown((keys) => keys.filter((key) => key !== held.key));
-                setHeld(null);
+                write.landed();
+                setShown((keys) => keys.filter((shownKey) => shownKey !== key));
+                release(key);
               }}
             >
-              Land {held.key}’s write
+              Land {key}’s write
             </Control>
             <Control
               onClick={() => {
-                held.write.refused();
-                setHeld(null);
+                write.refused();
+                release(key);
               }}
             >
-              Refuse {held.key}’s write
+              Refuse {key}’s write
             </Control>
-          </>
-        )}
+          </Fragment>
+        ))}
       </div>
       <FeedDeck
         title="Needs you"

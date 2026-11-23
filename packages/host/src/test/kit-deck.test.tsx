@@ -30,4 +30,17 @@ describe('the kit deck demo', () => {
     expect(deckCard('FLT-d2#10')).toBeNull();
     expect(deckCard('FLT-d2')).not.toBeNull();
   });
+
+  it('holds two writes at once and settles each by its own control', async () => {
+    stubViewport('desktop');
+    await renderInRouter(<DeckDemo />);
+    await userEvent.click(clearStop('FLT-d2'));
+    await userEvent.click(clearStop('MMR-d9'));
+    await userEvent.click(screen.getByRole('button', { name: 'Land FLT-d2’s write' }));
+    expect(deckCard('FLT-d2')).toBeNull();
+    // The other write is still held, and its Refuse settles it.
+    await userEvent.click(screen.getByRole('button', { name: 'Refuse MMR-d9’s write' }));
+    expect(clearStop('MMR-d9')).not.toHaveAttribute('aria-disabled');
+    expect(screen.queryByRole('button', { name: /’s write$/u })).toBeNull();
+  });
 });
