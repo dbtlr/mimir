@@ -34,9 +34,22 @@ export function useDrawerSide(): 'bottom' | 'right' {
   return useMediaQuery(DRAWER_DESKTOP_QUERY) ? 'right' : 'bottom';
 }
 
-export function Drawer({ side, ...props }: ComponentProps<typeof SdkDrawer>) {
+type DrawerDriver = NonNullable<ComponentProps<typeof SdkDrawer>['driver']>;
+
+/**
+ * How a Drawer moves. On a touch screen UI SDK's `auto` picks the scroll-snap
+ * driver for a bottom sheet, and that driver slides even under reduced motion,
+ * so reduced motion takes the pointer driver, which opens in place (ADR 0019 §8).
+ */
+export function useDrawerDriver(driver?: DrawerDriver): DrawerDriver {
+  const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+  return driver ?? (reducedMotion ? 'pointer' : 'auto');
+}
+
+export function Drawer({ side, driver, ...props }: ComponentProps<typeof SdkDrawer>) {
   const responsiveSide = useDrawerSide();
-  return <SdkDrawer side={side ?? responsiveSide} {...props} />;
+  const responsiveDriver = useDrawerDriver(driver);
+  return <SdkDrawer side={side ?? responsiveSide} driver={responsiveDriver} {...props} />;
 }
 
 export function DrawerBackdrop({ className, ...props }: ComponentProps<typeof SdkDrawerBackdrop>) {

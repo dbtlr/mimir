@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { useDrawerSide } from '../components/ui/drawer';
+import { useDrawerDriver, useDrawerSide } from '../components/ui/drawer';
 
 type Listener = () => void;
 
@@ -40,5 +40,22 @@ describe('useDrawerSide', () => {
     const { result } = renderHook(() => useDrawerSide());
     act(() => setDesktop(true));
     expect(result.current).toBe('right');
+  });
+});
+
+describe('useDrawerDriver', () => {
+  it('lets UI SDK choose the driver when motion is allowed', () => {
+    mockViewport(false);
+    expect(renderHook(() => useDrawerDriver()).result.current).toBe('auto');
+  });
+
+  it('drags with the pointer driver under reduced motion, since scroll-snap slides regardless', () => {
+    mockViewport(true);
+    expect(renderHook(() => useDrawerDriver()).result.current).toBe('pointer');
+  });
+
+  it("keeps a caller's own driver", () => {
+    mockViewport(true);
+    expect(renderHook(() => useDrawerDriver('scroll-snap')).result.current).toBe('scroll-snap');
   });
 });

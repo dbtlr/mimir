@@ -3,7 +3,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode, RefObject } from 'react';
 
 import { cn } from '../../../lib/cn';
-import { useMediaQuery } from '../../../lib/use-media-query';
 import { ActionButton, actionButtonVariants } from '../../ui/action-button';
 import { Drawer, DrawerBackdrop, DrawerContent, DrawerTitle, useDrawerSide } from '../../ui/drawer';
 import { CloseIcon } from '../../ui/icons';
@@ -109,7 +108,6 @@ export function PreviewPanel({
   onClosed,
 }: PreviewPanelProps) {
   const desktop = useDrawerSide() === 'right';
-  const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
   const title = useRef<HTMLHeadingElement>(null);
 
   useTabFromOutside({ active: open && desktop && preview !== undefined, tabBack, tabOn, title });
@@ -140,8 +138,6 @@ export function PreviewPanel({
     <Drawer
       open={open && preview !== undefined}
       modal={!desktop}
-      // On a touch screen `auto` picks the scroll-snap driver, which slides even under reduced motion.
-      driver={reducedMotion ? 'pointer' : 'auto'}
       onOpenChange={(next) => {
         if (!next) {
           onClose();
