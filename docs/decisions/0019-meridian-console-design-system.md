@@ -1841,8 +1841,10 @@ higher ones. The preview carries the card's one solid action (MMR-720).
   detail, button, and preview follow the
   delivery's bundle; the button's accessible name reads "Review 4 decisions
   without a delivery in MMR"; the preview's reason is "This project has N
-  provisional decisions without a delivery."; and Open goes to the project's
-  page, named "Open", as DESIGN.md gives it.
+  provisional decisions without a delivery."; its only fact is Tasks, left
+  out when the bundle links no tasks, and it has no Phase fact; and Open
+  goes to the project's page, named "Open MMR", the name `openName` in
+  `preview-panel.tsx` derives from the key the header shows.
 - **A stopped delivery** leads with an attention dot and _Stopped_, set as a
   status word, then its ID and the project's name, and the age of its
   `updated_at`. Its detail is its stop reason, two lines at most. Its
@@ -1894,9 +1896,8 @@ applies to each decision's tasks.
 - **A delivery's bundle:** its title comes from the new field. Without an
   entry, the title reads "Decisions on FLT-d2" and the Phase fact is left
   out. The detail's count and the Tasks fact come from the new field's
-  tasks for the bundle. The Tasks fact lists them by ID: no read the deck
-  uses supplies a task's title today, so a title follows an ID only once
-  one does. The age is the first decision's `created_at`.
+  tasks for the bundle. The Tasks fact lists them by ID alone. The age is
+  the first decision's `created_at`.
 - **A stopped delivery:** its title, stop reason (`hold_reason`), project,
   and `updated_at` come from its own needs-you row (`kind: 'delivery'`);
   that row carries the phase's ID only, and the phase's title comes from
@@ -1905,12 +1906,13 @@ applies to each decision's tasks.
 - **A task:** its `NodeView`; the question is the row's `question`, and the
   block reason is the task's `holdReason`. Either one missing leaves the
   detail line out.
-- **Not shown:** the reviewed mock's Time fact ("4h 02m of a 4h cap") and a
-  stopped delivery's task in flight. The delivery page's dossier
-  (`deliveryPage`) carries both, as `elapsed_minutes`, `time_cap_minutes`,
-  and its `now` rows, but the review report the deck reads omits them, and
-  the deck does not fetch a dossier for each delivery. The preview omits
-  both until the review report carries them.
+- **Not shown:** the reviewed mock's Time fact ("4h 02m of a 4h cap") and
+  its In flight fact, a stopped delivery's task in flight. The delivery
+  page's dossier (`deliveryPage`) carries the time as `elapsed_minutes` and
+  `time_cap_minutes`, which the review report omits, and the deck does not
+  fetch a dossier for each delivery. The review report's `now` rows carry
+  in-flight tasks as `NodeView`s with their titles, but the deck does not
+  read them: it shows linked tasks by ID and omits In flight.
 
 ### The phone deck
 
@@ -1929,9 +1931,9 @@ Below 768 the deck shows one card at a time.
 - **Swipe** turns the deck: the card follows the finger, the position
   changes once the card passes halfway, and the deck rests on one card, at
   most one card per swipe. A mostly vertical gesture scrolls the page.
-- **A swipe or a tap on the peek moves focus with the turn.** Focus held in
-  the old card moves to the new card's target, as an arrow key moves it,
-  so focus never stays on a card that is off screen or `aria-hidden`.
+- **A swipe or a tap on the peek moves focus with the turn,** as every turn
+  does (The deck's state), so focus never stays on a card that is off
+  screen or `aria-hidden`.
 - **The pager** sits centred under the deck: a Previous arrow, the position
   "1 of 10", and a Next arrow. The arrows are named "Previous card" and
   "Next card". At an end, the arrow is disabled but keeps focus
@@ -1968,8 +1970,8 @@ is one column, as beside an open preview panel from 768 to 1091.
   one column), so a short last page keeps its height and the section below
   never moves between pages. A deck of one page draws only its own rows.
 - **Arrow keys.** With focus in the deck, Left and Right turn one page.
-  Focus on a card moves to the first card of the new page; focus on an arrow
-  stays there. Each card is a group named by its position ("5 of 10"), and
+  Focus on a card moves to the first card's target on the new page; focus
+  on an arrow stays there. Each card is a group named by its position ("5 of 10"), and
   a page turn announces the new range once ("5–8 of 10"). A page turns at
   once, without a slide.
 - A deck of four cards or fewer shows no range or arrows.
@@ -2004,8 +2006,13 @@ that moves focus into the deck first brings its card into view.
   its neighbours; the shown page's first card becomes current. A change of
   page the operator did not make, by an anchored card moving to another
   page or by the clamp, announces the new range as a page turn does.
-- **Crossing 768 keeps the current card.** Desktop shows the page that
-  holds it, and the phone shows that card.
+- **Focus outranks the preview as an anchor.** When focus is on one card
+  while another card's preview is open, the focused card is current and
+  desktop shows the page that holds it. The open preview closes if its card
+  is no longer on the shown page, and focus stays on the focused card.
+- **Crossing 768 never changes the current card,** anchored or not: a
+  crossing is neither a turn nor a leave. Desktop shows the page that holds
+  the current card, and the phone shows that card.
 
 **Cards that leave or arrive**
 
@@ -2018,9 +2025,17 @@ that moves focus into the deck first brings its card into view.
 - **When the current card leaves, its successor becomes current:** the
   nearest card after it in the old order that is still in the deck, or,
   with none after it, the nearest card before it. The phone shows the
-  successor in the same place, or moves back one. On desktop an anchored
-  deck shows the page that holds the successor; an unanchored one keeps
-  its page number, so a last page left empty turns back one.
+  successor in the same place, or moves back one. On desktop the successor
+  rule applies only to an anchored deck, which shows the page that holds
+  the successor.
+- **An unanchored desktop deck keeps its page.** When a refetch changes
+  the shown page's cards with no card focused and no preview open, only the rule that keeps the page number applies: the page is
+  clamped and refilled, its first card becomes current, and a last page
+  left empty turns back one.
+- **When no old card survives a refetch but cards remain,** the new card at
+  the old current card's former index, clamped to the new last card,
+  becomes current, and focus that was in the deck moves to its target. The
+  quiet line comes only when no card remains.
 - **A card that leaves while it holds no focus moves no focus.** When
   _Clear stop_ on card 2 succeeds after the operator moved on to card 5,
   the phone keeps showing card 5 and focus stays where it is. On desktop,
@@ -2035,15 +2050,24 @@ that moves focus into the deck first brings its card into view.
   stretched target that opens its preview, never its button, so a key held
   down writes nothing, as the MMR-695 refinement keeps focus off committing
   chips.
+- **Every turn moves focus held in the outgoing card.** A turn by any
+  means, a key, a swipe, a tap on the peek, or a pointer click on a pager
+  arrow (which Safari does not focus), moves focus held in the outgoing
+  card to the incoming card's target; on desktop that is the target of the
+  new page's first card. A desktop page turn also closes the open preview
+  (The preview follows its card), and focus that was in it moves the same
+  way.
 - **A deck control that unmounts hands focus on.** A pager control that
   holds focus keeps it while it survives, as an arrow at an end does. A
   pager unmounts when the deck drops to one card on the phone or four on
   desktop, and when the viewport crosses 768, which swaps the phone's pager
   for the head's; focus on it then moves to the current card's target.
 - **With no card left, focus goes to the quiet line.** Whenever an update
-  removes the focused deck control and no card remains, the quiet line
-  "Nothing needs you." takes the section's place (MMR-719) and takes focus,
-  made focusable for it.
+  removes the element holding focus in the deck, in its preview, or in a
+  dialog opened from it, and no card remains, the quiet line "Nothing needs
+  you." takes the section's place (MMR-719) and takes focus, made focusable
+  for it. So when the last card's _Clear stop_ succeeds from its preview's
+  footer, focus goes to the quiet line.
 - **Focus never falls to the page body,** and never stays on a card that is
   off screen, on another page, peeking, or `aria-hidden`. Anything that
   moves focus into the deck turns the deck to that card first, at once:
@@ -2056,8 +2080,8 @@ that moves focus into the deck first brings its card into view.
   its card current, so the shown page follows it. When the previewed card
   leaves, the preview closes and focus follows the rules above rather than
   returning to the card. On desktop a page turn closes the open preview;
-  focus stays on the arrow that turned the page, or for a key follows the
-  key rule. On the phone the preview's bottom sheet is modal: the deck
+  focus stays on an arrow that took it, and otherwise follows the turn
+  rule above. On the phone the preview's bottom sheet is modal: the deck
   takes no swipe or key until the sheet is dismissed.
 - **A write in flight** marks that card's button and its preview's footer
   action, which are one write, `aria-disabled` rather than natively
@@ -2075,9 +2099,13 @@ that moves focus into the deck first brings its card into view.
   becomes the task's latest question. So the card leaves only when the
   refreshed set drops it; otherwise it stays and its question updates in
   place. The dialog closes once the refetched records render, and focus is
-  resolved after it closes: to the control that opened it when the card
-  survives, else to the successor's target, else to the quiet line. A
-  refused answer keeps the dialog open with its draft.
+  resolved after it closes. While the card survives, focus goes to the
+  card's own _Answer…_ button from either entry point: the MMR-720 preview
+  closes when its footer action runs and hands the card's button on as the
+  opener. When that button no longer exists, as when the task was blocked
+  meanwhile, focus goes to the card's stretched target. When the card is
+  gone, the rules for a card that left apply. A refused answer keeps the
+  dialog open with its draft.
 
 **A walkthrough's return**
 
@@ -2097,9 +2125,15 @@ that moves focus into the deck first brings its card into view.
 
 **Offline** disables both of a card's write entry points, its button and
 its preview's footer action, for _Clear stop_ and _Answer…_ on every card
-(ADR 0013 §5). _Review N decisions_ stays live: it opens the walkthrough,
-which is navigation, not a write, and the walkthrough's own writes follow
-ADR 0013 there.
+(ADR 0013 §5). They are `aria-disabled`, still focusable and doing nothing,
+as a write in flight marks them, and never natively disabled, so focus on
+one survives going offline. _Review N decisions_ stays live: it opens the
+walkthrough, which is navigation, not a write, and the walkthrough's own
+writes follow ADR 0013 there. An answer dialog already open when the
+connection drops keeps its draft, and its _Answer_ commit is
+`aria-disabled` and guarded while offline, so nothing queues for
+reconnect. `GroomingAnswerDialog` has no such guard today; adding it is a
+change to `components/grooming-answer-dialog.tsx` in this task.
 
 ### Edges
 
@@ -2124,6 +2158,10 @@ then settles on one card. When a card leaves, the phone's successor slides
 into its place as a turn does. Under `prefers-reduced-motion`, a turn from
 an arrow, a key, or a tap happens at once; a swipe may still track the
 finger, but its settle and the reflow after a card leaves happen at once.
+The deck then moves by UI SDK's pointer driver, as the phone preview sheet
+does (DESIGN.md, Preview panel), because a native scroll-snap settle
+slides even under reduced motion. UI SDK offers that driver choice on
+`Drawer`; its `Carousel` pages by native scrolling and offers none.
 The desktop deck never slides: a page turn, and a page refilling after a
 card leaves, happen at once, so they add no motion.
 
