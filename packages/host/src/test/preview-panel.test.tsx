@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -59,8 +59,11 @@ const PREVIEWS: Record<string, Preview> = {
   },
 };
 
-/** The sample feed; `gone` is a record that has left it, whose card has no preview any more. */
-function Feed({ gone }: { gone?: string }) {
+/**
+ * The sample feed; `gone` is a record that has left it, whose card has no
+ * preview any more, and `last` leaves no control after it on the page.
+ */
+function Feed({ gone, last = false }: { gone?: string; last?: boolean }) {
   return (
     <>
       <button type="button">Before the feed</button>
@@ -98,7 +101,7 @@ function Feed({ gone }: { gone?: string }) {
           Folded away
         </button>
       </FeedPreview>
-      <button type="button">After the feed</button>
+      {!last && <button type="button">After the feed</button>}
     </>
   );
 }
@@ -175,11 +178,11 @@ function stubResizeObserver() {
   };
 }
 
-async function renderFeed(viewport: Viewport = 'desktop') {
+async function renderFeed(viewport: Viewport = 'desktop', ui = <Feed />) {
   stubViewport(viewport);
   answered.mockClear();
   handedOn.mockClear();
-  const rendered = await renderInRouter(<Feed />);
+  const rendered = await renderInRouter(ui);
   // jsdom lays nothing out, so a hidden control is shown to `checkVisibility` unless told.
   for (const hidden of document.querySelectorAll<HTMLElement>('[hidden]')) {
     Object.defineProperty(hidden, 'checkVisibility', { configurable: true, value: () => false });
@@ -458,6 +461,23 @@ describe('preview panel: tab order from outside on desktop', () => {
     screen.getByRole('button', { name: 'After the feed' }).focus();
     await userEvent.tab({ shift: true });
     expect(card('Mobile top bar')).toHaveFocus();
+  });
+
+  it('Tab from the page’s last control sets the panel inert for that key alone, so focus leaves the page', async () => {
+    await renderFeed('desktop', <Feed last />);
+    await userEvent.click(card('Keep run logs and make them readable'));
+    card('Mobile top bar').focus();
+    const inertDuringKey: boolean[] = [];
+    const record = () => {
+      inertDuringKey.push(panel().inert);
+    };
+    globalThis.addEventListener('keydown', record);
+    await userEvent.tab();
+    globalThis.removeEventListener('keydown', record);
+    expect(inertDuringKey).toEqual([true]);
+    await waitFor(() => {
+      expect(panel().inert).toBe(false);
+    });
   });
 
   it('Tab from the last button of the last card’s panel skips the panel, a closed region, and a hidden control', async () => {
