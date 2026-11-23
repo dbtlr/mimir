@@ -131,6 +131,11 @@ const DAYS = [
   },
 ];
 
+/** A kit action: it hands focus on to the card's own button, where a real surface's opener would be. */
+const handOn = (cardButton: HTMLElement | null) => {
+  cardButton?.focus();
+};
+
 /** A short preview for each card in the blocks' showcase; the Preview panel section has the full ones. */
 function feedPreview(key: string): Preview | undefined {
   const card = FEED_CARDS[key];
@@ -139,12 +144,14 @@ function feedPreview(key: string): Preview | undefined {
 
 const FEED_CARDS: Record<string, Omit<Preview, 'open'>> = {
   'HUGI-15': {
+    action: { label: 'Answer', name: 'Answer HUGI-15', onAction: handOn },
     id: 'HUGI-15',
     lead: <StatusBadge status="ready" />,
     reason: 'Needs an answer before it can start.',
     title: 'Keep run logs and make them readable',
   },
   'I18N-1': {
+    action: { label: 'Review 123 decisions', onAction: handOn },
     lead: <DecisionsLead project="Internationalization infrastructure modernization" />,
     reason: 'This project has 123 provisional decisions without a delivery.',
     title: 'InternationalizationInfrastructureMigrationPlanForEveryLocale',
@@ -156,6 +163,7 @@ const FEED_CARDS: Record<string, Omit<Preview, 'open'>> = {
     title: 'Reuse the command graph between runs',
   },
   'MMR-706': {
+    action: { label: 'Review 12 decisions', onAction: handOn },
     lead: <DecisionsLead project="Mimir" />,
     reason: 'This delivery has 12 provisional decisions.',
     title: 'Web Push notifications',
