@@ -5,7 +5,7 @@ import { deliveryPage, phaseDeliveries, nodeWork, projectWork, review } from './
 import { browserTimeZone } from './queries';
 
 /*
- * The composite page reads: the review page and the work pages. Each goes
+ * The composite page reads: Home's review report and the work pages. Each goes
  * through its server function and answers the Engine's own output, with `Date`
  * instants.
  */
@@ -18,7 +18,7 @@ import { browserTimeZone } from './queries';
  */
 export const VIEW_CACHE_VERSION = 7;
 
-/** The review page's report, as the Engine returns it. */
+/** Home's review report, as the Engine returns it. */
 export type ReviewReport = ConsoleOutput<'review'>;
 
 /** A work page's report, as the Engine returns it. */
@@ -91,11 +91,11 @@ export type WaitingTask = WorkReport['frontier']['waitingOnOthers'][number];
 /** One task that finished inside the shipped window. */
 export type ShippedTask = WorkReport['shipped'][number];
 
-/** One untriaged seed the review page lists. */
+/** One untriaged seed the review report lists. */
 export type TriageSeed = ReviewReport['triage'][number]['seeds'][number];
 
 /**
- * The review page (MMR-477): what needs the operator across every active
+ * Home's review report (MMR-477): what needs the operator across every active
  * project, plus the project list. Its own key root, listed in the write keys,
  * so every write refreshes it; the top-bar alert reads the same entry. The
  * Engine requires the zone (it places the Shipped days), so the browser's zone

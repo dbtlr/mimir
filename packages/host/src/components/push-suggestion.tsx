@@ -8,7 +8,7 @@ import { usePushControl } from '../lib/use-push-control';
 import { ConfirmCard } from './ui/confirm-card';
 
 /*
- * The review page's one-time card suggesting notifications (ADR 0045,
+ * Home's one-time card suggesting notifications (ADR 0045,
  * MMR-734). It shows only when Turn on would work right away from a tap, and
  * Turn on or Not now retires it in this browser for good. Settings ›
  * Notifications stays the place for every other state.

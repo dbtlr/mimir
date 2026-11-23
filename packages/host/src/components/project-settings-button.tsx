@@ -14,7 +14,7 @@ export type { ProjectFormValues } from './project-form';
  * project form (MMR-743) to rename the project, edit its description, and, in
  * its Lifecycle group (20b / MMR-230), archive it. Archiving carries no
  * confirm: the Notice's Undo is the safety (ADR 0015), and since the archived
- * project 404s, the form closes and navigation returns to the review page.
+ * project 404s, the form closes and navigation returns to Home.
  */
 export function ProjectSettingsButton({
   project,

@@ -33,7 +33,7 @@ beforeEach(() => {
   serveBrowse();
   vi.clearAllMocks();
   stubViewport('desktop');
-  // As in the review page's tests: the refetch renders before the mutation settles.
+  // As on Home: the refetch renders before the mutation settles.
   vi.useFakeTimers({ shouldAdvanceTime: true });
 });
 

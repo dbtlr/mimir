@@ -29,7 +29,7 @@ import type { T3CallbackReason } from './server/t3-states';
 
 /**
  * Navigation (ADR 0013 §3 and its v0.23 refinement): URLs name scopes, views,
- * and records — `/` the review page, `/p/KEY` the project's page,
+ * and records — `/` Home, `/p/KEY` the project's page,
  * `/p/KEY/tasks` (and `/seeds`, `/artifacts`) its browsers,
  * `/p/KEY/417` a work node's page, `/p/KEY/s41` a seed's page, `/p/KEY/a219`
  * an artifact's page. The board view is retired (MMR-487). Typed search params
@@ -39,11 +39,11 @@ import type { T3CallbackReason } from './server/t3-states';
 export const rootRoute = createRootRoute({ component: Shell });
 
 export type ReviewSearch = {
-  /** The review page's mode; absent = the list. Only `focus`, the focus queue, is carried. */
+  /** Home's mode; absent = the list. Only `focus`, the focus queue, is carried. */
   mode?: 'focus';
 };
 
-/** `/` — the review page; `?mode=focus` walks its needs-you set one record at a time (MMR-480). */
+/** `/` — Home; `?mode=focus` walks its needs-you set one record at a time (MMR-480). */
 export const reviewRoute = createRoute({
   component: lazyRouteComponent(
     warmable(async () => import('./routes/review')),

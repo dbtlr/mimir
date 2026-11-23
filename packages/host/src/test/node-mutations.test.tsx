@@ -79,7 +79,7 @@ describe('mutation hooks', () => {
     });
   });
 
-  it('invalidates the review page on settle', async () => {
+  it('invalidates Home on settle', async () => {
     const client = new QueryClient();
     const spy = vi.spyOn(client, 'invalidateQueries');
     const { result } = renderHook(() => useTransition('MMR-9'), { wrapper: wrapper(client) });

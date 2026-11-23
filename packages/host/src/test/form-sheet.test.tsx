@@ -80,14 +80,14 @@ const follows = (a: Element, b: Element) =>
 describe('Form sheet shapes', () => {
   it('on a phone: full screen, the close in the top bar, the commit alone in the bottom bar', async () => {
     stubViewport('phone');
-    render(<Harness note="Joins the project list on the review page." />);
+    render(<Harness note="Joins the project list in the sidebar." />);
     const sheet = await openSheet();
     expect(sheet).toHaveAttribute('data-side', 'bottom');
     expect(sheet).toHaveAttribute('data-size', 'form');
     expect(within(sheet).getByRole('button', { name: 'Close' })).toBeInTheDocument();
     expect(within(sheet).queryByRole('button', { name: 'Cancel' })).toBeNull();
     const commit = within(sheet).getByRole('button', { name: 'Create project' });
-    const note = within(sheet).getByText('Joins the project list on the review page.');
+    const note = within(sheet).getByText('Joins the project list in the sidebar.');
     // The note sits in the bottom bar, one line above the full-width commit.
     expect(follows(note, commit)).toBe(true);
     expect(note.closest('[data-slot="form-sheet-footer"]')).toBe(
@@ -121,11 +121,11 @@ describe('Form sheet shapes', () => {
 
   it('the footer note describes the commit, as what the commit leads to', async () => {
     stubViewport('desktop');
-    render(<Harness note="Joins the project list on the review page." />);
+    render(<Harness note="Joins the project list in the sidebar." />);
     const sheet = await openSheet();
     expect(
       within(sheet).getByRole('button', { name: 'Create project' }),
-    ).toHaveAccessibleDescription('Joins the project list on the review page.');
+    ).toHaveAccessibleDescription('Joins the project list in the sidebar.');
   });
 
   it('keeps the header and footer out of the body, which alone scrolls', async () => {

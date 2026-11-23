@@ -16,7 +16,7 @@ type Props =
  * A bare `/tasks`, `/seeds`, or `/artifacts` (MMR-495): the browser moved under
  * the project, so this goes to the current project's, keeping the filters. With
  * no project to name — the store has none — there is no browser to show, so it
- * goes to `/`, the review page, which is where a first project gets created.
+ * goes to `/`, Home, which is where a first project gets created.
  * It waits for the project list, so a remembered project that has since gone
  * is not followed, and while the list cannot be read it stays on the URL and
  * says so; offline, where the list never arrives, it trusts the remembered one.

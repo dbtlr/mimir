@@ -5,7 +5,7 @@ import { createServerFn } from '@tanstack/react-start';
 import { engine } from './engine';
 
 /*
- * The composite pages' server functions (MMR-538): the review page, the work
+ * The composite pages' server functions (MMR-538): Home, the work
  * pages, and the project overview. Each is one `console.*` Engine method on
  * the host's shared Engine, named after the method and validated by its
  * contract input schema through `parseEngineInput`, so a malformed input is

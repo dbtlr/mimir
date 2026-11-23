@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 /**
  * A page with nothing to show: any path the console has no page for, or a
  * record address that names no record. `projectKey` points the way back at
- * the record's project instead of the review page at `/`.
+ * the record's project instead of Home at `/`.
  */
 export function NotFoundPage({
   children = 'The console has no page at this address.',

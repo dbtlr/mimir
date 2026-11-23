@@ -7,7 +7,7 @@ import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
 import { DecisionsEntry, groupEntries, groupEntryLabel } from './decisions-entry';
 import { NeedsYouRow, needsYouActions } from './work-rows';
 
-/** A link to a project or a count in the review page's lists. */
+/** A link to a project or a count in the needs-you lists (the alert's panel). */
 export const PROJECT_LINK =
   'rounded-sm focus-visible:outline-2 focus-visible:outline-accent transition-colors';
 

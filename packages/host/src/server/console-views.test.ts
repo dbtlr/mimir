@@ -191,7 +191,7 @@ test('console.openTasks finds an old open task that newer matching records crowd
   }
 });
 
-test('the review page counts the findings the host supplies, and none without a provider', async () => {
+test('the review report counts the findings the host supplies, and none without a provider', async () => {
   const withFindings = await remote.console.review({ timeZone: 'UTC' });
   expect(withFindings.triage.find((group) => group.project.key === 'ENG')?.findings).toBe(2);
   const bare = await new LocalEngine(fixture.store).console.review({ timeZone: 'UTC' });
