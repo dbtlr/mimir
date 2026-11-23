@@ -90,3 +90,37 @@ export function reconcileCurrent({
     last
   );
 }
+
+/** A card that left and the card its dialog's return goes to instead. */
+export type KeptSuccessor = { key: string; successor: string };
+
+/**
+ * The successor a dialog's return (`restoreFocus`) may need after a refetch
+ * turns `before` into `after`. Only the card holding focus, in itself, its
+ * preview, or a dialog opened from it, can need one: when it leaves, the new
+ * `current` card is its successor. One already `kept` stays while its card
+ * is still gone and its successor still in the deck; otherwise the return
+ * follows the current card, so nothing is kept.
+ */
+export function keptSuccessor({
+  before,
+  after,
+  current,
+  holder,
+  kept,
+}: {
+  before: readonly string[];
+  after: readonly string[];
+  current: string | null;
+  holder: string | null;
+  kept: KeptSuccessor | null;
+}): KeptSuccessor | null {
+  const remaining = new Set(after);
+  if (holder !== null && current !== null && !remaining.has(holder) && before.includes(holder)) {
+    return { key: holder, successor: current };
+  }
+  if (kept !== null && !remaining.has(kept.key) && remaining.has(kept.successor)) {
+    return kept;
+  }
+  return null;
+}

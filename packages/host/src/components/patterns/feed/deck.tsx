@@ -18,7 +18,15 @@ import { SwipeTrack } from '../../ui/swipe-track';
 import { FeedCard } from './card';
 import { cardButton } from './card-button';
 import { CardGrid } from './card-grid';
-import { DECK_PAGE, deckRange, pageCount, pageOf, reconcileCurrent } from './deck-model';
+import {
+  DECK_PAGE,
+  deckRange,
+  keptSuccessor,
+  pageCount,
+  pageOf,
+  reconcileCurrent,
+} from './deck-model';
+import type { KeptSuccessor } from './deck-model';
 import { DesktopPager, PhonePager } from './deck-pager';
 import type { DeckTurn } from './deck-pager';
 import { FeedPreview, useFeedPreviewControl } from './feed-preview';
@@ -317,7 +325,8 @@ function DeckBody({
   const [focusCard, setFocusCard] = useState<string | null>(null);
   const [instant, setInstant] = useState(false);
   const [seen, setSeen] = useState({ keys, open: openCard, signature });
-  const [departed, setDeparted] = useState<Readonly<Record<string, string | null>>>({});
+  // The successor a dialog's return needs once its card has left (`restoreFocus`).
+  const [departed, setDeparted] = useState<KeptSuccessor | null>(null);
   const [announcement, setAnnouncement] = useState({ count: 0, text: '' });
   const announce = (text: string) => {
     setAnnouncement((last) => ({ count: last.count + 1, text }));
@@ -327,12 +336,9 @@ function DeckBody({
   if (seen.signature !== signature) {
     const anchor = focusCard ?? (desktop ? seen.open : null);
     const next = reconcileCurrent({ after: keys, anchor, before: seen.keys, current, desktop });
-    const left = seen.keys.filter((key) => !keys.includes(key));
-    // A card that came back has no successor; one that left takes the new current card.
-    setDeparted((before) => ({
-      ...Object.fromEntries(Object.entries(before).filter(([key]) => !keys.includes(key))),
-      ...Object.fromEntries(left.map((key) => [key, next])),
-    }));
+    setDeparted((kept) =>
+      keptSuccessor({ after: keys, before: seen.keys, current: next, holder: focusCard, kept }),
+    );
     setSeen({ keys, open: openCard, signature });
     setCurrent(next);
     setInstant(false);
@@ -528,14 +534,12 @@ function DeckBody({
 
   useImperativeHandle(handle, () => ({
     restoreFocus: (key: string) => {
-      // A successor that left in a later refetch gives way to the current card.
-      const successor = departed[key];
-      const live = successor !== undefined && successor !== null && keys.includes(successor);
-      // A successor serves one return.
-      if (Object.hasOwn(departed, key)) {
-        setDeparted(({ [key]: _spent, ...rest }) => rest);
+      // A kept successor is still in the deck; it serves one return.
+      const successor = departed?.key === key ? departed.successor : null;
+      if (successor !== null) {
+        setDeparted(null);
       }
-      const fallback = live ? successor : current;
+      const fallback = successor ?? current;
       const to = keys.includes(key) ? key : fallback;
       if (to === null || !keys.includes(to)) {
         quietLine.current?.focus();

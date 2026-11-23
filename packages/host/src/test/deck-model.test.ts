@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { deckRange, pageCount, reconcileCurrent } from '../components/patterns/feed/deck-model';
+import {
+  deckRange,
+  keptSuccessor,
+  pageCount,
+  reconcileCurrent,
+} from '../components/patterns/feed/deck-model';
 
 /*
  * The Needs you deck's current card through a refetch (ADR 0019, MMR-721
@@ -122,6 +127,82 @@ describe('the current card through a refetch', () => {
         desktop: true,
       }),
     ).toBe('e');
+  });
+});
+
+describe('the successor kept for a dialog’s return', () => {
+  it('keeps the new current card for the card holding focus when it leaves', () => {
+    expect(
+      keptSuccessor({
+        after: ['a', 'c'],
+        before: ['a', 'b', 'c'],
+        current: 'c',
+        holder: 'b',
+        kept: null,
+      }),
+    ).toStrictEqual({ key: 'b', successor: 'c' });
+  });
+
+  it('keeps none for a card that leaves while it holds no focus', () => {
+    expect(
+      keptSuccessor({
+        after: ['a', 'c'],
+        before: ['a', 'b', 'c'],
+        current: 'c',
+        holder: 'a',
+        kept: null,
+      }),
+    ).toBeNull();
+    expect(
+      keptSuccessor({
+        after: ['a', 'c'],
+        before: ['a', 'b', 'c'],
+        current: 'c',
+        holder: null,
+        kept: null,
+      }),
+    ).toBeNull();
+  });
+
+  it('keeps none when no card remains to succeed it', () => {
+    expect(
+      keptSuccessor({ after: [], before: ['a'], current: null, holder: 'a', kept: null }),
+    ).toBeNull();
+  });
+
+  it('keeps a successor through a later refetch while its successor stays', () => {
+    const kept = { key: 'b', successor: 'c' };
+    expect(
+      keptSuccessor({
+        after: ['c', 'd'],
+        before: ['a', 'c', 'd'],
+        current: 'c',
+        holder: 'b',
+        kept,
+      }),
+    ).toBe(kept);
+  });
+
+  it('drops a successor that left, or whose card came back', () => {
+    const kept = { key: 'b', successor: 'c' };
+    expect(
+      keptSuccessor({
+        after: ['a', 'd'],
+        before: ['a', 'c', 'd'],
+        current: 'd',
+        holder: 'b',
+        kept,
+      }),
+    ).toBeNull();
+    expect(
+      keptSuccessor({
+        after: ['a', 'b', 'c'],
+        before: ['a', 'c'],
+        current: 'c',
+        holder: 'b',
+        kept,
+      }),
+    ).toBeNull();
   });
 });
 
