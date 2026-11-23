@@ -1,5 +1,5 @@
 import { useRouter, useRouterState } from '@tanstack/react-router';
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import { focusMain } from './focus-main';
 
@@ -88,8 +88,43 @@ export function useBackToOpener(): (mark: Mark) => void {
   };
 }
 
-/** Focus the control named `entry` when it is on the page, else the page's main region. */
+/**
+ * Takes focus back for a named control the document query cannot reach, as
+ * the Needs you deck does for a bundle on another page or behind the peek
+ * (ADR 0019, MMR-721 refinement: A walkthrough's return). Answers whether it
+ * placed focus; `false` moves nothing.
+ */
+export type ReturnTargetResolver = (entry: string) => boolean;
+
+/** The surfaces on the page that resolve a return before the document is queried. */
+const resolvers = new Set<{ current: ReturnTargetResolver }>();
+
+/**
+ * Registers a surface's resolver while it is mounted. It registers in a
+ * layout effect, so a page that shows with the opener is registered before
+ * the shell's request runs.
+ */
+export function useReturnTargetResolver(resolve: ReturnTargetResolver): void {
+  const latest = useRef(resolve);
+  useLayoutEffect(() => {
+    latest.current = resolve;
+  });
+  useLayoutEffect(() => {
+    resolvers.add(latest);
+    return () => {
+      resolvers.delete(latest);
+    };
+  }, []);
+}
+
+/**
+ * Focus the control named `entry`: a registered surface first, then the
+ * control on the page, else the page's main region.
+ */
 function focusReturnTarget(entry: string | undefined): void {
+  if (entry !== undefined && [...resolvers].some((resolver) => resolver.current(entry))) {
+    return;
+  }
   const named =
     entry === undefined
       ? null
