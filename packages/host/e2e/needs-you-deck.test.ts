@@ -67,16 +67,16 @@ test.describe('a walkthrough’s return', () => {
   test('turns the phone deck to the bundle and focuses its button', async ({ page }) => {
     await openDeck(page, PHONE);
     const next = page.getByRole('button', { name: 'Next card' });
-    for (let turn = 0; turn < 3; turn += 1) {
+    for (let turn = 0; turn < 4; turn += 1) {
       await next.click();
     }
-    await expect(page.getByRole('group', { name: '4 of 11' })).toBeVisible();
+    await expect(page.getByRole('group', { name: '5 of 11' })).toBeVisible();
     await page.getByRole('button', { name: 'Review 3 decisions on FLT-d2' }).click();
     await page.getByRole('button', { name: 'Close the walkthrough' }).click();
 
     const review = page.getByRole('button', { name: 'Review 3 decisions on FLT-d2' });
     await expect(review).toBeFocused();
-    await expect(page.getByRole('group', { name: '4 of 11' })).toBeVisible();
+    await expect(page.getByRole('group', { name: '5 of 11' })).toBeVisible();
     await expect(review).toBeInViewport({ ratio: 1 });
   });
 });
@@ -87,7 +87,7 @@ test.describe('focus after a write', () => {
   }) => {
     await openDeck(page, PHONE);
     const next = page.getByRole('button', { name: 'Next card' });
-    for (let turn = 0; turn < 6; turn += 1) {
+    for (let turn = 0; turn < 7; turn += 1) {
       await next.click();
     }
     await page.getByRole('button', { name: 'Answer MMR-731' }).click();
@@ -96,7 +96,7 @@ test.describe('focus after a write', () => {
     await dialog.getByRole('button', { name: 'Answer' }).click();
 
     await expect(dialog).toBeHidden();
-    await expect(page.getByRole('group', { name: '7 of 10' })).toBeVisible();
+    await expect(page.getByRole('group', { name: '8 of 10' })).toBeVisible();
     await expect.poll(() => focused(page)).toBe('Keep run logs and make them readable');
   });
 

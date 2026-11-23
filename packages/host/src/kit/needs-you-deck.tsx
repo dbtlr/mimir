@@ -133,6 +133,7 @@ const ROWS: Row[] = [
     'The outbox migration needs a decision on whether to keep queued writes older than seven days.',
     120,
   ),
+  stop('LM-d5', 'Retire the legacy channel index', null, 60 * 50),
   ...Array.from({ length: 12 }, (_, at) =>
     decision(
       `LM-q${String(at + 1)}`,
@@ -174,7 +175,6 @@ const ROWS: Row[] = [
     'Should the JSON include retired channels?',
     60 * 48,
   ),
-  stop('LM-d5', 'Retire the legacy channel index', null, 60 * 50),
   decision('MMR-q41', null, [], 360),
   decision('MMR-q42', null, [], 380),
   decision('MMR-q43', null, [], 400),
