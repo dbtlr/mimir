@@ -14,8 +14,6 @@ type PendingVerb = 'park' | 'reject' | 'resolve' | null;
 /** What the verbs read of a seed: its id, its lane's inputs, and the work it spawned. */
 type VerbSeed = Pick<EngineSeed, 'id' | 'spawned'> & SeedStanding;
 
-/** A surface whose seed stays put when acted on (the seed page) hands nothing on. */
-
 /** A lead verb's wash: the accent, or the ready lane's violet. */
 const PRIMARY_INK = {
   accent: 'bg-accent/14 text-accent-foreground inset-ring inset-ring-accent/30 hover:bg-accent/20',

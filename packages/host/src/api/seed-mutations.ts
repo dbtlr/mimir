@@ -43,9 +43,8 @@ export function useFileSeed() {
 
 /*
  * The seed triage verbs stay pending until the refetches land, as a task's
- * transition does: a seed row on the review page leaves while its verb is
- * still pending, so keyboard focus can follow it (MMR-479), and its chips stay
- * off until then, so a verb cannot be sent twice.
+ * transition does: the chips stay off while a verb is pending, so a verb
+ * cannot be sent twice.
  */
 
 /**
@@ -134,8 +133,8 @@ export function usePromoteSeed(id: string) {
     mutationFn: (input: PromoteSeedInput) => seedPromote({ data: promoteInput(id, input) }),
     mutationKey: promoteSeedKey(id),
     onError: (err: Error) => toast.error(err.message),
-    // Pending until the refetches land, so a review page row leaves while the
-    // sheet is still open and focus follows it (MMR-479).
+    // Pending until the refetches land: the sheet's commit stays off while
+    // the promotion is pending, so it cannot be sent twice.
     onSettled: invalidate,
   });
 }
