@@ -1,6 +1,6 @@
 import type { StatusWord as Status } from '@mimir/contract';
 
-import { GroomingBadge } from '../components/grooming-chip';
+import { AttentionLead } from '../components/needs-you-deck-view';
 import { FeedCard } from '../components/patterns/feed/card';
 import { CardGrid } from '../components/patterns/feed/card-grid';
 import { DayFolds, FinishedRow } from '../components/patterns/feed/day-fold';
@@ -146,7 +146,7 @@ const FEED_CARDS: Record<string, Omit<Preview, 'open'>> = {
   'HUGI-15': {
     action: { label: 'Answer', name: 'Answer HUGI-15', onAction: handOn },
     id: 'HUGI-15',
-    lead: <StatusBadge status="ready" />,
+    lead: <AttentionLead word="Question" />,
     reason: 'Needs an answer before it can start.',
     title: 'Keep run logs and make them readable',
   },
@@ -217,17 +217,12 @@ export function FeedKit() {
               />
               <FeedCard
                 previewKey="HUGI-15"
-                lead={<StatusBadge status="ready" />}
+                lead={<AttentionLead word="Question" />}
                 id="HUGI-15"
                 age="1d"
                 title="Keep run logs and make them readable"
                 detail="Where are logs read: a command on Valhalla, or a tailnet page linked from the status?"
-                chips={
-                  <>
-                    <GroomingBadge state="needs_answers" />
-                    <SizeBadge size="medium" />
-                  </>
-                }
+                chips={<SizeBadge size="medium" />}
                 action={
                   <ActionButton
                     size="form"
