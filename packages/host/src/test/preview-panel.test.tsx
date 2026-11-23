@@ -121,6 +121,27 @@ function FeedWithMenu() {
   );
 }
 
+/** A feed whose card with no button is followed by a control out of the tab order and a disclosure. */
+function FeedWithDisclosure() {
+  return (
+    <FeedPreview preview={(key) => PREVIEWS[key]}>
+      <FeedCard
+        previewKey="MMR-709"
+        lead={<span>In progress</span>}
+        title="Send an encrypted Web Push"
+      />
+      <button type="button" tabIndex={-1}>
+        Out of the tab order
+      </button>
+      <details>
+        <summary>Why it runs long</summary>
+        <p>Every device needs its own key.</p>
+      </details>
+      <FeedCard previewKey="MMR-715" lead={<span>Under review</span>} title="Mobile top bar" />
+    </FeedPreview>
+  );
+}
+
 /** A ResizeObserver jsdom lacks: `resize(element)` runs the observers watching `element`. */
 function stubResizeObserver() {
   const watching = new Map<Element, Set<() => void>>();
@@ -444,6 +465,26 @@ describe('preview panel: tab order from outside on desktop', () => {
     within(panel()).getByRole('link', { name: 'Open MMR-715' }).focus();
     await userEvent.tab();
     expect(screen.getByRole('button', { name: 'After the feed' })).toHaveFocus();
+  });
+});
+
+describe('preview panel: tab order through a disclosure', () => {
+  it('Tab from the last button reaches a disclosure after the card, past a control out of the tab order', async () => {
+    stubViewport('desktop');
+    await renderInRouter(<FeedWithDisclosure />);
+    await userEvent.click(card('Send an encrypted Web Push'));
+    within(panel()).getByRole('link', { name: 'Open MMR-709' }).focus();
+    await userEvent.tab();
+    expect(screen.getByText('Why it runs long')).toHaveFocus();
+  });
+
+  it('Shift+Tab from that disclosure goes back into the panel, to its last button', async () => {
+    stubViewport('desktop');
+    await renderInRouter(<FeedWithDisclosure />);
+    await userEvent.click(card('Send an encrypted Web Push'));
+    screen.getByText('Why it runs long').focus();
+    await userEvent.tab({ shift: true });
+    expect(within(panel()).getByRole('link', { name: 'Open MMR-709' })).toHaveFocus();
   });
 });
 

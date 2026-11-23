@@ -1,5 +1,18 @@
-const TABBABLE =
-  'a[href], button:not(:disabled), input:not(:disabled):not([type=hidden]), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
+/** Everything that can sit in the tab order; `tabSequence` then drops what a negative `tabindex`, `inert`, or hiding takes out. */
+const TABBABLE = [
+  'a[href]',
+  'area[href]',
+  'button:not(:disabled)',
+  'input:not(:disabled):not([type=hidden])',
+  'select:not(:disabled)',
+  'textarea:not(:disabled)',
+  'details > summary:first-of-type',
+  'iframe',
+  'audio[controls]',
+  'video[controls]',
+  '[contenteditable]:not([contenteditable="false"])',
+  '[tabindex]',
+].join(', ');
 
 /** The controls under `root` that Tab reaches, in document order: in the sequence, not inert, and shown. */
 export function tabSequence(root: ParentNode): HTMLElement[] {
