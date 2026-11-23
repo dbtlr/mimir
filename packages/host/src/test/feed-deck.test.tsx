@@ -371,6 +371,31 @@ describe('writes', () => {
   });
 });
 
+describe('focus after a dialog opened from a card', () => {
+  const answer: DeckAction = { kind: 'dialog', label: 'Answer…', name: 'Answer A', run: vi.fn() };
+
+  it('goes to the card’s button, to its successor’s target once it left, and to the quiet line once none remain', async () => {
+    const { handle, refetch } = await renderDeck(
+      [deckCard('A', answer), ...cardsOf(['B'])],
+      'phone',
+    );
+    act(() => {
+      handle.current?.restoreFocus('A');
+    });
+    expect(screen.getByRole('button', { name: 'Answer A' })).toHaveFocus();
+    refetch(cardsOf(['B']));
+    act(() => {
+      handle.current?.restoreFocus('A');
+    });
+    expect(target('B')).toHaveFocus();
+    refetch([]);
+    act(() => {
+      handle.current?.restoreFocus('B');
+    });
+    expect(screen.getByText('Nothing needs you.')).toHaveFocus();
+  });
+});
+
 describe('turning to a card by identity', () => {
   it('turns the deck to the card at once and focuses its button', async () => {
     const review = vi.fn();

@@ -141,6 +141,25 @@ test.describe('phone deck', () => {
     expect(await leftNextFrame(page, '1 of 10')).toBe(GUTTER);
   });
 
+  test('a refetch during a swipe applies once the swipe settles', async ({ page }) => {
+    await openDeck(page);
+    const box = await group(page, '1 of 10').boundingBox();
+    const y = (box?.y ?? 0) + 40;
+    await page.mouse.move(300, y);
+    await page.mouse.down();
+    await page.mouse.move(100, y, { steps: 10 });
+    // The refetch drops card 2, the card the swipe is turning to.
+    await page.getByRole('button', { name: 'Card 2 leaves' }).evaluate((button) => {
+      if (button instanceof HTMLElement) {
+        button.click();
+      }
+    });
+    await expect(page.locator('[data-slot="deck-pager"] p')).toHaveText('1 of 10');
+    await page.mouse.up();
+    await expect(group(page, '2 of 9')).toContainText('Release channels');
+    await expect.poll(() => left(page, '2 of 9')).toBe(GUTTER);
+  });
+
   test('the last card rests at the gutter with nothing peeking beside it', async ({ page }) => {
     await page.setViewportSize(PHONE);
     await page.goto(`${harness.origin}?form=deck&cards=3`);

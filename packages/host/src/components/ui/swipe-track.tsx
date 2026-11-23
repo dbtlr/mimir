@@ -28,6 +28,8 @@ export type SwipeTrackProps = {
   itemKey: string;
   /** Asked to turn one slide; the caller moves `index`, or does nothing at an end. */
   onTurn: (turn: SwipeTurn) => void;
+  /** A drag began or ended (after its turn), so the caller can hold its slides still meanwhile. */
+  onDragChange?: (dragging: boolean) => void;
   /** Whether a swipe or a tap on the peek may turn the track now. */
   enabled?: boolean;
   /** Moves to a new `index` at once, without the turn's slide, as focus brought from outside does. */
@@ -56,6 +58,7 @@ export function SwipeTrack({
   count,
   itemKey,
   onTurn,
+  onDragChange,
   enabled = true,
   instant = false,
   peek,
@@ -119,6 +122,7 @@ export function SwipeTrack({
         if (!canceled && Math.abs(moved) > step / 2) {
           onTurn(moved < 0 ? 1 : -1);
         }
+        onDragChange?.(false);
       },
       onMove: ({ x }) => {
         moved = Math.min(-least, Math.max(-most, x - startX));
@@ -130,6 +134,7 @@ export function SwipeTrack({
           return false;
         }
         row.dataset.dragging = '';
+        onDragChange?.(true);
         return true;
       },
       threshold: dragThreshold,

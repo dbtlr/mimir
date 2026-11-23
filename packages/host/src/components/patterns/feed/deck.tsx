@@ -261,7 +261,7 @@ type FocusOwner =
 function DeckBody({
   title,
   seeAll,
-  cards,
+  cards: incoming,
   quiet,
   className,
   actionOf,
@@ -277,6 +277,9 @@ function DeckBody({
   const headingId = useId();
   const desktop = useDrawerSide() === 'right';
   const { openKey, modal, close } = useFeedPreviewControl();
+  // A refetch that arrives during a swipe applies once the swipe settles.
+  const [duringDrag, setDuringDrag] = useState<readonly DeckCard[] | null>(null);
+  const cards = duringDrag ?? incoming;
   const keys = useMemo(() => cards.map((card) => card.key), [cards]);
   const signature = keys.join('\n');
   const openCard = cards.find((card) => card.previewKey === openKey)?.key ?? null;
@@ -587,6 +590,9 @@ function DeckBody({
           instant={instant}
           enabled={!sheetOpen}
           onTurn={turn}
+          onDragChange={(dragging) => {
+            setDuringDrag(dragging ? incoming : null);
+          }}
           peek={PEEK}
           gap={GAP}
           // The deck runs past the right gutter to the screen's edge.
