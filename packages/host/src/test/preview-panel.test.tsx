@@ -447,6 +447,12 @@ describe('preview panel: open, switch, close', () => {
   });
 });
 
+/** The card for MMR-709 in the feed section named `name`. */
+const inSection = (name: string) =>
+  within(screen.getByRole('region', { name })).getByRole('button', {
+    name: 'Send an encrypted Web Push',
+  });
+
 describe('preview panel: the selected card', () => {
   it('marks the selected card and gives it the accent edge, and only that card', async () => {
     await renderFeed();
@@ -478,10 +484,6 @@ describe('preview panel: the selected card', () => {
         </section>
       </FeedPreview>,
     );
-    const inSection = (name: string) =>
-      within(screen.getByRole('region', { name })).getByRole('button', {
-        name: 'Send an encrypted Web Push',
-      });
     await userEvent.click(inSection('Needs you'));
     expect(inSection('Needs you')).toHaveAttribute('aria-expanded', 'true');
     expect(inSection('In flight')).toHaveAttribute('aria-expanded', 'false');
@@ -858,7 +860,7 @@ describe('preview panel footer', () => {
       action: {
         label: 'Answer',
         onAction: (button) => {
-          calls.push(`action ${String(button)}`);
+          calls.push(button === null ? 'action, no card button' : 'action, a card button');
         },
       },
     };
@@ -873,7 +875,7 @@ describe('preview panel footer', () => {
       />,
     );
     await userEvent.click(within(panel()).getByRole('button', { name: 'Answer' }));
-    expect(calls).toEqual(['close', 'action null']);
+    expect(calls).toEqual(['close', 'action, no card button']);
   });
 
   it('is Open alone when the card has no action', async () => {
