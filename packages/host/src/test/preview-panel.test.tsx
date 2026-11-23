@@ -57,11 +57,12 @@ const PREVIEWS: Record<string, Preview> = {
   },
 };
 
-function Feed() {
+/** The sample feed; `gone` is a record that has left it, whose card has no preview any more. */
+function Feed({ gone }: { gone?: string }) {
   return (
     <>
       <button type="button">Before the feed</button>
-      <FeedPreview preview={(key) => PREVIEWS[key]}>
+      <FeedPreview preview={(key) => (key === gone ? undefined : PREVIEWS[key])}>
         <CardGrid>
           <FeedCard
             previewKey="HUGI-15"
@@ -217,6 +218,16 @@ describe('preview panel: open, switch, close', () => {
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(card('Send an encrypted Web Push')).toHaveFocus();
+  });
+
+  it('lets go of the selection when the selected card’s record leaves the feed', async () => {
+    const { rerender } = await renderFeed();
+    await userEvent.click(card('Send an encrypted Web Push'));
+    rerender(<Feed gone="MMR-709" />);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(card('Send an encrypted Web Push')).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(card('Mobile top bar'));
+    expect(panel()).toHaveAccessibleName('Mobile top bar');
   });
 
   it('Escape closes it from the feed', async () => {

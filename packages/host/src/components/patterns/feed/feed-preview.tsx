@@ -106,6 +106,10 @@ export function FeedPreview({
     setSelected(null);
   }
   const given = shown === null ? undefined : preview(shown);
+  // A selected record that has left the feed has no preview: nothing stays selected.
+  if (selected !== null && given === undefined) {
+    setSelected(null);
+  }
   const open = selected !== null && given !== undefined;
   // The phone's sheet is modal over a scrim; only the desktop panel needs room beside the feed.
   const desktop = useDrawerSide() === 'right';
