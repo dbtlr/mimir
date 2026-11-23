@@ -41,9 +41,45 @@ export function useCardPreview(key: string): {
   };
 }
 
+/** The roles of a control; a press on any other role (a chart's `img`) is on empty space. */
+const CONTROL_ROLES = [
+  'button',
+  'checkbox',
+  'combobox',
+  'link',
+  'listbox',
+  'menu',
+  'menubar',
+  'menuitem',
+  'menuitemcheckbox',
+  'menuitemradio',
+  'option',
+  'radio',
+  'scrollbar',
+  'searchbox',
+  'slider',
+  'spinbutton',
+  'switch',
+  'tab',
+  'textbox',
+  'tree',
+  'treeitem',
+];
+
 /** What a press in the feed lands on when it is not empty space: a control, or the panel's own layer. */
-const CONTROL =
-  'a, button, input, select, textarea, summary, label, [role], [tabindex], [contenteditable], [data-slot="drawer-viewport"]';
+const CONTROL = [
+  'a',
+  'button',
+  'input',
+  'select',
+  'textarea',
+  'summary',
+  'label',
+  '[tabindex]',
+  '[contenteditable]',
+  '[data-slot="drawer-viewport"]',
+  ...CONTROL_ROLES.map((role) => `[role="${role}"]`),
+].join(', ');
 
 /** A card's own button, stacked over its stretched target. */
 const CARD_BUTTON = '[data-slot="feed-card-action"] > *';

@@ -88,6 +88,7 @@ function Feed({ gone }: { gone?: string }) {
             title="Mobile top bar"
           />
         </CardGrid>
+        <div role="img" aria-label="Lanes this week" />
       </FeedPreview>
     </>
   );
@@ -185,6 +186,13 @@ describe('preview panel: open, switch, close', () => {
     await userEvent.click(grid);
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(card('Send an encrypted Web Push')).toHaveFocus();
+  });
+
+  it('closes on a click on a chart in the feed, which is not a control', async () => {
+    await renderFeed();
+    await userEvent.click(card('Send an encrypted Web Push'));
+    await userEvent.click(screen.getByRole('img', { name: 'Lanes this week' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('stays open for a click outside the feed', async () => {
