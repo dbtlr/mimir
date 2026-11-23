@@ -38,8 +38,12 @@ const keys = (count: number) =>
   Array.from({ length: count }, (_, index) => `T-${String(index + 1)}`);
 const cardsOf = (list: readonly string[]) => list.map((key) => deckCard(key));
 
-function deck(cards: readonly DeckCard[], { offline = false } = {}) {
-  const handle = createRef<FeedDeckHandle>();
+/** The deck's element; a refetch passes the first render's `handle`, so the handle stays attached. */
+function deck(
+  cards: readonly DeckCard[],
+  { offline = false } = {},
+  handle = createRef<FeedDeckHandle>(),
+) {
   const ui = (
     <FeedDeck
       ref={handle}
@@ -64,7 +68,7 @@ async function renderDeck(cards: readonly DeckCard[], viewport: Viewport, option
   const { handle, ui } = deck(cards, options);
   const rendered = await renderInRouter(ui);
   const refetch = (next: readonly DeckCard[], nextOptions = options) => {
-    rendered.rerender(deck(next, nextOptions).ui);
+    rendered.rerender(deck(next, nextOptions, handle).ui);
   };
   return { ...rendered, handle, refetch, resize };
 }
@@ -394,7 +398,58 @@ describe('focus after a dialog opened from a card', () => {
     });
     expect(screen.getByText('Nothing needs you.')).toHaveFocus();
   });
+
+  it('goes to the current card’s target when the successor left too while the dialog was open', async () => {
+    const { handle, refetch } = await renderDeck(
+      [deckCard('A', answer), ...cardsOf(['B', 'C'])],
+      'phone',
+    );
+    screen.getByRole('button', { name: 'Answer A' }).focus();
+    const closeDialog = openOutsideDialog();
+    refetch(cardsOf(['B', 'C']));
+    refetch(cardsOf(['C']));
+    closeDialog();
+    act(() => {
+      handle.current?.restoreFocus('A');
+    });
+    expect(target('C')).toHaveFocus();
+  });
+
+  it('spends a card’s successor on one return, so a later one follows the current card', async () => {
+    const { handle, refetch } = await renderDeck(
+      [deckCard('A', answer), ...cardsOf(['B', 'C'])],
+      'phone',
+    );
+    screen.getByRole('button', { name: 'Answer A' }).focus();
+    const closeDialog = openOutsideDialog();
+    refetch(cardsOf(['B', 'C']));
+    closeDialog();
+    act(() => {
+      handle.current?.restoreFocus('A');
+    });
+    expect(target('B')).toHaveFocus();
+    await userEvent.click(screen.getByRole('button', { name: 'Next card' }));
+    act(() => {
+      handle.current?.restoreFocus('A');
+    });
+    expect(target('C')).toHaveFocus();
+  });
 });
+
+/** A dialog outside the deck that takes focus, as the answer dialog does; returns its close. */
+function openOutsideDialog(): () => void {
+  const dialog = document.createElement('div');
+  dialog.setAttribute('role', 'dialog');
+  const inside = document.createElement('button');
+  dialog.append(inside);
+  document.body.append(dialog);
+  act(() => {
+    inside.focus();
+  });
+  return () => {
+    dialog.remove();
+  };
+}
 
 describe('turning to a card by identity', () => {
   it('turns the deck to the card at once and focuses its button', async () => {

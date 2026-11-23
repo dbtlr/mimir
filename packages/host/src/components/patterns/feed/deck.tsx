@@ -87,8 +87,9 @@ export type FeedDeckHandle = {
   turnTo: (key: string) => boolean;
   /**
    * Resolves focus after a dialog opened from the card closes: its button,
-   * else its target; once it has left, its successor's target; with no card
-   * left, the quiet line.
+   * else its target; once it has left, its successor's target, or the
+   * current card's when the successor has left too; with no card left, the
+   * quiet line. A successor serves one return.
    */
   restoreFocus: (key: string) => void;
 };
@@ -299,8 +300,9 @@ function DeckBody({
     const anchor = focusCard ?? (desktop ? seen.open : null);
     const next = reconcileCurrent({ after: keys, anchor, before: seen.keys, current, desktop });
     const left = seen.keys.filter((key) => !keys.includes(key));
+    // A card that came back has no successor; one that left takes the new current card.
     setDeparted((before) => ({
-      ...before,
+      ...Object.fromEntries(Object.entries(before).filter(([key]) => !keys.includes(key))),
       ...Object.fromEntries(left.map((key) => [key, next])),
     }));
     setSeen({ keys, open: openCard, signature });
@@ -501,9 +503,15 @@ function DeckBody({
 
   useImperativeHandle(handle, () => ({
     restoreFocus: (key: string) => {
+      // A successor that left in a later refetch gives way to the current card.
       const successor = departed[key];
-      const to = keys.includes(key) ? key : (successor ?? current);
-      if (to === null || to === undefined || !keys.includes(to)) {
+      const live = successor !== undefined && successor !== null && keys.includes(successor);
+      // A successor serves one return.
+      if (Object.hasOwn(departed, key)) {
+        setDeparted(({ [key]: _spent, ...rest }) => rest);
+      }
+      const to = keys.includes(key) ? key : live ? successor : current;
+      if (to === null || !keys.includes(to)) {
         quietLine.current?.focus();
         return;
       }
