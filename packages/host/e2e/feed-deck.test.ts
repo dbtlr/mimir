@@ -102,6 +102,49 @@ async function swipe(page: Page, { from, by }: { from: number; by: number }) {
   await cdp.detach();
 }
 
+/**
+ * How far, in px, the focus ring of the focused card's part pokes past the
+ * boxes that clip it (an ancestor's overflow, or the screen), each side; all
+ * zero when the ring shows whole. The ring is the focused element's outline,
+ * or its stretched overlay's (`::after` over the card) on the card's target.
+ */
+function clippedRing(page: Page): Promise<Record<'top' | 'right' | 'bottom' | 'left', number>> {
+  return page.evaluate(() => {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement) || !active.matches(':focus-visible')) {
+      throw new Error('nothing holds visible focus');
+    }
+    const stretched = active.matches('[data-slot="feed-card-target"]');
+    const ring = getComputedStyle(active, stretched ? '::after' : null);
+    if (ring.outlineStyle === 'none') {
+      throw new Error('the focused element draws no ring');
+    }
+    const ringed = stretched ? active.closest('[data-slot="feed-card"]') : active;
+    const box = (ringed ?? active).getBoundingClientRect();
+    const reach = Number.parseFloat(ring.outlineWidth) + Number.parseFloat(ring.outlineOffset);
+    const clipped = { bottom: 0, left: 0, right: 0, top: 0 };
+    type Edges = Record<keyof typeof clipped, number>;
+    const clip = (edges: Edges) => {
+      clipped.left = Math.max(clipped.left, edges.left - (box.left - reach));
+      clipped.top = Math.max(clipped.top, edges.top - (box.top - reach));
+      clipped.right = Math.max(clipped.right, box.right + reach - edges.right);
+      clipped.bottom = Math.max(clipped.bottom, box.bottom + reach - edges.bottom);
+    };
+    const screenWidth = document.documentElement.clientWidth;
+    clip({ bottom: Number.POSITIVE_INFINITY, left: 0, right: screenWidth, top: 0 });
+    for (let at = active.parentElement; at !== null; at = at.parentElement) {
+      if (getComputedStyle(at).overflowX !== 'visible') {
+        // An overflow clips at the padding box: inside the borders.
+        const outer = at.getBoundingClientRect();
+        const x = outer.left + at.clientLeft;
+        const y = outer.top + at.clientTop;
+        clip({ bottom: y + at.clientHeight, left: x, right: x + at.clientWidth, top: y });
+      }
+    }
+    return clipped;
+  });
+}
+
 /** A press on a control that does not focus it, as Safari's click on a button does not. */
 async function clickWithoutFocus(page: Page, name: string) {
   const button = page.getByRole('button', { name });
@@ -270,6 +313,32 @@ test.describe('phone deck', () => {
     await expect.poll(() => left(page, '3 of 3')).toBe(GUTTER);
     await expect(page.locator('[data-slot="swipe-peek"]')).toHaveCount(0);
     await expect(next).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  test('a card’s focus rings show whole, at one card and at several', async ({ page }) => {
+    const none = { bottom: 0, left: 0, right: 0, top: 0 };
+    const ringsOf = async (name: string) => {
+      await expect.poll(() => left(page, name)).toBe(GUTTER);
+      // A key press first, so focus shows its ring after a click elsewhere, as from the keyboard.
+      await page.keyboard.press('Shift');
+      await group(page, name).locator('[data-slot="feed-card-target"]').focus();
+      expect(await clippedRing(page)).toEqual(none);
+      // Tab moves from the card's target to its button.
+      await page.keyboard.press('Tab');
+      await expect(group(page, name).locator('[data-slot="feed-card-action"] > *')).toBeFocused();
+      expect(await clippedRing(page)).toEqual(none);
+    };
+    await openDeck(page);
+    await ringsOf('1 of 10');
+    await page.getByRole('button', { exact: true, name: '1 card' }).click();
+    await ringsOf('1 of 1');
+    await page.getByRole('button', { exact: true, name: '4 cards' }).click();
+    // The last card, with nothing peeking beside it.
+    const next = page.getByRole('button', { name: 'Next card' });
+    for (const _ of [1, 2, 3]) {
+      await next.click();
+    }
+    await ringsOf('4 of 4');
   });
 
   test('a tap on the peek turns the deck and never presses the peeking card', async ({ page }) => {
