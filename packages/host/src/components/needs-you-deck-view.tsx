@@ -131,12 +131,15 @@ export function NeedsYouDeckView({
   writes,
   offline = false,
   seeAll,
+  countItems = false,
   className,
 }: {
   report: ReviewReport;
   writes: NeedsYouWrites;
   offline?: boolean;
   seeAll?: FeedLink;
+  /** The head counts the set's records beside the cards, as the top-bar alert counts them (Home, MMR-722). */
+  countItems?: boolean;
   className?: string;
 }) {
   const cards = useMemo(() => needsYouCards(report), [report]);
@@ -248,6 +251,7 @@ export function NeedsYouDeckView({
         title="Needs you"
         seeAll={seeAll}
         cards={deckCards}
+        items={countItems ? report.queue.length : undefined}
         preview={(key) => {
           const card = previews.get(key);
           return card === undefined ? undefined : previewOf(card);

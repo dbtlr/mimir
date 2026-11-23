@@ -14,55 +14,66 @@ installable PWA, and a
 
 ## Review what needs you
 
-The console opens on the review page at `/`: the work page for every active
-project at once. Its main column has three sections:
+The console opens on Home at `/`: one column for every active project at
+once. Its title is today's date, such as "Monday, 23 November". One sentence
+under the title counts what needs you, what is running, and what shipped this
+week, for example "3 cards need you, holding 4 items. 9 tasks are running, and
+3 have shipped this week." When nothing needs you, runs, or shipped, it reads
+"A quiet week". Home has no rail: your projects are in the
+[sidebar](#find-your-way-with-the-sidebar).
 
-- **Needs you** lists the decisions, grouped by project: blocks only you can
-  clear, and tasks that need answers. Decisions hold up agents, so they come
-  first. When nothing waits, the section says so and names how many tasks are
-  in flight and which task finished last. Decisions act in place, as on a work
-  page: Answer… on a task that needs answers. A block has no action here. Clear
-  it outside Mimir, then unblock the task from its page.
-- **Now** lists the work in flight across your projects: tasks queued, in
-  progress, in review, or staged. A task in review waits on its review gate, such as
-  a pull request, which asks for you when it needs you. Approve and Send
-  back… are on the task's page. A staged task passed its review and is
-  accepted on its branch, but its code has not reached `main` yet.
-- **Shipped** lists what finished in the last 7 days, grouped by day, newest
-  first.
+Below the sentence come up to four sections, in this order. A section with
+nothing to show is left out. When this browser can turn on
+notifications and you have not yet answered, a card above the sections
+suggests turning them on.
 
-Every row starts with its task id, which begins with its project key, and
-opens the task.
+- **Needs you** shows the decisions waiting on you as a deck of cards, in one
+  ranked order across projects. A card is a stopped delivery, a delivery's
+  provisional decisions, a project's decisions without a delivery, a task
+  blocked on you, or a task with a question for you. Decisions hold up agents,
+  so they come first. The head reads "N cards, M items": the cards, then the
+  records they hold, which is the number on the top-bar alert. On a phone the
+  deck shows one card at a time, and you swipe or use Previous and Next. From
+  768px wide it shows pages of four. When nothing needs you, the line
+  "Nothing needs you." takes the section's place.
+- **Now** shows the work in flight across your projects as cards: tasks
+  queued, in progress, in review, or staged, with the latest move first. Each
+  card shows the task's status, ID, project, age, and title. Home shows four
+  cards on a phone and six from 768px wide. When more are running, the head
+  says how many show, such as "6 of 9". A task in review waits on its review
+  gate, such as a pull request, which asks for you when it needs you. A staged
+  task passed its review and is accepted on its branch, but its code has not
+  reached `main` yet.
+- **Shipped this week** shows how many tasks finished as done on each of the
+  last seven days, with today's count so far, then the count for each project.
+  An abandoned task is not counted.
+- **When you have a minute** counts what can wait: **Seeds to triage**,
+  **Ready to start**, **Going cold**, and **Doctor findings**, across projects.
+  A count of zero is left out. Home lists none of them one by one. Start a
+  runnable task from its project's work page, and triage a seed from the
+  seed's own page.
 
-The rail beside them has two parts:
-
-- **Projects** has one row per active project: its key, its name, the
-  decisions waiting on you (in violet), its open tasks (_live_), and the tasks
-  going cold. Projects you pinned come first, then the rest by most recent
-  activity, as in the project switcher. A row opens the project's work page.
-  Switching, pinning, and **New project** are in the switcher. Archive a
-  project from its settings, and unarchive it from its page in the switcher's
-  **Archived** section.
-- **When you have a minute** holds what can wait, in up to four groups. A
-  group with nothing in it is left out. **Runnable now** lists tasks that can
-  start, each with **Start**. **To triage** lists untriaged seeds, each with
-  Promote to task…, Reject…, and Park…. **Going cold** lists tasks nobody has
-  touched in a while, with how long they have been quiet. **Findings** counts
-  the `mimir doctor` findings in each project that has some, and each count
-  opens that project's record health. A long group shows its first five rows
-  and an **N more** control for the rest.
-
-When a row you act on leaves the page, keyboard focus moves to the next row.
-Offline, the row actions are disabled. On a phone, the rail sits under the
-main column.
+Tap a card in Needs you or Now to open its preview: a bottom sheet on a phone,
+or a panel from the right on a wider screen. The preview shows why the card is
+here, the facts that matter, the card's action when it has one, and
+**Open**, which goes to the record's page. A Now card has no action. The actions are **Clear stop** on a stopped delivery,
+**Answer…** on a task with a question, and **Review N decisions** on a set of
+decisions, which opens their walkthrough. A task blocked on you has no action
+here. Clear the block outside Mimir, then unblock the task from its page. When
+an action settles what a card asks, the card leaves the deck and the next card
+takes its place. An answer that leaves the task with another question keeps
+its card, which then shows the new question. Offline, **Clear stop** and
+**Answer…** do nothing until the console reconnects; **Review N decisions**
+still opens its walkthrough.
 
 The top-bar **Needs you** alert shows how many decisions wait on you. It opens
-a popover (a bottom sheet on a phone) that lists them grouped by project, in
-the same order as this page, so you can decide without leaving the page you are
-on. Each row has the same buttons as here (**Answer…**), and the decision for
+a popover (a bottom sheet on a phone) that lists them grouped by project, so
+you can decide without leaving the page you are on. A
+task with a question has **Answer…** there too, and the decision for
 the record you are viewing is marked _This page_. A row leaves the list when its change lands, and the popover stays open
 until you press Escape, choose a link, or move to another page. It links to
-**Open review page** and to **Work through these**, the one-at-a-time queue.
+**Open Home** and to **Work through these**, focus mode, which walks the
+decisions one at a time at `/?mode=focus`.
 The alert is hidden when there are no decisions. Seeds, findings, and tasks
 going cold never light it.
 
@@ -120,8 +131,8 @@ project. On `/` and `/doctor`, which belong to no project, it frames All
 projects: the header reads **All projects** with a violet count of the
 decisions waiting across every project, and only **Work** sits under it, which
 is `/`. Choose a project in the switcher to get its outline, Tasks, Seeds, and
-Artifacts back. With no projects, there is no sidebar on the work pages; the
-review page offers **New project**. [Settings](#settings) pages and `/pair`
+Artifacts back. With no projects, there is no sidebar on the work pages, and
+Home offers **New project**. [Settings](#settings) pages and `/pair`
 have a sidebar either way.
 
 - **The header** names the project by key and title. When other projects have
@@ -161,7 +172,7 @@ Below 1024px wide, such as on a phone or a small tablet, the sidebar is a drawer
 opens it. Choosing a section or record closes it. Escape or a tap outside
 also closes it and returns focus to the button.
 
-The top bar holds the Mimir brand (a link to the review page), the jump
+The top bar holds the Mimir brand (a link to Home), the jump
 palette, **Needs you**, and the **…** menu. At every width, the **…** menu holds
 **Settings**, then the theme switch, then the update check when the console
 runs installed. A waiting update puts a dot on the **…** button.
@@ -202,7 +213,7 @@ Each project has three browsers, at `/p/KEY/tasks`, `/p/KEY/seeds`, and
 addresses `/tasks`, `/seeds`, and `/artifacts` still work: with `?project=KEY`
 they open that project's browser, and without it they open the last project
 you visited on this device, else the first in the project switcher. With no
-projects at all they open the review page.
+projects at all they open Home.
 
 - **Tasks** for the project's tasks, grouped by status, with
   **Live** and **Finished** views and a search over titles and IDs;

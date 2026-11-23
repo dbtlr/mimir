@@ -580,7 +580,7 @@ describe('switcher New project entry (MMR-230)', () => {
     await userEvent.click(add);
     await expect(screen.findByLabelText(/title/i)).resolves.toBeInTheDocument();
     // The note sits in the Form sheet's footer, in sentence case (MMR-743).
-    expect(screen.getByText(/joins the project list on the review page/i)).toBeInTheDocument();
+    expect(screen.getByText(/joins the project list in the sidebar/i)).toBeInTheDocument();
   });
 
   it('is disabled when the projects query errors (offline)', async () => {

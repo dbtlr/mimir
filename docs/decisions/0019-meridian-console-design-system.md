@@ -273,7 +273,9 @@ revised:
   _Going cold_ count, and each work page keeps its _Going cold_ section.
 - **One set, one count.** The alert, the review page's title count, and the
   project list's decision counts are the same set, so they never disagree.
-  A work page's _Needs you_ is that set within its scope.
+  A work page's _Needs you_ is that set within its scope. (2026-11-23,
+  MMR-722: Home's page title names the day and carries no count; the alert
+  and the Needs you deck head's items count read this set.)
 - **Lanes retire with the Overview.** §9's Lane is retired as a concept, not
   only as the Overview's grouping: the `attention` facet that carries it
   leaves the facet set (the projects read, `get --col attention`, and MCP
@@ -450,7 +452,9 @@ against the page and 2.89:1 against a panel, below AA's 4.5:1.
   row, and 6.1 from `done`'s text green.
 - `packages/host/src/test/role-hues.test.ts` fails if either theme declares
   a `--color-cold` token, and the review page's test fails unless the cold
-  count draws in `text-ink-dim`.
+  count draws in `text-ink-dim`. (2026-11-23, MMR-722: the cold count left
+  with Home's project health strip, and its test with it; the
+  `role-hues.test.ts` check stands.)
 
 ## Refinement (2026-11-03, MMR-620): the stale chip draws in ink
 
@@ -709,7 +713,8 @@ leading record is newest by its kind's clock, then to the project key.
   whether work is built on it), or `task` (the existing task row). The focus
   queue is the same order as a list of `{ kind, id }`. A count is the list's
   length, so the alert, the review page's title, and the project list never
-  disagree.
+  disagree. (2026-11-23, MMR-722: Home's page title names the day and carries
+  no count.)
 - **The rename.** The review report called its groups of tasks that need the
   operator `decisions`, which ADR 0043 now names a record.
   - `ReviewReport.decisions` becomes `needsYou`.
@@ -1590,7 +1595,9 @@ cards, not those rows or the focus queue's card.
   fixed minimum width, a name (16px/500, two lines at most), and a count.
   A row whose count is zero is left out. When the group is capped, its last
   row is a link of the same shape ("5 more projects") that opens the list
-  page with a filter set (principles 2 and 6 of MMR-a420).
+  page with a filter set (principles 2 and 6 of MMR-a420). (2026-11-23,
+  MMR-722: a row with no destination is a plain row, and a group may stand
+  framed; see the MMR-722 refinement below.)
 - **A day fold is a disclosure built on Collapsible.** Its trigger is a row
   44px tall on a phone and 36px on desktop: a chevron that points right when
   closed and down when open, the day in 14px/500 sans `ink`, and the
@@ -1817,6 +1824,9 @@ with their answer chips.
   the set, so its head counts what it shows, and each bundle's button names
   how many decisions it holds, so no record is out of sight. On a page that
   shows both, the alert and the deck's head can read different numbers.
+  (2026-11-23, MMR-722: on Home the head reads both counts, "N cards, M
+  items", the second the alert's; see the MMR-722 refinement below. Home's
+  page title names the day and carries no count.)
 
 ### The cards
 
@@ -2196,3 +2206,34 @@ card leaves, happen at once, so they add no motion.
   sprang back. Its scroll-snap settle is the browser's own animation, which
   slides even under reduced motion. Its peek is `inert`, so a tap on it
   turns nothing. `SwipeTrack` replaces it (Motion).
+
+## Refinement (2026-11-23, MMR-722): Home's options on the feed blocks
+
+Home (ADR 0013, MMR-722 refinement) is the first page assembled from the
+feed blocks. It adds four options to the blocks rather than new blocks.
+`packages/host/DESIGN.md` holds their numbers, under Feed blocks.
+
+- **A row with no destination is a plain row.** A row group's row takes an
+  optional destination. Without one it is not a link: it draws the row's key,
+  name, and count at the row's height, with no chevron and no hover fill,
+  since a chevron promises a place to go. Home's rows have no destination
+  until the MMR-724 list pages give See all and these rows somewhere to lead:
+  Shipped's rows by project and the spare-minute rows.
+- **A row group may stand framed.** A row group that is a section's whole
+  block, not a part of another block, may sit in a card's frame (`well-850`,
+  the card's `line` edge and 10 radius, 16 sides), so it matches the Shipped
+  summary's card beside it on the page. This departs from DESIGN.md's row
+  group, which is unframed rows, and seed MMR-s110 records the departure for
+  the design system to settle.
+- **The deck's head can count records beside its cards.** A deck given the
+  records its cards hold reads "N cards, M items" in its head: the cards, as
+  the MMR-721 refinement counts them and the pager's N matches, then the
+  records, the count the top-bar alert shows. Home's deck reads both; the
+  deck elsewhere counts cards alone.
+- **A capped section's head reads what shows of the whole.** A section head
+  takes a count the caller words. Home's Now shows four cards on a phone and
+  six from 768 and reads "6 of 9" (or "4 of 9") when the cap hides cards,
+  and the plain count when every card shows.
+- `packages/host/src/test/feed-blocks.test.tsx` checks the plain row, the
+  frame, and a worded count; `feed-deck.test.tsx` the deck's two counts; and
+  `home-page.test.tsx` how Home uses them.

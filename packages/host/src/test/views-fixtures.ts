@@ -32,7 +32,7 @@ export function engineWork(overrides: Partial<WorkReport> = {}): WorkReport {
   };
 }
 
-/** The review page with nothing in it; override the parts a case fills. */
+/** Home's review report with nothing in it; override the parts a case fills. */
 export function engineReview(overrides: Partial<ReviewReport> = {}): ReviewReport {
   return {
     goingCold: [],
@@ -111,12 +111,12 @@ export function shippedRow(
   };
 }
 
-/** A work-page row tagged with its project, as the review page lists it. */
+/** A work-page row tagged with its project, as the review report lists it. */
 export function tagged<R extends { task: EngineNode }>(row: R): R & { project: string } {
   return { ...row, project: row.task.id.split('-')[0] ?? 'MMR' };
 }
 
-/** A project's strip row on the review page. */
+/** A project's row in the review report. */
 export function stripRow(
   ref: { key: string; name: string },
   counts: Partial<ReviewReport['projects'][number]> = {},
@@ -124,7 +124,7 @@ export function stripRow(
   return { ...ref, goingCold: 0, inFlight: 0, live: 0, needsYou: 0, triage: 0, ...counts };
 }
 
-/** An untriaged seed as the review page lists it. */
+/** An untriaged seed as the review report lists it. */
 export function triageSeed(overrides: Partial<TriageSeed> & Pick<TriageSeed, 'id'>): TriageSeed {
   return {
     createdAt: FIXTURE_AT,

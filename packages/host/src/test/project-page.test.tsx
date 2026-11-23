@@ -35,7 +35,7 @@ describe('project page archived-404 (MMR-230)', () => {
     await expect(screen.findByText(/archived or no longer exists/i)).resolves.toBeDefined();
     // The server answered — the surface must not read as offline.
     expect(screen.queryByText(/offline — last synced/i)).toBeNull();
-    expect(screen.getByRole('link', { name: /back to the review page/i })).toBeDefined();
+    expect(screen.getByRole('link', { name: /back to Home/i })).toBeDefined();
   });
 
   it('an unreachable server still reads as offline, not as not-found', async () => {

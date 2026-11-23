@@ -4,7 +4,7 @@ import { ProjectForm } from './project-form';
 
 /**
  * The create-project form (21a / MMR-230), shared by every "+ New project"
- * trigger (the review page's project list and the project picker): the
+ * trigger (Home's first-project prompt and the project picker): the
  * project form in the Form sheet (MMR-743). A server refusal toasts verbatim
  * (via the mutation) and the form stays open with its values.
  */

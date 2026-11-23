@@ -18,7 +18,7 @@ import { ActionButton, actionButtonVariants } from './ui/action-button';
 import { NeedsYouRow, needsYouActions } from './work-rows';
 
 /*
- * `/?mode=focus` — the review page's focus queue (ADR 0013, MMR-476
+ * `/?mode=focus` — Home's focus queue (ADR 0013, MMR-476
  * refinement): one needs-you member at a time, in ADR 0019's queue order. The
  * list is fixed when the queue opens, from a fresh read rather than a cached
  * one, so a member that arrives later waits for the next pass. The queue only

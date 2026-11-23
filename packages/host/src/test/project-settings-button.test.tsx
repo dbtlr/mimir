@@ -285,7 +285,7 @@ const toastShown = (text: string) =>
   );
 
 describe('projectSettings lifecycle (MMR-230)', () => {
-  it('archiving archives the project with no confirm, closes, toasts undo, and returns to the review page', async () => {
+  it('archiving archives the project with no confirm, closes, toasts undo, and returns to Home', async () => {
     wrap(<ProjectSettingsButton project={baseProject} />);
     openSheet();
     fireEvent.click(screen.getByRole('button', { name: 'Archive project' }));

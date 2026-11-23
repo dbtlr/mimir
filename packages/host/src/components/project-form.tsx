@@ -124,7 +124,7 @@ export function ProjectForm(props: ProjectFormProps) {
           </>
         )
       }
-      note={props.mode === 'create' ? 'Joins the project list on the review page.' : undefined}
+      note={props.mode === 'create' ? 'Joins the project list in the sidebar.' : undefined}
       commitLabel={props.mode === 'create' ? 'Create project' : 'Save'}
       commitDisabled={!canSend || (props.mode === 'edit' && props.offline)}
       pending={props.mode === 'edit' && props.archiving}

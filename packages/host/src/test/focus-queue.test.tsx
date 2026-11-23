@@ -256,10 +256,10 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     const second = await cardFor(block);
     fireEvent.click(within(second).getByRole('button', { name: 'Skip' }));
 
-    await screen.findByRole('region', { name: 'Needs you · 2' });
+    // Home's deck still holds both: a card for each record.
+    await screen.findByRole('region', { name: 'Needs you 2 cards, 2 items' });
     expect(testRouter.state.location.href).toBe('/');
     expect(groom).not.toHaveBeenCalled();
-    expect(screen.getByRole('link', { name: 'Work through these · 2' })).toBeDefined();
   });
 
   it('keeps the list it opened with: a later decision waits, a settled one is passed over', async () => {
@@ -280,14 +280,14 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     expect(screen.getByText('2 of 2')).toBeDefined();
     expect(screen.queryByRole('region', { name: 'Up next' })).toBeNull();
     fireEvent.click(within(shown).getByRole('button', { name: 'Skip' }));
-    await screen.findByRole('region', { name: 'Needs you · 2' });
+    await screen.findByRole('region', { name: 'Needs you 2 cards, 2 items' });
   });
 
   it('returns to / when nothing needs you', async () => {
     serve(needsYou());
     const { router: testRouter } = await renderRoute(consoleRoutes, '/?mode=focus', reviewClient());
 
-    await screen.findByRole('heading', { level: 1, name: 'Nothing needs you' });
+    await screen.findByText('Nothing needs you.');
     expect(testRouter.state.location.href).toBe('/');
   });
 

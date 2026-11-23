@@ -62,10 +62,10 @@ function closeOnLink(close: () => void) {
 
 /**
  * The needs-you set behind the badge, as one panel for the popover and the sheet:
- * a heading, the review page's grouped rows with their in-place verbs, and
+ * a heading, the set's rows grouped by project with their in-place verbs, and
  * the footer links. Acting on a row keeps the panel open; the row leaves when
- * the write lands, and focus moves on as it does on the review page (the
- * heading takes it when no row follows). `close` is the sheet's close control.
+ * the write lands, and focus moves on to the next row (the heading takes it
+ * when no row follows). `close` is the sheet's close control.
  */
 function NeedsYouPanel({
   report,
@@ -119,7 +119,7 @@ function NeedsYouPanel({
       </section>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
         <Link to="/" className={cn(PROJECT_LINK, 'text-meta text-ink-dim hover:text-ink-bright')}>
-          Open review page
+          Open Home
         </Link>
         {count > 0 && (
           <Link
@@ -156,8 +156,8 @@ function PillFace({ count, words }: { count: number; words: string }) {
  * The top-bar alert (ADR 0019, MMR-476 and MMR-492 refinements): the count of
  * members of the needs-you set waiting on the operator across projects, as a
  * violet pill. It opens the set in a popover on a desktop and a bottom sheet on a phone,
- * so a glance at the set never leaves the page. It reads the review page's own
- * query, so its count is the page's count. Triage (seeds, going cold,
+ * so a glance at the set never leaves the page. It reads Home's own review
+ * query, so its count is the items count Home's Needs you head shows. Triage (seeds, going cold,
  * findings) stops no agent and never lights it. Absent at zero, and until the
  * review read lands, except that an open panel stays until it is closed, so
  * the last member to leave does not pull it away mid-use.

@@ -24,7 +24,8 @@ export function SectionHead({
   /** The heading's id, which the section is labelled by. */
   id: string;
   title: string;
-  count?: number;
+  /** A number, or a count the caller words ("6 of 9", "10 cards, 26 items"). */
+  count?: number | string;
   seeAll?: FeedLink;
   /** Controls that page the section (the Needs you deck's range and arrows), right-aligned before See all. */
   pager?: ReactNode;
@@ -42,7 +43,7 @@ export function SectionHead({
           {count !== undefined && ' '}
           {count !== undefined && (
             <span className="ml-1 text-meta font-normal text-ink-dim">
-              {count.toLocaleString('en-US')}
+              {typeof count === 'number' ? count.toLocaleString('en-US') : count}
             </span>
           )}
         </span>
@@ -162,7 +163,7 @@ export function FeedSection({
   className,
 }: {
   title: string;
-  count?: number;
+  count?: number | string;
   seeAll?: FeedLink;
   pager?: ReactNode;
   children: ReactNode;

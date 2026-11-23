@@ -75,7 +75,7 @@ async function openHome(
     options.client ?? new QueryClient(),
     provide(browser),
   );
-  await screen.findByRole('heading', { level: 1, name: /needs you/i });
+  await screen.findByRole('heading', { level: 1 });
   await settle();
   return { view, world };
 }
@@ -91,7 +91,8 @@ describe('the notifications card on Home (MMR-734)', () => {
       const shown = await screen.findByRole('region', { name: CARD });
       expect(within(shown).getByRole('button', { name: 'Turn on' })).toBeEnabled();
       expect(within(shown).getByRole('button', { name: 'Not now' })).toBeEnabled();
-      const needs = screen.getByRole('region', { name: /^Needs you/ });
+      // Nothing needs this page's operator, so Needs you is its quiet line.
+      const needs = screen.getByText('Nothing needs you.');
       expect(shown.compareDocumentPosition(needs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     },
   );
@@ -136,7 +137,7 @@ describe('the notifications card on Home (MMR-734)', () => {
     const reply = Promise.withResolvers<PushStatus>();
     vi.mocked(pushStatus).mockReturnValue(reply.promise);
     await renderRoute(consoleRoutes, '/', new QueryClient(), provide(browser));
-    await screen.findByRole('heading', { level: 1, name: /needs you/i });
+    await screen.findByRole('heading', { level: 1 });
 
     browser.answerSuggestion();
     reply.resolve({ consoleOrigin: CONSOLE_ORIGIN, publicKey: 'BKey', state: 'ready' });

@@ -57,7 +57,7 @@ export type PushBrowser = {
   readRecord: () => ThisDeviceRecord | null;
   /** `null` clears the record. */
   writeRecord: (record: ThisDeviceRecord | null) => void;
-  /** Whether this browser answered the review page's notifications suggestion; a blocked store reads as unanswered. */
+  /** Whether this browser answered Home's notifications suggestion; a blocked store reads as unanswered. */
   suggestionAnswered: () => boolean;
   /** Retires the suggestion in this browser; a blocked store keeps nothing, so it may show again. */
   answerSuggestion: () => void;

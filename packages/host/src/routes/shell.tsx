@@ -94,7 +94,7 @@ function ShellContent() {
   const desktop = useMediaQuery(DESKTOP);
   useRememberCurrentProject();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  // With no project there is nothing to frame: the review page at / handles
+  // With no project there is nothing to frame: Home at / handles
   // creating the first one. The remembered project only decides that a project
   // exists; the sidebar's context comes from the page (MMR-505).
   const framed = useCurrentProjectKey() !== undefined;

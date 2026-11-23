@@ -183,7 +183,7 @@ const tagged = <T extends { task: { id: string } }>(rows: readonly T[]): ReviewW
  *   across every active project. They come from the work page's own section
  *   rules and row builders ({@link classifyWork}), run once over all the
  *   projects' tasks, so a project's rows here equal its work report's. Across
- *   projects `now` lists the most recently started first, `runnable` follows the
+ *   projects `now` lists the latest move (submit, else start) first, `runnable` follows the
  *   `projects` order and then each project's rank, `goingCold` the longest quiet
  *   first, and `shipped` the newest first. `shipped` needs `timeZone` to place
  *   its window and is empty without one.

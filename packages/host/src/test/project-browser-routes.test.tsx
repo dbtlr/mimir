@@ -223,7 +223,7 @@ describe('the top-level browsers redirect (MMR-495)', () => {
     expect(testRouter.state.location.search).toEqual({ status: 'ready' });
   });
 
-  it('with no projects at all, goes to the review page', async () => {
+  it('with no projects at all, goes to Home', async () => {
     serve([]);
     const { router: testRouter } = await renderAt('/tasks?status=ready');
     const location = await settledAt(testRouter, '/');
