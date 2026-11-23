@@ -170,11 +170,14 @@ export function NeedsYouDeckView({
     return true;
   });
 
+  // The effect can run inside React's commit, where the deck's turn could not render at once.
   useEffect(() => {
     const key = closed.current;
     if (key !== null && answering === null) {
       closed.current = null;
-      deck.current?.restoreFocus(key);
+      queueMicrotask(() => {
+        deck.current?.restoreFocus(key);
+      });
     }
   }, [answering]);
 
