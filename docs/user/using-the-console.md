@@ -60,12 +60,15 @@ here, the facts that matter, the card's action when it has one, and
 **Answer…** on a task with a question, and **Review N decisions** on a set of
 decisions, which opens their walkthrough. A task blocked on you has no action
 here. Clear the block outside Mimir, then unblock the task from its page. When
-an action lands, its card leaves the deck and the next card takes its place.
-Offline, the actions are disabled.
+an action settles what a card asks, the card leaves the deck and the next card
+takes its place. An answer that leaves the task with another question keeps
+its card, which then shows the new question. Offline, **Clear stop** and
+**Answer…** do nothing until the console reconnects; **Review N decisions**
+still opens its walkthrough.
 
 The top-bar **Needs you** alert shows how many decisions wait on you. It opens
-a popover (a bottom sheet on a phone) that lists them grouped by project, in
-the deck's order, so you can decide without leaving the page you are on. A
+a popover (a bottom sheet on a phone) that lists them grouped by project, so
+you can decide without leaving the page you are on. A
 task with a question has **Answer…** there too, and the decision for
 the record you are viewing is marked _This page_. A row leaves the list when its change lands, and the popover stays open
 until you press Escape, choose a link, or move to another page. It links to
