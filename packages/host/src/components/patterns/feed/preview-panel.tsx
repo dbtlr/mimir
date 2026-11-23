@@ -113,21 +113,17 @@ export function PreviewPanel({
   useTabFromOutside({ active: open && desktop && preview !== undefined, tabBack, tabOn, title });
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (!desktop || event.key !== 'Tab') {
+    if (!desktop || event.key !== 'Tab' || !(event.target instanceof HTMLElement)) {
       return;
     }
-    // The panel sits after the selected card in the tab order, the title
-    // first though it is out of the sequence (`tabindex="-1"`): Shift+Tab from
-    // Close, the first control, reaches the title, and from the title the card.
-    const controls = tabSequence(event.currentTarget);
-    let next: HTMLElement | null | undefined;
-    if (event.shiftKey && event.target === title.current) {
-      next = tabBack?.();
-    } else if (event.shiftKey && event.target === controls[0]) {
-      next = title.current;
-    } else if (!event.shiftKey && event.target === controls.at(-1)) {
-      next = tabOn?.(event.currentTarget);
-    }
+    const next = tabInPanel({
+      backward: event.shiftKey,
+      from: event.target,
+      panel: event.currentTarget,
+      tabBack,
+      tabOn,
+      title: title.current,
+    });
     if (next !== null && next !== undefined) {
       event.preventDefault();
       next.focus();
@@ -174,6 +170,58 @@ export function PreviewPanel({
   );
 }
 
+/**
+ * The panel's controls in the order Tab visits them: Close first, as it
+ * follows the title, then the rest in the browser's order for the panel.
+ */
+function panelSequence(
+  panel: HTMLElement,
+  { backward, from }: { backward: boolean; from: HTMLElement | null },
+): HTMLElement[] {
+  const controls = tabSequence(panel, { backward, from });
+  const close = controls.find((control) => control.dataset.slot === 'preview-close');
+  return close === undefined
+    ? controls
+    : [close, ...controls.filter((control) => control !== close)];
+}
+
+/**
+ * Where Tab from `from` inside the desktop panel goes. The panel steps through
+ * its own sequence itself, so a positive `tabindex` in it, which the browser
+ * would visit before the whole page, keeps its place in the panel. The title,
+ * out of the sequence (`tabindex="-1"`), comes first: Shift+Tab from it goes to
+ * the selected card (`tabBack`), and Tab from the last control to the control
+ * after the card's stretched target (`tabOn`). `null` leaves the key to the browser.
+ */
+function tabInPanel({
+  from,
+  backward,
+  panel,
+  title,
+  tabBack,
+  tabOn,
+}: {
+  from: HTMLElement;
+  backward: boolean;
+  panel: HTMLElement;
+  title: HTMLElement | null;
+  tabBack: (() => HTMLElement | null) | undefined;
+  tabOn: ((panel: HTMLElement) => HTMLElement | null) | undefined;
+}): HTMLElement | null | undefined {
+  const controls = panelSequence(panel, { backward, from });
+  if (from === title) {
+    return backward ? tabBack?.() : controls[0];
+  }
+  const index = controls.indexOf(from);
+  if (index === -1) {
+    return null;
+  }
+  if (backward) {
+    return controls[index - 1] ?? title;
+  }
+  return controls[index + 1] ?? tabOn?.(panel);
+}
+
 /** Where a Tab from outside the panel goes, or `leave` when only the panel is left before the page's end. */
 type TabFromOutside = HTMLElement | 'leave' | null;
 
@@ -203,7 +251,7 @@ function tabFromOutside({
     return title;
   }
   if (backward && from === cardNext) {
-    return tabSequence(panel).at(-1) ?? title;
+    return panelSequence(panel, { backward: true, from: null }).at(-1) ?? title;
   }
   const native = tabNeighbour({ backward, from, skip: null });
   if (native === null || !panel.contains(native)) {
@@ -308,6 +356,7 @@ function PreviewContent({
         <button
           type="button"
           aria-label="Close preview"
+          data-slot="preview-close"
           onClick={onClose}
           className="absolute top-0 right-2 inline-flex size-11 items-center justify-center rounded-lg text-ink-dim transition-colors hover:bg-line hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:top-5 md:right-[22px] md:size-9"
         >

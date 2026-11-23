@@ -62,13 +62,22 @@ const PREVIEWS: Record<string, Preview> = {
 
 /**
  * The sample feed; `gone` is a record that has left it, whose card has no
- * preview any more, and `last` leaves no control after it on the page.
+ * preview any more, `last` leaves no control after it on the page, and
+ * `previews` stands in for the sample previews.
  */
-function Feed({ gone, last = false }: { gone?: string; last?: boolean }) {
+function Feed({
+  gone,
+  last = false,
+  previews = PREVIEWS,
+}: {
+  gone?: string;
+  last?: boolean;
+  previews?: Record<string, Preview>;
+}) {
   return (
     <>
       <button type="button">Before the feed</button>
-      <FeedPreview preview={(key) => (key === gone ? undefined : PREVIEWS[key])}>
+      <FeedPreview preview={(key) => (key === gone ? undefined : previews[key])}>
         <CardGrid>
           <FeedCard
             previewKey="HUGI-15"
@@ -160,6 +169,25 @@ function FeedWithAfterCard({ after }: { after: ReactNode }) {
       <FeedCard previewKey="MMR-715" lead={<span>Under review</span>} title="Mobile top bar" />
     </FeedPreview>
   );
+}
+
+/** MMR-709's preview with a `tabindex="1"` control in a fact, in the sample feed. */
+function FeedWithPositiveTabindex() {
+  const withCopy: Preview = {
+    ...PREVIEWS['MMR-709']!,
+    facts: [
+      {
+        label: 'Branch',
+        value: (
+          // oxlint-disable-next-line jsx-a11y/tabindex-no-positive -- the case under test
+          <button type="button" tabIndex={1}>
+            Copy the branch
+          </button>
+        ),
+      },
+    ],
+  };
+  return <Feed previews={{ ...PREVIEWS, 'MMR-709': withCopy }} />;
 }
 
 /** Three radios named `size`, `checked` among them when given. */
@@ -567,6 +595,42 @@ describe('preview panel: tab order through a disclosure', () => {
     screen.getByText('Why it runs long').focus();
     await userEvent.tab({ shift: true });
     expect(within(panel()).getByRole('link', { name: 'Open MMR-709' })).toHaveFocus();
+  });
+});
+
+describe('preview panel: tab order past a positive tabindex', () => {
+  it('Tab steps from the title to Close, then the panel’s own order, then out after the card', async () => {
+    await renderFeed('desktop', <FeedWithPositiveTabindex />);
+    await userEvent.click(card('Send an encrypted Web Push'));
+    const reached: Element[] = [];
+    for (let step = 0; step < 4; step += 1) {
+      await userEvent.tab();
+      if (document.activeElement !== null) {
+        reached.push(document.activeElement);
+      }
+    }
+    expect(reached).toEqual([
+      within(panel()).getByRole('button', { name: 'Close preview' }),
+      within(panel()).getByRole('button', { name: 'Copy the branch' }),
+      within(panel()).getByRole('link', { name: 'Open MMR-709' }),
+      card('Mobile top bar'),
+    ]);
+  });
+
+  it('Shift+Tab steps back through the panel to Close, the title, and the card', async () => {
+    await renderFeed('desktop', <FeedWithPositiveTabindex />);
+    await userEvent.click(card('Send an encrypted Web Push'));
+    within(panel()).getByRole('link', { name: 'Open MMR-709' }).focus();
+    const close = within(panel()).getByRole('button', { name: 'Close preview' });
+    const copy = within(panel()).getByRole('button', { name: 'Copy the branch' });
+    const reached: Element[] = [];
+    for (let step = 0; step < 4; step += 1) {
+      await userEvent.tab({ shift: true });
+      if (document.activeElement !== null) {
+        reached.push(document.activeElement);
+      }
+    }
+    expect(reached).toEqual([copy, close, panelTitle(), card('Send an encrypted Web Push')]);
   });
 });
 
