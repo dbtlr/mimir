@@ -1,5 +1,5 @@
 import { useRouter, useRouterState } from '@tanstack/react-router';
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import { focusMain } from './focus-main';
 
@@ -88,12 +88,67 @@ export function useBackToOpener(): (mark: Mark) => void {
   };
 }
 
-/** Focus the control named `entry` when it is on the page, else the page's main region. */
-function focusReturnTarget(entry: string | undefined): void {
-  const named =
-    entry === undefined
-      ? null
-      : document.querySelector(`[${RETURN_TARGET_ATTRIBUTE}="${CSS.escape(entry)}"]`);
+/**
+ * Takes focus back for a named control the document query cannot reach, as
+ * the Needs you deck does for a bundle on another page or behind the peek
+ * (ADR 0019, MMR-721 refinement: A walkthrough's return). Answers whether it
+ * placed focus, at once or once it could act; `false` moves nothing, and the
+ * return goes on to the next surface, then the control on the page.
+ */
+export type ReturnTargetResolver = (entry: string) => boolean | Promise<boolean>;
+
+/** The surfaces on the page that resolve a return before the document is queried. */
+const resolvers = new Set<{ current: ReturnTargetResolver }>();
+
+/**
+ * Registers a surface's resolver while it is mounted. It registers in a
+ * layout effect, so a page that shows with the opener is registered before
+ * the shell's request runs.
+ */
+export function useReturnTargetResolver(resolve: ReturnTargetResolver): void {
+  const latest = useRef(resolve);
+  useLayoutEffect(() => {
+    latest.current = resolve;
+  });
+  useLayoutEffect(() => {
+    resolvers.add(latest);
+    return () => {
+      resolvers.delete(latest);
+    };
+  }, []);
+}
+
+/**
+ * Focus the control named `entry`: a registered surface first, then the
+ * control on the page, else the page's main region.
+ */
+async function focusReturnTarget(entry: string | undefined): Promise<void> {
+  if (entry === undefined) {
+    focusMain();
+    return;
+  }
+  // A surface that answers at once is not awaited, so with none placing focus the page's control takes it in the same turn.
+  for (const surface of resolvers) {
+    const placed = surface.current(entry);
+    if (placed === true || (placed !== false && (await placedLater(placed)))) {
+      return;
+    }
+  }
+  focusNamed(entry);
+}
+
+/** A later answer; one that fails placed nothing. */
+async function placedLater(answer: Promise<boolean>): Promise<boolean> {
+  try {
+    return await answer;
+  } catch {
+    return false;
+  }
+}
+
+/** Focus the control on the page named `entry`, else the page's main region. */
+function focusNamed(entry: string): void {
+  const named = document.querySelector(`[${RETURN_TARGET_ATTRIBUTE}="${CSS.escape(entry)}"]`);
   if (named instanceof HTMLElement) {
     named.focus();
   } else {
@@ -120,7 +175,7 @@ export function useOpenerFocus(): void {
     const request = pendingFocus;
     pendingFocus = undefined;
     if (request !== undefined && request.opener === pathname) {
-      focusReturnTarget(request.entry);
+      void focusReturnTarget(request.entry);
     }
   }, [href, pathname]);
 }

@@ -150,6 +150,10 @@ const DECORATION: Record<string, { count: number; why: string }> = {
     why: 'the send glyph while Check and send is unreachable; its label reads',
   },
   'components/jump-palette.tsx': { count: 1, why: 'the row icon that repeats its label' },
+  'components/patterns/feed/deck-pager.tsx': {
+    count: 2,
+    why: 'a pager arrow’s chevron at an end, which keeps that ink on hover; its name reads',
+  },
   'components/project-picker.tsx': {
     count: 2,
     why: 'the trigger chevron and the search icon beside the input',

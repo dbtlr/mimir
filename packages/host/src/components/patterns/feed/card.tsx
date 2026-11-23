@@ -24,6 +24,7 @@ export function FeedCard({
   previewKey,
   lead,
   id,
+  project,
   age,
   title,
   detail,
@@ -36,6 +37,8 @@ export function FeedCard({
   lead: ReactNode;
   /** The record's ID, set in mono after the lead. */
   id?: string;
+  /** The project's name after the ID, where the feed spans projects (the Needs you deck, MMR-721). */
+  project?: string;
   /** How long ago the item last moved ("50m"), at the right of the first line. */
   age?: string;
   title: string;
@@ -66,7 +69,14 @@ export function FeedCard({
         'data-selected:border-accent data-selected:bg-[color-mix(in_srgb,var(--color-accent)_7%,var(--color-well-850))] data-selected:hover:border-accent',
       )}
     >
-      <FeedStatusLine id={statusId} lead={lead} recordId={id} age={age} className="mb-2" />
+      <FeedStatusLine
+        id={statusId}
+        lead={lead}
+        recordId={id}
+        project={project}
+        age={age}
+        className="mb-2"
+      />
       <h3
         className={cn(
           'm-0 text-title font-medium text-pretty wrap-anywhere',
@@ -75,6 +85,7 @@ export function FeedCard({
       >
         <button
           type="button"
+          data-slot="feed-card-target"
           aria-haspopup="dialog"
           aria-expanded={selected}
           aria-describedby={describedBy}

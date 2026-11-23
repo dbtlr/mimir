@@ -5,7 +5,9 @@ import { ActionButton } from '../components/ui/action-button';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardHeader } from '../components/ui/card';
 import { ChoiceKit } from '../kit/choice';
+import { DeckKit } from '../kit/deck';
 import { FeedKit } from '../kit/feed';
+import { NeedsYouDeckKit } from '../kit/needs-you-deck';
 import { OverlaysKit } from '../kit/overlays';
 import { PatternsKit } from '../kit/patterns';
 import { PickersKit } from '../kit/pickers';
@@ -60,7 +62,7 @@ const TYPE_SCALE = [
 
 export function KitPage() {
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col gap-10 overflow-y-auto px-5 py-8">
+    <main className="mx-auto flex w-full max-w-5xl flex-col gap-10 overflow-y-auto px-5 py-8 max-md:px-3.5">
       <header className="flex flex-col gap-1">
         <h1 className="text-page font-bold text-ink-bright">Meridian kit</h1>
         <p className="text-meta text-ink-dim">Foundation tokens and CVA primitives · dev only</p>
@@ -208,6 +210,8 @@ export function KitPage() {
       <StructureKit />
       <FeedKit />
       <PreviewKit />
+      <DeckKit />
+      <NeedsYouDeckKit />
     </main>
   );
 }

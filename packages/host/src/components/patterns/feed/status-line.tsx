@@ -4,12 +4,14 @@ import { cn } from '../../../lib/cn';
 
 /**
  * A card's status line, shared with its preview's header: the lead, the
- * record's ID in mono, and the age at the right of the first line.
+ * record's ID in mono, an optional project name, and the age at the right of
+ * the first line. A long project name wraps rather than run past the card.
  */
 export function FeedStatusLine({
   id,
   lead,
   recordId,
+  project,
   age,
   className,
 }: {
@@ -17,6 +19,8 @@ export function FeedStatusLine({
   id?: string;
   lead: ReactNode;
   recordId?: string;
+  /** The project's name after the ID, where the card's feed spans projects (the Needs you deck). */
+  project?: string;
   age?: string;
   className?: string;
 }) {
@@ -26,7 +30,10 @@ export function FeedStatusLine({
         {lead}
         {/* Spaces between the parts: flex gaps set them apart on screen, the
             spaces keep them apart in an accessible description. */}{' '}
-        {recordId !== undefined && <span className="font-mono whitespace-nowrap">{recordId}</span>}
+        {recordId !== undefined && (
+          <span className="font-mono whitespace-nowrap">{recordId}</span>
+        )}{' '}
+        {project !== undefined && <span>{project}</span>}
       </span>{' '}
       {age !== undefined && <span className="shrink-0 whitespace-nowrap">{age}</span>}
     </div>

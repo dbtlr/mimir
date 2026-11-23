@@ -270,7 +270,12 @@ function AnswerAction({
         Answer…
       </ActionButton>
       {answering && (
-        <GroomingAnswerDialog nodeId={id} question={question} onClose={() => setAnswering(false)} />
+        <GroomingAnswerDialog
+          nodeId={id}
+          question={question}
+          offline={offline}
+          onClose={() => setAnswering(false)}
+        />
       )}
     </>
   );

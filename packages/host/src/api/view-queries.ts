@@ -16,7 +16,7 @@ import { browserTimeZone } from './queries';
  * the persister's buster (lib/persist.ts), so a bump drops every snapshot
  * written in the old shape instead of restoring it into the new code.
  */
-export const VIEW_CACHE_VERSION = 6;
+export const VIEW_CACHE_VERSION = 7;
 
 /** The review page's report, as the Engine returns it. */
 export type ReviewReport = ConsoleOutput<'review'>;

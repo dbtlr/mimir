@@ -27,6 +27,13 @@ export type PreviewAction = {
   /** The accessible name, when the label alone does not say what it acts on ("Answer HUGI-15"). */
   name?: string;
   onAction: (cardButton: HTMLElement | null) => void;
+  /**
+   * The action cannot run now (offline, or its write in flight): it stays
+   * focusable and `aria-disabled`, and a press does nothing (MMR-721).
+   */
+  disabled?: boolean;
+  /** A write that runs in place: the preview stays open while it is in flight (MMR-721). */
+  keepsOpen?: boolean;
 };
 
 /**
@@ -38,6 +45,8 @@ export type PreviewAction = {
 export type Preview = {
   lead: ReactNode;
   id?: string;
+  /** The project's name after the ID, as the card shows it. */
+  project?: string;
   age?: string;
   title: string;
   reason: ReactNode;
@@ -55,14 +64,22 @@ function openName({ id, openId }: Preview): string | undefined {
   return target === undefined ? undefined : `Open ${target}`;
 }
 
-/** A relation in a fact (a parent, a dependency, a bundle's task): plain text, its ID then its title. */
-export function PreviewRelation({ id, title }: { id: string; title: string }) {
+/**
+ * A relation in a fact (a parent, a dependency, a bundle's task): plain text,
+ * its ID then its title, or its ID alone when the fact carries no title.
+ */
+export function PreviewRelation({ id, title }: { id: string; title?: string }) {
   return (
     <span className="block not-first:mt-1">
-      <span className="mr-1.5 font-mono text-ink-dim [font-size-adjust:var(--mono-adjust)]">
+      <span
+        className={cn(
+          'font-mono text-ink-dim [font-size-adjust:var(--mono-adjust)]',
+          title !== undefined && 'mr-1.5',
+        )}
+      >
         {id}
-      </span>{' '}
-      {title}
+      </span>
+      {title !== undefined && <> {title}</>}
     </span>
   );
 }
@@ -343,6 +360,7 @@ function PreviewContent({
         <FeedStatusLine
           lead={preview.lead}
           recordId={preview.id}
+          project={preview.project}
           age={preview.age}
           className="mb-2 leading-5"
         />
@@ -417,8 +435,14 @@ function PreviewContent({
             size="form"
             variant="action"
             aria-label={action.name}
+            aria-disabled={action.disabled === true ? true : undefined}
             onClick={() => {
-              onClose();
+              if (action.disabled === true) {
+                return;
+              }
+              if (action.keepsOpen !== true) {
+                onClose();
+              }
               action.onAction(null);
             }}
             className={FOOTER_BUTTON}
