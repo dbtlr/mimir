@@ -488,6 +488,23 @@ describe('focus after a dialog opened from a card', () => {
     expect(target('C')).toHaveFocus();
   });
 
+  it('goes to the successor’s target after a click on Answer… that does not focus it, as in Safari', async () => {
+    const { handle, refetch } = await renderDeck(
+      [...cardsOf(['T-1']), deckCard('A', answer), ...cardsOf(['B', 'C'])],
+      'desktop',
+    );
+    act(() => {
+      screen.getByRole('button', { name: 'Answer A' }).click();
+    });
+    const closeDialog = openOutsideDialog();
+    refetch(cardsOf(['T-1', 'B', 'C']));
+    closeDialog();
+    act(() => {
+      handle.current?.restoreFocus('A');
+    });
+    expect(target('B')).toHaveFocus();
+  });
+
   it('spends a card’s successor on one return, so a later one follows the current card', async () => {
     const { handle, refetch } = await renderDeck(
       [deckCard('A', answer), ...cardsOf(['B', 'C'])],

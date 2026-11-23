@@ -144,6 +144,9 @@ function cardElement(root: HTMLElement | null, key: string): HTMLElement | null 
 
 export function FeedDeck({ cards, preview, offline = false, ref, ...rest }: FeedDeckProps) {
   const [pending, setPending] = useState<ReadonlySet<string>>(() => new Set());
+  // The card whose dialog is open, from the press that opened it, which in
+  // Safari focuses nothing; its return (`restoreFocus`) settles it.
+  const [dialogCard, setDialogCard] = useState<string | null>(null);
   const root = useRef<HTMLElement | null>(null);
   const quietLine = useRef<HTMLParagraphElement>(null);
 
@@ -186,6 +189,9 @@ export function FeedDeck({ cards, preview, offline = false, ref, ...rest }: Feed
           setPending((current) => new Set(current).add(card.key));
         },
       };
+      if (card.action?.kind === 'dialog') {
+        setDialogCard(card.key);
+      }
       card.action?.run({ button, from, write });
     },
     [settle],
@@ -252,6 +258,10 @@ export function FeedDeck({ cards, preview, offline = false, ref, ...rest }: Feed
         {...rest}
         cards={cards}
         actionOf={actionOf}
+        dialogCard={dialogCard}
+        onDialogReturn={(key) => {
+          setDialogCard((open) => (open === key ? null : open));
+        }}
         handle={ref}
         root={root}
         quietLine={quietLine}
@@ -302,11 +312,15 @@ function DeckBody({
   quiet,
   className,
   actionOf,
+  dialogCard,
+  onDialogReturn,
   handle,
   root,
   quietLine,
 }: Omit<FeedDeckProps, 'preview' | 'offline' | 'ref'> & {
   actionOf: (card: DeckCard) => ReactNode;
+  dialogCard: string | null;
+  onDialogReturn: (key: string) => void;
   handle: Ref<FeedDeckHandle> | undefined;
   root: RefObject<HTMLElement | null>;
   quietLine: RefObject<HTMLParagraphElement | null>;
@@ -336,9 +350,9 @@ function DeckBody({
   if (seen.signature !== signature) {
     const anchor = focusCard ?? (desktop ? seen.open : null);
     const next = reconcileCurrent({ after: keys, anchor, before: seen.keys, current, desktop });
-    setDeparted((kept) =>
-      keptSuccessor({ after: keys, before: seen.keys, current: next, holder: focusCard, kept }),
-    );
+    // The card holding focus, or else the one whose dialog is open.
+    const holder = focusCard ?? dialogCard;
+    setDeparted((kept) => keptSuccessor({ after: keys, before: seen.keys, holder, kept }));
     setSeen({ keys, open: openCard, signature });
     setCurrent(next);
     setInstant(false);
@@ -534,6 +548,7 @@ function DeckBody({
 
   useImperativeHandle(handle, () => ({
     restoreFocus: (key: string) => {
+      onDialogReturn(key);
       // A kept successor is still in the deck; it serves one return.
       const successor = departed?.key === key ? departed.successor : null;
       if (successor !== null) {

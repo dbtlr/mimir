@@ -84,10 +84,25 @@ export function reconcileCurrent({
     return followed;
   }
   const leftIndex = followed === null ? oldIndex : before.indexOf(followed);
+  return placeTakerOf({ after, before, left: leftIndex }) ?? last;
+}
+
+/**
+ * The card that takes the place of the card at `left` in `before` once the
+ * deck is `after`: its successor, or when no old card survives, the new card
+ * at its old index, clamped to the new last card.
+ */
+function placeTakerOf({
+  before,
+  after,
+  left,
+}: {
+  before: readonly string[];
+  after: readonly string[];
+  left: number;
+}): string | undefined {
   return (
-    successorOf({ after: new Set(after), before, left: leftIndex }) ??
-    after[Math.min(leftIndex, after.length - 1)] ??
-    last
+    successorOf({ after: new Set(after), before, left }) ?? after[Math.min(left, after.length - 1)]
   );
 }
 
@@ -96,28 +111,30 @@ export type KeptSuccessor = { key: string; successor: string };
 
 /**
  * The successor a dialog's return (`restoreFocus`) may need after a refetch
- * turns `before` into `after`. Only the card holding focus, in itself, its
- * preview, or a dialog opened from it, can need one: when it leaves, the new
- * `current` card is its successor. One already `kept` stays while its card
- * is still gone and its successor still in the deck; otherwise the return
+ * turns `before` into `after`. Only the `holder` can need one: the card
+ * holding focus, in itself, its preview, or a dialog opened from it, or the
+ * card whose dialog is open when the click that opened it focused nothing
+ * (Safari). When it leaves, the card that takes its place is its successor,
+ * whichever card is current. One already `kept` stays while its card is
+ * still gone and its successor still in the deck; otherwise the return
  * follows the current card, so nothing is kept.
  */
 export function keptSuccessor({
   before,
   after,
-  current,
   holder,
   kept,
 }: {
   before: readonly string[];
   after: readonly string[];
-  current: string | null;
   holder: string | null;
   kept: KeptSuccessor | null;
 }): KeptSuccessor | null {
   const remaining = new Set(after);
-  if (holder !== null && current !== null && !remaining.has(holder) && before.includes(holder)) {
-    return { key: holder, successor: current };
+  const left = holder === null || remaining.has(holder) ? -1 : before.indexOf(holder);
+  const successor = left === -1 ? undefined : placeTakerOf({ after, before, left });
+  if (holder !== null && successor !== undefined) {
+    return { key: holder, successor };
   }
   if (kept !== null && !remaining.has(kept.key) && remaining.has(kept.successor)) {
     return kept;

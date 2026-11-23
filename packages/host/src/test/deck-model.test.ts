@@ -131,12 +131,11 @@ describe('the current card through a refetch', () => {
 });
 
 describe('the successor kept for a dialog’s return', () => {
-  it('keeps the new current card for the card holding focus when it leaves', () => {
+  it('keeps the card that takes its place for the card holding focus when it leaves', () => {
     expect(
       keptSuccessor({
         after: ['a', 'c'],
         before: ['a', 'b', 'c'],
-        current: 'c',
         holder: 'b',
         kept: null,
       }),
@@ -148,7 +147,6 @@ describe('the successor kept for a dialog’s return', () => {
       keptSuccessor({
         after: ['a', 'c'],
         before: ['a', 'b', 'c'],
-        current: 'c',
         holder: 'a',
         kept: null,
       }),
@@ -157,7 +155,6 @@ describe('the successor kept for a dialog’s return', () => {
       keptSuccessor({
         after: ['a', 'c'],
         before: ['a', 'b', 'c'],
-        current: 'c',
         holder: null,
         kept: null,
       }),
@@ -165,9 +162,7 @@ describe('the successor kept for a dialog’s return', () => {
   });
 
   it('keeps none when no card remains to succeed it', () => {
-    expect(
-      keptSuccessor({ after: [], before: ['a'], current: null, holder: 'a', kept: null }),
-    ).toBeNull();
+    expect(keptSuccessor({ after: [], before: ['a'], holder: 'a', kept: null })).toBeNull();
   });
 
   it('keeps a successor through a later refetch while its successor stays', () => {
@@ -176,7 +171,6 @@ describe('the successor kept for a dialog’s return', () => {
       keptSuccessor({
         after: ['c', 'd'],
         before: ['a', 'c', 'd'],
-        current: 'c',
         holder: 'b',
         kept,
       }),
@@ -189,7 +183,6 @@ describe('the successor kept for a dialog’s return', () => {
       keptSuccessor({
         after: ['a', 'd'],
         before: ['a', 'c', 'd'],
-        current: 'd',
         holder: 'b',
         kept,
       }),
@@ -198,7 +191,6 @@ describe('the successor kept for a dialog’s return', () => {
       keptSuccessor({
         after: ['a', 'b', 'c'],
         before: ['a', 'c'],
-        current: 'c',
         holder: 'b',
         kept,
       }),
