@@ -183,7 +183,6 @@ const PREVIEWS: Record<string, Preview> = {
           </>
         ),
       },
-      { label: 'Oldest', value: '5 hours ago' },
     ],
     lead: <DecisionsLead project="Loom CLI" />,
     open: nodeLink('LM-600'),
