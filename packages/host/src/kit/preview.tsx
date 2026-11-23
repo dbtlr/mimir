@@ -14,7 +14,8 @@ import { Section } from './section';
 /*
  * The preview panel (ADR 0019, MMR-720 refinement) over sample data: a task
  * waiting on an answer, a decision bundle, a seed, a card with no button, and a
- * task whose facts reach the phone sheet's 88% cap. Tap a card to open its
+ * task whose facts reach the phone sheet's 88% cap, and a bundle whose Tasks
+ * fact is taller than the capped body. Tap a card to open its
  * preview, another to switch it; no page adopts the panel yet (MMR-722 on).
  */
 
@@ -148,6 +149,47 @@ const PREVIEWS: Record<string, Preview> = {
     title:
       'Let a release channel pin a minimum version, so a bad build can be held back without deleting its tag',
   },
+  'release-channels': {
+    action: { label: 'Review 4 decisions', onAction: handOn },
+    age: '5h',
+    facts: [
+      {
+        label: 'Tasks',
+        value: (
+          <>
+            <PreviewRelation
+              id="LM-601"
+              title="Read a channel's promotion rules from the manifest"
+            />
+            <PreviewRelation id="LM-602" title="Promote only the highest verified version" />
+            <PreviewRelation id="LM-603" title="Hold a promotion while a newer tag is verifying" />
+            <PreviewRelation id="LM-604" title="Record why each promotion happened" />
+            <PreviewRelation id="LM-605" title="Show a channel's history on its release page" />
+            <PreviewRelation id="LM-606" title="Let a channel follow another channel" />
+            <PreviewRelation id="LM-607" title="Refuse a follow that would make a cycle" />
+            <PreviewRelation id="LM-608" title="Pin a channel to a minimum version" />
+            <PreviewRelation id="LM-609" title="Unpin when a fixed build lands" />
+            <PreviewRelation id="LM-610" title="Name the operator who set a pin" />
+            <PreviewRelation id="LM-611" title="Expire a pin after a set time" />
+            <PreviewRelation id="LM-612" title="Warn when a pin holds back a security fix" />
+            <PreviewRelation id="LM-613" title="Promote a rollback as its own release" />
+            <PreviewRelation id="LM-614" title="Sign each promotion record" />
+            <PreviewRelation id="LM-615" title="Verify a promotion record before it lands" />
+            <PreviewRelation id="LM-616" title="Mirror channels to the offline cache" />
+            <PreviewRelation id="LM-617" title="Read channel state from one place in the CLI" />
+            <PreviewRelation id="LM-618" title="Print a channel's state as JSON" />
+            <PreviewRelation id="LM-619" title="Diff two channels' versions" />
+            <PreviewRelation id="LM-620" title="Document the channel lifecycle" />
+          </>
+        ),
+      },
+      { label: 'Oldest', value: '5 hours ago' },
+    ],
+    lead: <DecisionsLead project="Loom CLI" />,
+    open: nodeLink('LM-600'),
+    reason: 'This delivery has 4 provisional decisions.',
+    title: 'Release channels',
+  },
   'web-push': {
     action: { label: 'Review 12 decisions', onAction: handOn },
     age: '2h',
@@ -261,6 +303,18 @@ export function PreviewKit() {
                   aria-label="Answer NORN-560"
                 >
                   Answer
+                </ActionButton>
+              }
+            />
+            <FeedCard
+              previewKey="release-channels"
+              lead={<DecisionsLead project="Loom CLI" />}
+              age="5h"
+              title="Release channels"
+              detail="Choices made while building the channel promoter, across 20 tasks."
+              action={
+                <ActionButton size="form" className="md:h-9">
+                  Review 4 decisions
                 </ActionButton>
               }
             />
