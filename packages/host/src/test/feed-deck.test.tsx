@@ -144,6 +144,22 @@ describe('phone deck', () => {
     expect(target('T-2')).toHaveFocus();
   });
 
+  it('leaves focus in another deck’s card when this deck turns', async () => {
+    stubViewport('phone');
+    await renderInRouter(
+      <>
+        {deck(cardsOf(['A-1', 'A-2'])).ui}
+        {deck(cardsOf(['B-1', 'B-2'])).ui}
+      </>,
+    );
+    target('A-1').focus();
+    const [, nextInB] = screen.getAllByRole('button', { name: 'Next card' });
+    act(() => {
+      nextInB?.click();
+    });
+    expect(target('A-1')).toHaveFocus();
+  });
+
   it('keeps the current card by identity through a refetch that reorders the deck', async () => {
     const { refetch } = await renderDeck(cardsOf(keys(4)), 'phone');
     await userEvent.click(screen.getByRole('button', { name: 'Next card' }));

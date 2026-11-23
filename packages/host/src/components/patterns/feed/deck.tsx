@@ -487,9 +487,10 @@ function DeckBody({
       return;
     }
     const active = document.activeElement;
+    // Only this deck's cards: focus in another deck's card stays there.
     const fromCard =
       active !== null &&
-      (active.closest('[data-deck-card]') !== null ||
+      ((root.current?.contains(active) === true && active.closest('[data-deck-card]') !== null) ||
         (desktop && openKey !== null && active.closest(PANEL) !== null));
     flushSync(() => {
       setCurrent(next);
