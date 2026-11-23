@@ -507,4 +507,14 @@ describe('turning to a card by identity', () => {
     expect(screen.getByRole('heading', { level: 2 }).parentElement).toHaveTextContent('5–7 of 7');
     expect(handle.current?.turnTo('delivery:gone')).toBe(false);
   });
+
+  it('closes the open preview when it turns to a card on another page', async () => {
+    const { handle } = await renderDeck(cardsOf(keys(8)), 'desktop');
+    await userEvent.click(target('T-2'));
+    act(() => {
+      handle.current?.turnTo('T-6');
+    });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(target('T-6')).toHaveFocus();
+  });
 });

@@ -486,17 +486,11 @@ function DeckBody({
     if (!keys.includes(key)) {
       return false;
     }
+    // A preview whose card is now off the shown page closes in the turn's own commit (the effect above).
     flushSync(() => {
       setCurrent(key);
       setInstant(true);
     });
-    if (
-      desktop &&
-      openCard !== null &&
-      pageOf(keys.indexOf(openCard)) !== pageOf(keys.indexOf(key))
-    ) {
-      close();
-    }
     focusIn(key, 'button');
     return true;
   };
