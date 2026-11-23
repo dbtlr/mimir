@@ -59,6 +59,29 @@ describe('tabSequence', () => {
     );
     expect(labels(tabSequence(root))).toEqual(['One', 'Two', 'Zero A', 'Zero B']);
   });
+
+  it('without checkVisibility (Safari before 17.4), leaves out a control with no box or visibility:hidden', () => {
+    const root = mount(
+      '<button>Open</button><button style="visibility:hidden">Hidden</button><button style="display:none">Gone</button><button>Next</button>',
+    );
+    const [open, hidden, , next] = root.querySelectorAll('button');
+    // jsdom lays nothing out, so give the laid-out controls the box a browser would.
+    for (const shown of [open, hidden, next]) {
+      Object.defineProperty(shown, 'getClientRects', {
+        configurable: true,
+        value: () => [DOMRect.fromRect({ height: 36, width: 80 })],
+      });
+    }
+    const checkVisibility = Object.getOwnPropertyDescriptor(Element.prototype, 'checkVisibility');
+    Reflect.deleteProperty(Element.prototype, 'checkVisibility');
+    try {
+      expect(labels(tabSequence(root))).toEqual(['Open', 'Next']);
+    } finally {
+      if (checkVisibility !== undefined) {
+        Object.defineProperty(Element.prototype, 'checkVisibility', checkVisibility);
+      }
+    }
+  });
 });
 
 describe('tabSequence: editing hosts', () => {

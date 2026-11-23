@@ -24,7 +24,16 @@ function isEditingHost(element: HTMLElement): boolean {
   return element.isContentEditable && !insideEditor(element);
 }
 
-/** Whether Tab can land on `element`: in the sequence, enabled, not inert, and shown (visibility:hidden counts as hidden). */
+/** Whether `element` is shown: it has a box, and visibility:hidden counts as hidden. */
+function shown(element: HTMLElement): boolean {
+  // Safari before 17.4 has no checkVisibility.
+  if (Reflect.has(element, 'checkVisibility')) {
+    return element.checkVisibility({ visibilityProperty: true });
+  }
+  return element.getClientRects().length > 0 && getComputedStyle(element).visibility === 'visible';
+}
+
+/** Whether Tab can land on `element`: in the sequence, enabled, not inert, and shown. */
 function reachable(element: HTMLElement): boolean {
   const inSequence =
     element.tabIndex >= 0 || (!element.hasAttribute('tabindex') && isEditingHost(element));
@@ -33,7 +42,7 @@ function reachable(element: HTMLElement): boolean {
     !insideEditor(element) &&
     !element.matches(':disabled') &&
     element.closest('[inert]') === null &&
-    element.checkVisibility({ visibilityProperty: true })
+    shown(element)
   );
 }
 
