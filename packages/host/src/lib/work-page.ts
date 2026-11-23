@@ -15,12 +15,16 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** The calendar day of an instant in `zone`, `YYYY-MM-DD`. */
 export function dayOf(at: number, zone: string): string {
-  return new Intl.DateTimeFormat('en-CA', {
+  // Built from the parts, not a locale's whole format: ICU has changed en-CA's date pattern before.
+  const parts = new Intl.DateTimeFormat('en-US', {
     day: '2-digit',
     month: '2-digit',
     timeZone: zone,
     year: 'numeric',
-  }).format(at);
+  }).formatToParts(at);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((each) => each.type === type)?.value ?? '';
+  return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
 /** `Mon Oct 12` — the weekday and date of a `YYYY-MM-DD` day. */

@@ -31,9 +31,17 @@ import { reviewRoute } from '../router';
  */
 
 /** The page title and the summary sentence, over a hairline. */
-function HomeHead({ report, zone }: { report: ReviewReport; zone: string }) {
+function HomeHead({
+  report,
+  shipped,
+  zone,
+}: {
+  report: ReviewReport;
+  /** This week's shipped total, from the week Shipped draws. */
+  shipped: number;
+  zone: string;
+}) {
   const cards = useMemo(() => needsYouCards(report).length, [report]);
-  const shipped = shippedWeek({ projects: report.projects, rows: report.shipped, zone }).total;
   return (
     <header className="mb-8 border-b border-line pb-5">
       <h1 className="m-0 text-page leading-9 font-bold text-ink-bright">{homeDay(zone)}</h1>
@@ -94,6 +102,8 @@ export function ReviewPage() {
   }
 
   const zone = browserTimeZone();
+  // One pass over the shipped rows feeds the summary's total and the Shipped section.
+  const week = shippedWeek({ projects: report.projects, rows: report.shipped, zone });
   return (
     <>
       <OfflineBanner {...conn} />
@@ -103,11 +113,11 @@ export function ReviewPage() {
         className={cn('min-h-0 flex-1 overflow-y-auto', conn.offline && 'offline-demoted')}
       >
         <div className="mx-auto w-full max-w-[900px] px-3.5 pt-4 pb-10 md:px-5 md:pt-6 md:pb-12">
-          <HomeHead report={report} zone={zone} />
+          <HomeHead report={report} shipped={week.total} zone={zone} />
           <PushSuggestion offline={conn.offline} />
           <NeedsYouDeck report={report} offline={conn.offline} countItems />
           <NowSection report={report} />
-          <ShippedSection report={report} zone={zone} />
+          <ShippedSection week={week} />
           <MinuteSection report={report} />
         </div>
       </main>

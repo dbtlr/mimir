@@ -1,5 +1,6 @@
 import type { ReviewReport } from '../api/view-queries';
-import { minuteRows, nowCount, nowShown, shippedWeek } from '../lib/home';
+import { minuteRows, nowCount, nowShown } from '../lib/home';
+import type { ShippedWeek } from '../lib/home';
 import { nodeLink } from '../lib/record-url';
 import { STATUS_META } from '../lib/status';
 import { ago, relativeTime } from '../lib/time';
@@ -115,12 +116,7 @@ export function NowSection({ report }: { report: ReviewReport }) {
  * Shipped this week: the seven-day chart, then the counts by project as plain
  * rows. Hidden when nothing shipped in the window.
  */
-export function ShippedSection({ report, zone }: { report: ReviewReport; zone: string }) {
-  const week = shippedWeek({
-    projects: report.projects,
-    rows: report.shipped,
-    zone,
-  });
+export function ShippedSection({ week }: { week: ShippedWeek }) {
   if (week.total === 0) {
     return null;
   }

@@ -1,7 +1,8 @@
 import type { EngineTree } from '@mimir/contract';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  dayOf,
   SHIPPED_DAY_CAP,
   buildOutline,
   capDay,
@@ -18,6 +19,26 @@ const NOW = Date.parse('2026-10-13T03:30:00.000Z');
 const NY = 'America/New_York';
 
 const shipped = (id: string, at: string) => ({ finishedAt: new Date(at), id });
+
+describe('dayOf', () => {
+  const format = Object.getOwnPropertyDescriptor(Intl.DateTimeFormat.prototype, 'format');
+  afterEach(() => {
+    if (format !== undefined) {
+      Object.defineProperty(Intl.DateTimeFormat.prototype, 'format', format);
+    }
+  });
+
+  it('keys a day YYYY-MM-DD in the zone, whatever pattern a locale formats whole dates in', () => {
+    // ICU has shipped en-CA with a slashed pattern; the key must not follow it.
+    Object.defineProperty(Intl.DateTimeFormat.prototype, 'format', {
+      configurable: true,
+      get: () => () => '11/23/2026',
+    });
+    const at = Date.parse('2026-11-24T03:30:00Z');
+    expect(dayOf(at, 'America/New_York')).toBe('2026-11-23');
+    expect(dayOf(at, 'UTC')).toBe('2026-11-24');
+  });
+});
 
 describe('groupShippedByDay', () => {
   it('groups by calendar day in the given zone, newest day first, labelled Today and Yesterday', () => {

@@ -1,6 +1,6 @@
 import type { EngineNode } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
-import { screen, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -138,10 +138,11 @@ async function openHome(served: ReviewReport, viewport: Viewport | number = 'des
   const client = new QueryClient({ defaultOptions: { queries: { staleTime: 5_000 } } });
   const view = await renderRoute(consoleRoutes, path, client);
   await screen.findByRole('heading', { level: 1 });
-  return { ...view, resize };
+  return { ...view, client, resize };
 }
 
 const section = (name: RegExp) => screen.getByRole('region', { name });
+const nowCards = () => within(section(/^Now/)).getAllByRole('button');
 const heads = () => screen.getAllByRole('heading', { level: 2 }).map((head) => head.textContent);
 
 describe('Home at / (ADR 0013, MMR-722 refinement)', () => {
@@ -229,6 +230,22 @@ describe('Home at / (ADR 0013, MMR-722 refinement)', () => {
     expect(cards()).toHaveLength(4);
     resize(768);
     expect(cards()).toHaveLength(6);
+  });
+
+  it('hands focus to a shown Now card when a refetch drops the card that opened the preview', async () => {
+    const { client } = await openHome(busy(), 'phone');
+    const fourth = nowCards()[3]!;
+    await userEvent.click(fourth);
+    await screen.findByRole('dialog');
+    // A poll brings a newer move to the front, pushing the fourth card past the phone's cap.
+    serveViews({ review: busy({ now: [running('MMR-99', 1), ...NINE] }) });
+    await act(async () => {
+      await client.invalidateQueries();
+    });
+    await waitFor(() => expect(fourth).not.toBeInTheDocument());
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(nowCards()).toContain(document.activeElement));
   });
 
   it('counts Now plainly when every card shows', async () => {
