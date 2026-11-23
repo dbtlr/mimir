@@ -419,6 +419,17 @@ Rules:
   clicked card that opener. `useFinalFocus` (`patterns/opener.ts`) captures
   the opener only when `open` turns true, and a switch keeps `open` true, so
   the pattern sets the opener itself on a switch.
+- **The panel's tab stepping covers what the pattern renders.** The desktop
+  panel steps Tab itself (`patterns/feed/tab-order.ts`), so it models the
+  browser's order only for the controls a preview holds: the title, Close,
+  Open, and the card's action, beside facts that are plain text (ADR 0019,
+  MMR-720), in a feed of feed blocks. A fact holds no form control, link, or
+  editable text. Known and not modelled, and outside that boundary: a
+  focused control inside an editable region, a radio group whose checked
+  radio is disabled or hidden, the radio Chromium remembers in a group with
+  none checked, a Tab begun from a clicked `tabindex="-1"` control, and two
+  unchecked radios right after a card with no button. A preview that needs
+  such a control in a fact revisits this rule first (MMR-s106).
 - **A switch changes the content in place at once** and resets the body's
   scroll to the top; a cross-fade would be a fourth mover (ADR 0019 §8).
   Under `prefers-reduced-motion` there is no slide; the panel, the sidebar,
