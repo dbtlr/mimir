@@ -11,7 +11,7 @@ Every value is marked:
 - **adopted (MMR-…)**: proposed with that task's mock, approved with it,
   and now carried by the primitives and patterns (MMR-743 the Form sheet,
   MMR-718 readable type, MMR-719 the feed blocks, MMR-720 the preview
-  panel). The reason given beside
+  panel, MMR-721 the Needs you deck). The reason given beside
   one says what the code did before.
 - **proposed**: missing from or different in the code. Each carries a one-line
   reason and needs the operator's ruling before a primitive adopts it.
@@ -475,6 +475,29 @@ Rules:
   and the `ink-faint`/`ink-dim` mix in light (`#7a8b98`, about 3.2:1 against the
   flat scrim) measured 2.06–2.75:1, since the sheet's upward shadow darkens the
   scrim at the seam.
+
+#### Needs you deck
+
+The needs-you set as a deck of feed cards (ADR 0019's MMR-721 refinement),
+in `src/components/patterns/feed`. Its cards are the Card block's and its
+head the Section head's; the deck adds only what is below. It shows as one
+card at a time below 768 and as pages of four from 768, the breakpoint the
+preview panel uses.
+
+| Where | Phone (< 768) | Desktop (≥ 768) | Mark |
+| --- | --- | --- | --- |
+| Layout | one card at a time, its left edge on the page's 14 gutter; the deck runs past the right gutter to the screen's edge. The card is the width less 14, the 8 gap, and the 38 peek: 330 at 390, 260 at 320 | a page of four cards in the Card grid, 12 apart: two by two at two columns, four stacked at one column (beside the open preview panel from 768 to 1091) | **adopted (MMR-721)** |
+| Peek | the next card's first 38 at the screen's right edge, 8 after the current card, in full ink; inert. None at the last card, whose right stays empty | none | **adopted (MMR-721)** |
+| Height | every card takes the deck's tallest card's height, so the pager never moves | with more than one page, every page holds two rows of the deck's tallest card (four rows at one column), so a short last page keeps its height and the next section never moves; one page draws its own rows | **adopted (MMR-721)** |
+| Pager | centred under the deck, 8 below the cards: Previous, the position, Next, 12 apart | in the section head, right-aligned before See all: the range, then the two arrows 8 apart; 12 between the range, the arrows, and See all. When the head cannot hold it on one line (the 288 column beside the panel at 768), the range and arrows wrap together to a line under the name, at the right | **adopted (MMR-721)** |
+| Arrow | 44 square | 36 square | **adopted (MMR-721)** |
+| Arrow, live | 8 radius, a 20 chevron in `ink-dim`, a 1px `ink-dim` inset edge: the arrows sit on the page's `well-900`, where an `ink-faint` edge measured 2.63:1 in light (Control edges meet 3:1) | same | **adopted (MMR-721)** |
+| Arrow, at an end | the chevron in `ink-faint` (the disabled-glyph ink), the edge `line`; `aria-disabled`, still focusable, does nothing | same | **adopted (MMR-721)** |
+| Position | "1 of 10", 13 / 20 `ink-dim`, the index in `ink-bright` 600; tabular numerals; at least 64 wide and wide enough for the total's digits in the index, so the arrows never shift | "1–4 of 10" (an en dash), the same type, the range in `ink-bright` 600 | **adopted (MMR-721)** |
+| Card button | an outline, the Card block's (1px `ink-faint` edge, `ink-bright` label), for every kind; never solid, never the attention outline; the preview carries the solid (Preview panel, The card's action) | same | **adopted (MMR-721)** |
+| One card | fills the width between the gutters; no peek, no pager | one page: no range or arrows (likewise for four or fewer) | **adopted (MMR-721)** |
+| No cards | the quiet line "Nothing needs you." in the section's place, with no head (Quiet line) | same | **adopted (MMR-721)** |
+| Turn | slides to rest with no overshoot; at once under `prefers-reduced-motion` (ADR 0019 §8) | at once, no slide | **adopted (MMR-721)** |
 
 ## Sizes
 
