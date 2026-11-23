@@ -14,12 +14,26 @@ const TABBABLE = [
   '[tabindex]',
 ].join(', ');
 
-/** The controls under `root` that Tab reaches, in document order: in the sequence, not inert, and shown. */
-export function tabSequence(root: ParentNode): HTMLElement[] {
-  return [...root.querySelectorAll<HTMLElement>(TABBABLE)].filter(
-    (element) =>
-      element.tabIndex >= 0 && element.closest('[inert]') === null && element.checkVisibility(),
+/** Whether Tab can land on `element`: in the sequence, enabled, not inert, and shown (visibility:hidden counts as hidden). */
+function reachable(element: HTMLElement): boolean {
+  return (
+    element.tabIndex >= 0 &&
+    !element.matches(':disabled') &&
+    element.closest('[inert]') === null &&
+    element.checkVisibility({ visibilityProperty: true })
   );
+}
+
+/**
+ * The controls under `root` that Tab reaches, in the browser's order: positive
+ * `tabindex` values first, ascending, then the rest in document order.
+ */
+export function tabSequence(root: ParentNode): HTMLElement[] {
+  const reached = [...root.querySelectorAll<HTMLElement>(TABBABLE)].filter(reachable);
+  const positive = reached
+    .filter((element) => element.tabIndex > 0)
+    .toSorted((a, b) => a.tabIndex - b.tabIndex);
+  return [...positive, ...reached.filter((element) => element.tabIndex === 0)];
 }
 
 /** The control Tab reaches after `from` (before it, `backward`), outside `skip`. */
