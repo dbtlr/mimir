@@ -45,6 +45,8 @@ export type PreviewAction = {
 export type Preview = {
   lead: ReactNode;
   id?: string;
+  /** The project's name after the ID, as the card shows it. */
+  project?: string;
   age?: string;
   title: string;
   reason: ReactNode;
@@ -350,6 +352,7 @@ function PreviewContent({
         <FeedStatusLine
           lead={preview.lead}
           recordId={preview.id}
+          project={preview.project}
           age={preview.age}
           className="mb-2 leading-5"
         />
