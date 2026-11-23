@@ -80,13 +80,13 @@ absorbing it as an ever-growing list of refinements.
    decoration-only; unvalidated token values are validated on a rendered
    composite before implementation locks them.
 
-8. **The motion budget is exhaustive.** Three movers: the in-progress pulse
+8. **The motion budget is exhaustive.** Four movers: the in-progress pulse
    dot, the detail panel/sheet slide, and note expand/collapse. (2026-11-22,
    MMR-720: the preview panel's slide includes the sidebar's exit and return
    and the feed column's re-centre that travel with it.) (2026-11-23,
-   MMR-721: a fourth, the phone Needs you deck's turn from one card to the
+   MMR-721: the fourth, the phone Needs you deck's turn from one card to the
    next.) Nothing else
-   moves — no hover lifts, no springs. Adding a fourth mover is a revisit of
+   moves — no hover lifts, no springs. Adding a fifth mover is a revisit of
    this ADR, not a styling choice.
 
 9. **The Overview/attention model, extracted.** Decided across
@@ -834,6 +834,8 @@ The rules for these chips:
   another verb, and never to _Abandon…_.
 - The page's _Needs you_ group hands focus on as a work page's does.
 - A stopped delivery's row elsewhere links to this page and carries no verbs.
+  (2026-11-23, MMR-721: its Needs you deck card carries _Clear stop_; its
+  needs-you rows still carry none.)
 
 ### Refusals
 
@@ -1568,7 +1570,9 @@ cards, not those rows or the focus queue's card.
   without a delivery, as the phase design bundles them) leads with the word
   _Decisions_ after an attention dot, set as a status word is (13px,
   semibold, `ink-bright`); it names a set, not a delivery's lifecycle, so
-  MMR-680's ink chips do not apply to it. Which ID such a card shows and
+  MMR-680's ink chips do not apply to it. (2026-11-23, MMR-721: a stopped
+  delivery's card leads with _Stopped_ after an attention dot, set the same
+  way.) Which ID such a card shows and
   where its preview's Open leads are settled by the MMR-721 refinement below. Chips (size, grooming, stale) sit in their own row under the title,
   never on the status line, so a long title never leaves a chip alone on a
   line. The whole card is one stretched target whose accessible description
@@ -1754,7 +1758,7 @@ Open navigates to the record's page.
 - **The panel moves as §8 now states.** §8's panel slide includes the
   sidebar's exit and return and the feed column's re-centre that travel with it (the
   2026-11-22 amendment to §8). A switch adds no cross-fade, which would be a
-  fourth mover. Under `prefers-reduced-motion` the panel does not slide: the
+  fourth mover (now a fifth). Under `prefers-reduced-motion` the panel does not slide: the
   panel, the sidebar, and the feed column change at once.
 - **Considered and rejected.**
   - A scrim on desktop, as the Content sheet draws: a click on another card
@@ -1764,7 +1768,7 @@ Open navigates to the record's page.
   - A third action in the footer: the preview never offers more than the
     card (MMR-a420's principle 4).
   - A cross-fade on switch, which round 3's mock drew: it would add a fourth
-    mover to §8's exhaustive budget.
+    mover (now a fifth) to §8's exhaustive budget.
   - A list of a bundle's decisions: the walkthrough holds them, and the
     bundle's action opens it.
 
@@ -1775,25 +1779,31 @@ refinement), one ranked list across projects, paged rather than listed in
 full. It is a pattern in `components/patterns/feed` beside the MMR-719
 blocks and the MMR-720 preview panel, with a module that turns the set's rows
 into cards, previews, and actions. The operator picked its form, variant A,
-from the deck mocks, after two rounds of blind design review (MMR-721).
+from three deck mocks; two rounds of blind design review then iterated it
+to a score of 9 from both reviewers (MMR-721).
 `packages/host/DESIGN.md` holds its numbers, under Feed blocks.
 
 The deck changes no page by itself: `/kit` shows it with sample data, and
-Home (MMR-722) and the Needs you page (MMR-723) mount it. Until then, the
-needs-you rows of the MMR-694 and MMR-695 refinements stand on every page
-that shows them, with their answer chips.
+Home (MMR-722) mounts it as its one ranked deck across projects. The Needs
+you page (MMR-723) stays grouped by project and decides how it reuses these
+cards and bundles within its project groups. Until then, the needs-you rows
+of the MMR-694 and MMR-695 refinements stand on every page that shows them,
+with their answer chips.
 
 ### One order, bundled
 
 - **One ranked order across projects.** The deck uses the needs-you set's
   order of the MMR-694 refinement and drops its project grouping, as the
-  focus queue does. The first card is the set's first record, from any
-  project.
+  focus queue does. The review report's `queue` already walks every member
+  in that order across projects; the deck follows it and takes each
+  member's row from its project's `needsYou` group. The first card is the
+  set's first record, from any project.
 - **A provisional decision shows in a bundle, not alone.** A delivery's
   provisional decisions make one card, and a project's decisions that name
-  no delivery make one card per project, the sets of the MMR-704 entries. A
-  bundle takes the place of its first decision in the order, as an entry
-  follows its delivery's first decision row (MMR-704). A stopped delivery
+  no delivery make one card per project, the sets of the MMR-704 entries.
+  Every bundle takes the place of its first decision in the order. Unlike
+  MMR-704's entries, which put the no-delivery entry last in its group, a
+  project's bundle takes its first decision's place too. A stopped delivery
   and its own decisions are two cards, each in its own place.
 - **The deck's count counts cards, not records.** The section head's count
   and the pager's N are the number of cards, because the pager moves through
@@ -1826,7 +1836,9 @@ higher ones. The preview carries the card's one solid action (MMR-720).
   page ("Open FLT-d2").
 - **A project's bundle** leads the same way, then the project's key in mono
   and its name. Its title reads "Mimir decisions without a delivery", in the
-  MMR-704 entry's words. Its detail, button, and preview follow the
+  MMR-704 entry's words. This amends the reviewed mock, which read "outside
+  a delivery": the title, the button, and the entries keep one phrase. Its
+  detail, button, and preview follow the
   delivery's bundle; the button's accessible name reads "Review 4 decisions
   without a delivery in MMR"; the preview's reason is "This project has N
   provisional decisions without a delivery."; and Open goes to the project's
@@ -1836,12 +1848,14 @@ higher ones. The preview carries the card's one solid action (MMR-720).
   `updated_at`. Its detail is its stop reason, two lines at most. Its
   button, _Clear stop_, is the delivery page's write (MMR-695), from the
   same waking function, so it wakes the delivery's thread as the page does.
-  Its preview's reason is the stop reason's first sentence, and the rest of
+  This amends the MMR-695 refinement's rule that a stopped delivery's row
+  elsewhere carries no verbs: the deck's card carries _Clear stop_, and the
+  delivery's needs-you rows elsewhere still carry none. Its preview's reason is the stop reason's first sentence, and the rest of
   the reason follows in full, so the operator reads why it stopped before
   clearing it. When the same delivery's decisions are in the set, a
   _Decisions_ fact says so: "3 decisions on this delivery are waiting. They
-  are their own card in Needs you." Its other facts are the phase and, when
-  the read carries it, the task in flight. Open goes to the delivery's page.
+  are their own card in Needs you." Its other fact is the phase. Open goes
+  to the delivery's page.
 - **A task that needs answers** leads with its status badge and its ID,
   shows its question as the detail and the _Needs answers_ chip, and
   carries _Answer…_, which opens the existing answer dialog unchanged
@@ -1851,6 +1865,32 @@ higher ones. The preview carries the card's one solid action (MMR-720).
   room at its foot (MMR-719). Its preview opens with "Blocked on you." in
   600, then the reason, and its footer holds Open alone.
 
+### Where each field comes from
+
+The deck reads the review report and adds one field to the needs-you read.
+That field is additive: core joins it from the existing delivery records,
+and the store does not change.
+
+- **Project name:** the review report's `projects`, by the row's project
+  key. A key missing there shows alone.
+- **A delivery's bundle:** its title and its phase, ID and title, come from
+  the new field, one entry for each delivery that has a bundle. Without an
+  entry, the title reads "Decisions on FLT-d2" and the Phase fact is left
+  out. The linked tasks are the decisions' `tasks`, which carry IDs only, so
+  the Tasks fact lists IDs and adds a title only where a read supplies one.
+  The age is the first decision's `created_at`.
+- **A stopped delivery:** its title, stop reason (`hold_reason`), phase,
+  project, and `updated_at` come from its own needs-you row
+  (`kind: 'delivery'`). That row carries the phase's ID only, so its Phase
+  fact shows the ID. A stop with no reason shows no detail line, and its
+  preview's reason reads "This delivery is stopped."
+- **A task:** its `NodeView`; the question is the row's `question`, and the
+  block reason is the task's `holdReason`. Either one missing leaves the
+  detail line out.
+- **Not shown:** the reviewed mock's Time fact ("4h 02m of a 4h cap") and a
+  stopped delivery's task in flight. No read supplies them, so the preview
+  omits both until one does.
+
 ### The phone deck
 
 Below 768 the deck shows one card at a time.
@@ -1859,9 +1899,10 @@ Below 768 the deck shows one card at a time.
   38 peeks at the screen's right edge, in full ink. Every card takes the
   height of the deck's tallest card, so the pager never moves as the deck
   turns.
-- **The peeking card is inert.** It is out of the tab order and hidden from
-  screen readers. A tap anywhere on it turns the deck to it and never
-  presses its button or opens its preview.
+- **The peeking card is out of reach of focus and screen readers.** It is
+  out of the tab order and `aria-hidden`, but it is not given the HTML
+  `inert` attribute, which would swallow the tap: a tap anywhere on it turns
+  the deck to it and never presses its button or opens its preview.
 - **Swipe** turns the deck: the card follows the finger, the position
   changes once the card passes halfway, and the deck rests on one card, at
   most one card per swipe. A mostly vertical gesture scrolls the page.
@@ -1878,7 +1919,8 @@ Below 768 the deck shows one card at a time.
 - **A single card** fills the width between the gutters, with no peek and
   no pager.
 - The deck's position is not kept in the URL. The deck starts at its first
-  card each time its page renders.
+  card on initial mount, except on a walkthrough's return (The deck's
+  state).
 
 ### The desktop deck
 
@@ -1890,44 +1932,89 @@ is one column, as beside an open preview panel from 768 to 1091.
   "Previous page" and "Next page", sit in the section head, left of _See
   all_. When the head cannot hold them on one line, as in the 288 column
   beside the panel at 768, the range and arrows move together to a line of
-  their own under the name, at the right.
+  their own under the name, at the right. The head then grows by that line,
+  a second row as tall as the arrows, and keeps its 12 to the cards.
 - **Every page holds one grid height.** When the deck has more than one
   page, each page takes two rows of the deck's tallest card (four rows in
   one column), so a short last page keeps its height and the section below
   never moves between pages. A deck of one page draws only its own rows.
-- Left and Right, with focus in the deck, turn one page, and focus on a card
-  moves to the first card of the new page. A page turns at once, without a
-  slide.
+- **Arrow keys.** With focus in the deck, Left and Right turn one page.
+  Focus on a card moves to the first card of the new page; focus on an arrow
+  stays there. Each card is a group named by its position ("5 of 10"), and
+  a page turn announces the new range once ("5–8 of 10"). A page turns at
+  once, without a slide.
 - A deck of four cards or fewer shows no range or arrows.
 
-### When a card leaves
+### The deck's state
 
-An action can remove a card: a cleared stop, an answered question, or a
-walkthrough that settles a whole bundle.
+These rules hold on both decks. A card leaves when its record leaves the
+set: after a cleared stop or an answered question on the deck, or when a
+refetch drops it.
 
-- **The count drops and the next card takes the place.** The deck keeps its
-  position, so the card after the one that left moves into it. On the
-  phone, when the last card left, the deck moves back one. On desktop the
-  page keeps its first position and fills from the cards after it; a page
-  left empty turns back one page.
-- **Focus moves to the successor's target,** the stretched target that
-  opens its preview, never its button, so a key held down writes nothing,
-  as the MMR-695 refinement keeps focus off committing chips. With no card
-  after it, focus moves to the card before. When no card remains, the quiet
-  line "Nothing needs you." takes the section's place (MMR-719) and takes
-  focus, made focusable for it.
+- **The current card is held by identity.** The deck keeps one current
+  card by its record's ID or its bundle's set, never by its index. On the
+  phone it is the card shown. On desktop a page turn makes the new page's
+  first card current and focus on a card makes that card current; the page
+  shown is always the one that holds the current card, page ⌊k/4⌋ for the
+  card at index k, counted from 0.
+- **A refetch keeps the current card.** When a refetch adds, removes, or
+  reorders cards, the deck recomputes the current card's index, the same
+  card stays current, and focus stays on the same element. A refetch that
+  arrives during a swipe applies once the swipe settles.
+- **When the current card leaves, the next one takes its place.** The
+  nearest card after it in the old order that is still in the deck becomes
+  current, so the phone shows it in the same place and a desktop page fills
+  from the cards after it. With no card after it, the nearest card before it
+  becomes current: the phone moves back one, and a desktop page left empty
+  turns back one page. A card that leaves while it is not current and holds
+  no focus moves nothing: when _Clear stop_ on card 2 succeeds after the
+  operator moved on to card 5, card 5 stays current and focus stays where it
+  is.
+- **Focus moves to the successor's target** when it was in the card that
+  left or in that card's preview: the stretched target that opens its
+  preview, never its button, so a key held down writes nothing, as the
+  MMR-695 refinement keeps focus off committing chips. With no card after
+  it, focus moves to the card before. When no card remains, the quiet line
+  "Nothing needs you." takes the section's place (MMR-719) and takes focus,
+  made focusable for it.
+- **A preview whose card leaves closes,** and focus follows the rule above
+  rather than returning to the card.
+- **Focus never falls to the page.** When the control holding focus
+  unmounts, focus moves to the current card's target. A pager unmounts when
+  the deck drops to one card on the phone or four on desktop, and when the
+  viewport crosses 768, which swaps the phone's pager for the head's.
 - **Focus brings its card into place.** Anything that moves focus into the
-  deck, such as the successor rule above, the answer dialog's return, or a
-  walkthrough's return to its button (MMR-714), first turns the deck to that
-  card, at once. Focus never lands on a peeking or off-page card. A
-  walkthrough whose bundle is gone on return follows the MMR-714 refinement:
-  focus lands on the page's main region.
-- **A preview whose card leaves closes,** and focus follows the successor
-  rule rather than returning to the card.
-- **A write in flight** disables that card's button and its preview's
-  action, which are one write; the other cards stay live. Offline disables
-  every card's button (ADR 0013 §5). A refused write shows its toast, the
-  card stays, and focus returns to the control that was pressed (MMR-695).
+  deck, such as the rules above or the answer dialog's return, first turns
+  the deck to that card, at once. Focus never lands on a peeking or
+  off-page card.
+- **A walkthrough's return resolves its bundle first.** A bundle's button
+  is the return target the MMR-714 refinement names, by its set
+  (`delivery:FLT-d2` or `project:MMR`, from `entryName` in
+  `decisions-entry.tsx`). The deck matches that name against every card,
+  not only the cards on screen, before focus moves. When the bundle's card
+  is still in the deck, wherever it sits, that card becomes current and
+  focus lands on its button. When the bundle is gone, the MMR-714
+  refinement's fallback holds: focus lands on the page's main region, also
+  when the deck is now empty.
+- **Crossing 768 keeps the current card.** Desktop shows the page that
+  holds it, and the phone shows that card.
+- **An open preview and the deck.** On desktop a page turn closes the open
+  preview; focus stays on the arrow that turned the page, or for a key
+  follows the key rule. On the phone the preview's bottom sheet is modal:
+  the deck takes no swipe or key until the sheet is dismissed.
+- **A write in flight** marks that card's button and its preview's footer
+  action, which are one write, `aria-disabled` rather than natively
+  disabled, so focus stays on the pressed control; the other cards stay
+  live. A preview stays open while a write from its footer is in flight. On
+  success the card leaves by the rules above. A refused write shows its
+  toast and the card stays (MMR-695); focus returns to the pressed control
+  only when focus is still in that card or its preview, and the answer
+  dialog stays open with its draft.
+- **Offline** disables both of a card's write entry points, its button and
+  its preview's footer action, for _Clear stop_ and _Answer…_ on every card
+  (ADR 0013 §5). _Review N decisions_ stays live: it opens the walkthrough,
+  which is navigation, not a write, and the walkthrough's own writes follow
+  ADR 0013 there.
 
 ### Edges
 
@@ -1936,7 +2023,10 @@ walkthrough that settles a whole bundle.
   empty feed section.
 - **A three-digit total** keeps the pager still: the numbers are tabular,
   and the phone's position holds the width of the total's digits for the
-  index, so the arrows never shift as the index grows. Counts are exact.
+  index, so the arrows never shift as the index grows. The desktop range
+  reserves the width of both its numbers at the total's digit count before
+  the head decides whether the pager wraps, so a page turn never makes it
+  wrap. Counts are exact.
 - **Long names at 320** wrap as the MMR-719 card's status line does; the
   phone card is 260 wide there.
 
@@ -1946,7 +2036,8 @@ The phone deck's turn is a mover §8 now names (the 2026-11-23 amendment to
 §8). A turn from an arrow, a key, or a tap on the peek slides the cards to
 rest, with no overshoot; a swipe is the finger's own movement, and the deck
 then settles on one card. Under `prefers-reduced-motion`, a turn from an
-arrow, a key, or a tap happens at once. The desktop deck never slides, so a
+arrow, a key, or a tap happens at once; a swipe may still track the finger,
+but its settle and the reflow after a card leaves happen at once. The desktop deck never slides, so a
 page turn adds no motion.
 
 ### Considered and rejected

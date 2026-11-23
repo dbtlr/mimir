@@ -338,11 +338,11 @@ column says otherwise.
 
 | Block | Part | Value | Mark |
 | --- | --- | --- | --- |
-| Section head | Row | 44 tall on a phone, 36 on desktop, with or without See all; 12 to the content below | **adopted (MMR-719)** |
+| Section head | Row | 44 tall on a phone, 36 on desktop, with or without See all; 12 to the content below. A desktop head whose pager wraps grows by one row (Needs you deck, Pager) | **adopted (MMR-719)** |
 | | Name and count | `text-section` ink-bright, then the count 13 / 20 ink-dim, 8 apart, both inside the `h2` | **adopted (MMR-719)** |
 | | See all | 13 / 20, 500, `accent-foreground`, underlined on hover (hover keeps the ink: `accent` measures 3.1:1 on a light page), right-aligned; a 44 hit area on a phone; its accessible name names the section ("See all in Now") | **adopted (MMR-719)** |
 | Card | Surface | `well-850`, 1px `line` edge (`line-bright` on hover), 10 radius, `shadow-card` in light; padding 12 top, 16 sides, 16 bottom | **adopted (MMR-719)**; surface existing (`Card`) |
-| | Status line | 13 / 20 ink-dim: the status badge, or for a set of decisions the word _Decisions_ after an attention dot, then the ID in 13px mono, 8 apart; the age right-aligned on line 1; 8 below it to the title | **adopted (MMR-719)** |
+| | Status line | 13 / 20 ink-dim: the status badge, or for a set of decisions the word _Decisions_ after an attention dot, or _Stopped_ after an attention dot for a stopped delivery, then the ID in 13px mono, 8 apart; the age right-aligned on line 1; 8 below it to the title | **adopted (MMR-719)** |
 | | Title | `text-title`, wraps; a long word breaks rather than overflow | existing role (MMR-718) |
 | | Detail | 13 / 20 ink-dim, 4 below the title, two lines at most | **adopted (MMR-719)** |
 | | Chip row | the row chips (size, grooming, stale), 4 apart, wrapping; 8 below the title or detail, staying with the content they describe | **adopted (MMR-719)** |
@@ -378,7 +378,7 @@ follow Sheets, panels, dialogs; the rest is its own.
 | Height | fits its content, up to 88% of the visible viewport; the grip, header, and footer stay put and only the body scrolls | the panel's full height below the bar; the header and footer stay put and only the body scrolls | **adopted (MMR-720)** |
 | Grip | 40 × 4, full radius, `ink-faint` (decoration), 8 below the sheet's top edge | none | **adopted (MMR-720)**: `DrawerGrip` sits 12 below the edge |
 | Header | 12 top (below the grip), 16 bottom, 20 left, 56 right to clear Close; a `line` hairline under it | 28 top, 20 bottom, 32 left, 64 right; a `line` hairline under it | **adopted (MMR-720)** |
-| Status line | the card's own status line (13 / 20 `ink-dim`: the status badge (or _Decisions_ after its dot), the ID in 13 mono, the age at the right), 8 above the title | same | **adopted (MMR-720)** |
+| Status line | the card's own status line (13 / 20 `ink-dim`: the status badge (or _Decisions_ or _Stopped_ after its dot), the ID in 13 mono, the age at the right), 8 above the title | same | **adopted (MMR-720)** |
 | Title | `text-dossier`, 17 / 24, 600, `ink-bright`; it wraps, a long word breaks, and it is never clamped. It takes focus on open and switch (`tabindex="-1"`); on `:focus-visible` only, the 2px `accent` outline at 2px offset that a button takes, with a 4 radius | same | **adopted (MMR-720)**: a Content sheet's title is 14px |
 | Close | a 44 hit area, 20 glyph, `ink-dim`, centred on the status line, 8 from the right edge; named "Close preview" | a 36 hit area, 18 glyph, centred on the status line, 22 from the right edge | **adopted (MMR-720)** |
 | Body | 24 top, 32 bottom, 20 sides | 32 top, 40 bottom, 32 sides | **adopted (MMR-720)**, the Form sheet's |
@@ -387,7 +387,7 @@ follow Sheets, panels, dialogs; the rest is its own.
 | Fact list | a definition list 20 below the text above it, then a `line` hairline and 20 to the first fact; a 104 label column and the value column, 16 apart; 14 between facts. Label 13 / 20 `ink-dim`, set 1 down so its baseline meets the value's first line; value 14 / 22 `ink-bright`, a long word breaks | same | **adopted (MMR-720)** |
 | Relation (a parent, a dependency, a bundle's task) | plain text, not a link: the ID in mono `ink-dim` at the line's size with `--mono-adjust`, 6 before its title; one relation a line, 4 apart | same | **adopted (MMR-720)** |
 | Footer | a `line` hairline above; 12 top, 12 + `env(safe-area-inset-bottom)` bottom, 20 sides. Two equal tracks 12 apart, Open then the action; each button at least 44 tall with 10 / 12 padding, its label centred and wrapping inside the button, both buttons the row's height. Open alone fills the row | 16 top and bottom, 32 sides; right-aligned, content width, 12 apart, Open then the action; 44 tall, 20 side padding | **adopted (MMR-720)** |
-| Open | an outline button (1px `ink-faint` inset edge, `ink-bright` label), always; its accessible name adds the ID it leads to: the record's ("Open HUGI-15"), or for a delivery's bundle, whose header names no record, the delivery's ("Open MMR-706"); a project's bundle, with no ID to add, is "Open" | same | **adopted (MMR-720)** |
+| Open | an outline button (1px `ink-faint` inset edge, `ink-bright` label), always; its accessible name adds the ID it leads to: the record's ("Open HUGI-15"), or for a delivery's bundle, the delivery's ("Open FLT-d2"); a project's bundle, with no ID to add, is "Open" | same | **adopted (MMR-720)** |
 | The card's action | the panel's one solid `action` button, whatever variant the card draws it in | same | **adopted (MMR-720)** |
 | The selected card | the card whose preview is open: its fill `accent` mixed 7% into `well-850` (a mixed color, not opacity), lighter than a selected segment's `accent/12` wash because it lies under a whole card's body text, which must keep 4.5:1 (the built-UI rating checks it); its 1px edge `accent` in place of `line`, the full-strength ring a selected segment takes; its outline button's edge steps from `ink-faint` to `ink-dim`, keeping 3:1 on the wash | same | **adopted (MMR-720)** |
 
@@ -487,17 +487,17 @@ preview panel uses.
 | Where | Phone (< 768) | Desktop (≥ 768) | Mark |
 | --- | --- | --- | --- |
 | Layout | one card at a time, its left edge on the page's 14 gutter; the deck runs past the right gutter to the screen's edge. The card is the width less 14, the 8 gap, and the 38 peek: 330 at 390, 260 at 320 | a page of four cards in the Card grid, 12 apart: two by two at two columns, four stacked at one column (beside the open preview panel from 768 to 1091) | **adopted (MMR-721)** |
-| Peek | the next card's first 38 at the screen's right edge, 8 after the current card, in full ink; inert. None at the last card, whose right stays empty | none | **adopted (MMR-721)** |
+| Peek | the next card's first 38 at the screen's right edge, 8 after the current card, in full ink; out of the tab order and `aria-hidden`, but not the HTML `inert` attribute, since a tap on it turns the deck. None at the last card, whose right stays empty | none | **adopted (MMR-721)** |
 | Height | every card takes the deck's tallest card's height, so the pager never moves | with more than one page, every page holds two rows of the deck's tallest card (four rows at one column), so a short last page keeps its height and the next section never moves; one page draws its own rows | **adopted (MMR-721)** |
-| Pager | centred under the deck, 8 below the cards: Previous, the position, Next, 12 apart | in the section head, right-aligned before See all: the range, then the two arrows 8 apart; 12 between the range, the arrows, and See all. When the head cannot hold it on one line (the 288 column beside the panel at 768), the range and arrows wrap together to a line under the name, at the right | **adopted (MMR-721)** |
+| Pager | centred under the deck, 8 below the cards: Previous, the position, Next, 12 apart | in the section head, right-aligned before See all: the range, then the two arrows 8 apart; 12 between the range, the arrows, and See all. When the head cannot hold it on one line (the 288 column beside the panel at 768), the range and arrows wrap together to a line under the name, at the right; the head grows by that line, a second row as tall as the arrows (36), and keeps its 12 to the cards | **adopted (MMR-721)** |
 | Arrow | 44 square | 36 square | **adopted (MMR-721)** |
 | Arrow, live | 8 radius, a 20 chevron in `ink-dim`, a 1px `ink-dim` inset edge: the arrows sit on the page's `well-900`, where an `ink-faint` edge measured 2.63:1 in light (Control edges meet 3:1) | same | **adopted (MMR-721)** |
 | Arrow, at an end | the chevron in `ink-faint` (the disabled-glyph ink), the edge `line`; `aria-disabled`, still focusable, does nothing | same | **adopted (MMR-721)** |
-| Position | "1 of 10", 13 / 20 `ink-dim`, the index in `ink-bright` 600; tabular numerals; at least 64 wide and wide enough for the total's digits in the index, so the arrows never shift | "1–4 of 10" (an en dash), the same type, the range in `ink-bright` 600 | **adopted (MMR-721)** |
-| Card button | an outline, the Card block's (1px `ink-faint` edge, `ink-bright` label), for every kind; never solid, never the attention outline; the preview carries the solid (Preview panel, The card's action) | same | **adopted (MMR-721)** |
+| Position | "1 of 10", 13 / 20 `ink-dim`, the index in `ink-bright` 600; tabular numerals; at least 64 wide and wide enough for the total's digits in the index, so the arrows never shift | "1–4 of 10" (an en dash), the same type, the range in `ink-bright` 600; it reserves the width of both numbers at the total's digit count before the head decides whether the pager wraps, so a page turn never makes it wrap | **adopted (MMR-721)** |
+| Card button | an outline, the Card block's (1px `ink-faint` edge, `ink-bright` label), for every kind; on the selected card its edge steps to `ink-dim` (Preview panel, The selected card); never solid, never the attention outline; the preview carries the solid (Preview panel, The card's action) | same | **adopted (MMR-721)** |
 | One card | fills the width between the gutters; no peek, no pager | one page: no range or arrows (likewise for four or fewer) | **adopted (MMR-721)** |
 | No cards | the quiet line "Nothing needs you." in the section's place, with no head (Quiet line) | same | **adopted (MMR-721)** |
-| Turn | slides to rest with no overshoot; at once under `prefers-reduced-motion` (ADR 0019 §8) | at once, no slide | **adopted (MMR-721)** |
+| Turn | slides to rest with no overshoot; at once under `prefers-reduced-motion`, where a swipe may track the finger but its settle and the reflow after a card leaves happen at once (ADR 0019 §8) | at once, no slide | **adopted (MMR-721)** |
 
 ## Sizes
 
