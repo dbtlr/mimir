@@ -22,6 +22,9 @@ import { Section } from './section';
 
 type Sample = { card: DeckCard; preview: Omit<Preview, 'action'> };
 
+/** A sample card under a key, its own by default; the 120 cards' clones take a generated one. */
+type MakeSample = (key?: string) => Sample;
+
 /** The write the deck last started, until a control settles it. */
 type Held = { key: string; write: DeckWrite } | null;
 
@@ -31,8 +34,8 @@ function stopped(
   reason: string,
   age: string,
   hold: (held: Held) => void,
-): Sample {
-  return {
+): MakeSample {
+  return (key = id) => ({
     card: {
       action: {
         kind: 'write',
@@ -40,12 +43,13 @@ function stopped(
         name: `Clear stop on ${id}`,
         run: ({ write }) => {
           write.start();
-          hold({ key: id, write });
+          // Settles against the card's own key; a clone keeps its original's ID for display.
+          hold({ key, write });
         },
       },
       card: { age, detail: reason, id, lead: <AttentionLead word="Stopped" />, title },
-      key: id,
-      previewKey: id,
+      key,
+      previewKey: key,
     },
     preview: {
       age,
@@ -56,13 +60,19 @@ function stopped(
       reason,
       title,
     },
-  };
+  });
 }
 
-function bundle(set: string, title: string, decisions: number, tasks: number, age: string): Sample {
+function bundle(
+  set: string,
+  title: string,
+  decisions: number,
+  tasks: number,
+  age: string,
+): MakeSample {
   const name = set.slice(set.indexOf(':') + 1);
   const detail = tasks === 0 ? 'No work is built on them yet.' : `Across ${String(tasks)} tasks.`;
-  return {
+  return (key = set) => ({
     card: {
       action: {
         kind: 'navigate',
@@ -73,8 +83,8 @@ function bundle(set: string, title: string, decisions: number, tasks: number, ag
         },
       },
       card: { age, detail, id: name, lead: <AttentionLead word="Decisions" />, title },
-      key: set,
-      previewKey: set,
+      key,
+      previewKey: key,
     },
     preview: {
       age,
@@ -85,11 +95,11 @@ function bundle(set: string, title: string, decisions: number, tasks: number, ag
       reason: `This delivery has ${String(decisions)} provisional decisions.`,
       title,
     },
-  };
+  });
 }
 
-function question(id: string, title: string, ask: string, age: string): Sample {
-  return {
+function question(id: string, title: string, ask: string, age: string): MakeSample {
+  return (key = id) => ({
     card: {
       action: {
         kind: 'dialog',
@@ -107,8 +117,8 @@ function question(id: string, title: string, ask: string, age: string): Sample {
         lead: <StatusBadge status="ready" />,
         title,
       },
-      key: id,
-      previewKey: id,
+      key,
+      previewKey: key,
     },
     preview: {
       age,
@@ -122,15 +132,15 @@ function question(id: string, title: string, ask: string, age: string): Sample {
       ),
       title,
     },
-  };
+  });
 }
 
-function blocked(id: string, title: string, reason: string, age: string): Sample {
-  return {
+function blocked(id: string, title: string, reason: string, age: string): MakeSample {
+  return (key = id) => ({
     card: {
       card: { age, detail: reason, id, lead: <StatusBadge status="blocked" />, title },
-      key: id,
-      previewKey: id,
+      key,
+      previewKey: key,
     },
     preview: {
       age,
@@ -144,11 +154,11 @@ function blocked(id: string, title: string, reason: string, age: string): Sample
       ),
       title,
     },
-  };
+  });
 }
 
 /** The ten sample cards, in the set's order. */
-function samples(hold: (held: Held) => void): Sample[] {
+function samples(hold: (held: Held) => void): MakeSample[] {
   return [
     stopped(
       'FLT-d2',
@@ -196,14 +206,13 @@ function samples(hold: (held: Held) => void): Sample[] {
 }
 
 /** `count` cards cycled from the samples, each with its own identity. */
-function sized(all: readonly Sample[], count: number): Sample[] {
+function sized(all: readonly MakeSample[], count: number): Sample[] {
   return Array.from({ length: count }, (_, index) => {
-    const sample = all[index % all.length];
-    if (sample === undefined || index < all.length) {
-      return sample;
+    const make = all[index % all.length];
+    if (make === undefined || index < all.length) {
+      return make?.();
     }
-    const key = `${sample.card.key}#${String(index)}`;
-    return { ...sample, card: { ...sample.card, key, previewKey: key } };
+    return make(`${make().card.key}#${String(index)}`);
   }).filter((sample): sample is Sample => sample !== undefined);
 }
 
