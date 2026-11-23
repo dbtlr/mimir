@@ -1,14 +1,17 @@
-import type { DecisionView, WorkNeedsYouRow } from '@mimir/contract';
+import type { DecisionView, ReviewReport, WorkNeedsYouRow } from '@mimir/contract';
 
+import type { StoredDelivery } from '../deliveries/store';
 import type { DerivationSet } from '../derive';
 import type { Store } from '../store';
 
+function isWorkBuiltOnDecision(set: DerivationSet, id: string): boolean {
+  const task = set.nodeById.get(id);
+  return task !== undefined && task.lifecycle !== 'abandoned';
+}
+
 /** A decision puts work at risk if any linked task has not been abandoned. */
 export const workBuiltOnIt = (set: DerivationSet, decision: Pick<DecisionView, 'tasks'>): boolean =>
-  decision.tasks.some((id) => {
-    const task = set.nodeById.get(id);
-    return task !== undefined && task.lifecycle !== 'abandoned';
-  });
+  decision.tasks.some((id) => isWorkBuiltOnDecision(set, id));
 
 export function needsYouId(row: WorkNeedsYouRow): string {
   switch (row.kind) {
@@ -107,6 +110,57 @@ export const byNeedsYouRowOrder = (a: WorkNeedsYouRow, b: WorkNeedsYouRow): numb
   compare(needsYouClock(b), needsYouClock(a)) ||
   sequence(a) - sequence(b) ||
   compare(needsYouProject(a), needsYouProject(b));
+
+/** Join deck facts from the working set in the deck's queue order. */
+export function needsYouFactsOf(
+  set: DerivationSet,
+  rows: readonly WorkNeedsYouRow[],
+): ReviewReport['needsYouFacts'] {
+  const deliveries = new Map<string, Pick<StoredDelivery, 'phase' | 'title'>>();
+  type BundleSet = ReviewReport['needsYouFacts']['bundles'][number]['set'];
+  const bundles = new Map<string, { set: BundleSet; tasks: Set<string> }>();
+  for (const row of rows) {
+    if (row.kind === 'delivery') {
+      deliveries.set(row.delivery.id, row.delivery);
+      continue;
+    }
+    if (row.kind !== 'decision') {
+      continue;
+    }
+    const { delivery, project_key: project, tasks } = row.decision;
+    if (delivery !== null && !deliveries.has(delivery)) {
+      const record = set.ws.deliveries.get(delivery);
+      if (record !== undefined) {
+        deliveries.set(delivery, record);
+      }
+    }
+    const key = delivery ?? project;
+    let bundle = bundles.get(key);
+    if (bundle === undefined) {
+      bundle = {
+        set:
+          delivery === null
+            ? { key: project, kind: 'project' }
+            : { id: delivery, kind: 'delivery' },
+        tasks: new Set(),
+      };
+      bundles.set(key, bundle);
+    }
+    for (const task of tasks) {
+      if (isWorkBuiltOnDecision(set, task)) {
+        bundle.tasks.add(task);
+      }
+    }
+  }
+  return {
+    bundles: Array.from(bundles.values(), (bundle) => ({ ...bundle, tasks: [...bundle.tasks] })),
+    deliveries: Array.from(deliveries, ([id, { phase, title }]) => ({
+      id,
+      phase: { id: phase, title: set.nodeById.get(phase)?.title ?? null },
+      title,
+    })),
+  };
+}
 
 /**
  * The stopped-delivery and provisional-decision rows: two cross-project store

@@ -71,6 +71,24 @@ function consoleViewSchemas<T extends z.ZodType>(instant: T) {
       goingCold: z.array(z.object({ project: z.string(), task: node })),
       lastFinished: shippedRow.nullable(),
       needsYou: z.array(z.object({ project, rows: z.array(needsYouRow) })),
+      needsYouFacts: z.object({
+        bundles: z.array(
+          z.object({
+            set: z.discriminatedUnion('kind', [
+              z.object({ id: z.string(), kind: z.literal('delivery') }),
+              z.object({ key: z.string(), kind: z.literal('project') }),
+            ]),
+            tasks: z.array(z.string()),
+          }),
+        ),
+        deliveries: z.array(
+          z.object({
+            id: z.string(),
+            phase: z.object({ id: z.string(), title: z.string().nullable() }),
+            title: z.string(),
+          }),
+        ),
+      }),
       now: z.array(tagged(nowRow.shape)),
       projects: z.array(
         project.extend({

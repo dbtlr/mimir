@@ -20,6 +20,7 @@ import { now } from '../time';
 import {
   recordNeedsYou,
   byNeedsYouRowOrder,
+  needsYouFactsOf,
   needsYouRank,
   needsYouClock,
   needsYouId,
@@ -304,6 +305,7 @@ export async function reviewOf(
     goingCold: coldViews.map((task) => ({ project: projectKeyOf(task.id), task })),
     lastFinished,
     needsYou,
+    needsYouFacts: needsYouFactsOf(set, allNeedsYou),
     now: tagged(nowRows).toSorted((a, b) => cmpStr(lastMoveOf(b), lastMoveOf(a))),
     projects: reviewProjects,
     queue,

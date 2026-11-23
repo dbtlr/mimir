@@ -3455,6 +3455,91 @@
                       "additionalProperties": false
                     }
                   },
+                  "needsYouFacts": {
+                    "type": "object",
+                    "properties": {
+                      "bundles": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "set": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "kind": {
+                                      "type": "string",
+                                      "const": "delivery"
+                                    }
+                                  },
+                                  "required": ["id", "kind"],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "key": {
+                                      "type": "string"
+                                    },
+                                    "kind": {
+                                      "type": "string",
+                                      "const": "project"
+                                    }
+                                  },
+                                  "required": ["key", "kind"],
+                                  "additionalProperties": false
+                                }
+                              ],
+                              "x-mimir-discriminator": "kind"
+                            },
+                            "tasks": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": ["set", "tasks"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "deliveries": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "phase": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "title": {
+                                  "type": ["string", "null"]
+                                }
+                              },
+                              "required": ["id", "title"],
+                              "additionalProperties": false
+                            },
+                            "title": {
+                              "type": "string"
+                            }
+                          },
+                          "required": ["id", "phase", "title"],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": ["bundles", "deliveries"],
+                    "additionalProperties": false
+                  },
                   "now": {
                     "type": "array",
                     "items": {
@@ -3686,6 +3771,7 @@
                   "goingCold",
                   "lastFinished",
                   "needsYou",
+                  "needsYouFacts",
                   "now",
                   "projects",
                   "queue",
