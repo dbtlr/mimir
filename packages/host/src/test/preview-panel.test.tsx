@@ -458,6 +458,46 @@ describe('preview panel: the selected card', () => {
     expect(other).not.toHaveAttribute('data-selected');
   });
 
+  it('tells apart two cards for one record in two sections: a tap on the other selects it, and closing returns focus there', async () => {
+    stubViewport('desktop');
+    await renderInRouter(
+      <FeedPreview preview={(key) => PREVIEWS[key]}>
+        <section aria-label="Needs you">
+          <FeedCard
+            previewKey="MMR-709"
+            lead={<span>In progress</span>}
+            title="Send an encrypted Web Push"
+          />
+        </section>
+        <section aria-label="In flight">
+          <FeedCard
+            previewKey="MMR-709"
+            lead={<span>In progress</span>}
+            title="Send an encrypted Web Push"
+          />
+        </section>
+      </FeedPreview>,
+    );
+    const inSection = (name: string) =>
+      within(screen.getByRole('region', { name })).getByRole('button', {
+        name: 'Send an encrypted Web Push',
+      });
+    await userEvent.click(inSection('Needs you'));
+    expect(inSection('Needs you')).toHaveAttribute('aria-expanded', 'true');
+    expect(inSection('In flight')).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(inSection('In flight'));
+    expect(panel()).toHaveAccessibleName('Send an encrypted Web Push');
+    expect(panelTitle()).toHaveFocus();
+    expect(inSection('Needs you')).toHaveAttribute('aria-expanded', 'false');
+    expect(inSection('In flight')).toHaveAttribute('aria-expanded', 'true');
+    expect(inSection('In flight').closest('[data-slot="feed-card"]')).toHaveAttribute(
+      'data-selected',
+    );
+    await userEvent.click(inSection('In flight'));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(inSection('In flight')).toHaveFocus();
+  });
+
   it('scrolls into view on open, and again when a reflow changes the feed’s width', async () => {
     const resize = stubResizeObserver();
     const scrolled = vi.spyOn(Element.prototype, 'scrollIntoView');

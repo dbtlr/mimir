@@ -71,7 +71,7 @@ export type PreviewPanelProps = {
   open: boolean;
   onClose: () => void;
   preview: Preview | undefined;
-  /** Which record the panel shows; a change while it is open is a switch. */
+  /** Which preview the panel shows, one per opener (one record can have a card in two sections); a change while it is open is a switch. */
   shownKey: string | undefined;
   /** Where focus goes on close: the card that opened the latest preview. */
   finalFocus?: FinalFocus;

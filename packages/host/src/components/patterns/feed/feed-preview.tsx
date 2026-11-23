@@ -17,27 +17,31 @@ import type { Preview } from './preview-panel';
 import { usePreviewClaim } from './preview-room';
 import { tabNeighbour } from './tab-order';
 
+/** The selected card: its own identity, since one record can have a card in two sections, and its record's key. */
+type Selection = { card: string; key: string };
+
 type FeedPreviewState = {
   selected: string | null;
-  toggle: (key: string, opener: HTMLElement) => void;
+  toggle: (selection: Selection, opener: HTMLElement) => void;
 };
 
 const FeedPreviewContext = createContext<FeedPreviewState | null>(null);
 
-/** A card's part in its feed's preview: whether it is the selected card, and its tap. */
+/** A card's part in its feed's preview: whether this card is the selected one, and its tap. */
 export function useCardPreview(key: string): {
   selected: boolean;
   toggle: (opener: HTMLElement) => void;
 } {
+  const card = useId();
   const state = useContext(FeedPreviewContext);
   if (state === null) {
     throw new Error('A FeedCard opens its preview, so it sits inside a FeedPreview.');
   }
   const { selected, toggle } = state;
   return {
-    selected: selected === key,
+    selected: selected === card,
     toggle: (opener) => {
-      toggle(key, opener);
+      toggle({ card, key }, opener);
     },
   };
 }
@@ -113,9 +117,9 @@ export function FeedPreview({
   preview: (key: string) => Preview | undefined;
   children: ReactNode;
 }) {
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Selection | null>(null);
   // The record the panel shows, kept through its closing slide.
-  const [shown, setShown] = useState<string | null>(null);
+  const [shown, setShown] = useState<Selection | null>(null);
   // The card followed through reflows, until the panel has closed.
   const [followed, setFollowed] = useState<HTMLElement | null>(null);
   const opener = useRef<HTMLElement | null>(null);
@@ -128,7 +132,7 @@ export function FeedPreview({
     setSeenHref(href);
     setSelected(null);
   }
-  const given = shown === null ? undefined : preview(shown);
+  const given = shown === null ? undefined : preview(shown.key);
   // A selected record that has left the feed has no preview: nothing stays selected.
   if (selected !== null && given === undefined) {
     setSelected(null);
@@ -175,15 +179,15 @@ export function FeedPreview({
     };
   }, [given]);
 
-  const toggle = useCallback((key: string, card: HTMLElement) => {
-    opener.current = card;
+  const toggle = useCallback(({ card, key }: Selection, button: HTMLElement) => {
+    opener.current = button;
     handedTo.current = null;
-    setSelected((current) => (current === key ? null : key));
-    setShown((current) => (current === key ? current : key));
-    setFollowed(cardOf(card));
+    setSelected((current) => (current?.card === card ? null : { card, key }));
+    setShown({ card, key });
+    setFollowed(cardOf(button));
   }, []);
 
-  const state = useMemo(() => ({ selected, toggle }), [selected, toggle]);
+  const state = useMemo(() => ({ selected: selected?.card ?? null, toggle }), [selected, toggle]);
 
   // A reflow (two columns becoming one beside the panel) can move the card.
   useEffect(() => {
@@ -252,7 +256,7 @@ export function FeedPreview({
         open={open}
         onClose={close}
         preview={content}
-        shownKey={shown ?? undefined}
+        shownKey={shown?.card}
         finalFocus={() => {
           // A modal sheet holds focus until it closes, so the hand-off lands here.
           if (usable(handedTo.current)) {
