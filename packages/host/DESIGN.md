@@ -433,10 +433,11 @@ Rules:
   natural end of its scroll on a clean rest, and a control the keyboard
   focuses out of view scrolls to the nearest rest that shows it whole. The
   blocks are the reason with the text after it, as one block, since 12 apart
-  neither could keep the field gap, then each fact. A fact's rest sits a field
-  gap above it or hides the block above it whole, so the first fact rests 20
-  below the header with the fact list's hairline hidden, and a later fact 14,
-  the list's own row gap. A fact taller than the body (a bundle's long Tasks)
+  neither could keep the field gap, then each fact. That tall first block
+  means the end's added room is not always small: at 320 wide it reaches 91
+  to 138. A fact's rest sits a field gap above it or hides the block above it
+  whole, so the first fact rests 20 below the header with the fact list's
+  hairline hidden, and a later fact 14, the list's own row gap. A fact taller than the body (a bundle's long Tasks)
   simply scrolls, and the end shows its last line clear of the footer by the
   body's bottom padding. Once the body has scrolled, the header
   gains the pinned header's scroll shadow. While the body continues under the
