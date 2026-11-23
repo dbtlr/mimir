@@ -250,6 +250,20 @@ test.describe('desktop deck', () => {
     await expect.poll(() => focusedCard(page)).toBe('9 of 10');
   });
 
+  test('the head keeps 12 between the arrows and See all’s text', async ({ page }) => {
+    await openDeck(page, DESKTOP);
+    const gap = await page.evaluate(() => {
+      const next = document.querySelector('[aria-label="Next page"]');
+      const link = document.querySelector('[data-slot="section-see-all"]');
+      if (next === null || link === null) {
+        return null;
+      }
+      const text = link.getBoundingClientRect().left + Number.parseFloat(getComputedStyle(link).paddingLeft);
+      return Math.round(text - next.getBoundingClientRect().right);
+    });
+    expect(gap).toBe(12);
+  });
+
   test('crossing 768 keeps the current card, and focus on it', async ({ page }) => {
     await openDeck(page, DESKTOP);
     await page.getByRole('button', { name: 'Next page' }).click();

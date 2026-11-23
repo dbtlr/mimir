@@ -65,7 +65,8 @@ export function SectionHead({
           aria-label={`See all in ${title}`}
           className={cn(
             'inline-flex min-h-11 shrink-0 items-center rounded-md px-1 text-meta font-medium md:min-h-9',
-            pager === undefined || wrapped ? 'ml-auto' : 'ml-1',
+            // After the pager, the head's 8 gap and the link's 4 padding make DESIGN.md's 12.
+            (pager === undefined || wrapped) && 'ml-auto',
             FEED_LINK_TEXT,
             FEED_FOCUS_RING,
           )}
