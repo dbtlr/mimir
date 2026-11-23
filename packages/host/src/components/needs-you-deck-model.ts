@@ -2,7 +2,7 @@ import type { StatusWord } from '@mimir/contract';
 
 import type { ReviewReport } from '../api/view-queries';
 import type { Instant } from '../lib/time';
-import { entryLabel, entryName } from './decisions-entry';
+import { entryLabel, entryName, groupEntryLabel } from './decisions-entry';
 import type { EntrySet } from './decisions-entry';
 
 /*
@@ -107,7 +107,7 @@ function deliveryBundle(
   const entry = facts.deliveries.find((each) => each.id === id);
   const { detail, label, taskFacts } = bundleCount(bundle, facts);
   return {
-    action: { kind: 'review', label, name: `${label} on ${id}`, set: bundle.set },
+    action: { kind: 'review', label, name: groupEntryLabel(bundle), set: bundle.set },
     at: bundle.at,
     detail,
     id,
@@ -136,7 +136,7 @@ function projectBundle(
     action: {
       kind: 'review',
       label,
-      name: `${label} without a delivery in ${key}`,
+      name: `${groupEntryLabel(bundle)} in ${key}`,
       set: bundle.set,
     },
     at: bundle.at,

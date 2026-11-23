@@ -4,14 +4,15 @@ import type { StoredDelivery } from '../deliveries/store';
 import type { DerivationSet } from '../derive';
 import type { Store } from '../store';
 
-function isWorkBuiltOnDecision(set: DerivationSet, id: string): boolean {
+/** Whether a task exists and has not been abandoned. */
+function isLiveTask(set: DerivationSet, id: string): boolean {
   const task = set.nodeById.get(id);
   return task !== undefined && task.lifecycle !== 'abandoned';
 }
 
 /** A decision puts work at risk if any linked task has not been abandoned. */
 export const workBuiltOnIt = (set: DerivationSet, decision: Pick<DecisionView, 'tasks'>): boolean =>
-  decision.tasks.some((id) => isWorkBuiltOnDecision(set, id));
+  decision.tasks.some((id) => isLiveTask(set, id));
 
 export function needsYouId(row: WorkNeedsYouRow): string {
   switch (row.kind) {
@@ -147,7 +148,7 @@ export function needsYouFactsOf(
       bundles.set(key, bundle);
     }
     for (const task of tasks) {
-      if (isWorkBuiltOnDecision(set, task)) {
+      if (isLiveTask(set, task)) {
         bundle.tasks.add(task);
       }
     }
