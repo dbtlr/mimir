@@ -185,7 +185,10 @@ export function SwipeTrack({
         // The viewport clips the row, so it holds 4 of room around the shown slide, taken back
         // by its margin, for a focus ring (2 at 2 offset, DESIGN.md) to show whole. On the
         // right the gap and the peek hold that room, unless there is neither.
-        'relative @container -my-1 -ml-1 touch-pan-y overflow-hidden py-1 pl-1',
+        'relative @container -my-1 -ml-1 overflow-hidden py-1 pl-1',
+        // A swipe takes horizontal touch and leaves the page its scroll and pinch-zoom;
+        // a lone slide leaves all touch to the browser.
+        count > 1 ? 'touch-pan-y touch-pinch-zoom' : 'touch-auto',
         peek + gap === 0 && '-mr-1 pr-1',
         className,
       )}

@@ -316,6 +316,20 @@ test.describe('phone deck', () => {
     await page.mouse.up();
   });
 
+  test('a swipe leaves pinch-zoom to the browser, and one card leaves it all touch', async ({
+    page,
+  }) => {
+    const touchAction = () =>
+      page
+        .locator('[data-slot="swipe-viewport"]')
+        .evaluate((viewport) => getComputedStyle(viewport).touchAction);
+    await openDeck(page);
+    expect(await touchAction()).toBe('pan-y pinch-zoom');
+    await page.getByRole('button', { exact: true, name: '1 card' }).click();
+    await expect(group(page, '1 of 1')).toBeVisible();
+    expect(await touchAction()).toBe('auto');
+  });
+
   test('one card fills the width between the gutters, as it does once the other card leaves', async ({
     page,
   }) => {
