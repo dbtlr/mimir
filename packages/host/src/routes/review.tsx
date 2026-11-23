@@ -1,165 +1,46 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { browserTimeZone } from '../api/queries';
 import { archivedProjectsQuery } from '../api/shell-queries';
-import { needsYouId, reviewQuery } from '../api/view-queries';
+import { reviewQuery } from '../api/view-queries';
 import type { ReviewReport } from '../api/view-queries';
-import { BrowserGroup } from '../components/browser-list';
-import { NeedsYouGroups } from '../components/decision-groups';
 import { FocusQueue } from '../components/focus-queue';
+import { MinuteSection, NowSection, ShippedSection } from '../components/home-sections';
+import { NeedsYouDeck } from '../components/needs-you-deck';
+import { needsYouCards } from '../components/needs-you-deck-model';
 import { NewProjectSheet } from '../components/new-project-sheet';
 import { OfflineBanner } from '../components/offline-banner';
 import { PushSuggestion } from '../components/push-suggestion';
-import { RecordLayout, RecordPending } from '../components/record-layout';
-import { ReviewRail } from '../components/review-rail';
-import { ActionButton, actionButtonVariants } from '../components/ui/action-button';
-import { Empty, NowRow, ShippedDayGroup } from '../components/work-sections';
+import { RecordPending } from '../components/record-layout';
+import { ActionButton } from '../components/ui/action-button';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
-import { nodeLink } from '../lib/record-url';
-import { ago } from '../lib/time';
-import { useRowFocusHandoff } from '../lib/use-row-focus-handoff';
-import { groupShippedByDay } from '../lib/work-page';
+import { homeDay, homeSummary, shippedWeek } from '../lib/home';
 import { reviewRoute } from '../router';
 
 /*
- * `/` — the review page (ADR 0013 and ADR 0019, MMR-503 refinement): the work
- * page's cross-project counterpart. The main column is Needs you (the needs-you set,
- * grouped by project), Now, and Shipped, in the work page's row style; the rail
- * holds the project health strip and what can wait for a spare minute. One read
- * (`console.review`) feeds all of it, and the top-bar alert reads the same entry,
- * so their counts never disagree. Above Needs you, a browser that could take
- * notifications sees a one-time card suggesting them (MMR-734).
- *
- * Rows act in place (MMR-479): a task that needs answers carries the work page's answer, a
- * runnable task its Start, and a listed seed its triage verbs. When an
- * acted-on row leaves, keyboard focus moves on to the next row in its
- * section, or to the section's heading when none follows.
+ * `/` — Home (ADR 0013, MMR-722 refinement): one feed column. The page title
+ * names the day and one sentence under it says what needs you, what runs,
+ * and what shipped this week. Then the one-time notifications card when it
+ * applies (MMR-734), Needs you as the ranked deck, Now as capped title cards,
+ * the Shipped week, and what can wait for a spare minute. Projects live in
+ * the sidebar, so the page has no rail. One read (`console.review`) feeds all
+ * of it, and the top-bar alert reads the same entry. `?mode=focus` is the
+ * focus queue, unchanged.
  */
 
-/** `1 task` / `2 tasks` — a count with its noun, singular at one. */
-const counted = (n: number, one: string): string => `${String(n)} ${n === 1 ? one : `${one}s`}`;
-
-/** What the rail is, for assistive technology. */
-const RAIL_LABEL = 'Projects and spare-minute work';
-
-function ReviewHead({ count }: { count: number }) {
+/** The page title and the summary sentence, over a hairline. */
+function HomeHead({ report, zone }: { report: ReviewReport; zone: string }) {
+  const cards = useMemo(() => needsYouCards(report).length, [report]);
+  const shipped = shippedWeek({ projects: report.projects, rows: report.shipped, zone }).total;
   return (
-    <header className="flex flex-wrap items-center gap-x-4 gap-y-2">
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">
-          {count > 0 ? (
-            <>
-              Needs you <span className="font-normal text-ink-dim">{count}</span>
-            </>
-          ) : (
-            'Nothing needs you'
-          )}
-        </h1>
-        <p className="text-meta text-ink-dim">
-          What needs you blocks agents, so it leads. The rail holds what can wait.
-        </p>
-      </div>
-      {count > 0 && (
-        <Link
-          to="/"
-          search={{ mode: 'focus' }}
-          className={cn(
-            actionButtonVariants({ variant: 'attention' }),
-            'max-md:min-h-11 max-md:w-full',
-          )}
-        >
-          Work through these · {count}
-        </Link>
-      )}
+    <header className="mb-8 border-b border-line pb-5">
+      <h1 className="m-0 text-page font-bold text-ink-bright">{homeDay(zone)}</h1>
+      <p className="mt-1 mb-0 max-w-[62ch] text-body text-ink">
+        {homeSummary({ cards, items: report.queue.length, running: report.now.length, shipped })}
+      </p>
     </header>
-  );
-}
-
-/** Needs you's all-clear: nothing waits, so name the work in flight and the last finish. */
-function AllClear({ inFlight, last }: { inFlight: number; last: ReviewReport['lastFinished'] }) {
-  return (
-    <p className="px-1 py-2 text-xs text-ink-dim">
-      <strong className="font-semibold text-ink-dim">Nothing is waiting on you.</strong>{' '}
-      {inFlight > 0
-        ? `Agents are working on ${counted(inFlight, 'task')}.`
-        : 'No task is queued, in progress, or in review.'}
-      {last !== null && (
-        <>
-          {' '}
-          Last finished: <span className="font-mono">{last.task.id}</span>{' '}
-          <Link
-            {...nodeLink(last.task.id)}
-            className="text-ink-dim underline-offset-2 hover:underline"
-          >
-            {last.task.title}
-          </Link>
-          {last.task.status === 'abandoned' && ' (abandoned)'}, {ago(last.finishedAt)}.
-        </>
-      )}
-    </p>
-  );
-}
-
-function NeedsYouSection({ report, offline }: { report: ReviewReport; offline: boolean }) {
-  const count = report.queue.length;
-  const inFlight = report.projects.reduce((n, p) => n + p.inFlight, 0);
-  const { handoff, headingRef } = useRowFocusHandoff(
-    report.needsYou.flatMap((group) => group.rows.map((row) => needsYouId(row))),
-  );
-  return (
-    <BrowserGroup
-      label="Needs you"
-      count={count > 0 ? count : undefined}
-      hint="Only your action moves these."
-      labelClassName="text-attention-foreground"
-      headingRef={headingRef}
-    >
-      {report.needsYou.length === 0 ? (
-        <AllClear inFlight={inFlight} last={report.lastFinished} />
-      ) : (
-        <NeedsYouGroups groups={report.needsYou} offline={offline} handoff={handoff} />
-      )}
-    </BrowserGroup>
-  );
-}
-
-/** The tasks queued, in progress, or in review across active projects; a row's id leads with its project key. */
-function NowSection({ rows }: { rows: ReviewReport['now'] }) {
-  return (
-    <BrowserGroup
-      label="Now"
-      count={rows.length > 0 ? rows.length : undefined}
-      hint="What’s going on right now?"
-    >
-      {rows.length === 0 ? (
-        <Empty lead="Nothing running.">No task is queued, in progress, or in review.</Empty>
-      ) : (
-        rows.map((row) => <NowRow key={row.task.id} row={row} />)
-      )}
-    </BrowserGroup>
-  );
-}
-
-/** What landed in the last 7 days across active projects, grouped by day as on the work page. */
-function ShippedSection({ rows }: { rows: ReviewReport['shipped'] }) {
-  const zone = browserTimeZone();
-  return (
-    <BrowserGroup
-      label="Shipped"
-      count={rows.length > 0 ? rows.length : undefined}
-      hint="What landed in the last 7 days?"
-    >
-      {rows.length === 0 ? (
-        <Empty lead="Nothing shipped in the last 7 days." />
-      ) : (
-        groupShippedByDay(rows, zone).map((day) => (
-          <ShippedDayGroup key={day.day} label={day.label} rows={day.rows} zone={zone} />
-        ))
-      )}
-    </BrowserGroup>
   );
 }
 
@@ -212,20 +93,24 @@ export function ReviewPage() {
     );
   }
 
+  const zone = browserTimeZone();
   return (
     <>
       <OfflineBanner {...conn} />
-      <RecordLayout
-        head={<ReviewHead count={report.queue.length} />}
-        rail={<ReviewRail report={report} offline={conn.offline} />}
-        railLabel={RAIL_LABEL}
-        className={cn(conn.offline && 'offline-demoted')}
+      {/* tabIndex -1: a focus fallback for a control that unmounts itself (focusMain). */}
+      <main
+        tabIndex={-1}
+        className={cn('min-h-0 flex-1 overflow-y-auto', conn.offline && 'offline-demoted')}
       >
-        <PushSuggestion offline={conn.offline} />
-        <NeedsYouSection report={report} offline={conn.offline} />
-        <NowSection rows={report.now} />
-        <ShippedSection rows={report.shipped} />
-      </RecordLayout>
+        <div className="mx-auto w-full max-w-[900px] px-3.5 pt-4 pb-10 md:px-5 md:pt-6 md:pb-12">
+          <HomeHead report={report} zone={zone} />
+          <PushSuggestion offline={conn.offline} />
+          <NeedsYouDeck report={report} offline={conn.offline} countItems />
+          <NowSection report={report} />
+          <ShippedSection report={report} zone={zone} />
+          <MinuteSection report={report} />
+        </div>
+      </main>
     </>
   );
 }

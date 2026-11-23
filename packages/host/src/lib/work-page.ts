@@ -14,7 +14,7 @@ export const SHIPPED_DAY_CAP = 3;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** The calendar day of an instant in `zone`, `YYYY-MM-DD`. */
-function dayOf(at: number, zone: string): string {
+export function dayOf(at: number, zone: string): string {
   return new Intl.DateTimeFormat('en-CA', {
     day: '2-digit',
     month: '2-digit',
@@ -37,7 +37,7 @@ function dayName(day: string): string {
 }
 
 /** The day before a `YYYY-MM-DD` day. */
-function dayBefore(day: string): string {
+export function dayBefore(day: string): string {
   return new Date(Date.parse(`${day}T00:00:00.000Z`) - DAY_MS).toISOString().slice(0, 10);
 }
 

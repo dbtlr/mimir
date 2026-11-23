@@ -90,15 +90,13 @@ const open = (path: string) =>
     new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 5000 } } }),
   );
 
-test('review groups and the alert show the mixed set in core order and count it', async () => {
+test('Home’s deck and the alert show the mixed set in core order and count it', async () => {
   await renderShell('/');
-  await screen.findByRole('heading', { name: 'Keep the rail?' });
-  const main = screen.getByRole('main');
-  expect(within(main).getByText('Stopped')).toBeInTheDocument();
-  expect(within(main).getByText('running')).toBeInTheDocument();
-  expect(within(main).getByText('Need access')).toBeInTheDocument();
-  const content = main.textContent;
-  expect(content.indexOf('Stopped run')).toBeLessThan(content.indexOf('Keep the rail?'));
+  const deck = await screen.findByRole('region', { name: 'Needs you 2 cards, 2 items' });
+  expect(within(deck).getByText('Stopped')).toBeInTheDocument();
+  expect(within(deck).getByText('Decisions')).toBeInTheDocument();
+  const content = deck.textContent;
+  expect(content.indexOf('Stopped run')).toBeLessThan(content.indexOf('Decisions'));
   expect(screen.getAllByLabelText('2 need you').length).toBeGreaterThan(0);
   fireEvent.click(screen.getByRole('button', { name: '2 need you' }));
   const panel = await screen.findByRole('dialog', { name: 'Needs you' });
@@ -172,7 +170,7 @@ test('focus lands on a decision card itself after Skip on a task card', async ()
   expect(screen.getByRole('heading', { name: 'Keep the rail?' }).closest('section')).toHaveFocus();
 });
 
-test.each(['review', 'popover'])(
+test.each(['work page', 'popover'])(
   'answer hands focus to the next decision row, never a chip or link (%s)',
   async (surface) => {
     const first = rows()[1]!;
@@ -194,7 +192,9 @@ test.each(['review', 'popover'])(
         ],
       }),
     });
+    world.projects = { MMR: engineWork({ needsYou: members }) };
     vi.mocked(confirm).mockImplementation(async () => {
+      world.projects = { MMR: engineWork({ needsYou: [second] }) };
       world.review = engineReview({
         needsYou: [{ project: { key: 'MMR', name: 'Mimir' }, rows: [second] }],
         projects: [stripRow({ key: 'MMR', name: 'Mimir' }, { needsYou: 1 })],
@@ -205,7 +205,7 @@ test.each(['review', 'popover'])(
     if (surface === 'popover') {
       await renderShell('/p/MMR');
     } else {
-      await open('/');
+      await open('/p/MMR');
     }
     let scope: HTMLElement;
     if (surface === 'popover') {

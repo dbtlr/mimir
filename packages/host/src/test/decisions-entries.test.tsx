@@ -112,6 +112,8 @@ function report(): ReviewReport {
 }
 
 beforeEach(() => {
+  // Desktop: Home's deck shows its cards a page of four, so every bundle's button is in reach.
+  stubViewport('desktop');
   serveBrowse();
   serveNodes({ nodes: [engineProject({ id: 'MMR', title: 'Mimir' })] });
   serveShell({ projects: [engineProject({ id: 'MMR', title: 'Mimir' })] });
@@ -125,15 +127,25 @@ afterEach(() => {
 const client = () =>
   new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 5000 } } });
 
-const entries = () =>
-  screen
+/** The needs-you panel the top-bar alert opens, which lists the set in its project groups. */
+async function openAlertPanel(count: number) {
+  await renderShell('/', client());
+  fireEvent.click(
+    await screen.findByRole('button', {
+      name: `${String(count)} ${count === 1 ? 'needs' : 'need'} you`,
+    }),
+  );
+  return screen.findByRole('dialog', { name: 'Needs you' });
+}
+
+const entries = (panel: HTMLElement) =>
+  within(panel)
     .getAllByRole('link', { name: /^Review \d+ decisions? / })
     .map((a) => [a.textContent, a.getAttribute('href')]);
 
 test('a project group lists an entry per delivery in needs-you order, then the no-delivery one', async () => {
-  await renderRoute(consoleRoutes, '/');
-  await screen.findByRole('link', { name: 'Review 2 decisions on MMR-d4' });
-  expect(entries()).toStrictEqual([
+  const panel = await openAlertPanel(4);
+  expect(entries(panel)).toStrictEqual([
     ['Review 2 decisions on MMR-d4', '/p/MMR/d4?mode=decisions'],
     ['Review 1 decision on MMR-d3', '/p/MMR/d3?mode=decisions'],
     ['Review 1 decision without a delivery', '/p/MMR?mode=decisions'],
@@ -146,13 +158,13 @@ test('no-delivery decisions count in the plural', async () => {
     review: engineReview({
       needsYou: [{ project: { key: 'MMR', name: 'Mimir' }, rows }],
       projects: [stripRow({ key: 'MMR', name: 'Mimir' }, { needsYou: 2 })],
-      queue: [],
+      queue: rows.map((r) => ({ id: r.decision.id, kind: 'decision' as const })),
     }),
   });
-  await renderRoute(consoleRoutes, '/');
-  await expect(
-    screen.findByRole('link', { name: 'Review 2 decisions without a delivery' }),
-  ).resolves.toHaveAttribute('href', '/p/MMR?mode=decisions');
+  const panel = await openAlertPanel(2);
+  expect(
+    within(panel).getByRole('link', { name: 'Review 2 decisions without a delivery' }),
+  ).toHaveAttribute('href', '/p/MMR?mode=decisions');
 });
 
 test('a group whose rows are not decisions shows no entry', async () => {
@@ -161,12 +173,12 @@ test('a group whose rows are not decisions shows no entry', async () => {
     review: engineReview({
       needsYou: [{ project: { key: 'MMR', name: 'Mimir' }, rows }],
       projects: [stripRow({ key: 'MMR', name: 'Mimir' }, { needsYou: 1 })],
-      queue: [],
+      queue: [{ id: 'MMR-52', kind: 'task' }],
     }),
   });
-  await renderRoute(consoleRoutes, '/');
-  await screen.findByText('MMR-52');
-  expect(screen.queryByRole('link', { name: /^Review \d/ })).toBeNull();
+  const panel = await openAlertPanel(1);
+  await within(panel).findByText('MMR-52');
+  expect(within(panel).queryByRole('link', { name: /^Review \d/ })).toBeNull();
 });
 
 test('the delivery page offers one entry above its decisions, counting the provisional ones', async () => {
@@ -185,7 +197,7 @@ test('the delivery page offers one entry above its decisions, counting the provi
 test('an entry pushes the walkthrough marked with the page it was on', async () => {
   vi.mocked(deliveryPage).mockResolvedValue(page([decision(3, 'MMR-d3')]));
   const { router } = await renderRoute(consoleRoutes, '/', client());
-  fireEvent.click(await screen.findByRole('link', { name: 'Review 1 decision on MMR-d3' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Review 1 decision on MMR-d3' }));
   await screen.findByRole('dialog');
   expect(router.state.location.pathname).toBe('/p/MMR/d3');
   expect(readMark(router.state.location.state)).toStrictEqual({
@@ -193,6 +205,10 @@ test('an entry pushes the walkthrough marked with the page it was on', async () 
     opener: '/',
   });
 });
+
+/** An entry on `path`: Home's deck card buttons, or a page's entry links. */
+const findEntry = (path: string, name: string) =>
+  screen.findByRole(path === '/' ? 'button' : 'link', { name });
 
 /** Open MMR-d3's one decision from `path`'s entry or address and send its answer; returns the done layer. */
 async function sendFrom(path: string, entry?: string) {
@@ -203,7 +219,7 @@ async function sendFrom(path: string, entry?: string) {
   });
   const view = await renderRoute(consoleRoutes, path, client());
   if (entry !== undefined) {
-    fireEvent.click(await screen.findByRole('link', { name: entry }));
+    fireEvent.click(await findEntry(path, entry));
   }
   const layer = await screen.findByRole('dialog');
   fireEvent.click(await within(layer).findByRole('button', { name: 'Confirm and send (MMR-q3)' }));
@@ -214,7 +230,7 @@ async function sendFrom(path: string, entry?: string) {
 test('Close on a marked walkthrough goes back one entry', async () => {
   vi.mocked(deliveryPage).mockResolvedValue(page([decision(3, 'MMR-d3')]));
   const { router } = await renderRoute(consoleRoutes, '/', client());
-  fireEvent.click(await screen.findByRole('link', { name: 'Review 1 decision on MMR-d3' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Review 1 decision on MMR-d3' }));
   const layer = await screen.findByRole('dialog');
   const back = vi.spyOn(router.history, 'back');
   fireEvent.click(await within(layer).findByRole('button', { name: 'Close the walkthrough' }));
@@ -301,7 +317,7 @@ test('the link back that goes back does not also navigate', async () => {
   expect(navigate).not.toHaveBeenCalled();
 });
 
-/** Open MMR's one decision with no delivery from the review page's entry and send its answer. */
+/** Open MMR's one decision with no delivery from `path`'s entry and send its answer. */
 async function sendProjectFrom(path: string, entry: string) {
   const q2 = decision(2, null);
   serveViews({
@@ -313,7 +329,7 @@ async function sendProjectFrom(path: string, entry: string) {
     wake: { state: 'sent' },
   });
   const view = await renderRoute(consoleRoutes, path, client());
-  fireEvent.click(await screen.findByRole('link', { name: entry }));
+  fireEvent.click(await findEntry(path, entry));
   const layer = await screen.findByRole('dialog');
   fireEvent.click(await within(layer).findByRole('button', { name: 'Confirm and send (MMR-q2)' }));
   await within(layer).findByRole('heading', { name: 'Answers recorded' });
@@ -321,7 +337,10 @@ async function sendProjectFrom(path: string, entry: string) {
 }
 
 test('a project walkthrough’s link back replaces the entry when the opener is another page', async () => {
-  const { router, layer } = await sendProjectFrom('/', 'Review 1 decision without a delivery');
+  const { router, layer } = await sendProjectFrom(
+    '/',
+    'Review 1 decision without a delivery in MMR',
+  );
   expect(router.state.location.search).toHaveProperty('mode', 'decisions');
   const back = vi.spyOn(router.history, 'back');
   const length = router.history.length;
@@ -362,7 +381,7 @@ test('the next-set link to a project walkthrough replaces the entry and carries 
 /** Render the whole console at `path`, so its shell carries focus back, and open the walkthrough from `entry`. */
 async function openInShell(path: string, entry: string) {
   const view = await renderShell(path, client());
-  fireEvent.click(await screen.findByRole('link', { name: entry }));
+  fireEvent.click(await findEntry(path, entry));
   return { ...view, layer: await screen.findByRole('dialog') };
 }
 
@@ -374,12 +393,12 @@ async function close(layer: HTMLElement) {
   });
 }
 
-test('Close returns focus to the review page entry that opened the walkthrough', async () => {
+test('Close returns focus to the Home deck’s entry that opened the walkthrough', async () => {
   vi.mocked(deliveryPage).mockResolvedValue(page([decision(3, 'MMR-d3')]));
   const { layer } = await openInShell('/', 'Review 1 decision on MMR-d3');
   await close(layer);
   await waitFor(() => {
-    expect(screen.getByRole('link', { name: 'Review 1 decision on MMR-d3' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Review 1 decision on MMR-d3' })).toHaveFocus();
   });
 });
 
@@ -388,11 +407,11 @@ test('Close returns focus to a no-delivery entry, not to a delivery one in the s
     projects: { MMR: engineWork({ needsYou: [row(decision(2, null))] }) },
     review: report(),
   });
-  const { layer } = await openInShell('/', 'Review 1 decision without a delivery');
+  const { layer } = await openInShell('/', 'Review 1 decision without a delivery in MMR');
   await close(layer);
   await waitFor(() => {
     expect(
-      screen.getByRole('link', { name: 'Review 1 decision without a delivery' }),
+      screen.getByRole('button', { name: 'Review 1 decision without a delivery in MMR' }),
     ).toHaveFocus();
   });
 });
@@ -489,7 +508,7 @@ test('a back that lands somewhere other than the opener drops its focus request'
   expect(screen.getByRole('main')).not.toHaveFocus();
   // Nor does the request wait for a later page: going to the opener now moves no focus either.
   await router.navigate({ to: '/' });
-  await screen.findByRole('link', { name: 'Review 1 decision on MMR-d3' });
+  await screen.findByRole('button', { name: 'Review 1 decision on MMR-d3' });
   await act(async () => {});
-  expect(screen.getByRole('link', { name: 'Review 1 decision on MMR-d3' })).not.toHaveFocus();
+  expect(screen.getByRole('button', { name: 'Review 1 decision on MMR-d3' })).not.toHaveFocus();
 });

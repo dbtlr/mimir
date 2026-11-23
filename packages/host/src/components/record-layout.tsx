@@ -148,11 +148,10 @@ function RailChips({ chips, label }: { chips: readonly RailChip[]; label: string
  * The record page shell (ADR 0013, v0.23 refinement): a main column beside a
  * rail, the same page on desktop and phone. Below `md` the rail folds into
  * chips under the page head, each opening its part of the rail in a bottom
- * sheet. Project, container, task, seed, and artifact pages share it, and so
- * does the review page at `/`, whose rail is the project health strip and
- * _When you have a minute_ (`railLabel`). A page that omits `chips` keeps its
- * rail on a phone, stacked under the main column: the review page's rail holds
- * in-place buttons whose dialogs would not survive a bottom sheet closing.
+ * sheet. Project, container, task, seed, and artifact pages share it. A page
+ * that omits `chips` keeps its rail on a phone, stacked under the main column,
+ * for a rail that holds in-place buttons whose dialogs would not survive a
+ * bottom sheet closing.
  */
 export function RecordLayout({
   head,

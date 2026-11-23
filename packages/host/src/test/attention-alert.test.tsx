@@ -160,8 +160,8 @@ describe('the attention alert trigger', () => {
         ],
       }),
     );
-    // The page's own heading proves the review read has landed.
-    await screen.findByRole('heading', { level: 1, name: 'Nothing needs you' });
+    // Home's quiet line proves the review read has landed.
+    await screen.findByText('Nothing needs you.');
     expect(screen.queryByRole('button', { name: /needs? you/ })).toBeNull();
   });
 });

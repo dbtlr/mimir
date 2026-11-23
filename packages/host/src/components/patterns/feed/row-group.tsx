@@ -82,8 +82,12 @@ function RowText({ row, more = false }: { row: RowGroupRow; more?: boolean }): R
   return (
     <>
       {row.key !== undefined && (
-        <span className="min-w-12 shrink-0 font-mono text-mono-id text-ink-dim">{row.key}</span>
-      )}{' '}
+        <>
+          <span className="min-w-12 shrink-0 font-mono text-mono-id text-ink-dim">
+            {row.key}
+          </span>{' '}
+        </>
+      )}
       <span
         className={cn(
           // The clamp sits on an unpadded box, so no part of a third line shows.
