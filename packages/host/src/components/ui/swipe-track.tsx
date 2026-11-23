@@ -71,6 +71,12 @@ export function SwipeTrack({
   // Ends the drag in progress as its own end would, without a turn: a new press or an unmount.
   const letGo = useRef<(() => void) | undefined>(undefined);
   const shown = useRef({ index, itemKey });
+  // The latest render's slides and callbacks: a refetch can land between a press and
+  // its drag, so the drag reads what it shows, never what the press saw.
+  const latest = useRef({ count, index, onDragChange, onTurn });
+  useLayoutEffect(() => {
+    latest.current = { count, index, onDragChange, onTurn };
+  });
 
   useEffect(
     () => () => {
@@ -108,9 +114,9 @@ export function SwipeTrack({
     const startX = event.clientX;
     const startY = event.clientY;
     const step = stepOf(row, gap);
-    // Past either end the row stays put: no stretch, so nothing springs back (ADR 0019 §8).
-    const most = index < count - 1 ? step : 0;
-    const least = index > 0 ? -step : 0;
+    // How far the row may move each way, set when the drag starts.
+    let most = 0;
+    let least = 0;
     let moved = 0;
     let started = false;
     // Puts the row back and reports the drag's end, once, if it began.
@@ -123,9 +129,9 @@ export function SwipeTrack({
       delete row.dataset.dragging;
       row.style.setProperty('--swipe-drag', '0px');
       if (turn !== undefined) {
-        onTurn(turn);
+        latest.current.onTurn(turn);
       }
-      onDragChange?.(false);
+      latest.current.onDragChange?.(false);
     };
     const drag: BindDragOptions = {
       onEnd: (_event, canceled) => {
@@ -141,9 +147,13 @@ export function SwipeTrack({
         if (Math.abs(move.clientY - startY) > Math.abs(move.clientX - startX)) {
           return false;
         }
+        // Past either end the row stays put: no stretch, so nothing springs back (ADR 0019 §8).
+        const now = latest.current;
+        most = now.index < now.count - 1 ? step : 0;
+        least = now.index > 0 ? -step : 0;
         started = true;
         row.dataset.dragging = '';
-        onDragChange?.(true);
+        now.onDragChange?.(true);
         return true;
       },
       threshold: dragThreshold,

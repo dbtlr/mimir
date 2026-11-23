@@ -222,6 +222,31 @@ test.describe('phone deck', () => {
     expect(await edge()).toBe(PHONE.width);
   });
 
+  test('a refetch between a press and its drag turns against the order the drag shows', async ({
+    page,
+  }) => {
+    await openDeck(page);
+    const first = await group(page, '1 of 10').textContent();
+    const box = await group(page, '1 of 10').boundingBox();
+    const y = (box?.y ?? 0) + 40;
+    await page.mouse.move(300, y);
+    await page.mouse.down();
+    // The refetch lands after the press, before the drag passes its threshold: card 1 is now last.
+    await page.getByRole('button', { name: 'Refetch reversed' }).evaluate((button) => {
+      if (button instanceof HTMLElement) {
+        button.click();
+      }
+    });
+    const pager = page.locator('[data-slot="deck-pager"] p');
+    await expect(pager).toHaveText('10 of 10');
+    await page.mouse.move(100, y, { steps: 10 });
+    // The drag shows the refetched order, at its last card, so it has nothing to turn to.
+    await expect(pager).toHaveText('10 of 10');
+    await page.mouse.up();
+    await expect(pager).toHaveText('10 of 10');
+    await expect(group(page, '10 of 10')).toHaveText(first ?? '');
+  });
+
   test('one card fills the width between the gutters, as it does once the other card leaves', async ({
     page,
   }) => {
