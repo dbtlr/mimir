@@ -147,8 +147,12 @@ export function SwipeTrack({
         if (Math.abs(move.clientY - startY) > Math.abs(move.clientX - startX)) {
           return false;
         }
-        // Past either end the row stays put: no stretch, so nothing springs back (ADR 0019 §8).
+        // A refetch since the press can leave one slide, with nothing to turn to.
         const now = latest.current;
+        if (now.count < 2) {
+          return false;
+        }
+        // Past either end the row stays put: no stretch, so nothing springs back (ADR 0019 §8).
         most = now.index < now.count - 1 ? step : 0;
         least = now.index > 0 ? -step : 0;
         started = true;

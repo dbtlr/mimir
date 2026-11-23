@@ -290,6 +290,32 @@ test.describe('phone deck', () => {
     await expect(group(page, '10 of 10')).toHaveText(first ?? '');
   });
 
+  test('a press that began at two cards starts no drag once a refetch leaves one, so refetches apply', async ({
+    page,
+  }) => {
+    await page.setViewportSize(PHONE);
+    await page.goto(`${harness.origin}?form=deck&cards=2`);
+    const box = await group(page, '1 of 2').boundingBox();
+    const y = (box?.y ?? 0) + 40;
+    await page.mouse.move(300, y);
+    await page.mouse.down();
+    // The refetch lands after the press, before the drag passes its threshold.
+    const press = (name: string) =>
+      page.getByRole('button', { exact: true, name }).evaluate((button) => {
+        if (button instanceof HTMLElement) {
+          button.click();
+        }
+      });
+    await press('Card 2 leaves');
+    await expect(group(page, '1 of 1')).toBeVisible();
+    await page.mouse.move(100, y, { steps: 10 });
+    await expect(page.locator('[data-slot="swipe-track"]')).not.toHaveAttribute('data-dragging');
+    // Still pressed, a refetch applies at once.
+    await press('4 cards');
+    await expect(page.getByRole('heading', { name: /Needs you\s*4$/u })).toBeVisible();
+    await page.mouse.up();
+  });
+
   test('one card fills the width between the gutters, as it does once the other card leaves', async ({
     page,
   }) => {
