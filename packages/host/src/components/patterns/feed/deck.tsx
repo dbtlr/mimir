@@ -111,6 +111,11 @@ export type FeedDeckProps = {
   preview: (previewKey: string) => Omit<Preview, 'action'> | undefined;
   /** The quiet line that takes the section's place when no card remains. */
   quiet: string;
+  /**
+   * The records the cards hold, when the head counts them beside the cards
+   * ("10 cards, 26 items", MMR-722); without it the head counts cards alone.
+   */
+  items?: number;
   /** Offline, a card's writes are `aria-disabled` (ADR 0013 §5). */
   offline?: boolean;
   className?: string;
@@ -305,9 +310,14 @@ type FocusOwner =
   | { kind: 'dialog'; key: string; element: Element }
   | { kind: 'control'; element: Element };
 
+/** `1 card` / `2 cards`: a count with its noun, singular at one. */
+const counted = (n: number, noun: string): string =>
+  `${n.toLocaleString('en-US')} ${n === 1 ? noun : `${noun}s`}`;
+
 function DeckBody({
   title,
   seeAll,
+  items,
   cards: incoming,
   quiet,
   className,
@@ -673,7 +683,11 @@ function DeckBody({
       <SectionHead
         id={headingId}
         title={title}
-        count={keys.length}
+        count={
+          items === undefined
+            ? keys.length
+            : `${counted(keys.length, 'card')}, ${counted(items, 'item')}`
+        }
         seeAll={seeAll}
         pager={
           desktop && pages > 1 ? (

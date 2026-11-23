@@ -87,6 +87,15 @@ describe('feed section head', () => {
     const section = screen.getByRole('region', { name: 'When you have a minute' });
     expect(within(section).queryByRole('link')).toBeNull();
   });
+
+  it('reads a count the caller words, such as a capped section’s “6 of 9”', async () => {
+    await renderInRouter(
+      <FeedSection title="Now" count="6 of 9">
+        <p>cards</p>
+      </FeedSection>,
+    );
+    expect(screen.getByRole('heading', { level: 2, name: 'Now 6 of 9' })).toBeVisible();
+  });
 });
 
 /** A card inside the feed that opens its preview, as every card sits. */
@@ -208,6 +217,39 @@ describe('feed row group', () => {
       />,
     );
     expect(screen.getAllByRole('link')).toHaveLength(1);
+  });
+
+  it('draws a row with no destination as a plain row: no link, no chevron', async () => {
+    await renderInRouter(
+      <RowGroup
+        label="When you have a minute"
+        rows={[
+          { count: 7, name: 'Seeds to triage' },
+          { count: 0, name: 'Going cold' },
+          { count: 12, name: 'Ready to start', to: { to: '/' } },
+        ]}
+      />,
+    );
+    const list = screen.getByRole('list', { name: 'When you have a minute' });
+    const items = within(list).getAllByRole('listitem');
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveTextContent('Seeds to triage 7');
+    expect(within(items[0]!).queryByRole('link')).toBeNull();
+    expect(items[0]!.querySelector('svg')).toBeNull();
+    expect(within(items[1]!).getByRole('link', { name: 'Ready to start 12' })).toBeVisible();
+    expect(items[1]!.querySelector('svg')).not.toBeNull();
+  });
+
+  it('frames a standalone group in a card when asked, and leaves it unframed by default', async () => {
+    const rows = [{ count: 2, name: 'Doctor findings' }];
+    const { rerender } = await renderInRouter(<RowGroup label="Spare" rows={rows} framed />);
+    const framed = screen.getByRole('list', { name: 'Spare' });
+    expect(framed.parentElement).toHaveAttribute('data-slot', 'row-group-frame');
+    rerender(<RowGroup label="Spare" rows={rows} />);
+    expect(screen.getByRole('list', { name: 'Spare' }).parentElement).not.toHaveAttribute(
+      'data-slot',
+      'row-group-frame',
+    );
   });
 });
 

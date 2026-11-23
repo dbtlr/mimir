@@ -41,7 +41,7 @@ const cardsOf = (list: readonly string[]) => list.map((key) => deckCard(key));
 /** The deck's element; a refetch passes the first render's `handle`, so the handle stays attached. */
 function deck(
   cards: readonly DeckCard[],
-  { offline = false } = {},
+  { offline = false, items }: { offline?: boolean; items?: number } = {},
   handle = createRef<FeedDeckHandle>(),
 ) {
   const ui = (
@@ -49,6 +49,7 @@ function deck(
       ref={handle}
       title="Needs you"
       cards={cards}
+      items={items}
       offline={offline}
       quiet="Nothing needs you."
       preview={(key) => ({
@@ -63,7 +64,11 @@ function deck(
   return { handle, ui };
 }
 
-async function renderDeck(cards: readonly DeckCard[], viewport: Viewport, options = {}) {
+async function renderDeck(
+  cards: readonly DeckCard[],
+  viewport: Viewport,
+  options: { offline?: boolean; items?: number } = {},
+) {
   const resize = stubViewport(viewport);
   const { handle, ui } = deck(cards, options);
   const rendered = await renderInRouter(ui);
@@ -194,6 +199,19 @@ describe('desktop deck', () => {
     expect(next).toHaveAttribute('aria-disabled', 'true');
     expect(next).toHaveFocus();
     expect(status()).toHaveTextContent('9–10 of 10');
+  });
+
+  it('counts its cards and the records they hold when given the records', async () => {
+    await renderDeck(cardsOf(keys(10)), 'desktop', { items: 26 });
+    const head = screen.getByRole('heading', { level: 2, name: 'Needs you 10 cards, 26 items' });
+    expect(head.parentElement).toHaveTextContent('1–4 of 10');
+  });
+
+  it('reads one card and one record in the singular', async () => {
+    await renderDeck(cardsOf(['T-1']), 'desktop', { items: 1 });
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Needs you 1 card, 1 item' }),
+    ).toBeVisible();
   });
 
   it('holds the grid at two rows of the tallest card only when it has more than one page', async () => {
