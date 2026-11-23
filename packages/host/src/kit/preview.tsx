@@ -4,6 +4,7 @@ import { CardGrid } from '../components/patterns/feed/card-grid';
 import { FeedPreview } from '../components/patterns/feed/feed-preview';
 import { PreviewRelation } from '../components/patterns/feed/preview-panel';
 import type { Preview } from '../components/patterns/feed/preview-panel';
+import { SeedKindChip } from '../components/seed-kind-chip';
 import { SizeBadge } from '../components/signal-badges';
 import { LaneBadge, StatusBadge, StatusWord } from '../components/status-badge';
 import { ActionButton } from '../components/ui/action-button';
@@ -60,6 +61,7 @@ const PREVIEWS: Record<string, Preview> = {
         tailnet page linked from the status?
       </>
     ),
+    text: 'Keep every lane’s log for 14 days after its run ends, and make it readable without a shell on the runner.',
     title: 'Keep run logs and make them readable',
   },
   'MMR-709': {
@@ -84,7 +86,7 @@ const PREVIEWS: Record<string, Preview> = {
     action: { label: 'Promote to task…', onAction: ignore },
     age: '3h',
     facts: [
-      { label: 'Kind', value: 'Bug' },
+      { label: 'Kind', value: <SeedKindChip kind="bug" /> },
       {
         label: 'Filed from',
         value: <PreviewRelation id="MMR-718" title="Readable type and contrast" />,
@@ -139,6 +141,7 @@ const PREVIEWS: Record<string, Preview> = {
         in the promoter’s config? And may an agent set a pin, or only the operator?
       </>
     ),
+    text: 'A pinned channel stops promoting below the pinned version, so a bad build can be held back while its tag and artifacts stay in place for the post-mortem.',
     title:
       'Let a release channel pin a minimum version, so a bad build can be held back without deleting its tag',
   },
@@ -159,7 +162,6 @@ const PREVIEWS: Record<string, Preview> = {
           </>
         ),
       },
-      { label: 'Delivery', value: <PreviewRelation id="MMR-d12" title="Web Push notifications" /> },
     ],
     lead: <DecisionsLead project="Mimir" />,
     open: nodeLink('MMR-706'),
