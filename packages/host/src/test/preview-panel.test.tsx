@@ -411,12 +411,13 @@ describe('preview panel: open, switch, close', () => {
     expect(panel()).toHaveAccessibleName('Mobile top bar');
   });
 
-  it('Escape closes it from the feed', async () => {
+  it('Escape from another card in the feed closes it, and focus returns to the card that opened it', async () => {
     await renderFeed();
     await userEvent.click(card('Send an encrypted Web Push'));
     card('Mobile top bar').focus();
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).toBeNull();
+    expect(card('Send an encrypted Web Push')).toHaveFocus();
   });
 });
 

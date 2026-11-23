@@ -101,7 +101,8 @@ function usable(element: HTMLElement | null): element is HTMLElement {
  * switches the preview and makes that card the opener; a tap on the selected
  * card, a press in empty feed space, Escape from the feed or the panel, Close,
  * a navigation, or a card in another feed on the page (the page has one
- * preview) closes it; and closing returns focus to the latest opener.
+ * preview) closes it; and closing returns focus to the latest opener, from
+ * the feed's Escape too.
  * After a reflow on open, switch, or close, the selected card scrolls into
  * view at once. `preview` maps a card's `previewKey` to what its preview shows.
  */
@@ -234,6 +235,10 @@ export function FeedPreview({
           if (event.key === 'Escape' && selected !== null && !event.defaultPrevented) {
             event.preventDefault();
             close();
+            // From anywhere in the feed, as from the panel, focus goes back to the latest opener.
+            if (usable(opener.current)) {
+              opener.current.focus();
+            }
           }
         }}
       >
