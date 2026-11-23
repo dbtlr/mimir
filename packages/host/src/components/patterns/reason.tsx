@@ -61,6 +61,12 @@ export type ReasonProps = {
   /** Disables every commit for a reason beyond the text, such as offline or a missing choice. */
   commitDisabled?: boolean;
   /**
+   * Holds every commit while the console is offline: `aria-disabled`, still
+   * focusable and doing nothing, so focus on a commit survives the drop and
+   * nothing queues for reconnect (ADR 0013 §5; ADR 0019, MMR-721 refinement).
+   */
+  commitHeld?: boolean;
+  /**
    * Close after a commit returns or resolves (the default). A caller that
    * closes itself once the result renders passes `false` and `pending`.
    */
@@ -92,6 +98,7 @@ export function Reason({
   commits,
   children,
   commitDisabled = false,
+  commitHeld = false,
   closeOnCommit = true,
   pending = false,
   finalFocus,
@@ -126,6 +133,7 @@ export function Reason({
           required={required}
           commits={commits}
           commitDisabled={commitDisabled}
+          commitHeld={commitHeld}
           closeOnCommit={closeOnCommit}
           busy={busy}
           commit={commit}
@@ -149,6 +157,7 @@ function ReasonBody({
   commits,
   children,
   commitDisabled,
+  commitHeld,
   closeOnCommit,
   busy,
   commit,
@@ -157,6 +166,7 @@ function ReasonBody({
   required: boolean;
   commits: ReasonCommit[];
   commitDisabled: boolean;
+  commitHeld: boolean;
   closeOnCommit: boolean;
   busy: boolean;
   commit: ReturnType<typeof useOpening>['commit'];
@@ -195,8 +205,12 @@ function ReasonBody({
             size="sm"
             variant={entry.variant}
             aria-busy={busy}
+            aria-disabled={commitHeld ? true : undefined}
             disabled={busy || commitDisabled || (required && trimmed === '')}
-            onClick={(event) =>
+            onClick={(event) => {
+              if (commitHeld) {
+                return;
+              }
               void commit(
                 event.currentTarget,
                 () => entry.onCommit(trimmed),
@@ -205,8 +219,8 @@ function ReasonBody({
                     onClose();
                   }
                 },
-              )
-            }
+              );
+            }}
           >
             {entry.label}
           </ActionButton>

@@ -27,15 +27,19 @@ function noteCopy(chosen: Grooming | null): { label: string; placeholder: string
  * dialog (ADR 0019, MMR-736): the operator's answer is required and becomes
  * the note, then they say whether the task is understood well enough to run.
  * No state is chosen for them. Callers mount it only while open, so each
- * opening starts fresh.
+ * opening starts fresh. Offline, the draft stays and the commit holds
+ * (ADR 0019, MMR-721 refinement: Offline).
  */
 export function GroomingAnswerDialog({
   nodeId,
   question,
+  offline = false,
   onClose,
 }: {
   nodeId: string;
   question: string | null;
+  /** The console is offline: the Answer commit is `aria-disabled` and does nothing. */
+  offline?: boolean;
   onClose: () => void;
 }) {
   const groom = useGroom(nodeId);
@@ -70,6 +74,7 @@ export function GroomingAnswerDialog({
       }
       description="Your answer is saved as a note. Then say whether the task is understood well enough to run."
       commitDisabled={chosen === null}
+      commitHeld={offline}
       commits={[
         {
           label: 'Answer',
