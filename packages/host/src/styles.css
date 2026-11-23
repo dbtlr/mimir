@@ -125,6 +125,9 @@
   --shadow-card: 0 1px 2px rgba(23, 36, 47, 0.05);
   --shadow-menu: 0 8px 24px rgba(23, 36, 47, 0.12);
   --shadow-overlay: 0 20px 48px rgba(23, 36, 47, 0.18);
+  /* the desktop preview panel's: cast left and short, so it ends clear of the
+     selected card 20 beside the panel and leaves its accent edge 3:1 (MMR-720) */
+  --shadow-panel: -4px 0 12px rgba(23, 36, 47, 0.12);
 
   --animate-pulse-dot: pulse-dot 2.2s ease-in-out infinite;
 

@@ -64,7 +64,7 @@ const SIZE_CLASS = {
   // The panel starts at the top bar's measured bottom, so the bar stays in reach beside it.
   preview:
     'data-[side=bottom]:max-h-[calc(var(--visual-viewport-height,100dvh)*0.88)] data-[side=bottom]:border-sheet-seam light:data-[side=bottom]:elevation-sheet-up ' +
-    'data-[side=right]:mt-(--top-bar-height) data-[side=right]:h-[calc(100dvh-var(--top-bar-height,0px))] data-[side=right]:w-[min(100vw,440px)] data-[side=right]:border-ink-ghost light:data-[side=right]:border-line-bright light:data-[side=right]:shadow-overlay',
+    'data-[side=right]:mt-(--top-bar-height) data-[side=right]:h-[calc(100dvh-var(--top-bar-height,0px))] data-[side=right]:w-[min(100vw,440px)] data-[side=right]:border-ink-ghost light:data-[side=right]:border-line-bright light:data-[side=right]:shadow-panel',
 } as const;
 
 /**
