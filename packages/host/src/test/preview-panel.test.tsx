@@ -9,7 +9,7 @@ import { FeedPreview } from '../components/patterns/feed/feed-preview';
 import type { Preview } from '../components/patterns/feed/preview-panel';
 import { ActionButton } from '../components/ui/action-button';
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../components/ui/menu';
-import { nodeLink } from '../lib/record-url';
+import { nodeLink, recordLink } from '../lib/record-url';
 import { renderInRouter } from './router';
 import { stubViewport } from './viewport';
 import type { Viewport } from './viewport';
@@ -687,7 +687,7 @@ describe('preview panel: tab order into an editor and a radio group', () => {
 const BUNDLES: Record<string, Preview> = {
   'loom-cli': {
     lead: <span>Decisions</span>,
-    open: nodeLink('LM'),
+    open: recordLink({ id: 'LM', kind: 'project' }),
     reason: 'This project has 2 provisional decisions.',
     title: 'Loom CLI',
   },
@@ -716,7 +716,7 @@ describe('preview panel footer', () => {
     await userEvent.click(card('Web Push notifications'));
     expect(within(panel()).getByRole('link', { name: 'Open MMR-706' })).toBeVisible();
     await userEvent.click(card('Loom CLI'));
-    expect(within(panel()).getByRole('link', { name: 'Open' })).toBeVisible();
+    expect(within(panel()).getByRole('link', { name: 'Open' })).toHaveAttribute('href', '/p/LM');
   });
 
   it('is Open, always an outline, then the card’s action as the one solid button', async () => {
