@@ -92,9 +92,10 @@ export function useBackToOpener(): (mark: Mark) => void {
  * Takes focus back for a named control the document query cannot reach, as
  * the Needs you deck does for a bundle on another page or behind the peek
  * (ADR 0019, MMR-721 refinement: A walkthrough's return). Answers whether it
- * placed focus; `false` moves nothing.
+ * placed focus, at once or once it could act; `false` moves nothing, and the
+ * return goes on to the next surface, then the control on the page.
  */
-export type ReturnTargetResolver = (entry: string) => boolean;
+export type ReturnTargetResolver = (entry: string) => boolean | Promise<boolean>;
 
 /** The surfaces on the page that resolve a return before the document is queried. */
 const resolvers = new Set<{ current: ReturnTargetResolver }>();
@@ -122,13 +123,45 @@ export function useReturnTargetResolver(resolve: ReturnTargetResolver): void {
  * control on the page, else the page's main region.
  */
 function focusReturnTarget(entry: string | undefined): void {
-  if (entry !== undefined && [...resolvers].some((resolver) => resolver.current(entry))) {
+  if (entry === undefined) {
+    focusMain();
     return;
   }
-  const named =
-    entry === undefined
-      ? null
-      : document.querySelector(`[${RETURN_TARGET_ATTRIBUTE}="${CSS.escape(entry)}"]`);
+  askInTurn([...resolvers], entry);
+}
+
+/** Asks each surface in turn, waiting on one that answers later; with none placing focus, the page's control. */
+function askInTurn(
+  surfaces: readonly { current: ReturnTargetResolver }[],
+  entry: string,
+): void {
+  const [surface, ...rest] = surfaces;
+  if (surface === undefined) {
+    focusNamed(entry);
+    return;
+  }
+  const placed = surface.current(entry);
+  if (typeof placed === 'boolean') {
+    if (!placed) {
+      askInTurn(rest, entry);
+    }
+    return;
+  }
+  void placed.then(
+    (later) => {
+      if (!later) {
+        askInTurn(rest, entry);
+      }
+    },
+    () => {
+      askInTurn(rest, entry);
+    },
+  );
+}
+
+/** Focus the control on the page named `entry`, else the page's main region. */
+function focusNamed(entry: string): void {
+  const named = document.querySelector(`[${RETURN_TARGET_ATTRIBUTE}="${CSS.escape(entry)}"]`);
   if (named instanceof HTMLElement) {
     named.focus();
   } else {

@@ -155,20 +155,16 @@ export function NeedsYouDeckView({
 
   // A walkthrough's return asks the deck for a bundle before it queries the page. The shell
   // asks while React is still committing the page, so the turn, which renders at once, waits a
-  // microtask.
+  // microtask, and answers with whether the deck held the card.
   const bundles = useMemo(
     () => new Set(cards.filter((card) => card.action?.kind === 'review').map((card) => card.key)),
     [cards],
   );
-  useReturnTargetResolver((entry) => {
-    if (!bundles.has(entry)) {
-      return false;
-    }
-    queueMicrotask(() => {
-      deck.current?.turnTo(entry);
-    });
-    return true;
-  });
+  useReturnTargetResolver((entry) =>
+    bundles.has(entry)
+      ? Promise.resolve().then(() => deck.current?.turnTo(entry) ?? false)
+      : false,
+  );
 
   // The effect can run inside React's commit, where the deck's turn could not render at once.
   useEffect(() => {
