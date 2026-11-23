@@ -1,4 +1,5 @@
 import { bindDrag, dragThreshold } from '@ui-sdk/core';
+import type { BindDragOptions } from '@ui-sdk/core';
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 
@@ -111,7 +112,7 @@ export function SwipeTrack({
       delete row.dataset.dragging;
       row.style.setProperty('--swipe-drag', '0px');
     };
-    stopDrag.current = bindDrag(element, event.nativeEvent, {
+    const drag: BindDragOptions = {
       onEnd: (_event, canceled) => {
         stopDrag.current = undefined;
         release();
@@ -132,7 +133,8 @@ export function SwipeTrack({
         return true;
       },
       threshold: dragThreshold,
-    });
+    };
+    stopDrag.current = bindDrag(element, event.nativeEvent, drag);
   };
 
   const style: CSSProperties & Record<`--${string}`, string | number> = {
@@ -162,12 +164,16 @@ export function SwipeTrack({
       </div>
       {enabled && index < count - 1 && (
         // The peek's tap target, over the peeking slide and the gap before it, so a
-        // tap turns the track and never reaches the slide's own controls. Keys turn
-        // the track by the caller's pager and arrow keys.
+        // tap turns the track and never reaches the slide's own controls. It keeps
+        // focus where it was, so the turn can carry focus held in the old slide.
+        // Keys turn the track by the caller's pager and arrow keys.
         // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div
           aria-hidden="true"
           data-slot="swipe-peek"
+          onMouseDown={(event) => {
+            event.preventDefault();
+          }}
           onClick={() => {
             onTurn(1);
           }}
