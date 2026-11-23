@@ -18,7 +18,10 @@ import { Section } from './section';
  * preview, another to switch it; no page adopts the panel yet (MMR-722 on).
  */
 
-const ignore = () => undefined;
+/** No surface follows in /kit, so focus goes to the card's own button, the next surface's opener. */
+const handOn = (cardButton: HTMLElement | null) => {
+  cardButton?.focus();
+};
 
 /** The lead of a card that stands for a delivery's set of provisional decisions. */
 function DecisionsLead({ project }: { project: string }) {
@@ -35,7 +38,7 @@ function DecisionsLead({ project }: { project: string }) {
 
 const PREVIEWS: Record<string, Preview> = {
   'HUGI-15': {
-    action: { label: 'Answer', name: 'Answer HUGI-15', onAction: ignore },
+    action: { label: 'Answer', name: 'Answer HUGI-15', onAction: handOn },
     age: '1d',
     facts: [
       { label: 'Parent', value: 'Hugi 0.4: run history' },
@@ -83,7 +86,7 @@ const PREVIEWS: Record<string, Preview> = {
     title: 'Send an encrypted Web Push to every subscribed device',
   },
   'MMR-s41': {
-    action: { label: 'Promote to task…', onAction: ignore },
+    action: { label: 'Promote to task…', onAction: handOn },
     age: '3h',
     facts: [
       { label: 'Kind', value: <SeedKindChip kind="bug" /> },
@@ -100,7 +103,7 @@ const PREVIEWS: Record<string, Preview> = {
     title: 'Search drops results when a title has an apostrophe',
   },
   'NORN-560': {
-    action: { label: 'Answer', name: 'Answer NORN-560', onAction: ignore },
+    action: { label: 'Answer', name: 'Answer NORN-560', onAction: handOn },
     age: '2d',
     facts: [
       { label: 'Parent', value: 'Norn 1.2: signed releases' },
@@ -146,7 +149,7 @@ const PREVIEWS: Record<string, Preview> = {
       'Let a release channel pin a minimum version, so a bad build can be held back without deleting its tag',
   },
   'web-push': {
-    action: { label: 'Review 12 decisions', onAction: ignore },
+    action: { label: 'Review 12 decisions', onAction: handOn },
     age: '2h',
     facts: [
       {
