@@ -62,7 +62,7 @@ const TYPE_SCALE = [
 
 export function KitPage() {
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col gap-10 overflow-y-auto px-5 py-8">
+    <main className="mx-auto flex w-full max-w-5xl flex-col gap-10 overflow-y-auto px-5 py-8 max-md:px-3.5">
       <header className="flex flex-col gap-1">
         <h1 className="text-page font-bold text-ink-bright">Meridian kit</h1>
         <p className="text-meta text-ink-dim">Foundation tokens and CVA primitives · dev only</p>

@@ -7,12 +7,15 @@ import {
 
 import { DeckDemo } from '../../src/kit/deck';
 
+const params = new URLSearchParams(globalThis.location.search);
 /** How many cards the deck starts with: `?cards=N`, ten by default. */
-const initial = Number(new URLSearchParams(globalThis.location.search).get('cards') ?? '10');
+const initial = Number(params.get('cards') ?? '10');
+/** `?gutter=wide` sets the page's gutter at 20 on a phone too, as a page without the phone gutter does. */
+const wide = params.get('gutter') === 'wide';
 
 function DeckRoot() {
   return (
-    <main className="mx-auto max-w-[900px] px-3.5 py-4 md:px-5">
+    <main className={wide ? 'mx-auto max-w-[900px] px-5 py-4' : 'mx-auto max-w-[900px] px-3.5 py-4 md:px-5'}>
       <DeckDemo initial={initial} />
       <button type="button" className="mt-8">
         After the deck

@@ -252,6 +252,33 @@ export function FeedDeck({ cards, preview, offline = false, ref, ...rest }: Feed
   );
 }
 
+/**
+ * Sets `--deck-bleed` on the section to the room between its right edge and
+ * the screen's, the page's right gutter whatever it is, so the phone deck
+ * runs to the screen's edge (DESIGN.md, Needs you deck, Layout).
+ */
+function useBleedToScreenEdge(root: RefObject<HTMLElement | null>, active: boolean): void {
+  useLayoutEffect(() => {
+    const section = root.current;
+    if (!active || section === null) {
+      return undefined;
+    }
+    const measure = () => {
+      const room = document.documentElement.clientWidth - section.getBoundingClientRect().right;
+      section.style.setProperty('--deck-bleed', `${String(Math.max(0, room))}px`);
+    };
+    measure();
+    globalThis.addEventListener('resize', measure);
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure);
+    observer?.observe(section);
+    return () => {
+      globalThis.removeEventListener('resize', measure);
+      observer?.disconnect();
+      section.style.removeProperty('--deck-bleed');
+    };
+  }, [active, root]);
+}
+
 /** Who holds focus in or for the deck, so focus can move on when that element goes. */
 type FocusOwner =
   | { kind: 'card'; key: string; element: Element }
@@ -495,6 +522,8 @@ function DeckBody({
     return true;
   };
 
+  useBleedToScreenEdge(root, !desktop && cards.length > 1);
+
   useImperativeHandle(handle, () => ({
     restoreFocus: (key: string) => {
       // A successor that left in a later refetch gives way to the current card.
@@ -597,8 +626,8 @@ function DeckBody({
           }}
           peek={PEEK}
           gap={GAP}
-          // The deck runs past the right gutter to the screen's edge.
-          className="-mr-3.5"
+          // The deck runs past the right gutter to the screen's edge (`useBleedToScreenEdge`).
+          className="-mr-(--deck-bleed)"
         >
           {cards.map((card, at) => (
             <div

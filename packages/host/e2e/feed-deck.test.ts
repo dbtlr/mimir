@@ -160,6 +160,26 @@ test.describe('phone deck', () => {
     await expect.poll(() => left(page, '2 of 9')).toBe(GUTTER);
   });
 
+  test('the deck runs from the page’s gutter to the screen’s right edge, whatever the gutter', async ({
+    page,
+  }) => {
+    await openDeck(page);
+    // DESIGN.md: 330 at 390, the width less 14, the 8 gap, and the 38 peek.
+    expect((await group(page, '1 of 10').boundingBox())?.width).toBe(330);
+    const viewport = page.locator('[data-slot="swipe-viewport"]');
+    const edge = async () => {
+      const box = await viewport.boundingBox();
+      return (box?.x ?? 0) + (box?.width ?? 0);
+    };
+    expect(await edge()).toBe(PHONE.width);
+
+    await page.goto(`${harness.origin}?form=deck&gutter=wide`);
+    await expect(group(page, '1 of 10')).toBeVisible();
+    expect(await left(page, '1 of 10')).toBe(20);
+    expect((await group(page, '1 of 10').boundingBox())?.width).toBe(PHONE.width - 20 - 46);
+    expect(await edge()).toBe(PHONE.width);
+  });
+
   test('the last card rests at the gutter with nothing peeking beside it', async ({ page }) => {
     await page.setViewportSize(PHONE);
     await page.goto(`${harness.origin}?form=deck&cards=3`);
