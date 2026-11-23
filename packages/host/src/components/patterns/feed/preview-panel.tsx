@@ -343,7 +343,7 @@ function PreviewContent({
         data-slot="preview-footer"
         data-continues={continues ? '' : undefined}
         className={cn(
-          'relative z-10 grid shrink-0 gap-3 border-t border-line bg-well-850 px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] transition-[box-shadow,border-color] data-continues:border-line-bright data-continues:elevation-edge-up md:flex md:justify-end md:px-8 md:py-4',
+          'relative z-10 grid shrink-0 gap-3 border-t border-line bg-well-850 px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] transition-[box-shadow,border-color] data-continues:border-ink-ghost data-continues:elevation-edge-up light:data-continues:border-line-bright md:flex md:justify-end md:px-8 md:py-4',
           action === undefined ? 'grid-cols-1' : 'grid-cols-2',
         )}
       >

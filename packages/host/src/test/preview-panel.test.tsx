@@ -608,7 +608,13 @@ describe('preview panel on a phone', () => {
     layOutCappedBody(element);
     fireEvent.scroll(element);
     expect(footer).toHaveAttribute('data-continues');
-    expect(footer.className.split(/\s+/)).toContain('data-continues:border-line-bright');
+    // `ink-ghost` in dark, where `line-bright` is about 1.4:1 on `well-850`; `line-bright` in light.
+    expect(footer.className.split(/\s+/)).toEqual(
+      expect.arrayContaining([
+        'data-continues:border-ink-ghost',
+        'light:data-continues:border-line-bright',
+      ]),
+    );
     element.scrollTop = 220;
     fireEvent.scroll(element);
     expect(footer).not.toHaveAttribute('data-continues');
