@@ -2,10 +2,10 @@
 import { act } from '@testing-library/react';
 import { vi } from 'vitest';
 
-/** A named viewport: a desktop, a tablet (between `md` and `lg`), or a phone. */
-export type Viewport = 'desktop' | 'tablet' | 'phone';
+/** A named viewport: a wide desktop (1600 up), a desktop, a tablet (between `md` and `lg`), or a phone. */
+export type Viewport = 'wide' | 'desktop' | 'tablet' | 'phone';
 
-const WIDTH: Record<Viewport, number> = { desktop: 1280, phone: 390, tablet: 900 };
+const WIDTH: Record<Viewport, number> = { desktop: 1280, phone: 390, tablet: 900, wide: 1680 };
 
 /** Whether a `(min-width: Npx)` query holds at `width`; any other query does not. */
 function matchesWidth(query: string, width: number): boolean {
@@ -13,14 +13,18 @@ function matchesWidth(query: string, width: number): boolean {
   return min !== undefined && width >= Number(min);
 }
 
+/** A named viewport, or a width in px for a test at a breakpoint's edge. */
+const widthOf = (viewport: Viewport | number) =>
+  typeof viewport === 'number' ? viewport : WIDTH[viewport];
+
 /**
  * Pin the viewport the shell switches on, by width: `(min-width: Npx)` queries
  * match when the viewport is at least N wide. The returned setter flips it and
  * notifies the listeners, as a window resize does. Callers restore the real
  * `matchMedia` with `vi.unstubAllGlobals()`.
  */
-export function stubViewport(initial: Viewport) {
-  let width = WIDTH[initial];
+export function stubViewport(initial: Viewport | number) {
+  let width = widthOf(initial);
   const listeners = new Set<() => void>();
   vi.stubGlobal('matchMedia', (query: string) => ({
     addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
@@ -30,8 +34,8 @@ export function stubViewport(initial: Viewport) {
     media: query,
     removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
   }));
-  return (next: Viewport) => {
-    width = WIDTH[next];
+  return (next: Viewport | number) => {
+    width = widthOf(next);
     act(() => {
       for (const listener of listeners) {
         listener();

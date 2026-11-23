@@ -1,9 +1,12 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import type { ReactNode } from 'react';
+import { describe, expect, it } from 'vitest';
 
 import { FeedCard } from '../components/patterns/feed/card';
+import { CardGrid } from '../components/patterns/feed/card-grid';
 import { DayFolds, FinishedRow } from '../components/patterns/feed/day-fold';
+import { FeedPreview } from '../components/patterns/feed/feed-preview';
 import { RowGroup } from '../components/patterns/feed/row-group';
 import { FeedSection } from '../components/patterns/feed/section-head';
 import { ShippedSummary, chartName, shortCount } from '../components/patterns/feed/shipped-summary';
@@ -86,11 +89,16 @@ describe('feed section head', () => {
   });
 });
 
+/** A card inside the feed that opens its preview, as every card sits. */
+function inFeed(ui: ReactNode) {
+  return renderInRouter(<FeedPreview preview={() => undefined}>{ui}</FeedPreview>);
+}
+
 describe('feed card', () => {
-  it('is one link named by its title and described by its status line and chips', async () => {
-    await renderInRouter(
+  it('is one target named by its title and described by its status line and chips', async () => {
+    await inFeed(
       <FeedCard
-        to={nodeLink('MMR-709')}
+        previewKey="MMR-709"
         lead={<span>In progress</span>}
         id="MMR-709"
         age="50m"
@@ -99,18 +107,17 @@ describe('feed card', () => {
         chips={<span>Size large</span>}
       />,
     );
-    const links = screen.getAllByRole('link');
-    expect(links).toHaveLength(1);
-    const [link] = links;
-    expect(link).toHaveAccessibleName('Send an encrypted Web Push');
-    expect(link).toHaveAttribute('href', '/p/MMR/709');
-    expect(link).toHaveAccessibleDescription('In progress MMR-709 50m Size large');
+    const targets = screen.getAllByRole('button');
+    expect(targets).toHaveLength(1);
+    const [target] = targets;
+    expect(target).toHaveAccessibleName('Send an encrypted Web Push');
+    expect(target).toHaveAccessibleDescription('In progress MMR-709 50m Size large');
   });
 
   it('is described by its status line alone when it has no chips', async () => {
-    await renderInRouter(
+    await inFeed(
       <FeedCard
-        to={nodeLink('MMR-715')}
+        previewKey="MMR-715"
         lead={<span>Under review</span>}
         id="MMR-715"
         age="15m"
@@ -118,33 +125,28 @@ describe('feed card', () => {
         chips={false}
       />,
     );
-    expect(screen.getByRole('link', { name: 'Mobile top bar' })).toHaveAccessibleDescription(
+    expect(screen.getByRole('button', { name: 'Mobile top bar' })).toHaveAccessibleDescription(
       'Under review MMR-715 15m',
     );
   });
+});
 
-  it('keeps its one button a separate target that acts without following the link', async () => {
-    const answered = vi.fn();
-    const { router } = await renderInRouter(
-      <FeedCard
-        to={nodeLink('HUGI-15')}
-        lead={<span>Needs answers</span>}
-        id="HUGI-15"
-        age="1d"
-        title="Keep run logs and make them readable"
-        action={
-          <button type="button" onClick={answered}>
-            Answer
-          </button>
-        }
-      />,
+describe('card grid', () => {
+  // jsdom has no layout, so the container rule is read from the grid's classes;
+  // a real browser checks the columns at each width.
+  it('turns two columns on the room the feed has, a container query, not the viewport’s md', async () => {
+    await renderInRouter(
+      <FeedPreview preview={() => undefined}>
+        <CardGrid>
+          <FeedCard previewKey="A" lead={<span>Ready</span>} title="A card" />
+        </CardGrid>
+      </FeedPreview>,
     );
-    const link = screen.getByRole('link', { name: 'Keep run logs and make them readable' });
-    const answer = screen.getByRole('button', { name: 'Answer' });
-    expect(link).not.toContainElement(answer);
-    await userEvent.click(answer);
-    expect(answered).toHaveBeenCalledOnce();
-    expect(router.state.location.pathname).toBe('/');
+    const grid = screen.getByRole('button', { name: 'A card' }).closest('[data-slot="card-grid"]');
+    const classes = grid?.className.split(/\s+/) ?? [];
+    expect(grid?.parentElement?.className.split(/\s+/)).toContain('@container');
+    expect(classes).toContain('md:@min-[612px]:grid-cols-2');
+    expect(classes).not.toContain('md:grid-cols-2');
   });
 });
 

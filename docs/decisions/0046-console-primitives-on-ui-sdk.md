@@ -94,7 +94,9 @@ are removed from `packages/host` once the last import is gone.
 - **UI SDK covers the redesign's shapes with fewer custom parts.**
   - Its Drawer drags, rests on snap points, and handles the on-screen
     keyboard. The redesign's preview panel, edit sheet, and filter sheet all
-    need that on a phone.
+    need that on a phone. The preview panel is also the one non-modal Drawer
+    use: from `md` up it is a Drawer with `modal={false}` and no scrim, as
+    ADR 0019's Sheet surface and MMR-720 refinement record.
   - Its Command, Combobox, and Listbox cover the four hand-built pickers.
   - Its Collapsible, Tabs, Segmented Control, Switch, and Toast cover the
     redesign's day folds, record tabs, choices, and notices.

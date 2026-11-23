@@ -10,7 +10,8 @@ Every value is marked:
 - **existing**: in the code today; the source is cited.
 - **adopted (MMR-…)**: proposed with that task's mock, approved with it,
   and now carried by the primitives and patterns (MMR-743 the Form sheet,
-  MMR-718 readable type, MMR-719 the feed blocks). The reason given beside
+  MMR-718 readable type, MMR-719 the feed blocks, MMR-720 the preview
+  panel). The reason given beside
   one says what the code did before.
 - **proposed**: missing from or different in the code. Each carries a one-line
   reason and needs the operator's ruling before a primitive adopts it.
@@ -33,6 +34,7 @@ branch names, timestamps-as-data. Both are self-hosted through Fontsource
 | Section header on a page | 21 / 28, tracking -0.01em | 700 | ink-bright | `text-header` | existing |
 | Sheet or Dialog title (a form) | 21 / 28, tracking -0.01em | 600 | ink-bright | `text-header` | **adopted (MMR-743)** in the Form sheet; a Dialog's question title keeps `OVERLAY_TITLE_CLASS` (14px) |
 | Record title | 17 / 24 | 600 | ink-bright | `text-dossier` | existing |
+| Preview panel title | 17 / 24 | 600 | ink-bright | `text-dossier` | **adopted (MMR-720)**: the Content sheet's title is 14 / 600 (`text-body`) |
 | Section head in a feed (Needs you, Now) | 15 / 22 | 600 | ink-bright; its count 13 / 20 ink-dim inside the heading | `text-section` | **adopted (MMR-719)**: feed sections were headed by the 12px all-caps microlabel in ink-dim, the faintest text in the section |
 | Row or card title in a feed | 16 / 22 | 500 | ink-bright | `text-title` | **adopted (MMR-718)**: rows were `text-body` (14, regular) and phone cards `text-card-mobile` (15); a title must lead its meta |
 | Day label of a day fold | 14 / 20 | 500 | ink, one step above the ink-dim rows it heads; its count 13 / 20 ink-dim | `text-label` | **adopted (MMR-719)**: was 12px mono, a date is not machine vocabulary |
@@ -119,8 +121,9 @@ are measured against `well-850` / `well-900` / `well-950`.
 | Accent | `accent`, `accent-foreground` | 8.7, 10.5 on 850 | 3.7, 6.8 on 850 | focus, selection washes and rings, links (`-foreground` as text) |
 | Action | `action` / `action-foreground` | 8.0:1 | 9.5:1 | the one solid button per surface |
 | Danger | `status-blocked-foreground` | 8.7 on 850 | 6.3 on 850 | error text, the destructive outline's label |
+| Sheet seam | `sheet-seam` | `ink-dim`: 3.92–7.15 against the rendered scrim | `ink`: 4.38–7.29 against the rendered scrim | the top edge of a phone bottom sheet over the scrim: the preview panel's bottom sheet and a Select's bottom list. Its value was chosen by measurement against the rendered scrim (see Preview panel) |
 
-All existing (`styles.css`). Rules:
+All existing (`styles.css`), except `sheet-seam`, **adopted (MMR-720)**. Rules:
 
 - **Text that carries information is `ink-dim` or brighter**: 4.5:1 or better
   on every well in both themes. `ink-faint` and `ink-ghost` never carry it
@@ -248,6 +251,9 @@ there, prefer a Select.
 Header and footer are separated from the body by a `line` hairline, and both
 stay put while the body scrolls. Nothing below a form's commit row scrolls.
 
+The preview panel keeps these sides and the body's padding, but has its own
+header, footer, edges, and phone height: see Feed blocks, Preview panel.
+
 - **A footer note says what the commit leads to,** so it lives with the
   commit, not under the last field. It is the commit's `aria-describedby`.
 - **When content is scrolled above the fold,** the pinned header gains a
@@ -342,6 +348,7 @@ column says otherwise.
 | | Chip row | the row chips (size, grooming, stale), 4 apart, wrapping; 8 below the title or detail, staying with the content they describe | **adopted (MMR-719)** |
 | | Button | one at most; at least 44 tall on a phone and 36 on desktop, which the card holds whatever the caller's button sets; at least 12 below the content above it, held to the card's bottom so buttons line up across a grid row | **adopted (MMR-719)** |
 | | Between cards | 8 in a stack; 12 in a desktop grid, where the cards of a row share its height, so a card without a button keeps room at its foot | **adopted (MMR-719)** |
+| Card grid | Columns | a stack below `md`. From `md` up, two columns only when the grid itself is at least 612 wide (two cards of 300 and the 12 gap), a container query on the grid, not the viewport's `md` alone. With the column's 20 gutters that is 652 of room. A closed feed is two columns at every desktop width (768 with no sidebar column and 1024 beside the 256 sidebar both leave a 728 grid); an open one is one column from 768 to 1091 and two from 1092 (see Preview panel) | **adopted (MMR-720)**: `CardGrid` turned two columns at `md` (`md:grid-cols-2`), whatever the room |
 | Row group | Row | a link, at least 44 tall on a phone and 36 on desktop, a `line` hairline between rows; its text at the section head's left edge, its hover fill 4 past it | **adopted (MMR-719)** |
 | | Key | `text-mono-id` ink-dim, in a column at least 48 wide | **adopted (MMR-719)** |
 | | Name | `text-title` in ink, a step under a card title's ink-bright, so a door does not read as a work item; two lines at most | **adopted (MMR-719)** |
@@ -356,6 +363,118 @@ column says otherwise.
 | | Today's bar | a solid fill mixed 45% `status-done` into `well-850` (a mixed color, not opacity), with a 1px `status-done` edge, which the 4 floor keeps around a fill | **adopted (MMR-719)** |
 | | Counts over 999 | shortened on screen to four characters (1.2k, 12k, 1.2M, 1B, 1T; a value that would round to 1000 of a unit moves up), so a label stays within its column and the gaps beside it (36 at 320), and neighbours never touch; exact in the chart's accessible name | **adopted (MMR-719)** |
 | Quiet line, quiet sentence | Text | `text-body` (14 / 23) in ink, no frame, at the section head's left edge, 32 from the block above. A quiet line takes a section's place; it never sits under a section's own head | **adopted (MMR-719)** |
+
+#### Preview panel
+
+The card's preview (ADR 0019's MMR-720 refinement), in
+`src/components/patterns/feed`. The preview panel shows as a bottom sheet
+below 768, a modal Drawer over the scrim, and as a panel from the right from
+768, a Drawer with `modal={false}` and no scrim. Its sides and body padding
+follow Sheets, panels, dialogs; the rest is its own.
+
+| Where | Phone (< 768) | Desktop (≥ 768) | Mark |
+| --- | --- | --- | --- |
+| Surface | a bottom sheet over the scrim, `well-850`, 12 top corners; its top edge a 1px `sheet-seam`; `shadow-2xl` in dark, and in light the upward shadow of a Select's bottom list (`0 -12px 32px`, `#17242f` at 14%) | a 440 panel from the right, from the top bar's measured bottom (`--top-bar-height`) to the viewport's bottom, with no scrim; `well-850`; its left edge 1px `ink-ghost` in dark and `line-bright` in light; `shadow-2xl` in dark, and in light `shadow-panel` (`-4px 0 12px`, `#17242f` at 12%), cast left and short so it ends clear of the selected card 20 beside the panel: that card's `accent` edge keeps 3.06:1 against the ground, where `shadow-overlay`'s 48 blur darkened it to 2.99:1 (Chromium, 1280) | **adopted (MMR-720)** |
+| Height | fits its content, up to 88% of the visible viewport; the grip, header, and footer stay put and only the body scrolls | the panel's full height below the bar; the header and footer stay put and only the body scrolls | **adopted (MMR-720)** |
+| Grip | 40 × 4, full radius, `ink-faint` (decoration), 8 below the sheet's top edge | none | **adopted (MMR-720)**: `DrawerGrip` sits 12 below the edge |
+| Header | 12 top (below the grip), 16 bottom, 20 left, 56 right to clear Close; a `line` hairline under it | 28 top, 20 bottom, 32 left, 64 right; a `line` hairline under it | **adopted (MMR-720)** |
+| Status line | the card's own status line (13 / 20 `ink-dim`: the status badge (or _Decisions_ after its dot), the ID in 13 mono, the age at the right), 8 above the title | same | **adopted (MMR-720)** |
+| Title | `text-dossier`, 17 / 24, 600, `ink-bright`; it wraps, a long word breaks, and it is never clamped. It takes focus on open and switch (`tabindex="-1"`); on `:focus-visible` only, the 2px `accent` outline at 2px offset that a button takes, with a 4 radius | same | **adopted (MMR-720)**: a Content sheet's title is 14px |
+| Close | a 44 hit area, 20 glyph, `ink-dim`, centred on the status line, 8 from the right edge; named "Close preview" | a 36 hit area, 18 glyph, centred on the status line, 22 from the right edge | **adopted (MMR-720)** |
+| Body | 24 top, 32 bottom, 20 sides | 32 top, 40 bottom, 32 sides | **adopted (MMR-720)**, the Form sheet's |
+| Reason | 16 / 25, 400, `ink-bright`, `text-wrap: pretty`, complete sentences; a task's opening sentence, which names its state ("Needs an answer before it can start."), sets in 600 | same | **adopted (MMR-720)** |
+| Text after the reason | `text-body` (14 / 23) `ink`, 12 below the reason, `text-wrap: pretty`; cut at the end of a sentence, never mid-sentence | same | **adopted (MMR-720)** |
+| Fact list | a definition list 20 below the text above it, then a `line` hairline and 20 to the first fact; a 104 label column and the value column, 16 apart; 14 between facts. Label 13 / 20 `ink-dim`, set 1 down so its baseline meets the value's first line; value 14 / 22 `ink-bright`, a long word breaks | same | **adopted (MMR-720)** |
+| Relation (a parent, a dependency, a bundle's task) | plain text, not a link: the ID in mono `ink-dim` at the line's size with `--mono-adjust`, 6 before its title; one relation a line, 4 apart | same | **adopted (MMR-720)** |
+| Footer | a `line` hairline above; 12 top, 12 + `env(safe-area-inset-bottom)` bottom, 20 sides. Two equal tracks 12 apart, Open then the action; each button at least 44 tall with 10 / 12 padding, its label centred and wrapping inside the button, both buttons the row's height. Open alone fills the row | 16 top and bottom, 32 sides; right-aligned, content width, 12 apart, Open then the action; 44 tall, 20 side padding | **adopted (MMR-720)** |
+| Open | an outline button (1px `ink-faint` inset edge, `ink-bright` label), always; its accessible name adds the ID it leads to: the record's ("Open HUGI-15"), or for a delivery's bundle, whose header names no record, the delivery's ("Open MMR-706"); a project's bundle, with no ID to add, is "Open" | same | **adopted (MMR-720)** |
+| The card's action | the panel's one solid `action` button, whatever variant the card draws it in | same | **adopted (MMR-720)** |
+| The selected card | the card whose preview is open: its fill `accent` mixed 7% into `well-850` (a mixed color, not opacity), lighter than a selected segment's `accent/12` wash because it lies under a whole card's body text, which must keep 4.5:1 (the built-UI rating checks it); its 1px edge `accent` in place of `line`, the full-strength ring a selected segment takes; its outline button's edge steps from `ink-faint` to `ink-dim`, keeping 3:1 on the wash | same | **adopted (MMR-720)** |
+
+Rules:
+
+- **The desktop layout makes room in three ranges.** The sidebar sits
+  beside the page from 1024 (`DESKTOP` in `routes/shell.tsx`) and is a
+  drawer below it. The feed column is 900 at most, with 20 gutters from
+  `md`.
+  - **768 to 1023:** no sidebar column. The panel sits beside the feed, and
+    the feed's columns follow the card grid's container rule.
+  - **1024 to 1599:** the 256 sidebar slides out with the panel and back as
+    it closes, and the column centres in the space left of the panel: 840 at
+    1280.
+  - **1600 and up:** the sidebar stays, and the column re-centres 220 to the
+    left, half the panel's width, in step with the slide.
+
+  The feed scrolls on its own, apart from the panel.
+- **Columns follow the room** (Card grid, above). Beside the open panel the
+  feed is two columns of 394 at 1280 and of 424 at 1680, and one column of
+  544 at 1024 and of 288 at 768.
+- **The selected card scrolls into view** after any reflow on open, switch, or
+  close.
+- **Focus.** Open and switch move focus to the title. On desktop nothing
+  traps it: Close follows the title in tab order, so Shift+Tab from the title reaches the selected card, and Tab from
+  the last footer button reaches the control after the selected card's stretched target (its own button, else the next card). The panel holds that place both ways: Tab from the card's target reaches the title, Shift+Tab from the control after it reaches the last footer button, and Tab from anywhere else passes the panel by, so focus never loops back into it and Tab past the page's end leaves the document. Escape closes the topmost layer first (a menu, the jump palette, or the sidebar drawer), then the panel. On a phone the bottom
+  sheet is modal and holds focus until it closes. Closing returns focus to
+  the card that opened the latest preview, and a switch makes the newly
+  clicked card that opener. `useFinalFocus` (`patterns/opener.ts`) captures
+  the opener only when `open` turns true, and a switch keeps `open` true, so
+  the pattern sets the opener itself on a switch.
+- **The panel's tab stepping covers what the pattern renders.** The desktop
+  panel steps Tab itself (`patterns/feed/tab-order.ts`), so it models the
+  browser's order only for the controls a preview holds: the title, Close,
+  Open, and the card's action, beside facts that are plain text (ADR 0019,
+  MMR-720), in a feed of feed blocks. A fact holds no form control, link, or
+  editable text. Known and not modelled, and outside that boundary: a
+  focused control inside an editable region, a radio group whose checked
+  radio is disabled or hidden, the radio Chromium remembers in a group with
+  none checked, a Tab begun from a clicked `tabindex="-1"` control, and two
+  unchecked radios right after a card with no button. A preview that needs
+  such a control in a fact revisits this rule first (MMR-s106).
+- **A switch changes the content in place at once** and resets the body's
+  scroll to the top; a cross-fade would be a fourth mover (ADR 0019 §8).
+  Under `prefers-reduced-motion` there is no slide; the panel, the sidebar,
+  and the column change at once. The phone sheet then uses UI SDK's pointer
+  driver: on a touch screen `driver="auto"` picks the scroll-snap driver,
+  which slides even under reduced motion.
+- **A capped sheet scrolls freely and rests clean at its end and on focus.**
+  When the body runs past the 88% cap, it scrolls under the pinned bars by
+  the rules of Sheets, panels, dialogs (`patterns/resting-body.ts`, which the
+  Form sheet shares). A scroll the operator leaves mid-way stays where it is;
+  nothing snaps or settles. The body adds the bottom room that lands the
+  natural end of its scroll on a clean rest, and a control the keyboard
+  focuses out of view scrolls to the nearest rest that shows it whole. The
+  blocks are the reason with the text after it, as one block, since 12 apart
+  neither could keep the field gap, then each fact. That tall first block
+  means the end's added room is not always small: at 320 wide it reaches 91
+  to 138. A fact's rest sits a field gap above it or hides the block above it
+  whole, so the first fact rests 20 below the header with the fact list's
+  hairline hidden, and a later fact 14, the list's own row gap. A fact taller than the body (a bundle's long Tasks)
+  simply scrolls, and the end shows its last line clear of the footer by the
+  body's bottom padding. Once the body has scrolled, the header
+  gains the pinned header's scroll shadow. While the body continues under the
+  footer, the footer shows the overflow cue: its hairline steps from `line` to
+  `ink-ghost` in dark and to `line-bright` in light, and its top edge gains
+  the same shadow, and all go when the body reaches its end. The hairline
+  carries the cue in dark, where the shadow does not show on `well-850` and
+  `line-bright` is about 1.4:1; `ink-ghost` measures 2.5:1 against the
+  footer's `well-850` (Chromium, 390).
+- **Swipe-down closes the sheet only from the body's top.** With the body
+  scrolled, the gesture scrolls the body back up. A tap on the scrim closes
+  the sheet.
+- **The seam clears 3:1 against the scrim.** `sheet-seam` is one named token
+  for the top edge of a phone bottom sheet. It clears 3:1 against the
+  rendered scrim (the scrim over the feed) in both themes, at several
+  feed scroll positions, over the page and over a card, and its value is
+  chosen by measurement in the build. `ink-faint` does not: it measures about
+  2.7–2.8:1 against the light scrim. A Select's bottom list uses the same
+  token. Measured in Chromium at 390 (MMR-720), the seam's pixels against the
+  scrim's pixels just above it, at 12 points across the sheet's width, for four
+  cards at five feed scroll positions: `ink-dim` in dark holds 3.92:1 at worst (a second measurement; the first read 3.98:1),
+  where the scrim lies over a solid action, and `ink` in light 4.38:1. The
+  candidates that failed: `ink-faint` in dark fell to 1.95:1 over that action,
+  and the `ink-faint`/`ink-dim` mix in light (`#7a8b98`, about 3.2:1 against the
+  flat scrim) measured 2.06–2.75:1, since the sheet's upward shadow darkens the
+  scrim at the seam.
 
 ## Sizes
 
@@ -388,14 +507,14 @@ text's row and the close glyph.
 | Switch, grip, pill | full | existing |
 | Card | 10 | existing (`Card`) |
 | Chart bar, top corners | 3 | **adopted (MMR-719)** |
-| Structure line (section rule, header and footer edges, panel edge) | 1px `line` | existing |
+| Structure line (section rule, header and footer edges, panel edge; the preview panel's desktop edge is its own, under Feed blocks) | 1px `line` | existing |
 | Control edge | 1px `ink-faint`, `ink-dim` on hover, `status-blocked` when invalid, `accent` on focus | **adopted (MMR-743)** `ink-faint` (today `line-bright`, 1.4:1); invalid existing (`TEXT_FIELD_CLASS`) |
 | Focus on a field (Input, Textarea, Select trigger, Combobox) | the edge itself turns `accent` and a 1px `accent` outline at offset 0 joins it: one 2px ring at the control's edge, never a frame inside a frame. 8.7:1 dark, 3.7:1 light on `well-850` | existing border turn (`focus-visible:border-accent`); the joined outline **adopted (MMR-743)** |
 | Focus on a segment | 2px `accent` outline at offset −2, inset inside the segment; while focused it replaces the selection ring (the wash stays). 7.7:1 dark, 3.0:1 light on the wash | **adopted (MMR-743)**: today the button ring, 2px out, which collides with the track |
 | Focus on a button, checkbox, or the close | 2px `accent` outline, 2px offset | existing (`actionButtonVariants`) |
 | A menu over a sheet | `well-800`, 1px `ink-faint` edge, `shadow-menu` in light, 8 radius, 4 inset | **adopted (MMR-743)**: `SelectContent` is `well-850` with `line-bright`, which vanishes over a `well-850` sheet |
 | A Select's menu, desktop | opens 8 below the trigger, which clears the trigger's 1px focus ring by 7; at least the trigger's width. It either covers every block below it whole (a field, a hairline, a heading) or ends at least 12 above the next one; if neither fits, it flips above or caps its height and scrolls. Groups are set off by their heading (12 above it after the first group), not by a rule | **adopted (MMR-743)** |
-| A Select's menu, phone | a bottom list: a content-sized bottom sheet over the overlay scrim (70% `well-950` with its 2px blur), `well-850`, 12 top corners, a decorative `ink-faint` grip, the field's label as a 16/600 heading, 44 rows with text at the 20 gutter, a tick on the chosen row and no highlight on it when a tap opens the list (the highlight is the keyboard's), and the home-indicator inset below the last row. Its top edge is a 1px `ink-faint` seam, 3:1 against the scrim in both themes (a `line-bright` seam measured 1.4:1 in light); in light it also casts a shadow upward (`0 -12px 32px`, `#17242f` at 14%) so the sheet separates from a light scrim. Its height is at most `100dvh - env(safe-area-inset-top) - 64`, so the scrim stays visible and tappable above it; a longer list scrolls inside, under its pinned grip and heading, with the home-indicator inset kept below the last row | **adopted (MMR-743)**: a popover on a phone lands over the next fields and cuts them |
+| A Select's menu, phone | a bottom list: a content-sized bottom sheet over the overlay scrim (70% `well-950` with its 2px blur), `well-850`, 12 top corners, a decorative `ink-faint` grip, the field's label as a 16/600 heading, 44 rows with text at the 20 gutter, a tick on the chosen row and no highlight on it when a tap opens the list (the highlight is the keyboard's), and the home-indicator inset below the last row. Its top edge is a 1px `sheet-seam` seam, 3:1 or better against the rendered scrim in both themes, the token the preview panel's bottom sheet uses (`ink-faint` measures about 2.7–2.8:1 against the light scrim, and a `line-bright` seam 1.4:1); in light it also casts a shadow upward (`0 -12px 32px`, `#17242f` at 14%) so the sheet separates from a light scrim. Its height is at most `100dvh - env(safe-area-inset-top) - 64`, so the scrim stays visible and tappable above it; a longer list scrolls inside, under its pinned grip and heading, with the home-indicator inset kept below the last row | **adopted (MMR-743)**: a popover on a phone lands over the next fields and cuts them; the seam token **adopted (MMR-720)**, as the `ink-faint` seam it replaces is under 3:1 in light |
 
 Hairlines divide groups; they never box a single field. A group is never a
 card inside a sheet.

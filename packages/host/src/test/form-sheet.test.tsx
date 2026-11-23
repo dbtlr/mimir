@@ -10,10 +10,8 @@ import {
   FormSheet,
   FormTextArea,
   FormTextInput,
-  focusScroll,
-  restingRoom,
-  restsOf,
 } from '../components/patterns/form-sheet';
+import { focusScroll, restingRoom, restsOf } from '../components/patterns/resting-body';
 import { ActionButton } from '../components/ui/action-button';
 import { pressAndDropFocus } from './press-and-drop-focus';
 import { stubViewport } from './viewport';

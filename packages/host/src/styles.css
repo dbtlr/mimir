@@ -63,6 +63,10 @@
   --color-ink-dim: #8fa0ae; /* secondary */
   --color-ink-faint: #5b6b78; /* non-text only: edges, grips, separators (MMR-718) */
   --color-ink-ghost: #4d5866; /* decoration only */
+  /* the top edge of a phone bottom sheet over the scrim, 3:1 or better against the
+     rendered scrim (DESIGN.md, Sheet seam; MMR-720): ink-faint fell to 1.95:1 where
+     the scrim lies over a solid action */
+  --color-sheet-seam: var(--color-ink-dim);
 
   /* hairlines — structure carried by lines, not elevation */
   --color-line: rgba(140, 190, 215, 0.1);
@@ -121,6 +125,9 @@
   --shadow-card: 0 1px 2px rgba(23, 36, 47, 0.05);
   --shadow-menu: 0 8px 24px rgba(23, 36, 47, 0.12);
   --shadow-overlay: 0 20px 48px rgba(23, 36, 47, 0.18);
+  /* the desktop preview panel's: cast left and short, so it ends clear of the
+     selected card 20 beside the panel and leaves its accent edge 3:1 (MMR-720) */
+  --shadow-panel: -4px 0 12px rgba(23, 36, 47, 0.12);
 
   --animate-pulse-dot: pulse-dot 2.2s ease-in-out infinite;
 
@@ -146,7 +153,8 @@ body {
  * Elevation that switches with the theme (MMR-743). The `--shadow-*` ramp in
  * @theme is light-only (`light:shadow-menu`); these carry a dark value too and
  * the light theme overrides them, so a utility reads one name in both. `edge`
- * sits under a Form sheet's pinned header once its body scrolls; `toast` lifts
+ * sits under a Form sheet's pinned header once its body scrolls, and `edge-up`
+ * over the preview panel's footer while its body runs on under it; `toast` lifts
  * a Notice over the page's cards; `sheet-up` separates a bottom list from the
  * scrim above it.
  */
@@ -156,12 +164,17 @@ body {
      `font-size-adjust` to it, so its x-height matches the sans around it (MMR-743). */
   --mono-adjust: 0.51;
   --elevation-edge: 0 1px 0 rgba(0, 0, 0, 0.35), 0 4px 8px -2px rgba(0, 0, 0, 0.45);
+  --elevation-edge-up: 0 -1px 0 rgba(0, 0, 0, 0.35), 0 -4px 8px -2px rgba(0, 0, 0, 0.45);
   --elevation-toast: 0 0 #0000;
   --elevation-sheet-up: 0 0 #0000;
 }
 
 @utility elevation-edge {
   box-shadow: var(--elevation-edge);
+}
+
+@utility elevation-edge-up {
+  box-shadow: var(--elevation-edge-up);
 }
 
 @utility elevation-toast {
@@ -263,11 +276,13 @@ body {
   --color-ink-dim: #5a6b77;
   --color-ink-faint: #8496a3;
   --color-ink-ghost: #9faeba; /* derived — spec gap */
+  --color-sheet-seam: var(--color-ink);
 
   /* elevation (see --elevation-edge above). The toast's is the menu's drop plus a
      2px contact shadow: lighter than the overlay ramp, so a Notice over a card
      floats without washing the card out (MMR-743). */
   --elevation-edge: 0 1px 0 rgba(20, 45, 65, 0.06), 0 4px 8px -2px rgba(23, 36, 47, 0.1);
+  --elevation-edge-up: 0 -1px 0 rgba(20, 45, 65, 0.06), 0 -4px 8px -2px rgba(23, 36, 47, 0.1);
   --elevation-toast: 0 8px 24px rgba(23, 36, 47, 0.12), 0 2px 6px rgba(23, 36, 47, 0.1);
   --elevation-sheet-up: 0 -12px 32px rgba(23, 36, 47, 0.14);
 

@@ -82,7 +82,7 @@ export function SelectTrigger({
 const CONTENT_CLASS = [
   'group/select z-50 flex flex-col text-ink outline-none transition-opacity duration-100 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0',
   'data-[presentation=popover]:max-h-(--available-height) data-[presentation=popover]:min-w-(--anchor-width) data-[presentation=popover]:rounded-lg data-[presentation=popover]:border data-[presentation=popover]:border-ink-faint data-[presentation=popover]:bg-well-800 data-[presentation=popover]:p-1 data-[presentation=popover]:light:shadow-menu',
-  'data-[presentation=sheet]:max-h-[calc(100dvh-env(safe-area-inset-top)-64px)] data-[presentation=sheet]:w-full data-[presentation=sheet]:rounded-t-xl data-[presentation=sheet]:border-t data-[presentation=sheet]:border-ink-faint data-[presentation=sheet]:bg-well-850 data-[presentation=sheet]:px-2 data-[presentation=sheet]:pt-2 data-[presentation=sheet]:elevation-sheet-up data-[presentation=sheet]:[--sheet-backdrop:color-mix(in_srgb,var(--color-well-950)_70%,transparent)]',
+  'data-[presentation=sheet]:max-h-[calc(100dvh-env(safe-area-inset-top)-64px)] data-[presentation=sheet]:w-full data-[presentation=sheet]:rounded-t-xl data-[presentation=sheet]:border-t data-[presentation=sheet]:border-sheet-seam data-[presentation=sheet]:bg-well-850 data-[presentation=sheet]:px-2 data-[presentation=sheet]:pt-2 data-[presentation=sheet]:elevation-sheet-up data-[presentation=sheet]:[--sheet-backdrop:color-mix(in_srgb,var(--color-well-950)_70%,transparent)]',
 ].join(' ');
 
 /**

@@ -1,0 +1,1118 @@
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { FeedCard } from '../components/patterns/feed/card';
+import { CardGrid } from '../components/patterns/feed/card-grid';
+import { FeedPreview } from '../components/patterns/feed/feed-preview';
+import { PreviewPanel } from '../components/patterns/feed/preview-panel';
+import type { Preview } from '../components/patterns/feed/preview-panel';
+import { ActionButton } from '../components/ui/action-button';
+import { Menu, MenuContent, MenuItem, MenuTrigger } from '../components/ui/menu';
+import { nodeLink, recordLink } from '../lib/record-url';
+import { renderInRouter } from './router';
+import { stubViewport } from './viewport';
+import type { Viewport } from './viewport';
+
+/*
+ * The preview panel (ADR 0019, MMR-720 refinement): a feed card's tap opens
+ * its preview, a non-modal panel from `md` up and a modal bottom sheet below.
+ * Layout, ink, and motion are a real browser's to check; jsdom has none.
+ */
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+const answered = vi.fn();
+// The panel's action hands on the card's own button; this one moves focus to it, as a next surface's opener would.
+const handedOn = vi.fn((button: HTMLElement | null) => {
+  button?.focus();
+});
+
+const PREVIEWS: Record<string, Preview> = {
+  'HUGI-15': {
+    action: { label: 'Answer', name: 'Answer HUGI-15', onAction: handedOn },
+    facts: [
+      { label: 'Parent', value: 'Hugi 0.4: run logs' },
+      { label: 'Size', value: 'Medium' },
+    ],
+    id: 'HUGI-15',
+    lead: <span>Ready</span>,
+    open: nodeLink('HUGI-15'),
+    reason: 'Needs an answer before it can start.',
+    text: 'Keep every lane’s log for 14 days.',
+    title: 'Keep run logs and make them readable',
+  },
+  'MMR-709': {
+    id: 'MMR-709',
+    lead: <span>In progress</span>,
+    open: nodeLink('MMR-709'),
+    reason: 'The agent is building it.',
+    title: 'Send an encrypted Web Push',
+  },
+  'MMR-715': {
+    id: 'MMR-715',
+    lead: <span>Under review</span>,
+    open: nodeLink('MMR-715'),
+    reason: 'Waiting on your review.',
+    title: 'Mobile top bar',
+  },
+};
+
+/**
+ * The sample feed; `gone` is a record that has left it, whose card has no
+ * preview any more, `last` leaves no control after it on the page, and
+ * `previews` stands in for the sample previews.
+ */
+function Feed({
+  gone,
+  last = false,
+  previews = PREVIEWS,
+}: {
+  gone?: string;
+  last?: boolean;
+  previews?: Record<string, Preview>;
+}) {
+  return (
+    <>
+      <button type="button">Before the feed</button>
+      <FeedPreview preview={(key) => (key === gone ? undefined : previews[key])}>
+        <CardGrid>
+          <FeedCard
+            previewKey="HUGI-15"
+            lead={<span>Ready</span>}
+            id="HUGI-15"
+            title="Keep run logs and make them readable"
+            action={
+              <ActionButton variant="formOutline" aria-label="Answer HUGI-15" onClick={answered}>
+                Answer
+              </ActionButton>
+            }
+          />
+          <FeedCard
+            previewKey="MMR-709"
+            lead={<span>In progress</span>}
+            id="MMR-709"
+            title="Send an encrypted Web Push"
+          />
+          <FeedCard
+            previewKey="MMR-715"
+            lead={<span>Under review</span>}
+            id="MMR-715"
+            title="Mobile top bar"
+          />
+        </CardGrid>
+        <div role="img" aria-label="Lanes this week" />
+        <div inert>
+          <button type="button">Behind a dialog</button>
+        </div>
+        <button type="button" hidden>
+          Folded away
+        </button>
+      </FeedPreview>
+      {!last && <button type="button">After the feed</button>}
+    </>
+  );
+}
+
+/** A feed whose one card sits beside a menu, for the Escape order. */
+function FeedWithMenu() {
+  return (
+    <FeedPreview preview={(key) => PREVIEWS[key]}>
+      <FeedCard
+        previewKey="MMR-709"
+        lead={<span>In progress</span>}
+        title="Send an encrypted Web Push"
+      />
+      <Menu>
+        <MenuTrigger render={<ActionButton variant="outline" />}>Sort</MenuTrigger>
+        <MenuContent>
+          <MenuItem>Newest first</MenuItem>
+        </MenuContent>
+      </Menu>
+    </FeedPreview>
+  );
+}
+
+/** A feed whose card with no button is followed by a control out of the tab order and a disclosure. */
+function FeedWithDisclosure() {
+  return (
+    <FeedPreview preview={(key) => PREVIEWS[key]}>
+      <FeedCard
+        previewKey="MMR-709"
+        lead={<span>In progress</span>}
+        title="Send an encrypted Web Push"
+      />
+      <button type="button" tabIndex={-1}>
+        Out of the tab order
+      </button>
+      <details>
+        <summary>Why it runs long</summary>
+        <p>Every device needs its own key.</p>
+      </details>
+      <FeedCard previewKey="MMR-715" lead={<span>Under review</span>} title="Mobile top bar" />
+    </FeedPreview>
+  );
+}
+
+/** A feed whose card with no button is followed by `after`, then another card. */
+function FeedWithAfterCard({ after }: { after: ReactNode }) {
+  return (
+    <FeedPreview preview={(key) => PREVIEWS[key]}>
+      <FeedCard
+        previewKey="MMR-709"
+        lead={<span>In progress</span>}
+        title="Send an encrypted Web Push"
+      />
+      {after}
+      <FeedCard previewKey="MMR-715" lead={<span>Under review</span>} title="Mobile top bar" />
+    </FeedPreview>
+  );
+}
+
+/** MMR-709's preview with a `tabindex="1"` control in a fact, in the sample feed. */
+function FeedWithPositiveTabindex() {
+  const withCopy: Preview = {
+    ...PREVIEWS['MMR-709']!,
+    facts: [
+      {
+        label: 'Branch',
+        value: (
+          // oxlint-disable-next-line jsx-a11y/tabindex-no-positive -- the case under test
+          <button type="button" tabIndex={1}>
+            Copy the branch
+          </button>
+        ),
+      },
+    ],
+  };
+  return <Feed previews={{ ...PREVIEWS, 'MMR-709': withCopy }} />;
+}
+
+/** Three radios named `size`, `checked` among them when given. */
+function SizeRadios({ checked }: { checked?: string }) {
+  return (
+    <fieldset>
+      {['Small', 'Medium', 'Large'].map((size) => (
+        <label key={size}>
+          <input type="radio" name="size" value={size} defaultChecked={size === checked} />
+          {size}
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
+/** HUGI-15's card alone, its preview's second fact holding a control. */
+function FeedWithControlFact() {
+  const preview: Preview = {
+    facts: [
+      { label: 'Parent', value: 'Hugi 0.4: run logs' },
+      { label: 'Branch', value: <button type="button">Copy the branch</button> },
+    ],
+    id: 'HUGI-15',
+    lead: <span>Ready</span>,
+    open: nodeLink('HUGI-15'),
+    reason: 'Needs an answer before it can start.',
+    text: 'Keep every lane’s log for 14 days.',
+    title: 'Keep run logs and make them readable',
+  };
+  return (
+    <FeedPreview preview={() => preview}>
+      <FeedCard
+        previewKey="HUGI-15"
+        lead={<span>Ready</span>}
+        id="HUGI-15"
+        title="Keep run logs and make them readable"
+      />
+    </FeedPreview>
+  );
+}
+
+/** A ResizeObserver jsdom lacks: `resize(element)` runs the observers watching `element`. */
+function stubResizeObserver() {
+  const watching = new Map<Element, Set<() => void>>();
+  class FakeResizeObserver {
+    readonly #report: () => void;
+    readonly #targets = new Set<Element>();
+    constructor(report: () => void) {
+      this.#report = report;
+    }
+    observe(target: Element) {
+      this.#targets.add(target);
+      watching.set(target, (watching.get(target) ?? new Set()).add(this.#report));
+    }
+    unobserve(target: Element) {
+      watching.get(target)?.delete(this.#report);
+    }
+    disconnect() {
+      for (const target of this.#targets) {
+        watching.get(target)?.delete(this.#report);
+      }
+    }
+  }
+  vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+  return (element: Element) => {
+    act(() => {
+      for (const report of watching.get(element) ?? []) {
+        report();
+      }
+    });
+  };
+}
+
+async function renderFeed(viewport: Viewport = 'desktop', ui = <Feed />) {
+  stubViewport(viewport);
+  answered.mockClear();
+  handedOn.mockClear();
+  const rendered = await renderInRouter(ui);
+  // jsdom lays nothing out, so a hidden control is shown to `checkVisibility` unless told.
+  for (const hidden of document.querySelectorAll<HTMLElement>('[hidden]')) {
+    Object.defineProperty(hidden, 'checkVisibility', { configurable: true, value: () => false });
+  }
+  return rendered;
+}
+
+const card = (title: string) => screen.getByRole('button', { name: title });
+const panel = () => screen.getByRole('dialog');
+const panelTitle = () => within(panel()).getByRole('heading', { level: 2 });
+const body = () => panel().querySelector<HTMLElement>('[data-slot="preview-body"]');
+
+describe('feed card as the preview’s opener', () => {
+  it('is a button that announces a dialog, named by its title and described by its status line', async () => {
+    await renderFeed();
+    const opener = card('Keep run logs and make them readable');
+    expect(opener).toHaveAttribute('aria-haspopup', 'dialog');
+    expect(opener).toHaveAccessibleDescription('Ready HUGI-15');
+    expect(screen.queryByRole('link')).toBeNull();
+  });
+
+  it('keeps its own button a separate target that runs its action without opening the preview', async () => {
+    await renderFeed();
+    await userEvent.click(screen.getByRole('button', { name: 'Answer HUGI-15' }));
+    expect(answered).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe('preview panel: open, switch, close', () => {
+  it('opens on the card’s tap, names the dialog by the record, and moves focus to its title', async () => {
+    await renderFeed();
+    await userEvent.click(card('Keep run logs and make them readable'));
+    expect(panel()).toHaveAccessibleName('Keep run logs and make them readable');
+    expect(panelTitle()).toHaveFocus();
+    expect(within(panel()).getByText('Needs an answer before it can start.')).toBeVisible();
+    expect(card('Keep run logs and make them readable')).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('is non-modal from md up, so another card switches it in place', async () => {
+    await renderFeed();
+    await userEvent.click(card('Keep run logs and make them readable'));
+    expect(panel()).not.toHaveAttribute('aria-modal', 'true');
+    expect(document.querySelector('[data-slot="drawer-backdrop"]')).toBeNull();
+    await userEvent.click(card('Send an encrypted Web Push'));
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    expect(panel()).toHaveAccessibleName('Send an encrypted Web Push');
+    expect(panelTitle()).toHaveFocus();
+    expect(card('Keep run logs and make them readable')).toHaveAttribute('aria-expanded', 'false');
+    expect(card('Send an encrypted Web Push')).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('scrolls the body back to the top on a switch', async () => {
+    await renderFeed();
+    await userEvent.click(card('Keep run logs and make them readable'));
+    const scrolled = body();
+    expect(scrolled).not.toBeNull();
+    if (scrolled === null) {
+      return;
+    }
+    scrolled.scrollTop = 120;
+    await userEvent.click(card('Send an encrypted Web Push'));
+    expect(body()?.scrollTop).toBe(0);
+  });
+
+  it('closes on a second tap of the selected card', async () => {
+    await renderFeed();
+    await userEvent.click(card('Keep run logs and make them readable'));
+    await userEvent.click(card('Keep run logs and make them readable'));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(card('Keep run logs and make them readable')).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('runs another card’s own button without switching', async () => {
+    await renderFeed();
+    await userEvent.click(card('Send an encrypted Web Push'));
+    await userEvent.click(screen.getByRole('button', { name: 'Answer HUGI-15' }));
+    expect(answered).toHaveBeenCalledOnce();
+    expect(panel()).toHaveAccessibleName('Send an encrypted Web Push');
+  });
+
+  it('closes on a click in empty feed space, and returns focus to the card', async () => {
+    await renderFeed();
+    await userEvent.click(card('Send an encrypted Web Push'));
+    const grid = card('Send an encrypted Web Push').closest('[data-slot="card-grid"]');
+    expect(grid).not.toBeNull();
+    if (grid === null) {
+      return;
+    }
+    await userEvent.click(grid);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(card('Send an encrypted Web Push')).toHaveFocus();
+  });
+
+  it('closes on a click on a chart in the feed, which is not a control', async () => {
+    await renderFeed();
+    await userEvent.click(card('Send an encrypted Web Push'));
+    await userEvent.click(screen.getByRole('img', { name: 'Lanes this week' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('stays open for a click in something the feed portals out, a control or not', async () => {
+    stubViewport('desktop');
+    await renderInRouter(
+      <FeedPreview preview={(key) => PREVIEWS[key]}>
+        <FeedCard
+          previewKey="MMR-709"
+          lead={<span>In progress</span>}
+          title="Send an encrypted Web Push"
+        />
+        {createPortal(
+          <div role="img" aria-label="Portaled chart">
+            <button type="button">Portaled sort</button>
+          </div>,
+          document.body,
+        )}
+      </FeedPreview>,
+    );
+    await userEvent.click(card('Send an encrypted Web Push'));
+    await userEvent.click(screen.getByRole('button', { name: 'Portaled sort' }));
+    expect(panel()).toBeVisible();
+    await userEvent.click(screen.getByRole('img', { name: 'Portaled chart' }));
+    expect(panel()).toBeVisible();
+  });
+
+  it('stays open for a click outside the feed', async () => {
+    await renderFeed();
+    await userEvent.click(card('Send an encrypted Web Push'));
+    await userEvent.click(screen.getByRole('button', { name: 'Before the feed' }));
+    expect(panel()).toBeVisible();
+  });
+
+  it('closes as the page navigates', async () => {
+    const { router } = await renderFeed();
+    await userEvent.click(card('Send an encrypted Web Push'));
+    await act(async () => {
+      await router.navigate({ params: { key: 'MMR' }, to: '/p/$key' });
+    });
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('Close returns focus to the card that opened the latest preview', async () => {
+    await renderFeed();
+    await userEvent.click(card('Keep run logs and make them readable'));
+    await userEvent.click(card('Mobile top bar'));
+    await userEvent.click(within(panel()).getByRole('button', { name: 'Close preview' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(card('Mobile top bar')).toHaveFocus();
+  });
+
+  it('Escape closes it from the panel, and focus returns to the card', async () => {
+    await renderFeed();
+    await userEvent.click(card('Send an encrypted Web Push'));
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(card('Send an encrypted Web Push')).toHaveFocus();
+  });
+
+  it('lets go of the selection when the selected card’s record leaves the feed', async () => {
+    const { rerender } = await renderFeed();
+    await userEvent.click(card('Send an encrypted Web Push'));
+    rerender(<Feed gone="MMR-709" />);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(card('Send an encrypted Web Push')).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(card('Mobile top bar'));
+    expect(panel()).toHaveAccessibleName('Mobile top bar');
+  });
+
+  it('Escape from another card in the feed closes it, and focus returns to the card that opened it', async () => {
+    await renderFeed();
+    await userEvent.click(card('Send an encrypted Web Push'));
+    card('Mobile top bar').focus();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(card('Send an encrypted Web Push')).toHaveFocus();
+  });
+});
+
+/** The card for MMR-709 in the feed section named `name`. */
+const inSection = (name: string) =>
+  within(screen.getByRole('region', { name })).getByRole('button', {
+    name: 'Send an encrypted Web Push',
+  });
+
+/** MMR-709 in Needs you (while `both`) and in In flight, in one feed. */
+function Sections({ both }: { both: boolean }) {
+  return (
+    <FeedPreview preview={(key) => PREVIEWS[key]}>
+      {both ? (
+        <section aria-label="Needs you">
+          <FeedCard
+            previewKey="MMR-709"
+            lead={<span>In progress</span>}
+            title="Send an encrypted Web Push"
+          />
+        </section>
+      ) : null}
+      <section aria-label="In flight">
+        <FeedCard
+          previewKey="MMR-709"
+          lead={<span>In progress</span>}
+          title="Send an encrypted Web Push"
+        />
+      </section>
+    </FeedPreview>
+  );
+}
+
+describe('preview panel: the selected card', () => {
+  it('marks the selected card and gives it the accent edge, and only that card', async () => {
+    await renderFeed();
+    await userEvent.click(card('Send an encrypted Web Push'));
+    const selected = card('Send an encrypted Web Push').closest('[data-slot="feed-card"]');
+    const other = card('Mobile top bar').closest('[data-slot="feed-card"]');
+    expect(selected).toHaveAttribute('data-selected');
+    expect(selected?.className.split(/\s+/)).toContain('data-selected:border-accent');
+    expect(other).not.toHaveAttribute('data-selected');
+  });
+
+  it('tells apart two cards for one record in two sections: a tap on the other selects it, and closing returns focus there', async () => {
+    stubViewport('desktop');
+    await renderInRouter(
+      <FeedPreview preview={(key) => PREVIEWS[key]}>
+        <section aria-label="Needs you">
+          <FeedCard
+            previewKey="MMR-709"
+            lead={<span>In progress</span>}
+            title="Send an encrypted Web Push"
+          />
+        </section>
+        <section aria-label="In flight">
+          <FeedCard
+            previewKey="MMR-709"
+            lead={<span>In progress</span>}
+            title="Send an encrypted Web Push"
+          />
+        </section>
+      </FeedPreview>,
+    );
+    await userEvent.click(inSection('Needs you'));
+    expect(inSection('Needs you')).toHaveAttribute('aria-expanded', 'true');
+    expect(inSection('In flight')).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(inSection('In flight'));
+    expect(panel()).toHaveAccessibleName('Send an encrypted Web Push');
+    expect(panelTitle()).toHaveFocus();
+    expect(inSection('Needs you')).toHaveAttribute('aria-expanded', 'false');
+    expect(inSection('In flight')).toHaveAttribute('aria-expanded', 'true');
+    expect(inSection('In flight').closest('[data-slot="feed-card"]')).toHaveAttribute(
+      'data-selected',
+    );
+    await userEvent.click(inSection('In flight'));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(inSection('In flight')).toHaveFocus();
+  });
+
+  it('closes when the selected copy of a card leaves, though another copy of its record stays', async () => {
+    stubViewport('desktop');
+    const { rerender } = await renderInRouter(<Sections both />);
+    await userEvent.click(inSection('Needs you'));
+    expect(panel()).toHaveAccessibleName('Send an encrypted Web Push');
+    rerender(<Sections both={false} />);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(inSection('In flight')).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('scrolls into view on open, and again when a reflow changes the feed’s width', async () => {
+    const resize = stubResizeObserver();
+    const scrolled = vi.spyOn(Element.prototype, 'scrollIntoView');
+    await renderFeed();
+    const feed = document.querySelector<HTMLElement>('[data-slot="feed-preview"]');
+    if (feed === null) {
+      throw new Error('no feed');
+    }
+    let width = 1240;
+    vi.spyOn(feed, 'getBoundingClientRect').mockImplementation(() =>
+      DOMRect.fromRect({ height: 600, width }),
+    );
+    await userEvent.click(card('Mobile top bar'));
+    const selected = card('Mobile top bar').closest('[data-slot="feed-card"]');
+    expect(scrolled.mock.contexts).toEqual([selected]);
+    expect(scrolled).toHaveBeenLastCalledWith({ behavior: 'instant', block: 'nearest' });
+    scrolled.mockClear();
+    resize(feed);
+    expect(scrolled).not.toHaveBeenCalled();
+    width = 800;
+    resize(feed);
+    expect(scrolled.mock.contexts).toEqual([selected]);
+    vi.restoreAllMocks();
+  });
+});
+
+describe('preview panel: Escape and the layers above it', () => {
+  it('closes an open menu in the feed first, then the panel', async () => {
+    stubViewport('desktop');
+    await renderInRouter(<FeedWithMenu />);
+    await userEvent.click(card('Send an encrypted Web Push'));
+    await userEvent.click(screen.getByRole('button', { name: 'Sort' }));
+    // The menu takes focus once it has opened; Escape before that would land on the feed.
+    await waitFor(() => {
+      expect(screen.getByRole('menu').contains(document.activeElement)).toBe(true);
+    });
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('menu')).toBeNull();
+    });
+    expect(panel()).toBeVisible();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe('preview panel: tab order on desktop', () => {
+  it('Shift+Tab from the title goes back to the selected card, with the panel left open', async () => {
+    await renderFeed();
+    await userEvent.click(card('Send an encrypted Web Push'));
+    await userEvent.tab({ shift: true });
+    expect(card('Send an encrypted Web Push')).toHaveFocus();
+    expect(panel()).toBeVisible();
+  });
+
+  it('Close follows the title, and Shift+Tab from Close goes back through the title to the card', async () => {
+    await renderFeed();
+    await userEvent.click(card('Send an encrypted Web Push'));
+    await userEvent.tab();
+    expect(within(panel()).getByRole('button', { name: 'Close preview' })).toHaveFocus();
+    await userEvent.tab({ shift: true });
+    expect(panelTitle()).toHaveFocus();
+    await userEvent.tab({ shift: true });
+    expect(card('Send an encrypted Web Push')).toHaveFocus();
+  });
+
+  it('steps through the body between Close and Open while it overflows, and passes it by once it fits', async () => {
+    const resize = stubResizeObserver();
+    await renderFeed();
+    await userEvent.click(card('Keep run logs and make them readable'));
+    const element = body();
+    if (element === null) {
+      throw new Error('no body');
+    }
+    const close = within(panel()).getByRole('button', { name: 'Close preview' });
+    const open = within(panel()).getByRole('link', { name: 'Open HUGI-15' });
+    layOutCappedBody(element);
+    resize(element);
+    expect(element).toHaveAttribute('tabindex', '0');
+    expect(element).toHaveAccessibleName('Details');
+    expect(element.className.split(/\s+/)).toContain('focus-visible:outline-accent');
+    close.focus();
+    await userEvent.tab();
+    expect(element).toHaveFocus();
+    await userEvent.tab();
+    expect(open).toHaveFocus();
+    await userEvent.tab({ shift: true });
+    expect(element).toHaveFocus();
+    layOutCappedBody(element, 200);
+    resize(element);
+    expect(element).not.toHaveAttribute('tabindex');
+    close.focus();
+    await userEvent.tab();
+    expect(open).toHaveFocus();
+    vi.restoreAllMocks();
+  });
+
+  it('Tab from the last button goes on to the selected card’s own button', async () => {
+    await renderFeed();
+    await userEvent.click(card('Keep run logs and make them readable'));
+    within(panel()).getByRole('button', { name: 'Answer HUGI-15' }).focus();
+    await userEvent.tab();
+    expect(
+      screen.getAllByRole('button', { name: 'Answer HUGI-15' }).find((b) => !panel().contains(b)),
+    ).toHaveFocus();
+  });
+
+  it('Tab from the last button goes on to the next card when the selected one has no button', async () => {
+    await renderFeed();
+    await userEvent.click(card('Send an encrypted Web Push'));
+    within(panel()).getByRole('link', { name: 'Open MMR-709' }).focus();
+    await userEvent.tab();
+    expect(card('Mobile top bar')).toHaveFocus();
+  });
+});
+
+describe('preview panel: tab order from outside on desktop', () => {
+  it('Tab from the selected card goes into the panel, to its title', async () => {
+    await renderFeed();
+    await userEvent.click(card('Send an encrypted Web Push'));
+    card('Send an encrypted Web Push').focus();
+    await userEvent.tab();
+    expect(panelTitle()).toHaveFocus();
+  });
+
+  it('Shift+Tab from the control after the selected card goes back into the panel, to its last button', async () => {
+    await renderFeed();
+    await userEvent.click(card('Keep run logs and make them readable'));
+    screen
+      .getAllByRole('button', { name: 'Answer HUGI-15' })
+      .find((button) => !panel().contains(button))
+      ?.focus();
+    await userEvent.tab({ shift: true });
+    expect(within(panel()).getByRole('button', { name: 'Answer HUGI-15' })).toHaveFocus();
+  });
+
+  it('Tab from the feed’s last card goes past the panel to the control after it', async () => {
+    await renderFeed();
+    await userEvent.click(card('Keep run logs and make them readable'));
+    card('Mobile top bar').focus();
+    await userEvent.tab();
+    expect(screen.getByRole('button', { name: 'After the feed' })).toHaveFocus();
+  });
+
+  it('Shift+Tab from the control after the panel goes past it to the feed’s last card', async () => {
+    await renderFeed();
+    await userEvent.click(card('Keep run logs and make them readable'));
+    screen.getByRole('button', { name: 'After the feed' }).focus();
+    await userEvent.tab({ shift: true });
+    expect(card('Mobile top bar')).toHaveFocus();
+  });
+
+  it('Tab from the page’s last control sets the panel inert for that key alone, so focus leaves the page', async () => {
+    await renderFeed('desktop', <Feed last />);
+    await userEvent.click(card('Keep run logs and make them readable'));
+    card('Mobile top bar').focus();
+    const inertDuringKey: boolean[] = [];
+    const record = () => {
+      inertDuringKey.push(panel().inert);
+    };
+    globalThis.addEventListener('keydown', record);
+    await userEvent.tab();
+    globalThis.removeEventListener('keydown', record);
+    expect(inertDuringKey).toEqual([true]);
+    await waitFor(() => {
+      expect(panel().inert).toBe(false);
+    });
+  });
+
+  it('Tab from the last button of the last card’s panel skips the panel, a closed region, and a hidden control', async () => {
+    await renderFeed();
+    await userEvent.click(card('Mobile top bar'));
+    within(panel()).getByRole('link', { name: 'Open MMR-715' }).focus();
+    await userEvent.tab();
+    expect(screen.getByRole('button', { name: 'After the feed' })).toHaveFocus();
+  });
+});
+
+describe('preview panel: tab order through a disclosure', () => {
+  it('Tab from the last button reaches a disclosure after the card, past a control out of the tab order', async () => {
+    stubViewport('desktop');
+    await renderInRouter(<FeedWithDisclosure />);
+    await userEvent.click(card('Send an encrypted Web Push'));
+    within(panel()).getByRole('link', { name: 'Open MMR-709' }).focus();
+    await userEvent.tab();
+    expect(screen.getByText('Why it runs long')).toHaveFocus();
+  });
+
+  it('Shift+Tab from that disclosure goes back into the panel, to its last button', async () => {
+    stubViewport('desktop');
+    await renderInRouter(<FeedWithDisclosure />);
+    await userEvent.click(card('Send an encrypted Web Push'));
+    screen.getByText('Why it runs long').focus();
+    await userEvent.tab({ shift: true });
+    expect(within(panel()).getByRole('link', { name: 'Open MMR-709' })).toHaveFocus();
+  });
+});
+
+describe('preview panel: tab order past a positive tabindex', () => {
+  it('Tab steps from the title to Close, then the panel’s own order, then out after the card', async () => {
+    await renderFeed('desktop', <FeedWithPositiveTabindex />);
+    await userEvent.click(card('Send an encrypted Web Push'));
+    const reached: Element[] = [];
+    for (let step = 0; step < 4; step += 1) {
+      await userEvent.tab();
+      if (document.activeElement !== null) {
+        reached.push(document.activeElement);
+      }
+    }
+    expect(reached).toEqual([
+      within(panel()).getByRole('button', { name: 'Close preview' }),
+      within(panel()).getByRole('button', { name: 'Copy the branch' }),
+      within(panel()).getByRole('link', { name: 'Open MMR-709' }),
+      card('Mobile top bar'),
+    ]);
+  });
+
+  it('Shift+Tab steps back through the panel to Close, the title, and the card', async () => {
+    await renderFeed('desktop', <FeedWithPositiveTabindex />);
+    await userEvent.click(card('Send an encrypted Web Push'));
+    within(panel()).getByRole('link', { name: 'Open MMR-709' }).focus();
+    const close = within(panel()).getByRole('button', { name: 'Close preview' });
+    const copy = within(panel()).getByRole('button', { name: 'Copy the branch' });
+    const reached: Element[] = [];
+    for (let step = 0; step < 4; step += 1) {
+      await userEvent.tab({ shift: true });
+      if (document.activeElement !== null) {
+        reached.push(document.activeElement);
+      }
+    }
+    expect(reached).toEqual([copy, close, panelTitle(), card('Send an encrypted Web Push')]);
+  });
+});
+
+describe('preview panel: tab order into an editor and a radio group', () => {
+  it('Tab from the last button reaches an editing host after the card, which has no tabindex', async () => {
+    stubViewport('desktop');
+    await renderInRouter(
+      <FeedWithAfterCard
+        after={
+          <div contentEditable suppressContentEditableWarning aria-label="Note">
+            <b>Draft</b>
+          </div>
+        }
+      />,
+    );
+    const editor = screen.getByRole('generic', { name: 'Note' });
+    for (const element of [editor, ...editor.querySelectorAll('*')]) {
+      // Chromium reports an editing host and what it holds as editable; jsdom does not.
+      Object.defineProperty(element, 'isContentEditable', { configurable: true, value: true });
+    }
+    await userEvent.click(card('Send an encrypted Web Push'));
+    within(panel()).getByRole('link', { name: 'Open MMR-709' }).focus();
+    await userEvent.tab();
+    expect(editor).toHaveFocus();
+  });
+
+  it.each([
+    ['Medium', 'Medium'],
+    [undefined, 'Small'],
+  ])(
+    'Tab from the last button reaches a radio group at its stop (checked: %s)',
+    async (checked, stop) => {
+      stubViewport('desktop');
+      await renderInRouter(<FeedWithAfterCard after={<SizeRadios checked={checked} />} />);
+      await userEvent.click(card('Send an encrypted Web Push'));
+      within(panel()).getByRole('link', { name: 'Open MMR-709' }).focus();
+      await userEvent.tab();
+      expect(screen.getByRole('radio', { name: stop })).toHaveFocus();
+    },
+  );
+
+  it('Shift+Tab from an unchecked group’s first radio goes back into the panel, to its last button', async () => {
+    stubViewport('desktop');
+    await renderInRouter(<FeedWithAfterCard after={<SizeRadios />} />);
+    await userEvent.click(card('Send an encrypted Web Push'));
+    screen.getByRole('radio', { name: 'Small' }).focus();
+    await userEvent.tab({ shift: true });
+    expect(within(panel()).getByRole('link', { name: 'Open MMR-709' })).toHaveFocus();
+  });
+});
+
+/** A delivery's bundle and a project's, whose headers name no record. */
+const BUNDLES: Record<string, Preview> = {
+  'loom-cli': {
+    lead: <span>Decisions</span>,
+    open: recordLink({ id: 'LM', kind: 'project' }),
+    reason: 'This project has 2 provisional decisions.',
+    title: 'Loom CLI',
+  },
+  'web-push': {
+    lead: <span>Decisions</span>,
+    open: nodeLink('MMR-706'),
+    openId: 'MMR-706',
+    reason: 'This delivery has 12 provisional decisions.',
+    title: 'Web Push notifications',
+  },
+};
+
+describe('preview panel footer', () => {
+  it('names Open by where it leads when the header names no record: a delivery’s ID, else nothing more', async () => {
+    stubViewport('desktop');
+    await renderInRouter(
+      <FeedPreview preview={(key) => BUNDLES[key]}>
+        <FeedCard
+          previewKey="web-push"
+          lead={<span>Decisions</span>}
+          title="Web Push notifications"
+        />
+        <FeedCard previewKey="loom-cli" lead={<span>Decisions</span>} title="Loom CLI" />
+      </FeedPreview>,
+    );
+    await userEvent.click(card('Web Push notifications'));
+    expect(within(panel()).getByRole('link', { name: 'Open MMR-706' })).toBeVisible();
+    await userEvent.click(card('Loom CLI'));
+    expect(within(panel()).getByRole('link', { name: 'Open' })).toHaveAttribute('href', '/p/LM');
+  });
+
+  it('is Open, always an outline, then the card’s action as the one solid button', async () => {
+    await renderFeed();
+    await userEvent.click(card('Keep run logs and make them readable'));
+    const open = within(panel()).getByRole('link', { name: 'Open HUGI-15' });
+    expect(open).toHaveAttribute('href', '/p/HUGI/15');
+    expect(open.className.split(/\s+/)).toContain('inset-ring-ink-faint');
+    const action = within(panel()).getByRole('button', { name: 'Answer HUGI-15' });
+    expect(action.className.split(/\s+/)).toContain('bg-action');
+    expect(open.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('on a phone, closes for the card’s action with focus on the card’s own button', async () => {
+    await renderFeed('phone');
+    // The feature moves nothing itself: the sheet lands focus on the next surface's opener.
+    handedOn.mockReturnValueOnce(undefined);
+    await userEvent.click(card('Keep run logs and make them readable'));
+    await userEvent.click(within(panel()).getByRole('button', { name: 'Answer HUGI-15' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    const own = screen.getByRole('button', { name: 'Answer HUGI-15' });
+    expect(handedOn).toHaveBeenCalledExactlyOnceWith(own);
+    expect(own).toHaveFocus();
+  });
+
+  it('closes for the card’s action and hands it the card’s own button, where focus can land', async () => {
+    await renderFeed();
+    await userEvent.click(card('Keep run logs and make them readable'));
+    await userEvent.click(within(panel()).getByRole('button', { name: 'Answer HUGI-15' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    const own = screen.getByRole('button', { name: 'Answer HUGI-15' });
+    expect(handedOn).toHaveBeenCalledExactlyOnceWith(own);
+    expect(own).toHaveFocus();
+    expect(answered).not.toHaveBeenCalled();
+  });
+
+  it('used directly, closes as its action runs, then runs the action once', async () => {
+    stubViewport('desktop');
+    const calls: string[] = [];
+    const preview: Preview = {
+      ...PREVIEWS['MMR-709']!,
+      action: {
+        label: 'Answer',
+        onAction: (button) => {
+          calls.push(button === null ? 'action, no card button' : 'action, a card button');
+        },
+      },
+    };
+    await renderInRouter(
+      <PreviewPanel
+        open
+        onClose={() => {
+          calls.push('close');
+        }}
+        preview={preview}
+        shownKey="MMR-709"
+      />,
+    );
+    await userEvent.click(within(panel()).getByRole('button', { name: 'Answer' }));
+    expect(calls).toEqual(['close', 'action, no card button']);
+  });
+
+  it('is Open alone when the card has no action', async () => {
+    await renderFeed();
+    await userEvent.click(card('Send an encrypted Web Push'));
+    const footer = panel().querySelector('[data-slot="preview-footer"]');
+    expect(footer).not.toBeNull();
+    if (footer === null) {
+      return;
+    }
+    expect(within(footer as HTMLElement).getAllByRole('link')).toHaveLength(1);
+    expect(within(footer as HTMLElement).queryByRole('button')).toBeNull();
+  });
+
+  it('lists the facts as a definition list', async () => {
+    await renderFeed();
+    await userEvent.click(card('Keep run logs and make them readable'));
+    const terms = within(panel()).getAllByRole('term');
+    expect(terms.map((term) => term.textContent)).toEqual(['Parent', 'Size']);
+    expect(
+      within(panel())
+        .getAllByRole('definition')
+        .map((value) => value.textContent),
+    ).toEqual(['Hugi 0.4: run logs', 'Medium']);
+  });
+});
+
+/** A rect 300 wide at `top`, for a layout jsdom lacks. */
+const rectAt = (top: number, height: number) =>
+  DOMRect.fromRect({ height, width: 300, x: 0, y: top });
+
+/**
+ * HUGI-15's capped body, laid out as jsdom cannot: 200 tall at 100, the reason
+ * 24–99 and its text 111–157, 12 below it, the fact list from 177 (its hairline
+ * 177–178), and the two facts at 198–220 and 234–256, in the body's scroll
+ * space, over `scrollHeight` of content; a control in a fact lays out as the
+ * fact. The reason and its text rest as one block, so the rests are 0, 178
+ * (the hairline hidden, the first fact 20 below the header), and 220.
+ */
+function layOutCappedBody(element: HTMLElement, scrollHeight = 420) {
+  const prose = element.querySelector('[data-slot="preview-prose"]');
+  const list = element.querySelector('dl');
+  const facts = [...element.querySelectorAll('[data-slot="preview-fact"]')];
+  Object.defineProperty(element, 'clientHeight', { configurable: true, value: 200 });
+  Object.defineProperty(element, 'scrollHeight', { configurable: true, value: scrollHeight });
+  const at = (top: number, height: number) => rectAt(100 + top - element.scrollTop, height);
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function layout(
+    this: HTMLElement,
+  ) {
+    if (this === element) {
+      return rectAt(100, 200);
+    }
+    if (this === prose) {
+      return at(24, 133);
+    }
+    if (this === list) {
+      return at(177, 79);
+    }
+    const fact = facts.findIndex((each) => each.contains(this));
+    return fact === -1 ? DOMRect.fromRect() : at(198 + fact * 36, 22);
+  });
+  element.style.paddingTop = '24px';
+}
+
+describe('preview panel on a phone', () => {
+  it.each([
+    [false, 'scroll-snap'],
+    [true, 'pointer'],
+  ] as const)(
+    'on a touch screen with reduced motion %s, moves the sheet by the %s driver',
+    async (reduced, driver) => {
+      await renderFeed('phone');
+      // A touch screen 390 wide, as the drawer reads one; reduced motion matches only when asked.
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        addEventListener: () => undefined,
+        matches:
+          /pointer:\s*coarse|hover:\s*none/.test(query) ||
+          (reduced && query.includes('prefers-reduced-motion')),
+        media: query,
+        removeEventListener: () => undefined,
+      }));
+      Object.defineProperty(navigator, 'maxTouchPoints', { configurable: true, value: 5 });
+      // The scroll-snap driver watches its snap points with one; jsdom has none.
+      vi.stubGlobal(
+        'IntersectionObserver',
+        class {
+          observe() {}
+          unobserve() {}
+          disconnect() {}
+          takeRecords() {
+            return [];
+          }
+        },
+      );
+      try {
+        await userEvent.click(card('Send an encrypted Web Push'));
+        expect(panel()).toHaveAttribute('data-driver', driver);
+      } finally {
+        Reflect.deleteProperty(navigator, 'maxTouchPoints');
+      }
+    },
+  );
+
+  it('is a modal bottom sheet', async () => {
+    await renderFeed('phone');
+    await userEvent.click(card('Send an encrypted Web Push'));
+    expect(panel()).toHaveAttribute('aria-modal', 'true');
+    expect(document.querySelector('[data-slot="drawer-backdrop"]')).not.toBeNull();
+    expect(panelTitle()).toHaveFocus();
+  });
+
+  it('cues a body that runs on under the footer with a brighter footer hairline, in both themes', async () => {
+    await renderFeed('phone');
+    await userEvent.click(card('Keep run logs and make them readable'));
+    const element = body();
+    const footer = panel().querySelector('[data-slot="preview-footer"]');
+    if (element === null || footer === null) {
+      throw new Error('no body or footer');
+    }
+    layOutCappedBody(element);
+    fireEvent.scroll(element);
+    expect(footer).toHaveAttribute('data-continues');
+    // `ink-ghost` in dark, where `line-bright` is about 1.4:1 on `well-850`; `line-bright` in light.
+    expect(footer.className.split(/\s+/)).toEqual(
+      expect.arrayContaining([
+        'data-continues:border-ink-ghost',
+        'light:data-continues:border-line-bright',
+      ]),
+    );
+    element.scrollTop = 220;
+    fireEvent.scroll(element);
+    expect(footer).not.toHaveAttribute('data-continues');
+    vi.restoreAllMocks();
+  });
+
+  it('puts an overflowing body in the sheet’s tab order, after Close and before Open', async () => {
+    const resize = stubResizeObserver();
+    await renderFeed('phone');
+    await userEvent.click(card('Keep run logs and make them readable'));
+    const element = body();
+    if (element === null) {
+      throw new Error('no body');
+    }
+    expect(element).not.toHaveAttribute('tabindex');
+    layOutCappedBody(element);
+    resize(element);
+    within(panel()).getByRole('button', { name: 'Close preview' }).focus();
+    await userEvent.tab();
+    expect(element).toHaveFocus();
+    await userEvent.tab();
+    expect(within(panel()).getByRole('link', { name: 'Open HUGI-15' })).toHaveFocus();
+    vi.restoreAllMocks();
+  });
+
+  it('leaves a capped body’s scroll where the operator stops it, between rests', async () => {
+    await renderFeed('phone');
+    await userEvent.click(card('Keep run logs and make them readable'));
+    const element = body();
+    if (element === null) {
+      throw new Error('no body');
+    }
+    layOutCappedBody(element);
+    const scrollTo = vi.fn();
+    element.scrollTo = scrollTo;
+    // 50 is no rest: the reason and its text are cut under the header.
+    element.scrollTop = 50;
+    fireEvent.scroll(element);
+    fireEvent(element, new Event('scrollend'));
+    expect(scrollTo).not.toHaveBeenCalled();
+    expect(element.scrollTop).toBe(50);
+    vi.restoreAllMocks();
+  });
+
+  it('adds the bottom room that rests the end of a capped body’s scroll on a whole fact', async () => {
+    const resize = stubResizeObserver();
+    await renderFeed('phone');
+    await userEvent.click(card('Keep run logs and make them readable'));
+    const element = body();
+    if (element === null) {
+      throw new Error('no body');
+    }
+    // The natural end at 200 would cut the first fact (198–220) under the header; 220 rests the second 14 below it.
+    layOutCappedBody(element, 400);
+    resize(element);
+    expect(element.style.paddingBottom).toBe('calc(var(--preview-body-end) + 20px)');
+    vi.restoreAllMocks();
+  });
+
+  it('scrolls a control that takes focus below the fold to the rest that shows it whole', async () => {
+    await renderFeed('phone', <FeedWithControlFact />);
+    await userEvent.click(card('Keep run logs and make them readable'));
+    const element = body();
+    if (element === null) {
+      throw new Error('no body');
+    }
+    layOutCappedBody(element);
+    const copy = within(element).getByRole('button', { name: 'Copy the branch' });
+    // The second fact, 234–256, lies past the 200 tall body; 178 shows it whole, the nearest rest that does.
+    fireEvent.keyDown(element, { key: 'Tab' });
+    act(() => {
+      copy.focus();
+    });
+    expect(element.scrollTop).toBe(178);
+    vi.restoreAllMocks();
+  });
+});
