@@ -64,14 +64,22 @@ function openName({ id, openId }: Preview): string | undefined {
   return target === undefined ? undefined : `Open ${target}`;
 }
 
-/** A relation in a fact (a parent, a dependency, a bundle's task): plain text, its ID then its title. */
-export function PreviewRelation({ id, title }: { id: string; title: string }) {
+/**
+ * A relation in a fact (a parent, a dependency, a bundle's task): plain text,
+ * its ID then its title, or its ID alone when the fact carries no title.
+ */
+export function PreviewRelation({ id, title }: { id: string; title?: string }) {
   return (
     <span className="block not-first:mt-1">
-      <span className="mr-1.5 font-mono text-ink-dim [font-size-adjust:var(--mono-adjust)]">
+      <span
+        className={cn(
+          'font-mono text-ink-dim [font-size-adjust:var(--mono-adjust)]',
+          title !== undefined && 'mr-1.5',
+        )}
+      >
         {id}
-      </span>{' '}
-      {title}
+      </span>
+      {title !== undefined && <> {title}</>}
     </span>
   );
 }

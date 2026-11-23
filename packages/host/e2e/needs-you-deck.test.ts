@@ -117,3 +117,40 @@ test.describe('focus after a write', () => {
     await expect(sheet).toBeHidden();
   });
 });
+
+test.describe('a bundle’s preview', () => {
+  test('lists its tasks as relations: one a line, 4 apart, each ID in the label’s ink-dim', async ({
+    page,
+  }) => {
+    await openDeck(page, DESKTOP, 'FLT-q1,FLT-q2');
+    await page.getByRole('button', { name: 'Rolling host upgrades' }).click();
+    const panel = page.getByRole('dialog', { name: 'Rolling host upgrades' });
+    await expect(panel.getByText('FLT-91', { exact: true })).toBeVisible();
+    // Read in one frame, since the panel may still be sliding in.
+    const tasks = await panel.getByText('Tasks', { exact: true }).evaluate((label) => {
+      const lines = [...(label.nextElementSibling?.children ?? [])].map((line) => {
+        const rect = line.getBoundingClientRect();
+        const id = getComputedStyle(line.firstElementChild ?? line);
+        return {
+          bottom: rect.bottom,
+          color: id.color,
+          family: id.fontFamily,
+          left: rect.left,
+          text: line.textContent,
+          top: rect.top,
+        };
+      });
+      return { color: getComputedStyle(label).color, lines };
+    });
+    expect(tasks.lines.map((line) => line.text)).toEqual(['FLT-88', 'FLT-89', 'FLT-90', 'FLT-91']);
+    for (const [at, line] of tasks.lines.entries()) {
+      expect(line.color).toBe(tasks.color);
+      expect(line.family).toMatch(/mono/iu);
+      const before = tasks.lines[at - 1];
+      if (before !== undefined) {
+        expect(line.left).toBe(before.left);
+        expect(Math.round(line.top - before.bottom)).toBe(4);
+      }
+    }
+  });
+});

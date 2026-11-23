@@ -18,6 +18,7 @@ import type {
 import { FeedDeck } from './patterns/feed/deck';
 import type { DeckAction, DeckCard, DeckWrite, FeedDeckHandle } from './patterns/feed/deck';
 import type { FeedLink } from './patterns/feed/link';
+import { PreviewRelation } from './patterns/feed/preview-panel';
 import type { Preview } from './patterns/feed/preview-panel';
 import { StatusBadge, StatusWord } from './status-badge';
 
@@ -85,13 +86,7 @@ function factValue(fact: NeedsYouFact): ReactNode {
   if ('text' in fact) {
     return fact.text;
   }
-  return (
-    <span className="flex flex-wrap gap-x-3 gap-y-1 font-mono text-ink [font-size-adjust:var(--mono-adjust)]">
-      {fact.ids.map((id) => (
-        <span key={id}>{id}</span>
-      ))}
-    </span>
-  );
+  return fact.ids.map((id) => <PreviewRelation key={id} id={id} />);
 }
 
 function previewOf(card: NeedsYouCard): Omit<Preview, 'action'> {
