@@ -423,23 +423,20 @@ Rules:
   scroll to the top; a cross-fade would be a fourth mover (ADR 0019 §8).
   Under `prefers-reduced-motion` there is no slide; the panel, the sidebar,
   and the column change at once.
-- **A capped sheet rests on a whole fact.** When the body runs past the 88%
-  cap, it scrolls under the pinned bars by the resting rules of Sheets,
-  panels, dialogs (`patterns/feed/preview-rests.ts`). Neither bar cuts a
-  block at a rest: the fact at the footer is whole or hidden under it, and the
-  block at the header sits below it with the block above hidden whole. The
-  reason and the text after it rest as one block, since 12 apart neither
-  could keep the field gap. A rest hides the fact list's hairline whole and
-  puts the first fact 20 below the header, or as little as 14 where the footer
-  would otherwise cut the fact it meets, and a later fact 14, the list's own
-  row gap. Where no rest clears both bars within a body's height of the
-  last, so a block would never show whole, the rest keeps the header clean and
-  the footer may cut. A fact taller than the body (a bundle's long Tasks)
-  rests at its top and where its bottom meets the footer, and scrolls freely
-  from its top onward, wherever the footer cuts no other block, so every
-  relation in it can be read. A swipe or scroll that stops between rests
-  glides on to the next rest the way it moved (at once under reduced motion),
-  so the sheet never rests on a clipped sentence. Once the body has scrolled, the header
+- **A capped sheet scrolls freely and rests clean at its end and on focus.**
+  When the body runs past the 88% cap, it scrolls under the pinned bars by
+  the rules of Sheets, panels, dialogs (`patterns/resting-body.ts`, which the
+  Form sheet shares). A scroll the operator leaves mid-way stays where it is;
+  nothing snaps or settles. The body adds the bottom room that lands the
+  natural end of its scroll on a clean rest, and a control the keyboard
+  focuses out of view scrolls to the nearest rest that shows it whole. The
+  blocks are the reason with the text after it, as one block, since 12 apart
+  neither could keep the field gap, then each fact. A fact's rest sits a field
+  gap above it or hides the block above it whole, so the first fact rests 20
+  below the header with the fact list's hairline hidden, and a later fact 14,
+  the list's own row gap. A fact taller than the body (a bundle's long Tasks)
+  simply scrolls, and the end shows its last line clear of the footer by the
+  body's bottom padding. Once the body has scrolled, the header
   gains the pinned header's scroll shadow. While the body continues under the
   footer, the footer shows the overflow cue: its hairline steps from `line` to
   `ink-ghost` in dark and to `line-bright` in light, and its top edge gains

@@ -146,6 +146,32 @@ function FeedWithDisclosure() {
   );
 }
 
+/** HUGI-15's card alone, its preview's second fact holding a control. */
+function FeedWithControlFact() {
+  const preview: Preview = {
+    facts: [
+      { label: 'Parent', value: 'Hugi 0.4: run logs' },
+      { label: 'Branch', value: <button type="button">Copy the branch</button> },
+    ],
+    id: 'HUGI-15',
+    lead: <span>Ready</span>,
+    open: nodeLink('HUGI-15'),
+    reason: 'Needs an answer before it can start.',
+    text: 'Keep every lane’s log for 14 days.',
+    title: 'Keep run logs and make them readable',
+  };
+  return (
+    <FeedPreview preview={() => preview}>
+      <FeedCard
+        previewKey="HUGI-15"
+        lead={<span>Ready</span>}
+        id="HUGI-15"
+        title="Keep run logs and make them readable"
+      />
+    </FeedPreview>
+  );
+}
+
 /** A ResizeObserver jsdom lacks: `resize(element)` runs the observers watching `element`. */
 function stubResizeObserver() {
   const watching = new Map<Element, Set<() => void>>();
@@ -617,15 +643,16 @@ const rectAt = (top: number, height: number) =>
  * HUGI-15's capped body, laid out as jsdom cannot: 200 tall at 100, the reason
  * 24–99 and its text 111–157, 12 below it, the fact list from 177 (its hairline
  * 177–178), and the two facts at 198–220 and 234–256, in the body's scroll
- * space. The reason and its text rest as one block, so the rests are 0, 178
- * (the hairline hidden, the first fact 20 below the header), and 220, the end.
+ * space, over `scrollHeight` of content; a control in a fact lays out as the
+ * fact. The reason and its text rest as one block, so the rests are 0, 178
+ * (the hairline hidden, the first fact 20 below the header), and 220.
  */
-function layOutCappedBody(element: HTMLElement) {
-  const [reason, text] = element.firstElementChild?.children ?? [];
+function layOutCappedBody(element: HTMLElement, scrollHeight = 420) {
+  const prose = element.querySelector('[data-slot="preview-prose"]');
   const list = element.querySelector('dl');
   const facts = [...element.querySelectorAll('[data-slot="preview-fact"]')];
   Object.defineProperty(element, 'clientHeight', { configurable: true, value: 200 });
-  Object.defineProperty(element, 'scrollHeight', { configurable: true, value: 420 });
+  Object.defineProperty(element, 'scrollHeight', { configurable: true, value: scrollHeight });
   const at = (top: number, height: number) => rectAt(100 + top - element.scrollTop, height);
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function layout(
     this: HTMLElement,
@@ -633,16 +660,13 @@ function layOutCappedBody(element: HTMLElement) {
     if (this === element) {
       return rectAt(100, 200);
     }
-    if (this === reason) {
-      return at(24, 75);
-    }
-    if (this === text) {
-      return at(111, 46);
+    if (this === prose) {
+      return at(24, 133);
     }
     if (this === list) {
       return at(177, 79);
     }
-    const fact = facts.indexOf(this);
+    const fact = facts.findIndex((each) => each.contains(this));
     return fact === -1 ? DOMRect.fromRect() : at(198 + fact * 36, 22);
   });
   element.style.paddingTop = '24px';
@@ -681,7 +705,7 @@ describe('preview panel on a phone', () => {
     vi.restoreAllMocks();
   });
 
-  it('settles a capped body’s scroll on the next rest the way it moved, a whole fact under the header', async () => {
+  it('leaves a capped body’s scroll where the operator stops it, between rests', async () => {
     await renderFeed('phone');
     await userEvent.click(card('Keep run logs and make them readable'));
     const element = body();
@@ -689,25 +713,47 @@ describe('preview panel on a phone', () => {
       throw new Error('no body');
     }
     layOutCappedBody(element);
-    const scrollTo = vi.fn((options: ScrollToOptions) => {
-      element.scrollTop = options.top ?? element.scrollTop;
-    });
-    element.scrollTo = scrollTo as typeof element.scrollTo;
-    const stopAt = (top: number) => {
-      element.scrollTop = top;
-      fireEvent.scroll(element);
-      fireEvent(element, new Event('scrollend'));
-    };
-    // A short swipe down goes on past the reason and its text, which rest as one, to the first fact.
-    stopAt(50);
-    expect(scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({ top: 178 }));
-    stopAt(200);
-    expect(scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({ top: 220 }));
-    stopAt(190);
-    expect(scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({ top: 178 }));
-    scrollTo.mockClear();
-    stopAt(178);
+    const scrollTo = vi.fn();
+    element.scrollTo = scrollTo;
+    // 50 is no rest: the reason and its text are cut under the header.
+    element.scrollTop = 50;
+    fireEvent.scroll(element);
+    fireEvent(element, new Event('scrollend'));
     expect(scrollTo).not.toHaveBeenCalled();
+    expect(element.scrollTop).toBe(50);
+    vi.restoreAllMocks();
+  });
+
+  it('adds the bottom room that rests the end of a capped body’s scroll on a whole fact', async () => {
+    const resize = stubResizeObserver();
+    await renderFeed('phone');
+    await userEvent.click(card('Keep run logs and make them readable'));
+    const element = body();
+    if (element === null) {
+      throw new Error('no body');
+    }
+    // The natural end at 200 would cut the first fact (198–220) under the header; 220 rests the second 14 below it.
+    layOutCappedBody(element, 400);
+    resize(element);
+    expect(element.style.paddingBottom).toBe('calc(var(--preview-body-end) + 20px)');
+    vi.restoreAllMocks();
+  });
+
+  it('scrolls a control that takes focus below the fold to the rest that shows it whole', async () => {
+    await renderFeed('phone', <FeedWithControlFact />);
+    await userEvent.click(card('Keep run logs and make them readable'));
+    const element = body();
+    if (element === null) {
+      throw new Error('no body');
+    }
+    layOutCappedBody(element);
+    const copy = within(element).getByRole('button', { name: 'Copy the branch' });
+    // The second fact, 234–256, lies past the 200 tall body; 178 shows it whole, the nearest rest that does.
+    fireEvent.keyDown(element, { key: 'Tab' });
+    act(() => {
+      copy.focus();
+    });
+    expect(element.scrollTop).toBe(178);
     vi.restoreAllMocks();
   });
 });

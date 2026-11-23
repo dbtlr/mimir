@@ -7,9 +7,9 @@ import { ActionButton, actionButtonVariants } from '../../ui/action-button';
 import { Drawer, DrawerBackdrop, DrawerContent, DrawerTitle, useDrawerSide } from '../../ui/drawer';
 import { CloseIcon } from '../../ui/icons';
 import type { FinalFocus } from '../opener';
+import { restsOf, useRestingBody } from '../resting-body';
+import type { BlockExtent, MeasuredRests } from '../resting-body';
 import type { FeedLink } from './link';
-import { endRoom, previewRests, settleAt } from './preview-rests';
-import type { BodyRests, RestBlock } from './preview-rests';
 import { FeedStatusLine } from './status-line';
 import { tabNeighbour, tabSequence } from './tab-order';
 
@@ -166,7 +166,6 @@ export function PreviewPanel({
             open={open}
             preview={preview}
             title={title}
-            settles={!desktop}
             onClose={onClose}
           />
         )}
@@ -270,14 +269,11 @@ function PreviewContent({
   open,
   preview,
   title,
-  settles,
   onClose,
 }: {
   open: boolean;
   preview: Preview;
   title: RefObject<HTMLHeadingElement | null>;
-  /** Whether a scroll settles on a rest: the phone's capped sheet. */
-  settles: boolean;
   onClose: () => void;
 }) {
   const [scrolled, setScrolled] = useState(false);
@@ -318,18 +314,20 @@ function PreviewContent({
           <CloseIcon className="size-5 md:size-[18px]" />
         </button>
       </header>
-      <PreviewBody settles={settles} onScrolled={setScrolled} onContinues={setContinues}>
-        <div className="text-base leading-[25px] text-pretty text-ink-bright [&_b]:font-semibold [&_strong]:font-semibold">
-          {preview.reason}
-        </div>
-        {preview.text !== undefined && (
-          <div
-            data-slot="preview-text"
-            className="mt-3 text-body leading-[23px] text-pretty text-ink"
-          >
-            {preview.text}
+      <PreviewBody onScrolled={setScrolled} onContinues={setContinues}>
+        <div data-slot="preview-prose">
+          <div className="text-base leading-[25px] text-pretty text-ink-bright [&_b]:font-semibold [&_strong]:font-semibold">
+            {preview.reason}
           </div>
-        )}
+          {preview.text !== undefined && (
+            <div
+              data-slot="preview-text"
+              className="mt-3 text-body leading-[23px] text-pretty text-ink"
+            >
+              {preview.text}
+            </div>
+          )}
+        </div>
         {preview.facts !== undefined && preview.facts.length > 0 && (
           <dl className="mt-5 mb-0 grid grid-cols-[104px_minmax(0,1fr)] gap-x-4 gap-y-3.5 border-t border-line pt-5">
             {preview.facts.map((fact) => (
@@ -383,68 +381,53 @@ function PreviewContent({
   );
 }
 
-/** The extent of an element in its scroll parent's scroll space. */
-function extentOf(element: Element, origin: number): RestBlock {
-  const rect = element.getBoundingClientRect();
-  return { bottom: rect.bottom - origin, top: rect.top - origin };
-}
+/** The fact list's top hairline, which a rest hides with the prose above it. */
+const HAIRLINE = 1;
 
 /**
- * The body's blocks and where it rests (`previewRests`): the reason and the
- * text after it as one block, since the text carries on from the reason, then
- * the fact list's hairline, which no rest sits on, and each fact.
+ * The body's blocks and their rests (`restsOf`): the reason and the text after
+ * it as one block, since the text carries on from the reason, then each fact.
+ * The prose block runs on to the fact list's hairline, so the first fact's rest
+ * hides that hairline whole, as a form's rest hides a group heading.
  */
-function measureRests(element: HTMLElement): BodyRests {
+function measureRests(element: HTMLElement): MeasuredRests {
   const origin = element.getBoundingClientRect().top - element.scrollTop;
-  const content = element.firstElementChild;
-  if (content === null) {
-    return { free: [], rests: [] };
-  }
-  const blocks: RestBlock[] = [];
-  let prose: RestBlock | undefined;
-  for (const child of content.children) {
-    if (child.tagName === 'DL') {
-      const top = child.getBoundingClientRect().top - origin;
-      blocks.push({ bottom: top + 1, rests: false, top });
-      for (const fact of child.children) {
-        blocks.push(extentOf(fact, origin));
-      }
-    } else if (prose === undefined) {
-      prose = extentOf(child, origin);
-      blocks.push(prose);
-    } else {
-      prose.bottom = extentOf(child, origin).bottom;
-    }
+  const prose = element.querySelector('[data-slot="preview-prose"]');
+  const facts = [...element.querySelectorAll('[data-slot="preview-fact"]')];
+  const list = element.querySelector('dl');
+  const extentOf = (block: Element): BlockExtent => {
+    const rect = block.getBoundingClientRect();
+    return { bottom: rect.bottom - origin, top: rect.top - origin };
+  };
+  const blocks = prose === null ? facts : [prose, ...facts];
+  const extents = blocks.map(extentOf);
+  const [first] = extents;
+  if (prose !== null && list !== null && first !== undefined) {
+    first.bottom = list.getBoundingClientRect().top - origin + HAIRLINE;
   }
   const topPadding = Number.parseFloat(getComputedStyle(element).paddingTop);
-  return previewRests({
-    blocks,
-    height: element.clientHeight,
-    topPadding: Number.isNaN(topPadding) ? 0 : topPadding,
-  });
+  const rests = restsOf(extents, false, Number.isNaN(topPadding) ? 0 : topPadding);
+  return { blocks, extents, origin, rests };
 }
 
 /**
- * The body, the one part that scrolls. It adds the bottom room the end of its
- * scroll needs to rest cleanly, and reports whether it has scrolled (the
- * header's shadow) and whether it runs on under the footer (the footer's cue).
- * When it `settles` (the phone's capped sheet), a swipe or scroll that comes to
- * a stop between rests glides on to the next one, so it rests on a whole fact.
+ * The body, the one part that scrolls. It rests by the Sheets rule
+ * (`useRestingBody`): a scroll left mid-way stays, the end of its scroll rests
+ * on a whole fact, and a control the keyboard focuses out of view scrolls to a
+ * rest that shows it whole. It reports whether it has scrolled (the header's
+ * shadow) and whether it runs on under the footer (the footer's cue).
  */
 function PreviewBody({
-  settles,
   onScrolled,
   onContinues,
   children,
 }: {
-  settles: boolean;
   onScrolled: (scrolled: boolean) => void;
   onContinues: (continues: boolean) => void;
   children: ReactNode;
 }) {
   const body = useRef<HTMLDivElement>(null);
-  const [room, setRoom] = useState(0);
-  const roomRef = useRef(0);
+  const room = useRestingBody({ body, measure: measureRests });
 
   useLayoutEffect(() => {
     const element = body.current;
@@ -455,42 +438,9 @@ function PreviewBody({
       onScrolled(element.scrollTop > 0);
       onContinues(element.scrollTop + element.clientHeight < element.scrollHeight - 1);
     };
-    const measure = () => {
-      if (element.clientHeight > 0) {
-        const naturalEnd = element.scrollHeight - roomRef.current - element.clientHeight;
-        const next = endRoom({ naturalEnd, ...measureRests(element) });
-        if (next !== roomRef.current) {
-          roomRef.current = next;
-          setRoom(next);
-        }
-      }
-      report();
-    };
-    // Where the body last came to rest, so a settle knows which way it moved.
-    let rested = element.scrollTop;
-    const settle = () => {
-      const { rests, free } = measureRests(element);
-      const rest = settleAt({
-        at: element.scrollTop,
-        end: element.scrollHeight - element.clientHeight,
-        free,
-        from: rested,
-        rests,
-      });
-      rested = rest;
-      if (Math.abs(rest - element.scrollTop) >= 1) {
-        const reduced = element.ownerDocument.defaultView?.matchMedia(
-          '(prefers-reduced-motion: reduce)',
-        ).matches;
-        element.scrollTo({ behavior: reduced === true ? 'instant' : 'smooth', top: rest });
-      }
-    };
-    measure();
+    report();
     element.addEventListener('scroll', report, { passive: true });
-    if (settles) {
-      element.addEventListener('scrollend', settle);
-    }
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(report);
     observer?.observe(element);
     const content = element.firstElementChild;
     if (content !== null) {
@@ -498,10 +448,9 @@ function PreviewBody({
     }
     return () => {
       element.removeEventListener('scroll', report);
-      element.removeEventListener('scrollend', settle);
       observer?.disconnect();
     };
-  }, [settles, onScrolled, onContinues]);
+  }, [onScrolled, onContinues]);
 
   return (
     <div
