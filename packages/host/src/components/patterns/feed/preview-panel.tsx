@@ -418,6 +418,7 @@ function PreviewContent({
             variant="action"
             aria-label={action.name}
             onClick={() => {
+              onClose();
               action.onAction(null);
             }}
             className={FOOTER_BUTTON}

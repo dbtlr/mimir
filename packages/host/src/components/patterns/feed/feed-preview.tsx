@@ -156,7 +156,7 @@ export function FeedPreview({
     }
   }, []);
 
-  // The card's action closes the panel first, then runs with the card's own button.
+  // The panel closes for the card's action; the action then runs with the card's own button.
   const content = useMemo(() => {
     const action = given?.action;
     if (given === undefined || action === undefined) {
@@ -169,7 +169,6 @@ export function FeedPreview({
         onAction: () => {
           const own = cardOf(opener.current)?.querySelector<HTMLElement>(CARD_BUTTON) ?? null;
           handedTo.current = own;
-          setSelected(null);
           action.onAction(own);
         },
       },

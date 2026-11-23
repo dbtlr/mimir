@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FeedCard } from '../components/patterns/feed/card';
 import { CardGrid } from '../components/patterns/feed/card-grid';
 import { FeedPreview } from '../components/patterns/feed/feed-preview';
+import { PreviewPanel } from '../components/patterns/feed/preview-panel';
 import type { Preview } from '../components/patterns/feed/preview-panel';
 import { ActionButton } from '../components/ui/action-button';
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../components/ui/menu';
@@ -751,6 +752,32 @@ describe('preview panel footer', () => {
     expect(handedOn).toHaveBeenCalledExactlyOnceWith(own);
     expect(own).toHaveFocus();
     expect(answered).not.toHaveBeenCalled();
+  });
+
+  it('used directly, closes as its action runs, then runs the action once', async () => {
+    stubViewport('desktop');
+    const calls: string[] = [];
+    const preview: Preview = {
+      ...PREVIEWS['MMR-709']!,
+      action: {
+        label: 'Answer',
+        onAction: (button) => {
+          calls.push(`action ${String(button)}`);
+        },
+      },
+    };
+    await renderInRouter(
+      <PreviewPanel
+        open
+        onClose={() => {
+          calls.push('close');
+        }}
+        preview={preview}
+        shownKey="MMR-709"
+      />,
+    );
+    await userEvent.click(within(panel()).getByRole('button', { name: 'Answer' }));
+    expect(calls).toEqual(['close', 'action null']);
   });
 
   it('is Open alone when the card has no action', async () => {
