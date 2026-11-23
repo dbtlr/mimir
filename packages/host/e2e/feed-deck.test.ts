@@ -222,6 +222,19 @@ test.describe('phone deck', () => {
     expect(await edge()).toBe(PHONE.width);
   });
 
+  test('one card fills the width between the gutters, as it does once the other card leaves', async ({
+    page,
+  }) => {
+    await page.setViewportSize(PHONE);
+    await page.goto(`${harness.origin}?form=deck&cards=2`);
+    await page.getByRole('button', { name: 'Card 2 leaves' }).click();
+    await expect(group(page, '1 of 1')).toBeVisible();
+    await expect.poll(() => left(page, '1 of 1')).toBe(GUTTER);
+    expect((await group(page, '1 of 1').boundingBox())?.width).toBe(PHONE.width - 2 * GUTTER);
+    await expect(page.locator('[data-slot="swipe-peek"]')).toHaveCount(0);
+    await expect(page.locator('[data-slot="deck-pager"]')).toHaveCount(0);
+  });
+
   test('the last card rests at the gutter with nothing peeking beside it', async ({ page }) => {
     await page.setViewportSize(PHONE);
     await page.goto(`${harness.origin}?form=deck&cards=3`);

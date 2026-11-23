@@ -601,20 +601,9 @@ function DeckBody({
         </CardGrid>
       );
     }
-    if (cards.length === 1) {
-      return cards.map((card) => (
-        <div
-          key={card.key}
-          role="group"
-          aria-label={position(0)}
-          data-deck-card={card.key}
-          data-current=""
-          className="grid"
-        >
-          {cardOf(card)}
-        </div>
-      ));
-    }
+    // One card stays in the track, still and with no peek or pager, so a card that
+    // leaves never remounts the one that stays and closes its open preview.
+    const single = cards.length === 1;
     return (
       <>
         <SwipeTrack
@@ -627,10 +616,10 @@ function DeckBody({
           onDragChange={(dragging) => {
             setDuringDrag(dragging ? incoming : null);
           }}
-          peek={PEEK}
-          gap={GAP}
+          peek={single ? 0 : PEEK}
+          gap={single ? 0 : GAP}
           // The deck runs past the right gutter to the screen's edge (`useBleedToScreenEdge`).
-          className="-mr-(--deck-bleed)"
+          className={single ? undefined : '-mr-(--deck-bleed)'}
         >
           {cards.map((card, at) => (
             <div
@@ -648,7 +637,7 @@ function DeckBody({
             </div>
           ))}
         </SwipeTrack>
-        <PhonePager index={index} count={keys.length} onTurn={turn} />
+        {!single && <PhonePager index={index} count={keys.length} onTurn={turn} />}
       </>
     );
   };

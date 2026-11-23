@@ -323,6 +323,20 @@ describe('cards that leave', () => {
     expect(target('N-2')).toHaveFocus();
   });
 
+  it('keeps the open preview, and its focus, when another card leaves the phone deck one card', async () => {
+    const { refetch } = await renderDeck(cardsOf(['A', 'B']), 'phone');
+    await userEvent.click(screen.getByRole('button', { name: 'Next card' }));
+    await userEvent.click(target('B'));
+    const sheet = screen.getByRole('dialog');
+    expect(sheet).toHaveAccessibleName('Card B');
+    const focused = document.activeElement;
+    expect(sheet).toContainElement(focused instanceof HTMLElement ? focused : null);
+    refetch(cardsOf(['B']));
+    expect(screen.getByRole('dialog')).toHaveAccessibleName('Card B');
+    expect(document.activeElement).toBe(focused);
+    expect(screen.queryByRole('button', { name: 'Next card' })).toBeNull();
+  });
+
   it('hands focus from a pager that unmounts to the current card', async () => {
     const { refetch } = await renderDeck(cardsOf(keys(2)), 'phone');
     const next = screen.getByRole('button', { name: 'Next card' });
