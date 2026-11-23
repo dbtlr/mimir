@@ -49,7 +49,7 @@ test.describe('a walkthrough’s return', () => {
     await openDeck(page, DESKTOP);
     await page.getByRole('button', { name: 'Next page' }).click();
     await page.getByRole('button', { name: 'Next page' }).click();
-    await expect(page.getByText('9–10', { exact: true })).toBeVisible();
+    await expect(page.getByText('9–11', { exact: true })).toBeVisible();
     await page
       .getByRole('button', { name: 'Review 3 decisions without a delivery in MMR' })
       .click();
@@ -61,7 +61,7 @@ test.describe('a walkthrough’s return', () => {
     });
     await expect(review).toBeFocused();
     await expect(review).toBeInViewport();
-    await expect(page.getByText('9–10', { exact: true })).toBeVisible();
+    await expect(page.getByText('9–11', { exact: true })).toBeVisible();
   });
 
   test('turns the phone deck to the bundle and focuses its button', async ({ page }) => {
@@ -70,13 +70,13 @@ test.describe('a walkthrough’s return', () => {
     for (let turn = 0; turn < 3; turn += 1) {
       await next.click();
     }
-    await expect(page.getByRole('group', { name: '4 of 10' })).toBeVisible();
+    await expect(page.getByRole('group', { name: '4 of 11' })).toBeVisible();
     await page.getByRole('button', { name: 'Review 3 decisions on FLT-d2' }).click();
     await page.getByRole('button', { name: 'Close the walkthrough' }).click();
 
     const review = page.getByRole('button', { name: 'Review 3 decisions on FLT-d2' });
     await expect(review).toBeFocused();
-    await expect(page.getByRole('group', { name: '4 of 10' })).toBeVisible();
+    await expect(page.getByRole('group', { name: '4 of 11' })).toBeVisible();
     await expect(review).toBeInViewport({ ratio: 1 });
   });
 });
@@ -96,7 +96,7 @@ test.describe('focus after a write', () => {
     await dialog.getByRole('button', { name: 'Answer' }).click();
 
     await expect(dialog).toBeHidden();
-    await expect(page.getByRole('group', { name: '7 of 9' })).toBeVisible();
+    await expect(page.getByRole('group', { name: '7 of 10' })).toBeVisible();
     await expect.poll(() => focused(page)).toBe('Keep run logs and make them readable');
   });
 

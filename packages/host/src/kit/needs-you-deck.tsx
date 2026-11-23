@@ -127,7 +127,12 @@ const ROWS: Row[] = [
     'Stopped by its time cap after 4 hours. FLT-88’s drain step hung on asgard, waiting for a lease that never expired. Clearing the stop wakes the delivery’s agent, which picks up at FLT-88.',
     25,
   ),
-  stop('MMR-d9', 'Offline outbox', null, 120),
+  stop(
+    'MMR-d9',
+    'Offline outbox',
+    'The outbox migration needs a decision on whether to keep queued writes older than seven days.',
+    120,
+  ),
   ...Array.from({ length: 12 }, (_, at) =>
     decision(
       `LM-q${String(at + 1)}`,
@@ -169,6 +174,7 @@ const ROWS: Row[] = [
     'Should the JSON include retired channels?',
     60 * 48,
   ),
+  stop('LM-d5', 'Retire the legacy channel index', null, 60 * 50),
   decision('MMR-q41', null, [], 360),
   decision('MMR-q42', null, [], 380),
   decision('MMR-q43', null, [], 400),
@@ -238,6 +244,11 @@ function reportOf(rows: readonly Row[]): ReviewReport {
           id: 'LM-d3',
           phase: { id: 'LM-2', title: 'Loom 3.0: release channels' },
           title: 'Release channels',
+        },
+        {
+          id: 'LM-d5',
+          phase: { id: 'LM-2', title: 'Loom 3.0: release channels' },
+          title: 'Retire the legacy channel index',
         },
       ],
     },
