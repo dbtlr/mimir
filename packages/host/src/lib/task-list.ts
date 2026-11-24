@@ -13,7 +13,7 @@ import { TASK_STATUS_ORDER } from './status';
  */
 
 /** The presets, as the URL's `show` spells them. No preset is every live task. */
-export const TASK_PRESETS = ['in-flight', 'ready', 'going-cold', 'finished-week'] as const;
+export const TASK_PRESETS = ['in-flight', 'ready', 'going-cold', 'shipped-week'] as const;
 export type TaskPreset = (typeof TASK_PRESETS)[number];
 
 /** The sorts the Filter sheet offers; `recent` is the default and leaves the URL. */
@@ -22,10 +22,10 @@ export type TaskSort = (typeof TASK_SORTS)[number];
 
 /** A preset's chip label, the Show option that picks it. */
 export const PRESET_LABEL: Record<TaskPreset, string> = {
-  'finished-week': 'Finished, last 7 days',
   'going-cold': 'Going cold',
   'in-flight': 'In flight',
   ready: 'Ready',
+  'shipped-week': 'Shipped, last 7 days',
 };
 
 const isTerminal = (word: TaskStatusWord) => word === 'done' || word === 'abandoned';
@@ -44,7 +44,7 @@ export function presetStatuses(show: TaskPreset | undefined): readonly TaskStatu
     case 'ready': {
       return ['ready'];
     }
-    case 'finished-week': {
+    case 'shipped-week': {
       return ['done', 'abandoned'];
     }
     case 'going-cold':
@@ -121,17 +121,17 @@ export function presetSelection(show: TaskPreset | undefined, status: string | u
 
 /** The status selector a preset sends, before any narrowing. */
 const PRESET_SELECTOR: Record<TaskPreset, string> = {
-  'finished-week': 'terminal',
   'going-cold': 'live',
   'in-flight': 'in_progress,under_review,staged',
   ready: 'ready',
+  'shipped-week': 'terminal',
 };
 
 /**
  * The list read a Tasks URL sends (ADR 0013, MMR-724 refinement). A preset
  * picks its universe: in flight is in progress, under review, and staged;
  * ready is ready; going cold is the live tasks the stale verdict holds;
- * finished in the last 7 days is the terminal tasks whose `completed_at`
+ * shipped in the last 7 days is the terminal tasks whose `completed_at`
  * falls in the seven days ending today in `zone`, the window Home's Shipped
  * counts. With no preset, `status` is any selector a link carries, and the
  * default is every live task. Priority, size, and tag narrow it as any-of
@@ -155,7 +155,7 @@ export function taskListFilters(
     filters.q = search.q;
   }
   const fieldFilters: NonNullable<TaskFilters['filters']> = [];
-  if (show === 'finished-week') {
+  if (show === 'shipped-week') {
     const { first } = lastSevenDays(zone, now);
     fieldFilters.push({ field: 'completed_at', op: 'at-or-after', value: first });
     filters.timeZone = zone;
@@ -198,8 +198,8 @@ export function countLine(
     case 'going-cold': {
       return `${n} ${tasks} going cold`;
     }
-    case 'finished-week': {
-      return `${n} finished in the last 7 days`;
+    case 'shipped-week': {
+      return `${n} shipped in the last 7 days`;
     }
     case undefined: {
       if (view.status === undefined || view.status === 'live') {

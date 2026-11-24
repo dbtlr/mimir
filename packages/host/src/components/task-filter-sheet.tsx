@@ -184,7 +184,7 @@ export function TaskFilterSheet({
           }}
         />
       )}
-      {draft.show !== 'finished-week' && (
+      {draft.show !== 'shipped-week' && (
         <FilterSegments
           label="Sort"
           options={SORT_OPTIONS}

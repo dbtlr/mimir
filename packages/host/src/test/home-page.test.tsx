@@ -301,7 +301,7 @@ describe('Home at / (ADR 0013, MMR-722 refinement)', () => {
       within(week)
         .getAllByRole('link')
         .map((link) => link.getAttribute('href')),
-    ).toEqual(['/p/MMR/tasks?show=finished-week', '/p/LM/tasks?show=finished-week']);
+    ).toEqual(['/p/MMR/tasks?show=shipped-week', '/p/LM/tasks?show=shipped-week']);
   });
 
   it('puts a shipped task on the day it finished in the browser’s zone', async () => {
@@ -423,7 +423,7 @@ const abandoned = (id: string, at: Date) =>
     updatedAt: at,
   });
 
-describe('Shipped’s count and the finished-week list agree (MMR-724)', () => {
+describe('Shipped’s count and the shipped-week list agree (MMR-724)', () => {
   /**
    * One board both reads are drawn from: done work across the week's edges
    * (the first hour of the window's first day, and the day before it), an
@@ -455,7 +455,7 @@ describe('Shipped’s count and the finished-week list agree (MMR-724)', () => {
     expect(shippedCount).toBe(4);
 
     await userEvent.click(row);
-    await screen.findByRole('button', { name: 'Remove Finished, last 7 days' });
+    await screen.findByRole('button', { name: 'Remove Shipped, last 7 days' });
     // Each day's fold trigger: "Today 1", "Sunday, 22 November 1".
     const folds = await screen.findAllByRole('button', {
       name: /^(Today|Yesterday|\w+day, \d+ \w+) \d+$/,
@@ -465,7 +465,7 @@ describe('Shipped’s count and the finished-week list agree (MMR-724)', () => {
       0,
     );
     expect(listed).toBe(shippedCount);
-    expect(screen.getByText(`${String(shippedCount)} finished in the last 7 days`)).toBeVisible();
+    expect(screen.getByText(`${String(shippedCount)} shipped in the last 7 days`)).toBeVisible();
   });
 });
 

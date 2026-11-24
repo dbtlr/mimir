@@ -149,7 +149,7 @@ export function ShippedSection({ week }: { week: ShippedWeek }) {
               count,
               key,
               name,
-              to: presetLink(key, 'finished-week'),
+              to: presetLink(key, 'shipped-week'),
             }))}
           />
         }

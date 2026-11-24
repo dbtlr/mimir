@@ -508,7 +508,7 @@ describe('tasksPage presets (MMR-724)', () => {
     ['ready', { status: 'ready' }],
     ['going-cold', { status: 'live', verdicts: [{ negate: false, verdict: 'stale' }] }],
     [
-      'finished-week',
+      'shipped-week',
       {
         filters: [{ field: 'completed_at', op: 'at-or-after', value: '2026-11-18' }],
         limit: FINISHED_PAGE_SIZE,
@@ -528,7 +528,7 @@ describe('tasksPage presets (MMR-724)', () => {
     ['in-flight', 'In flight'],
     ['ready', 'Ready'],
     ['going-cold', 'Going cold'],
-    ['finished-week', 'Finished, last 7 days'],
+    ['shipped-week', 'Shipped, last 7 days'],
   ])('?show=%s shows its chip, and removing it returns to every live task', async (show, label) => {
     mockApi();
     const testRouter = await renderTasks(`/p/MMR/tasks?show=${show}`);
@@ -646,7 +646,7 @@ describe('tasksPage Filter sheet (MMR-724)', () => {
     ['In flight', 'in-flight', 'Show 3 tasks'],
     ['Ready', 'ready', 'Show 2 tasks'],
     ['Going cold', 'going-cold', 'Show 1 task'],
-    ['Finished, last 7 days', 'finished-week', 'Show 2 tasks'],
+    ['Shipped, last 7 days', 'shipped-week', 'Show 2 tasks'],
   ])(
     'reaches %s from the sheet, naming its count, and applies only on its button',
     async (label, show, commit) => {
@@ -752,9 +752,9 @@ describe('tasksPage Filter sheet (MMR-724)', () => {
     });
   });
 
-  it('folds finished-week by day, latest day open, with no status headings', async () => {
-    await renderTasks('/p/MMR/tasks?show=finished-week');
-    await screen.findByText('2 finished in the last 7 days');
+  it('folds shipped-week by day, latest day open, with no status headings', async () => {
+    await renderTasks('/p/MMR/tasks?show=shipped-week');
+    await screen.findByText('2 shipped in the last 7 days');
     expect(screen.queryAllByRole('heading', { level: 2 })).toStrictEqual([]);
     expect(screen.getByRole('button', { expanded: true })).toHaveTextContent('Today 1');
     expect(
@@ -769,7 +769,7 @@ describe('tasksPage Filter sheet (MMR-724)', () => {
   it('offers no Sort for finished work, which folds by day', async () => {
     const { sheet, user } = await openSheet();
     expect(within(sheet).getByRole('radiogroup', { name: 'Sort' })).toBeVisible();
-    await user.click(within(sheet).getByRole('radio', { name: 'Finished, last 7 days' }));
+    await user.click(within(sheet).getByRole('radio', { name: 'Shipped, last 7 days' }));
     expect(within(sheet).queryByRole('radiogroup', { name: 'Sort' })).toBeNull();
   });
 });

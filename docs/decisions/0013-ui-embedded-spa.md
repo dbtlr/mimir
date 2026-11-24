@@ -1120,7 +1120,7 @@ filter the `list` read already takes.
   - `ready`: ready;
   - `going-cold`: the live tasks the `stale` verdict holds, the work
     page's `?is=stale` predicate;
-  - `finished-week`: terminal tasks whose `completed_at` falls in the seven
+  - `shipped-week`: terminal tasks whose `completed_at` falls in the seven
     days ending today in the browser's zone, sent as a bare-date
     `at-or-after` filter with the zone (ADR 0029). It is the window Home's
     Shipped counts (`lastSevenDays`, the core's `SHIPPED_WINDOW_DAYS`). Only
@@ -1141,7 +1141,7 @@ filter the `list` read already takes.
   groups, newest activity first by default. Finished work folds by day
   newest first, so it takes no sort.
 - **Home's doors are per project,** because the list is a project's.
-  Shipped's row for each project opens that project's `finished-week`, and
+  Shipped's row for each project opens that project's `shipped-week`, and
   the row's count equals the rows the list shows. Now opens `in-flight`, the
   Ready to start row `ready`, and the Going cold row `going-cold`, each only
   when everything in it belongs to one project; otherwise it keeps its count
