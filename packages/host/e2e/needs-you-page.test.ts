@@ -101,3 +101,137 @@ test('shows the overflow cue when the read lands after the page mounts, as on a 
     '',
   );
 });
+
+/** The card a list card's identity names. */
+const card = (page: Page, key: string) => page.locator(`[data-list-card="${key}"]`);
+const targetOf = (page: Page, key: string) =>
+  card(page, key).locator('[data-slot="feed-card-target"]');
+const buttonOf = (page: Page, key: string) =>
+  card(page, key).locator('[data-slot="feed-card-action"] > *').first();
+
+/** Replaces the review read with the rows in a new queue order, as a refetch would. */
+async function refetchInOrder(page: Page, ids: readonly string[]) {
+  await page.evaluate((order) => {
+    globalThis.dispatchEvent(new CustomEvent('needs-you-reorder', { detail: order }));
+  }, ids);
+}
+
+test.describe('a refetch that reorders the cards', () => {
+  // MMR-688 now ranks ahead of MMR-731, so React moves MMR-731's node after it.
+  const WITHIN_SECTION = [
+    'FLT-d2',
+    'MMR-688',
+    'FLT-q1',
+    'FLT-q2',
+    'MMR-731',
+    'LM-640',
+    'MMR-q41',
+    'LM-571',
+  ];
+  // Loom CLI's first card now ranks first, so its section moves ahead of Fleet's and Mimir's.
+  const SECTION_AHEAD = [
+    'LM-640',
+    'FLT-d2',
+    'MMR-731',
+    'FLT-q1',
+    'FLT-q2',
+    'MMR-688',
+    'MMR-q41',
+    'LM-571',
+  ];
+
+  test('keeps focus on a card’s target its card moved within its section', async ({ page }) => {
+    await openPage(page, DESKTOP);
+    await targetOf(page, 'MMR-731').focus();
+    await refetchInOrder(page, WITHIN_SECTION);
+    await expect(card(page, 'MMR-731')).toHaveAttribute('data-list-card', 'MMR-731');
+    await expect(page.locator('[data-list-card]').nth(2)).toHaveAttribute(
+      'data-list-card',
+      'MMR-688',
+    );
+    await expect(targetOf(page, 'MMR-731')).toBeFocused();
+  });
+
+  test('keeps focus on a card’s button its card moved within its section', async ({ page }) => {
+    await openPage(page, DESKTOP);
+    await buttonOf(page, 'MMR-731').focus();
+    await refetchInOrder(page, WITHIN_SECTION);
+    await expect(page.locator('[data-list-card]').nth(2)).toHaveAttribute(
+      'data-list-card',
+      'MMR-688',
+    );
+    await expect(buttonOf(page, 'MMR-731')).toBeFocused();
+  });
+
+  test('keeps focus on a card’s target its section moved behind another', async ({ page }) => {
+    await openPage(page, DESKTOP);
+    await targetOf(page, 'FLT-d2').focus();
+    await refetchInOrder(page, SECTION_AHEAD);
+    await expect(page.getByRole('heading', { level: 2 }).first()).toHaveText(/^Loom CLI/u);
+    await expect(targetOf(page, 'FLT-d2')).toBeFocused();
+  });
+
+  test('keeps focus on a card’s button its section moved behind another', async ({ page }) => {
+    await openPage(page, DESKTOP);
+    await buttonOf(page, 'FLT-d2').focus();
+    await refetchInOrder(page, SECTION_AHEAD);
+    await expect(page.getByRole('heading', { level: 2 }).first()).toHaveText(/^Loom CLI/u);
+    await expect(buttonOf(page, 'FLT-d2')).toBeFocused();
+  });
+
+  // The moved card leaves on the next refetch: focus goes on to its successor, so the list still owned it.
+  const WITHOUT_MMR_731 = WITHIN_SECTION.filter((id) => id !== 'MMR-731');
+  const WITHOUT_FLEET = SECTION_AHEAD.filter((id) => !id.startsWith('FLT-'));
+
+  test('still moves focus on from a card’s target it moved, once that card leaves', async ({
+    page,
+  }) => {
+    await openPage(page, DESKTOP);
+    await targetOf(page, 'MMR-731').focus();
+    await refetchInOrder(page, WITHIN_SECTION);
+    await expect(targetOf(page, 'MMR-731')).toBeFocused();
+    await refetchInOrder(page, WITHOUT_MMR_731);
+    await expect(card(page, 'MMR-731')).toHaveCount(0);
+    await expect(targetOf(page, 'project:MMR')).toBeFocused();
+  });
+
+  test('still moves focus on from a card’s button it moved, once that card leaves', async ({
+    page,
+  }) => {
+    await openPage(page, DESKTOP);
+    await buttonOf(page, 'MMR-731').focus();
+    await refetchInOrder(page, WITHIN_SECTION);
+    await expect(buttonOf(page, 'MMR-731')).toBeFocused();
+    await refetchInOrder(page, WITHOUT_MMR_731);
+    await expect(card(page, 'MMR-731')).toHaveCount(0);
+    await expect(targetOf(page, 'project:MMR')).toBeFocused();
+  });
+
+  test('still moves focus on from a card its section moved, once that section leaves', async ({
+    page,
+  }) => {
+    await openPage(page, DESKTOP);
+    await targetOf(page, 'FLT-d2').focus();
+    await refetchInOrder(page, SECTION_AHEAD);
+    await expect(targetOf(page, 'FLT-d2')).toBeFocused();
+    await refetchInOrder(page, WITHOUT_FLEET);
+    await expect(page.getByRole('heading', { level: 2 })).toHaveCount(2);
+    await expect(page.locator(':focus')).toHaveAttribute('data-slot', 'feed-card-target');
+  });
+
+  test('leaves focus that already left the list where it went', async ({ page }) => {
+    await openPage(page, DESKTOP);
+    await targetOf(page, 'MMR-731').focus();
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    });
+    await refetchInOrder(page, WITHIN_SECTION);
+    await expect(page.locator('[data-list-card]').nth(2)).toHaveAttribute(
+      'data-list-card',
+      'MMR-688',
+    );
+    await expect(page.locator('body')).toBeFocused();
+  });
+});
