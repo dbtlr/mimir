@@ -201,25 +201,51 @@ describe('cards that leave', () => {
 describe('focus after a dialog opened from a card', () => {
   const answer: CardAction = { kind: 'dialog', label: 'Answer…', name: 'Answer A', run: vi.fn() };
 
-  it('goes to the card’s button, to its successor’s target once it left, and to the quiet line once none remain', async () => {
-    const { handle, refetch } = await renderList(
-      sections(['Fleet', [card('A', answer)]], ['Mimir', ['B']]),
-    );
+  it('goes to the card’s button while it stays, and to the quiet line once none remain', async () => {
+    const { handle, refetch } = await renderList(sections(['Fleet', [card('A', answer)]]));
     await userEvent.click(screen.getByRole('button', { name: 'Answer A' }));
     act(() => {
       handle.current?.restoreFocus('A');
     });
     expect(screen.getByRole('button', { name: 'Answer A' })).toHaveFocus();
-    refetch(sections(['Mimir', ['B']]));
+    refetch([]);
     act(() => {
       handle.current?.restoreFocus('A');
     });
-    expect(target('B')).toHaveFocus();
-    refetch([]);
+    expect(screen.getByText('Nothing needs you.')).toHaveFocus();
+  });
+
+  it('goes to the successor in the old order of a card that left while its dialog held focus', async () => {
+    // The dialog the action opens: it takes focus, as the answer dialog does.
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    const done = document.createElement('button');
+    done.textContent = 'Done';
+    dialog.append(done);
+    const open: CardAction = {
+      kind: 'dialog',
+      label: 'Answer…',
+      name: 'Answer B',
+      run: () => {
+        document.body.append(dialog);
+        done.focus();
+      },
+    };
+    const { handle, refetch } = await renderList(sections(['Fleet', ['A', card('B', open), 'C']]));
+    await userEvent.click(screen.getByRole('button', { name: 'Answer B' }));
+    expect(done).toHaveFocus();
+    refetch(sections(['Fleet', ['A', 'C']]));
+    // The dialog closes, and then the feature asks the list where focus goes.
+    act(() => {
+      dialog.remove();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
     act(() => {
       handle.current?.restoreFocus('B');
     });
-    expect(screen.getByText('Nothing needs you.')).toHaveFocus();
+    expect(target('C')).toHaveFocus();
   });
 
   it('goes to its target when its button is gone but the card stays', async () => {
