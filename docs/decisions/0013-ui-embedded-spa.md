@@ -1056,3 +1056,30 @@ _Needs you_, and "…". This revises both:
   the record is a task, so on a rail page it gives way to the 1200 grid
   when the read lands, until those rails retire. The dev-only `/kit` keeps
   its own width.
+
+## Refinement (2026-11-24, MMR-723): the Needs you page at `/needs-you`
+
+The needs-you set gets a page of its own at `/needs-you`, the one list page
+that is not a record kind's (MMR-a420, principle 2: Needs you mixes
+decisions and tasks). ADR 0019's MMR-723 refinement sets its layout and
+state; this refinement sets where it sits in the console.
+
+- **`/needs-you` lists the whole set, grouped by project.** It reads the
+  same review entry (`console.review`) Home and the alert read, so the
+  three never disagree, and takes no search parameters.
+- **The top-bar alert is a link to `/needs-you`** on every width. It no
+  longer opens the MMR-492 popover or the phone's bottom sheet, which
+  retire. Its count, its hue, and its absence at zero are unchanged, and
+  the installed app's badge still carries the same count (MMR-710). On
+  `/needs-you` itself the alert is marked as the current page
+  (`aria-current="page"`).
+- **Home's Needs you section links to the page.** The deck's head gains
+  _See all_ ("See all in Needs you") to `/needs-you`. This narrows the
+  MMR-722 refinement's "No See all" for Needs you; Now, Shipped, and the
+  spare-minute rows keep waiting for the MMR-724 list pages.
+- **The focus queue stays at `/?mode=focus`, and returns to the page.**
+  _Work through all_ on the page opens it. Its "Back to the list" link and
+  its return when nothing is left both go to `/needs-you`, the list it was
+  opened from, replacing `/`. The queue itself is unchanged.
+- **No other page changes.** A project's work page keeps its needs-you rows
+  and their verbs (the MMR-694 and MMR-695 refinements).

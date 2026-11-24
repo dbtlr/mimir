@@ -2327,3 +2327,134 @@ own heads until MMR-732 brings them onto the pattern.
   the actions sit, and the desktop fold; `node-page.test.tsx`,
   `project-page.test.tsx`, and `work-page.test.tsx` check how the four
   record pages use the header, More, and the tabs.
+
+## Refinement (2026-11-24, MMR-723): the Needs you page lists the set by project
+
+The needs-you set gets a page of its own (ADR 0013, MMR-723 refinement),
+built from the deck's cards and laid out as a **grouped card list**: one
+feed section per project, each holding every one of its cards. The
+operator picked its form, variant A, from three mocks, and kept the
+top-bar alert counting records (P1); one round of design review scored it
+9 from both reviewers. `packages/host/DESIGN.md` holds its numbers, under
+Feed blocks.
+
+This revises the MMR-492 refinement: the alert no longer opens a popover
+or a bottom sheet. It links to the page, as §9 first had it link to `/`.
+The popover's in-place verbs (_Approve_, _Send back…_, _Answer…_ on
+grouped rows) retire with it; the page acts through the deck's cards,
+whose actions the MMR-721 refinement sets. It also settles the MMR-721
+refinement's open question about how the page reuses the deck's cards
+and bundles.
+
+### The list
+
+- **Every card is the deck's card.** The page shows the cards
+  `needsYouCards` makes, with the same identities, leads, details, single
+  outline button, and preview as the deck's (MMR-721, The cards). It adds no
+  card and drops none, so each record in the set appears once, inside a
+  card, and a bundle is never split across projects.
+- **One section per project, in the set's order.** A project's place is
+  its first card's place in the set's one ranked order, and its cards
+  follow in that order. So the first section holds the set's most urgent
+  card, and reading down the page reads each project's cards in rank.
+- **The section head** is the MMR-719 Section head: the project's name,
+  then its worded count "N cards, M items", the cards it holds and the
+  records in them, each singular at one ("1 card, 1 item"). The head is
+  not a link; the project is one tap away through any card's preview
+  (Open) or the sidebar. A project missing from the report's `projects`
+  shows its key, as a card's status line does.
+- **Cards stack on a phone and sit in the Card grid from `md`,** by the
+  Card grid's container rule (MMR-720), so beside an open preview the
+  sections drop to one column exactly as Home's feed does.
+- **The page head** is Home's: the title "Needs you" and one sentence,
+  "N cards, M items in K projects." (singular at one), over a hairline.
+  M is the alert's count.
+- **No pager, no cap.** The list is the whole set. A long set scrolls the
+  page; nothing pages, folds, or caps it.
+
+### Work through all
+
+- **A bar pinned to the screen's bottom holds the page's one solid
+  button,** _Work through all N_, where N is the records the focus queue
+  walks (the alert's count). With one record it reads _Work through 1
+  item_. It opens the focus queue at `/?mode=focus` (ADR 0013). The cards'
+  buttons stay outlines and the preview keeps its own solid (MMR-720), so
+  the bar is the page's one solid and the preview's footer, a separate
+  surface, is the preview's.
+- **On desktop a note leads the bar:** "One item at a time, in queue order
+  across projects, then back here." It says why the queue's order differs
+  from the page's project groups. Where the note and the button cannot
+  share a line, the note stacks above a full-width button. A phone shows
+  the button alone, full width.
+- **The bar is navigation, so it stays live offline,** as _Review N
+  decisions_ does (MMR-721, Offline); the queue's own writes follow ADR
+  0013 there.
+- **It never covers a card.** The page leaves room under its last section
+  for the bar and the body's bottom padding, so at the end of the scroll
+  the last card rests whole above the bar. The bar's top edge is the
+  overflow cue while content continues under it, and a plain hairline
+  once the page reaches its end, as the preview's footer behaves (MMR-720).
+- **With the preview open on desktop** the bar spans the room left of the
+  panel, where the column sits; the panel keeps its own footer.
+
+### The list's state
+
+The deck's state rules (MMR-721) are written for a deck that shows a
+current card or page. The list shows every card, so it keeps the rules
+that are about cards and focus, and has nothing to turn, page, or anchor.
+
+- **Shared with the deck, through one layer.** A card's action, its write
+  in flight, a refused write's focus return, offline, the answer dialog and
+  its return, and the preview's footer action behave exactly as the
+  MMR-721 refinement's _Previews, writes, and the answer dialog_ and
+  _Offline_ set. The deck and the list get them from one card-action layer
+  in `components/patterns/feed`, which the deck's code moves into
+  unchanged, so the two cannot drift.
+- **A card leaves when its record leaves the set,** on the refetch that
+  drops it, and a refetch applies by identity: focus stays on the element
+  that holds it whenever that element survives, and a card that holds no
+  focus moves none when it leaves.
+- **Focus from a card that left goes to its successor's target:** when
+  focus was in the card, its preview, or a dialog opened from it, it moves
+  to the stretched target of the nearest card after it in the page's order
+  that is still on the page, or, with none after it, the nearest card
+  before it, across sections. Never its button, as the deck keeps focus
+  off a write.
+- **A section leaves with its last card.** When a project's last card
+  leaves, its section goes; the next section moves up.
+- **With no card left, the page falls to its empty state.** The quiet line
+  "Nothing needs you." takes the sections' place, the bar goes, and the
+  alert leaves the top bar (it is absent at zero). When focus was in the
+  last card, its preview, or a dialog from it, the quiet line takes focus,
+  made focusable for it.
+- **The preview follows its card,** as on the deck: when the previewed card
+  leaves, the preview closes and focus follows the rules above.
+- **A walkthrough's return** lands on the bundle's button when the bundle
+  is still on the page. Every card is in the document, so the MMR-714
+  return target's document query finds it, and the list registers nothing
+  with the opener-focus request. When the bundle is gone, the MMR-714
+  fallback holds: the page's main region.
+
+### Edges
+
+- **An empty set** shows the title and the quiet line "Nothing needs you."
+  with no sentence, no hairline, no sections, and no bar. The alert is
+  absent then, so the page is reached by a kept link, or by staying on it
+  while the last item clears.
+- **Long project names** wrap in the section head, the count following
+  inside the heading, as the Section head does.
+- **Many items** scroll; counts are exact.
+
+### Considered and rejected
+
+- **Each project heading as a door row to its project** (variant B), with
+  _Work through all_ in the page head: a head that leaves the page competed
+  with the cards' own previews, and the queue's one action scrolled away.
+- **An index of projects above sticky section heads** (variant C): with the
+  few projects a set spans, the index repeated the section heads one
+  screen higher.
+- **Counting cards in the alert** (P2): the alert would no longer match the
+  _Work through all_ count or the app badge, and a bundle of twelve
+  decisions would count as one.
+- **The deck itself, paged, on the page:** a page exists to show the whole
+  set, and paging a full list hides what the page is for.
