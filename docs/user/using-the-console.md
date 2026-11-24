@@ -34,7 +34,8 @@ suggests turning them on.
   so they come first. The head reads "N cards, M items": the cards, then the
   records they hold, which is the number on the top-bar alert. On a phone the
   deck shows one card at a time, and you swipe or use Previous and Next. From
-  768px wide it shows pages of four. When nothing needs you, the line
+  768px wide it shows pages of four. **See all** opens the
+  [Needs you page](#the-needs-you-page). When nothing needs you, the line
   "Nothing needs you." takes the section's place.
 - **Now** shows the work in flight across your projects as cards: tasks
   queued, in progress, in review, or staged, with the latest move first. Each
@@ -66,16 +67,31 @@ its card, which then shows the new question. Offline, **Clear stop** and
 **Answer…** do nothing until the console reconnects; **Review N decisions**
 still opens its walkthrough.
 
-The top-bar **Needs you** alert shows how many decisions wait on you. It opens
-a popover (a bottom sheet on a phone) that lists them grouped by project, so
-you can decide without leaving the page you are on. A
-task with a question has **Answer…** there too, and the decision for
-the record you are viewing is marked _This page_. A row leaves the list when its change lands, and the popover stays open
-until you press Escape, choose a link, or move to another page. It links to
-**Open Home** and to **Work through these**, focus mode, which walks the
-decisions one at a time at `/?mode=focus`.
-The alert is hidden when there are no decisions. Seeds, findings, and tasks
-going cold never light it.
+The top-bar **Needs you** alert shows how many decisions wait on you, the same
+number as Home's "M items" and the installed app's badge. It opens the Needs
+you page, at every width. The alert is hidden when there are no decisions.
+Seeds, findings, and tasks going cold never light it.
+
+### The Needs you page
+
+The Needs you page at `/needs-you` lists everything that needs you, grouped by
+project. Under the title, one sentence counts it, for example "10 cards, 26
+items in 3 projects." Each project has its own section, headed by the
+project's name and its count, such as "3 cards, 5 items". The project whose
+card is most urgent comes first, and each project's cards follow in their
+ranked order. The cards are the same cards as Home's deck, with the same
+previews and actions, and the page shows all of them: nothing pages or folds.
+When an action settles what a card asks, the card leaves and focus moves to
+the next card. A project's section leaves with its last card.
+
+A bar at the bottom of the page holds **Work through all N**, where N is the
+number of items. It opens focus mode at `/?mode=focus`, which walks the
+items one at a time in queue order across projects. **Back to the list**, or
+finishing the last item, returns you to the Needs you page. **Work through
+all** stays available offline; the actions inside focus mode wait for the
+connection.
+
+When nothing needs you, the page shows "Nothing needs you." and no bar.
 
 ## Work within a project
 
