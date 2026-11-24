@@ -42,7 +42,7 @@ export function TabsTab({ className, ...props }: ComponentProps<typeof SdkTabsTa
   return (
     <SdkTabsTab
       className={mergeClassName(
-        'flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-start gap-1.5 border-b-2 border-transparent px-0.5 text-label font-medium whitespace-nowrap text-ink-dim transition-colors outline-none hover:text-ink focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-accent md:min-h-9 md:min-w-0 data-[disabled]:cursor-not-allowed data-[disabled]:text-ink-dim data-[disabled]:hover:text-ink-dim data-[selected]:border-accent data-[selected]:font-semibold data-[selected]:text-ink-bright',
+        'flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-start gap-1.5 border-b-2 border-transparent text-label font-medium whitespace-nowrap text-ink-dim transition-colors outline-none hover:text-ink focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-accent md:min-h-9 md:min-w-0 md:px-0.5 data-[disabled]:cursor-not-allowed data-[disabled]:text-ink-dim data-[disabled]:hover:text-ink-dim data-[selected]:border-accent data-[selected]:font-semibold data-[selected]:text-ink-bright',
         className,
       )}
       {...props}

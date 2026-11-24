@@ -101,7 +101,7 @@ export function PhaseDeliveries({ id }: { id: string }) {
     return null;
   }
   return (
-    <section aria-label="Live deliveries" className="flex flex-col gap-2">
+    <section aria-label="Live deliveries" className="mt-4 flex flex-col gap-2">
       <h2 className="microlabel text-ink-dim">Live deliveries</h2>
       {query.data.map(({ delivery, members }) => (
         <Link

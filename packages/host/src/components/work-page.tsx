@@ -280,7 +280,7 @@ export function WorkTab({
           />
         </div>
       )}
-      {/* The sections' own 16 top margin, after the legend's 12, sets them 28 below it. */}
+      {/* Each section's own 16 top margin (Live deliveries' too), after the legend's 12, sets the first 28 below it. */}
       <div className={cn(health && 'mt-8')}>
         <WorkBody
           record={record}
@@ -371,7 +371,7 @@ export function ContainerDetails({ record }: { record: EngineNode }) {
     <div className="flex flex-col">
       <DetailsSection title="Direction">
         {direction === '' ? (
-          <p className="text-body text-ink">No direction set.</p>
+          <p className="text-body leading-[1.65] text-ink">No direction set.</p>
         ) : (
           <MarkdownBody className="max-w-[70ch]">{direction}</MarkdownBody>
         )}

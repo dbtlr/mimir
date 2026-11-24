@@ -291,12 +291,14 @@ export function RecordHeader({
   const group = useRef<HTMLDivElement>(null);
   const beside = useActionsBeside(header, group, desktop && actions !== undefined);
   const text = summary?.trim() ?? '';
+  // Beside the title, the 36px buttons centre on its 28px first line and lend
+  // the row only those 28, so the status line stays 8 below the title.
   const actionRow =
     actions === undefined ? null : (
       <div
         ref={group}
         data-slot="record-actions"
-        className={cn('flex flex-wrap items-center gap-3', beside ? '-mt-1 shrink-0' : 'mt-4')}
+        className={cn('flex flex-wrap items-center gap-3', beside ? '-my-1 shrink-0' : 'mt-4')}
       >
         {actions}
       </div>
