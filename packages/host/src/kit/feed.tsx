@@ -1,6 +1,6 @@
 import type { StatusWord as Status } from '@mimir/contract';
 
-import { AttentionLead } from '../components/needs-you-deck-view';
+import { AttentionLead } from '../components/needs-you-cards';
 import { FeedCard } from '../components/patterns/feed/card';
 import { CardGrid } from '../components/patterns/feed/card-grid';
 import { DayFolds, FinishedRow } from '../components/patterns/feed/day-fold';

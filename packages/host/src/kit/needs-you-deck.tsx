@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 import type { ReviewReport } from '../api/view-queries';
 import { NeedsYouDeckView } from '../components/needs-you-deck-view';
-import type { NeedsYouWrites } from '../components/needs-you-deck-view';
+import type { NeedsYouWrites } from '../components/needs-you-cards';
 import { toast } from '../components/patterns/notice';
 import { Reason } from '../components/patterns/reason';
 import { ActionButton } from '../components/ui/action-button';

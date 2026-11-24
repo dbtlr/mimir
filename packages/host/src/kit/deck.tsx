@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { AttentionLead } from '../components/needs-you-deck-view';
+import { AttentionLead } from '../components/needs-you-cards';
 import { FeedDeck } from '../components/patterns/feed/deck';
 import type { DeckCard, DeckWrite } from '../components/patterns/feed/deck';
 import type { Preview } from '../components/patterns/feed/preview-panel';
