@@ -152,7 +152,12 @@ describe('cards that leave', () => {
   });
 
   it('keeps focus in a card that stays but lost its button, on that card’s target', async () => {
-    const clear: CardAction = { kind: 'write', label: 'Clear stop', name: 'Clear stop B', run: vi.fn() };
+    const clear: CardAction = {
+      kind: 'write',
+      label: 'Clear stop',
+      name: 'Clear stop B',
+      run: vi.fn(),
+    };
     const { refetch } = await renderList(sections(['Fleet', ['A', card('B', clear), 'C']]));
     screen.getByRole('button', { name: 'Clear stop B' }).focus();
     refetch(sections(['Fleet', ['A', 'B', 'C']]));

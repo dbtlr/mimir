@@ -4,8 +4,8 @@ import type { ReactNode } from 'react';
 
 import type { ReviewReport } from '../api/view-queries';
 import type { NeedsYouWrites } from '../components/needs-you-cards';
-import { NeedsYouDeckView } from '../components/needs-you-deck-view';
 import { needsYouSections } from '../components/needs-you-deck-model';
+import { NeedsYouDeckView } from '../components/needs-you-deck-view';
 import { NeedsYouListView } from '../components/needs-you-list';
 import { toast } from '../components/patterns/notice';
 import { Reason } from '../components/patterns/reason';
