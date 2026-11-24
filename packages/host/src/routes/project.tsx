@@ -37,7 +37,7 @@ export function ProjectPage() {
       {mode === 'decisions' && <ProjectDecisions key={key} projectKey={key} />}
       {project.data !== undefined &&
         (details ? (
-          <ContainerDetails record={project.data} offline={offline} />
+          <ContainerDetails record={project.data} />
         ) : (
           <WorkTab
             record={project.data}

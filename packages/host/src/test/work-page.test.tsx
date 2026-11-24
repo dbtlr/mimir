@@ -601,28 +601,23 @@ describe('work page sections', () => {
 });
 
 describe('work page Details tab (MMR-726)', () => {
-  it.each(SCOPES)(
-    'holds the Direction, editable, the description, and the dates, $name',
-    async (each) => {
-      serve(each);
-      await renderRoute(routes, `${each.url}?tab=details`, quietClient());
+  it.each(SCOPES)('holds the Direction, the description, and the dates, $name', async (each) => {
+    serve(each);
+    await renderRoute(routes, `${each.url}?tab=details`, quietClient());
 
-      const panel = await screen.findByRole('tabpanel');
-      const [first, second] = (each.record.next ?? '').split('\n\n');
-      await within(panel).findByText(first ?? '');
-      expect(within(panel).getByText(second ?? '')).toBeDefined();
-      expect(within(panel).getByRole('region', { name: 'Description' })).toHaveTextContent(
-        (each.record.description ?? '').replaceAll('**', ''),
-      );
-      const facts = within(panel).getByRole('region', { name: 'Facts' });
-      expect(within(facts).getByText('Created')).toBeDefined();
-      expect(within(facts).getByText('Updated')).toBeDefined();
-      fireEvent.click(within(panel).getByRole('button', { name: 'Edit direction' }));
-      await expect(screen.findByRole('textbox', { name: 'Direction text' })).resolves.toHaveValue(
-        each.record.next,
-      );
-    },
-  );
+    const panel = await screen.findByRole('tabpanel');
+    const [first, second] = (each.record.next ?? '').split('\n\n');
+    await within(panel).findByText(first ?? '');
+    expect(within(panel).getByText(second ?? '')).toBeDefined();
+    expect(within(panel).getByRole('region', { name: 'Description' })).toHaveTextContent(
+      (each.record.description ?? '').replaceAll('**', ''),
+    );
+    const facts = within(panel).getByRole('region', { name: 'Facts' });
+    expect(within(facts).getByText('Created')).toBeDefined();
+    expect(within(facts).getByText('Updated')).toBeDefined();
+    // More's Edit direction… rewrites it; the section draws no button of its own.
+    expect(within(panel).queryByRole('button')).toBeNull();
+  });
 
   it('a phase lists what it depends on and what it blocks, each linking to its page', async () => {
     serve(PHASE_SCOPE);

@@ -173,7 +173,7 @@ describe('project page (MMR-450, MMR-470, MMR-726)', () => {
     expect(screen.getByRole('tab', { name: 'Work', selected: true })).toBeDefined();
   });
 
-  it('opens Details at ?tab=details, from a reload too, with the Direction editable and the description in full', async () => {
+  it('opens Details at ?tab=details, from a reload too, with the Direction and the description in full', async () => {
     serveProject();
     await renderRoute(consoleRoutes, '/p/MMR?tab=details', quietClient());
 
@@ -184,8 +184,7 @@ describe('project page (MMR-450, MMR-470, MMR-726)', () => {
     expect(screen.getByText('Then the work page.')).toBeDefined();
     expect(screen.getByText('work').tagName).toBe('STRONG');
     expect(screen.queryByRole('region', { name: 'Now' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Edit direction' }));
-    await expect(screen.findByRole('textbox', { name: 'Direction text' })).resolves.toBeDefined();
+    expect(screen.queryByRole('button', { name: 'Edit direction' })).toBeNull();
   });
 
   it('puts the tab in the URL: Details adds ?tab=details, Work takes it out, Tasks opens the browser', async () => {

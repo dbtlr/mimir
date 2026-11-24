@@ -17,7 +17,7 @@ import { STATUS_META, STATUS_ORDER } from '../lib/status';
 import { absoluteTime } from '../lib/time';
 import { newestArtifacts } from '../lib/work-page';
 import { PhaseDeliveries } from './delivery-summary';
-import { DirectionDialog, DirectionPanel } from './direction-line';
+import { DirectionDialog } from './direction-line';
 import { DistributionBar } from './distribution-bar';
 import { MarkdownBody } from './markdown-body';
 import { NewTaskButton } from './new-task-button';
@@ -172,9 +172,7 @@ export function ContainerHead({
           subject={subject}
           title={record.title}
           next={record.next}
-          offline={offline}
           open
-          editOnly
           finalFocus={() => more.current}
           onClose={() => {
             setEditing(null);
@@ -358,27 +356,23 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
 }
 
 /**
- * The Details tab: the Direction, editable in place; the description, in
- * full (a project's also stands in for the summary its header clamps); what
+ * The Details tab: the Direction, in full (More's Edit direction… rewrites
+ * it); the description, in full (a project's also stands in for the summary its header clamps); what
  * it depends on and blocks; its signals; and its dates.
  */
-export function ContainerDetails({ record, offline }: { record: EngineNode; offline: boolean }) {
-  const isProject = record.type === 'project';
+export function ContainerDetails({ record }: { record: EngineNode }) {
+  const direction = record.next?.trim() ?? '';
   const description = record.description?.trim() ?? '';
   const prerequisites = record.deps === undefined ? [] : prerequisiteRows(record.deps);
   const blocking = record.deps?.blocking ?? [];
   return (
     <div className="flex flex-col">
       <DetailsSection title="Direction">
-        <DirectionPanel
-          full
-          subject={
-            isProject ? { key: record.id, kind: 'project' } : { id: record.id, kind: 'node' }
-          }
-          title={record.title}
-          next={record.next}
-          offline={offline}
-        />
+        {direction === '' ? (
+          <p className="text-body text-ink">No direction set.</p>
+        ) : (
+          <MarkdownBody className="max-w-[70ch]">{direction}</MarkdownBody>
+        )}
       </DetailsSection>
       {description !== '' && (
         <DetailsSection title="Description">
@@ -491,7 +485,7 @@ export function ContainerPage({
         }}
       >
         {tab === 'work' && <WorkTab record={record} tree={tree} offline={offline} />}
-        {tab === 'details' && <ContainerDetails record={record} offline={offline} />}
+        {tab === 'details' && <ContainerDetails record={record} />}
         {tab === 'timeline' && <div className="flex flex-col gap-3">{container.timeline}</div>}
         {tab === 'artifacts' && (
           <ArtifactLinks

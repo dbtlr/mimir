@@ -966,8 +966,9 @@ MMR-727 rebuilds them on Home's pattern.
   tabs. A container's page is one column, 900 wide at most.
 - **An initiative or phase has four tabs: _Work_, _Details_, _Timeline_, and
   _Artifacts_.** _Work_ opens with the rollup's progress bar and its legend,
-  then the work sections. _Details_ holds the Direction in full and editable
-  in place, the description, what the record depends on and what it blocks
+  then the work sections. _Details_ holds the Direction in full, which
+  More's _Edit direction…_ rewrites (the section draws no button of its own;
+  with none set it reads "No direction set."), the description, what the record depends on and what it blocks
   (each a link with its status as the header shows one, the dot right before
   a bright word), and its created, updated, and target dates. _Timeline_ is
   the MMR-470 refinement's, with its count. _Artifacts_ lists what is

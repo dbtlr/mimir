@@ -595,7 +595,7 @@ describe('container page (MMR-450)', () => {
     type: 'phase',
   });
 
-  it('holds its direction in full in Details, with a way to rewrite it', async () => {
+  it('holds its direction in full in Details, rewritten from More rather than in place', async () => {
     serve(phase);
     await renderRoute(consoleRoutes, '/p/MMR/2?tab=details', quietClient());
 
@@ -603,10 +603,16 @@ describe('container page (MMR-450)', () => {
     await within(panel).findByText('Land the dialect first.');
     expect(within(panel).getByText('Then remove the Norn backend.')).toBeDefined();
     expect(within(panel).getByText('store').tagName).toBe('STRONG');
-    fireEvent.click(within(panel).getByRole('button', { name: 'Edit direction' }));
-    await expect(screen.findByRole('textbox', { name: 'Direction text' })).resolves.toHaveValue(
-      'Land the dialect first.\n\nThen remove the Norn backend.',
-    );
+    expect(within(panel).queryByRole('button', { name: /Edit/ })).toBeNull();
+  });
+
+  it('says so in a quiet line at the body size when no direction is set', async () => {
+    serve({ ...phase, next: undefined });
+    await renderRoute(consoleRoutes, '/p/MMR/2?tab=details', quietClient());
+
+    const quiet = await within(await screen.findByRole('tabpanel')).findByText('No direction set.');
+    expect(quiet.classList).toContain('text-body');
+    expect(quiet.classList).toContain('text-ink');
   });
 
   it('opens as the work page, with its path, its sections, and no task actions', async () => {
