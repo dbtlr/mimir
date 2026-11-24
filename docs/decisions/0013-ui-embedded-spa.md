@@ -935,6 +935,9 @@ Needs you.
   fill: Shipped's rows by project and the spare-minute rows (ADR 0019,
   MMR-722 refinement). The MMR-724 list pages will give them destinations.
   (2026-11-24, MMR-723: Needs you gains _See all_ to `/needs-you`.)
+  (2026-11-24, MMR-724: Shipped's rows by project, Now, and the Ready to
+  start and Going cold rows open the Tasks list with a preset set, per
+  project; see the MMR-724 refinement below.)
 - **Home's spare-minute work no longer acts in place.** The rail's runnable
   tasks with _Start_ and untriaged seeds with their verbs (the MMR-476 and
   MMR-503 refinements' in-place triage) are now counts. Each project's work
@@ -1083,7 +1086,7 @@ state; this refinement sets where it sits in the console.
 - **Home's Needs you section links to the page.** The deck's head gains
   _See all_ ("See all in Needs you") to `/needs-you`. This narrows the
   MMR-722 refinement's "No See all" for Needs you; Now, Shipped, and the
-  spare-minute rows keep waiting for the MMR-724 list pages.
+  spare-minute rows keep waiting for the MMR-724 list pages. (2026-11-24, MMR-724: they have them now.)
 - **The focus queue stays at `/?mode=focus`, and returns to the page.**
   _Work through all_ on the page opens it as a new history entry, marked in
   its history state as opened from the page, as the MMR-704 refinement
@@ -1102,3 +1105,59 @@ state; this refinement sets where it sits in the console.
   refinements); the page spans projects, so no project is marked.
 - **No other page changes.** A project's work page keeps its needs-you rows
   and their verbs (the MMR-694 and MMR-695 refinements).
+
+## Refinement (2026-11-24, MMR-724): the Tasks list's presets, and Home's doors into it
+
+A project's Tasks tab (`/p/KEY/tasks`) becomes the first list page (ADR
+0019, MMR-724 refinement): live tasks as cards grouped by status, finished
+tasks as rows folded by day, and four presets that a URL sets. "See all"
+sets a filter on that list rather than opening a page of its own
+(principle 2 of MMR-a420). The work is front-end only: every preset is a
+filter the `list` read already takes.
+
+- **The presets are the URL's `show`:**
+  - `in-flight`: in progress, under review, staged, and queued, the core's
+    in-flight words (`isInFlightWord`), the ones Home's Now counts;
+  - `ready`: ready;
+  - `going-cold`: the live tasks the `stale` verdict holds, the work
+    page's `?is=stale` predicate;
+  - `shipped-week`: done tasks whose `completed_at` falls in the seven
+    days ending today in the browser's zone, sent as `status: done` with
+    bare-date `at-or-after` (the first day) and `at-or-before` (today)
+    filters and the zone (ADR 0029), so a `completed_at` dated past today
+    is in neither. It is the window
+    Home's Shipped counts (`lastSevenDays`, the core's
+    `SHIPPED_WINDOW_DAYS`), over the tasks Shipped counts; an abandoned task,
+    which did not ship, is not in it, and the Filter sheet's Status offers
+    Done alone.
+
+  With no preset the list shows every live task, as the default did. A
+  `show` that names no preset is ignored.
+- **Old links keep working.** A `status` with no preset is any status
+  selector, as before, and `q` searches as before; the bare `/tasks`
+  redirect carries both. A `status` within the live statuses
+  (`?status=ready,blocked`) narrows every live task, as the Filter sheet
+  writes it, and counts under Filter. One that names anything else
+  (`?status=terminal`, `?status=ready,done`) is a selector no Show option
+  holds: it shows as its own removable chip, and the Filter sheet keeps it,
+  with no Show option checked and no Status field, under the filters it adds
+  until Show changes. A finished-only selection still loads by window
+  (`FINISHED_PAGE_SIZE`, MMR-460).
+- **The Filter sheet's fields are URL values too:** `status` narrows a
+  preset, or every live task, to some of its statuses; `priority`, `size`,
+  and `tag` are any-of field filters (`in`); and `sort` (`priority`,
+  `oldest`) orders the live groups, newest activity first by default.
+  Finished work, a preset's or a link's, folds by day newest first, so it
+  takes no sort, and the sheet leaves one out of the URL.
+- **Home's doors are per project,** because the list is a project's.
+  Shipped's row for each project opens that project's `shipped-week`, and
+  the row's count equals the rows the list shows. Now opens `in-flight`, the
+  Ready to start row `ready`, and the Going cold row `going-cold`, each only
+  when everything in it belongs to one project; otherwise it keeps its count
+  with no link. Seeds to triage and Doctor findings stay plain rows. This
+  completes the MMR-722 refinement's "No See all … until the list pages
+  land".
+
+Considered and rejected: a cross-project Tasks list for Home's doors. It
+would change the list read's contract (one project per read), where
+per-project doors need no change.

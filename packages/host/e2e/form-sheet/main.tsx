@@ -1,7 +1,8 @@
 // A page that opens the console's real Form sheet forms, Notice, Walkthrough,
-// Needs you deck, and Needs you page in Chromium, for the layout checks a DOM
+// Needs you deck, Needs you page, and Tasks list in Chromium, for the layout checks a DOM
 // without layout cannot make (form-sheet-focus.test.ts, walkthrough-layer.test.ts,
-// feed-deck.test.ts, needs-you-deck.test.ts, needs-you-page.test.ts), the
+// feed-deck.test.ts, needs-you-deck.test.ts, needs-you-page.test.ts,
+// list-page.test.ts), the
 // shell's phone touch targets (touch-targets.test.ts), and the drawer's Jump to
 // (drawer-jump.test.ts).
 import { useEffect, useState } from 'react';
@@ -27,6 +28,7 @@ import { reachableSystem } from '../../src/test/t3-fixtures';
 import { DeckPage } from './deck-page';
 import { NeedsYouDeckPage } from './needs-you-deck-page';
 import { NeedsYouPageHarness } from './needs-you-page';
+import { TasksPageHarness } from './tasks-page';
 import { TouchTargetsPage } from './touch-targets-page';
 
 const params = new URLSearchParams(globalThis.location.search);
@@ -56,6 +58,9 @@ function Harness() {
   }
   if (form === 'needs-you-page') {
     return <NeedsYouPageHarness />;
+  }
+  if (form === 'tasks-page') {
+    return <TasksPageHarness />;
   }
   if (form === 'touch-targets') {
     return <TouchTargetsPage />;

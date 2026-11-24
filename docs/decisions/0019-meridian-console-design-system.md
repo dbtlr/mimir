@@ -2521,3 +2521,77 @@ that are about cards and focus, and has nothing to turn, page, or anchor.
   decisions would count as one.
 - **The deck itself, paged, on the page:** a page exists to show the whole
   set, and paging a full list hides what the page is for.
+
+## Refinement (2026-11-24, MMR-724): the list page and the Filter sheet
+
+Every kind of record gets one list page (principle 2 of MMR-a420), and they
+share one layout, the **list page**, in `components/patterns/list-page.tsx`.
+The Tasks tab is the first (ADR 0013, MMR-724 refinement); Seeds,
+Artifacts, and Projects follow in MMR-725 on the same parts. The operator
+picked variant A of three mocks; two members of a design review scored its
+third revision 9. `packages/host/DESIGN.md` holds its numbers, under Feed
+blocks, List page.
+
+- **The page reads top down:** a count line in words, the search on its own
+  row, the chip row, then the groups. The chip row holds the preset as one
+  removable chip, then Filter, which opens the Filter sheet. The other
+  presets live in the sheet, so the row never overflows a phone (variant
+  B's row of every preset did). The search is `BrowserSearch`'s `list`
+  option, 44 tall, as DESIGN.md's Input is at every width.
+- **A group's heading pins while its group scrolls,** as a band in the
+  page's own ground with a `line` hairline only while it is pinned. The
+  hairline says the heading is pinned; a band at rest carries none, so the
+  page reads as it did before scrolling. The band reaches the column's
+  gutters, so a card passing under it never shows at its sides.
+- **Live work is cards and finished work is rows** (principle 5). Live
+  tasks are MMR-719 feed cards in the Card grid, each opening the MMR-720
+  preview. Finished tasks are the day folds, unchanged, with only the
+  latest day open; when the list holds only finished work they sit straight
+  under the chips, with no status heads.
+- **One text button pages the list.** A list that loads by window ends in
+  _Show N more_, the day fold's text button, naming how many the next window
+  adds. It stays focusable and `aria-disabled` while that window loads, so
+  a press during the load neither repeats it nor drops focus.
+
+### The Filter sheet
+
+A list's filters are a Sheet (MMR-736) of its own kind, beside the Content
+sheet: content-sized from the bottom below `md` and a 440 panel from the
+right from `md` up, **modal at every width**, as every Sheet but the
+preview panel is. Escape, an outside press, and its close back out with
+nothing applied, and focus returns to the Filter chip.
+
+- **Nothing applies until its commit,** which names what it will show
+  ("Show 5 tasks"), counted with the list's own read before it is pressed.
+  Clear resets the fields and applies nothing. A field set that can show
+  nothing (no status checked) holds the commit.
+- **Its choices are pills.** One choice is a radio group and several are a
+  group of checkboxes; both are native inputs, so the arrow keys move a
+  radio group's choice and Space toggles a checkbox. Each pill is 36 tall
+  in a 44 tap area on a phone, checked in the accent wash with its label at
+  600, so the state reads without hue. A long set (tags) shows its first
+  pills and those checked, then _N more_.
+- **Pills depart from the Choice pattern.** The MMR-736 refinement's Choice
+  gives a form's choices to a Segmented Control, a Radio, or a Select. The
+  operator approved pills for the filter sheet, which a filter's many short
+  values fill better than a stacked Radio or a Select; the build keeps them,
+  and a seed settles whether the Choice pattern gains them. Sort, a few
+  one-word options on one row, stays a Segmented Control.
+
+Considered and rejected:
+
+- **Every preset as its own chip on the page (B).** Its row overflowed a
+  phone.
+- **A menu of rows that apply at once (C).** Each field took a second
+  surface, and nothing stated the result before it applied.
+- **A non-modal desktop panel, as the preview's.** The preview stays live
+  beside the feed because a tap on another card switches it; a filter's
+  draft has nothing to switch to, and a press outside that discarded a
+  draft unseen would lose work. The mock drew the desktop panel without a
+  scrim; the build keeps the Sheet's scrim.
+
+`packages/host/src/test/tasks-page.test.tsx` checks the presets from the URL
+and the sheet, their reads and chips, the sheet's count, apply, Clear, and
+focus return, old `?status=` links, the day folds, and Show more's windows;
+`e2e/list-page.test.ts` checks the pinned heading in Chromium at a phone's
+width and a desktop's.

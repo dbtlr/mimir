@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { homeDay, homeSummary, minuteRows, nowCount, nowShown, shippedWeek } from '../lib/home';
+import {
+  homeDay,
+  homeSummary,
+  minuteRows,
+  nowCount,
+  nowShown,
+  oneProject,
+  shippedWeek,
+} from '../lib/home';
 import { engineReview, shippedRow, stripRow, tagged, triageSeed } from './views-fixtures';
 
 /*
@@ -252,8 +260,18 @@ describe('the spare-minute rows', () => {
     expect(rows).toEqual([
       { count: 3, name: 'Seeds to triage' },
       { count: 0, name: 'Ready to start' },
-      { count: 1, name: 'Going cold' },
+      { count: 1, door: { project: 'MMR', show: 'going-cold' }, name: 'Going cold' },
       { count: 3, name: 'Doctor findings' },
     ]);
+  });
+});
+
+describe('oneProject (MMR-724)', () => {
+  it.each<[string[], string | undefined]>([
+    [['MMR', 'MMR'], 'MMR'],
+    [['MMR', 'LM'], undefined],
+    [[], undefined],
+  ])('reads %j as %s', (keys, project) => {
+    expect(oneProject(keys)).toBe(project);
   });
 });

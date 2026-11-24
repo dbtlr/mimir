@@ -48,21 +48,42 @@ export function FilterRow({ children }: { children: ReactNode }) {
   return <div className="mb-2.5 flex flex-wrap items-center gap-1.5">{children}</div>;
 }
 
-/** The browser search box — controlled; debouncing is the caller's concern. */
+/**
+ * The browser search box — controlled; debouncing is the caller's concern.
+ * `list` is the list page's search (MMR-724): a 44-tall field on its own row,
+ * 15/22 text, an ink-dim edge on the page ground, full width wherever the
+ * page's cards stack, and the width of the card grid's first track where they
+ * sit two across, so it lines up with the first column of cards.
+ */
 export function BrowserSearch({
   value,
   onChange,
   label,
   placeholder,
+  variant = 'compact',
 }: {
   value: string;
   onChange: (value: string) => void;
   label: string;
   placeholder: string;
+  variant?: 'compact' | 'list';
 }) {
-  return (
-    <label className="flex min-w-0 flex-[1_1_260px] items-center gap-2 rounded-[9px] border border-line-bright bg-well-950 px-2.5 py-1.5 transition-colors focus-within:border-accent">
-      <SearchIcon className="size-4 text-ink-faint [stroke-width:2] md:size-4" />
+  const list = variant === 'list';
+  const field = (
+    <label
+      className={cn(
+        'flex min-w-0 items-center gap-2 bg-well-950 transition-colors focus-within:border-accent',
+        list
+          ? 'h-11 w-full rounded-md border border-ink-dim px-3 md:@min-[612px]:w-[calc((100%-0.75rem)/2)]'
+          : 'flex-[1_1_260px] rounded-[9px] border border-line-bright px-2.5 py-1.5',
+      )}
+    >
+      <SearchIcon
+        className={cn(
+          '[stroke-width:2]',
+          list ? 'size-4 text-ink-dim md:size-4' : 'size-4 text-ink-faint md:size-4',
+        )}
+      />
       <input
         type="search"
         value={value}
@@ -71,10 +92,15 @@ export function BrowserSearch({
         }}
         aria-label={label}
         placeholder={placeholder}
-        className="min-w-0 flex-1 bg-transparent text-meta text-ink-bright caret-accent outline-none placeholder:text-ink-dim"
+        className={cn(
+          'min-w-0 flex-1 bg-transparent text-ink-bright caret-accent outline-none placeholder:text-ink-dim',
+          list ? 'text-[15px] leading-[22px]' : 'text-meta',
+        )}
       />
     </label>
   );
+  // The card grid's columns follow its container's width, so the field reads the same container.
+  return list ? <div className="@container w-full">{field}</div> : field;
 }
 
 const CHIP =

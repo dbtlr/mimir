@@ -63,6 +63,12 @@ export type TaskFilters = {
   q?: string;
   /** Ask for each row's one-line preview (MMR-454). */
   lede?: boolean;
+  /** Field filters, AND-composed: a preset's date window, the Filter sheet's any-of lists (MMR-724). */
+  filters?: NonNullable<EngineInput<'list'>['filters']>;
+  /** Verdicts the rows must hold: going cold's `stale` (MMR-724). */
+  verdicts?: NonNullable<EngineInput<'list'>['verdicts']>;
+  /** The browser's zone, sent with a date filter so its bare dates are the browser's days (ADR 0029). */
+  timeZone?: string;
 };
 
 /**
@@ -135,21 +141,14 @@ export const FINISHED_PAGE_SIZE = 50;
  * old selection). Keyed under `nodes`, so every write invalidates it.
  */
 export const tasksBrowserQuery = (f: TaskFilters, windows = 1) => {
-  const limit = f.status === 'terminal' ? FINISHED_PAGE_SIZE * windows : undefined;
+  const limit = isFinishedSelection(f.status) ? FINISHED_PAGE_SIZE * windows : undefined;
   return queryOptions({
     placeholderData: (previous, previousQuery) =>
       JSON.stringify(previousQuery?.queryKey[2]) === JSON.stringify(f) ? previous : undefined,
     queryFn: async () => {
-      const input: EngineInput<'list'> = { facets: browserFacets(f.lede), project: f.project };
-      if (f.status !== undefined && f.status !== '') {
-        const status = statusSelection(f.status);
-        if (status === undefined) {
-          return NO_TASKS;
-        }
-        input.status = status.length === 1 ? status[0] : status;
-      }
-      if (f.q !== undefined && f.q !== '') {
-        input.q = f.q;
+      const input = listInput(f);
+      if (input === undefined) {
+        return NO_TASKS;
       }
       if (limit !== undefined) {
         input.limit = limit;
@@ -159,6 +158,63 @@ export const tasksBrowserQuery = (f: TaskFilters, windows = 1) => {
     queryKey: ['nodes', 'tasks-browser', f, limit],
   });
 };
+
+/**
+ * Whether a `status` value selects finished tasks only (`terminal`, `done`,
+ * `abandoned`, or a union of them): the views that grow by window (MMR-460).
+ */
+export function isFinishedSelection(status: string | undefined): boolean {
+  const selectors = status === undefined ? undefined : statusSelection(status);
+  return (
+    selectors !== undefined &&
+    selectors.every((s) => s === 'terminal' || s === 'done' || s === 'abandoned')
+  );
+}
+
+/** The `list` input for a filter set, or undefined when its status names no selector. */
+function listInput(f: TaskFilters): EngineInput<'list'> | undefined {
+  const input: EngineInput<'list'> = { facets: browserFacets(f.lede), project: f.project };
+  if (f.status !== undefined && f.status !== '') {
+    const status = statusSelection(f.status);
+    if (status === undefined) {
+      return undefined;
+    }
+    input.status = status.length === 1 ? status[0] : status;
+  }
+  if (f.q !== undefined && f.q !== '') {
+    input.q = f.q;
+  }
+  if (f.filters !== undefined) {
+    input.filters = f.filters;
+  }
+  if (f.verdicts !== undefined) {
+    input.verdicts = f.verdicts;
+  }
+  if (f.timeZone !== undefined) {
+    input.timeZone = f.timeZone;
+  }
+  return input;
+}
+
+/**
+ * How many tasks a filter set holds, for the Filter sheet's "Show N tasks"
+ * (MMR-724): the same read with no rows (`limit: 0`), so only its `total`
+ * travels. A passing question: never polled or persisted, and kept for a
+ * minute so stepping back to an earlier choice answers at once.
+ */
+export const tasksCountQuery = (f: TaskFilters) =>
+  queryOptions({
+    gcTime: 60_000,
+    queryFn: async () => {
+      const input = listInput({ ...f, lede: false });
+      if (input === undefined) {
+        return 0;
+      }
+      return (await list({ data: { ...input, limit: 0 } })).total;
+    },
+    queryKey: ['search', 'tasks-count', f],
+    refetchInterval: false,
+  });
 
 /** The artifact-browser filter set; every field but the project is optional and composes AND.
  * The two date filters are bare `YYYY-MM-DD` calendar days, inclusive at both
@@ -264,3 +320,52 @@ export const upstreamTasksQuery = (seedId: string) =>
     queryFn: () => consoleUpstreamTasks({ data: { seed: seedId } }),
     queryKey: ['nodes', 'upstream', seedId],
   });
+
+/** The status words `isFinishedSelection` counts as finished work. */
+const FINISHED_WORDS = new Set(['terminal', 'done', 'abandoned']);
+
+/**
+ * The tags on the tasks a filter set's base holds (its status universe and
+ * date window, never the draft's own narrowing), most used first, for the
+ * Filter sheet's Tag field (MMR-724). Read only while the sheet is open. The
+ * live set is bounded, where the whole history is not, so the finished part
+ * of a selection offers the tags of its newest window (`FINISHED_PAGE_SIZE`),
+ * the rows its view loads first; a selection mixing both reads each part, the
+ * live part unlimited. Keyed under `nodes`, so a tag write refreshes it.
+ */
+export const taskTagsQuery = (base: TaskFilters) => {
+  const { filters, project, status, timeZone } = base;
+  return queryOptions({
+    queryFn: async () => {
+      const words = (status ?? '')
+        .split(',')
+        .map((word) => word.trim())
+        .filter((word) => word !== '');
+      const parts = [
+        { limit: undefined, status: words.filter((word) => !FINISHED_WORDS.has(word)) },
+        {
+          limit: FINISHED_PAGE_SIZE,
+          status: words.filter((word) => FINISHED_WORDS.has(word)),
+        },
+      ].filter((part) => part.status.length > 0);
+      const reads = parts.map(async ({ limit, status: part }) => {
+        const selection = listInput({ filters, project, status: part.join(','), timeZone });
+        if (selection === undefined) {
+          return [];
+        }
+        const window = limit === undefined ? {} : { limit };
+        return (await list({ data: { ...selection, ...window, facets: ['tags'] } })).items;
+      });
+      const uses = new Map<string, number>();
+      for (const task of (await Promise.all(reads)).flat()) {
+        for (const { tag } of task.tags ?? []) {
+          uses.set(tag, (uses.get(tag) ?? 0) + 1);
+        }
+      }
+      return [...uses.entries()]
+        .toSorted(([a, an], [b, bn]) => bn - an || a.localeCompare(b))
+        .map(([tag]) => tag);
+    },
+    queryKey: ['nodes', 'task-tags', { filters, project, status, timeZone }],
+  });
+};

@@ -1,7 +1,7 @@
 // Shared test seam module, not a test body.
 // oxlint-disable vitest/require-hook
 import { MimirError } from '@mimir/contract';
-import type { EngineNode } from '@mimir/contract';
+import type { EngineInput, EngineNode } from '@mimir/contract';
 
 import type { ArtifactRecord, ArtifactSummary, EngineSeed } from '../api/browse-queries';
 import {
@@ -22,6 +22,7 @@ import {
   seedUpdate,
 } from '../api/fns/browse';
 import type { RecordHealth } from '../api/fns/browse';
+import { dayOf } from '../lib/work-page';
 import { engineSeed, recordHealth, taskSet } from './browse-fixtures';
 
 /*
@@ -123,4 +124,80 @@ export function failBrowseReads(error: Error = new Error('unreachable')): void {
     vi.mocked(read).mockRejectedValue(error);
   }
   vi.mocked(doctor).mockRejectedValue(error);
+}
+
+const FINISHED_WORDS = new Set(['done', 'abandoned']);
+
+/** Whether a task's status falls in one `list` status selector. */
+function inSelector(task: EngineNode, selector: string): boolean {
+  if (selector === 'all') {
+    return true;
+  }
+  if (selector === 'live' || selector === 'terminal') {
+    return FINISHED_WORDS.has(task.status) === (selector === 'terminal');
+  }
+  return task.status === selector;
+}
+
+/** Whether a task passes one of the field filters the console sends. */
+function passes(
+  task: EngineNode,
+  filter: NonNullable<EngineInput<'list'>['filters']>[number],
+  zone: string | undefined,
+): boolean {
+  const wanted = (filter.value ?? '').split(',');
+  switch (filter.field) {
+    case 'priority': {
+      return task.priority != null && wanted.includes(task.priority);
+    }
+    case 'size': {
+      return task.size != null && wanted.includes(task.size);
+    }
+    case 'tag': {
+      return (task.tags ?? []).some(({ tag }) => wanted.includes(tag));
+    }
+    case 'completed_at': {
+      // Only `done` stamps completed_at; a bare date is a day in the caller's zone.
+      if (task.completedAt == null || zone === undefined) {
+        return false;
+      }
+      const day = dayOf(task.completedAt.getTime(), zone);
+      const bound = filter.value ?? '';
+      if (filter.op === 'at-or-after') {
+        return day >= bound;
+      }
+      if (filter.op === 'at-or-before') {
+        return day <= bound;
+      }
+      throw new Error(`the test list does not filter completed_at ${filter.op}`);
+    }
+    default: {
+      throw new Error(`the test list does not filter on ${filter.field}`);
+    }
+  }
+}
+
+/**
+ * The tasks a `list` read selects from `tasks`, as the Engine answers for the
+ * inputs the console sends: the status selectors, the stale verdict, priority,
+ * size, tag, and a `completed_at` window, the `limit` window, and the whole
+ * `total`. Rows keep the order `tasks` gives them.
+ */
+export function answerList(tasks: readonly EngineNode[], input: EngineInput<'list'>) {
+  const selectors = input.status === undefined ? ['live'] : [input.status].flat();
+  const matched = tasks.filter(
+    (task) =>
+      (task.home?.projectKey ?? task.id.split('-')[0]) === input.project &&
+      selectors.some((selector) => inSelector(task, selector)) &&
+      (input.verdicts ?? []).every(
+        ({ verdict, negate }) => (task.verdicts?.[verdict] === true) !== negate,
+      ) &&
+      (input.filters ?? []).every((filter) => passes(task, filter, input.timeZone)),
+  );
+  return taskSet(matched.slice(0, input.limit ?? matched.length), matched.length);
+}
+
+/** Serve `list` as the Engine selects (`answerList`), so a read's filters decide its rows and counts. */
+export function serveListSelecting(tasks: readonly EngineNode[]): void {
+  vi.mocked(list).mockImplementation(async ({ data }) => answerList(tasks, data));
 }

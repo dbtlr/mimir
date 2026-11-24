@@ -88,6 +88,15 @@ export function CloseIcon({ className }: IconProps) {
   );
 }
 
+/** Filter: three lines narrowing downward, the list page's Filter chip (MMR-724). */
+export function FilterIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="M4 7h16M7 12h10M10 17h4" />
+    </Icon>
+  );
+}
+
 export function SettingsIcon({ className }: IconProps) {
   return (
     <Icon className={className}>

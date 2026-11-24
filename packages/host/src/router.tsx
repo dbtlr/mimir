@@ -22,6 +22,8 @@ import {
   seedPath,
 } from './lib/record-url';
 import { isSeedKind } from './lib/seed-lanes';
+import { isTaskPreset, isTaskSort } from './lib/task-list';
+import type { TaskListSearch } from './lib/task-list';
 import { BrowserRedirect } from './routes/browser-redirect';
 import { Shell } from './routes/shell';
 import { T3_CALLBACK_REASONS } from './server/t3-states';
@@ -300,15 +302,22 @@ export const artifactsRoute = createRoute({
   validateSearch: validateArtifactsSearch,
 });
 
-export type TasksSearch = {
-  status?: string;
-  q?: string;
-};
+/** A Tasks URL: a preset, any status selector a link carries, the search, and the Filter sheet's fields (MMR-724). */
+export type TasksSearch = TaskListSearch;
 
-const validateTasksSearch = (search: Record<string, unknown>): TasksSearch => ({
-  q: textParam(search.q),
-  status: textParam(search.status),
-});
+const validateTasksSearch = (search: Record<string, unknown>): TasksSearch => {
+  const show = textParam(search.show);
+  const sort = textParam(search.sort);
+  return {
+    priority: textParam(search.priority),
+    q: textParam(search.q),
+    show: isTaskPreset(show) ? show : undefined,
+    size: textParam(search.size),
+    sort: isTaskSort(sort) ? sort : undefined,
+    status: textParam(search.status),
+    tag: textParam(search.tag),
+  };
+};
 
 export const tasksRoute = createRoute({
   beforeLoad: ({ params }) => {

@@ -65,6 +65,20 @@ export function restingRoom(naturalEnd: number, rests: readonly number[]): numbe
   return next === undefined ? 0 : Math.ceil(next - naturalEnd);
 }
 
+/**
+ * Where a body's first view ends when its blocks run past the room it has
+ * (`available`, in the body's scroll space): a field gap below the last block
+ * that fits whole with that gap, so no bar cuts a block and the next one
+ * starts just past the view. Undefined when not even the first block fits.
+ */
+export function firstViewEnd(
+  blocks: readonly BlockExtent[],
+  available: number,
+): number | undefined {
+  const last = blocks.findLast((block) => block.bottom + FIELD_GAP <= available + 0.5);
+  return last === undefined ? undefined : Math.floor(last.bottom + FIELD_GAP);
+}
+
 /** Where a newly focused control sits in the body's scroll space. */
 export type FocusedPlace = {
   /** The rest of the block (the field) that holds it, or a field gap above the control when none does. */

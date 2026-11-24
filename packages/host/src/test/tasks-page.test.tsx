@@ -2,13 +2,13 @@ import type { EngineNode } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
 import { FINISHED_PAGE_SIZE } from '../api/browse-queries';
 import { list } from '../api/fns/browse';
 import { tasksRoute } from '../router';
 import { taskSet } from './browse-fixtures';
-import { failBrowseReads, serveBrowse } from './browse-fns';
+import { answerList, failBrowseReads, serveBrowse, serveListSelecting } from './browse-fns';
 import { engineTask } from './node-fixtures';
 import { renderRoute } from './router';
 import { serveViews } from './views-fns';
@@ -91,47 +91,42 @@ async function renderTasks(initial = '/p/MMR/tasks') {
 }
 
 const search = (r: Awaited<ReturnType<typeof renderTasks>>) =>
-  r.state.location.search as { status?: string; q?: string };
+  r.state.location.search as { status?: string; q?: string; show?: string };
 
 /** The task-list reads issued so far, as the `list` inputs they sent. */
 const nodeReads = () => vi.mocked(list).mock.calls.map(([{ data }]) => data);
 
-/** The group headings on the page, in order (e.g. `Ready · 2`). */
+/** The group headings on the page, in order (e.g. `Ready 2`). */
 const groupHeadings = () =>
   screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent ?? '');
 
-/** The titles inside one group, top to bottom. */
+/** The card titles inside one group, top to bottom. */
 const titlesIn = (heading: string) =>
   within(screen.getByRole('region', { name: heading }))
-    .getAllByRole('link')
-    .map((l) => l.textContent);
+    .getAllByRole('button', { expanded: false })
+    .map((card) => card.textContent);
 
-const live = () => screen.getByRole('button', { name: 'Live' });
-const finished = () => screen.getByRole('button', { name: 'Finished' });
+/** The chip that opens the Filter sheet. */
+const filterChip = () => screen.getByRole('button', { name: /^Filter/ });
 
-/** A task row's container, found from its title link. */
-const rowOf = (title: string) => {
-  const row = screen.getByRole('link', { name: title }).closest('.relative');
-  if (row === null) {
-    throw new Error(`no row for ${title}`);
+/** A task's card, found from its title. */
+const cardOf = (title: string) => {
+  const card = screen.getByRole('button', { name: title }).closest('[data-slot="feed-card"]');
+  if (card === null) {
+    throw new Error(`no card for ${title}`);
   }
-  return row as HTMLElement;
+  return card as HTMLElement;
 };
 
-describe('tasksPage (grouped reading list, MMR-454)', () => {
-  it('groups by status in the stated order with counts, and reads the live selection with the lede', async () => {
+describe('tasksPage (the Tasks list, MMR-454, MMR-724)', () => {
+  it('groups live tasks by status in the stated order, folds the finished ones, and reads the live selection with the lede', async () => {
     mockApi();
     await renderTasks();
     await screen.findByText('Doctor the wire');
-    expect(groupHeadings()).toStrictEqual([
-      'Under review · 1',
-      'Ready · 2',
-      'Done · 1',
-      'Abandoned · 1',
-    ]);
+    expect(groupHeadings()).toStrictEqual(['Under review 1', 'Ready 2', 'Finished 2']);
     // newest activity first inside a group
-    expect(titlesIn('Ready · 2')).toStrictEqual(['Hoist the lookup', 'Doctor the wire']);
-    expect(screen.getByText('5 live')).toBeDefined();
+    expect(titlesIn('Ready 2')).toStrictEqual(['Hoist the lookup', 'Doctor the wire']);
+    expect(screen.getByText('5 live tasks')).toBeDefined();
     expect(nodeReads()).toContainEqual({
       facets: ['home', 'lede'],
       project: 'MMR',
@@ -139,98 +134,70 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
     });
   });
 
-  it('each row links to its task, shows the lede over the summary, its place and its status in text', async () => {
+  it('each card states its status and ID, and opens a preview with the lede and the task’s page', async () => {
     mockApi();
     const testRouter = await renderTasks();
     const user = userEvent.setup();
     await screen.findByText('Doctor the wire');
 
-    const link = screen.getByRole('link', { name: 'Doctor the wire' });
-    expect(link).toHaveAttribute('href', '/p/MMR/10');
-    expect(screen.getByRole('link', { name: 'Hoist the lookup' })).toHaveAttribute(
-      'href',
-      '/p/NRN/4',
-    );
-
-    expect(within(rowOf('Review the cutover')).getByText('The lede wins.')).toBeDefined();
-    expect(screen.queryByText('The summary loses.')).toBeNull();
-    // no lede on the wire falls back to the summary
-    expect(within(rowOf('Land the schema')).getByText('The schema landed.')).toBeDefined();
-
-    // key › parent, with ∞ on a standing home only
-    const review = rowOf('Review the cutover');
-    expect(within(review).getByText('MMR')).toBeDefined();
-    expect(review.textContent).toContain('› Storage cutover');
-    expect(review.textContent).toContain(' · ');
-    expect(
-      within(review).getByRole('img', { name: 'open-ended — a standing home' }).textContent,
-    ).toContain('∞');
-    expect(within(rowOf('Doctor the wire')).queryByRole('img')).toBeNull();
-
-    // the status reads in text, not only by the dot colour
-    expect(within(review).getByText('Under review')).toBeInTheDocument();
-    expect(within(rowOf('Doctor the wire')).getByText('Ready')).toBeInTheDocument();
-
-    await user.click(link);
+    const card = screen.getByRole('button', { name: 'Review the cutover' });
+    expect(card).toHaveAccessibleDescription(/^Under review MMR-11/);
+    await user.click(card);
+    const preview = await screen.findByRole('dialog', { name: 'Review the cutover' });
+    expect(within(preview).getByText('The lede wins.')).toBeVisible();
+    expect(within(preview).queryByText('The summary loses.')).toBeNull();
+    expect(within(preview).getByText('Storage cutover')).toBeVisible();
+    const open = within(preview).getByRole('link', { name: 'Open MMR-11' });
+    expect(open).toHaveAttribute('href', '/p/MMR/11');
+    await user.click(open);
     await waitFor(() => {
-      expect(testRouter.state.location.pathname).toBe('/p/MMR/10');
+      expect(testRouter.state.location.pathname).toBe('/p/MMR/11');
     });
   });
 
-  it('Live is pressed by default; Finished sets status=terminal in the URL and the request', async () => {
+  it('a deep-linked status beyond the live ones shows its own removable chip, and removing it returns to every live task', async () => {
     mockApi();
-    const testRouter = await renderTasks();
+    const testRouter = await renderTasks('/p/MMR/tasks?status=ready,done');
     const user = userEvent.setup();
     await screen.findByText('Doctor the wire');
 
-    expect(live().getAttribute('aria-pressed')).toBe('true');
-    expect(finished().getAttribute('aria-pressed')).toBe('false');
+    expect(nodeReads().some((p) => JSON.stringify(p.status) === '["ready","done"]')).toBe(true);
+    expect(screen.getByText('5 tasks')).toBeDefined();
+    expect(filterChip()).toHaveAccessibleName('Filter');
 
-    await user.click(finished());
-    await waitFor(() => {
-      expect(search(testRouter).status).toBe('terminal');
-    });
-    await waitFor(() => {
-      expect(nodeReads().some((p) => p.status === 'terminal')).toBe(true);
-    });
-    expect(finished().getAttribute('aria-pressed')).toBe('true');
-    expect(live().getAttribute('aria-pressed')).toBe('false');
-    await expect(screen.findByText('5 finished')).resolves.toBeDefined();
-
-    await user.click(live());
+    await user.click(screen.getByRole('button', { name: 'Remove Ready, Done' }));
     await waitFor(() => {
       expect(search(testRouter).status).toBeUndefined();
     });
-    expect(live().getAttribute('aria-pressed')).toBe('true');
+    expect(screen.queryByRole('button', { name: /^Remove / })).toBeNull();
   });
 
-  it('a deep-linked status shows a removable chip, presses neither view, and removing returns to Live', async () => {
+  it('a deep-linked live status narrows every live task under Filter, with no chip of its own', async () => {
     mockApi();
-    const testRouter = await renderTasks('/p/MMR/tasks?status=ready');
-    const user = userEvent.setup();
+    await renderTasks('/p/MMR/tasks?status=ready');
     await screen.findByText('Doctor the wire');
-
-    expect(screen.getByRole('button', { name: 'Live' }).getAttribute('aria-pressed')).toBe('false');
-    expect(screen.getByRole('button', { name: 'Finished' }).getAttribute('aria-pressed')).toBe(
-      'false',
-    );
     expect(nodeReads().some((p) => p.status === 'ready')).toBe(true);
-    expect(screen.getByText('5 match')).toBeDefined();
-
-    await user.click(screen.getByRole('button', { name: 'Remove status filter Ready' }));
-    await waitFor(() => {
-      expect(search(testRouter).status).toBeUndefined();
-    });
-    expect(screen.getByRole('button', { name: 'Live' }).getAttribute('aria-pressed')).toBe('true');
-    expect(screen.queryByRole('button', { name: /Remove status filter/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Remove / })).toBeNull();
+    expect(filterChip()).toHaveAccessibleName('Filter, 1 applied');
   });
 
-  it('treats an empty status in the URL as the Live view with no removable chip', async () => {
+  it('keeps an old Finished link: ?status=terminal filters, folds by day, and windows', async () => {
+    mockApi();
+    await renderTasks('/p/MMR/tasks?status=terminal');
+    await screen.findByRole('button', { name: 'Remove Finished' });
+    expect(nodeReads()).toContainEqual({
+      facets: ['home', 'lede'],
+      limit: FINISHED_PAGE_SIZE,
+      project: 'MMR',
+      status: 'terminal',
+    });
+  });
+
+  it('treats an empty status in the URL as every live task with no removable chip', async () => {
     mockApi();
     await renderTasks('/p/MMR/tasks?status=');
     await screen.findByText('Doctor the wire');
-    expect(live().getAttribute('aria-pressed')).toBe('true');
-    expect(screen.queryByRole('button', { name: /Remove status filter/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Remove / })).toBeNull();
     expect(nodeReads().some((p) => p.status === 'live')).toBe(true);
   });
 
@@ -244,21 +211,19 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
 
   it('removing the status chip hands keyboard focus to the search box', async () => {
     mockApi();
-    await renderTasks('/p/MMR/tasks?status=ready');
+    await renderTasks('/p/MMR/tasks?status=terminal');
     const user = userEvent.setup();
-    await screen.findByText('Doctor the wire');
-    await user.click(screen.getByRole('button', { name: 'Remove status filter Ready' }));
+    await screen.findByText('Land the schema');
+    await user.click(screen.getByRole('button', { name: 'Remove Finished' }));
     expect(screen.getByRole('searchbox', { name: 'Search tasks' })).toHaveFocus();
   });
 
   it('labels a deep-linked union and the all selector', async () => {
     mockApi();
-    await renderTasks('/p/MMR/tasks?status=ready,blocked');
+    await renderTasks('/p/MMR/tasks?status=blocked,all');
     await screen.findByText('Doctor the wire');
-    expect(
-      screen.getByRole('button', { name: 'Remove status filter Ready, Blocked' }),
-    ).toBeDefined();
-    expect(nodeReads().some((p) => JSON.stringify(p.status) === '["ready","blocked"]')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Remove Blocked, All' })).toBeDefined();
+    expect(nodeReads().some((p) => JSON.stringify(p.status) === '["blocked","all"]')).toBe(true);
   });
 
   it('asks for no tasks when a deep-linked status names no selector', async () => {
@@ -285,7 +250,7 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
     await screen.findByText('Doctor the wire');
 
     const box = screen.getByRole('searchbox', { name: 'Search tasks' });
-    expect(box).toHaveAttribute('placeholder', 'Search titles and IDs…');
+    expect(box).toHaveAttribute('placeholder', 'Search titles and IDs');
     await user.type(box, 'wire');
     await waitFor(() => {
       expect(search(testRouter).q).toBe('wire');
@@ -310,12 +275,13 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
   });
 });
 
-// A text query, not a role query: naming 100+ row links costs ~150ms a call,
-// which under full-suite load pushed the Show more test past its timeout.
-const rowCount = () => screen.queryAllByText(/^Finished \d+$/, { selector: 'a' }).length;
-const showMore = () => screen.queryByRole('button', { name: 'Show more' });
+/** The page's own Show more, which loads the next window (a day's fold has its own). */
+const showMore = () => screen.queryByRole('button', { name: /^Show \d+ more finished tasks$/ });
 
-/** The `limit` of every terminal list read so far, in request order. */
+/** The count line's words. */
+const countText = () => document.querySelector('[data-slot="list-count"]')?.textContent;
+
+/** The limit of every terminal list read so far, in request order. */
 const terminalLimits = () =>
   nodeReads()
     .filter((p) => p.status === 'terminal')
@@ -355,7 +321,7 @@ function mockTerminalApi(
   });
 }
 
-describe('tasksPage Finished view windows (MMR-460)', () => {
+describe('tasksPage Finished windows (MMR-460)', () => {
   // Two full windows and a partial third.
   const finishedCount = FINISHED_PAGE_SIZE * 2 + 10;
 
@@ -364,15 +330,12 @@ describe('tasksPage Finished view windows (MMR-460)', () => {
     await renderTasks('/p/MMR/tasks?status=terminal');
     await screen.findByText('Finished 0');
 
-    expect(rowCount()).toBe(FINISHED_PAGE_SIZE);
     expect(terminalLimits()).toStrictEqual([FINISHED_PAGE_SIZE]);
     const first = nodeReads().find((p) => p.status === 'terminal');
     expect(first?.offset).toBeUndefined();
     expect(first?.facets).toContain('lede');
-    expect(
-      screen.getByText(`${String(FINISHED_PAGE_SIZE)} of ${String(finishedCount)} finished`),
-    ).toBeDefined();
-    expect(showMore()).not.toBeNull();
+    expect(countText()).toBe(`${String(FINISHED_PAGE_SIZE)} of ${String(finishedCount)} finished`);
+    expect(showMore()).toHaveTextContent(`Show ${String(FINISHED_PAGE_SIZE)} more`);
   });
 
   it('Show more asks for a larger limit, keeps the rows meanwhile, and goes once all are loaded', async () => {
@@ -384,27 +347,33 @@ describe('tasksPage Finished view windows (MMR-460)', () => {
     const user = userEvent.setup();
     await screen.findByText('Finished 0');
 
-    await user.click(showMore() as HTMLElement);
-    // The larger read is in flight: the shown rows stay, the button is inert.
+    const button = showMore() as HTMLElement;
+    await user.click(button);
+    // The larger read is in flight: the shown rows stay, the button keeps focus and is inert.
     await waitFor(() => {
       expect(terminalLimits()).toContain(FINISHED_PAGE_SIZE * 2);
     });
-    expect(rowCount()).toBe(FINISHED_PAGE_SIZE);
-    expect(showMore()).toBeDisabled();
+    expect(countText()).toBe(`${String(FINISHED_PAGE_SIZE)} of ${String(finishedCount)} finished`);
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).toHaveFocus();
+    await user.click(button);
+    expect(terminalLimits().filter((l) => l === FINISHED_PAGE_SIZE * 3)).toHaveLength(0);
 
     held.resolve();
     await waitFor(() => {
-      expect(rowCount()).toBe(FINISHED_PAGE_SIZE * 2);
+      expect(countText()).toBe(
+        `${String(FINISHED_PAGE_SIZE * 2)} of ${String(finishedCount)} finished`,
+      );
     });
-    expect(showMore()).not.toBeDisabled();
+    expect(showMore()).toHaveTextContent('Show 10 more');
+    expect(showMore()).not.toHaveAttribute('aria-disabled');
 
     await user.click(showMore() as HTMLElement);
     await waitFor(() => {
-      expect(rowCount()).toBe(finishedCount);
+      expect(countText()).toBe(`${String(finishedCount)} finished`);
     });
     expect(terminalLimits()).toContain(FINISHED_PAGE_SIZE * 3);
     expect(showMore()).toBeNull();
-    expect(screen.getByText(`${String(finishedCount)} finished`)).toBeDefined();
   });
 
   it('has no Show more when every finished task fits one window', async () => {
@@ -425,39 +394,47 @@ describe('tasksPage Finished view windows (MMR-460)', () => {
 
     await user.click(showMore() as HTMLElement);
     await expect(screen.findByRole('alert')).resolves.toHaveTextContent(/more finished tasks/i);
-    expect(rowCount()).toBe(FINISHED_PAGE_SIZE);
-    expect(showMore()).not.toBeDisabled();
+    expect(countText()).toBe(`${String(FINISHED_PAGE_SIZE)} of ${String(finishedCount)} finished`);
+    expect(showMore()).not.toHaveAttribute('aria-disabled');
 
     fail = false;
     await user.click(showMore() as HTMLElement);
     await waitFor(() => {
-      expect(rowCount()).toBe(FINISHED_PAGE_SIZE * 2);
+      expect(countText()).toBe(
+        `${String(FINISHED_PAGE_SIZE * 2)} of ${String(finishedCount)} finished`,
+      );
     });
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('starts over at one window when the view changes', async () => {
     mockTerminalApi(finishedTasks(finishedCount));
-    await renderTasks('/p/MMR/tasks?status=terminal');
+    const testRouter = await renderTasks('/p/MMR/tasks?status=terminal');
     const user = userEvent.setup();
     await screen.findByText('Finished 0');
     await user.click(showMore() as HTMLElement);
     await waitFor(() => {
-      expect(rowCount()).toBe(FINISHED_PAGE_SIZE * 2);
+      expect(terminalLimits()).toContain(FINISHED_PAGE_SIZE * 2);
     });
 
-    await user.click(live());
+    await user.click(screen.getByRole('button', { name: 'Remove Finished' }));
     await screen.findByText('Doctor the wire');
-    await user.click(finished());
+    await testRouter.navigate({
+      params: { key: 'MMR' },
+      search: { status: 'terminal' },
+      to: '/p/MMR/tasks',
+    } as never);
     await waitFor(() => {
-      expect(rowCount()).toBe(FINISHED_PAGE_SIZE);
+      expect(countText()).toBe(
+        `${String(FINISHED_PAGE_SIZE)} of ${String(finishedCount)} finished`,
+      );
     });
-    expect(showMore()).not.toBeNull();
+    expect(terminalLimits().at(-1)).toBe(FINISHED_PAGE_SIZE);
   });
 
-  it('orders Finished rows by completion, not by last edit', async () => {
+  it('folds finished tasks by the day they finished, latest day open, rows by completion not last edit', async () => {
     const edited = engineTask({
-      completedAt: new Date('2026-05-01T00:00:00.000Z'),
+      completedAt: new Date('2026-06-20T21:30:00.000Z'),
       id: 'MMR-3000',
       lifecycle: 'done',
       status: 'done',
@@ -467,12 +444,62 @@ describe('tasksPage Finished view windows (MMR-460)', () => {
     mockTerminalApi([...finishedTasks(3), edited]);
     await renderTasks('/p/MMR/tasks?status=terminal');
     await screen.findByText('Late edit');
-    expect(titlesIn('Done · 4')).toStrictEqual([
-      'Finished 0',
-      'Finished 1',
-      'Finished 2',
-      'Late edit',
-    ]);
+    // 23:00, 22:00, 21:30, then 21:00 UTC on 20 June: the evening of Saturday 20 June in New York.
+    const open = screen.getByRole('button', { expanded: true });
+    expect(open).toHaveTextContent('Saturday, 20 June 4');
+    const day = document.getElementById(open.getAttribute('aria-controls') ?? '') as HTMLElement;
+    expect(
+      within(day)
+        .getAllByRole('link')
+        .map((link) => link.querySelector('.block')?.textContent),
+    ).toStrictEqual(['Finished 0', 'Finished 1', 'Late edit', 'Finished 2']);
+  });
+
+  it('opens the newest day first when an abandoned task settled after the latest done one', async () => {
+    const done = engineTask({
+      completedAt: new Date('2026-06-20T15:00:00.000Z'),
+      id: 'MMR-3001',
+      lifecycle: 'done',
+      status: 'done',
+      title: 'Done earlier',
+      updatedAt: new Date('2026-06-20T15:00:00.000Z'),
+    });
+    const abandoned = engineTask({
+      id: 'MMR-3002',
+      lifecycle: 'abandoned',
+      status: 'abandoned',
+      title: 'Abandoned later',
+      updatedAt: new Date('2026-06-22T15:00:00.000Z'),
+    });
+    mockTerminalApi([done, abandoned]);
+    await renderTasks('/p/MMR/tasks?status=terminal');
+    await screen.findByRole('button', { expanded: true });
+    expect(
+      screen.getAllByRole('button', { name: /June/ }).map((day) => day.textContent),
+    ).toStrictEqual(['Monday, 22 June 1', 'Saturday, 20 June 1']);
+    expect(screen.getByRole('button', { expanded: true })).toHaveTextContent('Monday, 22 June 1');
+  });
+
+  it.each([
+    ['/p/MMR/tasks?status=done', 'done'],
+    ['/p/MMR/tasks?status=abandoned', 'abandoned'],
+    ['/p/MMR/tasks?status=done,abandoned', ['done', 'abandoned']],
+    ['/p/MMR/tasks?show=shipped-week&status=done', 'done'],
+  ])('windows a finished-only selection too: %s', async (url, status) => {
+    mockApi();
+    await renderTasks(url);
+    await waitFor(() => {
+      expect(nodeReads()).toContainEqual(
+        expect.objectContaining({ limit: FINISHED_PAGE_SIZE, status }),
+      );
+    });
+  });
+
+  it('leaves a selection with live statuses in it unbounded', async () => {
+    mockApi();
+    await renderTasks('/p/MMR/tasks?status=ready,done');
+    await screen.findByText('Doctor the wire');
+    expect(nodeReads().map((read) => read.limit)).not.toContain(FINISHED_PAGE_SIZE);
   });
 
   it('leaves the other views unbounded', async () => {
@@ -515,9 +542,595 @@ describe('tasksPage grooming chips (MMR-466)', () => {
     serveBrowse({ tasks: groomRows });
     await renderTasks();
 
-    await screen.findByRole('link', { name: 'Ready and groomed' });
-    expect(within(rowOf('Ready and groomed')).getByText('groomed')).toBeDefined();
-    expect(within(rowOf('Waiting on answers')).getByText('needs answers')).toBeDefined();
-    expect(within(rowOf('Already started')).queryByText('groomed')).toBeNull();
+    await screen.findByRole('button', { name: 'Ready and groomed' });
+    expect(within(cardOf('Ready and groomed')).getByText('groomed')).toBeDefined();
+    expect(within(cardOf('Waiting on answers')).getByText('needs answers')).toBeDefined();
+    expect(within(cardOf('Already started')).queryByText('groomed')).toBeNull();
+  });
+});
+
+describe('tasksPage presets (MMR-724)', () => {
+  // Tuesday 24 November 2026, noon in New York, the tests' browser zone: the
+  // last seven days run from Wednesday 18 November through today.
+  const NOW = Date.parse('2026-11-24T17:00:00.000Z');
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it.each<[string, Record<string, unknown>]>([
+    ['in-flight', { status: ['in_progress', 'under_review', 'staged', 'queued'] }],
+    ['ready', { status: 'ready' }],
+    ['going-cold', { status: 'live', verdicts: [{ negate: false, verdict: 'stale' }] }],
+    [
+      'shipped-week',
+      {
+        filters: [
+          { field: 'completed_at', op: 'at-or-after', value: '2026-11-18' },
+          { field: 'completed_at', op: 'at-or-before', value: '2026-11-24' },
+        ],
+        limit: FINISHED_PAGE_SIZE,
+        status: 'done',
+        timeZone: 'America/New_York',
+      },
+    ],
+  ])('?show=%s sends its own read', async (show, read) => {
+    mockApi();
+    await renderTasks(`/p/MMR/tasks?show=${show}`);
+    await waitFor(() => {
+      expect(nodeReads()).toContainEqual({ facets: ['home', 'lede'], project: 'MMR', ...read });
+    });
+  });
+
+  it.each([
+    ['in-flight', 'In flight'],
+    ['ready', 'Ready'],
+    ['going-cold', 'Going cold'],
+    ['shipped-week', 'Shipped, last 7 days'],
+  ])('?show=%s shows its chip, and removing it returns to every live task', async (show, label) => {
+    mockApi();
+    const testRouter = await renderTasks(`/p/MMR/tasks?show=${show}`);
+    const user = userEvent.setup();
+    const chip = await screen.findByRole('button', { name: `Remove ${label}` });
+    expect(chip).toHaveTextContent(label);
+
+    await user.click(chip);
+    await waitFor(() => {
+      expect(search(testRouter).show).toBeUndefined();
+    });
+    expect(screen.queryByRole('button', { name: /^Remove / })).toBeNull();
+    await waitFor(() => {
+      expect(nodeReads().at(-1)).toStrictEqual({
+        facets: ['home', 'lede'],
+        project: 'MMR',
+        status: 'live',
+      });
+    });
+    expect(screen.getByRole('searchbox', { name: 'Search tasks' })).toHaveFocus();
+  });
+
+  it('ignores a show value that names no preset, as every live task', async () => {
+    mockApi();
+    await renderTasks('/p/MMR/tasks?show=someday');
+    await screen.findByText('Doctor the wire');
+    expect(screen.queryByRole('button', { name: /^Remove / })).toBeNull();
+    expect(nodeReads()).toContainEqual({
+      facets: ['home', 'lede'],
+      project: 'MMR',
+      status: 'live',
+    });
+  });
+
+  it('marks each going-cold card stale', async () => {
+    serveBrowse({ tasks: [engineTask({ id: 'MMR-42', status: 'ready', title: 'Left alone' })] });
+    await renderTasks('/p/MMR/tasks?show=going-cold');
+    const card = (await screen.findByRole('button', { name: 'Left alone' })).closest(
+      '[data-slot="feed-card"]',
+    ) as HTMLElement;
+    expect(within(card).getByText('⧗ stale')).toBeVisible();
+  });
+
+  it('lists a queued task under in flight, as Home’s Now counts it', async () => {
+    serveListSelecting([
+      engineTask({ id: 'MMR-40', lifecycle: 'in_progress', status: 'in_progress' }),
+      engineTask({ id: 'MMR-43', status: 'queued', title: 'Reserved for a run' }),
+      engineTask({ id: 'MMR-44', status: 'ready' }),
+    ]);
+    await renderTasks('/p/MMR/tasks?show=in-flight');
+    await expect(screen.findByText('2 tasks in flight')).resolves.toBeVisible();
+    expect(groupHeadings()).toStrictEqual(['In progress 1', 'Queued 1']);
+    expect(titlesIn('Queued 1')).toStrictEqual(['Reserved for a run']);
+  });
+
+  it('says what the count line counts for each preset', async () => {
+    serveBrowse({
+      tasks: [
+        engineTask({ id: 'MMR-40', lifecycle: 'in_progress', status: 'in_progress' }),
+        engineTask({ id: 'MMR-41', status: 'under_review' }),
+      ],
+    });
+    await renderTasks('/p/MMR/tasks?show=in-flight');
+    await expect(screen.findByText('2 tasks in flight')).resolves.toBeVisible();
+  });
+});
+
+describe('tasksPage Sort (MMR-724)', () => {
+  /** Four ready tasks, listed out of every order the sorts give. */
+  const ready = [
+    engineTask({
+      id: 'MMR-80',
+      priority: 'p1',
+      status: 'ready',
+      title: 'Older p1',
+      updatedAt: new Date('2026-06-11T10:00:00.000Z'),
+    }),
+    engineTask({
+      id: 'MMR-81',
+      status: 'ready',
+      title: 'No priority',
+      updatedAt: new Date('2026-06-11T12:00:00.000Z'),
+    }),
+    engineTask({
+      id: 'MMR-82',
+      priority: 'p0',
+      status: 'ready',
+      title: 'Oldest p0',
+      updatedAt: new Date('2026-06-11T09:00:00.000Z'),
+    }),
+    engineTask({
+      id: 'MMR-83',
+      priority: 'p1',
+      status: 'ready',
+      title: 'Newer p1',
+      updatedAt: new Date('2026-06-11T11:00:00.000Z'),
+    }),
+  ];
+
+  it.each([
+    ['', ['No priority', 'Newer p1', 'Older p1', 'Oldest p0']],
+    ['?sort=oldest', ['Oldest p0', 'Older p1', 'Newer p1', 'No priority']],
+    ['?sort=priority', ['Oldest p0', 'Newer p1', 'Older p1', 'No priority']],
+  ])('orders a group by the URL’s sort%s', async (query, titles) => {
+    serveBrowse({ tasks: ready });
+    await renderTasks(`/p/MMR/tasks${query}`);
+    await screen.findByText('Oldest p0');
+    expect(titlesIn('Ready 4')).toStrictEqual(titles);
+  });
+
+  it('applies a sort from the sheet, counted under Filter', async () => {
+    serveBrowse({ tasks: ready });
+    const testRouter = await renderTasks();
+    const user = userEvent.setup();
+    await screen.findByText('Oldest p0');
+    await user.click(filterChip());
+    const sheet = await screen.findByRole('dialog', { name: 'Filter tasks' });
+    const sorts = within(sheet).getByRole('radiogroup', { name: 'Sort' });
+    await user.click(within(sorts).getByRole('radio', { name: 'Priority' }));
+    await user.click(within(sheet).getByRole('button', { name: /^Show / }));
+    await waitFor(() => {
+      expect(search(testRouter)).toEqual({ sort: 'priority' });
+    });
+    expect(titlesIn('Ready 4')).toStrictEqual(['Oldest p0', 'Newer p1', 'Older p1', 'No priority']);
+    expect(filterChip()).toHaveAccessibleName('Filter, 1 applied');
+  });
+});
+
+/** Opens the Tasks list at `url` and its Filter sheet. */
+async function openSheet(url = '/p/MMR/tasks') {
+  const testRouter = await renderTasks(url);
+  const user = userEvent.setup();
+  // The count line, which starts with its number, says the list has loaded.
+  await screen.findByText(/^\d+ (live tasks?|tasks?|shipped|finished)\b/);
+  await user.click(filterChip());
+  const sheet = await screen.findByRole('dialog', { name: 'Filter tasks' });
+  return { sheet, testRouter, user };
+}
+
+describe('tasksPage Filter sheet (MMR-724)', () => {
+  const NOW = Date.parse('2026-11-24T17:00:00.000Z');
+  const tag = (name: string) => ({ createdAt: new Date(NOW), tag: name });
+
+  /** A done task finished `daysAgo` days before NOW, carrying one tag. */
+  const finished = (id: string, daysAgo: number, name: string) =>
+    engineTask({
+      completedAt: new Date(NOW - daysAgo * 86_400_000),
+      id,
+      lifecycle: 'done',
+      status: 'done',
+      tags: [tag(name)],
+    });
+
+  /** A board for the sheet: three in flight, two ready (one cold), and two finished this week. */
+  const board: EngineNode[] = [
+    engineTask({
+      id: 'MMR-60',
+      lifecycle: 'in_progress',
+      priority: 'p0',
+      status: 'in_progress',
+      tags: [tag('console')],
+    }),
+    engineTask({ id: 'MMR-61', priority: 'p1', size: 'small', status: 'under_review' }),
+    engineTask({ id: 'MMR-62', size: 'large', status: 'staged', tags: [tag('engine')] }),
+    engineTask({ id: 'MMR-63', status: 'ready', tags: [tag('console')] }),
+    engineTask({
+      id: 'MMR-64',
+      status: 'ready',
+      verdicts: { blocking: false, orphaned: false, stale: true },
+    }),
+    engineTask({
+      completedAt: new Date(NOW - 3_600_000),
+      id: 'MMR-65',
+      lifecycle: 'done',
+      size: 'large',
+      status: 'done',
+    }),
+    engineTask({
+      completedAt: new Date(NOW - 2 * 86_400_000),
+      id: 'MMR-66',
+      lifecycle: 'done',
+      status: 'done',
+    }),
+  ];
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(NOW);
+    serveBrowse({ tasks: board });
+    serveListSelecting(board);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it.each([
+    ['In flight', 'in-flight', 'Show 3 tasks'],
+    ['Ready', 'ready', 'Show 2 tasks'],
+    ['Going cold', 'going-cold', 'Show 1 task'],
+    ['Shipped, last 7 days', 'shipped-week', 'Show 2 tasks'],
+  ])(
+    'reaches %s from the sheet, naming its count, and applies only on its button',
+    async (label, show, commit) => {
+      const { sheet, testRouter, user } = await openSheet();
+      expect(within(sheet).getByRole('radio', { name: 'Every live task' })).toBeChecked();
+
+      await user.click(within(sheet).getByRole('radio', { name: label }));
+      await expect(within(sheet).findByRole('button', { name: commit })).resolves.toBeEnabled();
+      // Nothing has applied yet.
+      expect(search(testRouter).show).toBeUndefined();
+      expect(screen.getByText('5 live tasks')).toBeVisible();
+
+      await user.click(within(sheet).getByRole('button', { name: commit }));
+      await waitFor(() => {
+        expect(search(testRouter).show).toBe(show);
+      });
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).toBeNull();
+      });
+      expect(screen.getByRole('button', { name: `Remove ${label}` })).toBeVisible();
+      expect(filterChip()).toHaveFocus();
+    },
+  );
+
+  it('opens on what applies, and narrows a preset’s statuses with the count to match', async () => {
+    const { sheet, testRouter, user } = await openSheet('/p/MMR/tasks?show=in-flight');
+    expect(within(sheet).getByRole('radio', { name: 'In flight' })).toBeChecked();
+    const statuses = within(sheet).getByRole('group', { name: 'Status' });
+    expect(
+      within(statuses)
+        .getAllByRole('checkbox')
+        .map((box) => box.getAttribute('aria-label')),
+    ).toStrictEqual(['In progress', 'Under review', 'Staged', 'Queued']);
+    expect(
+      within(statuses)
+        .getAllByRole('checkbox')
+        .every((box) => (box as HTMLInputElement).checked),
+    ).toBe(true);
+    await expect(
+      within(sheet).findByRole('button', { name: 'Show 3 tasks' }),
+    ).resolves.toBeVisible();
+
+    await user.click(within(statuses).getByRole('checkbox', { name: 'Staged' }));
+    await user.click(within(sheet).getByRole('checkbox', { name: 'p0' }));
+    const commit = await within(sheet).findByRole('button', { name: 'Show 1 task' });
+    await user.click(commit);
+    await waitFor(() => {
+      expect(search(testRouter)).toEqual({
+        priority: 'p0',
+        show: 'in-flight',
+        status: 'in_progress,under_review,queued',
+      });
+    });
+    expect(nodeReads().at(-1)).toMatchObject({
+      filters: [{ field: 'priority', op: 'in', value: 'p0' }],
+      status: ['in_progress', 'under_review', 'queued'],
+    });
+    expect(filterChip()).toHaveAccessibleName('Filter, 2 applied');
+  });
+
+  it('checks every status of a Show option it changes to, dropping the last one’s narrowing', async () => {
+    const { sheet, testRouter, user } = await openSheet(
+      '/p/MMR/tasks?show=in-flight&status=in_progress',
+    );
+    await user.click(within(sheet).getByRole('radio', { name: 'Ready' }));
+    const statuses = within(sheet).getByRole('group', { name: 'Status' });
+    expect(within(statuses).getByRole('checkbox', { name: 'Ready' })).toBeChecked();
+    await user.click(await within(sheet).findByRole('button', { name: 'Show 2 tasks' }));
+    await waitFor(() => {
+      expect(search(testRouter)).toEqual({ show: 'ready' });
+    });
+  });
+
+  it('holds its button when no status is checked', async () => {
+    const { sheet, user } = await openSheet('/p/MMR/tasks?show=ready');
+    await user.click(within(sheet).getByRole('checkbox', { name: 'Ready' }));
+    expect(within(sheet).getByRole('button', { name: 'Show 0 tasks' })).toBeDisabled();
+  });
+
+  it('names no number while a changed draft’s count loads, rather than the last draft’s', async () => {
+    const { sheet, user } = await openSheet();
+    await within(sheet).findByRole('button', { name: 'Show 5 tasks' });
+    const held = Promise.withResolvers<void>();
+    vi.mocked(list).mockImplementation(async ({ data }) => {
+      if (data.limit === 0 && data.filters !== undefined) {
+        await held.promise;
+      }
+      return answerList(board, data);
+    });
+
+    await user.click(within(sheet).getByRole('checkbox', { name: 'p0' }));
+    expect(within(sheet).getByRole('button', { name: 'Show tasks' })).toBeEnabled();
+    held.resolve();
+    await expect(
+      within(sheet).findByRole('button', { name: 'Show 1 task' }),
+    ).resolves.toBeEnabled();
+  });
+
+  it('applies a filter no task matches, which the list says so for', async () => {
+    const { sheet, testRouter, user } = await openSheet('/p/MMR/tasks?show=ready');
+    await user.click(within(sheet).getByRole('checkbox', { name: 'p0' }));
+    const commit = await within(sheet).findByRole('button', { name: 'Show 0 tasks' });
+    expect(commit).toBeEnabled();
+    await user.click(commit);
+    await waitFor(() => {
+      expect(search(testRouter)).toEqual({ priority: 'p0', show: 'ready' });
+    });
+    await expect(screen.findByText('No tasks match.')).resolves.toBeVisible();
+  });
+
+  it('Clear resets the fields without applying them', async () => {
+    const { sheet, testRouter, user } = await openSheet('/p/MMR/tasks?show=ready&size=small');
+    await user.click(within(sheet).getByRole('button', { name: 'Clear' }));
+    expect(within(sheet).getByRole('radio', { name: 'Every live task' })).toBeChecked();
+    expect(within(sheet).getByRole('checkbox', { name: 'Small' })).not.toBeChecked();
+    expect(search(testRouter)).toEqual({ show: 'ready', size: 'small' });
+    await expect(
+      within(sheet).findByRole('button', { name: 'Show 5 tasks' }),
+    ).resolves.toBeVisible();
+  });
+
+  it('closes on Escape without applying, and hands focus back to the Filter chip', async () => {
+    const { sheet, testRouter, user } = await openSheet();
+    await user.click(within(sheet).getByRole('radio', { name: 'Ready' }));
+    await user.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(filterChip()).toHaveFocus();
+    expect(search(testRouter).show).toBeUndefined();
+
+    // Opening again starts from what applies, not the draft that was left.
+    await user.click(filterChip());
+    const again = await screen.findByRole('dialog', { name: 'Filter tasks' });
+    expect(within(again).getByRole('radio', { name: 'Every live task' })).toBeChecked();
+  });
+
+  it('offers the live tasks’ tags, most used first', async () => {
+    const { sheet } = await openSheet();
+    const tags = await within(sheet).findByRole('group', { name: 'Tag' });
+    await waitFor(() => {
+      expect(
+        within(tags)
+          .getAllByRole('checkbox')
+          .map((box) => (box as HTMLInputElement).value),
+      ).toStrictEqual(['console', 'engine']);
+    });
+  });
+
+  it('offers the tags of the tasks its Show option holds, the newest finished window for finished work', async () => {
+    const shipped = engineTask({
+      completedAt: new Date(NOW - 3_600_000),
+      id: 'MMR-67',
+      lifecycle: 'done',
+      status: 'done',
+      tags: [tag('release')],
+    });
+    serveListSelecting([...board, shipped]);
+    const { sheet, user } = await openSheet();
+    const offered = async () =>
+      within(await within(sheet).findByRole('group', { name: 'Tag' }))
+        .getAllByRole('checkbox')
+        .map((box) => (box as HTMLInputElement).value);
+    await waitFor(async () => {
+      await expect(offered()).resolves.toStrictEqual(['console', 'engine']);
+    });
+
+    await user.click(within(sheet).getByRole('radio', { name: 'Shipped, last 7 days' }));
+    await waitFor(async () => {
+      await expect(offered()).resolves.toStrictEqual(['release']);
+    });
+    expect(nodeReads()).toContainEqual(
+      expect.objectContaining({ facets: ['tags'], limit: FINISHED_PAGE_SIZE, status: 'done' }),
+    );
+  });
+
+  it('caps the finished part of a mixed live and finished selection’s tags read (kody-11)', async () => {
+    const shipped = engineTask({
+      completedAt: new Date(NOW - 3_600_000),
+      id: 'MMR-67',
+      lifecycle: 'done',
+      status: 'done',
+      tags: [tag('release')],
+    });
+    serveListSelecting([...board, shipped]);
+    const { sheet } = await openSheet('/p/MMR/tasks?status=live,done');
+    const offered = async () =>
+      within(await within(sheet).findByRole('group', { name: 'Tag' }))
+        .getAllByRole('checkbox')
+        .map((box) => (box as HTMLInputElement).value);
+    await waitFor(async () => {
+      await expect(offered()).resolves.toStrictEqual(['console', 'engine', 'release']);
+    });
+    const tagReads = nodeReads().filter((read) => read.facets?.[0] === 'tags');
+    expect(tagReads).toContainEqual(
+      expect.objectContaining({ facets: ['tags'], limit: FINISHED_PAGE_SIZE, status: 'done' }),
+    );
+    expect(tagReads.filter((read) => read.limit === undefined)).not.toHaveLength(0);
+    expect(tagReads.every((read) => read.status !== 'done' || read.limit === 50)).toBe(true);
+  });
+
+  it('offers shipped-week only the tags of tasks finished inside its window (kody-12)', async () => {
+    serveListSelecting([finished('MMR-70', 10, 'old'), finished('MMR-71', 1, 'new')]);
+    const { sheet } = await openSheet('/p/MMR/tasks?show=shipped-week');
+    const tags = await within(sheet).findByRole('group', { name: 'Tag' });
+    await waitFor(() => {
+      expect(
+        within(tags)
+          .getAllByRole('checkbox')
+          .map((box) => (box as HTMLInputElement).value),
+      ).toStrictEqual(['new']);
+    });
+  });
+
+  it('folds shipped-week by day, latest day open, with no status headings', async () => {
+    await renderTasks('/p/MMR/tasks?show=shipped-week');
+    await screen.findByText('2 shipped in the last 7 days');
+    expect(screen.queryAllByRole('heading', { level: 2 })).toStrictEqual([]);
+    expect(screen.getByRole('button', { expanded: true })).toHaveTextContent('Today 1');
+    expect(
+      screen.getByRole('button', { expanded: false, name: /^Sunday, 22 November/ }),
+    ).toHaveTextContent('Sunday, 22 November 1');
+    expect(screen.getByRole('link', { name: /MMR-65|task MMR-65/ })).toHaveAttribute(
+      'href',
+      '/p/MMR/65',
+    );
+  });
+
+  it('offers only Done as shipped-week’s status, since the preset is done tasks alone', async () => {
+    const { sheet, user } = await openSheet();
+    await user.click(within(sheet).getByRole('radio', { name: 'Shipped, last 7 days' }));
+    const statuses = within(sheet).getByRole('group', { name: 'Status' });
+    expect(
+      within(statuses)
+        .getAllByRole('checkbox')
+        .map((box) => box.getAttribute('aria-label')),
+    ).toStrictEqual(['Done']);
+  });
+
+  it('keeps a link’s status selector the sheet cannot spell, under the filters it adds', async () => {
+    const { sheet, testRouter, user } = await openSheet('/p/MMR/tasks?status=terminal');
+    // No Show option holds the finished tasks, so none is checked, and they fold by day.
+    for (const radio of within(sheet).getAllByRole('radio')) {
+      expect(radio).not.toBeChecked();
+    }
+    expect(within(sheet).queryByRole('group', { name: 'Status' })).toBeNull();
+    expect(within(sheet).queryByRole('radiogroup', { name: 'Sort' })).toBeNull();
+    await expect(
+      within(sheet).findByRole('button', { name: 'Show 2 tasks' }),
+    ).resolves.toBeEnabled();
+
+    await user.click(within(sheet).getByRole('checkbox', { name: 'Large' }));
+    await user.click(await within(sheet).findByRole('button', { name: 'Show 1 task' }));
+    await waitFor(() => {
+      expect(search(testRouter)).toEqual({ size: 'large', status: 'terminal' });
+    });
+    expect(screen.getByRole('button', { name: 'Remove Finished' })).toBeVisible();
+    expect(filterChip()).toHaveAccessibleName('Filter, 1 applied');
+  });
+
+  it('counts a narrowing of every live task under Filter, with no chip of its own', async () => {
+    const { sheet, testRouter, user } = await openSheet();
+    const statuses = within(sheet).getByRole('group', { name: 'Status' });
+    await user.click(within(statuses).getByRole('checkbox', { name: 'Ready' }));
+    await user.click(await within(sheet).findByRole('button', { name: 'Show 3 tasks' }));
+    await waitFor(() => {
+      expect(search(testRouter)).toEqual({
+        status: 'in_progress,under_review,staged,queued,awaiting,blocked,parked',
+      });
+    });
+    expect(screen.queryByRole('button', { name: /^Remove / })).toBeNull();
+    expect(filterChip()).toHaveAccessibleName('Filter, 1 applied');
+
+    // Opening again shows the narrowing where it was made.
+    await user.click(filterChip());
+    const again = await screen.findByRole('dialog', { name: 'Filter tasks' });
+    expect(within(again).getByRole('radio', { name: 'Every live task' })).toBeChecked();
+    expect(within(again).getByRole('checkbox', { name: 'Ready' })).not.toBeChecked();
+  });
+
+  it('reads a deep-linked union with live in it as every live task, so a filter it adds keeps them all', async () => {
+    const large = [
+      engineTask({ id: 'MMR-70', size: 'large', status: 'ready', title: 'Large ready' }),
+      engineTask({ id: 'MMR-71', size: 'large', status: 'blocked', title: 'Large blocked' }),
+    ];
+    serveBrowse({ tasks: large });
+    serveListSelecting(large);
+    const { sheet, testRouter, user } = await openSheet('/p/MMR/tasks?status=live,ready');
+    const statuses = within(sheet).getByRole('group', { name: 'Status' });
+    expect(
+      within(statuses)
+        .getAllByRole('checkbox')
+        .every((box) => (box as HTMLInputElement).checked),
+    ).toBe(true);
+
+    await user.click(within(sheet).getByRole('checkbox', { name: 'Large' }));
+    await user.click(await within(sheet).findByRole('button', { name: 'Show 2 tasks' }));
+    await waitFor(() => {
+      expect(search(testRouter)).toEqual({ size: 'large' });
+    });
+    await expect(screen.findByText('Large blocked')).resolves.toBeVisible();
+    expect(screen.getByText('Large ready')).toBeVisible();
+    expect(filterChip()).toHaveAccessibleName('Filter, 1 applied');
+  });
+
+  it('counts a deep-linked union with live in it as live tasks, as its draft reads it', async () => {
+    const live = [
+      engineTask({ id: 'MMR-70', status: 'ready', title: 'A ready one' }),
+      engineTask({ id: 'MMR-71', status: 'blocked', title: 'A blocked one' }),
+    ];
+    serveBrowse({ tasks: live });
+    serveListSelecting(live);
+    await renderTasks('/p/MMR/tasks?status=live,ready');
+    await expect(screen.findByText('2 live tasks')).resolves.toBeVisible();
+  });
+
+  it('leaves a sort out of the URL once Show picks finished work, which takes none', async () => {
+    const { sheet, testRouter, user } = await openSheet('/p/MMR/tasks?sort=priority');
+    await user.click(within(sheet).getByRole('radio', { name: 'Shipped, last 7 days' }));
+    await user.click(await within(sheet).findByRole('button', { name: 'Show 2 tasks' }));
+    await waitFor(() => {
+      expect(search(testRouter)).toEqual({ show: 'shipped-week' });
+    });
+  });
+
+  it.each(['?show=shipped-week&sort=priority', '?status=terminal&sort=oldest'])(
+    'counts no sort under Filter for finished work, which takes none (%s)',
+    async (query) => {
+      await renderTasks(`/p/MMR/tasks${query}`);
+      await screen.findByText(/shipped in the last 7 days|finished/);
+      expect(filterChip()).toHaveAccessibleName('Filter');
+    },
+  );
+
+  it('offers no Sort for finished work, which folds by day', async () => {
+    const { sheet, user } = await openSheet();
+    expect(within(sheet).getByRole('radiogroup', { name: 'Sort' })).toBeVisible();
+    await user.click(within(sheet).getByRole('radio', { name: 'Shipped, last 7 days' }));
+    expect(within(sheet).queryByRole('radiogroup', { name: 'Sort' })).toBeNull();
   });
 });
