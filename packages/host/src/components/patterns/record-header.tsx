@@ -147,8 +147,10 @@ function RecordTrail({ steps }: { steps: readonly TrailStep[] }) {
               className={cn(
                 TRAIL_LINK,
                 index === 0 && 'shrink-0',
-                middle && 'shrink-[1000]',
-                parent && 'shrink',
+                middle && 'shrink',
+                // A sliver of shrink would already ellipsize the parent, so it
+                // holds while a middle step can still give way.
+                parent && (middles > 0 && !folded && !expanded ? 'shrink-0' : 'shrink'),
               )}
             >
               <span className="truncate">{step.label}</span>
