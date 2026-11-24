@@ -1,8 +1,9 @@
 import { QueryClient } from '@tanstack/react-query';
-import { act, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { groom } from '../api/fns/nodes';
 import type { ReviewReport } from '../api/view-queries';
 import { readMark } from '../lib/walkthrough-mark';
 import { consoleRoutes } from '../router';
@@ -68,7 +69,7 @@ async function openPage(served: ReviewReport) {
       await client.invalidateQueries();
     });
   };
-  return { ...view, refetch };
+  return { ...view, client, refetch, world };
 }
 
 const bar = () => screen.getByRole('link', { name: /^Work through/u });
@@ -78,6 +79,15 @@ describe('the list', () => {
   it('heads the page with its title and how many cards and items in how many projects', async () => {
     await openPage(SET);
     expect(screen.getByText('4 cards, 5 items in 2 projects.')).toBeVisible();
+  });
+
+  it('counts the set’s records in the head and the bar, and its cards’ records in the section', async () => {
+    // A queue member with no row in the report makes no card, but is still an item to work through.
+    const one = report([question('MMR-731')], { names: NAMES });
+    await openPage({ ...one, queue: [...one.queue, { ...one.queue[0]!, id: 'MMR-99' }] });
+    expect(screen.getByText('1 card, 2 items in 1 project.')).toBeVisible();
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Mimir 1 card, 1 item');
+    expect(bar()).toHaveAccessibleName('Work through all 2');
   });
 
   it('reads one card, one item, and one project in the singular', async () => {
@@ -177,6 +187,41 @@ describe('cards that leave', () => {
     expect(quietLine).toHaveFocus();
     expect(screen.queryByRole('link', { name: /^Work through/u })).toBeNull();
     expect(screen.queryByText(/in \d+ projects?\./u)).toBeNull();
+  });
+
+  it('leaves focus where it is when the set empties again after the bar’s focus went to the quiet line', async () => {
+    const { refetch } = await openPage(report([question('MMR-731')], { names: NAMES }));
+    bar().focus();
+    await refetch(report([], { names: NAMES }));
+    await waitFor(() => expect(screen.getByText('Nothing needs you.')).toHaveFocus());
+    await refetch(report([question('MMR-731')], { names: NAMES }));
+    await screen.findByRole('link', { name: /^Work through/u });
+    screen.getByRole('main').focus();
+    await refetch(report([], { names: NAMES }));
+    await screen.findByText('Nothing needs you.');
+    expect(screen.getByRole('main')).toHaveFocus();
+  });
+});
+
+describe('the answer dialog’s return', () => {
+  it('goes to the next card in the old order when the answer took the card out, though the press focused nothing', async () => {
+    // Old order: FLT-1 | MMR-10, MMR-7. MMR-10 leaves; its successor is MMR-7, not the first card FLT-1.
+    const { client, world } = await openPage(
+      report([blocked('FLT-1'), question('MMR-10'), blocked('MMR-7')], { names: NAMES }),
+    );
+    vi.mocked(groom).mockImplementation(async () => {
+      world.review = report([blocked('FLT-1'), blocked('MMR-7')], { names: NAMES });
+      await client.invalidateQueries();
+      return [] as never;
+    });
+    // Safari's click does not focus the button it presses.
+    fireEvent.click(target('Answer MMR-10'));
+    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
+    await userEvent.type(within(dialog).getByRole('textbox'), 'In the manifest.');
+    await userEvent.click(within(dialog).getAllByRole('radio')[0]!);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(target('Task MMR-7')).toHaveFocus());
   });
 });
 

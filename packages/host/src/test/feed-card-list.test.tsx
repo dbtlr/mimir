@@ -137,6 +137,28 @@ describe('cards that leave', () => {
     expect(target('F-3')).toHaveFocus();
   });
 
+  it('moves no focus when the card that focus let go of leaves', async () => {
+    const { refetch } = await renderList(sections(['Fleet', ['A', 'B', 'C']]));
+    target('B').focus();
+    // A press on the page's background lets focus go to the body.
+    act(() => {
+      target('B').blur();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    refetch(sections(['Fleet', ['A', 'C']]));
+    expect(document.body).toHaveFocus();
+  });
+
+  it('keeps focus in a card that stays but lost its button, on that card’s target', async () => {
+    const clear: CardAction = { kind: 'write', label: 'Clear stop', name: 'Clear stop B', run: vi.fn() };
+    const { refetch } = await renderList(sections(['Fleet', ['A', card('B', clear), 'C']]));
+    screen.getByRole('button', { name: 'Clear stop B' }).focus();
+    refetch(sections(['Fleet', ['A', 'B', 'C']]));
+    expect(target('B')).toHaveFocus();
+  });
+
   it('falls to the quiet line, which takes the focus the last card held', async () => {
     const { refetch } = await renderList(sections(['Fleet', ['F-1']]));
     target('F-1').focus();
