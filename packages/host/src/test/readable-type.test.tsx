@@ -162,7 +162,15 @@ const DECORATION: Record<string, { count: number; why: string }> = {
     count: 2,
     why: 'the trigger chevron and the search icon beside the input',
   },
+  'components/ui/combobox.tsx': {
+    count: 2,
+    why: 'a disabled field’s trigger chevron, which keeps that ink on hover (quiet disabled, MMR-777)',
+  },
   'components/ui/command.tsx': { count: 1, why: 'the search icon beside the input' },
+  'components/ui/input.tsx': {
+    count: 1,
+    why: 'a disabled field’s glyph, such as a Select chevron (quiet disabled, MMR-777)',
+  },
   'routes/artifact.tsx': { count: 1, why: 'the › separator between crumbs' },
   'routes/kit.tsx': { count: 2, why: 'the ink swatches name each token' },
   'routes/seed.tsx': { count: 1, why: 'the › separator between crumbs' },

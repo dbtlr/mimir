@@ -17,7 +17,7 @@ import type { ComponentProps, ReactNode } from 'react';
 
 import { mergeClassName } from './class-name';
 import { FIELD_LABEL_CLASS } from './field';
-import { CONTROL_EDGE_CLASS, TEXT_FIELD_CLASS } from './input';
+import { CONTROL_EDGE_CLASS, QUIET_DISABLED_FIELD_CLASS, TEXT_FIELD_CLASS } from './input';
 import {
   PICKER_CHECK_CLASS,
   PICKER_EMPTY_CLASS,
@@ -60,7 +60,7 @@ export function ComboboxTrigger({
     <SdkComboboxTrigger
       aria-label="Show options"
       className={mergeClassName(
-        'group/trigger absolute top-1/2 right-1 flex size-9 -translate-y-1/2 items-center justify-center rounded text-ink-dim outline-none hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent data-[disabled]:opacity-50',
+        'group/trigger absolute top-1/2 right-1 flex size-9 -translate-y-1/2 items-center justify-center rounded text-ink-dim outline-none hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent data-[disabled]:cursor-not-allowed data-[disabled]:text-ink-faint data-[disabled]:hover:text-ink-faint',
         className,
       )}
       {...props}
@@ -96,7 +96,8 @@ export function ComboboxButton({
     <SdkComboboxTrigger
       className={mergeClassName(
         CONTROL_EDGE_CLASS,
-        'inline-flex h-11 w-full min-w-0 items-center justify-between gap-3 px-3 text-left data-[open]:border-accent data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40',
+        'inline-flex h-11 w-full min-w-0 items-center justify-between gap-3 px-3 text-left data-[open]:border-accent',
+        QUIET_DISABLED_FIELD_CLASS,
         className,
       )}
       {...props}
@@ -206,7 +207,7 @@ export function ComboboxChipsInput({
   return (
     <SdkComboboxInput
       className={mergeClassName(
-        'min-w-24 flex-1 bg-transparent py-1 text-[15px] text-ink-bright outline-none placeholder:text-ink-dim data-[disabled]:cursor-not-allowed',
+        'min-w-24 flex-1 bg-transparent py-1 text-[15px] text-ink-bright outline-none placeholder:text-ink-dim data-[disabled]:cursor-not-allowed data-[disabled]:text-ink-dim',
         className,
       )}
       {...props}

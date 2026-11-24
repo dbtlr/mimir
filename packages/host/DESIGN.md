@@ -158,6 +158,16 @@ All existing (`styles.css`), except `sheet-seam`, **adopted (MMR-720)**. Rules:
   exempt from the 3:1 edge rule, but their label still meets 4.5:1
   (**adopted (MMR-743)**, `QUIET_DISABLED` in `action-button.tsx`; an
   outline button, a hairline already, still fades to 40%).
+- **A disabled field is quiet too, so its value still reads.** A disabled
+  Input, Textarea, Token Input, Select trigger, or Combobox keeps its
+  `well-950` ground and draws its value in `ink-dim` at full opacity (7.2:1
+  dark, 5.2:1 light on `well-950`). Its edge drops to `ink-ghost`, hover
+  included (2.5:1 dark, 2.3:1 light on `well-850`), its chevron to
+  `ink-faint`, and the cursor is not-allowed. An invalid one keeps its
+  `status-blocked` edge. The 40% and 50% fades it
+  replaced took a Select's value to about 2.4:1 on light (**adopted
+  (MMR-777)**, `QUIET_DISABLED_FIELD_CLASS` in `input.tsx`). A checkbox,
+  radio, or switch shows no value text and still fades.
 - **Surfaces, from deepest to most raised**: `well-950` (top bar, input
   ground), `well-900` (page), `well-850` (card, panel, menu), `well-800`
   (nested block). Depth is tone, not shadow, in dark; light adds the
