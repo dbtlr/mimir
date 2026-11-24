@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import type { ReviewReport } from '../api/view-queries';
 import type { NeedsYouWrites } from '../components/needs-you-cards';
 import { NeedsYouDeckView } from '../components/needs-you-deck-view';
+import { needsYouSections } from '../components/needs-you-deck-model';
 import { NeedsYouListView } from '../components/needs-you-list';
 import { toast } from '../components/patterns/notice';
 import { Reason } from '../components/patterns/reason';
@@ -370,6 +371,7 @@ function useNeedsYouFixture(only: readonly string[] | undefined) {
  */
 export function NeedsYouDeckDemo({ only }: { only?: readonly string[] }) {
   const { answer, controls, offline, report, writes } = useNeedsYouFixture(only);
+  const sections = useMemo(() => needsYouSections(report), [report]);
   return (
     <Answering.Provider value={answer}>
       <div className="flex flex-col gap-3" data-kit="needs-you-deck">
@@ -397,11 +399,12 @@ export function NeedsYouDeckKit() {
 /** The grouped card list over the fixture, as the Needs you page lists it, and its controls. */
 export function NeedsYouListDemo({ only }: { only?: readonly string[] }) {
   const { answer, controls, offline, report, writes } = useNeedsYouFixture(only);
+  const sections = useMemo(() => needsYouSections(report), [report]);
   return (
     <Answering.Provider value={answer}>
       <div className="flex flex-col gap-3" data-kit="needs-you-list">
         {controls}
-        <NeedsYouListView report={report} writes={writes} offline={offline} />
+        <NeedsYouListView sections={sections} writes={writes} offline={offline} />
       </div>
     </Answering.Provider>
   );

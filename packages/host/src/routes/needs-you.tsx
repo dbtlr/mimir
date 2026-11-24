@@ -4,9 +4,9 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
 import { reviewQuery } from '../api/view-queries';
-import type { ReviewReport } from '../api/view-queries';
 import { useConsoleNeedsYouWrites } from '../components/needs-you-deck';
 import { needsYouSections } from '../components/needs-you-deck-model';
+import type { NeedsYouSection } from '../components/needs-you-deck-model';
 import { NeedsYouListView, counted } from '../components/needs-you-list';
 import type { NeedsYouListHandle } from '../components/needs-you-list';
 import { OfflineBanner } from '../components/offline-banner';
@@ -33,10 +33,9 @@ export const NEEDS_YOU_PATH = '/needs-you';
 export const WORK_THROUGH_ENTRY = 'needs-you:work-through';
 
 /** "4 cards, 5 items in 2 projects." */
-function summary(report: ReviewReport): string {
-  const sections = needsYouSections(report);
+function summary(sections: readonly NeedsYouSection[], records: number): string {
   const cards = sections.reduce((sum, section) => sum + section.cards.length, 0);
-  return `${counted(cards, 'card')}, ${counted(report.queue.length, 'item')} in ${counted(sections.length, 'project')}.`;
+  return `${counted(cards, 'card')}, ${counted(records, 'item')} in ${counted(sections.length, 'project')}.`;
 }
 
 /** Whether the scroller has more below its view: the bar's top edge is then the overflow cue. */
@@ -130,10 +129,8 @@ export function NeedsYouPage() {
   const continues = useContinues(scroller);
   const report = review.data;
   const records = report?.queue.length ?? 0;
-  const empty = useMemo(
-    () => report === undefined || needsYouSections(report).length === 0,
-    [report],
-  );
+  const sections = useMemo(() => (report === undefined ? [] : needsYouSections(report)), [report]);
+  const empty = sections.length === 0;
 
   useLayoutEffect(() => {
     if (empty && barFocused.current) {
@@ -164,10 +161,10 @@ export function NeedsYouPage() {
           <header className={cn('mb-8', !empty && 'border-b border-line pb-5')}>
             <h1 className="m-0 text-page leading-9 font-bold text-ink-bright">Needs you</h1>
             {!empty && (
-              <p className="mt-1 mb-0 max-w-[62ch] text-body text-ink">{summary(report)}</p>
+              <p className="mt-1 mb-0 max-w-[62ch] text-body text-ink">{summary(sections, records)}</p>
             )}
           </header>
-          <NeedsYouListView ref={list} report={report} writes={writes} offline={conn.offline} />
+          <NeedsYouListView ref={list} sections={sections} writes={writes} offline={conn.offline} />
         </div>
       </main>
       {!empty && (
