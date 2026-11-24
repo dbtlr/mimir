@@ -14,7 +14,8 @@ import { RecordPending } from '../components/record-layout';
 import { actionButtonVariants } from '../components/ui/action-button';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
-import { RETURN_TARGET_ATTRIBUTE, markState } from '../lib/walkthrough-mark';
+import { RETURN_TARGET_ATTRIBUTE } from '../lib/return-target';
+import { markState } from '../lib/walkthrough-mark';
 
 /*
  * `/needs-you` — the Needs you page (ADR 0013 and ADR 0019, MMR-723

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode, RefObject } from 'react';
 
-import { RETURN_TARGET_ATTRIBUTE } from '../../../lib/walkthrough-mark';
+import { RETURN_TARGET_ATTRIBUTE } from '../../../lib/return-target';
 import { ActionButton } from '../../ui/action-button';
 import type { Preview } from './preview-panel';
 

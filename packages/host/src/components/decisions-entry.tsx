@@ -2,7 +2,8 @@ import { Link } from '@tanstack/react-router';
 
 import { cn } from '../lib/cn';
 import { deliveryLink } from '../lib/record-url';
-import { RETURN_TARGET_ATTRIBUTE, markState, useOpenerPath } from '../lib/walkthrough-mark';
+import { RETURN_TARGET_ATTRIBUTE } from '../lib/return-target';
+import { markState, useOpenerPath } from '../lib/walkthrough-mark';
 
 /** The decisions an entry opens: a delivery's, or a project's that name no delivery. */
 export type EntrySet = { kind: 'delivery'; id: string } | { kind: 'project'; key: string };
