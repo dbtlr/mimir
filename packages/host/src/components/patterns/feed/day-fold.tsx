@@ -11,7 +11,8 @@ import type { FeedLink } from './link';
  * Day folds (ADR 0019, MMR-719 refinement): finished work grouped by day,
  * newest first, each day a disclosure on the Collapsible primitive that opens
  * at once, with only the latest day open. A day shows `cap` rows, then a Show N
- * more that reveals the rest in place.
+ * more that reveals the rest in place; a row that holds focus stays shown when
+ * a refetch pushes it past the cap.
  */
 
 /**
@@ -115,7 +116,11 @@ export function DayFold({
    * focus on it) attached to its own record.
    */
   rows: readonly ReactElement[];
-  /** Rows shown before Show N more. */
+  /**
+   * Rows shown before Show N more. A row that holds focus, pushed past the cap
+   * by a refetch, stays shown with the rows above it until focus leaves the
+   * fold.
+   */
   cap: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -123,22 +128,34 @@ export function DayFold({
   const [expanded, setExpanded] = useState(false);
   const listRef = useRef<HTMLUListElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const justExpanded = useRef(false);
-  const shown = expanded ? rows : rows.slice(0, cap);
+  // How many rows were shown when Show N more was pressed, until the effect
+  // below moves focus past them; null otherwise.
+  const shownWhenPressed = useRef<number | null>(null);
+  // The key of the row that holds focus. A refetch that adds newer rows pushes
+  // the rest down; the shown rows reach as far as the focused one, so it stays
+  // mounted and focus stays on it rather than falling to the page.
+  const [focusedKey, setFocusedKey] = useState<ReactElement['key']>(null);
+  const focusedAt = rows.findIndex((row) => focusedKey !== null && row.key === focusedKey);
+  // A refetch that drops the focused row ends its hold, so the record's return
+  // in a later refetch does not show it past the cap with nothing focused.
+  if (focusedKey !== null && focusedAt === -1) {
+    setFocusedKey(null);
+  }
+  const shown = expanded ? rows : rows.slice(0, Math.max(cap, focusedAt + 1));
   const hidden = rows.length - shown.length;
   // Show N more unmounts as it is pressed, which would drop focus to the page;
   // hand it to the first row it revealed.
   useEffect(() => {
-    if (expanded && justExpanded.current) {
-      justExpanded.current = false;
+    if (expanded && shownWhenPressed.current !== null) {
       // The first revealed row that holds something focusable; when none
       // does, the fold's trigger, so focus never falls to the page.
-      const revealed = [...(listRef.current?.children ?? [])].slice(cap);
+      const revealed = [...(listRef.current?.children ?? [])].slice(shownWhenPressed.current);
+      shownWhenPressed.current = null;
       if (!revealed.some((row) => focusFirst(row))) {
         triggerRef.current?.focus();
       }
     }
-  }, [expanded, cap]);
+  }, [expanded]);
   return (
     <Collapsible
       open={open}
@@ -156,17 +173,48 @@ export function DayFold({
         {label}{' '}
         <span className="text-meta font-normal text-ink-dim">{count.toLocaleString('en-US')}</span>
       </CollapsibleTrigger>
-      <CollapsiblePanel animated={false}>
+      <CollapsiblePanel
+        animated={false}
+        // The hold lasts while focus stays in the fold: moving to Show N more
+        // keeps the row, so the button neither shifts under a press nor
+        // changes its label under focus.
+        onBlur={(event) => {
+          // The window losing focus (switching apps or tabs) blurs the link
+          // with no relatedTarget; keep the row, so focus returns to it when
+          // the window does.
+          if (event.relatedTarget === null && !document.hasFocus()) {
+            return;
+          }
+          if (!event.currentTarget.contains(event.relatedTarget)) {
+            setFocusedKey(null);
+          }
+        }}
+      >
         <ul ref={listRef} className="m-0 list-none divide-y divide-line p-0">
           {shown.map((row) => (
-            <li key={row.key}>{row}</li>
+            // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- it only notes which row holds focus; the row's own link stays the control
+            <li
+              key={row.key}
+              onFocus={() => {
+                setFocusedKey(row.key);
+              }}
+            >
+              {row}
+            </li>
           ))}
         </ul>
         {hidden > 0 && (
           <button
             type="button"
+            // A mouse press leaves focus where it is. Otherwise the press
+            // blurs a held row (to the page in Safari and Firefox, or out of
+            // another day's fold), the row lets go, and the button moves up
+            // a row before the click lands. The reveal moves focus after.
+            onMouseDown={(event) => {
+              event.preventDefault();
+            }}
             onClick={() => {
-              justExpanded.current = true;
+              shownWhenPressed.current = shown.length;
               setExpanded(true);
             }}
             // Pulled 4 left like the rows, then indented to the titles' left

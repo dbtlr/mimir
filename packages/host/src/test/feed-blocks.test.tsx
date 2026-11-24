@@ -1,7 +1,7 @@
-import { screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { FeedCard } from '../components/patterns/feed/card';
 import { CardGrid } from '../components/patterns/feed/card-grid';
@@ -270,6 +270,29 @@ function finished(id: string, title: string, time: string, note?: string) {
   );
 }
 
+/** One open day, "Today", holding `rows`. */
+function todayOf(rows: ReturnType<typeof finished>[]) {
+  return [{ count: rows.length, key: 'today', label: 'Today', rows }];
+}
+
+/**
+ * A day capped at 2 whose focused row, Loom 0.20, a refetch has pushed to
+ * third: it is held past the cap, with Show 1 more below it.
+ */
+async function renderHeldPastCap() {
+  const first = finished('MMR-718', 'Readable type', '08:06');
+  const second = finished('MMR-746', 'Loom 0.20', '04:40');
+  const third = finished('MMR-697', 'MCP hints', '03:10');
+  const { rerender } = await renderInRouter(
+    <DayFolds days={todayOf([first, second, third])} cap={2} />,
+  );
+  const link = screen.getByRole('link', { name: 'Done: Loom 0.20 04:40' });
+  link.focus();
+  const newer = finished('MMR-750', 'Newer', '09:30');
+  rerender(<DayFolds days={todayOf([newer, first, second, third])} cap={2} />);
+  return { first, link, newer, rerender, second, third };
+}
+
 describe('feed day folds', () => {
   const days = [
     {
@@ -335,6 +358,139 @@ describe('feed day folds', () => {
     rerender(<DayFolds days={day([finished('MMR-750', 'Newer', '09:30'), older])} cap={3} />);
     expect(document.activeElement).toHaveAccessibleName('Done: Readable type 08:06');
     expect(document.activeElement).toHaveAttribute('href', '/p/MMR/718');
+  });
+
+  it('keeps a focused row shown, and focused, when a refetch pushes it past the cap', async () => {
+    const day = (rows: ReturnType<typeof finished>[]) => [
+      { count: rows.length, key: 'today', label: 'Today', rows },
+    ];
+    const first = finished('MMR-718', 'Readable type', '08:06');
+    const second = finished('MMR-746', 'Loom 0.20', '04:40');
+    const third = finished('MMR-697', 'MCP hints', '03:10');
+    const { rerender } = await renderInRouter(
+      <DayFolds days={day([first, second, third])} cap={2} />,
+    );
+    screen.getByRole('link', { name: 'Done: Loom 0.20 04:40' }).focus();
+    rerender(
+      <DayFolds
+        days={day([finished('MMR-750', 'Newer', '09:30'), first, second, third])}
+        cap={2}
+      />,
+    );
+    expect(document.activeElement).toHaveAccessibleName('Done: Loom 0.20 04:40');
+    expect(screen.getByRole('button', { name: 'Show 1 more' })).toBeVisible();
+  });
+
+  it('keeps a row held past the cap shown when the window loses focus', async () => {
+    const day = (rows: ReturnType<typeof finished>[]) => [
+      { count: rows.length, key: 'today', label: 'Today', rows },
+    ];
+    const first = finished('MMR-718', 'Readable type', '08:06');
+    const second = finished('MMR-746', 'Loom 0.20', '04:40');
+    const third = finished('MMR-697', 'MCP hints', '03:10');
+    const { rerender } = await renderInRouter(
+      <DayFolds days={day([first, second, third])} cap={2} />,
+    );
+    const link = screen.getByRole('link', { name: 'Done: Loom 0.20 04:40' });
+    link.focus();
+    rerender(
+      <DayFolds
+        days={day([finished('MMR-750', 'Newer', '09:30'), first, second, third])}
+        cap={2}
+      />,
+    );
+    // Switching away fires focusout with no relatedTarget while the document
+    // no longer has focus; the element keeps focus for when the window returns.
+    const hasFocus = vi.spyOn(document, 'hasFocus').mockReturnValue(false);
+    try {
+      fireEvent.focusOut(link, { relatedTarget: null });
+    } finally {
+      hasFocus.mockRestore();
+    }
+    expect(screen.getByRole('link', { name: 'Done: Loom 0.20 04:40' })).toBe(link);
+    expect(screen.getByRole('button', { name: 'Show 1 more' })).toBeVisible();
+  });
+
+  it('lets a row held past the cap go when focus leaves it within the page', async () => {
+    const day = (rows: ReturnType<typeof finished>[]) => [
+      { count: rows.length, key: 'today', label: 'Today', rows },
+    ];
+    const first = finished('MMR-718', 'Readable type', '08:06');
+    const second = finished('MMR-746', 'Loom 0.20', '04:40');
+    const third = finished('MMR-697', 'MCP hints', '03:10');
+    const { rerender } = await renderInRouter(
+      <DayFolds days={day([first, second, third])} cap={2} />,
+    );
+    screen.getByRole('link', { name: 'Done: Loom 0.20 04:40' }).focus();
+    rerender(
+      <DayFolds
+        days={day([finished('MMR-750', 'Newer', '09:30'), first, second, third])}
+        cap={2}
+      />,
+    );
+    act(() => {
+      screen.getByRole('button', { name: 'Today 4' }).focus();
+    });
+    expect(screen.queryByRole('link', { name: 'Done: Loom 0.20 04:40' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Show 2 more' })).toBeVisible();
+  });
+
+  it('keeps a row held past the cap when Tab moves from it to Show N more', async () => {
+    await renderHeldPastCap();
+    await userEvent.tab();
+    expect(document.activeElement).toHaveAccessibleName('Show 1 more');
+    expect(screen.getByRole('link', { name: 'Done: Loom 0.20 04:40' })).toBeVisible();
+  });
+
+  it('reveals the rest on the first mouse press of Show N more while a row is held', async () => {
+    await renderHeldPastCap();
+    const user = userEvent.setup();
+    const more = screen.getByRole('button', { name: 'Show 1 more' });
+    await user.pointer({ keys: '[MouseLeft>]', target: more });
+    expect(more).toHaveAccessibleName('Show 1 more');
+    expect(screen.getAllByRole('link')).toHaveLength(3);
+    await user.pointer({ keys: '[/MouseLeft]', target: more });
+    expect(screen.getAllByRole('link')).toHaveLength(4);
+    expect(screen.queryByRole('button', { name: /^Show/ })).toBeNull();
+  });
+
+  it('leaves focus on a held row through a mouse press on Show N more', async () => {
+    const { link } = await renderHeldPastCap();
+    const more = screen.getByRole('button', { name: 'Show 1 more' });
+    // A press that moved focus would blur the held row before the click: to
+    // the page in Safari and Firefox, or out of the fold from another day.
+    expect(fireEvent.mouseDown(more)).toBe(false);
+    expect(document.activeElement).toBe(link);
+    expect(screen.getAllByRole('link')).toHaveLength(3);
+  });
+
+  it('moves focus to the row Show N more reveals, not the held row before it', async () => {
+    await renderHeldPastCap();
+    await userEvent.tab();
+    await userEvent.keyboard('{Enter}');
+    expect(document.activeElement).toHaveAccessibleName('Done: MCP hints 03:10');
+  });
+
+  it('lets a held row go when focus leaves to the page while the window keeps focus', async () => {
+    const { link } = await renderHeldPastCap();
+    const hasFocus = vi.spyOn(document, 'hasFocus').mockReturnValue(true);
+    try {
+      act(() => {
+        link.blur();
+      });
+    } finally {
+      hasFocus.mockRestore();
+    }
+    expect(screen.queryByRole('link', { name: 'Done: Loom 0.20 04:40' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Show 2 more' })).toBeVisible();
+  });
+
+  it('drops the hold when a refetch removes the held row, so its return keeps the cap', async () => {
+    const { first, newer, rerender, second, third } = await renderHeldPastCap();
+    rerender(<DayFolds days={todayOf([newer, first, third])} cap={2} />);
+    rerender(<DayFolds days={todayOf([newer, first, second, third])} cap={2} />);
+    expect(screen.getAllByRole('link')).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Show 2 more' })).toBeVisible();
   });
 
   it('opens the new day alone when a new latest day arrives', async () => {
