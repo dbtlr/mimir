@@ -136,6 +136,31 @@ describe('Start in T3 from the task page’s More (ADR 0040, MMR-726)', () => {
     expect(screen.getAllByRole('button', { name: 'Start' })).toHaveLength(1);
   });
 
+  it('follows the status changes in their group, where an awaiting task keeps Start', async () => {
+    await openTask(
+      engineTask({ id: 'MMR-7', parent: 'MMR-2', status: 'awaiting', title: 'Task MMR-7' }),
+    );
+    const more = await openMore();
+    await within(more).findByRole('button', { name: 'Start in T3…' });
+    const rows = [...more.querySelectorAll('button, [data-slot="separator"]')].map((el) =>
+      el.tagName === 'BUTTON' ? el.textContent : '—',
+    );
+    expect(rows).toStrictEqual([
+      'Edit',
+      'Move…',
+      '—',
+      'Start',
+      'Start on Valhalla',
+      'Start in T3…',
+      '—',
+      'Park for later…',
+      'Mark blocked…',
+      '—',
+      'Abandon…',
+      'Cancel',
+    ]);
+  });
+
   it('starts on the default system in one click from the More sheet, with no form', async () => {
     await openTask(ready());
     const more = await openMore();
