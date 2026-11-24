@@ -87,3 +87,25 @@ export function hitStatus(hit: Pick<EngineSearchHit, 'lifecycle'>): StatusWord |
     }
   }
 }
+
+/**
+ * Where focus goes when the jump palette closes (ADR 0013, MMR-729
+ * refinement): the first candidate that can still take it, in order. A
+ * candidate has gone when it left the page, sits in an inert subtree (a
+ * yielded sidebar), or is the page itself. Null when none can, and the caller
+ * falls back to `<main>`.
+ */
+export function paletteReturnTarget(
+  candidates: readonly (HTMLElement | null | undefined)[],
+): HTMLElement | null {
+  return (
+    candidates.find(
+      (element): element is HTMLElement =>
+        element !== null &&
+        element !== undefined &&
+        element.isConnected &&
+        element !== document.body &&
+        element.closest('[inert]') === null,
+    ) ?? null
+  );
+}

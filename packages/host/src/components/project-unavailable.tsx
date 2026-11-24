@@ -4,7 +4,9 @@ import { Link, useNavigate } from '@tanstack/react-router';
 
 import { useUnarchiveProject } from '../api/shell-mutations';
 import { archivedProjectsQuery } from '../api/shell-queries';
+import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
+import { PAGE_COLUMN } from '../lib/page-column';
 import { calendarDate } from '../lib/time';
 import { useArchivedProject } from '../lib/use-archived-project';
 import { ProjectUnavailablePage } from '../routes/not-found';
@@ -24,7 +26,7 @@ function ArchivedProjectPage({ project, offline }: { project: EngineNode; offlin
   const unarchive = useUnarchiveProject(project.id);
   const archivedOn = project.archivedAt == null ? undefined : calendarDate(project.archivedAt);
   return (
-    <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col items-start gap-3 p-5">
+    <main className={cn(PAGE_COLUMN, 'flex flex-1 flex-col items-start gap-3 p-5')}>
       <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1">
         <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">
           {project.title}

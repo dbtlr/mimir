@@ -2,7 +2,7 @@ import { Dialog } from '@base-ui-components/react/dialog';
 import type { EngineTree } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useLinkProps, useRouterState } from '@tanstack/react-router';
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 
 import { pendingPairingsQuery } from '../api/device-queries';
 import { nodeQuery } from '../api/node-queries';
@@ -15,6 +15,7 @@ import { DRAWER_TAP_ROW } from '../lib/touch-target';
 import { useArchivedProject } from '../lib/use-archived-project';
 import { buildOutline } from '../lib/work-page';
 import type { FinishedInitiative, OutlineEntry, OutlineTally } from '../lib/work-page';
+import { SidebarJumpTo, useOpenJumpPalette } from './jump-palette';
 import { ProjectPicker } from './project-picker';
 import { SidebarProjects } from './sidebar-projects';
 import { StatusDot } from './status-dot';
@@ -29,9 +30,9 @@ import { Skeleton } from './ui/skeleton';
  * `/doctor`) its context is All projects (MMR-505): a header reading so, Work,
  * which is `/`, and the Projects section of pinned projects (MMR-562,
  * MMR-567). On Settings' pages and `/pair` it lists Settings' pages instead
- * (MMR-733). From `lg` up it sits beside the page; below that it
- * folds into a drawer behind a top-bar button, because a record page's own
- * rail needs the width a tablet has.
+ * (MMR-733). Every context opens with Jump to (MMR-729). From `lg` up it
+ * sits beside the page; below that it folds into a drawer behind a top-bar
+ * button, because a record page's own rail needs the width a tablet has.
  */
 
 /**
@@ -480,16 +481,23 @@ function landmarkLabel(context: SidebarContext): string {
   }
 }
 
-/** The sidebar's content for its context: the switcher header, then the context's sections. */
+/**
+ * The sidebar's content for its context: Jump to, the switcher header, then
+ * the context's sections. In the drawer, `onJump` closes it before the palette
+ * opens.
+ */
 function SidebarBody({
   context,
   onNavigate,
+  onJump,
 }: {
   context: SidebarContext;
   onNavigate?: () => void;
+  onJump?: () => void;
 }) {
   return (
     <nav aria-label={landmarkLabel(context)} className="flex flex-col gap-0.5">
+      <SidebarJumpTo onJump={onJump} />
       {context.kind !== 'settings' && (
         <div className="mb-2">
           <ProjectPicker context={context} onNavigate={onNavigate} />
@@ -520,10 +528,15 @@ export function ProjectSidebar({ context }: { context: SidebarContext }) {
  * The compact sidebar: a button for the top bar that opens the same content as
  * a drawer from the left. Escape or a tap on the scrim closes it and hands
  * focus back to the button; choosing something, or any other move to another
- * page (Back, the jump palette), closes it too.
+ * page (Back, the jump palette), closes it too. Its Jump to closes the drawer
+ * first and opens the palette once the drawer has handed focus back, so the
+ * palette returns focus to the menu button when it closes.
  */
 export function ProjectDrawer({ context }: { context: SidebarContext }) {
   const [open, setOpen] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const jumpPending = useRef(false);
+  const openPalette = useOpenJumpPalette();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [seenPath, setSeenPath] = useState(pathname);
   if (seenPath !== pathname) {
@@ -531,8 +544,18 @@ export function ProjectDrawer({ context }: { context: SidebarContext }) {
     setOpen(false);
   }
   return (
-    <Dialog.Root open={open} onOpenChange={setOpen}>
+    <Dialog.Root
+      open={open}
+      onOpenChange={setOpen}
+      onOpenChangeComplete={(isOpen) => {
+        if (!isOpen && jumpPending.current) {
+          jumpPending.current = false;
+          openPalette(trigger.current);
+        }
+      }}
+    >
       <Dialog.Trigger
+        ref={trigger}
         aria-label={context.kind === 'settings' ? 'Open settings menu' : 'Open project menu'}
         className={iconButtonClass}
       >
@@ -550,6 +573,10 @@ export function ProjectDrawer({ context }: { context: SidebarContext }) {
           <SidebarBody
             context={context}
             onNavigate={() => {
+              setOpen(false);
+            }}
+            onJump={() => {
+              jumpPending.current = true;
               setOpen(false);
             }}
           />

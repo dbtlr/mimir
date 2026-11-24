@@ -1,6 +1,9 @@
 import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 
+import { cn } from '../lib/cn';
+import { PAGE_COLUMN } from '../lib/page-column';
+
 /**
  * A page with nothing to show: any path the console has no page for, or a
  * record address that names no record. `projectKey` points the way back at
@@ -16,7 +19,7 @@ export function NotFoundPage({
   const back =
     'text-xs font-semibold text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent';
   return (
-    <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col items-start gap-3 p-5">
+    <main className={cn(PAGE_COLUMN, 'flex flex-1 flex-col items-start gap-3 p-5')}>
       <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">Not found</h1>
       <p className="text-xs leading-relaxed text-ink-dim">{children}</p>
       {projectKey === undefined ? (
@@ -39,7 +42,7 @@ export function NotFoundPage({
  */
 export function ProjectUnavailablePage({ projectKey }: { projectKey: string }) {
   return (
-    <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col items-start gap-3 p-5">
+    <main className={cn(PAGE_COLUMN, 'flex flex-1 flex-col items-start gap-3 p-5')}>
       <div className="flex items-center gap-3.5">
         <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">
           Project unavailable

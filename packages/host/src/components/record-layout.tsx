@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import type { MouseEvent, ReactNode, Ref } from 'react';
 
 import { cn } from '../lib/cn';
+import { PAGE_COLUMN } from '../lib/page-column';
 import { CLOSING_ROW_ATTRIBUTE } from './patterns/action-menu';
 import { ActionButton } from './ui/action-button';
 import { iconButtonClass } from './ui/icon-button';
@@ -218,7 +219,7 @@ export function RecordLayout({
  */
 export function RecordPending({ unreachable }: { unreachable: boolean }) {
   return (
-    <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-2 p-5">
+    <main className={cn(PAGE_COLUMN, 'flex flex-1 flex-col gap-2 p-5')}>
       {unreachable ? (
         <p className="text-xs text-status-blocked-foreground">
           Unreachable, and nothing cached yet — is the Mimir host running?

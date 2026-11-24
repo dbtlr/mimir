@@ -12,7 +12,9 @@ import { pendingPairingsQuery } from '../../src/api/device-queries';
 import { archivedProjectsQuery, projectsQuery, treeQuery } from '../../src/api/shell-queries';
 import { reviewQuery } from '../../src/api/view-queries';
 import { AttentionAlert } from '../../src/components/attention-alert';
+import { JumpPaletteProvider } from '../../src/components/jump-palette';
 import { ProjectDrawer, ProjectSidebar } from '../../src/components/project-sidebar';
+import { SeedCaptureProvider } from '../../src/components/seed-capture';
 import { IconButton } from '../../src/components/ui/icon-button';
 import { MoreIcon, SearchIcon } from '../../src/components/ui/icons';
 import type { SidebarContext } from '../../src/lib/project-sidebar';
@@ -96,15 +98,18 @@ function TopBar() {
 const client = seededClient();
 
 const root = createRootRoute({
+  // The sidebar and the drawer open with Jump to, which needs the shell's palette.
   component: () => (
-    <>
-      <TopBar />
-      {/* The desktop sidebar, drawn at every width so a check can measure it from `lg` up. */}
-      <div className="flex">
-        <ProjectSidebar context={FRAME.context} />
-        <Outlet />
-      </div>
-    </>
+    <SeedCaptureProvider>
+      <JumpPaletteProvider>
+        <TopBar />
+        {/* The desktop sidebar, drawn at every width so a check can measure it from `lg` up. */}
+        <div className="flex">
+          <ProjectSidebar context={FRAME.context} />
+          <Outlet />
+        </div>
+      </JumpPaletteProvider>
+    </SeedCaptureProvider>
   ),
 });
 

@@ -11,6 +11,7 @@ import { browserTimeZone } from '../api/queries';
 import { phaseDeliveriesQuery, workQuery } from '../api/view-queries';
 import { scopedRun } from '../lib/agent-card';
 import { cn } from '../lib/cn';
+import { PAGE_COLUMN } from '../lib/page-column';
 import { projectKeyOf } from '../lib/project-key';
 import { nodeLink } from '../lib/record-url';
 import { STATUS_META, STATUS_ORDER } from '../lib/status';
@@ -79,9 +80,7 @@ export function RecordColumn({
       data-testid="record-scroll"
       className={cn('min-h-0 w-full flex-1 overflow-y-auto', offline && 'offline-demoted')}
     >
-      <div className="mx-auto w-full max-w-[900px] px-3.5 pt-4 pb-10 md:px-5 md:pt-6">
-        {children}
-      </div>
+      <div className={cn(PAGE_COLUMN, 'px-3.5 pt-4 pb-10 md:px-5 md:pt-6')}>{children}</div>
     </main>
   );
 }
