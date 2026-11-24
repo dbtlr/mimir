@@ -1015,31 +1015,38 @@ room. The MMR-492 refinement's top bar kept the jump palette at every width,
 and the MMR-733 refinement left the wide bar with the brand, _Jump to_,
 _Needs you_, and "…". This revises both:
 
-- **_Jump to_ sits at the top of the sidebar.** Search then sits above the
-  list it searches across, and the sidebar reads as navigation from top to
-  bottom. It is a full-width control above the switcher (or, on Settings'
-  pages, above "← Back to work"), and it opens the same palette. ⌘K or
-  Ctrl K still opens the palette from any page.
+- **_Jump to_ sits at the top of the sidebar.** The sidebar then holds every
+  way to move around the console, top to bottom, and the top bar holds only
+  what the phone's does. It is a full-width button above the switcher (or,
+  on Settings' pages, above "← Back to work") that opens the same
+  cross-project palette. It is not the inline project filter that the
+  MMR-567 refinement withdrew: the switcher stays the sidebar's one way to
+  pick a project. ⌘K or Ctrl K still opens the palette from any page.
 - **The top bar holds _Jump to_ only where the sidebar is not beside the
   page.** From `lg` up, with the sidebar showing, the bar is the brand, then
   _Needs you_ and "…" at its right: the right side of the phone's bar. Below
-  `lg`, where the sidebar is a drawer, the bar is unchanged (the MMR-715
-  refinement's phone bar, and from `md` the wider _Jump to_ button). A page
+  `lg`, where the sidebar is a drawer, the bar is unchanged: the MMR-715
+  refinement's phone bar, and from `md` the wider _Jump to_ button. A page
   with no sidebar at any width, such as a fresh store's, keeps _Jump to_ in
-  the bar, so the control is always one click away.
+  the bar.
+- **While a preview panel is open from 1024 to 1599 the sidebar yields**
+  (ADR 0019's MMR-720 refinement), and its _Jump to_ goes with it, as every
+  other sidebar row does; the bar does not take it back, so the bar does not
+  change when a panel opens. ⌘K or Ctrl K still opens the palette, and a
+  click away from the panel closes it and brings the sidebar back.
 - **The drawer opens with _Jump to_ as well.** Choosing it closes the drawer
-  and then opens the palette; closing the palette returns focus to the
-  drawer's menu button, since the control that opened it has gone. A phone
-  has two ways in and one search.
+  and then opens the palette. A phone has two ways in and one search.
+- **Closing the palette returns focus to what had it** when the palette
+  opened. When that is gone, focus goes to the control that opens the
+  palette where the operator is: the drawer's menu button when the drawer
+  opened it, else the sidebar's _Jump to_, else the top bar's, else
+  `<main>` when the sidebar holding it has yielded.
 - **A page is one centred column, with no right column.** The column is 900
   wide at most, beside the sidebar; a single-purpose page may be narrower
   (the focus queue 720, pairing 560). Two rails remain until the tasks that
   retire them: the task page's, which MMR-728 replaces with tabs, and the
   seed, artifact, and delivery pages', which MMR-732's design pass decides.
-  Those pages keep their 1200 grid until then; every other page, including
-  Record health and the not-found and unavailable pages, takes the 900
-  column now.
-
-While a preview panel is open from 1024 to 1599, the sidebar yields (ADR
-0019's MMR-720 refinement), and its _Jump to_ with it; ⌘K or Ctrl K still
-opens the palette.
+  Those pages keep their 1200 grid until then. Every other page takes the
+  900 column now: Record health, the not-found page, the unavailable and
+  archived project pages, a fresh store's page, and the loading state any
+  page shows before its first read lands.
