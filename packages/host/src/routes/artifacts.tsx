@@ -7,10 +7,8 @@ import type { ArtifactFilters as Filters } from '../api/browse-queries';
 import { ArtifactFilters } from '../components/artifact-filters';
 import { ArtifactList } from '../components/artifact-list';
 import { BrowserPage } from '../components/browser-list';
-import { OfflineBanner } from '../components/offline-banner';
 import { ProjectFrame } from '../components/project-frame';
 import { Skeleton } from '../components/ui/skeleton';
-import { connectivity } from '../lib/connectivity';
 import { artifactsRoute } from '../router';
 
 const FILTER_KEYS = ['tag', 'q', 'atOrAfter', 'atOrBefore'] as const;
@@ -33,7 +31,6 @@ export function ArtifactsPage() {
   }
 
   const artifacts = useInfiniteQuery(artifactsQuery(filters));
-  const conn = connectivity([artifacts]);
 
   const rows = artifacts.data?.pages.flatMap((page) => page.items);
   const total = artifacts.data?.pages.at(-1)?.total;
@@ -66,25 +63,22 @@ export function ArtifactsPage() {
     });
 
   return (
-    <>
-      <OfflineBanner {...conn} />
-      <ProjectFrame projectKey={project} tab="artifacts" offline={conn.offline} onScroll={onScroll}>
-        <BrowserPage title="Artifacts" count={total === undefined ? undefined : `${total} frozen`}>
-          <ArtifactFilters
-            filters={filters}
-            rowTags={(rows ?? []).map((a) => a.tags)}
-            onChange={setFilter}
-          />
-          {artifacts.isPending && <Skeleton className="mt-4 h-40" />}
-          {rows !== undefined && <ArtifactList items={rows} />}
-          {artifacts.isFetchingNextPage && <Skeleton className="mt-2 h-10" />}
-          {artifacts.isError && artifacts.data === undefined && (
-            <p className="py-4 text-xs text-status-blocked-foreground">
-              Unreachable — is the Mimir host running?
-            </p>
-          )}
-        </BrowserPage>
-      </ProjectFrame>
-    </>
+    <ProjectFrame projectKey={project} tab="artifacts" reads={[artifacts]} onScroll={onScroll}>
+      <BrowserPage title="Artifacts" count={total === undefined ? undefined : `${total} frozen`}>
+        <ArtifactFilters
+          filters={filters}
+          rowTags={(rows ?? []).map((a) => a.tags)}
+          onChange={setFilter}
+        />
+        {artifacts.isPending && <Skeleton className="mt-4 h-40" />}
+        {rows !== undefined && <ArtifactList items={rows} />}
+        {artifacts.isFetchingNextPage && <Skeleton className="mt-2 h-10" />}
+        {artifacts.isError && artifacts.data === undefined && (
+          <p className="py-4 text-xs text-status-blocked-foreground">
+            Unreachable — is the Mimir host running?
+          </p>
+        )}
+      </BrowserPage>
+    </ProjectFrame>
   );
 }

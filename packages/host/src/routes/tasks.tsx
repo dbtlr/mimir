@@ -18,11 +18,9 @@ import {
   RemovableChip,
 } from '../components/browser-list';
 import { GroomingChip } from '../components/grooming-chip';
-import { OfflineBanner } from '../components/offline-banner';
 import { ProjectFrame } from '../components/project-frame';
 import { StatusDot } from '../components/status-dot';
 import { Skeleton } from '../components/ui/skeleton';
-import { connectivity } from '../lib/connectivity';
 import { projectKeyOf } from '../lib/project-key';
 import { nodeLink } from '../lib/record-url';
 import { STATUS_META, TASK_STATUS_ORDER } from '../lib/status';
@@ -224,7 +222,6 @@ export function TasksPage() {
 
   const { tasks, loadedTasks, totalTasks, hasMore, loadingMore, loadMoreFailed, loadMore } =
     useTaskWindow(filters);
-  const conn = connectivity([tasks]);
   const searchRef = useRef<HTMLDivElement>(null);
 
   const setFilter = (partial: Partial<TasksSearch>) =>
@@ -280,103 +277,100 @@ export function TasksPage() {
   }
 
   return (
-    <>
-      <OfflineBanner {...conn} />
-      <ProjectFrame projectKey={project} tab="tasks" offline={conn.offline}>
-        <BrowserPage
-          title="Tasks"
-          count={
-            loadedTasks !== undefined &&
-            totalTasks !== undefined &&
-            // A windowed view says how much of the whole it shows (MMR-460).
-            `${loadedTasks.length < totalTasks ? `${loadedTasks.length} of ` : ''}${totalTasks} ${countWord}`
-          }
-        >
-          <FilterRow>
-            <div ref={searchRef} className="flex min-w-0 flex-[1_1_260px]">
-              <BrowserSearch
-                value={q}
-                onChange={setQ}
-                label="Search tasks"
-                placeholder="Search titles and IDs…"
-              />
-            </div>
-            <FilterChip
-              on={liveView}
-              onClick={() => {
+    <ProjectFrame projectKey={project} tab="tasks" reads={[tasks]}>
+      <BrowserPage
+        title="Tasks"
+        count={
+          loadedTasks !== undefined &&
+          totalTasks !== undefined &&
+          // A windowed view says how much of the whole it shows (MMR-460).
+          `${loadedTasks.length < totalTasks ? `${loadedTasks.length} of ` : ''}${totalTasks} ${countWord}`
+        }
+      >
+        <FilterRow>
+          <div ref={searchRef} className="flex min-w-0 flex-[1_1_260px]">
+            <BrowserSearch
+              value={q}
+              onChange={setQ}
+              label="Search tasks"
+              placeholder="Search titles and IDs…"
+            />
+          </div>
+          <FilterChip
+            on={liveView}
+            onClick={() => {
+              setFilter({ status: '' });
+            }}
+          >
+            Live
+          </FilterChip>
+          <FilterChip
+            on={finishedView}
+            onClick={() => {
+              setFilter({ status: 'terminal' });
+            }}
+          >
+            Finished
+          </FilterChip>
+          {/* Any other status a deep link carries (a word, a union, `all`)
+                still filters; it shows as an accent chip that removes it. */}
+          {!liveView && !finishedView && search.status !== undefined && (
+            <RemovableChip
+              label={statusFilterLabel(search.status)}
+              removeLabel={`Remove status filter ${statusFilterLabel(search.status)}`}
+              onRemove={() => {
+                searchRef.current?.querySelector('input')?.focus();
                 setFilter({ status: '' });
               }}
-            >
-              Live
-            </FilterChip>
-            <FilterChip
-              on={finishedView}
-              onClick={() => {
-                setFilter({ status: 'terminal' });
-              }}
-            >
-              Finished
-            </FilterChip>
-            {/* Any other status a deep link carries (a word, a union, `all`)
-                still filters; it shows as an accent chip that removes it. */}
-            {!liveView && !finishedView && search.status !== undefined && (
-              <RemovableChip
-                label={statusFilterLabel(search.status)}
-                removeLabel={`Remove status filter ${statusFilterLabel(search.status)}`}
-                onRemove={() => {
-                  searchRef.current?.querySelector('input')?.focus();
-                  setFilter({ status: '' });
-                }}
-              />
-            )}
-          </FilterRow>
+            />
+          )}
+        </FilterRow>
 
-          {tasks.isPending && loadedTasks === undefined && <Skeleton className="mt-4 h-40" />}
-          {tasks.isError && loadedTasks === undefined && (
-            <p className="py-4 text-xs text-status-blocked-foreground">
-              Unreachable — is the Mimir host running?
-            </p>
-          )}
-          {loadedTasks !== undefined && groups.length === 0 && (
-            <BrowserEmpty>No tasks match.</BrowserEmpty>
-          )}
-          {groups.map((group) => (
-            <BrowserGroup key={group.key} label={group.label} count={group.items.length}>
-              {group.items.map((node) => (
-                <BrowserRow
-                  key={node.id}
-                  to={nodeLink(node.id)}
-                  id={node.id}
-                  title={node.title}
-                  leading={
-                    <>
-                      <StatusDot status={node.status} />
-                      <span className="sr-only">{STATUS_META[node.status].label}</span>
-                    </>
-                  }
-                  afterTitle={<GroomingChip node={node} />}
-                  lede={node.lede ?? node.summary}
-                  meta={<TaskMeta node={node} />}
-                  // Terminal rows demote by ink tier alone — never by opacity
-                  // (ADR 0019 §7; opacity is offline's).
-                  demoted={node.status === 'done' || node.status === 'abandoned'}
-                  struck={node.status === 'abandoned'}
-                />
-              ))}
-            </BrowserGroup>
-          ))}
-          {hasMore && (
-            <>
-              {loadMoreFailed && (
-                <p role="alert" className="mt-4 text-center text-xs text-status-blocked-foreground">
-                  Couldn't load more finished tasks.
-                </p>
-              )}
-              <BrowserShowMore loading={loadingMore} onClick={loadMore} />
-            </>
-          )}
-        </BrowserPage>
-      </ProjectFrame>
-    </>
+        {tasks.isPending && loadedTasks === undefined && <Skeleton className="mt-4 h-40" />}
+        {tasks.isError && loadedTasks === undefined && (
+          <p className="py-4 text-xs text-status-blocked-foreground">
+            Unreachable — is the Mimir host running?
+          </p>
+        )}
+        {loadedTasks !== undefined && groups.length === 0 && (
+          <BrowserEmpty>No tasks match.</BrowserEmpty>
+        )}
+        {groups.map((group) => (
+          <BrowserGroup key={group.key} label={group.label} count={group.items.length}>
+            {group.items.map((node) => (
+              <BrowserRow
+                key={node.id}
+                to={nodeLink(node.id)}
+                id={node.id}
+                title={node.title}
+                leading={
+                  <>
+                    <StatusDot status={node.status} />
+                    <span className="sr-only">{STATUS_META[node.status].label}</span>
+                  </>
+                }
+                afterTitle={<GroomingChip node={node} />}
+                lede={node.lede ?? node.summary}
+                meta={<TaskMeta node={node} />}
+                // Terminal rows demote by ink tier alone — never by opacity
+                // (ADR 0019 §7; opacity is offline's).
+                demoted={node.status === 'done' || node.status === 'abandoned'}
+                struck={node.status === 'abandoned'}
+              />
+            ))}
+          </BrowserGroup>
+        ))}
+        {hasMore && (
+          <>
+            {loadMoreFailed && (
+              <p role="alert" className="mt-4 text-center text-xs text-status-blocked-foreground">
+                Couldn't load more finished tasks.
+              </p>
+            )}
+            <BrowserShowMore loading={loadingMore} onClick={loadMore} />
+          </>
+        )}
+      </BrowserPage>
+    </ProjectFrame>
   );
 }

@@ -7,8 +7,11 @@ import { seedsQuery } from '../api/browse-queries';
 import type { EngineSeed } from '../api/browse-queries';
 import { isNotFound } from '../api/errors';
 import { projectQuery } from '../api/node-queries';
+import { connectivity } from '../lib/connectivity';
+import type { ConnectivitySource } from '../lib/connectivity';
 import { groupSeedsByLane } from '../lib/seed-lanes';
 import { useArchivedProject } from '../lib/use-archived-project';
+import { OfflineBanner } from './offline-banner';
 import { UnavailableProject } from './project-unavailable';
 import { RecordTabs } from './record-tabs';
 import type { RecordTab } from './record-tabs';
@@ -80,20 +83,23 @@ function HeadPending({ unreachable }: { unreachable: boolean }) {
  * A project's page around one of its tabs: the record header and the tab row,
  * with the tab's content below. `/p/KEY` (Work, Details) and the project's
  * browsers (`/p/KEY/tasks`, `/seeds`, `/artifacts`) all render in it, so a
- * project reads as one page whichever tab is open. A project the server
- * answers 404 for (archived or gone, ADR 0015) shows the unavailable notice
- * in its place.
+ * project reads as one page whichever tab is open. The frame owns the
+ * page's two states that are not the page: a project the server answers 404
+ * for (archived or gone, ADR 0015) shows the unavailable notice in its place,
+ * with no Offline banner, since the server answered; otherwise the banner
+ * reads the project and the tab's own `reads` (ADR 0013 §5).
  */
 export function ProjectFrame({
   projectKey,
   tab,
-  offline,
+  reads,
   onScroll,
   children,
 }: {
   projectKey: string;
   tab: ProjectTab;
-  offline: boolean;
+  /** The tab's own reads, which count toward the page's connectivity. */
+  reads: readonly ConnectivitySource[];
   /** The page's scroll, for a browser that pulls its next window near the bottom. */
   onScroll?: (event: UIEvent<HTMLElement>) => void;
   children: ReactNode;
@@ -108,6 +114,8 @@ export function ProjectFrame({
   if (archived !== undefined || isNotFound(project.error)) {
     return <UnavailableProject projectKey={projectKey} />;
   }
+  const conn = connectivity([project, ...reads]);
+  const { offline } = conn;
 
   const open = (next: ProjectTab) => {
     const params = { key: projectKey };
@@ -135,24 +143,27 @@ export function ProjectFrame({
   };
 
   return (
-    <RecordColumn offline={offline} onScroll={onScroll}>
-      {project.data === undefined ? (
-        <HeadPending unreachable={project.isError} />
-      ) : (
-        <ContainerHead record={project.data} offline={offline} />
-      )}
-      <RecordTabs
-        manual
-        tabs={
-          project.data === undefined
-            ? projectTabs(undefined, undefined, tab)
-            : projectTabs(project.data, seeds.data, tab)
-        }
-        value={tab}
-        onSelect={(next) => void open(next)}
-      >
-        {children}
-      </RecordTabs>
-    </RecordColumn>
+    <>
+      <OfflineBanner {...conn} />
+      <RecordColumn offline={offline} onScroll={onScroll}>
+        {project.data === undefined ? (
+          <HeadPending unreachable={project.isError} />
+        ) : (
+          <ContainerHead record={project.data} offline={offline} />
+        )}
+        <RecordTabs
+          manual
+          tabs={
+            project.data === undefined
+              ? projectTabs(undefined, undefined, tab)
+              : projectTabs(project.data, seeds.data, tab)
+          }
+          value={tab}
+          onSelect={(next) => void open(next)}
+        >
+          {children}
+        </RecordTabs>
+      </RecordColumn>
+    </>
   );
 }

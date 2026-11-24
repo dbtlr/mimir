@@ -121,6 +121,8 @@ describe('a browser under an unknown project (MMR-495)', () => {
         screen.findByRole('heading', { level: 1, name: 'Project unavailable' }),
       ).resolves.toBeInTheDocument();
       expect(screen.queryByText(/Unreachable/)).toBeNull();
+      // The server answered (ADR 0015), so the page does not read as offline.
+      expect(screen.queryByText(/Offline/)).toBeNull();
     },
   );
 });
