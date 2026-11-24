@@ -182,7 +182,8 @@ describe('project page (MMR-450, MMR-470, MMR-726)', () => {
     await expect(
       screen.findByRole('tab', { name: 'Details', selected: true }),
     ).resolves.toBeDefined();
-    expect(screen.getByText('Ship record pages.')).toBeDefined();
+    // The tab being shown is there before the record, so wait for the record's text.
+    await expect(screen.findByText('Ship record pages.')).resolves.toBeDefined();
     expect(screen.getByText('Then the work page.')).toBeDefined();
     expect(screen.getByText('work').tagName).toBe('STRONG');
     expect(screen.queryByRole('region', { name: 'Now' })).toBeNull();
