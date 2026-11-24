@@ -972,6 +972,15 @@ describe('tasksPage Filter sheet (MMR-724)', () => {
     });
   });
 
+  it.each(['?show=shipped-week&sort=priority', '?status=terminal&sort=oldest'])(
+    'counts no sort under Filter for finished work, which takes none (%s)',
+    async (query) => {
+      await renderTasks(`/p/MMR/tasks${query}`);
+      await screen.findByText(/shipped in the last 7 days|finished/);
+      expect(filterChip()).toHaveAccessibleName('Filter');
+    },
+  );
+
   it('offers no Sort for finished work, which folds by day', async () => {
     const { sheet, user } = await openSheet();
     expect(within(sheet).getByRole('radiogroup', { name: 'Sort' })).toBeVisible();

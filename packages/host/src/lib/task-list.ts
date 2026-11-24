@@ -357,7 +357,8 @@ export function searchOf(draft: TaskFilterDraft, q: string | undefined): TaskLis
 
 /**
  * How many filters a URL applies beyond its chip: narrowed statuses, priority,
- * size, tag, and sort. A selector a link carries is the chip's, not Filter's.
+ * size, tag, and sort. A selector a link carries is the chip's, not Filter's,
+ * and a sort for finished work, which takes none, counts for nothing.
  */
 export function extraFilterCount(search: TaskListSearch): number {
   const draft = draftOf(search);
@@ -367,6 +368,6 @@ export function extraFilterCount(search: TaskListSearch): number {
     draft.priorities.length > 0,
     draft.sizes.length > 0,
     draft.tags.length > 0,
-    draft.sort !== 'recent',
+    draft.sort !== 'recent' && !draftIsFinished(draft),
   ].filter(Boolean).length;
 }
