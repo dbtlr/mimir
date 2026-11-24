@@ -8,7 +8,7 @@ import {
   createRouter,
 } from '@tanstack/react-router';
 
-import { tasksBrowserQuery } from '../../src/api/browse-queries';
+import { taskTagsQuery, tasksBrowserQuery, tasksCountQuery } from '../../src/api/browse-queries';
 import { projectQuery } from '../../src/api/node-queries';
 import { browserTimeZone } from '../../src/api/queries';
 import { archivedProjectsQuery } from '../../src/api/shell-queries';
@@ -28,6 +28,9 @@ const TITLES = [
   'Move the status parts into components/ui so patterns can draw a status',
   'A long preview title at large text on a short phone can crowd out the sheet’s footer',
 ];
+
+/** The project's tags, most used first: more than the Tag field shows before "N more". */
+const TAGS = ['ui', 'console', 'engine', 'a11y', 'perf', 'docs', 'cli', 'wire', 'spec'];
 
 const STATUSES: TaskStatusWord[] = ['in_progress', 'under_review', 'staged'];
 
@@ -55,7 +58,8 @@ const PROJECT = engineProject({
 
 /**
  * A cache holding the reads `/p/MMR/tasks?show=in-flight` makes, which never
- * asks the host again: the project, the empty archive, and the list.
+ * asks the host again: the project, the empty archive, the list, and the
+ * Filter sheet's count and tags.
  */
 function seededClient(): QueryClient {
   const client = new QueryClient({
@@ -73,6 +77,9 @@ function seededClient(): QueryClient {
     startsAt: 0,
     total: TASKS.length,
   });
+  // The Filter sheet's reads as it opens: its count, and more tags than it shows before "N more".
+  client.setQueryData(tasksCountQuery(filters).queryKey, TASKS.length);
+  client.setQueryData(taskTagsQuery('MMR').queryKey, TAGS);
   return client;
 }
 

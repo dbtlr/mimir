@@ -557,7 +557,7 @@ finished rows the Day fold's, and its preview the Preview panel's.
 | --- | --- | --- | --- |
 | Count line | 13 / 20 `ink-dim`, in words ("9 tasks in flight", "42 shipped in the last 7 days"; "50 of 120 …" while a window hides some), 20 below the tabs; its line keeps its height while the read is on its way | 24 below the tabs | **adopted (MMR-724)** |
 | Search | 16 below the count line, on its own row: 44 tall, 6 radius, `well-950`, a 1px `ink-dim` edge on the page ground (accent while focused), a 16 search glyph in `ink-dim`, 15 / 22 text, the placeholder "Search titles and IDs" in `ink-dim`; full width | the width of the Card grid's first track (about 424 in the 900 column, about 394 beside the open panel), full width wherever the grid stacks | **adopted (MMR-724)**: `BrowserSearch`'s `list` variant |
-| Chip row | 8 below the search; chips 8 apart, wrapping. The preset as one chip, then Filter | same | **adopted (MMR-724)** |
+| Chip row | 8 below the search, measured to the pills; chips 8 apart, wrapping. The preset as one chip, then Filter. The row pulls back the 4 each 44 tap area adds above and below its pill, so the tap areas add no height | 8 below the search; wrapped rows 8 apart | **adopted (MMR-724)** |
 | Chip | a 36 pill, 12 side padding, 14 / 20 at 500 `ink-bright` with a 1px `ink-dim` edge, in a 44 tap area | the 36 pill alone | **adopted (MMR-724)** |
 | Preset chip | the accent wash (`accent/12`, a 1px `accent` edge), its label 600 `accent-foreground`, then a 16 close glyph; the whole chip removes it, named "Remove In flight" | same | **adopted (MMR-724)** |
 | Filter chip | a 16 filter glyph, then "Filter"; with filters applied beyond the preset it takes the preset chip's wash and counts them ("Filter 2"); open, it says so with `aria-expanded` | same | **adopted (MMR-724)** |
@@ -567,14 +567,15 @@ finished rows the Day fold's, and its preview the Preview panel's.
 | Finished work | the Day folds, straight under the chips with no status heads when the list holds only finished work; under a "Finished" group head after live groups otherwise. Five rows a day before the fold's Show N more | same | **adopted (MMR-724)** |
 | Show N more | the list's one text button: the Day fold's (14 / 20, 500, `accent-foreground`, underlined on hover), 12 below the last row, 44 tall; it names how many the next window adds ("Show 50 more") and stays focusable and `aria-disabled` while that window loads | 36 tall | **adopted (MMR-724)**: was a centred outline "Show more" |
 | Empty | the quiet line "No tasks match." 32 below the chips | same | **adopted (MMR-724)** |
+| Room under the last item | 40, the record column's bottom padding, to the end of the page's scroller | 48, as on Home and the Needs you page | **adopted (MMR-724)** |
 
 The Filter sheet:
 
 | Part | Phone (< 768) | Desktop (≥ 768) | Mark |
 | --- | --- | --- | --- |
-| Surface | the Content sheet's: a modal bottom sheet over the scrim, content-sized up to 88% of the visible viewport, with its grip | a modal 440 panel from the right over the scrim | **adopted (MMR-724)** |
-| Header | the title "Filter tasks" (17 / 24, 600 `ink-bright`) and the close (a 44 target, a 20 glyph); 12 top and bottom, 20 left; a `line` hairline under it | 20 top and bottom, 32 left; the close a 36 target, an 18 glyph | **adopted (MMR-724)** |
-| Body | 24 top, 32 bottom, 20 sides; fields 24 apart; scrolls between the bars | 32 top, 40 bottom, 32 sides | **adopted (MMR-724)** |
+| Surface | the Content sheet's: a modal bottom sheet over the scrim, content-sized up to 88% of the visible viewport, with its grip 12 from the top; its top edge a 1px `sheet-seam`, and in light the upward shadow of a Select's bottom list (Sheet seam) | a modal 440 panel from the right over the scrim | **adopted (MMR-724)** |
+| Header | the title "Filter tasks" (17 / 24, 600 `ink-bright`) and the close (a 44 target, a 20 glyph, reaching into the padding); 12 below the grip, 12 bottom, 20 left; a `line` hairline under it | 20 top and bottom, 32 left; the close a 36 target, an 18 glyph | **adopted (MMR-724)** |
+| Body | 24 top, 32 bottom, 20 sides; fields 24 apart; scrolls between the bars. When the fields run past the sheet's 88%, the first view ends a field gap (24) below the last field that fits whole, so the footer never cuts one: after Tag at 390 × 844 with nine tags (from about 831 to 955 tall), after an earlier field on a shorter screen | 32 top, 40 bottom, 32 sides; the panel is the window's height, so its first view depends on the window | **adopted (MMR-724)** |
 | Field | its label (14 / 20, 500 ink), 8 above its pills | same | **adopted (MMR-724)** |
 | Pill | a 36 pill in a 44 tap area, at least 36 wide, 12 side padding, 14 / 20 500 `ink-bright` with a 1px `ink-faint` edge (`ink-dim` on hover); checked, the accent wash with its label 600 `accent-foreground`; mono for priorities and sizes; 8 apart | the 36 pill alone, 8 apart both ways | **adopted (MMR-724)**: departs from A form's rule that a choice takes a Segmented Control, a Radio, or a Select; seed MMR-s118 settles it |
 | Fields | Show, one choice (a radio group): the presets, then "Every live task". Status, Priority, Size, and Tag, each several (checkboxes). Status offers the Show option's statuses, each with its dot, all checked when Show changes. Tag shows five pills, and those checked, then "N more". Sort, a Segmented Control (Recent, Priority, Oldest), absent for finished work | same | **adopted (MMR-724)** |

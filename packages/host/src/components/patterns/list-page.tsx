@@ -38,13 +38,20 @@ export function ListPage({
   children: ReactNode;
 }) {
   return (
-    <section aria-label={label} className="w-full">
+    // The room under the last item is Home's: 40 on a phone, the record column's
+    // own bottom padding, and 48 from `md` up, 8 more than that padding.
+    <section aria-label={label} className="w-full md:pb-2">
       {/* The line holds its height while the count is on its way, so nothing below moves. */}
       <p data-slot="list-count" className="m-0 mb-4 min-h-5 text-meta text-ink-dim">
         {count}
       </p>
       {search}
-      <div data-slot="list-chips" className="mt-2 flex flex-wrap items-center gap-x-2">
+      {/* On a phone each 36 pill sits in a 44 tap area; the row pulls those 4s back, so the
+          pills keep the 8 and 32 and wrapped rows sit 8 apart, as the Filter sheet's pills do. */}
+      <div
+        data-slot="list-chips"
+        className="-mb-1 mt-1 flex flex-wrap items-center gap-x-2 md:mt-2 md:mb-0 md:gap-y-2"
+      >
         {chips}
       </div>
       <div data-slot="list-body" className="mt-8">

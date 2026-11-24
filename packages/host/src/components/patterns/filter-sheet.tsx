@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { cn } from '../../lib/cn';
@@ -10,7 +10,8 @@ import type { SegmentedOption } from '../ui/segmented-control';
 import { BLOCK_PROPS } from './form-block';
 import { useFinalFocus } from './opener';
 import type { FinalFocus } from './opener';
-import { SHEET_FOOTER_CLASS, SheetBody, SheetClose } from './sheet-chrome';
+import { firstViewEnd } from './resting-body';
+import { SHEET_FOOTER_CLASS, SheetBody, SheetClose, measureRests } from './sheet-chrome';
 
 /*
  * The Filter sheet (ADR 0019, MMR-724 refinement; DESIGN.md, List page): a list
@@ -71,7 +72,9 @@ export function FilterSheet({
       <DrawerContent
         size="content"
         finalFocus={returnTo}
-        className="gap-0 overflow-hidden p-0 data-[side=bottom]:pb-0"
+        // On a phone the grip sits 12 from the top and the edge over the scrim is the
+        // sheet seam, as on the preview's bottom sheet (DESIGN.md, Sheet seam).
+        className="gap-0 overflow-hidden p-0 data-[side=bottom]:border-sheet-seam data-[side=bottom]:pt-4 data-[side=bottom]:pb-0 light:data-[side=bottom]:elevation-sheet-up"
       >
         <header
           data-slot="filter-sheet-header"
@@ -80,7 +83,9 @@ export function FilterSheet({
           <DrawerTitle className="min-w-0 flex-1 text-dossier font-semibold text-ink-bright">
             {title}
           </DrawerTitle>
-          <SheetClose onClick={onClose} />
+          {/* The close's tap target reaches into the header's padding, so the header is the
+              title's line and its 12 (20 from `md` up) above and below. */}
+          <SheetClose onClick={onClose} className="-my-2.5 md:-my-1.5" />
         </header>
         <FilterBody>{children}</FilterBody>
         <div data-slot="filter-sheet-footer" className={SHEET_FOOTER_CLASS}>
@@ -109,9 +114,42 @@ export function FilterSheet({
   );
 }
 
-/** The scrolling body (`SheetBody`), which rests on whole fields by the Sheets rule. */
+/**
+ * The scrolling body (`SheetBody`). On a phone the sheet fits its content up
+ * to 88% of the viewport; when the fields run past that, the body ends a field
+ * gap below the last field that fits whole, so the first view never cuts a
+ * field at the footer and the next shows on scroll.
+ */
 function FilterBody({ children }: { children: ReactNode }) {
   const body = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const element = body.current;
+    if (element === null || typeof ResizeObserver === 'undefined') {
+      return undefined;
+    }
+    const fit = () => {
+      // Measure the room the sheet gives the body uncapped, then cap it.
+      element.style.maxHeight = '';
+      const available = element.clientHeight;
+      const end =
+        element.scrollHeight > available
+          ? firstViewEnd(measureRests(element).extents, available)
+          : undefined;
+      element.style.maxHeight = end === undefined ? '' : `${String(end)}px`;
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    const content = element.firstElementChild;
+    if (content !== null) {
+      observer.observe(content);
+    }
+    const view = element.ownerDocument.defaultView;
+    view?.addEventListener('resize', fit);
+    return () => {
+      observer.disconnect();
+      view?.removeEventListener('resize', fit);
+    };
+  }, []);
   return (
     <SheetBody body={body} slot="filter-sheet-body">
       {children}
