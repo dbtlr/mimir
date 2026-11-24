@@ -11,8 +11,8 @@ import { useEffect, useState } from 'react';
 import type { NeedsYouWrites } from '../../src/components/needs-you-cards';
 import { NeedsYouDeckView } from '../../src/components/needs-you-deck-view';
 import { NeedsYouDeckDemo } from '../../src/kit/needs-you-deck';
-import { question, report } from '../../src/test/needs-you-fixtures';
 import { useBackToOpener, useOpenerFocus, useOpenerMark } from '../../src/lib/walkthrough-mark';
+import { question, report } from '../../src/test/needs-you-fixtures';
 
 /** The records the deck starts with: `?only=FLT-d2,MMR-731`, every fixture record by default. */
 const only = new URLSearchParams(globalThis.location.search).get('only')?.split(',');

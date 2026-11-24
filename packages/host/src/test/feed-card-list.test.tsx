@@ -194,7 +194,9 @@ describe('cards that leave', () => {
     const panel = screen.getByRole('dialog');
     within(panel).getByRole('button', { name: 'Clear stop B' }).focus();
     refetch(sections(['Fleet', ['A', 'B', 'C']]));
-    expect(within(screen.getByRole('dialog')).getByRole('heading', { name: 'Card B' })).toHaveFocus();
+    expect(
+      within(screen.getByRole('dialog')).getByRole('heading', { name: 'Card B' }),
+    ).toHaveFocus();
   });
 });
 
