@@ -950,3 +950,57 @@ Considered and rejected (mocked as variants A and C beside the chosen B):
   cards, which breaks ADR 0019's MMR-721 rule that the head's count and the
   pager's N match, and it departed from the 15px feed section head and the
   32 section gap for this page.
+
+## Refinement (2026-11-24, MMR-726): record pages take a header and tabs
+
+Project, initiative, phase, and task pages open with ADR 0019's record
+header (its MMR-726 refinement): a trail of the record's ancestors, the
+title, the status line, the summary, and the state's main action with More.
+On a project, initiative, or phase, tabs follow it and hold everything else,
+and the rail retires. This revises the MMR-467, MMR-470, MMR-487, and
+MMR-495 refinements' rail and tabs; the work sections are unchanged until
+MMR-727 rebuilds them on Home's pattern.
+
+- **The container rail and its phone chips retire.** Direction, About, and
+  Artifacts were text behind buttons that look like badges; they move into
+  tabs. A container's page is one column, 900 wide at most.
+- **An initiative or phase has four tabs: _Work_, _Details_, _Timeline_, and
+  _Artifacts_.** _Work_ opens with the rollup's progress bar and its legend,
+  then the work sections. _Details_ holds the Direction in full and editable
+  in place, the description, what the record depends on and what it blocks
+  (each a link with its status as the header shows one, the dot right before
+  a bright word), and its created, updated, and target dates. _Timeline_ is
+  the MMR-470 refinement's, with its count. _Artifacts_ lists what is
+  attached, newest first, with its count.
+- **A project has tabs: _Work_, _Tasks_, _Seeds_, _Artifacts_, and
+  _Details_.** This replaces the MMR-470 rule that a project has no tabs.
+  _Work_ adds a _Record health_ row to the doctor panel, when the project has
+  findings, under the progress bar; it replaces the findings chip. _Tasks_,
+  _Seeds_, and _Artifacts_ are the project's browsers (the MMR-495
+  refinement's `/p/KEY/tasks`, `/seeds`, and `/artifacts`) drawn under the
+  same header and tab row, so the sidebar keeps its one job. A browser's own
+  title gives way to its tab, and the task browser's _New task_ to the
+  header's. _Details_ is the project's Direction, its description in full,
+  and its dates. A project has no summary field, so its description is the
+  header's summary as well.
+- **The URL holds the tab.** Work has no parameter. An initiative's or
+  phase's `?tab=` takes `details`, `timeline`, or `artifacts`; a project's
+  `/p/KEY?tab=details` opens Details, and its browser tabs are their routes.
+  A value the page does not know drops, and a reload opens the same tab.
+  Arrow keys move along the tabs; on a project, whose tabs lead to other
+  routes, Enter or a click opens one, so arrowing along the row does not
+  load every page it passes.
+- **A tab with nothing in it is hidden.** An initiative or phase with no
+  task under it has no _Work_; _Artifacts_ shows once one is attached.
+  _Details_ and _Timeline_ always have something (the dates, the creation).
+  A project's _Work_ always shows, since what needs the operator and seeds
+  to triage span the whole board; _Tasks_ hides while it holds no task,
+  _Seeds_ while it has none, and _Artifacts_ while nothing is frozen to it.
+  The tab on screen always shows. A URL that names a hidden tab, or none on
+  a container with no _Work_, opens the first tab with something in it.
+- **A task's page keeps its body, rail, and Links, Agent, and Details chips**
+  under the new header, until MMR-728 gives it the same tabs. Its Actions
+  chip and rail section are retired into More.
+- **The trail is the way up.** The "↑" link to the parent that a phone page
+  showed above its ID retires; the trail's last step is the parent, on every
+  width. The sidebar outline still shows where the record sits.
