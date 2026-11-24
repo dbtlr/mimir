@@ -1,4 +1,4 @@
-- Add the `seedCounts` facet to a project's record (MMR-787): `{ total, open }`, where `total` counts every seed on the board, settled ones included, and `open` counts the seeds that are neither resolved nor rejected. `mimir get KEY --col seedCounts` shows it as `seed_counts`. The console's project page now draws its Seeds tab from this tally, so the Work, Tasks, and Artifacts tabs no longer load the board's whole seed history every few seconds. The store does not change.
+- Add the `seedCounts` facet to a project's record (MMR-787): `{ total, open }`, where `total` counts every seed on the board, settled ones included, and `open` counts the seeds that are neither resolved nor rejected. `mimir get KEY --col seedCounts --format json` carries it as `seed_counts`. The console's project page now draws its Seeds tab from this tally, so the Work, Tasks, and Artifacts tabs no longer load the board's whole seed history every few seconds. The store does not change.
 
 ### Migration
 
