@@ -9,6 +9,7 @@ import { assertHostVersion, createEngineHandler } from '@mimir/wire/server';
 
 import { createAgentConsole } from './agent-console';
 import { createAgentRunner, RUNNER_TIMING } from './agent-runner';
+import type { RunQuery } from './agent-runner';
 import { agentStartupWarnings, createAgentConnection } from './agent-settings';
 import { syncClone } from './clones';
 import type { HostConfig } from './config';
@@ -20,6 +21,7 @@ import { createPushChannel } from './push-channel';
 import type { PushFetch } from './push-send';
 import { isPushReady, pushStartupWarnings } from './push-settings';
 import { createT3Adapter } from './t3';
+import type { T3Fetch } from './t3-http';
 import { t3StartupWarnings } from './t3-settings';
 
 /** A timer the notifier arms; the host unrefs it so an open window never keeps the process alive. */
@@ -44,14 +46,26 @@ const REAL_NOTIFIER_TIMING: NotifierTiming = {
  * What a caller may replace in `openHost`: a test drives the notifier's time
  * through it, and stands in for the push services.
  */
-export type HostDependencies = { notifierTiming?: NotifierTiming; pushFetch?: PushFetch };
+export type HostDependencies = {
+  /** The agent runtime's SDK `query` and clone sync; a test scripts a run with them. */
+  agentRuntime?: { query?: RunQuery; syncClone?: typeof syncClone };
+  notifierTiming?: NotifierTiming;
+  pushFetch?: PushFetch;
+  /** The `fetch` the T3 adapter calls T3 with. */
+  t3Fetch?: T3Fetch;
+};
 
 /** Open the host-owned store and finish migrations before exposing handlers. */
 export async function openHost(
   config: HostConfig,
   version: string,
   log: (line: string) => void = (line) => console.error(line),
-  { notifierTiming = REAL_NOTIFIER_TIMING, pushFetch }: HostDependencies = {},
+  {
+    agentRuntime = {},
+    notifierTiming = REAL_NOTIFIER_TIMING,
+    pushFetch,
+    t3Fetch,
+  }: HostDependencies = {},
 ) {
   assertHostVersion(version);
   if (config.store.backend === 'sqlite') {
@@ -137,15 +151,16 @@ export async function openHost(
       engine: views.agentRuns,
       gitCredentials: config.gitCredentials,
       log,
-      query,
+      query: agentRuntime.query ?? query,
       // One id per host process: the rows it admits are its own.
       runnerId: randomUUID(),
       runs: built.runs,
       settings: config.agent,
-      syncClone,
+      syncClone: agentRuntime.syncClone ?? syncClone,
     });
     const t3 = createT3Adapter({
       engine: views.t3,
+      ...(t3Fetch === undefined ? {} : { fetch: t3Fetch }),
       log,
       secrets: built.secrets,
       settings: config.t3,
