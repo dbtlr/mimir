@@ -678,7 +678,9 @@ also moves), a decision by its `created_at`, and a task by the existing
 recency order. Equal instants go to the lowest sequence, then to the project
 key. The order holds:
 
-- inside each project group on the review page and in the alert's popover;
+- inside each project group on the review page and in the alert's popover
+  (2026-11-24, MMR-723: the popover retires; the Needs you page orders its
+  project sections and their cards by this order);
 - across projects in the focus queue, which drops the grouping;
 - on a work page's _Needs you_.
 
@@ -730,6 +732,8 @@ leading record is newest by its kind's clock, then to the project key.
   popover reads "Nothing needs you". A count of one reads "1 needs you". The MMR-476, MMR-492, and MMR-615
   refinements' word "decisions" for the set now reads "the needs-you set":
   the popover lists the set, and the set's tasks are the ones MMR-615 names.
+  (2026-11-24, MMR-723: the popover retires; the empty Needs you page reads
+  "Nothing needs you.")
 - **The version window.** The rename, `WorkReport.needsYou` changing from a
   list of tasks to a list of tagged rows, and `ReviewReport.queue` changing
   from a list of ids to a list of `{ kind, id }`, are not additive changes
@@ -765,7 +769,9 @@ wake gives it. `confirm` never wakes.
 A provisional decision's row carries a chip row wherever the row shows: on
 the delivery page, in a review group, in the alert's popover, on a work
 page's _Needs you_, and on its focus-queue card. The chips wrap onto more
-lines when a decision has many options.
+lines when a decision has many options. (2026-11-24, MMR-723: the popover
+retires; the Needs you page shows decisions in their bundles' cards, which
+open the walkthrough.)
 
 - **Confirm N** confirms the answer taken, where N is the taken option's
   number. One tap commits it, with no note.
@@ -1079,7 +1085,9 @@ the oldest one waiting, as the MMR-703 refinement orders a set.
   group, then one for the group's decisions that name no delivery. The
   delivery entries follow the needs-you order of each delivery's first
   decision row, and the no-delivery entry comes last. A group with no
-  decision rows shows no entries.
+  decision rows shows no entries. (2026-11-24, MMR-723: the popover retires,
+  and with it these entries' place in it; on the Needs you page each set is
+  a bundle card, as on Home's deck.)
 - **On the delivery page,** the _Needs you_ section shows one entry above
   its decision rows when the delivery has a provisional decision.
 - Copy, with N counting the set's decision rows in the read the surface
@@ -1098,6 +1106,7 @@ the oldest one waiting, as the MMR-703 refinement orders a set.
 - An entry is a text link in the attention hue, because the set is in the
   needs-you set. On a phone, it takes the 44px touch target. Activating an
   entry in the popover closes the popover, as every link in it does.
+  (2026-11-24, MMR-723: the popover retires.)
 - The focus queue, a work page's needs-you group, and the T3 wake gain no
   entry. A work page's delivery row links to the delivery page, which has
   one. The wake goes to the agent after the operator has answered, so it
@@ -1193,7 +1202,9 @@ and focus fell to the document. This refinement places it.
   project's decisions without a delivery. Every entry in the _Needs you_
   popover or sheet names the _Needs you_ alert instead, because the popover
   is closed by the time the walkthrough closes. The done screen's link to
-  the next set carries the name over with the opener.
+  the next set carries the name over with the opener. (2026-11-24, MMR-723:
+  the popover and sheet retire, and the alert is no longer a return target;
+  a bundle card's button on the Needs you page is, named by its set.)
 - When Close or the link back goes back one history entry, focus lands on
   the named control once the opener page shows. When the back lands on any
   other page, because Forward cut it short or the history before the
@@ -2344,7 +2355,9 @@ The popover's in-place verbs (_Approve_, _Send back…_, _Answer…_ on
 grouped rows) retire with it; the page acts through the deck's cards,
 whose actions the MMR-721 refinement sets. It also settles the MMR-721
 refinement's open question about how the page reuses the deck's cards
-and bundles.
+and bundles. The earlier rules that place things in the popover or sheet
+(MMR-694's order, MMR-695's chips, MMR-704's entries, MMR-714's return to
+the alert) carry a dated note where they stand.
 
 ### The list
 
@@ -2352,7 +2365,9 @@ and bundles.
   `needsYouCards` makes, with the same identities, leads, details, single
   outline button, and preview as the deck's (MMR-721, The cards). It adds no
   card and drops none, so each record in the set appears once, inside a
-  card, and a bundle is never split across projects.
+  card, and a bundle is never split across projects. To group and count
+  them, the card model gains two fields: the project's key, and the records
+  the card holds (one, or a bundle's decisions).
 - **One section per project, in the set's order.** A project's place is
   its first card's place in the set's one ranked order, and its cards
   follow in that order. So the first section holds the set's most urgent
@@ -2368,13 +2383,16 @@ and bundles.
   sections drop to one column exactly as Home's feed does.
 - **The page head** is Home's: the title "Needs you" and one sentence,
   "N cards, M items in K projects." (singular at one), over a hairline.
-  M is the alert's count.
+  M is the alert's count, the set's records. The sections' items add up
+  to it whenever each record in the set has its row, which the review
+  report gives; a queue member without a row makes no card, as on the
+  deck, and no section counts it.
 - **No pager, no cap.** The list is the whole set. A long set scrolls the
   page; nothing pages, folds, or caps it.
 
 ### Work through all
 
-- **A bar pinned to the screen's bottom holds the page's one solid
+- **A bar at the bottom of the page holds the page's one solid
   button,** _Work through all N_, where N is the records the focus queue
   walks (the alert's count). With one record it reads _Work through 1
   item_. It opens the focus queue at `/?mode=focus` (ADR 0013). The cards'
@@ -2389,11 +2407,21 @@ and bundles.
 - **The bar is navigation, so it stays live offline,** as _Review N
   decisions_ does (MMR-721, Offline); the queue's own writes follow ADR
   0013 there.
-- **It never covers a card.** The page leaves room under its last section
-  for the bar and the body's bottom padding, so at the end of the scroll
-  the last card rests whole above the bar. The bar's top edge is the
-  overflow cue while content continues under it, and a plain hairline
-  once the page reaches its end, as the preview's footer behaves (MMR-720).
+- **The bar sits outside the page's scroller, so it never covers a
+  card.** The page's area is its scroller with the bar under it, and the
+  shell's version footer strip stays under both, as on every page
+  (`routes/shell.tsx`). The scroller ends at the bar's top edge, so
+  nothing scrolls beneath the bar: a card brought into view, by the
+  preview's scroll or by focus, is whole above it. The room under the
+  last section is the body's bottom padding alone. The bar takes no
+  safe-area inset of its own, since the footer strip lies between it and
+  the screen's edge. Its top edge is the overflow cue while the scroller
+  has more below, and a plain hairline once it reaches its end, as the
+  preview's footer behaves (MMR-720).
+- **A desktop Notice floats over the bar** as it floats over any content
+  (DESIGN.md, Content under a Notice): it sits 20 above the footer strip at
+  the left gutter, over the bar's note, for its few seconds, and the bar
+  does not move for it.
 - **With the preview open on desktop** the bar spans the room left of the
   panel, where the column sits; the panel keeps its own footer.
 
@@ -2403,13 +2431,25 @@ The deck's state rules (MMR-721) are written for a deck that shows a
 current card or page. The list shows every card, so it keeps the rules
 that are about cards and focus, and has nothing to turn, page, or anchor.
 
-- **Shared with the deck, through one layer.** A card's action, its write
-  in flight, a refused write's focus return, offline, the answer dialog and
-  its return, and the preview's footer action behave exactly as the
-  MMR-721 refinement's _Previews, writes, and the answer dialog_ and
-  _Offline_ set. The deck and the list get them from one card-action layer
-  in `components/patterns/feed`, which the deck's code moves into
-  unchanged, so the two cannot drift.
+- **What the list shares with the deck.** A card's action, its write in
+  flight, a refused write's focus return, offline, the answer dialog, and
+  the preview's footer action behave as the MMR-721 refinement's
+  _Previews, writes, and the answer dialog_ and _Offline_ set. Each comes
+  from one place, in its layer:
+  - **In `components/patterns/feed`,** a card-action hook holds the
+    writes in flight, offline's `aria-disabled`, the card's outline
+    button, the preview's footer action, and a refused write's return
+    to the pressed control. It finds a card by an identity attribute
+    the surface passes in, so the deck keeps `data-deck-card` and the
+    list sets its own. The deck moves onto it and its behaviour does
+    not change.
+  - **In the feature layer,** one mapping from the report's cards to
+    their actions (the walkthrough's navigation with its mark,
+    _Clear stop_, the answer dialog's state and mounting) serves both
+    the deck's view and the page.
+  - **Per surface:** where focus goes after a card leaves or a dialog
+    returns. The deck's rules turn and page it (MMR-721); the list's
+    are below.
 - **A card leaves when its record leaves the set,** on the refetch that
   drops it, and a refetch applies by identity: focus stays on the element
   that holds it whenever that element survives, and a card that holds no
@@ -2419,21 +2459,29 @@ that are about cards and focus, and has nothing to turn, page, or anchor.
   to the stretched target of the nearest card after it in the page's order
   that is still on the page, or, with none after it, the nearest card
   before it, across sections. Never its button, as the deck keeps focus
-  off a write.
+  off a write. When no card that was on the page survives a refetch but
+  cards remain, that focus moves to the first card's target.
+- **The answer dialog's return** goes to the card's _Answer…_ button
+  while the card survives, else its target, as on the deck; once the card
+  has left, the rule above applies.
 - **A section leaves with its last card.** When a project's last card
   leaves, its section goes; the next section moves up.
 - **With no card left, the page falls to its empty state.** The quiet line
   "Nothing needs you." takes the sections' place, the bar goes, and the
   alert leaves the top bar (it is absent at zero). When focus was in the
-  last card, its preview, or a dialog from it, the quiet line takes focus,
-  made focusable for it.
+  last card, its preview, or a dialog from it, or on _Work through all_,
+  the quiet line takes focus, made focusable for it, so focus never falls
+  to the page body (MMR-721).
 - **The preview follows its card,** as on the deck: when the previewed card
   leaves, the preview closes and focus follows the rules above.
 - **A walkthrough's return** lands on the bundle's button when the bundle
-  is still on the page. Every card is in the document, so the MMR-714
-  return target's document query finds it, and the list registers nothing
-  with the opener-focus request. When the bundle is gone, the MMR-714
-  fallback holds: the page's main region.
+  is still on the page. A card's action may name a return target, and a
+  bundle's button on the list carries the MMR-714 return-target attribute
+  (`data-walkthrough-return`) with its set's name, so the MMR-714 document
+  query finds it: every card is in the document, and the list registers
+  nothing with the opener-focus request. The deck keeps its resolver
+  (MMR-721). When the bundle is gone, the MMR-714 fallback holds: the
+  page's main region.
 
 ### Edges
 

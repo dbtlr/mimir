@@ -529,7 +529,9 @@ preview panel uses.
 
 The needs-you set as a grouped card list on `/needs-you` (ADR 0019's
 MMR-723 refinement): the deck's cards, one feed section per project, and a
-bar pinned to the screen's bottom for _Work through all_. Its cards are the
+bar at the bottom of the page for _Work through all_, under the page's
+scroller and above the shell's version footer strip, so nothing scrolls
+beneath it. Its cards are the
 Card block's, its heads the Section head's, and its preview the Preview
 panel's; the page adds only what is below.
 
@@ -538,9 +540,9 @@ panel's; the page adds only what is below.
 | Page head | Home's page head (Pages): the title "Needs you" (`text-page`), 4 to the sentence "10 cards, 26 items in 3 projects." (`text-body` ink, singular at one), 20 to a `line` hairline, 32 to the first section; 16 top | the same, 24 top; the column 900 at most | **adopted (MMR-723)** |
 | Section | one per project: the Section head with the project's name and its worded count "3 cards, 5 items" (the records its cards hold), no See all; 32 between sections (Between feed sections) | same | **adopted (MMR-723)** |
 | Cards | the Card block, stacked 8 apart | in the Card grid by its container rule, 12 apart | **adopted (MMR-723)** |
-| Bar | pinned to the screen's bottom, full width; `well-850`; padding 12 top, 12 + `env(safe-area-inset-bottom)` bottom, 14 sides; the solid _Work through all N_ (_Work through 1 item_ at one) fills it, 44 tall | pinned to the viewport's bottom across the main area (from the sidebar's edge, or the screen's left when the sidebar yields, to the right edge, or to the open panel's left edge); `well-850`; 16 top and bottom; its content in the page's 900 column with its 20 gutters: the note "One item at a time, in queue order across projects, then back here." (13 / 20 `ink-dim`) at the left, the solid at the right, content width, 44 tall, 20 side padding, at least 16 apart. When they cannot share a line, the note stacks 8 above a full-width button | **adopted (MMR-723)** |
-| Bar edge | a 1px top edge: while content continues under the bar, the overflow cue of the Preview panel's footer (`ink-ghost` in dark, `line-bright` in light, with its upward shadow); once the page reaches its end, `line` with no shadow | same | **adopted (MMR-723)** |
-| Room under the last section | the bar's height plus 32, so the last card rests whole above the bar | the bar's height plus 40 | **adopted (MMR-723)** |
+| Bar | the page's last row, full width, under its scroller and above the version footer strip; `well-850`; padding 12 top and bottom, 14 sides, with no safe-area inset of its own (the footer strip lies below it); the solid _Work through all N_ (_Work through 1 item_ at one) fills it, 44 tall | the page's last row across the main area (from the sidebar's edge, or the screen's left when the sidebar yields, to the right edge, or to the open panel's left edge), above the version footer strip; `well-850`; 16 top and bottom; its content in the page's 900 column with its 20 gutters: the note "One item at a time, in queue order across projects, then back here." (13 / 20 `ink-dim`) at the left, the solid at the right, content width, 44 tall, 20 side padding, at least 16 apart. When they cannot share a line, the note stacks 8 above a full-width button | **adopted (MMR-723)** |
+| Bar edge | a 1px top edge: while the scroller has more below, the overflow cue of the Preview panel's footer (`ink-ghost` in dark, `line-bright` in light, with its upward shadow); once it reaches its end, `line` with no shadow | same | **adopted (MMR-723)** |
+| Room under the last section | 32, the body's bottom padding; the scroller ends at the bar's top edge | 40 | **adopted (MMR-723)** |
 | Empty | the title alone, then the quiet line "Nothing needs you." 32 below it (Quiet line); no sentence, hairline, sections, or bar | same | **adopted (MMR-723)** |
 
 #### Record header
