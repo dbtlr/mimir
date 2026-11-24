@@ -851,13 +851,10 @@ describe('container page (MMR-450)', () => {
       };
       serve(attached, withNote);
       const served = vi.mocked(getNode).getMockImplementation();
-      let release: () => void = () => {};
-      const held = new Promise<void>((resolve) => {
-        release = resolve;
-      });
+      const held = Promise.withResolvers<void>();
       vi.mocked(getNode).mockImplementation(async (options) => {
         if (options.data.id === 'MMR-2' && options.data.facets?.length !== 1) {
-          await held;
+          await held.promise;
         }
         return served!(options);
       });
@@ -871,7 +868,7 @@ describe('container page (MMR-450)', () => {
 
       // The cached record shows the first tab with something in it at once.
       await screen.findByRole('tab', { name: 'Work', selected: true });
-      release();
+      held.resolve();
 
       await screen.findByRole('tab', { name: 'Artifacts 1', selected: true });
       expect(testRouter.state.location.searchStr).toBe('?tab=artifacts');

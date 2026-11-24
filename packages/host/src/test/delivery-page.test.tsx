@@ -345,20 +345,17 @@ test('a phase with no tasks still shows its live delivery card, on Work', async 
 test('a phase with no tasks keeps Work in its URL until its delivery read is current', async () => {
   const page = fixture();
   serveNodes({ nodes: [{ ...page.phase, distribution: {} }] });
-  let answer: (rows: Awaited<ReturnType<typeof phaseDeliveries>>) => void = () => {};
-  vi.mocked(phaseDeliveries).mockImplementation(
-    () =>
-      new Promise((resolve) => {
-        answer = resolve;
-      }),
-  );
+  const answer = Promise.withResolvers<Awaited<ReturnType<typeof phaseDeliveries>>>();
+  vi.mocked(phaseDeliveries).mockReturnValue(answer.promise);
   const client = createQueryClient();
   client.setQueryData(['nodes', 'deliveries', 'MMR-2'], [], { updatedAt: Date.now() - 12_000 });
   const { router } = await renderRoute(consoleRoutes, '/p/MMR/2', client);
   await screen.findByRole('tab', { name: 'Details', selected: true });
   await waitFor(() => expect(phaseDeliveries).toHaveBeenCalled());
   expect(router.state.location.searchStr).toBe('');
-  answer([{ delivery: { ...page.delivery, hold: 'none', lifecycle: 'agreed' }, members: [] }]);
+  answer.resolve([
+    { delivery: { ...page.delivery, hold: 'none', lifecycle: 'agreed' }, members: [] },
+  ]);
   await screen.findByRole('tab', { name: 'Work', selected: true });
   expect(router.state.location.searchStr).toBe('');
 });
