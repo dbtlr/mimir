@@ -15,10 +15,11 @@ import type { FeedLink } from './link';
  */
 
 /**
- * One finished row: the status dot, the title (one line, demoted to ink-dim),
- * and the time in mono. `status` leads the row's accessible name on every row,
- * so done and abandoned rows read alike. An abandoned row's `note` is its
- * second line: the feature's StatusWord, then the reason.
+ * One finished row: the status dot, the title (demoted to ink-dim, two lines
+ * at most on a phone and one on desktop), and the time in mono. `status` leads
+ * the row's accessible name on every row, so done and abandoned rows read
+ * alike. An abandoned row's `note` is its second line: the feature's
+ * StatusWord, then the reason.
  */
 export function FinishedRow({
   to,
@@ -56,7 +57,9 @@ export function FinishedRow({
       </span>
       <span className="min-w-0 flex-1">
         <span className="sr-only">{status}:</span>{' '}
-        <span className="block truncate text-title font-medium text-ink-dim">{title}</span>
+        <span className="block truncate text-title font-medium text-ink-dim wrap-anywhere max-md:line-clamp-2 max-md:whitespace-normal">
+          {title}
+        </span>
         {note !== undefined && (
           <>
             {' '}
