@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import type { MouseEvent } from 'react';
 
 import { nodeQuery } from '../api/node-queries';
 import { treeQuery } from '../api/shell-queries';
@@ -10,6 +11,7 @@ import { cn } from '../lib/cn';
 import { projectKeyOf } from '../lib/project-key';
 import { nodeLink } from '../lib/record-url';
 import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
+import { linkBackAction, useBackToOpener, useOpenerMark } from '../lib/walkthrough-mark';
 import { Crumbs } from './crumbs';
 import { LinkifiedText } from './linkified-text';
 import { MarkdownBody } from './markdown-body';
@@ -25,9 +27,37 @@ import { NeedsYouRow, needsYouActions } from './work-rows';
  * moves forward: a member settled anywhere — here, by its action, or
  * elsewhere — drops out of the live review read and the queue moves past it,
  * and Skip moves past one without acting, leaving it on the page. A member
- * behind the queue stays behind it, even when it returns. When nothing is left the
- * queue returns to `/`.
+ * behind the queue stays behind it, even when it returns. "Back to the list"
+ * and the return when nothing is left go to the Needs you page (MMR-723): back
+ * one history entry when its Work through all opened the queue, else by
+ * replacing the queue's entry with the page.
  */
+
+/** The page the queue returns to. */
+const LIST_PATH = '/needs-you';
+
+/** A click the browser would open in the same tab: the primary button with no modifier. */
+function isPlainClick(event: MouseEvent): boolean {
+  return event.button === 0 && !(event.metaKey || event.ctrlKey || event.shiftKey || event.altKey);
+}
+
+/**
+ * The queue's return to the Needs you page. Opened from the page's Work
+ * through all, it goes back one entry through the walkthrough's guarded back,
+ * once however many triggers fire, leaving the focus request for Work through
+ * all; otherwise it reports that the caller replaces its entry with the page.
+ */
+function useReturnToList(): () => boolean {
+  const mark = useOpenerMark();
+  const back = useBackToOpener();
+  return () => {
+    if (mark === undefined || linkBackAction(mark.opener, LIST_PATH) !== 'back') {
+      return false;
+    }
+    back(mark);
+    return true;
+  };
+}
 
 /** Why a task needs the operator, in the card's words. */
 const REASON: Record<NeedsYouTask['reason'], string> = {
@@ -52,6 +82,11 @@ export function FocusQueue({ offline }: { offline: boolean }) {
   // The queue's place in the fixed list; nothing before it comes back.
   const [cursor, setCursor] = useState(0);
   const navigate = useNavigate();
+  const returnToList = useReturnToList();
+  const returnNow = useRef(returnToList);
+  useEffect(() => {
+    returnNow.current = returnToList;
+  });
   const report = review.data;
   // A read that cannot refresh (failed, or paused offline) is the best there is.
   const settled = !review.isStale || review.isError || review.isPaused;
@@ -66,8 +101,8 @@ export function FocusQueue({ offline }: { offline: boolean }) {
   const exhausted = fixed !== null && index === -1;
 
   useEffect(() => {
-    if (exhausted) {
-      void navigate({ replace: true, search: {}, to: '/' });
+    if (exhausted && !returnNow.current()) {
+      void navigate({ replace: true, to: LIST_PATH });
     }
   }, [exhausted, navigate]);
   if (fixed === null || index === -1) {
@@ -83,7 +118,13 @@ export function FocusQueue({ offline }: { offline: boolean }) {
       <h1 className="sr-only">Work through these</h1>
       <div className="flex items-center gap-3">
         <Link
-          to="/"
+          to={LIST_PATH}
+          replace
+          onClick={(event) => {
+            if (isPlainClick(event) && returnToList()) {
+              event.preventDefault();
+            }
+          }}
           className="rounded-sm text-meta text-accent-foreground underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-accent"
         >
           ← Back to the list
