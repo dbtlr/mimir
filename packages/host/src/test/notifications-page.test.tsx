@@ -266,6 +266,7 @@ describe('this browser in each state', () => {
     const store = new Map<string, string>();
     const browser = createPushBrowser({
       after: async () => {},
+      listenStorage: () => () => {},
       maxTouchPoints: 0,
       permission: () => 'default',
       pushSupported: () => true,
@@ -1821,6 +1822,7 @@ describe('healing when the console opens', () => {
           await Promise.withResolvers<void>().promise;
         }
       },
+      listenStorage: () => () => {},
       maxTouchPoints: 0,
       permission: () => 'granted',
       pushSupported: () => true,
