@@ -396,7 +396,7 @@ export function ContainerDetails({ record, offline }: { record: EngineNode; offl
       )}
       {prerequisites.length > 0 && (
         <DetailsSection title="Depends on" count={prerequisites.length}>
-          <div className="border-b border-line">
+          <div>
             {prerequisites.map((r) => (
               <RelationRow key={r.id} refNode={r} />
             ))}
@@ -405,7 +405,7 @@ export function ContainerDetails({ record, offline }: { record: EngineNode; offl
       )}
       {blocking.length > 0 && (
         <DetailsSection title="Blocking" count={blocking.length}>
-          <div className="border-b border-line">
+          <div>
             {blocking.map((r) => (
               <RelationRow key={r.id} refNode={r} />
             ))}
