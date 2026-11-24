@@ -343,6 +343,8 @@ and the rejected red badge:
   grooming state is _needs answers_.** That one set is a work page's _Needs
   you_ within its scope, the review page's decisions, the top-bar alert's
   count and popover, and the project health strip's decision count.
+  (2026-11-24, MMR-723: the popover retires; the Needs you page shows the
+  set.)
 - **The order loses its verdict tier.** A project's urgency is its leading
   decision kind, a block on you and then a question. The focus queue walks
   every block on you, then every question, newest first within each.
@@ -358,7 +360,8 @@ and the rejected red badge:
   takes no attention rule.
 - **Verdict verbs leave the lists.** Rows on the work page, the review page,
   the popover, and the focus queue no longer carry _Approve_ or _Send back…_;
-  §4's verdict-first rule now holds on the task page only.
+  §4's verdict-first rule now holds on the task page only. (2026-11-24,
+  MMR-723: the popover retires.)
 
 ## Refinement (2026-11-02, MMR-617): `under_review` takes chartreuse
 
@@ -2375,8 +2378,8 @@ the alert) carry a dated note where they stand.
 - **The section head** is the MMR-719 Section head: the project's name,
   then its worded count "N cards, M items", the cards it holds and the
   records in them, each singular at one ("1 card, 1 item"). The head is
-  not a link; the project is one tap away through any card's preview
-  (Open) or the sidebar. A project missing from the report's `projects`
+  not a link: the page is for acting on the cards, and the project is
+  reached from a card's record page or the sidebar. A project missing from the report's `projects`
   shows its key, as a card's status line does.
 - **Cards stack on a phone and sit in the Card grid from `md`,** by the
   Card grid's container rule (MMR-720), so beside an open preview the
@@ -2413,9 +2416,11 @@ the alert) carry a dated note where they stand.
   (`routes/shell.tsx`). The scroller ends at the bar's top edge, so
   nothing scrolls beneath the bar: a card brought into view, by the
   preview's scroll or by focus, is whole above it. The room under the
-  last section is the body's bottom padding alone. The bar takes no
-  safe-area inset of its own, since the footer strip lies between it and
-  the screen's edge. Its top edge is the overflow cue while the scroller
+  last section is Home's column bottom padding alone (40 on a phone, 48
+  from `md`). The bar takes no safe-area inset of its own: the footer
+  strip (about 23 tall, with no inset) lies between it and the screen's
+  edge, so the button clears a phone's home indicator by the bar's 12
+  bottom padding plus the strip, about 35 against a 34 inset. Its top edge is the overflow cue while the scroller
   has more below, and a plain hairline once it reaches its end, as the
   preview's footer behaves (MMR-720).
 - **A desktop Notice floats over the bar** as it floats over any content
@@ -2456,7 +2461,7 @@ that are about cards and focus, and has nothing to turn, page, or anchor.
   focus moves none when it leaves.
 - **Focus from a card that left goes to its successor's target:** when
   focus was in the card, its preview, or a dialog opened from it, it moves
-  to the stretched target of the nearest card after it in the page's order
+  to the stretched target of the nearest card after it in the old order
   that is still on the page, or, with none after it, the nearest card
   before it, across sections. Never its button, as the deck keeps focus
   off a write. When no card that was on the page survives a refetch but

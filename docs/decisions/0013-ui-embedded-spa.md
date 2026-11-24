@@ -805,7 +805,8 @@ The top bar's icon controls and the close buttons of the record-page sheet,
 the _Needs you_ sheet, the _Direction_ dialog, and the decisions walkthrough
 share one icon button (`components/ui/icon-button.tsx`) and one icon set
 (`components/ui/icons.tsx`). Search fields and chip remove buttons take their
-marks from the same icon set. A text character's size and shape depend on the
+marks from the same icon set (2026-11-24, MMR-723: the _Needs you_ sheet
+retires). A text character's size and shape depend on the
 font, so these controls no longer draw their icons from one. The
 walkthrough's bordered _Back_ button and the seed composer's _esc_ close keep
 their own forms.
@@ -933,6 +934,7 @@ Needs you.
   all link. A row with no destination is plain, with no chevron and no hover
   fill: Shipped's rows by project and the spare-minute rows (ADR 0019,
   MMR-722 refinement). The MMR-724 list pages will give them destinations.
+  (2026-11-24, MMR-723: Needs you gains _See all_ to `/needs-you`.)
 - **Home's spare-minute work no longer acts in place.** The rail's runnable
   tasks with _Start_ and untriaged seeds with their verbs (the MMR-476 and
   MMR-503 refinements' in-place triage) are now counts. Each project's work
@@ -1090,6 +1092,13 @@ state; this refinement sets where it sits in the console.
   going back one history entry when the queue was opened from the page, so
   the history holds no second copy of the page and Back does not reopen
   the queue, and otherwise, as from a bookmark or a typed URL, by
-  replacing the queue's entry with `/needs-you`. The queue itself is unchanged.
+  replacing the queue's entry with `/needs-you`. The back goes through the
+  same guarded back the walkthrough uses (`useBackToOpener`), once however
+  many of the two triggers fire, and leaves ADR 0019's MMR-714 focus
+  request naming _Work through all_; when the bar is gone because nothing
+  is left, the MMR-714 fallback holds. The replace path moves no focus. The queue itself is unchanged.
+- **The sidebar on `/needs-you`** shows the All projects context with no
+  row current, as on any page outside a project (the MMR-503 and MMR-562
+  refinements); the page spans projects, so no project is marked.
 - **No other page changes.** A project's work page keeps its needs-you rows
   and their verbs (the MMR-694 and MMR-695 refinements).
