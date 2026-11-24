@@ -90,8 +90,17 @@ test('shows the overflow cue when the read lands after the page mounts, as on a 
   page,
 }) => {
   await page.setViewportSize(PHONE);
+  // Until the read lands the page is pending, never unreachable: note it if the host's absence ever shows.
+  await page.addInitScript(() => {
+    new MutationObserver(() => {
+      if (document.body.textContent.includes('Unreachable')) {
+        document.documentElement.dataset.sawUnreachable = '';
+      }
+    }).observe(document, { childList: true, subtree: true });
+  });
   await page.goto(`${harness.origin}?form=needs-you-page&late`);
   await expect(page.getByRole('heading', { level: 1, name: 'Needs you' })).toBeVisible();
+  await expect(page.locator('html')).not.toHaveAttribute('data-saw-unreachable');
   const main = page.getByRole('main');
   await expect
     .poll(async () => main.evaluate((element) => element.scrollHeight > element.clientHeight))

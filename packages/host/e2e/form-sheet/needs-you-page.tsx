@@ -42,12 +42,31 @@ const REPORT = report(ROWS, { names: NAMES });
 /** `&late`: the review read lands after the page mounts, as on a cold load. */
 const late = new URLSearchParams(globalThis.location.search).has('late');
 
-/** A cache that holds the review read and never asks the host for it again. */
+/** How long the `&late` read takes to land. */
+const LATE_MS = 300;
+
+/**
+ * A cache that holds the review read and never asks the host for it again.
+ * Under `&late` it starts the read itself, from the fixture, so the page's
+ * mount joins that fetch and stays pending until it lands. (A query default's
+ * `queryFn` would not serve: `reviewQuery()` names its own, which wins.)
+ */
 function seededClient(): QueryClient {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   });
-  if (!late) {
+  if (late) {
+    void client.prefetchQuery({
+      queryFn: async () => {
+        const { promise, resolve } = Promise.withResolvers<typeof REPORT>();
+        globalThis.setTimeout(() => {
+          resolve(REPORT);
+        }, LATE_MS);
+        return promise;
+      },
+      queryKey: reviewQuery().queryKey,
+    });
+  } else {
     client.setQueryData(reviewQuery().queryKey, REPORT);
   }
   return client;
@@ -104,17 +123,6 @@ export function NeedsYouPageHarness() {
     globalThis.addEventListener(REORDER_EVENT, reorder);
     return () => {
       globalThis.removeEventListener(REORDER_EVENT, reorder);
-    };
-  }, []);
-  useEffect(() => {
-    if (!late) {
-      return undefined;
-    }
-    const timer = globalThis.setTimeout(() => {
-      client.setQueryData(reviewQuery().queryKey, REPORT);
-    }, 300);
-    return () => {
-      globalThis.clearTimeout(timer);
     };
   }, []);
   return (
