@@ -80,7 +80,7 @@ export function FilterSheet({
           data-slot="filter-sheet-header"
           className="flex shrink-0 items-center gap-3 border-b border-line pt-3 pr-2 pb-3 pl-5 md:pt-5 md:pr-6 md:pb-5 md:pl-8"
         >
-          <DrawerTitle className="min-w-0 flex-1 text-dossier font-semibold text-ink-bright">
+          <DrawerTitle className="min-w-0 flex-1 text-dossier leading-6 font-semibold text-ink-bright">
             {title}
           </DrawerTitle>
           {/* The close's tap target reaches into the header's padding, so the header is the

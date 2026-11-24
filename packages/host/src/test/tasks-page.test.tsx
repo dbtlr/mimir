@@ -699,7 +699,8 @@ describe('tasksPage Sort (MMR-724)', () => {
 async function openSheet(url = '/p/MMR/tasks') {
   const testRouter = await renderTasks(url);
   const user = userEvent.setup();
-  await screen.findByText(/live tasks|in flight|ready|going cold|finished/);
+  // The count line, which starts with its number, says the list has loaded.
+  await screen.findByText(/^\d+ (live tasks?|tasks?|shipped|finished)\b/);
   await user.click(filterChip());
   const sheet = await screen.findByRole('dialog', { name: 'Filter tasks' });
   return { sheet, testRouter, user };
@@ -964,6 +965,17 @@ describe('tasksPage Filter sheet (MMR-724)', () => {
     await expect(screen.findByText('Large blocked')).resolves.toBeVisible();
     expect(screen.getByText('Large ready')).toBeVisible();
     expect(filterChip()).toHaveAccessibleName('Filter, 1 applied');
+  });
+
+  it('counts a deep-linked union with live in it as live tasks, as its draft reads it', async () => {
+    const live = [
+      engineTask({ id: 'MMR-70', status: 'ready', title: 'A ready one' }),
+      engineTask({ id: 'MMR-71', status: 'blocked', title: 'A blocked one' }),
+    ];
+    serveBrowse({ tasks: live });
+    serveListSelecting(live);
+    await renderTasks('/p/MMR/tasks?status=live,ready');
+    await expect(screen.findByText('2 live tasks')).resolves.toBeVisible();
   });
 
   it('leaves a sort out of the URL once Show picks finished work, which takes none', async () => {

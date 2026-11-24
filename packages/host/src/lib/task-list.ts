@@ -226,7 +226,7 @@ export function countLine(
       return `${n} shipped in the last 7 days`;
     }
     case undefined: {
-      if (view.status === undefined || view.status === 'live') {
+      if (view.status === undefined || csv(view.status).includes('live')) {
         return `${n} live ${tasks}`;
       }
       return view.status === 'terminal' ? `${n} finished` : `${n} ${tasks}`;
