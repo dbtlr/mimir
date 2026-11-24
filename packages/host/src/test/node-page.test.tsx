@@ -1,6 +1,6 @@
 import type { EngineNode } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -1447,5 +1447,55 @@ describe('task page hold callout (MMR-466)', () => {
     const article = screen.getByRole('article');
     expect(within(article).getByText('parked')).toBeDefined();
     expect(within(article).queryByText(/Blocked on/)).toBeNull();
+  });
+});
+
+describe('a record change closes what the container header opened (MMR-726)', () => {
+  it('Back from one phase to a cached one closes the Direction editor and writes nothing', async () => {
+    const a = engineContainer({
+      id: 'MMR-2',
+      next: 'A direction.',
+      parent: 'MMR',
+      status: 'ready',
+      title: 'Phase A',
+      type: 'phase',
+    });
+    const b = engineContainer({
+      id: 'MMR-3',
+      next: 'B direction.',
+      parent: 'MMR',
+      status: 'ready',
+      title: 'Phase B',
+      type: 'phase',
+    });
+    serveShell({ trees: { MMR: engineTree({ id: 'MMR', status: 'ready', type: 'project' }) } });
+    serveNodes({ nodes: [a, b], notes: { 'MMR-2': [], 'MMR-3': [] } });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { router } = await renderRoute(consoleRoutes, '/p/MMR/2?tab=details', client);
+    await screen.findByRole('heading', { level: 1, name: 'Phase A' });
+    await act(async () => {
+      await router.navigate({
+        params: { key: 'MMR', seq: '3' },
+        search: { tab: 'details' },
+        to: '/p/$key/$seq',
+      });
+    });
+    await screen.findByRole('heading', { level: 1, name: 'Phase B' });
+    await userEvent.click(await screen.findByRole('button', { name: 'More' }));
+    await userEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Edit direction…' }),
+    );
+    const draft = await screen.findByRole('textbox', { name: 'Direction text' });
+    await userEvent.clear(draft);
+    await userEvent.type(draft, 'New B direction.');
+    act(() => {
+      router.history.back();
+    });
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/p/MMR/2');
+    });
+    await screen.findByRole('heading', { hidden: true, level: 1, name: 'Phase A' });
+    expect(screen.queryByRole('textbox', { name: 'Direction text' })).toBeNull();
+    expect(update).not.toHaveBeenCalled();
   });
 });
