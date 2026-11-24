@@ -3,6 +3,7 @@ import type { MouseEvent, ReactNode, Ref } from 'react';
 
 import { cn } from '../lib/cn';
 import { CLOSING_ROW_ATTRIBUTE } from './patterns/action-menu';
+import { ActionButton } from './ui/action-button';
 import { iconButtonClass } from './ui/icon-button';
 import { CloseIcon } from './ui/icons';
 import { Sheet, SheetClose, SheetContent, SheetTitle } from './ui/sheet';
@@ -91,8 +92,8 @@ function closeOnChoice(close: () => void) {
 
 /**
  * The phone rail: a row of chips under the page head, each opening a bottom
- * sheet. A chip sits on the page surface (well-900), so its edge is ink-dim,
- * which meets 3:1 there in both themes, and it is a 44px tap target (MMR-726).
+ * sheet. A chip is an outline on the page surface (well-900), so it takes the
+ * `pageOutline` edge, and it is a 44px tap target (MMR-726).
  */
 function RailChips({ chips, label }: { chips: readonly RailChip[]; label: string }) {
   const [open, setOpen] = useState<string | null>(null);
@@ -101,19 +102,19 @@ function RailChips({ chips, label }: { chips: readonly RailChip[]; label: string
     <>
       <div role="group" aria-label={label} className="flex flex-wrap gap-2 md:hidden">
         {chips.map((chip) => (
-          <button
+          <ActionButton
             key={chip.label}
-            type="button"
+            variant="pageOutline"
             aria-haspopup="dialog"
             aria-expanded={open === chip.label}
             onClick={() => setOpen(chip.label)}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-3.5 text-meta font-medium text-ink inset-ring inset-ring-ink-dim transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
+            className="min-h-11 rounded-full px-3.5 py-0 text-meta font-medium text-ink"
           >
             {chip.label}
             {chip.count !== undefined && (
               <span className="font-mono text-micro text-ink-dim">{chip.count}</span>
             )}
-          </button>
+          </ActionButton>
         ))}
       </div>
       <Sheet

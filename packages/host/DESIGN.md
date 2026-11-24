@@ -175,7 +175,7 @@ All existing (`styles.css`), except `sheet-seam`, **adopted (MMR-720)**. Rules:
   raises it to `ink-dim` (**adopted (MMR-743)**, `CONTROL_EDGE_CLASS`; the
   `line-bright` edge it replaced measured 1.4:1 dark and 1.5:1 light).
   An outline button on the page surface (`well-900`), such as a record
-  header's More and _Send back…_ and a task's phone chips, takes an
+  header's More and _Send back…_ and every record page's phone chips, takes an
   `ink-dim` edge instead: `ink-faint` measures 2.6:1 there in light
   (**adopted (MMR-726)**, `pageOutline` in `action-button.tsx`; the deck's
   arrows set the precedent).

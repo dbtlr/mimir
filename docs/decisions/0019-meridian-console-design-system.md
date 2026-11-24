@@ -2297,7 +2297,7 @@ own heads until MMR-732 brings them onto the pattern.
   that says why.
 - **An outline button on the page surface takes an `ink-dim` edge.**
   `ink-faint` measures 2.6:1 on `well-900` in light, under the 3:1 a
-  control's edge needs, so More, _Send back…_, and the task's phone chips
+  control's edge needs, so More, _Send back…_, and every record page's phone chips
   draw their edge in `ink-dim` there. On a card or a sheet (`well-850`) an
   outline keeps `ink-faint`.
 - **Tabs follow the header, Work first.** The Tabs primitive takes a 44 ×
