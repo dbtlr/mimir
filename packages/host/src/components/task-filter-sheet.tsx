@@ -12,7 +12,6 @@ import {
   TASK_PRESETS,
   draftIsFinished,
   draftOf,
-  draftSelector,
   presetStatuses,
   searchOf,
   taskListFilters,
@@ -107,7 +106,12 @@ export function TaskFilterSheet({
     enabled: open && !selectsNothing,
     placeholderData: keepPreviousData,
   });
-  const tags = useQuery({ ...taskTagsQuery(project, draftSelector(draft)), enabled: open });
+  // The tags offered are those of the tasks the Show option holds, before the draft's own narrowing.
+  const tagBase = taskListFilters(
+    { show: draft.show === 'all' ? undefined : draft.show, status: draft.carried },
+    { project, zone: browserTimeZone() },
+  );
+  const tags = useQuery({ ...taskTagsQuery(tagBase), enabled: open });
   // Tags already applied stay offered, even once no task the Show option holds carries them.
   const tagOptions = [...new Set([...(tags.data ?? []), ...draft.tags])].map((tag) => ({
     label: tag,

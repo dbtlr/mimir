@@ -321,24 +321,43 @@ export const upstreamTasksQuery = (seedId: string) =>
     queryKey: ['nodes', 'upstream', seedId],
   });
 
+/** The status words `isFinishedSelection` counts as finished work. */
+const FINISHED_WORDS = new Set(['terminal', 'done', 'abandoned']);
+
 /**
- * The tags on the tasks a status selector holds, most used first, for the
+ * The tags on the tasks a filter set's base holds (its status universe and
+ * date window, never the draft's own narrowing), most used first, for the
  * Filter sheet's Tag field (MMR-724). Read only while the sheet is open. The
- * live set is bounded, where the whole history is not, so finished work
- * offers the tags of its newest window (`FINISHED_PAGE_SIZE`), the rows its
- * view loads first. Keyed under `nodes`, so a tag write refreshes it.
+ * live set is bounded, where the whole history is not, so the finished part
+ * of a selection offers the tags of its newest window (`FINISHED_PAGE_SIZE`),
+ * the rows its view loads first; a selection mixing both reads each part, the
+ * live part unlimited. Keyed under `nodes`, so a tag write refreshes it.
  */
-export const taskTagsQuery = (project: string, status: string) =>
-  queryOptions({
+export const taskTagsQuery = (base: TaskFilters) => {
+  const { filters, project, status, timeZone } = base;
+  return queryOptions({
     queryFn: async () => {
-      const selection = listInput({ project, status });
-      if (selection === undefined) {
-        return [];
-      }
-      const window = isFinishedSelection(status) ? { limit: FINISHED_PAGE_SIZE } : {};
-      const tasks = await list({ data: { ...selection, ...window, facets: ['tags'] } });
+      const words = (status ?? '')
+        .split(',')
+        .map((word) => word.trim())
+        .filter((word) => word !== '');
+      const parts = [
+        { limit: undefined, status: words.filter((word) => !FINISHED_WORDS.has(word)) },
+        {
+          limit: FINISHED_PAGE_SIZE,
+          status: words.filter((word) => FINISHED_WORDS.has(word)),
+        },
+      ].filter((part) => part.status.length > 0);
+      const reads = parts.map(async ({ limit, status: part }) => {
+        const selection = listInput({ filters, project, status: part.join(','), timeZone });
+        if (selection === undefined) {
+          return [];
+        }
+        const window = limit === undefined ? {} : { limit };
+        return (await list({ data: { ...selection, ...window, facets: ['tags'] } })).items;
+      });
       const uses = new Map<string, number>();
-      for (const task of tasks.items) {
+      for (const task of (await Promise.all(reads)).flat()) {
         for (const { tag } of task.tags ?? []) {
           uses.set(tag, (uses.get(tag) ?? 0) + 1);
         }
@@ -347,5 +366,6 @@ export const taskTagsQuery = (project: string, status: string) =>
         .toSorted(([a, an], [b, bn]) => bn - an || a.localeCompare(b))
         .map(([tag]) => tag);
     },
-    queryKey: ['nodes', 'task-tags', project, status],
+    queryKey: ['nodes', 'task-tags', { filters, project, status, timeZone }],
   });
+};

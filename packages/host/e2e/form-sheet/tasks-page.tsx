@@ -13,7 +13,7 @@ import { projectQuery } from '../../src/api/node-queries';
 import { browserTimeZone } from '../../src/api/queries';
 import { archivedProjectsQuery } from '../../src/api/shell-queries';
 import { PreviewRoomProvider } from '../../src/components/patterns/feed/preview-room';
-import { draftOf, draftSelector, taskListFilters } from '../../src/lib/task-list';
+import { taskListFilters } from '../../src/lib/task-list';
 import { createConsoleRouter, tasksRoute } from '../../src/router';
 import { ShellColumns } from '../../src/routes/shell';
 import { engineProject } from '../../src/test/engine-fixtures';
@@ -79,10 +79,7 @@ function seededClient(): QueryClient {
   });
   // The Filter sheet's reads as it opens: its count, and more tags than it shows before "N more".
   client.setQueryData(tasksCountQuery(filters).queryKey, TASKS.length);
-  client.setQueryData(
-    taskTagsQuery('MMR', draftSelector(draftOf({ show: 'in-flight' }))).queryKey,
-    TAGS,
-  );
+  client.setQueryData(taskTagsQuery(filters).queryKey, TAGS);
   return client;
 }
 

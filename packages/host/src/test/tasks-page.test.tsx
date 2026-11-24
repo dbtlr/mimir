@@ -735,6 +735,16 @@ describe('tasksPage Filter sheet (MMR-724)', () => {
   const NOW = Date.parse('2026-11-24T17:00:00.000Z');
   const tag = (name: string) => ({ createdAt: new Date(NOW), tag: name });
 
+  /** A done task finished `daysAgo` days before NOW, carrying one tag. */
+  const finished = (id: string, daysAgo: number, name: string) =>
+    engineTask({
+      completedAt: new Date(NOW - daysAgo * 86_400_000),
+      id,
+      lifecycle: 'done',
+      status: 'done',
+      tags: [tag(name)],
+    });
+
   /** A board for the sheet: three in flight, two ready (one cold), and two finished this week. */
   const board: EngineNode[] = [
     engineTask({
@@ -957,6 +967,44 @@ describe('tasksPage Filter sheet (MMR-724)', () => {
     expect(nodeReads()).toContainEqual(
       expect.objectContaining({ facets: ['tags'], limit: FINISHED_PAGE_SIZE, status: 'done' }),
     );
+  });
+
+  it('caps the finished part of a mixed live and finished selection’s tags read (kody-11)', async () => {
+    const shipped = engineTask({
+      completedAt: new Date(NOW - 3_600_000),
+      id: 'MMR-67',
+      lifecycle: 'done',
+      status: 'done',
+      tags: [tag('release')],
+    });
+    serveListSelecting([...board, shipped]);
+    const { sheet } = await openSheet('/p/MMR/tasks?status=live,done');
+    const offered = async () =>
+      within(await within(sheet).findByRole('group', { name: 'Tag' }))
+        .getAllByRole('checkbox')
+        .map((box) => (box as HTMLInputElement).value);
+    await waitFor(async () => {
+      await expect(offered()).resolves.toStrictEqual(['console', 'engine', 'release']);
+    });
+    const tagReads = nodeReads().filter((read) => read.facets?.[0] === 'tags');
+    expect(tagReads).toContainEqual(
+      expect.objectContaining({ facets: ['tags'], limit: FINISHED_PAGE_SIZE, status: 'done' }),
+    );
+    expect(tagReads.filter((read) => read.limit === undefined)).not.toHaveLength(0);
+    expect(tagReads.every((read) => read.status !== 'done' || read.limit === 50)).toBe(true);
+  });
+
+  it('offers shipped-week only the tags of tasks finished inside its window (kody-12)', async () => {
+    serveListSelecting([finished('MMR-70', 10, 'old'), finished('MMR-71', 1, 'new')]);
+    const { sheet } = await openSheet('/p/MMR/tasks?show=shipped-week');
+    const tags = await within(sheet).findByRole('group', { name: 'Tag' });
+    await waitFor(() => {
+      expect(
+        within(tags)
+          .getAllByRole('checkbox')
+          .map((box) => (box as HTMLInputElement).value),
+      ).toStrictEqual(['new']);
+    });
   });
 
   it('folds shipped-week by day, latest day open, with no status headings', async () => {
