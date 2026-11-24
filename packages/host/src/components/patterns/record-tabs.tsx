@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { Tabs, TabsCount, TabsList, TabsPanel, TabsTab } from './ui/tabs';
+import { Tabs, TabsCount, TabsList, TabsPanel, TabsTab } from '../ui/tabs';
 
 /** One of a record page's tabs: its value, its label, and an optional count. */
 export type RecordTab<T extends string> = { value: T; label: string; count?: number };

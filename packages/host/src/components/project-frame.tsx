@@ -12,9 +12,9 @@ import type { ConnectivitySource } from '../lib/connectivity';
 import { groupSeedsByLane } from '../lib/seed-lanes';
 import { useArchivedProject } from '../lib/use-archived-project';
 import { OfflineBanner } from './offline-banner';
+import { RecordTabs } from './patterns/record-tabs';
+import type { RecordTab } from './patterns/record-tabs';
 import { UnavailableProject } from './project-unavailable';
-import { RecordTabs } from './record-tabs';
-import type { RecordTab } from './record-tabs';
 import { Skeleton } from './ui/skeleton';
 import { ContainerHead, RecordColumn, taskCount } from './work-page';
 
