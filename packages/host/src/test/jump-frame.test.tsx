@@ -174,4 +174,26 @@ describe('Jump to where the sidebar is a drawer (MMR-729)', () => {
       expect(menu).toHaveFocus();
     });
   });
+
+  it('opens the palette once per Jump to: a later close of the drawer opens nothing', async () => {
+    const user = userEvent.setup();
+    await renderAt('phone', '/p/MMR');
+    const menu = screen.getByRole('button', { name: 'Open project menu' });
+    await user.click(menu);
+    await user.click(
+      within(await screen.findByRole('dialog', { name: 'Project' })).getByRole('button', {
+        name: JUMP,
+      }),
+    );
+    await paletteInput();
+    await closePalette(user);
+
+    await user.click(menu);
+    await screen.findByRole('dialog', { name: 'Project' });
+    await user.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Project' })).toBeNull();
+    });
+    expect(screen.queryByRole('combobox', { name: PALETTE })).toBeNull();
+  });
 });

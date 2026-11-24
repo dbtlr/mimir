@@ -546,7 +546,13 @@ export function ProjectDrawer({ context }: { context: SidebarContext }) {
   return (
     <Dialog.Root
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={(next) => {
+        // Reopened before its close finished: the Jump to it was closing for is dropped.
+        if (next) {
+          jumpPending.current = false;
+        }
+        setOpen(next);
+      }}
       onOpenChangeComplete={(isOpen) => {
         if (!isOpen && jumpPending.current) {
           jumpPending.current = false;
