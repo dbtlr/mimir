@@ -1,8 +1,8 @@
 // A page that opens the console's real Form sheet forms, Notice, Walkthrough,
 // and Needs you deck in Chromium, for the layout checks a DOM without layout
 // cannot make (form-sheet-focus.test.ts, walkthrough-layer.test.ts,
-// feed-deck.test.ts, needs-you-deck.test.ts), and the shell's phone touch
-// targets (touch-targets.test.ts).
+// feed-deck.test.ts, needs-you-deck.test.ts), the shell's phone touch
+// targets (touch-targets.test.ts), and the drawer's Jump to (drawer-jump.test.ts).
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 

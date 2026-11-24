@@ -349,6 +349,8 @@ A Notice that needs to stay longer than a banner would be a banner itself.
 | Home's page head | the page title (`text-page`, the day: "Monday, 23 November"), 4 to the one summary sentence (`text-body` ink, at most 62ch), then 20 to a `line` hairline and 32 from it to the first section; the column 900 at most, 16 top on a phone and 24 on desktop | **adopted (MMR-722)** |
 | Between page sections | 24–40 | existing range (`/kit` uses 40) |
 | Between feed sections | 32 | **adopted (MMR-719)** |
+| Page column | one centred column, 900 at most, beside the sidebar and never with a column to its right; a single-purpose page may be narrower (the focus queue 720, pairing 560). A rail page's loading state is 900 too and gives way to its 1200 grid when the read lands; the dev-only `/kit` keeps its own width | **adopted (MMR-729)** for Record health (was 960), the not-found, archived project, and fresh-store pages and the loading state (were 1200), and the unavailable project page (was 1600); Home, the work pages, and Settings already were. The task, seed, artifact, and delivery pages keep their 1200 grid and 300 rail until MMR-728 and MMR-732 |
+| Sidebar's Jump to | the first thing in the sidebar and the drawer, full width, 12 above the switcher (or Settings' "← Back to work"): `well-850`, a 1px `ink-dim` edge (the page-surface outline's; `ink-faint` is 2.9:1 on the sidebar's `well-950` in light), `well-800` on hover as a sidebar row is, 8 radius, 12 sides; a 16 search icon and "Jump to…" in `text-label` at 400, `ink-dim`, 8 apart; beside the page, the shortcut (⌘K or Ctrl K) at its right in 12 mono `ink-dim`; the drawer draws no shortcut, since a drawer is opened by touch. Focus takes the button's 2px `accent` outline at 2px offset | **adopted (MMR-729)**: it was the top bar's button, which stays below `lg` and on a page with no sidebar, unchanged (32 tall from `md`, a `line` edge at about 1.2:1, below the 3:1 a control edge meets; seed MMR-s116) |
 
 ### Feed blocks
 
@@ -564,6 +566,7 @@ under it in `record-tabs.tsx` beside it, on the Tabs primitive.
 | Close and icon buttons | 44 hit area, 20 glyph | 36 hit area, 18 glyph | **adopted (MMR-743)** |
 | Menu row in a Sheet | 44 | 36 | 44 existing (ADR 0019 MMR-736); 36 **adopted (MMR-743)** for 15px rows (Select item is `min-h-8`, 32, in 13px) |
 | Toast action (Undo) | 44 tall, 64 wide at least | 36 | **adopted (MMR-743)** |
+| Sidebar's Jump to | 44 tall in the drawer, which holds it to 1023 as it does the drawer rows | from `lg` (1024), beside the page: 36 tall | **adopted (MMR-729)** |
 | Sidebar drawer row (the switcher, a section, an outline row, the finished fold, a project) | 44 min. The drawer holds it to 1023, below `lg`, past the phone's 768; a finished initiative's disclosure is a 44 square with a 12 chevron, and the rows inside it indent 44 | from `lg` (1024), beside the page: the switcher 37, a section or a project 32, an outline row 25, the finished fold 24, the disclosure 24 wide | **adopted (MMR-716)**: the 12 chevron departs from the icon button's 20 glyph, recorded as seed MMR-s112 |
 
 Every tap target on a phone is at least 44 × 44, including a link inside help
@@ -599,7 +602,7 @@ card inside a sheet.
 | Sheet, content | bottom sheet below 768; 440 right panel from 768 | existing (`drawer.tsx`) |
 | Sheet, form | full screen below 768; 640 right panel from 768, so 576 of field width | existing (`drawer.tsx`) |
 | Breakpoint where a sheet becomes a panel | 768 (`md`) | existing (`DRAWER_DESKTOP_QUERY`) |
-| Content column | 1200 max for record and work pages; 720–960 for single-purpose pages | existing (`record-layout.tsx`, `focus-queue.tsx`, `settings-page.tsx`) |
+| Content column | 900 max, centred, for every page (see Page column under Pages); 560–720 for single-purpose pages. The task, seed, artifact, and delivery pages' 1200 grid with its 300 rail stands until MMR-728 and MMR-732 | **adopted (MMR-729)** (`PAGE_COLUMN` in `lib/page-column.ts`); the rail grid existing (`record-layout.tsx`) |
 | Prose measure | about 70ch, a target rather than a hard limit; 440px for all prose in a form | existing practice (walkthrough uses 62ch); the form measure **adopted (MMR-743)** |
 
 ## The Form sheet, assembled

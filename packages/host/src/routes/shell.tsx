@@ -4,7 +4,7 @@ import type { CSSProperties, ReactNode, RefObject } from 'react';
 
 import { AttentionAlert } from '../components/attention-alert';
 import { BrandMark } from '../components/brand-mark';
-import { JumpPalette } from '../components/jump-palette';
+import { JumpPaletteProvider, TopBarJumpTo } from '../components/jump-palette';
 import { PreviewRoomProvider, usePreviewRoomOpen } from '../components/patterns/feed/preview-room';
 import { NoticeHost } from '../components/patterns/notice';
 import { ProjectDrawer, ProjectSidebar } from '../components/project-sidebar';
@@ -72,11 +72,12 @@ function SkipLink() {
 }
 
 /**
- * The app shell (ADR 0013, MMR-492 refinement): a slim top bar (brand, jump
- * palette, Needs you, the "…" menu), the sidebar (the page's project, Settings
- * on its pages, or All projects outside both), and the routed surface. At every
- * width Settings, the theme switch, and the update action sit in the "…" menu
- * (MMR-715, MMR-733).
+ * The app shell (ADR 0013, MMR-492 refinement): a slim top bar (brand, Needs
+ * you, the "…" menu), the sidebar (the page's project, Settings on its pages,
+ * or All projects outside both), and the routed surface. Jump to leads the
+ * sidebar, and sits in the top bar only where no sidebar is beside the page
+ * (MMR-729). At every width Settings, the theme switch, and the update action
+ * sit in the "…" menu (MMR-715, MMR-733).
  */
 export function Shell() {
   return (
@@ -114,37 +115,39 @@ function ShellContent() {
     };
   return (
     <SeedCaptureProvider>
-      <PushHealer />
-      <div className="flex h-dvh flex-col overflow-hidden" style={shellStyle}>
-        <SkipLink />
-        {/* Solid well-950, the top bar's own ground, which the browser chrome
+      <JumpPaletteProvider>
+        <PushHealer />
+        <div className="flex h-dvh flex-col overflow-hidden" style={shellStyle}>
+          <SkipLink />
+          {/* Solid well-950, the top bar's own ground, which the browser chrome
           also takes (theme-color): a translucent bar here let the status bar
           fade into it. The safe-area pad keeps the bar's ground under a status
           bar that overlays the page. */}
-        <header
-          ref={topBar}
-          className="z-20 flex items-center gap-2 border-b border-line bg-well-950 px-4 pt-[calc(0.5rem+env(safe-area-inset-top))] pb-2 max-lg:px-2 max-md:gap-1"
-        >
-          {context !== undefined && !desktop && <ProjectDrawer context={context} />}
-          <Link
-            to="/"
-            className="flex items-center gap-2 rounded font-mono text-[15px] font-bold max-md:ml-1 tracking-tight text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
+          <header
+            ref={topBar}
+            className="z-20 flex items-center gap-2 border-b border-line bg-well-950 px-4 pt-[calc(0.5rem+env(safe-area-inset-top))] pb-2 max-lg:px-2 max-md:gap-1"
           >
-            <BrandMark />
-            Mimir
-          </Link>
-          <div className="ml-auto flex items-center gap-1">
-            <JumpPalette />
-            <AttentionAlert />
-            <TopBarMore theme={theme} onToggleTheme={toggle} />
-          </div>
-        </header>
-        <ShellColumns sidebar={sidebarShown ? <ProjectSidebar context={context} /> : undefined}>
-          <PwaUpdateBanner />
-          <Outlet />
-          <VersionFooter ref={footer} />
-        </ShellColumns>
-      </div>
+            {context !== undefined && !desktop && <ProjectDrawer context={context} />}
+            <Link
+              to="/"
+              className="flex items-center gap-2 rounded font-mono text-[15px] font-bold max-md:ml-1 tracking-tight text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              <BrandMark />
+              Mimir
+            </Link>
+            <div className="ml-auto flex items-center gap-1">
+              {!sidebarShown && <TopBarJumpTo />}
+              <AttentionAlert />
+              <TopBarMore theme={theme} onToggleTheme={toggle} />
+            </div>
+          </header>
+          <ShellColumns sidebar={sidebarShown ? <ProjectSidebar context={context} /> : undefined}>
+            <PwaUpdateBanner />
+            <Outlet />
+            <VersionFooter ref={footer} />
+          </ShellColumns>
+        </div>
+      </JumpPaletteProvider>
     </SeedCaptureProvider>
   );
 }

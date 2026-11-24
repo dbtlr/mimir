@@ -5,8 +5,10 @@ import type { WireDoctorGroup } from '../api/doctor-facet';
 import { DoctorRecord } from '../components/doctor-record';
 import { OfflineBanner } from '../components/offline-banner';
 import { Skeleton } from '../components/ui/skeleton';
+import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { findingCount } from '../lib/health';
+import { PAGE_COLUMN } from '../lib/page-column';
 import { ago } from '../lib/time';
 import { doctorRoute } from '../router';
 
@@ -56,7 +58,7 @@ export function DoctorPage() {
   return (
     <>
       <OfflineBanner {...conn} />
-      <main className="mx-auto flex w-full max-w-[960px] min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto p-5">
+      <main className={cn(PAGE_COLUMN, 'flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto p-5')}>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">
             Record health

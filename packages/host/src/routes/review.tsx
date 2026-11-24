@@ -17,6 +17,7 @@ import { ActionButton } from '../components/ui/action-button';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { homeDay, homeSummary, shippedWeek } from '../lib/home';
+import { PAGE_COLUMN } from '../lib/page-column';
 import { reviewRoute } from '../router';
 
 /*
@@ -77,7 +78,7 @@ export function ReviewPage() {
     return (
       <>
         <OfflineBanner {...conn} />
-        <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col items-start gap-3 p-5">
+        <main className={cn(PAGE_COLUMN, 'flex flex-1 flex-col items-start gap-3 p-5')}>
           <p className="text-xs text-ink-dim">No projects yet.</p>
           <ActionButton
             className="px-3.5 py-1.5"
@@ -112,7 +113,7 @@ export function ReviewPage() {
         tabIndex={-1}
         className={cn('min-h-0 flex-1 overflow-y-auto', conn.offline && 'offline-demoted')}
       >
-        <div className="mx-auto w-full max-w-[900px] px-3.5 pt-4 pb-10 md:px-5 md:pt-6 md:pb-12">
+        <div className={cn(PAGE_COLUMN, 'px-3.5 pt-4 pb-10 md:px-5 md:pt-6 md:pb-12')}>
           <HomeHead report={report} shipped={week.total} zone={zone} />
           <PushSuggestion offline={conn.offline} />
           <NeedsYouDeck report={report} offline={conn.offline} countItems />

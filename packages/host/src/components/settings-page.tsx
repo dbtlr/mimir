@@ -1,6 +1,9 @@
 import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 
+import { cn } from '../lib/cn';
+import { PAGE_COLUMN } from '../lib/page-column';
+
 /**
  * A Settings sub-page's frame (ADR 0013, MMR-733): a "← Settings" link back to
  * the index where the sidebar is not beside the page, the title, and one column
@@ -21,7 +24,7 @@ export function SettingsPage({
   children: ReactNode;
 }) {
   return (
-    <main className="mx-auto flex w-full max-w-[900px] min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto p-5">
+    <main className={cn(PAGE_COLUMN, 'flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto p-5')}>
       {back && (
         <Link
           to="/settings"

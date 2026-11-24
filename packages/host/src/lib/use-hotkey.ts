@@ -21,9 +21,16 @@ function isPopupTarget(el: Element | null): boolean {
   return role === 'menuitem' || role === 'option' || role === 'combobox';
 }
 
-/** Any open dialog, menu, or listbox — base-ui mounts each with its ARIA role while open. */
+/**
+ * Any open dialog (a confirmation's alertdialog included), menu, or listbox —
+ * each is mounted with its ARIA role while open.
+ */
 function hasOpenPopup(): boolean {
-  return document.querySelector('[role="dialog"], [role="menu"], [role="listbox"]') !== null;
+  return (
+    document.querySelector(
+      '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]',
+    ) !== null
+  );
 }
 
 /**

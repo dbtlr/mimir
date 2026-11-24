@@ -1,15 +1,25 @@
 import type { EngineSearchHit } from '@mimir/contract';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useRouter } from '@tanstack/react-router';
-import { useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import type { ReactNode, RefObject } from 'react';
 
 import { projectsQuery, searchQuery } from '../api/shell-queries';
 import { cn } from '../lib/cn';
-import { LINK_LABEL, groupHits, highlightTerms, hitStatus } from '../lib/jump';
+import { focusPage } from '../lib/focus-main';
+import { LINK_LABEL, groupHits, highlightTerms, hitStatus, paletteReturnTarget } from '../lib/jump';
 import { readRecentRecords, rememberRecord } from '../lib/recent-records';
 import type { RecentRecord } from '../lib/recent-records';
 import { recordLink } from '../lib/record-url';
+import { DRAWER_TAP_ROW } from '../lib/touch-target';
 import { useDebouncedValue } from '../lib/use-debounced-value';
 import { IS_APPLE, useCommandHotkey } from '../lib/use-hotkey';
 import { lazySheet } from './lazy-sheet';
@@ -28,19 +38,57 @@ const SEARCH_DEBOUNCE_MS = 120;
 /** A record row's fields: a search hit, or a remembered record without the search's extras. */
 type RowRecord = RecentRecord & Partial<Pick<EngineSearchHit, 'lifecycle' | 'link' | 'snippet'>>;
 
+/** The palette's shortcut, as drawn beside a Jump to control. */
+const SHORTCUT = IS_APPLE ? '⌘K' : 'Ctrl K';
+/** The same shortcut for assistive technology (`aria-keyshortcuts`). */
+const KEY_SHORTCUTS = IS_APPLE ? 'Meta+K' : 'Control+K';
+
+type JumpPalette = {
+  /** Open the palette; closing it hands focus back to `returnTo`, else to what has focus now. */
+  open: (returnTo?: HTMLElement | null) => void;
+  /** Register a Jump to control as a place focus may return to; returns its unregister. */
+  register: (control: HTMLElement) => () => void;
+};
+
+const JumpPaletteContext = createContext<JumpPalette | null>(null);
+
+function useJumpPalette(): JumpPalette {
+  const palette = useContext(JumpPaletteContext);
+  if (palette === null) {
+    throw new Error('A Jump to control needs the JumpPaletteProvider above it.');
+  }
+  return palette;
+}
+
+/** Register `control` with the palette while it is mounted, so focus can return to it. */
+function useJumpControl(control: RefObject<HTMLElement | null>): JumpPalette {
+  const palette = useJumpPalette();
+  const { register } = palette;
+  useEffect(() => {
+    const node = control.current;
+    return node === null ? undefined : register(node);
+  }, [control, register]);
+  return palette;
+}
+
 /**
  * The jump palette (MMR-455, mock A "grouped list"): ⌘K or Ctrl-K from any
- * page, or the top-bar button, opens a search across every project. Results
+ * page, or a Jump to control, opens a search across every project. Results
  * group by how they matched; an empty query lists recently opened records and
  * the common actions. A centred box on desktop, full screen on a phone.
+ *
+ * The shell mounts it once. Its controls sit where the frame puts them (ADR
+ * 0013, MMR-729 refinement): `SidebarJumpTo` at the top of the sidebar and
+ * the drawer, and `TopBarJumpTo` in the top bar where no sidebar is beside
+ * the page.
  */
-export function JumpPalette() {
+export function JumpPaletteProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [authoring, setAuthoring] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
   // Where focus goes back to on close: what had it when the palette opened,
-  // else the top-bar button, which is not a trigger the dialog knows.
+  // else a Jump to control on screen, none of which is a trigger the dialog knows.
   const returnTo = useRef<HTMLElement | null>(null);
+  const controls = useRef(new Set<HTMLElement>());
   // An action that opens a dialog of its own waits for the palette to finish
   // closing, so the palette's focus return cannot pull focus out of it.
   const afterClose = useRef<(() => void) | null>(null);
@@ -49,38 +97,32 @@ export function JumpPalette() {
   // Only a project that exists scopes the search: the server rejects an
   // unknown one, which would fail every search on a mistyped URL.
   const project = projects.data?.some((p) => p.id === key) === true ? key : undefined;
-  useCommandHotkey('KeyK', openPalette, { enabled: !open });
-
-  function openPalette() {
-    const focused = document.activeElement;
-    returnTo.current = focused instanceof HTMLElement && focused !== document.body ? focused : null;
+  const openPalette = useCallback((opener?: HTMLElement | null) => {
+    const focused = opener ?? document.activeElement;
+    returnTo.current = focused instanceof HTMLElement ? focused : null;
     setOpen(true);
-  }
+  }, []);
+  useCommandHotkey('KeyK', () => openPalette(), { enabled: !open });
 
   function closeThen(after?: () => void) {
     afterClose.current = after ?? null;
     setOpen(false);
   }
 
+  const register = useCallback((control: HTMLElement) => {
+    controls.current.add(control);
+    return () => {
+      controls.current.delete(control);
+    };
+  }, []);
+  const palette = useMemo<JumpPalette>(
+    () => ({ open: openPalette, register }),
+    [openPalette, register],
+  );
+
   return (
-    <>
-      <button
-        type="button"
-        aria-label="Jump to…"
-        aria-haspopup="dialog"
-        ref={triggerRef}
-        onClick={openPalette}
-        className={cn(
-          iconButtonClass,
-          'md:h-8 md:w-auto md:justify-start md:gap-2 md:border md:border-line md:bg-well-850 md:px-2.5 md:text-meta md:hover:bg-well-850',
-        )}
-      >
-        <SearchIcon className="md:size-3.5 md:[stroke-width:2.25]" />
-        <span className="hidden md:inline">Jump to…</span>
-        <kbd className="hidden font-mono text-xs text-ink-dim md:inline">
-          {IS_APPLE ? '⌘K' : 'Ctrl K'}
-        </kbd>
-      </button>
+    <JumpPaletteContext.Provider value={palette}>
+      {children}
       <PaletteSearch
         open={open}
         project={project}
@@ -90,7 +132,7 @@ export function JumpPalette() {
         closeThen={closeThen}
         onNewTask={() => setAuthoring(true)}
         finalFocus={() =>
-          returnTo.current?.isConnected === true ? returnTo.current : triggerRef.current
+          paletteReturnTarget([returnTo.current, ...controls.current]) ?? focusPage()
         }
         onClosed={() => {
           const after = afterClose.current;
@@ -104,8 +146,83 @@ export function JumpPalette() {
         }}
       />
       <AuthoringSheet open={authoring} onOpenChange={setAuthoring} projectKey={project} />
-    </>
+    </JumpPaletteContext.Provider>
   );
+}
+
+/**
+ * The top bar's Jump to, where no sidebar is beside the page: an icon button
+ * on a phone, and from `md` a small field with its shortcut.
+ */
+export function TopBarJumpTo() {
+  const control = useRef<HTMLButtonElement>(null);
+  const palette = useJumpControl(control);
+  return (
+    <button
+      type="button"
+      aria-label="Jump to…"
+      aria-haspopup="dialog"
+      aria-keyshortcuts={KEY_SHORTCUTS}
+      ref={control}
+      onClick={() => {
+        palette.open();
+      }}
+      className={cn(
+        iconButtonClass,
+        'md:h-8 md:w-auto md:justify-start md:gap-2 md:border md:border-line md:bg-well-850 md:px-2.5 md:text-meta md:hover:bg-well-850',
+      )}
+    >
+      <SearchIcon className="md:size-3.5 md:[stroke-width:2.25]" />
+      <span className="hidden md:inline">Jump to…</span>
+      <kbd className="hidden font-mono text-xs text-ink-dim md:inline">{SHORTCUT}</kbd>
+    </button>
+  );
+}
+
+/**
+ * Jump to at the top of the sidebar (DESIGN.md, Pages): a full-width button
+ * drawn as a search field, 36 tall beside the page and a 44 tap row in the
+ * drawer, as the drawer's other rows are. Beside the page it opens the palette
+ * and shows the shortcut. The drawer passes `onJump`, which closes the drawer
+ * before the palette opens; a drawer is opened by touch, so there it draws no
+ * shortcut.
+ */
+export function SidebarJumpTo({ onJump }: { onJump?: () => void }) {
+  const control = useRef<HTMLButtonElement>(null);
+  const palette = useJumpControl(control);
+  return (
+    <button
+      type="button"
+      aria-label="Jump to…"
+      aria-haspopup="dialog"
+      aria-keyshortcuts={KEY_SHORTCUTS}
+      ref={control}
+      onClick={() => {
+        if (onJump === undefined) {
+          palette.open();
+        } else {
+          onJump();
+        }
+      }}
+      className={cn(
+        // 10 below, plus the sidebar's 2 row gap: DESIGN.md's 12 above the switcher.
+        'mb-2.5 flex w-full items-center gap-2 rounded-lg border border-ink-dim bg-well-850 px-3 text-label font-normal text-ink-dim transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+        'min-h-9',
+        DRAWER_TAP_ROW,
+      )}
+    >
+      <SearchIcon className="size-4" />
+      <span>Jump to…</span>
+      {onJump === undefined && (
+        <kbd className="ml-auto font-mono text-xs text-ink-dim">{SHORTCUT}</kbd>
+      )}
+    </button>
+  );
+}
+
+/** The palette's open function, for a control that opens it on another's behalf (the drawer). */
+export function useOpenJumpPalette(): JumpPalette['open'] {
+  return useJumpPalette().open;
 }
 
 /**

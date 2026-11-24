@@ -788,13 +788,13 @@ describe('sidebar breakpoint', () => {
 });
 
 describe('top bar', () => {
-  it('keeps the brand, the jump palette, Needs you, and the More menu', async () => {
+  it('keeps the brand, Needs you, and the More menu, with Jump to in the sidebar (MMR-729)', async () => {
     vi.mocked(review).mockResolvedValue(engineReview({ queue: [{ id: 'MMR-52', kind: 'task' }] }));
     await renderAt('/p/MMR/tasks');
     await sidebar();
     const bar = topBar();
     expect(within(bar).getByRole('link', { name: 'Mimir' })).toHaveAttribute('href', '/');
-    expect(within(bar).getByRole('button', { name: 'Jump to…' })).toBeInTheDocument();
+    expect(within(bar).queryByRole('button', { name: 'Jump to…' })).toBeNull();
     await expect(within(bar).findByRole('button', { name: /need/i })).resolves.toBeInTheDocument();
     expect(within(bar).getByRole('button', { name: 'More' })).toBeInTheDocument();
   });
@@ -1002,7 +1002,12 @@ describe('Settings sidebar (MMR-733)', () => {
       '/settings/connections',
       '/settings/about',
     ]);
-    expect(within(nav).queryByRole('button')).toBeNull();
+    // Jump to is its one button: there is no project picker.
+    expect(
+      within(nav)
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label')),
+    ).toStrictEqual(['Jump to…']);
     expect(current(nav)).toStrictEqual([]);
   });
 

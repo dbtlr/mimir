@@ -128,8 +128,9 @@ test.describe('the needs-you alert', () => {
     expect(await hitsAt(pill, -26, 0)).toBe(false);
     expect(await hitsAt(pill, 26, 0)).toBe(false);
     // Each neighbour, a 44 icon button, takes a tap 1 inside each edge's midpoint.
+    // The sidebar, drawn at every width here, holds a Jump to of its own; the bar's is the one beside the pill.
     for (const name of ['Jump to…', 'More', 'Open project menu']) {
-      const neighbour = page.getByRole('button', { name });
+      const neighbour = page.getByRole('banner').getByRole('button', { name });
       for (const [dx, dy] of [
         [-21, 0],
         [21, 0],
@@ -153,9 +154,9 @@ test.describe('the needs-you alert', () => {
 
 /** Each sidebar context: its page, the drawer's trigger and name, and how many controls it holds. */
 const DRAWERS = [
-  { context: 'project', controls: 11, name: 'Project', trigger: 'Open project menu' },
-  { context: 'all', controls: 3, name: 'All projects', trigger: 'Open project menu' },
-  { context: 'settings', controls: 6, name: 'Settings', trigger: 'Open settings menu' },
+  { context: 'project', controls: 12, name: 'Project', trigger: 'Open project menu' },
+  { context: 'all', controls: 4, name: 'All projects', trigger: 'Open project menu' },
+  { context: 'settings', controls: 7, name: 'Settings', trigger: 'Open settings menu' },
 ];
 
 test.describe('the project sidebar', () => {
@@ -192,6 +193,7 @@ test.describe('the project sidebar', () => {
     const sidebar = page.getByRole('complementary', { name: 'Project' });
     await openFolds(sidebar);
     expect((await controlSizes(sidebar)).map(({ label }) => label)).toEqual([
+      'Jump to…: 235 × 36',
       'MMR Mimir: 235 × 37',
       'Work: 235 × 32',
       'initiative MMR-1 0/1: 225 × 25',

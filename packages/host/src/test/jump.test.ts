@@ -1,7 +1,7 @@
 import type { EngineSearchHit } from '@mimir/contract';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
-import { groupHits, highlightTerms } from '../lib/jump';
+import { groupHits, highlightTerms, paletteReturnTarget } from '../lib/jump';
 import { searchHit } from './engine-fixtures';
 
 const hit = (id: string, match: EngineSearchHit['match']) => searchHit({ id, match, title: id });
@@ -47,5 +47,48 @@ describe('highlightTerms', () => {
       { mark: true, text: 'a+b' },
       { mark: false, text: ' parsing' },
     ]);
+  });
+});
+
+/** A button appended to `parent`. */
+function button(parent: HTMLElement = document.body): HTMLButtonElement {
+  const element = document.createElement('button');
+  parent.append(element);
+  return element;
+}
+
+describe('paletteReturnTarget (MMR-729)', () => {
+  afterEach(() => {
+    document.body.replaceChildren();
+  });
+
+  it('returns the first candidate that can still take focus', () => {
+    const opener = button();
+    const jump = button();
+    expect(paletteReturnTarget([opener, jump])).toBe(opener);
+  });
+
+  it('passes over a candidate that has left the page', () => {
+    const gone = document.createElement('button');
+    const jump = button();
+    expect(paletteReturnTarget([gone, null, jump])).toBe(jump);
+  });
+
+  it('passes over a control in a yielded, inert sidebar', () => {
+    const sidebar = document.createElement('div');
+    sidebar.setAttribute('inert', '');
+    document.body.append(sidebar);
+    expect(paletteReturnTarget([button(sidebar)])).toBeNull();
+  });
+
+  it('passes over a control the layout hides, such as one under lg:hidden past a resize', () => {
+    const hidden = button();
+    Object.defineProperty(hidden, 'checkVisibility', { value: () => false });
+    const jump = button();
+    expect(paletteReturnTarget([hidden, jump])).toBe(jump);
+  });
+
+  it('passes over the page itself, which had focus when nothing else did', () => {
+    expect(paletteReturnTarget([document.body])).toBeNull();
   });
 });
