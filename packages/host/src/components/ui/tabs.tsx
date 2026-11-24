@@ -10,10 +10,12 @@ import { mergeClassName } from './class-name';
 
 /*
  * The Tabs primitive (ADR 0046): UI SDK's tabs behavior (roving focus, arrow
- * keys, panel wiring) in the Meridian look. A record page's header tabs (Work,
- * Details, Timeline, Artifacts; ADR 0019, MMR-717/MMR-726) compose it. The
- * selected tab reads on its own: bright ink plus an accent underline, never a
- * faint tint.
+ * keys, panel wiring) in the Meridian look. A record page's tabs (Work,
+ * Details, Timeline, Artifacts; ADR 0019, MMR-726) compose it. The selected
+ * tab reads on its own: bright ink plus an accent underline, never a faint
+ * tint. Below `md` a tab is a 44 × 44 tap target with its label at the left
+ * of its box, so the first label sits on the page's gutter; a row too wide
+ * for the screen scrolls sideways and is never clipped.
  */
 export { Tabs } from '@ui-sdk/react/tabs';
 
@@ -21,7 +23,10 @@ export { Tabs } from '@ui-sdk/react/tabs';
 export function TabsList({ className, ...props }: ComponentProps<typeof SdkTabsList>) {
   return (
     <SdkTabsList
-      className={mergeClassName('flex gap-5 overflow-x-auto border-b border-line', className)}
+      className={mergeClassName(
+        'flex gap-5 overflow-x-auto border-b border-line [scrollbar-width:none]',
+        className,
+      )}
       {...props}
     />
   );
@@ -32,7 +37,7 @@ export function TabsTab({ className, ...props }: ComponentProps<typeof SdkTabsTa
   return (
     <SdkTabsTab
       className={mergeClassName(
-        '-mb-px flex shrink-0 cursor-pointer items-center gap-1.5 border-b-2 border-transparent px-0.5 py-2 text-sm font-medium text-ink-dim transition-colors outline-none hover:text-ink focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-accent data-[disabled]:cursor-not-allowed data-[disabled]:text-ink-dim data-[disabled]:hover:text-ink-dim data-[selected]:border-accent data-[selected]:font-semibold data-[selected]:text-ink-bright',
+        '-mb-px flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-start gap-1.5 border-b-2 border-transparent px-0.5 text-label font-medium whitespace-nowrap text-ink-dim transition-colors outline-none hover:text-ink focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-accent md:min-h-9 md:min-w-0 data-[disabled]:cursor-not-allowed data-[disabled]:text-ink-dim data-[disabled]:hover:text-ink-dim data-[selected]:border-accent data-[selected]:font-semibold data-[selected]:text-ink-bright',
         className,
       )}
       {...props}
@@ -40,9 +45,9 @@ export function TabsTab({ className, ...props }: ComponentProps<typeof SdkTabsTa
   );
 }
 
-/** A tab's count ("Artifacts 3"). */
+/** A tab's count ("Artifacts 3"): 13px sans in ink-dim, a step under the label. */
 export function TabsCount({ className, ...props }: ComponentProps<'span'>) {
-  return <span className={cn('text-mono-id font-mono text-ink-dim', className)} {...props} />;
+  return <span className={cn('text-meta font-normal text-ink-dim', className)} {...props} />;
 }
 
 export function TabsPanel({ className, ...props }: ComponentProps<typeof SdkTabsPanel>) {
