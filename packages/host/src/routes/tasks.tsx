@@ -177,7 +177,12 @@ function foldDays(items: readonly EngineNode[], zone: string): FoldDay[] {
   const days = new Map<string, EngineNode[]>();
   for (const node of items.toSorted(byCompletion)) {
     const day = dayOf(finishedAt(node).getTime(), zone);
-    days.set(day, [...(days.get(day) ?? []), node]);
+    const bucket = days.get(day);
+    if (bucket === undefined) {
+      days.set(day, [node]);
+    } else {
+      bucket.push(node);
+    }
   }
   const newestFirst = [...days.entries()].toSorted(([a], [b]) => b.localeCompare(a));
   return newestFirst.map(([day, nodes]) => ({
