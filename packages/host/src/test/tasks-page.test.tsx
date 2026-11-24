@@ -563,6 +563,15 @@ describe('tasksPage presets (MMR-724)', () => {
     });
   });
 
+  it('marks each going-cold card stale', async () => {
+    serveBrowse({ tasks: [engineTask({ id: 'MMR-42', status: 'ready', title: 'Left alone' })] });
+    await renderTasks('/p/MMR/tasks?show=going-cold');
+    const card = (await screen.findByRole('button', { name: 'Left alone' })).closest(
+      '[data-slot="feed-card"]',
+    ) as HTMLElement;
+    expect(within(card).getByText('⧗ stale')).toBeVisible();
+  });
+
   it('says what the count line counts for each preset', async () => {
     serveBrowse({
       tasks: [

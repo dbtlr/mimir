@@ -209,9 +209,13 @@ function taskPreview(node: EngineNode): Preview {
   };
 }
 
-/** A live task as a feed card: status, ID, and age, the title, and its size and grooming chips. */
-function TaskCard({ node }: { node: EngineNode }) {
-  const cold = node.verdicts?.stale === true;
+/**
+ * A live task as a feed card: status, ID, and age, the title, and its size and
+ * grooming chips. A task going cold demotes its title and adds the stale chip.
+ */
+function TaskCard({ node, goingCold }: { node: EngineNode; goingCold: boolean }) {
+  // The list read sends no verdicts, so the going-cold preset says what it holds.
+  const cold = goingCold || node.verdicts?.stale === true;
   const size = node.size == null ? null : <SizeBadge size={node.size} />;
   const hasChips = size !== null || cold || visibleGrooming(node) !== undefined;
   return (
@@ -435,7 +439,11 @@ export function TasksPage() {
                 <ListGroup key={group.key} title={group.label} count={group.items.length}>
                   <CardGrid>
                     {group.items.map((node) => (
-                      <TaskCard key={node.id} node={node} />
+                      <TaskCard
+                        key={node.id}
+                        node={node}
+                        goingCold={search.show === 'going-cold'}
+                      />
                     ))}
                   </CardGrid>
                 </ListGroup>
