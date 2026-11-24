@@ -147,9 +147,12 @@ function FilterBody({ children }: { children: ReactNode }) {
     }
     const view = element.ownerDocument.defaultView;
     view?.addEventListener('resize', fit);
+    // The sheet is sized to the visible viewport, which can change alone (a zoom, a bar).
+    view?.visualViewport?.addEventListener('resize', fit);
     return () => {
       observer.disconnect();
       view?.removeEventListener('resize', fit);
+      view?.visualViewport?.removeEventListener('resize', fit);
       // A sheet that crosses `md` while open becomes a full-height panel, uncapped.
       element.style.maxHeight = '';
     };
