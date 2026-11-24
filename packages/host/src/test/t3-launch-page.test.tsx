@@ -109,7 +109,7 @@ async function startInT3() {
 const ready = () =>
   engineTask({ id: 'MMR-7', parent: 'MMR-2', status: 'ready', title: 'Task MMR-7' });
 
-describe('Start in T3… on the task page (ADR 0040, MMR-726)', () => {
+describe('Start in T3 from the task page’s More (ADR 0040, MMR-726)', () => {
   beforeEach(() => {
     stubViewport('phone');
     localStorage.clear();
@@ -126,6 +126,7 @@ describe('Start in T3… on the task page (ADR 0040, MMR-726)', () => {
     ).toStrictEqual([
       'Edit',
       'Move…',
+      'Start on Valhalla',
       'Start in T3…',
       'Park for later…',
       'Mark blocked…',
@@ -133,6 +134,22 @@ describe('Start in T3… on the task page (ADR 0040, MMR-726)', () => {
       'Cancel',
     ]);
     expect(screen.getAllByRole('button', { name: 'Start' })).toHaveLength(1);
+  });
+
+  it('starts on the default system in one click from the More sheet, with no form', async () => {
+    await openTask(ready());
+    const more = await openMore();
+    const row = await within(more).findByRole('button', { name: 'Start on Valhalla' });
+    await userEvent.click(row);
+    await waitFor(() => {
+      expect(launchT3).toHaveBeenCalledOnce();
+    });
+    expect(vi.mocked(launchT3).mock.calls[0]?.[0].data).toMatchObject({
+      environmentId: 'env-1',
+      projectId: 'proj-1',
+      task: 'MMR-7',
+    });
+    expect(screen.queryByRole('dialog', { name: 'Launch in T3' })).toBeNull();
   });
 
   it.each(['queued', 'in_progress'] as const)(

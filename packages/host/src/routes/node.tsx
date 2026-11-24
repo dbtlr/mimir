@@ -41,7 +41,7 @@ import { StatusBadge } from '../components/status-badge';
 import {
   T3LaunchSettingsHost,
   canLaunchOnT3,
-  useT3LaunchEntry,
+  useT3LaunchEntries,
 } from '../components/t3-launch-control';
 import { TaskForm } from '../components/task-form';
 import { ActionButton } from '../components/ui/action-button';
@@ -439,7 +439,7 @@ function verbRow(
 /**
  * A task's main action and More (ADR 0019, MMR-726). More groups Edit with
  * Move… and Set grooming… (until the edit sheet folds them in, MMR-731), then
- * the status changes (Start in T3… after them), then the holds, then
+ * the status changes (the T3 rows after them), then the holds, then
  * Abandon… alone, in the destructive hairline.
  */
 function TaskActions({
@@ -457,7 +457,7 @@ function TaskActions({
   onGroom: () => void;
   onVerb: (v: VerbSpec) => void;
 }) {
-  const t3 = useT3LaunchEntry(node, offline);
+  const t3 = useT3LaunchEntries(node, offline);
   const grouped = moreVerbs(node);
   const editing: ActionMenuAction[] = [
     { disabled: offline, key: 'edit', kind: 'action', label: 'Edit', onSelect: onEdit },
@@ -474,10 +474,7 @@ function TaskActions({
           },
         ]),
   ];
-  const status = [
-    ...grouped.status.map((v) => verbRow(v, offline, onVerb)),
-    ...(t3 === undefined ? [] : [t3]),
-  ];
+  const status = [...grouped.status.map((v) => verbRow(v, offline, onVerb)), ...t3];
   return (
     <>
       {mainVerbs(node).map((v, index) => (

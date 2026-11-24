@@ -2278,7 +2278,7 @@ own heads until MMR-732 brings them onto the pattern.
   otherwise, and always on a phone, they drop 16px below the summary.
 - **More groups everything else, in four groups.** Edit, with Move… and
   Set grooming… beside it until the edit sheet folds them in (MMR-731); then
-  the status changes, with _Start in T3…_ after them where Start is offered
+  the status changes, with the T3 rows after them where Start is offered
   and T3 is configured; then the holds (park, block, and their undoing);
   then _Abandon…_ alone, wearing the MMR-635 red hairline. A separator falls
   between two groups, and an empty group takes none. More is the Action
@@ -2287,10 +2287,14 @@ own heads until MMR-732 brings them onto the pattern.
   record's title and ID. Offline, every row is disabled where it stands. A
   project's More holds Edit, which opens the project's settings, and _Edit
   direction…_; an initiative's or phase's holds _Edit direction…_. The
-  task's Actions chip and its rail section are retired; _Start in T3…_
-  replaces the Launch in T3 split button and opens its settings form at the
-  remembered choice, and a T3 state that cannot launch reads as a disabled
-  row that says why.
+  task's Actions chip and its rail section are retired. The T3 rows replace
+  the Launch in T3 split button and keep its one-click launch: a _Start on
+  <System>_ row per catalog system, the system the defaults name first,
+  launches with that system's defaults (or opens the settings form set to it
+  when it has none) and is disabled for a system that cannot take the
+  launch; _Start in T3…_ follows and opens the settings form at the
+  remembered choice. A T3 state that cannot launch reads as one disabled row
+  that says why.
 - **An outline button on the page surface takes an `ink-dim` edge.**
   `ink-faint` measures 2.6:1 on `well-900` in light, under the 3:1 a
   control's edge needs, so More, _Send back…_, and the task's phone chips

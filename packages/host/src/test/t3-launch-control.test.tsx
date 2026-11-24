@@ -10,7 +10,7 @@ import { toast } from '../components/patterns/notice';
 import {
   canLaunchOnT3,
   T3LaunchSettingsHost,
-  useT3LaunchEntry,
+  useT3LaunchEntries,
 } from '../components/t3-launch-control';
 import { T3LaunchForm } from '../components/t3-launch-form';
 import { T3_ATTEMPT_PATTERN } from '../server/t3-states';
@@ -55,14 +55,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-/** More with the one row the hook gives, as a task page holds it. */
+/** More with the rows the hook gives, as a task page holds them. */
 function LaunchMenu({ offline }: { offline: boolean }) {
-  const entry = useT3LaunchEntry(task, offline);
+  const entries = useT3LaunchEntries(task, offline);
   return (
     <ActionMenu
       title="Launch from the console"
       trigger={<button type="button">More</button>}
-      entries={entry === undefined ? [] : [entry]}
+      entries={entries}
     />
   );
 }
@@ -248,6 +248,139 @@ describe('the Start in T3… row (ADR 0040, MMR-726)', () => {
     expect(screen.queryByRole('menu')).toBeNull();
     await userEvent.click(within(sheet).getByRole('button', { name: 'Start in T3…' }));
     await expect(settingsForm()).resolves.toBeInTheDocument();
+  });
+});
+
+/** A peer that launches with defaults of its own: sonnet, approval required, the project checkout. */
+const peerWithDefaults = () =>
+  reachableSystem({
+    configured: false,
+    defaultThreadEnvMode: 'local',
+    environmentId: 'peer',
+    label: 'asgard',
+    projects: [
+      {
+        defaultModelSelection: { instanceId: 'claude', model: 'sonnet' },
+        id: 'peer-proj',
+        title: 'mimir',
+      },
+    ],
+    providers: [
+      {
+        displayName: 'Claude',
+        models: [{ id: 'sonnet', label: null, options: [] }],
+        providerInstanceId: 'claude',
+        runtimeModes: ['approval-required'],
+      },
+    ],
+  });
+
+/** The rows More shows, by name, once T3 has answered. */
+async function moreRows() {
+  await waitFor(() => {
+    expect(t3Catalog).toHaveBeenCalled();
+  });
+  await userEvent.click(await screen.findByRole('button', { name: 'More' }));
+  await screen.findByRole('menuitem', { name: 'Start in T3…' });
+  return screen.getAllByRole('menuitem');
+}
+
+describe('the one-click Start on <System> rows (ADR 0040, MMR-726)', () => {
+  it('lists each system, the default first, then Start in T3…; an unreachable one is disabled', async () => {
+    await show(connectedCatalog([peerWithDefaults(), unreachableSystem(), reachableSystem()]));
+    const rows = await moreRows();
+    expect(rows.map((row) => row.textContent)).toStrictEqual([
+      'Start on Valhalla',
+      'Start on asgard',
+      'Start on DB MBP',
+      'Start in T3…',
+    ]);
+    expect(rows[2]).toHaveAttribute('aria-disabled', 'true');
+    expect(rows[1]).not.toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('with a remembered choice, starts its default system first and in one click', async () => {
+    localStorage.setItem(
+      'mimir:t3-launch:MMR',
+      JSON.stringify({ instanceId: 'claude', model: 'sonnet', runtimeMode: 'approval-required' }),
+    );
+    const valhalla = reachableSystem({
+      projects: [{ defaultModelSelection: null, id: 'proj-1', title: 'mimir' }],
+    });
+    await show(connectedCatalog([peerWithDefaults(), valhalla]));
+    const rows = await moreRows();
+    expect(rows[0]).toHaveTextContent('Start on Valhalla');
+    await userEvent.click(rows[0]!);
+    await waitFor(() => {
+      expect(launchT3).toHaveBeenCalledOnce();
+    });
+    expect(launchCalls()[0]).toEqual({
+      ...DEFAULT_INPUT,
+      attempt: expect.stringMatching(T3_ATTEMPT_PATTERN),
+      model: { instanceId: 'claude', model: 'sonnet', options: [] },
+      runtimeMode: 'approval-required',
+    });
+    expect(screen.queryByRole('dialog', { name: 'Launch in T3' })).toBeNull();
+  });
+
+  it('starts on the default system in one click, without the settings form', async () => {
+    await show(connectedCatalog([reachableSystem()]));
+    await moreRows();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Start on Valhalla' }));
+    await waitFor(() => {
+      expect(launchT3).toHaveBeenCalledOnce();
+    });
+    expect(launchCalls()[0]).toEqual({
+      ...DEFAULT_INPUT,
+      attempt: expect.stringMatching(T3_ATTEMPT_PATTERN),
+    });
+    expect(screen.queryByRole('dialog', { name: 'Launch in T3' })).toBeNull();
+  });
+
+  it('starts a peer with that system’s defaults', async () => {
+    await show(connectedCatalog([reachableSystem(), peerWithDefaults()]));
+    await moreRows();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Start on asgard' }));
+    await waitFor(() => {
+      expect(launchT3).toHaveBeenCalledOnce();
+    });
+    expect(launchCalls()[0]).toEqual({
+      attempt: expect.stringMatching(T3_ATTEMPT_PATTERN),
+      environmentId: 'peer',
+      interactionMode: 'default',
+      model: { instanceId: 'claude', model: 'sonnet', options: [] },
+      projectId: 'peer-proj',
+      runtimeMode: 'approval-required',
+      task: 'MMR-9',
+      workspace: { type: 'root' },
+    });
+  });
+
+  it('opens the settings form set to a system that has no defaults, launching nothing', async () => {
+    const peer = reachableSystem({
+      configured: false,
+      environmentId: 'peer',
+      label: 'asgard',
+      projects: [
+        { defaultModelSelection: null, id: 'p1', title: 'one' },
+        { defaultModelSelection: null, id: 'p2', title: 'two' },
+      ],
+    });
+    await show(connectedCatalog([reachableSystem(), peer]));
+    await moreRows();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Start on asgard' }));
+    const dialog = await settingsForm();
+    expect(within(dialog).getByRole('combobox', { name: 'System' })).toHaveTextContent('asgard');
+    expect(launchT3).not.toHaveBeenCalled();
+  });
+
+  it('is disabled while offline', async () => {
+    await show(connectedCatalog([reachableSystem()]), undefined, true);
+    await moreRows();
+    expect(screen.getByRole('menuitem', { name: 'Start on Valhalla' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
   });
 });
 

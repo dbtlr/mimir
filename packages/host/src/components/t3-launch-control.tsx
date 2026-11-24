@@ -7,7 +7,12 @@ import type { T3System } from '../api/fns/t3';
 import { t3CatalogQuery, t3OriginQuery, useConnectT3, useLaunchT3 } from '../api/t3-queries';
 import { projectKeyOf } from '../lib/project-key';
 import { newAttempt } from '../lib/t3-attempt';
-import { launchDefaults, recallChoice, rememberChoice } from '../lib/t3-defaults';
+import {
+  defaultsForSystem,
+  launchDefaults,
+  recallChoice,
+  rememberChoice,
+} from '../lib/t3-defaults';
 import type { LaunchChoice, RememberedChoice } from '../lib/t3-defaults';
 import type { ActionMenuAction } from './patterns/action-menu';
 import { toast } from './patterns/notice';
@@ -107,7 +112,11 @@ export function T3LaunchSettingsHost({
     // Where focus was on the way here, newest last: the row, the menu it sat in, the
     // More button that opened it. Read now, before the form takes focus.
     const before = [...trail.current];
-    setRequest({ ...next, id: requestId.current, opener: () => lastUsable(before) });
+    setRequest({
+      ...next,
+      id: requestId.current,
+      opener: () => lastUsable(before),
+    });
     setOpen(true);
   }, []);
   if (!eligible && open) {
@@ -140,15 +149,18 @@ export function T3LaunchSettingsHost({
 }
 
 /**
- * The More row that starts this task in a new T3 thread (ADR 0040, Launch;
- * MMR-726): "Start in T3…" opens the settings form, set to the remembered or
- * default choice. It is offered only where Start is and the host has an Open
- * in T3 origin, so an unconfigured console makes no catalog call and shows no
- * row. A state T3 cannot launch from reads as a disabled row that says why,
- * except one the row can mend: a lapsed connection reconnects, and an unanswered catalog
- * read asks again. Call it under a {@link T3LaunchSettingsHost}.
+ * The More rows that start this task in a new T3 thread (ADR 0040, Launch;
+ * MMR-726). Once T3 can launch, each catalog system has a one-click "Start on
+ * <System>" row, the system the defaults name first: it launches with that
+ * system's defaults, or opens the settings form set to it when it has none.
+ * "Start in T3…" follows and opens the settings form at the defaults. The rows
+ * are offered only where Start is and the host has an Open in T3 origin, so an
+ * unconfigured console makes no catalog call and shows none. A state T3 cannot
+ * launch from reads as one disabled row that says why, except one the row can
+ * mend: a lapsed connection reconnects, and an unanswered catalog read asks
+ * again. Call it under a {@link T3LaunchSettingsHost}.
  */
-export function useT3LaunchEntry(node: EngineNode, offline: boolean): ActionMenuAction | undefined {
+export function useT3LaunchEntries(node: EngineNode, offline: boolean): ActionMenuAction[] {
   const eligible = canLaunchOnT3(node);
   const project = projectKeyOf(node.id);
   const openSettings = useContext(OpenSettings);
@@ -175,9 +187,13 @@ export function useT3LaunchEntry(node: EngineNode, offline: boolean): ActionMenu
     }
   });
   if (!eligible || origin === null) {
-    return undefined;
+    return [];
   }
-  const row: ActionMenuAction = { key: 't3-launch', kind: 'action', label: 'Start in T3…' };
+  const row: ActionMenuAction = {
+    key: 't3-launch',
+    kind: 'action',
+    label: 'Start in T3…',
+  };
   const reread: ActionMenuAction = {
     ...row,
     disabled: offline,
@@ -186,54 +202,90 @@ export function useT3LaunchEntry(node: EngineNode, offline: boolean): ActionMenu
   };
   const data = catalog.data;
   if (data === undefined) {
-    return catalog.isError ? reread : { ...row, disabled: true };
+    return [catalog.isError ? reread : { ...row, disabled: true }];
   }
   switch (data.state) {
     case 'unconfigured': {
-      return undefined;
+      return [];
     }
     case 'misconfigured': {
-      return { ...row, disabled: true, label: `Start in T3: ${data.setting} is ${data.problem}` };
+      return [
+        {
+          ...row,
+          disabled: true,
+          label: `Start in T3: ${data.setting} is ${data.problem}`,
+        },
+      ];
     }
     case 'disconnected': {
-      return {
-        ...row,
-        disabled: offline || connect.isPending,
-        label: 'Reconnect T3',
-        onSelect: () => {
-          connect.mutate();
+      return [
+        {
+          ...row,
+          disabled: offline || connect.isPending,
+          label: 'Reconnect T3',
+          onSelect: () => {
+            connect.mutate();
+          },
         },
-      };
+      ];
     }
     case 'unreachable': {
-      return reread;
+      return [reread];
     }
     case 'connected': {
       const systems = data.systems.filter(reachable);
       if (data.noRemote) {
-        return { ...row, disabled: true, label: 'Start in T3: this project has no git remote' };
+        return [
+          {
+            ...row,
+            disabled: true,
+            label: 'Start in T3: this project has no git remote',
+          },
+        ];
       }
       if (systems.length === 0) {
-        return { ...row, disabled: true, label: 'Start in T3: no T3 system has this project' };
+        return [
+          {
+            ...row,
+            disabled: true,
+            label: 'Start in T3: no T3 system has this project',
+          },
+        ];
       }
       const remembered = recallChoice(project);
       const defaults = launchDefaults(data.systems, remembered);
-      return {
-        ...row,
-        disabled: offline || launch.isPending,
-        onSelect: () => {
-          openSettings?.({
-            environmentId: defaults?.environmentId,
-            remembered,
-            run: (choice: LaunchChoice) => {
-              launch.mutate({ ...choice, attempt: newAttempt(), task: node.id });
-            },
-            systems,
-            taskId: node.id,
-            taskTitle: node.title,
-          });
-        },
+      const busy = offline || launch.isPending;
+      const run = (choice: LaunchChoice) => {
+        launch.mutate({ ...choice, attempt: newAttempt(), task: node.id });
       };
+      const settings = (environmentId: string | undefined) => {
+        openSettings?.({
+          environmentId,
+          remembered,
+          run,
+          systems,
+          taskId: node.id,
+          taskTitle: node.title,
+        });
+      };
+      const startOn = (system: T3System): ActionMenuAction => ({
+        disabled: busy || !reachable(system),
+        key: `t3-start-${system.environmentId}`,
+        kind: 'action',
+        label: `Start on ${system.label}`,
+        onSelect: () => {
+          const choice = defaultsForSystem(system, remembered);
+          if (choice === null) {
+            settings(system.environmentId);
+          } else {
+            run(choice);
+          }
+        },
+      });
+      return [
+        ...defaultFirst(data.systems, defaults?.environmentId).map(startOn),
+        { ...row, disabled: busy, onSelect: () => settings(defaults?.environmentId) },
+      ];
     }
     default: {
       const _exhaustive: never = data;
@@ -242,5 +294,12 @@ export function useT3LaunchEntry(node: EngineNode, offline: boolean): ActionMenu
   }
 }
 
+/** The catalog's systems in order, the one the defaults name moved to the front. */
+function defaultFirst(systems: readonly T3System[], environmentId: string | undefined) {
+  const first = systems.filter((system) => system.environmentId === environmentId);
+  return [...first, ...systems.filter((system) => system.environmentId !== environmentId)];
+}
+
+/** A system that can take the launch: reachable, with a project matching this one. */
 const reachable = (system: T3System): system is ReachableSystem =>
   system.status === 'reachable' && system.projects.length > 0;
