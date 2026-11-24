@@ -1,21 +1,7 @@
-import { useEffect, useState } from 'react';
-
+import { useMediaQuery } from '../lib/use-media-query';
 import { usePwaUpdate } from './pwa-update-provider';
 
 const STANDALONE_QUERY = '(display-mode: standalone)';
-
-function useStandalone(): boolean {
-  const [standalone, setStandalone] = useState(
-    () => globalThis.matchMedia(STANDALONE_QUERY).matches,
-  );
-  useEffect(() => {
-    const media = globalThis.matchMedia(STANDALONE_QUERY);
-    const change = () => setStandalone(media.matches);
-    media.addEventListener('change', change);
-    return () => media.removeEventListener('change', change);
-  }, []);
-  return standalone;
-}
 
 /** The manual refresh's state, shared by the top bar's "…" menu and the About page. */
 export type PwaRefresh = {
@@ -31,7 +17,7 @@ export type PwaRefresh = {
 };
 
 export function usePwaRefresh(): PwaRefresh {
-  const standalone = useStandalone();
+  const standalone = useMediaQuery(STANDALONE_QUERY);
   const update = usePwaUpdate();
   const ready = update.available;
   let label = 'Refresh console';

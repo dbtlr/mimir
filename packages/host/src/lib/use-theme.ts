@@ -3,6 +3,11 @@ import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import { apply, clearTheme, resolve, setTheme, subscribeTheme, themeChoice } from './theme';
 import type { Theme, ThemeChoice } from './theme';
 
+// A server render has no OS preference and no storage: it renders the default
+// theme, and the client's first snapshot takes over on mount.
+const serverTheme = (): Theme => 'dark';
+const serverChoice = (): ThemeChoice => 'system';
+
 /**
  * The live theme, the stored choice, and the ways to change them. Seeded from
  * {@link resolve} (which the inline `index.html` script already applied, so
@@ -18,8 +23,8 @@ export function useTheme(): {
   toggle: () => void;
   choose: (choice: ThemeChoice) => void;
 } {
-  const theme = useSyncExternalStore(subscribeTheme, resolve, resolve);
-  const choice = useSyncExternalStore(subscribeTheme, themeChoice, themeChoice);
+  const theme = useSyncExternalStore(subscribeTheme, resolve, serverTheme);
+  const choice = useSyncExternalStore(subscribeTheme, themeChoice, serverChoice);
 
   // Keep the document (incl. <meta name=theme-color>) in sync. The inline
   // index.html script set data-theme pre-paint but not the meta color, so the
