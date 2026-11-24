@@ -938,6 +938,31 @@ describe('tasksPage Filter sheet (MMR-724)', () => {
     expect(within(again).getByRole('checkbox', { name: 'Ready' })).not.toBeChecked();
   });
 
+  it('reads a deep-linked union with live in it as every live task, so a filter it adds keeps them all', async () => {
+    const large = [
+      engineTask({ id: 'MMR-70', size: 'large', status: 'ready', title: 'Large ready' }),
+      engineTask({ id: 'MMR-71', size: 'large', status: 'blocked', title: 'Large blocked' }),
+    ];
+    serveBrowse({ tasks: large });
+    serveListSelecting(large);
+    const { sheet, testRouter, user } = await openSheet('/p/MMR/tasks?status=live,ready');
+    const statuses = within(sheet).getByRole('group', { name: 'Status' });
+    expect(
+      within(statuses)
+        .getAllByRole('checkbox')
+        .every((box) => (box as HTMLInputElement).checked),
+    ).toBe(true);
+
+    await user.click(within(sheet).getByRole('checkbox', { name: 'Large' }));
+    await user.click(await within(sheet).findByRole('button', { name: 'Show 2 tasks' }));
+    await waitFor(() => {
+      expect(search(testRouter)).toEqual({ size: 'large' });
+    });
+    await expect(screen.findByText('Large blocked')).resolves.toBeVisible();
+    expect(screen.getByText('Large ready')).toBeVisible();
+    expect(filterChip()).toHaveAccessibleName('Filter, 1 applied');
+  });
+
   it('leaves a sort out of the URL once Show picks finished work, which takes none', async () => {
     const { sheet, testRouter, user } = await openSheet('/p/MMR/tasks?sort=priority');
     await user.click(within(sheet).getByRole('radio', { name: 'Shipped, last 7 days' }));

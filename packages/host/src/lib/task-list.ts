@@ -278,17 +278,23 @@ export type TaskFilterDraft = {
   sort: TaskSort;
 };
 
-/** The draft an applied URL opens the sheet with, keeping a status no Show option holds. */
+/**
+ * The draft an applied URL opens the sheet with, keeping a status no Show
+ * option holds. With no preset, a union with `live` in it (`live,ready`) is
+ * every live task, with no status narrowed.
+ */
 export function draftOf(search: TaskListSearch): TaskFilterDraft {
   const show = search.show ?? 'all';
   const preset = show === 'all' ? undefined : show;
   const carried = carriedSelector(search);
+  const everyLive = preset === undefined && csv(search.status).includes('live');
+  const narrowedBy = carried === undefined && !everyLive ? search.status : undefined;
   return {
     ...narrowing(search),
     ...(carried === undefined ? {} : { carried }),
     show,
     sort: search.sort ?? 'recent',
-    statuses: [...presetSelection(preset, carried === undefined ? search.status : undefined)],
+    statuses: [...presetSelection(preset, narrowedBy)],
   };
 }
 
