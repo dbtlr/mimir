@@ -23,15 +23,34 @@ test.afterAll(async () => {
 });
 
 const PHONE = { height: 844, width: 390 };
+/** Below `lg` the sidebar is still a drawer, but the `md` phone rules no longer apply. */
+const TABLET = { height: 900, width: 800 };
 const DESKTOP = { height: 900, width: 1280 };
 
 /** The phone minimum, in CSS pixels. */
 const TARGET = 44;
 
-async function open(page: Page, viewport: { width: number; height: number }) {
+type Viewport = { width: number; height: number };
+
+async function open(page: Page, viewport: Viewport, context = 'project') {
   await page.setViewportSize(viewport);
-  await page.goto(`${harness.origin}?form=touch-targets`);
-  await expect(page.getByRole('button', { name: '1 needs you' })).toBeVisible();
+  await page.goto(`${harness.origin}?form=touch-targets&context=${context}`);
+  await expect(page.getByRole('button', { exact: true, name: '1 needs you' })).toBeVisible();
+}
+
+/** Whether a tap at the control's centre, moved by `dx` and `dy`, lands on it. */
+function hitsAt(control: Locator, dx: number, dy: number): Promise<boolean> {
+  return control.evaluate(
+    (element, [x, y]) => {
+      const box = element.getBoundingClientRect();
+      const hit = document.elementFromPoint(
+        box.left + box.width / 2 + x,
+        box.top + box.height / 2 + y,
+      );
+      return hit !== null && element.contains(hit);
+    },
+    [dx, dy],
+  );
 }
 
 /**
@@ -92,14 +111,25 @@ async function controlSizes(sidebar: Locator): Promise<{ label: string; small: b
 test.describe('the needs-you alert', () => {
   test('takes a 44 × 44 tap on a phone, its pill drawn 34 tall', async ({ page }) => {
     await open(page, PHONE);
-    const pill = page.getByRole('button', { name: '1 needs you' });
+    const pill = page.getByRole('button', { exact: true, name: '1 needs you' });
     expect((await boxSize(pill)).height).toBe(34);
     expect(await takesSquare(pill, TARGET)).toBe(true);
   });
 
+  test('reaches no further than 44 tall, and none of its neighbours', async ({ page }) => {
+    await open(page, PHONE);
+    const pill = page.getByRole('button', { exact: true, name: '1 needs you' });
+    // A point 23 above or below the centre is past a 44 tap (22 each way, with 1 to spare).
+    expect(await hitsAt(pill, 0, -23)).toBe(false);
+    expect(await hitsAt(pill, 0, 23)).toBe(false);
+    for (const name of ['Jump to…', 'More', 'Open project menu']) {
+      expect(await takesSquare(page.getByRole('button', { name }), 20)).toBe(true);
+    }
+  });
+
   test('keeps its desktop pill, with no hit area past it', async ({ page }) => {
     await open(page, DESKTOP);
-    const pill = page.getByRole('button', { name: '1 needs you' });
+    const pill = page.getByRole('button', { exact: true, name: '1 needs you' });
     const drawn = await boxSize(pill);
     expect(drawn.height).toBe(28);
     expect(await takesSquare(pill, drawn.height)).toBe(true);
@@ -107,16 +137,34 @@ test.describe('the needs-you alert', () => {
   });
 });
 
+/** Each sidebar context: its page, the drawer's trigger and name, and how many controls it holds. */
+const DRAWERS = [
+  { context: 'project', controls: 11, name: 'Project', trigger: 'Open project menu' },
+  { context: 'all', controls: 3, name: 'All projects', trigger: 'Open project menu' },
+  { context: 'settings', controls: 6, name: 'Settings', trigger: 'Open settings menu' },
+];
+
 test.describe('the project sidebar', () => {
-  test('gives every control in the phone drawer at least 44 × 44', async ({ page }) => {
-    await open(page, PHONE);
-    await page.getByRole('button', { name: 'Open project menu' }).click();
-    const drawer = page.getByRole('dialog', { name: 'Project' });
-    await openFolds(drawer);
-    const sizes = await controlSizes(drawer);
-    expect(sizes.length).toBeGreaterThan(8);
-    expect(sizes.filter(({ small }) => small).map(({ label }) => label)).toEqual([]);
-  });
+  for (const { context, controls, name, trigger } of DRAWERS) {
+    for (const [width, viewport] of [
+      ['a phone', PHONE],
+      ['a tablet', TABLET],
+    ] as const) {
+      test(`gives every control in the ${context} drawer at least 44 × 44 on ${width}`, async ({
+        page,
+      }) => {
+        await open(page, viewport, context);
+        await page.getByRole('button', { name: trigger }).click();
+        const drawer = page.getByRole('dialog', { name });
+        if (context === 'project') {
+          await openFolds(drawer);
+        }
+        const sizes = await controlSizes(drawer);
+        expect(sizes).toHaveLength(controls);
+        expect(sizes.filter(({ small }) => small).map(({ label }) => label)).toEqual([]);
+      });
+    }
+  }
 
   test('keeps its desktop sizes', async ({ page }) => {
     await open(page, DESKTOP);

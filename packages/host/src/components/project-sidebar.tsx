@@ -11,6 +11,7 @@ import { cn } from '../lib/cn';
 import { isSectionPage, openRecordId, sectionOfPath } from '../lib/project-sidebar';
 import type { SidebarContext } from '../lib/project-sidebar';
 import { nodeLink } from '../lib/record-url';
+import { DRAWER_TAP_ROW } from '../lib/touch-target';
 import { useArchivedProject } from '../lib/use-archived-project';
 import { buildOutline } from '../lib/work-page';
 import type { FinishedInitiative, OutlineEntry, OutlineTally } from '../lib/work-page';
@@ -45,13 +46,6 @@ const ROW_CURRENT =
 
 const ROW =
   'flex min-w-0 items-center gap-2 rounded-md px-2 text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent';
-
-/**
- * Every row in the drawer, below `lg`, is a 44 tap row (DESIGN.md, Sizes:
- * every tap target on a phone is at least 44 × 44); from `lg` up the sidebar
- * keeps its compact rows.
- */
-const DRAWER_TAP_ROW = 'max-lg:min-h-11';
 
 /** A section's row: Work, a browser, a Settings page, the way back to work. */
 const SECTION_ROW = cn(ROW, 'py-1.5 text-meta', DRAWER_TAP_ROW);
@@ -175,6 +169,7 @@ function useFoldState(initial: boolean, resetKey: string) {
  * the row's 44. The rows inside it indent by the same width.
  */
 const DISCLOSURE_WIDTH = 'w-6 max-lg:w-11';
+const DISCLOSURE_INDENT = 'ml-6 max-lg:ml-11';
 
 /**
  * A finished initiative inside the fold: its row, and a toggle that shows the
@@ -225,7 +220,7 @@ function FinishedInitiativeRows({
         </div>
       </div>
       {open && (
-        <div id={insideId} className="ml-6 flex flex-col gap-px max-lg:ml-11">
+        <div id={insideId} className={cn('flex flex-col gap-px', DISCLOSURE_INDENT)}>
           {inside.map((entry) => (
             <OutlineRow key={entry.id} entry={entry} onNavigate={onNavigate} />
           ))}

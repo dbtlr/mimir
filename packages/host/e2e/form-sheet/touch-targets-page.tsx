@@ -8,10 +8,14 @@ import {
   createRouter,
 } from '@tanstack/react-router';
 
+import { pendingPairingsQuery } from '../../src/api/device-queries';
 import { archivedProjectsQuery, projectsQuery, treeQuery } from '../../src/api/shell-queries';
 import { reviewQuery } from '../../src/api/view-queries';
 import { AttentionAlert } from '../../src/components/attention-alert';
 import { ProjectDrawer, ProjectSidebar } from '../../src/components/project-sidebar';
+import { IconButton } from '../../src/components/ui/icon-button';
+import { MoreIcon, SearchIcon } from '../../src/components/ui/icons';
+import type { SidebarContext } from '../../src/lib/project-sidebar';
 import { engineProject, engineTree } from '../../src/test/engine-fixtures';
 import { engineReview, needsYouRow, stripRow } from '../../src/test/views-fixtures';
 
@@ -50,19 +54,40 @@ function seededClient(): QueryClient {
   client.setQueryData(projectsQuery.queryKey, [engineProject({ id: 'MMR', title: 'Mimir' })]);
   client.setQueryData(archivedProjectsQuery.queryKey, []);
   client.setQueryData(treeQuery('MMR').queryKey, TREE);
+  client.setQueryData(pendingPairingsQuery.queryKey, []);
   return client;
 }
 
-/** The project the page is framed in. */
-const CONTEXT = { key: 'MMR', kind: 'project' } as const;
+/**
+ * The sidebar's context and the page it frames, from `?context=`: a project
+ * (the default), All projects, or Settings.
+ */
+const FRAMES = {
+  all: { context: { kind: 'all' }, path: '/' },
+  project: { context: { key: 'MMR', kind: 'project' }, path: '/p/MMR' },
+  settings: { context: { kind: 'settings' }, path: '/settings/devices' },
+} satisfies Record<string, { context: SidebarContext; path: string }>;
+const contextParam = new URLSearchParams(globalThis.location.search).get('context');
+const FRAME =
+  contextParam === 'all' || contextParam === 'settings' ? FRAMES[contextParam] : FRAMES.project;
 
-/** The shell's top bar, reduced to the two controls the checks measure. */
+/**
+ * The shell's top bar around the controls the checks measure: the project
+ * menu, then the alert between stand-ins for Jump to… and More, as the shell
+ * places them, so a check can see whether the alert reaches into them.
+ */
 function TopBar() {
   return (
     <header className="flex items-center gap-2 border-b border-line bg-well-950 px-4 pt-2 pb-2 max-lg:px-2 max-md:gap-1">
-      <ProjectDrawer context={CONTEXT} />
+      <ProjectDrawer context={FRAME.context} />
       <div className="ml-auto flex items-center gap-1">
+        <IconButton aria-label="Jump to…">
+          <SearchIcon />
+        </IconButton>
         <AttentionAlert />
+        <IconButton aria-label="More">
+          <MoreIcon />
+        </IconButton>
       </div>
     </header>
   );
@@ -76,7 +101,7 @@ const root = createRootRoute({
       <TopBar />
       {/* The desktop sidebar, drawn at every width so a check can measure it from `lg` up. */}
       <div className="flex">
-        <ProjectSidebar context={CONTEXT} />
+        <ProjectSidebar context={FRAME.context} />
         <Outlet />
       </div>
     </>
@@ -84,15 +109,17 @@ const root = createRootRoute({
 });
 
 const router = createRouter({
-  history: createMemoryHistory({ initialEntries: ['/p/MMR'] }),
-  routeTree: root.addChildren([
-    createRoute({ component: () => <main />, getParentRoute: () => root, path: '/p/$key' }),
-  ]),
+  history: createMemoryHistory({ initialEntries: [FRAME.path] }),
+  routeTree: root.addChildren(
+    ['/', '/p/$key', '/settings/devices'].map((path) =>
+      createRoute({ component: () => <main />, getParentRoute: () => root, path }),
+    ),
+  ),
 });
 
 /**
- * The needs-you alert and the project drawer over seeded reads, under a
- * memory router at a project's page, for the phone touch-target checks
+ * The needs-you alert and the sidebar, as a drawer and beside the page, over
+ * seeded reads, under a memory router at the framed page, for the touch-target checks
  * (e2e/touch-targets.test.ts).
  */
 export function TouchTargetsPage() {

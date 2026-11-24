@@ -8,6 +8,7 @@ import { projectsQuery } from '../api/shell-queries';
 import { reviewQuery } from '../api/view-queries';
 import { cn } from '../lib/cn';
 import { groupProjects, overlayPins, sidebarShortlist } from '../lib/project-switcher';
+import { DRAWER_TAP_ROW } from '../lib/touch-target';
 import { PROJECT_ROW, ProjectRowContent } from './project-options';
 
 /*
@@ -36,8 +37,8 @@ function ProjectLink({
         data-project={project.id}
         className={cn(
           PROJECT_ROW,
-          // The drawer's rows are 44 tap rows up to `lg` (project-sidebar.tsx).
-          'max-lg:min-h-11 transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent',
+          DRAWER_TAP_ROW,
+          'transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent',
         )}
       >
         <ProjectRowContent project={project} needsYou={needsYou} />
