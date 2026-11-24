@@ -4,8 +4,9 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { cn } from '../../../lib/cn';
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from '../../ui/collapsible';
-import { FEED_FOCUS_RING, FEED_LINK_TEXT } from './link';
+import { FEED_FOCUS_RING } from './link';
 import type { FeedLink } from './link';
+import { ShowMoreButton } from './show-more';
 
 /*
  * Day folds (ADR 0019, MMR-719 refinement): finished work grouped by day,
@@ -204,8 +205,7 @@ export function DayFold({
           ))}
         </ul>
         {hidden > 0 && (
-          <button
-            type="button"
+          <ShowMoreButton
             // A mouse press leaves focus where it is. Otherwise the press
             // blurs a held row (to the page in Safari and Firefox, or out of
             // another day's fold), the row lets go, and the button moves up
@@ -217,16 +217,12 @@ export function DayFold({
               shownWhenPressed.current = shown.length;
               setExpanded(true);
             }}
-            // Pulled 4 left like the rows, then indented to the titles' left
-            // edge: 4 of padding, the 16 dot column, and its 8 gap.
-            className={cn(
-              '-ml-1 flex min-h-11 items-center rounded-md border-0 bg-transparent pr-1 pl-7 text-label font-medium md:min-h-9',
-              FEED_LINK_TEXT,
-              FEED_FOCUS_RING,
-            )}
+            // Indented to the titles' left edge: 4 of padding, the 16 dot
+            // column, and its 8 gap.
+            className="pr-1 pl-7"
           >
             Show {hidden} more
-          </button>
+          </ShowMoreButton>
         )}
       </CollapsiblePanel>
     </Collapsible>

@@ -3,7 +3,7 @@ import type { ReactNode, Ref, RefObject } from 'react';
 
 import { cn } from '../../lib/cn';
 import { CloseIcon, FilterIcon } from '../ui/icons';
-import { FEED_FOCUS_RING, FEED_LINK_TEXT } from './feed/link';
+import { ShowMoreButton } from './feed/show-more';
 
 /*
  * The list page (ADR 0019, MMR-724 refinement; DESIGN.md, List page): one
@@ -205,9 +205,8 @@ export function ListGroup({
 
 /**
  * The list's one text button, closing a list that loads by window: "Show 50
- * more". While the next window loads it stays focusable and says it is busy
- * (`aria-disabled`), so a press during the load neither repeats it nor drops
- * focus to the page.
+ * more", the Day fold's Show N more (`ShowMoreButton`), busy while the next
+ * window loads.
  */
 export function ListShowMore({
   count,
@@ -223,24 +222,13 @@ export function ListShowMore({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      aria-disabled={loading || undefined}
-      aria-busy={loading || undefined}
+    <ShowMoreButton
+      loading={loading}
       aria-label={`Show ${count.toLocaleString('en-US')} more ${noun}`}
-      onClick={() => {
-        if (!loading) {
-          onClick();
-        }
-      }}
-      className={cn(
-        '-ml-1 mt-3 flex min-h-11 items-center rounded-md border-0 bg-transparent px-1 text-label font-medium md:min-h-9',
-        FEED_LINK_TEXT,
-        FEED_FOCUS_RING,
-        'aria-disabled:cursor-default aria-disabled:no-underline aria-disabled:opacity-60',
-      )}
+      onClick={onClick}
+      className="mt-3 px-1"
     >
       Show {count.toLocaleString('en-US')} more
-    </button>
+    </ShowMoreButton>
   );
 }
