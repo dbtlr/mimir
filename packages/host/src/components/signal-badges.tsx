@@ -24,7 +24,8 @@ export function PriorityBadge({ priority }: { priority: Priority }) {
   );
 }
 
-const SIZE_GLYPH: Record<Size, string> = { large: 'l', medium: 'm', small: 's' };
+/** A size's one-letter glyph, uppercase so an L never reads as a pipe or a 1 (MMR-778). */
+export const SIZE_GLYPH: Record<Size, string> = { large: 'L', medium: 'M', small: 'S' };
 
 /** Size signal chip: the glyph on screen, the size in words for assistive tech. */
 export function SizeBadge({ size }: { size: Size }) {

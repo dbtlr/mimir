@@ -1,6 +1,6 @@
 import type { EngineTree } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, onTestFinished, vi } from 'vitest';
 
@@ -435,7 +435,7 @@ describe('authoringSheet', () => {
     await user.type(screen.getByLabelText('Title'), 'Signal-rich');
     await user.click(screen.getByRole('button', { name: /signals · optional/i }));
     await user.click(screen.getByRole('button', { name: 'p1' }));
-    await user.click(screen.getByRole('button', { name: 's' }));
+    await user.click(screen.getByRole('button', { name: 'small' }));
     await user.click(screen.getByRole('button', { name: '+ tag' }));
     await user.type(screen.getByLabelText('Tags'), 'ui, meridian');
     await user.keyboard('{Enter}');
@@ -453,6 +453,17 @@ describe('authoringSheet', () => {
         },
       });
     });
+  });
+
+  // MMR-778: the size picker spells a size the way the size chip does.
+  it('the size pills show S, M, and L in uppercase, like the size chip', async () => {
+    const user = userEvent.setup();
+    await renderSheet();
+    await sheetReady();
+
+    await user.click(screen.getByRole('button', { name: /signals · optional/i }));
+    const sizes = within(screen.getByRole('group', { name: 'Size' })).getAllByRole('button');
+    expect(sizes.map((pill) => pill.textContent)).toEqual(['S', 'M', 'L']);
   });
 
   // ADR 0019 §1 (MMR-626): a selected priority reads as a selection, not a status.

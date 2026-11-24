@@ -1,5 +1,5 @@
 import { PRIORITY_VALUES, SIZE_VALUES } from '@mimir/contract';
-import type { EngineNode, SeedKind, Size } from '@mimir/contract';
+import type { EngineNode, SeedKind } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
@@ -18,6 +18,7 @@ import type { AuthoringType } from '../lib/parent-options';
 import { projectKeyOf } from '../lib/project-key';
 import { nodeLink } from '../lib/record-url';
 import { toast } from './patterns/notice';
+import { SIZE_GLYPH } from './signal-badges';
 import { StatusDot } from './status-dot';
 import { ActionButton } from './ui/action-button';
 import { CloseIcon } from './ui/icons';
@@ -36,8 +37,6 @@ const DEP_HELPER =
 
 /** The hairline field shell (mock 19a's .16 border on the page well). */
 const FIELD_SHELL = 'rounded-[9px] border border-line-bright bg-well-900';
-
-const SIZE_GLYPH: Record<Size, string> = { large: 'l', medium: 'm', small: 's' };
 
 /** DOM id for a dep-results option — the combobox's aria-activedescendant target. */
 function depOptionDomId(id: string) {
@@ -811,6 +810,9 @@ function AuthoringSheetBody({
                           key={s}
                           type="button"
                           aria-pressed={size === s}
+                          // The glyph on screen; the size in words for
+                          // assistive tech, as the size chip names it.
+                          aria-label={s}
                           title={s}
                           onClick={() => setSize((cur) => (cur === s ? '' : s))}
                           className={cn(
