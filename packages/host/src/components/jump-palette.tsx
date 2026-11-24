@@ -19,6 +19,7 @@ import { LINK_LABEL, groupHits, highlightTerms, hitStatus, paletteReturnTarget }
 import { readRecentRecords, rememberRecord } from '../lib/recent-records';
 import type { RecentRecord } from '../lib/recent-records';
 import { recordLink } from '../lib/record-url';
+import { DRAWER_TAP_ROW } from '../lib/touch-target';
 import { useDebouncedValue } from '../lib/use-debounced-value';
 import { IS_APPLE, useCommandHotkey } from '../lib/use-hotkey';
 import { lazySheet } from './lazy-sheet';
@@ -180,14 +181,15 @@ export function TopBarJumpTo() {
 
 /**
  * Jump to at the top of the sidebar (DESIGN.md, Pages): a full-width button
- * drawn as a search field. Beside the page it opens the palette and shows the
- * shortcut. In the drawer, which a tap opens, it draws no shortcut, and
- * `onJump` takes over: the drawer closes first, then opens the palette.
+ * drawn as a search field, 36 tall beside the page and a 44 tap row in the
+ * drawer, as the drawer's other rows are. Beside the page it opens the palette
+ * and shows the shortcut. The drawer passes `onJump`, which closes the drawer
+ * before the palette opens; a drawer is opened by touch, so there it draws no
+ * shortcut.
  */
 export function SidebarJumpTo({ onJump }: { onJump?: () => void }) {
   const control = useRef<HTMLButtonElement>(null);
   const palette = useJumpControl(control);
-  const inDrawer = onJump !== undefined;
   return (
     <button
       type="button"
@@ -205,12 +207,15 @@ export function SidebarJumpTo({ onJump }: { onJump?: () => void }) {
       className={cn(
         // 10 below, plus the sidebar's 2 row gap: DESIGN.md's 12 above the switcher.
         'mb-2.5 flex w-full items-center gap-2 rounded-lg border border-ink-dim bg-well-850 px-3 text-label font-normal text-ink-dim transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-        inDrawer ? 'min-h-11' : 'min-h-9',
+        'min-h-9',
+        DRAWER_TAP_ROW,
       )}
     >
       <SearchIcon className="size-4" />
       <span>Jump to…</span>
-      {!inDrawer && <kbd className="ml-auto font-mono text-xs text-ink-dim">{SHORTCUT}</kbd>}
+      {onJump === undefined && (
+        <kbd className="ml-auto font-mono text-xs text-ink-dim">{SHORTCUT}</kbd>
+      )}
     </button>
   );
 }

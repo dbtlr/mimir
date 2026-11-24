@@ -51,10 +51,10 @@ async function renderAt(viewport: Viewport, path: string) {
   await screen.findByRole('link', { name: 'Mimir' });
 }
 
-/** The shell's top bar: the first banner, since a record page draws its own header below it. */
 /** The first control in `region`, in document order. */
 const firstControl = (region: HTMLElement) => region.querySelector('a, button, input');
 
+/** The shell's top bar: the first banner, since a record page draws its own header below it. */
 const topBar = () => screen.getAllByRole('banner')[0] ?? document.body;
 
 /** The palette's search box, once it has focus. */

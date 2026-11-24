@@ -1032,15 +1032,17 @@ _Needs you_, and "…". This revises both:
 - **While a preview panel is open from 1024 to 1599 the sidebar yields**
   (ADR 0019's MMR-720 refinement), and its _Jump to_ goes with it, as every
   other sidebar row does; the bar does not take it back, so the bar does not
-  change when a panel opens. ⌘K or Ctrl K still opens the palette, and a
-  click away from the panel closes it and brings the sidebar back.
+  change when a panel opens. The palette waits for the panel: ⌘K or Ctrl K
+  does nothing while a dialog is open, and the panel is one. Escape or a
+  click away closes the panel and brings the sidebar back.
 - **The drawer opens with _Jump to_ as well.** Choosing it closes the drawer
   and then opens the palette. A phone has two ways in and one search.
 - **Closing the palette returns focus to what had it** when the palette
   opened. When that can no longer take focus, focus goes to the control
   that opens the palette where the operator is: the drawer's menu button
-  when the drawer opened it; else `<main>` while the sidebar has yielded;
-  else the sidebar's _Jump to_, or the top bar's where the bar holds it.
+  when the drawer opened it; else the sidebar's _Jump to_, or the top bar's
+  where the bar holds it; else `<main>`. A control in a yielded, inert
+  sidebar does not count.
 - **A page is one centred column, with no right column.** The column is 900
   wide at most, beside the sidebar; a single-purpose page may be narrower
   (the focus queue 720, pairing 560). Two rails remain until the tasks that
