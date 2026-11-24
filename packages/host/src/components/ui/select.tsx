@@ -15,7 +15,7 @@ import type { ComponentProps, ReactNode } from 'react';
 import { useMediaQuery } from '../../lib/use-media-query';
 import { mergeClassName } from './class-name';
 import { DRAWER_DESKTOP_QUERY } from './drawer';
-import { CONTROL_EDGE_CLASS } from './input';
+import { CONTROL_EDGE_CLASS, QUIET_DISABLED_FIELD_CLASS } from './input';
 import { LIST_DIVIDER_CLASS } from './separator';
 
 /*
@@ -60,7 +60,8 @@ export function SelectTrigger({
       className={mergeClassName(
         CONTROL_EDGE_CLASS,
         'inline-flex h-11 min-w-44 items-center justify-between gap-3 px-3 text-left',
-        'data-[placeholder]:text-ink-dim data-[open]:border-accent data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40',
+        'data-[placeholder]:text-ink-dim data-[open]:border-accent',
+        QUIET_DISABLED_FIELD_CLASS,
         className,
       )}
       {...props}
