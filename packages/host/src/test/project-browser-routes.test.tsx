@@ -8,10 +8,12 @@ import { artifacts, list, seeds } from '../api/fns/browse';
 import { projects } from '../api/fns/shell';
 import { SeedCaptureProvider } from '../components/seed-capture';
 import { readRememberedProject, rememberProject } from '../lib/current-project';
+import { readRecentRecords } from '../lib/recent-records';
 import { consoleRoutes } from '../router';
 import { taskSet } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
+import { engineTask } from './node-fixtures';
 import { serveNodes } from './node-fns';
 import { renderRoute, renderShell } from './router';
 import { failShellReads, serveShell } from './shell-fns';
@@ -123,6 +125,22 @@ describe('a browser under an unknown project (MMR-495)', () => {
       expect(screen.queryByText(/Unreachable/)).toBeNull();
       // The server answered (ADR 0015), so the page does not read as offline.
       expect(screen.queryByText(/Offline/)).toBeNull();
+    },
+  );
+});
+
+describe('a task id in the project segment', () => {
+  it.each(['', '/tasks', '/seeds', '/artifacts'])(
+    '/p/MMR-5%s shows the project-unavailable page, not the task as a project',
+    async (view) => {
+      serveNodes({ nodes: [MMR, NRN, engineTask({ id: 'MMR-5', title: 'A task, not a project' })] });
+      await renderAt(`/p/MMR-5${view}`);
+      await expect(
+        screen.findByRole('heading', { level: 1, name: 'Project unavailable' }),
+      ).resolves.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'A task, not a project' })).toBeNull();
+      // Nor does the jump palette learn the task as a project.
+      expect(readRecentRecords()).toStrictEqual([]);
     },
   );
 });

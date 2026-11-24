@@ -27,7 +27,9 @@ export function ProjectPage() {
   // count toward connectivity.
   const health = useQuery(doctorQuery(key));
   useRememberRecord(
-    project.data && { id: key, kind: 'project', project: key, title: project.data.title },
+    project.data?.type === 'project'
+      ? { id: key, kind: 'project', project: key, title: project.data.title }
+      : undefined,
   );
   const details = tab === 'details';
   const offline = project.isError;

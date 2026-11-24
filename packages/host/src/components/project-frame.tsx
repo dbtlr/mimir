@@ -86,7 +86,8 @@ function HeadPending({ unreachable }: { unreachable: boolean }) {
  * browsers (`/p/KEY/tasks`, `/seeds`, `/artifacts`) all render in it, so a
  * project reads as one page whichever tab is open. The frame owns the
  * page's two states that are not the page: a project the server answers 404
- * for (archived or gone, ADR 0015) shows the unavailable notice in its place,
+ * for (archived or gone, ADR 0015), or a key that reads back as another kind
+ * of record, shows the unavailable notice in its place,
  * with no Offline banner, since the server answered; otherwise the banner
  * reads the project and the tab's own `reads` (ADR 0013 §5).
  */
@@ -112,7 +113,9 @@ export function ProjectFrame({
   const seeds = useQuery(seedsQuery({ project: projectKey }));
   const navigate = useNavigate();
 
-  if (archived !== undefined || isNotFound(project.error)) {
+  // A node id in the project segment (`/p/MMR-5/tasks`) names no project either.
+  const notProject = project.data !== undefined && project.data.type !== 'project';
+  if (archived !== undefined || isNotFound(project.error) || notProject) {
     return <UnavailableProject projectKey={projectKey} />;
   }
   const conn = connectivity([project, ...reads]);
