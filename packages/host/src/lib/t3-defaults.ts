@@ -72,10 +72,17 @@ export function rememberChoice(project: string, choice: LaunchChoice): void {
 const findProvider = (system: ReachableSystem, instanceId: string) =>
   system.providers.find((provider) => provider.providerInstanceId === instanceId);
 
-const offers = (system: ReachableSystem, selection: { instanceId: string; model: string }) =>
-  findProvider(system, selection.instanceId)?.models.some((m) => m.id === selection.model) ?? false;
+/** Whether the system offers the model on a provider that can launch it: one with a runtime mode. */
+const offers = (system: ReachableSystem, selection: { instanceId: string; model: string }) => {
+  const provider = findProvider(system, selection.instanceId);
+  return (
+    provider !== undefined &&
+    provider.runtimeModes.length > 0 &&
+    provider.models.some((m) => m.id === selection.model)
+  );
+};
 
-/** The project's default model, else the remembered one, when the system still offers it. */
+/** The project's default model, else the remembered one, when the system still offers it launchably. */
 function pickModel(
   system: ReachableSystem,
   projectId: string,

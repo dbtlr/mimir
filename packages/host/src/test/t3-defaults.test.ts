@@ -186,6 +186,56 @@ describe('startingChoice', () => {
       runtimeMode: 'full-access',
     });
   });
+
+  it('passes over a project default on a provider with no runtime mode for the first launchable model', () => {
+    const system = reachableSystem();
+    const [claude] = system.providers;
+    if (claude === undefined) {
+      throw new Error('the system fixture has no provider');
+    }
+    expect(
+      startingChoice(
+        {
+          ...system,
+          projects: [
+            {
+              defaultModelSelection: { instanceId: 'no-runtime', model: 'opus' },
+              id: 'p1',
+              title: 'mimir',
+            },
+          ],
+          providers: [{ ...claude, providerInstanceId: 'no-runtime', runtimeModes: [] }, claude],
+        },
+        null,
+      ),
+    ).toMatchObject({
+      model: { instanceId: 'claude', model: 'opus' },
+      projectId: 'p1',
+      runtimeMode: 'full-access',
+    });
+  });
+
+  it('passes over a remembered model on a provider with no runtime mode for the first launchable model', () => {
+    const system = reachableSystem();
+    const [claude] = system.providers;
+    if (claude === undefined) {
+      throw new Error('the system fixture has no provider');
+    }
+    expect(
+      startingChoice(
+        {
+          ...system,
+          projects: [{ defaultModelSelection: null, id: 'p1', title: 'mimir' }],
+          providers: [claude, { ...claude, providerInstanceId: 'no-runtime', runtimeModes: [] }],
+        },
+        { instanceId: 'no-runtime', model: 'sonnet', runtimeMode: 'full-access' },
+      ),
+    ).toMatchObject({
+      model: { instanceId: 'claude', model: 'opus' },
+      projectId: 'p1',
+      runtimeMode: 'full-access',
+    });
+  });
 });
 
 describe('the remembered choice', () => {
