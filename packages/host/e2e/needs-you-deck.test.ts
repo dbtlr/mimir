@@ -160,17 +160,18 @@ test.describe('a bundle’s preview', () => {
   });
 });
 
+/** A deck card's target, by the card's identity. */
+const targetOf = (page: Page, key: string) =>
+  page.locator(`[data-deck-card="${key}"] [data-slot="feed-card-target"]`);
+
+/** Replaces the refetch deck's report with the rows in a new queue order, as a refetch would. */
+async function refetchInOrder(page: Page, ids: readonly string[]) {
+  await page.evaluate((order) => {
+    globalThis.dispatchEvent(new CustomEvent('needs-you-reorder', { detail: order }));
+  }, ids);
+}
+
 test.describe('a refetch that reorders the cards', () => {
-  const targetOf = (page: Page, key: string) =>
-    page.locator(`[data-deck-card="${key}"] [data-slot="feed-card-target"]`);
-
-  /** Replaces the deck's report with the rows in a new queue order, as a refetch would. */
-  async function refetchInOrder(page: Page, ids: readonly string[]) {
-    await page.evaluate((order) => {
-      globalThis.dispatchEvent(new CustomEvent('needs-you-reorder', { detail: order }));
-    }, ids);
-  }
-
   test('still moves focus on from a card it moved, once that card leaves', async ({ page }) => {
     await openDeck(page, DESKTOP, undefined, '&refetch');
     await targetOf(page, 'MMR-1').focus();
