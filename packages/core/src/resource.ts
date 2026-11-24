@@ -42,9 +42,7 @@ export async function listProjects(
     return true;
   });
   return Promise.all(
-    projects.map((p) =>
-      buildProjectView(store.bodySections, store.artifacts, set, p, activity, new Set(facets)),
-    ),
+    projects.map((p) => buildProjectView(store, set, p, activity, new Set(facets))),
   );
 }
 
@@ -69,9 +67,7 @@ export async function listProjectsByRemote(
   const activity = await store.loadProjectActivity();
   const matches = set.ws.projects.filter((p) => p.archived_at === null && p.remote === wanted);
   return Promise.all(
-    matches.map((p) =>
-      buildProjectView(store.bodySections, store.artifacts, set, p, activity, new Set(facets)),
-    ),
+    matches.map((p) => buildProjectView(store, set, p, activity, new Set(facets))),
   );
 }
 
@@ -120,8 +116,7 @@ export async function projectTree(
   };
 
   const rootView = await buildProjectView(
-    store.bodySections,
-    store.artifacts,
+    store,
     set,
     project,
     await store.loadProjectActivity([project.key]),

@@ -3,13 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import type { ReactNode, UIEvent } from 'react';
 
-import { seedsQuery } from '../api/browse-queries';
-import type { EngineSeed } from '../api/browse-queries';
 import { isNotFound } from '../api/errors';
 import { projectQuery } from '../api/node-queries';
 import { connectivity } from '../lib/connectivity';
 import type { ConnectivitySource } from '../lib/connectivity';
-import { groupSeedsByLane } from '../lib/seed-lanes';
 import { useArchivedProject } from '../lib/use-archived-project';
 import { OfflineBanner } from './offline-banner';
 import { RecordTabs } from './patterns/record-tabs';
@@ -21,36 +18,30 @@ import { ContainerHead, RecordColumn } from './work-page';
 /** A project page's tabs: Work and Details at `/p/KEY`, the rest its browsers. */
 export type ProjectTab = 'work' | 'tasks' | 'seeds' | 'artifacts' | 'details';
 
-/** Seeds still open: every lane but the settled one. */
-function openSeeds(seeds: readonly EngineSeed[]): number {
-  return groupSeedsByLane(seeds)
-    .filter((group) => group.lane !== 'settled')
-    .reduce((sum, group) => sum + group.seeds.length, 0);
-}
-
 /**
  * A project's tabs in order (ADR 0013, MMR-726 refinement): Work, Tasks,
  * Seeds, Artifacts, Details. Tasks hides while the project holds no task,
  * Seeds while it has none, and Artifacts while nothing is frozen to it;
  * Details always shows. The tab being shown always shows, and is the only one
- * while the project's record has not arrived.
+ * while the project's record has not arrived. Seeds reads the record's seed
+ * tally (MMR-787): it shows while any seed exists, settled ones included, and
+ * counts the open ones, so the tab row never loads the seed history.
  */
 export function projectTabs(
   project: EngineNode | undefined,
-  seeds: readonly EngineSeed[] | undefined,
   current: ProjectTab,
 ): RecordTab<ProjectTab>[] {
   // The leaf tally, not the rollup: the rollup counts roots and drops an idle open-ended one.
   const tasks = Object.values(project?.leafCounts ?? {}).some((count) => count > 0);
   const artifacts = project?.artifacts?.length ?? project?.artifactCount ?? 0;
-  const open = seeds === undefined ? 0 : openSeeds(seeds);
+  const seeds = project?.seedCounts ?? { open: 0, total: 0 };
   const all: (RecordTab<ProjectTab> & { shown: boolean })[] = [
     { label: 'Work', shown: project !== undefined, value: 'work' },
     { label: 'Tasks', shown: tasks, value: 'tasks' },
     {
-      count: open > 0 ? open : undefined,
+      count: seeds.open > 0 ? seeds.open : undefined,
       label: 'Seeds',
-      shown: (seeds?.length ?? 0) > 0,
+      shown: seeds.total > 0,
       value: 'seeds',
     },
     {
@@ -112,13 +103,6 @@ export function ProjectFrame({
   const project = useQuery({ ...projectQuery(projectKey), enabled: archived === undefined });
   // A node id in the project segment (`/p/MMR-5/tasks`) names no project either.
   const notProject = project.data !== undefined && project.data.type !== 'project';
-  // The seeds only draw the Seeds tab, which waits for the project's record, so
-  // they wait for it too: an archived or unknown project reads none. (A 404's
-  // poll clears its error while it runs, so the error cannot gate them.)
-  const seeds = useQuery({
-    ...seedsQuery({ project: projectKey }),
-    enabled: archived === undefined && project.data?.type === 'project',
-  });
   const navigate = useNavigate();
 
   if (archived !== undefined || isNotFound(project.error) || notProject) {
@@ -166,11 +150,7 @@ export function ProjectFrame({
         )}
         <RecordTabs
           manual
-          tabs={
-            project.data === undefined
-              ? projectTabs(undefined, undefined, tab)
-              : projectTabs(project.data, seeds.data, tab)
-          }
+          tabs={projectTabs(project.data, tab)}
           value={tab}
           onSelect={(next) => void open(next)}
         >

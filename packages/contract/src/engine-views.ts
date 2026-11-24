@@ -127,6 +127,7 @@ export function nodeSchema<T extends z.ZodType>(instant: T) {
     pinned: z.boolean().optional(),
     priority: z.enum(PRIORITY_VALUES).nullable().optional(),
     remote: z.string().nullable().optional(),
+    seedCounts: z.object({ open: z.number(), total: z.number() }).optional(),
     session: z.string().nullable().optional(),
     size: z.enum(SIZE_VALUES).nullable().optional(),
     status: z.enum(STATUS_WORD_VALUES),

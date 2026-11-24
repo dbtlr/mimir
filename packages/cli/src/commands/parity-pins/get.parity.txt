@@ -1006,7 +1006,7 @@ exit 2
 | {
 |   "code": "usage",
 |   "hints": [
-|     "columns: deps, description, next, annotations, artifacts, history, tags, children, distribution, leafCounts, artifactCount, verdicts, home, lede, content"
+|     "columns: deps, description, next, annotations, artifacts, history, tags, children, distribution, leafCounts, artifactCount, seedCounts, verdicts, home, lede, content"
 |   ],
 |   "message": "unknown column: bogus"
 | }
@@ -1018,7 +1018,7 @@ exit 2
 | {
 |   "code": "usage",
 |   "hints": [
-|     "optional columns: deps, description, next, annotations, artifacts, history, tags, children, distribution, leafCounts, artifactCount, verdicts, home, lede, content"
+|     "optional columns: deps, description, next, annotations, artifacts, history, tags, children, distribution, leafCounts, artifactCount, seedCounts, verdicts, home, lede, content"
 |   ],
 |   "message": "--col adds optional columns; 'status' is always shown"
 | }
@@ -1186,7 +1186,7 @@ exit 2
 | {
 |   "code": "usage",
 |   "hints": [
-|     "columns: deps, description, next, annotations, artifacts, history, tags, children, distribution, leafCounts, artifactCount, verdicts, home, lede, content"
+|     "columns: deps, description, next, annotations, artifacts, history, tags, children, distribution, leafCounts, artifactCount, seedCounts, verdicts, home, lede, content"
 |   ],
 |   "message": "unknown column: bogus"
 | }

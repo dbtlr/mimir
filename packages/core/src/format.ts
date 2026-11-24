@@ -215,6 +215,9 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
   if (node.artifactCount !== undefined) {
     wire.artifact_count = node.artifactCount;
   }
+  if (node.seedCounts !== undefined) {
+    wire.seed_counts = node.seedCounts;
+  }
   if (node.tags !== undefined) {
     wire.tags = node.tags.map((t) => ({ created_at: t.createdAt, tag: t.tag }));
   }

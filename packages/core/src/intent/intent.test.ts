@@ -243,6 +243,31 @@ test('the node artifacts facet speaks KEY-aN', async () => {
   expect(projectView.artifacts?.map((a) => a.id)).toEqual([`${key}-a1`]);
 });
 
+test('the seedCounts facet tallies every seed and the open ones, only when asked (MMR-787)', async () => {
+  const lifecycles = ['new', 'parked', 'promoted', 'resolved', 'rejected', 'new'] as const;
+  for (const [index, lifecycle] of lifecycles.entries()) {
+    const seed = await store.seeds.create({
+      description: null,
+      key,
+      kind: 'idea',
+      requester: null,
+      title: `seed ${String(index)}`,
+    });
+    if (lifecycle !== 'new') {
+      await store.seeds.transition(seed.key, seed.seq, lifecycle, 'settled by the test');
+    }
+  }
+
+  const counted = await getNode(store, key, { facets: ['seedCounts'] });
+  expect(counted.seedCounts).toEqual({ open: 4, total: 6 });
+  expect((await getNode(store, key, { facets: ['leafCounts'] })).seedCounts).toBeUndefined();
+});
+
+test('the seedCounts facet reads zero on a board with no seeds (MMR-787)', async () => {
+  const view = await getNode(store, key, { facets: ['seedCounts'] });
+  expect(view.seedCounts).toEqual({ open: 0, total: 0 });
+});
+
 test('the artifacts facet carries the summary lede only when set (MMR-319)', async () => {
   const t = await createTask(store, { parentId: phaseId, title: 't' });
   const tId = await nodeIdOf(store, idOf(t));

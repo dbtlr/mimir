@@ -895,6 +895,37 @@ for (const backend of backends) {
     expect(await store.seeds.loadHistory('MMR', seed.seq)).toEqual([]);
   });
 
+  it('seeds.countForProject counts one board’s seeds and its open ones (MMR-787)', async () => {
+    const store = await fresh();
+    await base(store);
+    await createProject(store, { key: 'OPS', name: 'Ops' });
+    expect(await store.seeds.countForProject('MMR')).toEqual({ open: 0, total: 0 });
+
+    const lifecycles = ['new', 'parked', 'promoted', 'resolved', 'rejected'] as const;
+    for (const lifecycle of lifecycles) {
+      const seed = await store.seeds.create({
+        description: null,
+        key: 'MMR',
+        kind: 'idea',
+        requester: null,
+        title: lifecycle,
+      });
+      if (lifecycle !== 'new') {
+        await store.seeds.transition(seed.key, seed.seq, lifecycle, 'counted');
+      }
+    }
+    await store.seeds.create({
+      description: null,
+      key: 'OPS',
+      kind: 'idea',
+      requester: null,
+      title: 'Another board',
+    });
+
+    expect(await store.seeds.countForProject('MMR')).toEqual({ open: 3, total: 5 });
+    expect(await store.seeds.countForProject('OPS')).toEqual({ open: 1, total: 1 });
+  });
+
   itOnSqlite('seeds.transition records a legal edge and refuses an illegal one', async () => {
     const store = await fresh();
     await base(store);
