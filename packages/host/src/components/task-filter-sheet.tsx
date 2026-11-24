@@ -111,7 +111,12 @@ export function TaskFilterSheet({
     { show: draft.show === 'all' ? undefined : draft.show, status: draft.carried },
     { project, zone: browserTimeZone() },
   );
-  const tags = useQuery({ ...taskTagsQuery(tagBase), enabled: open });
+  // The last tags stay while a new Show option's read lands, so the Tag field doesn't blink out.
+  const tags = useQuery({
+    ...taskTagsQuery(tagBase),
+    enabled: open,
+    placeholderData: keepPreviousData,
+  });
   // Tags already applied stay offered, even once no task the Show option holds carries them.
   const tagOptions = [...new Set([...(tags.data ?? []), ...draft.tags])].map((tag) => ({
     label: tag,
