@@ -106,6 +106,9 @@ const titlesIn = (heading: string) =>
     .getAllByRole('button', { expanded: false })
     .map((card) => card.textContent);
 
+/** The chip that opens the Filter sheet. */
+const filterChip = () => screen.getByRole('button', { name: /^Filter/ });
+
 /** A task's card, found from its title. */
 const cardOf = (title: string) => {
   const card = screen.getByRole('button', { name: title }).closest('[data-slot="feed-card"]');
@@ -152,20 +155,30 @@ describe('tasksPage (the Tasks list, MMR-454, MMR-724)', () => {
     });
   });
 
-  it('a deep-linked status shows its own removable chip, and removing it returns to every live task', async () => {
+  it('a deep-linked status beyond the live ones shows its own removable chip, and removing it returns to every live task', async () => {
     mockApi();
-    const testRouter = await renderTasks('/p/MMR/tasks?status=ready');
+    const testRouter = await renderTasks('/p/MMR/tasks?status=ready,done');
     const user = userEvent.setup();
     await screen.findByText('Doctor the wire');
 
-    expect(nodeReads().some((p) => p.status === 'ready')).toBe(true);
+    expect(nodeReads().some((p) => JSON.stringify(p.status) === '["ready","done"]')).toBe(true);
     expect(screen.getByText('5 tasks')).toBeDefined();
+    expect(filterChip()).toHaveAccessibleName('Filter');
 
-    await user.click(screen.getByRole('button', { name: 'Remove Ready' }));
+    await user.click(screen.getByRole('button', { name: 'Remove Ready, Done' }));
     await waitFor(() => {
       expect(search(testRouter).status).toBeUndefined();
     });
     expect(screen.queryByRole('button', { name: /^Remove / })).toBeNull();
+  });
+
+  it('a deep-linked live status narrows every live task under Filter, with no chip of its own', async () => {
+    mockApi();
+    await renderTasks('/p/MMR/tasks?status=ready');
+    await screen.findByText('Doctor the wire');
+    expect(nodeReads().some((p) => p.status === 'ready')).toBe(true);
+    expect(screen.queryByRole('button', { name: /^Remove / })).toBeNull();
+    expect(filterChip()).toHaveAccessibleName('Filter, 1 applied');
   });
 
   it('keeps an old Finished link: ?status=terminal filters, folds by day, and windows', async () => {
@@ -198,19 +211,19 @@ describe('tasksPage (the Tasks list, MMR-454, MMR-724)', () => {
 
   it('removing the status chip hands keyboard focus to the search box', async () => {
     mockApi();
-    await renderTasks('/p/MMR/tasks?status=ready');
+    await renderTasks('/p/MMR/tasks?status=terminal');
     const user = userEvent.setup();
-    await screen.findByText('Doctor the wire');
-    await user.click(screen.getByRole('button', { name: 'Remove Ready' }));
+    await screen.findByText('Land the schema');
+    await user.click(screen.getByRole('button', { name: 'Remove Finished' }));
     expect(screen.getByRole('searchbox', { name: 'Search tasks' })).toHaveFocus();
   });
 
   it('labels a deep-linked union and the all selector', async () => {
     mockApi();
-    await renderTasks('/p/MMR/tasks?status=ready,blocked');
+    await renderTasks('/p/MMR/tasks?status=blocked,all');
     await screen.findByText('Doctor the wire');
-    expect(screen.getByRole('button', { name: 'Remove Ready, Blocked' })).toBeDefined();
-    expect(nodeReads().some((p) => JSON.stringify(p.status) === '["ready","blocked"]')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Remove Blocked, All' })).toBeDefined();
+    expect(nodeReads().some((p) => JSON.stringify(p.status) === '["blocked","all"]')).toBe(true);
   });
 
   it('asks for no tasks when a deep-linked status names no selector', async () => {
@@ -596,8 +609,6 @@ describe('tasksPage presets (MMR-724)', () => {
   });
 });
 
-const filterChip = () => screen.getByRole('button', { name: /^Filter/ });
-
 /** Opens the Tasks list at `url` and its Filter sheet. */
 async function openSheet(url = '/p/MMR/tasks') {
   const testRouter = await renderTasks(url);
@@ -633,6 +644,7 @@ describe('tasksPage Filter sheet (MMR-724)', () => {
       completedAt: new Date(NOW - 3_600_000),
       id: 'MMR-65',
       lifecycle: 'done',
+      size: 'large',
       status: 'done',
     }),
     engineTask({
@@ -787,6 +799,56 @@ describe('tasksPage Filter sheet (MMR-724)', () => {
         .getAllByRole('checkbox')
         .map((box) => box.getAttribute('aria-label')),
     ).toStrictEqual(['Done']);
+  });
+
+  it('keeps a link’s status selector the sheet cannot spell, under the filters it adds', async () => {
+    const { sheet, testRouter, user } = await openSheet('/p/MMR/tasks?status=terminal');
+    // No Show option holds the finished tasks, so none is checked, and they fold by day.
+    for (const radio of within(sheet).getAllByRole('radio')) {
+      expect(radio).not.toBeChecked();
+    }
+    expect(within(sheet).queryByRole('group', { name: 'Status' })).toBeNull();
+    expect(within(sheet).queryByRole('radiogroup', { name: 'Sort' })).toBeNull();
+    await expect(
+      within(sheet).findByRole('button', { name: 'Show 2 tasks' }),
+    ).resolves.toBeEnabled();
+
+    await user.click(within(sheet).getByRole('checkbox', { name: 'Large' }));
+    await user.click(await within(sheet).findByRole('button', { name: 'Show 1 task' }));
+    await waitFor(() => {
+      expect(search(testRouter)).toEqual({ size: 'large', status: 'terminal' });
+    });
+    expect(screen.getByRole('button', { name: 'Remove Finished' })).toBeVisible();
+    expect(filterChip()).toHaveAccessibleName('Filter, 1 applied');
+  });
+
+  it('counts a narrowing of every live task under Filter, with no chip of its own', async () => {
+    const { sheet, testRouter, user } = await openSheet();
+    const statuses = within(sheet).getByRole('group', { name: 'Status' });
+    await user.click(within(statuses).getByRole('checkbox', { name: 'Ready' }));
+    await user.click(await within(sheet).findByRole('button', { name: 'Show 3 tasks' }));
+    await waitFor(() => {
+      expect(search(testRouter)).toEqual({
+        status: 'in_progress,under_review,staged,queued,awaiting,blocked,parked',
+      });
+    });
+    expect(screen.queryByRole('button', { name: /^Remove / })).toBeNull();
+    expect(filterChip()).toHaveAccessibleName('Filter, 1 applied');
+
+    // Opening again shows the narrowing where it was made.
+    await user.click(filterChip());
+    const again = await screen.findByRole('dialog', { name: 'Filter tasks' });
+    expect(within(again).getByRole('radio', { name: 'Every live task' })).toBeChecked();
+    expect(within(again).getByRole('checkbox', { name: 'Ready' })).not.toBeChecked();
+  });
+
+  it('leaves a sort out of the URL once Show picks finished work, which takes none', async () => {
+    const { sheet, testRouter, user } = await openSheet('/p/MMR/tasks?sort=priority');
+    await user.click(within(sheet).getByRole('radio', { name: 'Shipped, last 7 days' }));
+    await user.click(await within(sheet).findByRole('button', { name: 'Show 2 tasks' }));
+    await waitFor(() => {
+      expect(search(testRouter)).toEqual({ show: 'shipped-week' });
+    });
   });
 
   it('offers no Sort for finished work, which folds by day', async () => {

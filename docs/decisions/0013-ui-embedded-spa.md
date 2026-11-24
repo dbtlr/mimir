@@ -1132,15 +1132,21 @@ filter the `list` read already takes.
   With no preset the list shows every live task, as the default did. A
   `show` that names no preset is ignored.
 - **Old links keep working.** A `status` with no preset is any status
-  selector, as before (`?status=terminal`, `?status=ready,blocked`), shown
-  as its own removable chip; `q` searches as before; the bare `/tasks`
-  redirect carries both. A finished-only selection still loads by window
+  selector, as before, and `q` searches as before; the bare `/tasks`
+  redirect carries both. A `status` within the live statuses
+  (`?status=ready,blocked`) narrows every live task, as the Filter sheet
+  writes it, and counts under Filter. One that names anything else
+  (`?status=terminal`, `?status=ready,done`) is a selector no Show option
+  holds: it shows as its own removable chip, and the Filter sheet keeps it,
+  with no Show option checked and no Status field, under the filters it adds
+  until Show changes. A finished-only selection still loads by window
   (`FINISHED_PAGE_SIZE`, MMR-460).
 - **The Filter sheet's fields are URL values too:** `status` narrows a
-  preset to some of its statuses, `priority`, `size`, and `tag` are any-of
-  field filters (`in`), and `sort` (`priority`, `oldest`) orders the live
-  groups, newest activity first by default. Finished work folds by day
-  newest first, so it takes no sort.
+  preset, or every live task, to some of its statuses; `priority`, `size`,
+  and `tag` are any-of field filters (`in`); and `sort` (`priority`,
+  `oldest`) orders the live groups, newest activity first by default.
+  Finished work, a preset's or a link's, folds by day newest first, so it
+  takes no sort, and the sheet leaves one out of the URL.
 - **Home's doors are per project,** because the list is a project's.
   Shipped's row for each project opens that project's `shipped-week`, and
   the row's count equals the rows the list shows. Now opens `in-flight`, the

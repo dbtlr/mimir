@@ -37,6 +37,7 @@ import { STATUS_META, TASK_STATUS_ORDER } from '../lib/status';
 import {
   PRESET_LABEL,
   bySort,
+  carriedSelector,
   countLine,
   extraFilterCount,
   taskListFilters,
@@ -293,7 +294,8 @@ function useTaskWindow(filters: TaskFilters) {
  * headings that pin while their group scrolls; finished tasks are rows folded
  * by the day they finished. Every filter is in the URL (`show`, `status`,
  * `q`, `priority`, `size`, `tag`, `sort`), so a link opens the same list; a
- * status a link carries without a preset still filters, as its own chip.
+ * status a link carries that no Show option holds (`?status=terminal`) still
+ * filters, as its own chip.
  */
 export function TasksPage() {
   const navigate = useNavigate();
@@ -364,12 +366,13 @@ export function TasksPage() {
   const days = useMemo(() => foldDays(finished, zone), [finished, zone]);
   const cards = useRef<HTMLDivElement>(null);
 
-  // The chip for the view: the preset, or a status a link carries without one.
+  // The chip for the view: the preset, or a status a link carries that no Show option holds.
+  const carried = carriedSelector(search);
   let chip: { label: string; remove: Partial<TasksSearch> } | undefined;
   if (search.show !== undefined) {
     chip = { label: PRESET_LABEL[search.show], remove: { show: undefined, status: undefined } };
-  } else if (search.status !== undefined && search.status !== 'live') {
-    chip = { label: statusFilterLabel(search.status), remove: { status: undefined } };
+  } else if (carried !== undefined) {
+    chip = { label: statusFilterLabel(carried), remove: { status: undefined } };
   }
 
   const folds = days.length > 0 && <DayFolds days={days} cap={FINISHED_DAY_CAP} />;

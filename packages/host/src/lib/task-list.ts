@@ -1,6 +1,7 @@
 import { PRIORITY_VALUES, SIZE_VALUES } from '@mimir/contract';
 import type { EngineNode, Priority, Size, TaskStatusWord } from '@mimir/contract';
 
+import { isFinishedSelection } from '../api/browse-queries';
 import type { TaskFilters } from '../api/browse-queries';
 import { lastSevenDays } from './home';
 import { TASK_STATUS_ORDER } from './status';
@@ -117,6 +118,25 @@ export function presetSelection(show: TaskPreset | undefined, status: string | u
   const asked = csv(status);
   const kept = universe.filter((word) => asked.includes(word));
   return kept.length > 0 ? kept : universe;
+}
+
+/**
+ * The status selector a link carries that no Show option holds: with no
+ * preset, a `status` that names anything beyond the live statuses
+ * (`terminal`, `ready,done`, or a word no selector knows). It filters as its
+ * own removable chip, and the Filter sheet keeps it. A status within the live
+ * statuses narrows every live task instead, as the sheet writes it, and counts
+ * under Filter.
+ */
+export function carriedSelector(search: TaskListSearch): string | undefined {
+  if (search.show !== undefined || search.status === undefined) {
+    return undefined;
+  }
+  const asked = csv(search.status);
+  const live = asked.every(
+    (word) => word === 'live' || (LIVE_TASK_STATUSES as readonly string[]).includes(word),
+  );
+  return live ? undefined : search.status;
 }
 
 /** The status selector a preset sends, before any narrowing. */
@@ -245,6 +265,11 @@ export function bySort(sort: TaskSort): (a: EngineNode, b: EngineNode) => number
 /** The Filter sheet's fields before they apply. `all` in Show is every live task. */
 export type TaskFilterDraft = {
   show: TaskPreset | 'all';
+  /**
+   * A link's status selector no Show option holds (`carriedSelector`), kept
+   * in place of Show and Status until Show changes or Clear.
+   */
+  carried?: string;
   /** The checked statuses, inside the Show option's universe. */
   statuses: TaskStatusWord[];
   priorities: Priority[];
@@ -253,17 +278,27 @@ export type TaskFilterDraft = {
   sort: TaskSort;
 };
 
-/** The draft an applied URL opens the sheet with. A status no Show option holds starts over. */
+/** The draft an applied URL opens the sheet with, keeping a status no Show option holds. */
 export function draftOf(search: TaskListSearch): TaskFilterDraft {
   const show = search.show ?? 'all';
   const preset = show === 'all' ? undefined : show;
+  const carried = carriedSelector(search);
   return {
     ...narrowing(search),
+    ...(carried === undefined ? {} : { carried }),
     show,
     sort: search.sort ?? 'recent',
-    statuses: [...presetSelection(preset, search.status)],
+    statuses: [...presetSelection(preset, carried === undefined ? search.status : undefined)],
   };
 }
+
+/** The status selector a draft reads before its statuses narrow it. */
+const draftSelector = (draft: TaskFilterDraft) =>
+  draft.carried ?? (draft.show === 'all' ? 'live' : PRESET_SELECTOR[draft.show]);
+
+/** Whether a draft selects finished work only, which folds by day and takes no sort. */
+export const draftIsFinished = (draft: TaskFilterDraft): boolean =>
+  isFinishedSelection(draftSelector(draft));
 
 /** The draft Clear leaves: every live task, nothing narrowed, the default sort. */
 export const CLEARED_DRAFT: TaskFilterDraft = {
@@ -275,22 +310,31 @@ export const CLEARED_DRAFT: TaskFilterDraft = {
   tags: [],
 };
 
-/** A draft with another Show option: its statuses start over at that option's whole universe. */
-export function withShow(draft: TaskFilterDraft, show: TaskFilterDraft['show']): TaskFilterDraft {
+/**
+ * A draft with another Show option: its statuses start over at that option's
+ * whole universe, in place of any selector a link carried.
+ */
+export function withShow(
+  { carried: _replaced, ...draft }: TaskFilterDraft,
+  show: TaskFilterDraft['show'],
+): TaskFilterDraft {
   return { ...draft, show, statuses: [...presetStatuses(show === 'all' ? undefined : show)] };
 }
 
 /** A comma list of values, or nothing for none. */
 const listOf = (values: readonly string[]) => (values.length > 0 ? values.join(',') : undefined);
 
-/** The URL a draft applies as, keeping the search text. Defaults leave the URL. */
+/**
+ * The URL a draft applies as, keeping the search text. Defaults leave the URL,
+ * and so does a sort for finished work, which takes none.
+ */
 export function searchOf(draft: TaskFilterDraft, q: string | undefined): TaskListSearch {
   const preset = draft.show === 'all' ? undefined : draft.show;
   const universe = presetStatuses(preset);
   const narrowed = draft.statuses.length > 0 && draft.statuses.length < universe.length;
-  const status = narrowed
-    ? universe.filter((w) => draft.statuses.includes(w)).join(',')
-    : undefined;
+  const status =
+    draft.carried ??
+    (narrowed ? universe.filter((w) => draft.statuses.includes(w)).join(',') : undefined);
   const priority = listOf(draft.priorities);
   const size = listOf(draft.sizes);
   const tag = listOf(draft.tags);
@@ -301,16 +345,19 @@ export function searchOf(draft: TaskFilterDraft, q: string | undefined): TaskLis
     ...(priority === undefined ? {} : { priority }),
     ...(size === undefined ? {} : { size }),
     ...(tag === undefined ? {} : { tag }),
-    ...(draft.sort === 'recent' ? {} : { sort: draft.sort }),
+    ...(draft.sort === 'recent' || draftIsFinished(draft) ? {} : { sort: draft.sort }),
   };
 }
 
-/** How many filters a URL applies beyond its preset: narrowed statuses, priority, size, tag, and sort. */
+/**
+ * How many filters a URL applies beyond its chip: narrowed statuses, priority,
+ * size, tag, and sort. A selector a link carries is the chip's, not Filter's.
+ */
 export function extraFilterCount(search: TaskListSearch): number {
   const draft = draftOf(search);
   const universe = presetStatuses(search.show);
   return [
-    search.show !== undefined && draft.statuses.length < universe.length,
+    draft.carried === undefined && draft.statuses.length < universe.length,
     draft.priorities.length > 0,
     draft.sizes.length > 0,
     draft.tags.length > 0,

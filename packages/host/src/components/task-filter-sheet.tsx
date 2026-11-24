@@ -10,6 +10,7 @@ import {
   CLEARED_DRAFT,
   PRESET_LABEL,
   TASK_PRESETS,
+  draftIsFinished,
   draftOf,
   presetStatuses,
   searchOf,
@@ -67,8 +68,10 @@ const statusOptions = (statuses: readonly TaskStatusWord[]): FilterOption<TaskSt
  * presets, then every live task), Status within it, Priority, Size, Tag, and
  * Sort. Nothing applies until "Show N tasks", which counts what the fields
  * select with the list's own read; Clear resets the fields. Changing Show
- * checks every status that option holds. Finished work folds by day, newest
- * first, so it offers no Sort.
+ * checks every status that option holds. A status selector a link carried
+ * that no Show option holds (`?status=terminal`) stays, with no Show option
+ * checked and no Status field, until Show changes. Finished work folds by
+ * day, newest first, so it offers no Sort.
  */
 export function TaskFilterSheet({
   open,
@@ -136,22 +139,24 @@ export function TaskFilterSheet({
         label="Show"
         kind="radio"
         options={SHOW_OPTIONS}
-        value={[draft.show]}
+        value={draft.carried === undefined ? [draft.show] : []}
         onChange={([show]) => {
           if (show !== undefined) {
             setDraft((current) => withShow(current, show));
           }
         }}
       />
-      <FilterPills
-        label="Status"
-        kind="checkbox"
-        options={statusOptions(presetStatuses(draft.show === 'all' ? undefined : draft.show))}
-        value={draft.statuses}
-        onChange={(statuses) => {
-          set({ statuses });
-        }}
-      />
+      {draft.carried === undefined && (
+        <FilterPills
+          label="Status"
+          kind="checkbox"
+          options={statusOptions(presetStatuses(draft.show === 'all' ? undefined : draft.show))}
+          value={draft.statuses}
+          onChange={(statuses) => {
+            set({ statuses });
+          }}
+        />
+      )}
       <FilterPills
         label="Priority"
         kind="checkbox"
@@ -184,7 +189,7 @@ export function TaskFilterSheet({
           }}
         />
       )}
-      {draft.show !== 'shipped-week' && (
+      {!draftIsFinished(draft) && (
         <FilterSegments
           label="Sort"
           options={SORT_OPTIONS}
