@@ -10,7 +10,8 @@ import type { FeedCardListHandle, ListSection } from './patterns/feed/card-list'
 /*
  * The needs-you set as the Needs you page lists it (ADR 0019, MMR-723
  * refinement): the deck's cards in one feed section per project, each headed
- * by the project's name and "N cards, M items". The cards act through the
+ * by the project's name and "N cards, M items"; a card and its preview
+ * leave that name out of their status line. The cards act through the
  * same mapping as the deck's (`needs-you-cards.tsx`); a bundle's button
  * carries its return-target name, so a walkthrough's return finds it in the
  * document. Its writes come in through `writes`, as the deck's do.
@@ -56,7 +57,8 @@ export function NeedsYouListView({
   const listSections: ListSection[] = sections.map((section) => ({
     cards: section.cards.map((card) => ({
       action: actionOf(card),
-      card: needsYouContent(card),
+      // The section head names the project, so the card leaves its name out (MMR-723).
+      card: { ...needsYouContent(card), project: undefined },
       key: card.key,
       previewKey: card.key,
     })),
@@ -73,7 +75,7 @@ export function NeedsYouListView({
         sections={listSections}
         preview={(key) => {
           const card = previews.get(key);
-          return card === undefined ? undefined : needsYouPreview(card);
+          return card === undefined ? undefined : { ...needsYouPreview(card), project: undefined };
         }}
         quiet="Nothing needs you."
         offline={offline}

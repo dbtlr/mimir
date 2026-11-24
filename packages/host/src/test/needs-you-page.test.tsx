@@ -102,6 +102,17 @@ describe('the list', () => {
     expect(within(mimir).getByText('Task MMR-731')).toBeVisible();
   });
 
+  it('leaves the project’s name, which the section head carries, off a card and its preview', async () => {
+    await openPage(SET);
+    const card = target('Delivery FLT-d2');
+    expect(card).toHaveAccessibleDescription(expect.stringContaining('Stopped FLT-d2'));
+    expect(card).not.toHaveAccessibleDescription(expect.stringContaining('Fleet'));
+    await userEvent.click(card);
+    const panel = await screen.findByRole('dialog', { name: 'Delivery FLT-d2' });
+    expect(within(panel).getByText('FLT-d2')).toBeVisible();
+    expect(within(panel).queryByText('Fleet')).toBeNull();
+  });
+
   it('puts the bundle’s set name on its button, so a walkthrough’s return finds it', async () => {
     await openPage(SET);
     expect(screen.getByRole('button', { name: 'Review 2 decisions on FLT-d2' })).toHaveAttribute(

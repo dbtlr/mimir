@@ -80,7 +80,8 @@ items in 3 projects." Each project has its own section, headed by the
 project's name and its count, such as "3 cards, 5 items". The project whose
 card is most urgent comes first, and each project's cards follow in their
 ranked order. The cards are the same cards as Home's deck, with the same
-previews and actions, and the page shows all of them: nothing pages or folds.
+previews and actions, except that they leave out the project's name, which
+the section head shows. The page shows all of them: nothing pages or folds.
 When an action settles what a card asks, the card leaves, and if focus was on
 it, focus moves to the next card. A project's section leaves with its last
 card.
