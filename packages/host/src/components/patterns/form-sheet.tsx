@@ -222,10 +222,7 @@ export function FormSheet({
           <FormBody body={body} onScrolled={setScrolled}>
             <FormSheetBusy.Provider value={busy}>{children}</FormSheetBusy.Provider>
           </FormBody>
-          <div
-            data-slot="form-sheet-footer"
-            className={SHEET_FOOTER_CLASS}
-          >
+          <div data-slot="form-sheet-footer" className={SHEET_FOOTER_CLASS}>
             {note !== undefined && (
               <p
                 id={noteId}

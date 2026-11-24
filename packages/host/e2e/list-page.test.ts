@@ -113,25 +113,33 @@ const boxOf = async (locator: ReturnType<Page['locator']>) => {
   return { bottom: Math.round(box.y + box.height), top: Math.round(box.y) };
 };
 
-for (const [width, viewport] of [
-  ['phone', PHONE],
-  ['desktop', DESKTOP],
-] as const) {
-  test(`the chip row sits 8 below the search and 32 above the first head’s row, on a ${width}`, async ({
-    page,
-  }) => {
-    await openList(page, viewport);
-    // The field's 44 box, not the text input inside it.
-    const search = await boxOf(
-      page.getByRole('searchbox', { name: 'Search tasks' }).locator('xpath=ancestor::label[1]'),
-    );
-    // The pill the chip draws, not its tap area.
-    const pill = await boxOf(page.getByRole('button', { name: 'Remove In flight' }).locator('span').first());
-    const head = await boxOf(page.getByRole('heading', { level: 2, name: 'In progress 6' }));
-    expect(pill.top - search.bottom).toBe(8);
-    expect(head.top - pill.bottom).toBe(32);
-  });
+/** Checks the chip row's pills sit 8 below the search and 32 above the first head's row. */
+async function checkChipRow(page: Page, viewport: { width: number; height: number }) {
+  await openList(page, viewport);
+  // The field's 44 box, not the text input inside it.
+  const search = await boxOf(
+    page.getByRole('searchbox', { name: 'Search tasks' }).locator('xpath=ancestor::label[1]'),
+  );
+  // The pill the chip draws, not its tap area.
+  const pill = await boxOf(
+    page.getByRole('button', { name: 'Remove In flight' }).locator('span').first(),
+  );
+  const head = await boxOf(page.getByRole('heading', { level: 2, name: 'In progress 6' }));
+  expect(pill.top - search.bottom).toBe(8);
+  expect(head.top - pill.bottom).toBe(32);
 }
+
+test('the chip row sits 8 below the search and 32 above the first head’s row, on a phone', async ({
+  page,
+}) => {
+  await checkChipRow(page, PHONE);
+});
+
+test('the chip row sits 8 below the search and 32 above the first head’s row, on a desktop', async ({
+  page,
+}) => {
+  await checkChipRow(page, DESKTOP);
+});
 
 test('the last card sits 40 above the end of the page on a phone and 48 on a desktop', async ({
   page,
