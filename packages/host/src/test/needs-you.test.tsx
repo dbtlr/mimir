@@ -97,16 +97,7 @@ test('Home’s deck and the alert show the mixed set in core order and count it'
   expect(within(deck).getByText('Decisions')).toBeInTheDocument();
   const content = deck.textContent;
   expect(content.indexOf('Stopped run')).toBeLessThan(content.indexOf('Decisions'));
-  expect(screen.getAllByLabelText('2 need you').length).toBeGreaterThan(0);
-  fireEvent.click(screen.getByRole('button', { name: '2 need you' }));
-  const panel = await screen.findByRole('dialog', { name: 'Needs you' });
-  const text = panel.textContent;
-  expect(text.indexOf('Stopped run')).toBeLessThan(text.indexOf('Keep the rail?'));
-  expect(
-    within(panel)
-      .getAllByRole('link')
-      .filter((a) => a.getAttribute('href') === '/p/MMR/d1'),
-  ).toHaveLength(2);
+  expect(screen.getByRole('link', { name: '2 need you' })).toHaveAttribute('href', '/needs-you');
 });
 
 test('focus walks delivery and decision cards with Skip only and the right up-next question', async () => {
@@ -170,9 +161,7 @@ test('focus lands on a decision card itself after Skip on a task card', async ()
   expect(screen.getByRole('heading', { name: 'Keep the rail?' }).closest('section')).toHaveFocus();
 });
 
-test.each(['work page', 'popover'])(
-  'answer hands focus to the next decision row, never a chip or link (%s)',
-  async (surface) => {
+test('answer hands focus to the next decision row, never a chip or link', async () => {
     const first = rows()[1]!;
     if (first.kind !== 'decision') {
       throw new Error('fixture');
@@ -202,19 +191,9 @@ test.each(['work page', 'popover'])(
       });
       return { ...first.decision, history: [] };
     });
-    if (surface === 'popover') {
-      await renderShell('/p/MMR');
-    } else {
-      await open('/p/MMR');
-    }
-    let scope: HTMLElement;
-    if (surface === 'popover') {
-      fireEvent.click(await screen.findByRole('button', { name: '2 need you' }));
-      scope = await screen.findByRole('dialog', { name: 'Needs you' });
-    } else {
-      await screen.findByRole('heading', { name: 'Keep the rail?' });
-      scope = screen.getByRole('main');
-    }
+    await open('/p/MMR');
+    await screen.findByRole('heading', { name: 'Keep the rail?' });
+    const scope = screen.getByRole('main');
     const chip = await within(scope).findByRole('button', {
       name: 'Confirm option 1 for MMR-q1: Keep',
     });
@@ -232,8 +211,7 @@ test.each(['work page', 'popover'])(
     }
     fireEvent.keyDown(next!, { key: 'Enter' });
     expect(confirm).toHaveBeenCalledExactlyOnceWith({ data: { id: 'MMR-q1' } });
-  },
-);
+});
 
 test.each(['/p/MMR', '/?mode=focus'])('decision answer chips are wired on %s', async (path) => {
   const first = rows()[1]!;

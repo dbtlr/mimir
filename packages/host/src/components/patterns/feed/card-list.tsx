@@ -75,18 +75,19 @@ export function FeedCardList({
   const cards = useMemo(() => sections.flatMap((section) => section.cards), [sections]);
   const root = useRef<HTMLDivElement>(null);
   const quietLine = useRef<HTMLParagraphElement>(null);
-  // Where focus last moved for a card that left: the panel's return when its card is gone.
-  const moved = useRef<HTMLElement | null>(null);
   const actions = useCardActions({ cards, identity: IDENTITY, offline, preview, root });
 
   return (
     <FeedPreview
       preview={actions.preview}
-      fallbackFocus={() =>
-        moved.current?.isConnected === true
-          ? moved.current
-          : (root.current?.querySelector<HTMLElement>(TARGET) ?? quietLine.current)
-      }
+      // The panel's return once its card has left: where the list already moved focus, else the first card.
+      fallbackFocus={() => {
+        const active = document.activeElement;
+        if (active instanceof HTMLElement && root.current?.contains(active) === true) {
+          return active;
+        }
+        return root.current?.querySelector<HTMLElement>(TARGET) ?? quietLine.current;
+      }}
     >
       <ListBody
         sections={sections}
@@ -94,11 +95,12 @@ export function FeedCardList({
         quiet={quiet}
         buttonOf={actions.button}
         dialogCard={actions.dialogCard}
-        onDialogReturn={actions.dialogReturned}
+        onDialogReturn={(key) => {
+          actions.dialogReturned(key);
+        }}
         handle={ref}
         root={root}
         quietLine={quietLine}
-        moved={moved}
       />
     </FeedPreview>
   );
@@ -120,7 +122,6 @@ function ListBody({
   handle,
   root,
   quietLine,
-  moved,
 }: {
   sections: readonly ListSection[];
   cards: readonly ListCard[];
@@ -131,7 +132,6 @@ function ListBody({
   handle: Ref<FeedCardListHandle> | undefined;
   root: RefObject<HTMLDivElement | null>;
   quietLine: RefObject<HTMLParagraphElement | null>;
-  moved: RefObject<HTMLElement | null>;
 }) {
   const { openKey } = useFeedPreviewControl();
   const keys = useMemo(() => cards.map((card) => card.key), [cards]);
@@ -206,9 +206,7 @@ function ListBody({
   const focusIn = (key: string, part: 'button' | 'target') => {
     const card = cardElement(root.current, IDENTITY, key);
     const button = part === 'button' ? cardButton(card) : null;
-    const element = button ?? card?.querySelector<HTMLElement>(TARGET) ?? null;
-    element?.focus();
-    moved.current = element;
+    (button ?? card?.querySelector<HTMLElement>(TARGET))?.focus();
   };
 
   /** A card that left hands its focus to its successor, else the first card, else the quiet line. */
@@ -217,7 +215,6 @@ function ListBody({
     const to = successor !== undefined && keys.includes(successor) ? successor : keys[0];
     if (to === undefined) {
       quietLine.current?.focus();
-      moved.current = quietLine.current;
     } else {
       focusIn(to, 'target');
     }

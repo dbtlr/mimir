@@ -140,7 +140,9 @@ export function FeedDeck({ cards, preview, offline = false, ref, ...rest }: Feed
         cards={cards}
         actionOf={actions.button}
         dialogCard={actions.dialogCard}
-        onDialogReturn={actions.dialogReturned}
+        onDialogReturn={(key) => {
+          actions.dialogReturned(key);
+        }}
         handle={ref}
         root={root}
         quietLine={quietLine}

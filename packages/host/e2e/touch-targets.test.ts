@@ -35,7 +35,7 @@ type Viewport = { width: number; height: number };
 async function open(page: Page, viewport: Viewport, context = 'project') {
   await page.setViewportSize(viewport);
   await page.goto(`${harness.origin}?form=touch-targets&context=${context}`);
-  await expect(page.getByRole('button', { exact: true, name: '1 needs you' })).toBeVisible();
+  await expect(page.getByRole('link', { exact: true, name: '1 needs you' })).toBeVisible();
 }
 
 /** Whether a tap at the control's centre, moved by `dx` and `dy`, lands on it. */
@@ -111,14 +111,14 @@ async function controlSizes(sidebar: Locator): Promise<{ label: string; small: b
 test.describe('the needs-you alert', () => {
   test('takes a 44 × 44 tap on a phone, its pill drawn 34 tall', async ({ page }) => {
     await open(page, PHONE);
-    const pill = page.getByRole('button', { exact: true, name: '1 needs you' });
+    const pill = page.getByRole('link', { exact: true, name: '1 needs you' });
     expect((await boxSize(pill)).height).toBe(34);
     expect(await takesSquare(pill, TARGET)).toBe(true);
   });
 
   test('reaches no further than 44 tall, and none of its neighbours', async ({ page }) => {
     await open(page, PHONE);
-    const pill = page.getByRole('button', { exact: true, name: '1 needs you' });
+    const pill = page.getByRole('link', { exact: true, name: '1 needs you' });
     // A point 23 above or below the centre is past a 44 tap (22 each way, with 1 to spare).
     expect(await hitsAt(pill, 0, -23)).toBe(false);
     expect(await hitsAt(pill, 0, 23)).toBe(false);
@@ -144,7 +144,7 @@ test.describe('the needs-you alert', () => {
 
   test('keeps its desktop pill, with no hit area past it', async ({ page }) => {
     await open(page, DESKTOP);
-    const pill = page.getByRole('button', { exact: true, name: '1 needs you' });
+    const pill = page.getByRole('link', { exact: true, name: '1 needs you' });
     const drawn = await boxSize(pill);
     expect(drawn.height).toBe(28);
     expect(await takesSquare(pill, drawn.height)).toBe(true);

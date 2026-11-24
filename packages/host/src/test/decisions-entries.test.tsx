@@ -16,7 +16,7 @@ import { serveNodes } from './node-fns';
 import { renderRoute, renderShell } from './router';
 import { serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
-import { engineReview, engineWork, needsYouRow, stripRow } from './views-fixtures';
+import { engineReview, engineWork, stripRow } from './views-fixtures';
 import { serveViews } from './views-fns';
 
 vi.mock('../api/fns/deliveries');
@@ -126,60 +126,6 @@ afterEach(() => {
 
 const client = () =>
   new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 5000 } } });
-
-/** The needs-you panel the top-bar alert opens, which lists the set in its project groups. */
-async function openAlertPanel(count: number) {
-  await renderShell('/', client());
-  fireEvent.click(
-    await screen.findByRole('button', {
-      name: `${String(count)} ${count === 1 ? 'needs' : 'need'} you`,
-    }),
-  );
-  return screen.findByRole('dialog', { name: 'Needs you' });
-}
-
-const entries = (panel: HTMLElement) =>
-  within(panel)
-    .getAllByRole('link', { name: /^Review \d+ decisions? / })
-    .map((a) => [a.textContent, a.getAttribute('href')]);
-
-test('a project group lists an entry per delivery in needs-you order, then the no-delivery one', async () => {
-  const panel = await openAlertPanel(4);
-  expect(entries(panel)).toStrictEqual([
-    ['Review 2 decisions on MMR-d4', '/p/MMR/d4?mode=decisions'],
-    ['Review 1 decision on MMR-d3', '/p/MMR/d3?mode=decisions'],
-    ['Review 1 decision without a delivery', '/p/MMR?mode=decisions'],
-  ]);
-});
-
-test('no-delivery decisions count in the plural', async () => {
-  const rows = [row(decision(1, null)), row(decision(2, null))];
-  serveViews({
-    review: engineReview({
-      needsYou: [{ project: { key: 'MMR', name: 'Mimir' }, rows }],
-      projects: [stripRow({ key: 'MMR', name: 'Mimir' }, { needsYou: 2 })],
-      queue: rows.map((r) => ({ id: r.decision.id, kind: 'decision' as const })),
-    }),
-  });
-  const panel = await openAlertPanel(2);
-  expect(
-    within(panel).getByRole('link', { name: 'Review 2 decisions without a delivery' }),
-  ).toHaveAttribute('href', '/p/MMR?mode=decisions');
-});
-
-test('a group whose rows are not decisions shows no entry', async () => {
-  const rows = [needsYouRow({ id: 'MMR-52', status: 'blocked', title: 'Stuck' }, 'blocked')];
-  serveViews({
-    review: engineReview({
-      needsYou: [{ project: { key: 'MMR', name: 'Mimir' }, rows }],
-      projects: [stripRow({ key: 'MMR', name: 'Mimir' }, { needsYou: 1 })],
-      queue: [{ id: 'MMR-52', kind: 'task' }],
-    }),
-  });
-  const panel = await openAlertPanel(1);
-  await within(panel).findByText('MMR-52');
-  expect(within(panel).queryByRole('link', { name: /^Review \d/ })).toBeNull();
-});
 
 test('the delivery page offers one entry above its decisions, counting the provisional ones', async () => {
   vi.mocked(deliveryPage).mockResolvedValue(
@@ -425,20 +371,6 @@ test('Close returns focus to the delivery page entry that opened the walkthrough
   });
 });
 
-test('Close returns focus to the Needs you trigger when a popover entry opened the walkthrough', async () => {
-  stubViewport('desktop');
-  vi.mocked(deliveryPage).mockResolvedValue(page([decision(3, 'MMR-d3')]));
-  await renderShell('/p/MMR/d3', client());
-  fireEvent.click(await screen.findByRole('button', { name: '4 need you' }));
-  const panel = await screen.findByRole('dialog', { name: 'Needs you' });
-  fireEvent.click(within(panel).getByRole('link', { name: 'Review 1 decision on MMR-d3' }));
-  await close(await screen.findByRole('dialog'));
-  await waitFor(() => {
-    expect(screen.getByRole('button', { name: '4 need you' })).toHaveFocus();
-  });
-  expect(screen.queryByRole('dialog', { name: 'Needs you' })).toBeNull();
-});
-
 test('the link back gives focus to the page when the answered set’s entry is gone', async () => {
   // The first read shows the decision; the read after the answer has none left provisional.
   vi.mocked(deliveryPage)
@@ -457,22 +389,6 @@ test('the link back gives focus to the page when the answered set’s entry is g
   expect(screen.queryByRole('link', { name: 'Review 1 decision' })).toBeNull();
   await waitFor(() => {
     expect(screen.getByRole('main')).toHaveFocus();
-  });
-});
-
-test('on a phone, Close returns focus to the Needs you alert when the sheet’s entry opened the walkthrough', async () => {
-  stubViewport('phone');
-  vi.mocked(deliveryPage).mockResolvedValue(page([decision(3, 'MMR-d3')]));
-  await renderShell('/p/MMR/d3', client());
-  fireEvent.click(await screen.findByRole('button', { name: '4 need you' }));
-  const sheet = await screen.findByRole('dialog', { name: 'Needs you' });
-  fireEvent.click(within(sheet).getByRole('link', { name: 'Review 1 decision on MMR-d3' }));
-  await waitFor(() => {
-    expect(screen.queryByRole('dialog', { name: 'Needs you' })).toBeNull();
-  });
-  await close(await screen.findByRole('dialog'));
-  await waitFor(() => {
-    expect(screen.getByRole('button', { name: '4 need you' })).toHaveFocus();
   });
 });
 
