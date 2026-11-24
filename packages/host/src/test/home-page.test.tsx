@@ -426,8 +426,9 @@ const abandoned = (id: string, at: Date) =>
 describe('Shipped’s count and the shipped-week list agree (MMR-724)', () => {
   /**
    * One board both reads are drawn from: done work across the week's edges
-   * (the first hour of the window's first day, and the day before it), an
-   * abandoned task, and another project's work.
+   * (the first hour of the window's first day, the day before it, and a
+   * `completed_at` dated tomorrow, as a skewed clock stamps it), an abandoned
+   * task, and another project's work.
    */
   const BOARD = [
     done('MMR-1', minutesAgo(20)),
@@ -437,6 +438,8 @@ describe('Shipped’s count and the shipped-week list agree (MMR-724)', () => {
     done('MMR-4', new Date('2026-11-17T05:30:00.000Z')),
     // 23:30 on Monday 16 November in New York: the day before the window.
     done('MMR-5', new Date('2026-11-17T04:30:00.000Z')),
+    // Noon on Tuesday 24 November in New York: tomorrow, past the window's end.
+    done('MMR-8', new Date('2026-11-24T17:00:00.000Z')),
     abandoned('MMR-6', hoursAgo(2)),
     done('LM-7', hoursAgo(3)),
   ];

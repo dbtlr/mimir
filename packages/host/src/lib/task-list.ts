@@ -153,8 +153,8 @@ const PRESET_SELECTOR: Record<TaskPreset, string> = {
  * queued, core's in-flight words (`isInFlightWord`), which Home's Now counts;
  * ready is ready; going cold is the live tasks the stale verdict holds;
  * shipped in the last 7 days is the done tasks whose `completed_at`
- * falls in the seven days ending today in `zone`, the window Home's Shipped
- * counts. With no preset, `status` is any selector a link carries, and the
+ * falls in the seven days ending today in `zone`, bare dates bounded at both
+ * ends (ADR 0029), the window Home's Shipped counts. With no preset, `status` is any selector a link carries, and the
  * default is every live task. Priority, size, and tag narrow it as any-of
  * field filters.
  */
@@ -177,8 +177,11 @@ export function taskListFilters(
   }
   const fieldFilters: NonNullable<TaskFilters['filters']> = [];
   if (show === 'shipped-week') {
-    const { first } = lastSevenDays(zone, now);
-    fieldFilters.push({ field: 'completed_at', op: 'at-or-after', value: first });
+    const { first, today } = lastSevenDays(zone, now);
+    fieldFilters.push(
+      { field: 'completed_at', op: 'at-or-after', value: first },
+      { field: 'completed_at', op: 'at-or-before', value: today },
+    );
     filters.timeZone = zone;
   }
   const { priorities, sizes, tags } = narrowing(search);

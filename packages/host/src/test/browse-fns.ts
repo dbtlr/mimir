@@ -158,12 +158,18 @@ function passes(
     }
     case 'completed_at': {
       // Only `done` stamps completed_at; a bare date is a day in the caller's zone.
-      return (
-        filter.op === 'at-or-after' &&
-        task.completedAt != null &&
-        zone !== undefined &&
-        dayOf(task.completedAt.getTime(), zone) >= (filter.value ?? '')
-      );
+      if (task.completedAt == null || zone === undefined) {
+        return false;
+      }
+      const day = dayOf(task.completedAt.getTime(), zone);
+      const bound = filter.value ?? '';
+      if (filter.op === 'at-or-after') {
+        return day >= bound;
+      }
+      if (filter.op === 'at-or-before') {
+        return day <= bound;
+      }
+      throw new Error(`the test list does not filter completed_at ${filter.op}`);
     }
     default: {
       throw new Error(`the test list does not filter on ${filter.field}`);

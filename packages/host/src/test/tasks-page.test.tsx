@@ -545,7 +545,10 @@ describe('tasksPage presets (MMR-724)', () => {
     [
       'shipped-week',
       {
-        filters: [{ field: 'completed_at', op: 'at-or-after', value: '2026-11-18' }],
+        filters: [
+          { field: 'completed_at', op: 'at-or-after', value: '2026-11-18' },
+          { field: 'completed_at', op: 'at-or-before', value: '2026-11-24' },
+        ],
         limit: FINISHED_PAGE_SIZE,
         status: 'done',
         timeZone: 'America/New_York',

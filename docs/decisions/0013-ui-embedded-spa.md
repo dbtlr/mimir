@@ -1122,8 +1122,10 @@ filter the `list` read already takes.
   - `going-cold`: the live tasks the `stale` verdict holds, the work
     page's `?is=stale` predicate;
   - `shipped-week`: done tasks whose `completed_at` falls in the seven
-    days ending today in the browser's zone, sent as `status: done` with a
-    bare-date `at-or-after` filter and the zone (ADR 0029). It is the window
+    days ending today in the browser's zone, sent as `status: done` with
+    bare-date `at-or-after` (the first day) and `at-or-before` (today)
+    filters and the zone (ADR 0029), so a `completed_at` dated past today
+    is in neither. It is the window
     Home's Shipped counts (`lastSevenDays`, the core's
     `SHIPPED_WINDOW_DAYS`), over the tasks Shipped counts; an abandoned task,
     which did not ship, is not in it, and the Filter sheet's Status offers
