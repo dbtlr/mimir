@@ -371,7 +371,7 @@ test('a phase with tasks reads no deliveries off its Work tab', async () => {
   expect(phaseDeliveries).not.toHaveBeenCalled();
 });
 
-test('the alert marks this delivery and its decision omits a delivery self-link', async () => {
+test('the delivery’s own Needs you decision omits a delivery self-link', async () => {
   serveBrowse();
   stubViewport('desktop');
   const page = fixture();
@@ -410,10 +410,6 @@ test('the alert marks this delivery and its decision omits a delivery self-link'
   await screen.findByRole('heading', { name: 'Deliver the console' });
   const ownNeedsYou = screen.getByRole('region', { name: /^Needs you/ });
   expect(within(ownNeedsYou).queryByRole('link', { name: 'MMR-d3' })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: '2 need you' }));
-  const panel = await screen.findByRole('dialog', { name: 'Needs you' });
-  expect(within(panel).getByText('This page')).toBeInTheDocument();
-  expect(within(panel).queryByRole('link', { name: 'MMR-d3' })).not.toBeInTheDocument();
   vi.unstubAllGlobals();
 });
 

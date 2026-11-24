@@ -3,8 +3,10 @@ import { createContext, useCallback, useContext, useMemo, useRef, useState } fro
 import type { ReactNode } from 'react';
 
 import type { ReviewReport } from '../api/view-queries';
+import type { NeedsYouWrites } from '../components/needs-you-cards';
+import { needsYouSections } from '../components/needs-you-deck-model';
 import { NeedsYouDeckView } from '../components/needs-you-deck-view';
-import type { NeedsYouWrites } from '../components/needs-you-deck-view';
+import { NeedsYouListView } from '../components/needs-you-list';
 import { toast } from '../components/patterns/notice';
 import { Reason } from '../components/patterns/reason';
 import { ActionButton } from '../components/ui/action-button';
@@ -17,7 +19,8 @@ import { Section } from './section';
  * projects, with a control for a three-digit queue. Clear stop and the answer
  * take a moment and then drop their card from the fixture, as a refetch
  * would, or are refused. Review N decisions opens the walkthrough's real
- * address. The Chromium harness serves this demo too (e2e/needs-you-deck.test.ts).
+ * address. The grouped card list of the Needs you page (MMR-723) shows over the
+ * same fixture. The Chromium harness serves these demos too (e2e/needs-you-deck.test.ts).
  */
 
 type Row = ReviewReport['needsYou'][number]['rows'][number];
@@ -312,10 +315,11 @@ function Control({ children, onClick }: { children: ReactNode; onClick: () => vo
 }
 
 /**
- * The deck over the fixture and its controls; also the Chromium harness's
- * page, which can start it with only the records `only` names.
+ * The fixture's state and its controls: the report the rows make, the writes
+ * that drop a row after a moment or are refused, and offline. The deck's demo
+ * and the list's share it.
  */
-export function NeedsYouDeckDemo({ only }: { only?: readonly string[] }) {
+function useNeedsYouFixture(only: readonly string[] | undefined) {
   const [rows, setRows] = useState<readonly Row[]>(() =>
     only === undefined ? ROWS : ROWS.filter((row) => only.includes(idOf(row))),
   );
@@ -340,25 +344,37 @@ export function NeedsYouDeckDemo({ only }: { only?: readonly string[] }) {
   );
   const answer = useCallback((id: string) => write('task', id), [write]);
 
+  const controls = (
+    <div className="flex flex-wrap gap-2">
+      <Control onClick={() => setRows(ROWS)}>Fixture</Control>
+      <Control onClick={() => setRows([...ROWS, ...MANY])}>Three-digit queue</Control>
+      <Control onClick={() => setRows([])}>Nothing needs you</Control>
+      <Control onClick={() => setOffline((value) => !value)}>
+        {offline ? 'Go online' : 'Go offline'}
+      </Control>
+      <Control
+        onClick={() => {
+          refusing.current = !refuse;
+          setRefuse(!refuse);
+        }}
+      >
+        {refuse ? 'Let writes land' : 'Refuse writes'}
+      </Control>
+    </div>
+  );
+  return { answer, controls, offline, report, writes };
+}
+
+/**
+ * The deck over the fixture and its controls; also the Chromium harness's
+ * page, which can start it with only the records `only` names.
+ */
+export function NeedsYouDeckDemo({ only }: { only?: readonly string[] }) {
+  const { answer, controls, offline, report, writes } = useNeedsYouFixture(only);
   return (
     <Answering.Provider value={answer}>
       <div className="flex flex-col gap-3" data-kit="needs-you-deck">
-        <div className="flex flex-wrap gap-2">
-          <Control onClick={() => setRows(ROWS)}>Fixture</Control>
-          <Control onClick={() => setRows([...ROWS, ...MANY])}>Three-digit queue</Control>
-          <Control onClick={() => setRows([])}>Nothing needs you</Control>
-          <Control onClick={() => setOffline((value) => !value)}>
-            {offline ? 'Go online' : 'Go offline'}
-          </Control>
-          <Control
-            onClick={() => {
-              refusing.current = !refuse;
-              setRefuse(!refuse);
-            }}
-          >
-            {refuse ? 'Let writes land' : 'Refuse writes'}
-          </Control>
-        </div>
+        {controls}
         <NeedsYouDeckView report={report} writes={writes} offline={offline} seeAll={{ to: '/' }} />
       </div>
     </Answering.Provider>
@@ -374,6 +390,34 @@ export function NeedsYouDeckKit() {
       </p>
       <div className="max-w-[900px]">
         <NeedsYouDeckDemo />
+      </div>
+    </Section>
+  );
+}
+
+/** The grouped card list over the fixture, as the Needs you page lists it, and its controls. */
+export function NeedsYouListDemo({ only }: { only?: readonly string[] }) {
+  const { answer, controls, offline, report, writes } = useNeedsYouFixture(only);
+  const sections = useMemo(() => needsYouSections(report), [report]);
+  return (
+    <Answering.Provider value={answer}>
+      <div className="flex flex-col gap-3" data-kit="needs-you-list">
+        {controls}
+        <NeedsYouListView sections={sections} writes={writes} offline={offline} />
+      </div>
+    </Answering.Provider>
+  );
+}
+
+export function NeedsYouListKit() {
+  return (
+    <Section title="Grouped card list (the Needs you page)">
+      <p className="m-0 text-meta text-ink-dim">
+        Every card of the fixture, one section per project in the set’s order, each counting its
+        cards and the items they hold. A card that leaves hands its focus to the next card.
+      </p>
+      <div className="max-w-[900px]">
+        <NeedsYouListDemo />
       </div>
     </Section>
   );

@@ -795,7 +795,7 @@ describe('top bar', () => {
     const bar = topBar();
     expect(within(bar).getByRole('link', { name: 'Mimir' })).toHaveAttribute('href', '/');
     expect(within(bar).queryByRole('button', { name: 'Jump to…' })).toBeNull();
-    await expect(within(bar).findByRole('button', { name: /need/i })).resolves.toBeInTheDocument();
+    await expect(within(bar).findByRole('link', { name: /need/i })).resolves.toBeInTheDocument();
     expect(within(bar).getByRole('button', { name: 'More' })).toBeInTheDocument();
   });
 
@@ -840,7 +840,7 @@ describe('top bar on a phone (MMR-715)', () => {
     await screen.findByRole('button', { name: 'Open project menu' });
     const bar = topBar();
     expect(within(bar).getByRole('button', { name: 'Jump to…' })).toBeInTheDocument();
-    await expect(within(bar).findByRole('button', { name: /need/i })).resolves.toBeInTheDocument();
+    await expect(within(bar).findByRole('link', { name: /need/i })).resolves.toBeInTheDocument();
     expect(within(bar).queryByRole('button', { name: /theme/i })).toBeNull();
 
     await userEvent.click(within(bar).getByRole('button', { name: 'More' }));

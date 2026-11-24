@@ -28,8 +28,8 @@ import { serveViews } from './views-fns';
 /*
  * Home at `/` (ADR 0013, MMR-722 refinement): one feed column of the page
  * title and summary, Needs you as the deck, Now as capped title cards, the
- * Shipped summary, and the spare-minute count rows, with no rail and no See
- * all. The derivations are swept in home-lib.test.ts; the deck's own rules in
+ * Shipped summary, and the spare-minute count rows, with no rail. Only Needs
+ * you has See all, to the Needs you page (MMR-723). The derivations are swept in home-lib.test.ts; the deck's own rules in
  * needs-you-deck.test.tsx and feed-deck.test.tsx.
  */
 
@@ -163,12 +163,16 @@ describe('Home at / (ADR 0013, MMR-722 refinement)', () => {
     ]);
   });
 
-  it('has no rail, no project health strip, and no See all', async () => {
+  it('has no rail, no project health strip, and See all only on Needs you', async () => {
     await openHome(busy());
 
     expect(screen.queryByRole('complementary')).toBeNull();
     expect(screen.queryByRole('list', { name: 'Project health' })).toBeNull();
-    expect(screen.queryByRole('link', { name: /^See all/ })).toBeNull();
+    const seeAll = screen.getAllByRole('link', { name: /^See all/ });
+    expect(seeAll.map((link) => link.getAttribute('aria-label'))).toStrictEqual([
+      'See all in Needs you',
+    ]);
+    expect(seeAll[0]).toHaveAttribute('href', '/needs-you');
   });
 
   it('counts the deck’s cards beside the records the top-bar alert counts', async () => {

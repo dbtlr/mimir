@@ -31,7 +31,7 @@ export function deckRange({ count, page }: { count: number; page: number }): {
  * The card that takes a leaving card's place: the nearest card after it in
  * the old order still in the deck, or with none after it, the nearest before.
  */
-function successorOf({
+export function successorOf({
   before,
   left,
   after,

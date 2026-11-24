@@ -11,8 +11,8 @@ Every value is marked:
 - **adopted (MMR-…)**: proposed with that task's mock, approved with it,
   and now carried by the primitives and patterns (MMR-743 the Form sheet,
   MMR-718 readable type, MMR-719 the feed blocks, MMR-720 the preview
-  panel, MMR-721 the Needs you deck, MMR-722 Home, MMR-726 the record
-  header). The reason given beside
+  panel, MMR-721 the Needs you deck, MMR-722 Home, MMR-723 the Needs you
+  page, MMR-726 the record header). The reason given beside
   one says what the code did before.
 - **proposed**: missing from or different in the code. Each carries a one-line
   reason and needs the operator's ruling before a primitive adopts it.
@@ -524,6 +524,26 @@ preview panel uses.
 | One card | fills the width between the gutters; no peek, no pager | one page: no range or arrows (likewise for four or fewer) | **adopted (MMR-721)** |
 | No cards | the quiet line "Nothing needs you." in the section's place, with no head (Quiet line) | same | **adopted (MMR-721)** |
 | Turn | slides to rest with no overshoot, and after a card leaves the successor slides into its place as a turn does; at once under `prefers-reduced-motion`, where a swipe may track the finger but its settle and the reflow after a card leaves happen at once. The deck moves by `SwipeTrack`, a transform over UI SDK's `bindDrag` with its transitions off under reduced motion, since a scroll-snap settle slides even then (ADR 0019 §8) | at once, no slide: a page turn, and a page refilling after a card leaves | **adopted (MMR-721)** |
+
+#### Needs you page
+
+The needs-you set as a grouped card list on `/needs-you` (ADR 0019's
+MMR-723 refinement): the deck's cards, one feed section per project, and a
+bar at the bottom of the page for _Work through all_, under the page's
+scroller and above the shell's version footer strip, so nothing scrolls
+beneath it. Its cards are the
+Card block's, its heads the Section head's, and its preview the Preview
+panel's; the page adds only what is below.
+
+| Where | Phone (< 768) | Desktop (≥ 768) | Mark |
+| --- | --- | --- | --- |
+| Page head | Home's page head (Pages): the title "Needs you" (`text-page`), 4 to the sentence "10 cards, 26 items in 3 projects." (`text-body` ink, singular at one), 20 to a `line` hairline, 32 to the first section; 16 top | the same, 24 top; the column 900 at most | **adopted (MMR-723)** |
+| Section | one per project: the Section head with the project's name and its worded count "3 cards, 5 items" (the records its cards hold), no See all; 32 between sections (Between feed sections) | same | **adopted (MMR-723)** |
+| Cards | the Card block, stacked 8 apart; the status line, and the preview's, leave out the project's name, which the section head carries | in the Card grid by its container rule, 12 apart | **adopted (MMR-723)** |
+| Bar | the page's last row, full width, under its scroller and above the version footer strip; `well-850`; padding 12 top and bottom, 14 sides, with no safe-area inset of its own (the footer strip lies below it); the solid _Work through all N_ (_Work through 1 item_ at one) fills it, 44 tall | the page's last row across the main area (from the sidebar's edge, or the screen's left when the sidebar yields, to the right edge, or to the open panel's left edge), above the version footer strip; `well-850`; 16 top and bottom; its content in the page's 900 column with its 20 gutters: the note "One item at a time, in queue order across projects, then back here." (13 / 20 `ink-dim`) at the left, the solid at the right, content width, 44 tall, 20 side padding, at least 16 apart. When they cannot share a line, the note stacks 8 above a full-width button | **adopted (MMR-723)** |
+| Bar edge | a 1px top edge: while the scroller has more below, the overflow cue of the Preview panel's footer (`ink-ghost` in dark, `line-bright` in light, with its upward shadow); once it reaches its end, `line` with no shadow | same | **adopted (MMR-723)** |
+| Room under the last section | 40, Home's column bottom padding (`routes/review.tsx`); the scroller ends at the bar's top edge | 48 | **adopted (MMR-723)** |
+| Empty | the title alone, then the quiet line "Nothing needs you." 32 below it (Quiet line); no sentence, hairline, sections, or bar | same | **adopted (MMR-723)** |
 
 #### Record header
 

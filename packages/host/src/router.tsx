@@ -29,7 +29,7 @@ import type { T3CallbackReason } from './server/t3-states';
 
 /**
  * Navigation (ADR 0013 §3 and its v0.23 refinement): URLs name scopes, views,
- * and records — `/` Home, `/p/KEY` the project's page,
+ * and records — `/` Home, `/needs-you` the needs-you set, `/p/KEY` the project's page,
  * `/p/KEY/tasks` (and `/seeds`, `/artifacts`) its browsers,
  * `/p/KEY/417` a work node's page, `/p/KEY/s41` a seed's page, `/p/KEY/a219`
  * an artifact's page. The board view is retired (MMR-487). Typed search params
@@ -54,6 +54,19 @@ export const reviewRoute = createRoute({
   validateSearch: (search: Record<string, unknown>): ReviewSearch => ({
     mode: search.mode === 'focus' ? 'focus' : undefined,
   }),
+});
+
+/**
+ * `/needs-you` — the needs-you set grouped by project, with Work through all
+ * (ADR 0013, MMR-723 refinement). It takes no search parameters.
+ */
+export const needsYouRoute = createRoute({
+  component: lazyRouteComponent(
+    warmable(async () => import('./routes/needs-you')),
+    'NeedsYouPage',
+  ),
+  getParentRoute: () => rootRoute,
+  path: '/needs-you',
 });
 
 /**
@@ -545,6 +558,7 @@ const devRoutes = import.meta.env.DEV
 
 export const consoleRoutes = [
   reviewRoute,
+  needsYouRoute,
   projectRoute,
   nodeRoute,
   seedRoute,

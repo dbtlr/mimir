@@ -10,8 +10,8 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, test, vi } from 'vitest';
 
+import { RETURN_TARGET_ATTRIBUTE } from '../lib/return-target';
 import {
-  RETURN_TARGET_ATTRIBUTE,
   markState,
   useBackToOpener,
   useOpenerFocus,

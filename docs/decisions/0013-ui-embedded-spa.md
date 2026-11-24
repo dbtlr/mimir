@@ -481,7 +481,8 @@ Overview stays until the review page lands) is settled:
   shows a link to its task page. Acting advances to the next decision;
   _Skip_ advances without acting and leaves the decision on the page. When
   the list is exhausted, the queue returns to `/`. Seeds and findings stay
-  out of it.
+  out of it. (2026-11-24, MMR-723: it returns to the Needs you page; see
+  that refinement.)
 - **The Overview retires.** The project cards, the Lane grouping, and the
   _At rest_ strip are removed.
 
@@ -804,7 +805,8 @@ The top bar's icon controls and the close buttons of the record-page sheet,
 the _Needs you_ sheet, the _Direction_ dialog, and the decisions walkthrough
 share one icon button (`components/ui/icon-button.tsx`) and one icon set
 (`components/ui/icons.tsx`). Search fields and chip remove buttons take their
-marks from the same icon set. A text character's size and shape depend on the
+marks from the same icon set (2026-11-24, MMR-723: the _Needs you_ sheet
+retires). A text character's size and shape depend on the
 font, so these controls no longer draw their icons from one. The
 walkthrough's bordered _Back_ button and the seed composer's _esc_ close keep
 their own forms.
@@ -932,6 +934,7 @@ Needs you.
   all link. A row with no destination is plain, with no chevron and no hover
   fill: Shipped's rows by project and the spare-minute rows (ADR 0019,
   MMR-722 refinement). The MMR-724 list pages will give them destinations.
+  (2026-11-24, MMR-723: Needs you gains _See all_ to `/needs-you`.)
 - **Home's spare-minute work no longer acts in place.** The rail's runnable
   tasks with _Start_ and untriaged seeds with their verbs (the MMR-476 and
   MMR-503 refinements' in-place triage) are now counts. Each project's work
@@ -939,6 +942,8 @@ Needs you.
   the untriaged seeds and links to each one; the triage verbs are on each
   seed's own page. The deck's own actions (_Clear stop_, _Answer…_, _Review N
   decisions_) act from Home, and the alert's panel keeps its grouped rows.
+  (2026-11-24, MMR-723: the alert's panel retires; the alert links to the
+  Needs you page.)
 
 Considered and rejected (mocked as variants A and C beside the chosen B):
 
@@ -1056,3 +1061,44 @@ _Needs you_, and "…". This revises both:
   the record is a task, so on a rail page it gives way to the 1200 grid
   when the read lands, until those rails retire. The dev-only `/kit` keeps
   its own width.
+
+## Refinement (2026-11-24, MMR-723): the Needs you page at `/needs-you`
+
+The needs-you set gets a page of its own at `/needs-you`, the one list page
+that is not a record kind's (MMR-a420, principle 2: Needs you mixes
+decisions and tasks). ADR 0019's MMR-723 refinement sets its layout and
+state; this refinement sets where it sits in the console.
+
+- **`/needs-you` lists the whole set, grouped by project.** It reads the
+  same review entry (`console.review`) Home and the alert read, so the
+  three never disagree, and takes no search parameters.
+- **The top-bar alert is a link to `/needs-you`** on every width. It no
+  longer opens the MMR-492 popover or the phone's bottom sheet, which
+  retire. Its count, its hue, and its absence at zero are unchanged, and
+  the installed app's badge still carries the same count (MMR-710). On
+  `/needs-you` itself the alert is marked as the current page
+  (`aria-current="page"`), and activating it there changes nothing: the
+  URL does not change, so an open preview stays open (ADR 0019's MMR-720
+  rule closes the panel only when a top-bar control navigates).
+- **Home's Needs you section links to the page.** The deck's head gains
+  _See all_ ("See all in Needs you") to `/needs-you`. This narrows the
+  MMR-722 refinement's "No See all" for Needs you; Now, Shipped, and the
+  spare-minute rows keep waiting for the MMR-724 list pages.
+- **The focus queue stays at `/?mode=focus`, and returns to the page.**
+  _Work through all_ on the page opens it as a new history entry, marked in
+  its history state as opened from the page, as the MMR-704 refinement
+  marks a walkthrough an entry opened. Its "Back to the list" link and its
+  return when nothing is left both go to `/needs-you` in place of `/`: by
+  going back one history entry when the queue was opened from the page, so
+  the history holds no second copy of the page and Back does not reopen
+  the queue, and otherwise, as from a bookmark or a typed URL, by
+  replacing the queue's entry with `/needs-you`. The back goes through the
+  same guarded back the walkthrough uses (`useBackToOpener`), once however
+  many of the two triggers fire, and leaves ADR 0019's MMR-714 focus
+  request naming _Work through all_; when the bar is gone because nothing
+  is left, the MMR-714 fallback holds. The replace path moves no focus. The queue itself is unchanged.
+- **The sidebar on `/needs-you`** shows the All projects context with no
+  row current, as on any page outside a project (the MMR-503 and MMR-562
+  refinements); the page spans projects, so no project is marked.
+- **No other page changes.** A project's work page keeps its needs-you rows
+  and their verbs (the MMR-694 and MMR-695 refinements).

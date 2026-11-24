@@ -2,6 +2,7 @@ import { useRouter, useRouterState } from '@tanstack/react-router';
 import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import { focusMain } from './focus-main';
+import { RETURN_TARGET_ATTRIBUTE } from './return-target';
 
 /*
  * The in-app mark (ADR 0019, MMR-704 refinement: Leaving a walkthrough an
@@ -15,15 +16,6 @@ import { focusMain } from './focus-main';
 
 const OPENER_KEY = 'walkthroughOpener';
 const ENTRY_KEY = 'walkthroughEntry';
-
-/**
- * The attribute that names a control focus returns to after a walkthrough:
- * an entry on a page, or the Needs you alert for the entries in its popover.
- */
-export const RETURN_TARGET_ATTRIBUTE = 'data-walkthrough-return';
-
-/** The name every entry in the Needs you popover records: the alert takes focus back, as the popover is closed. */
-export const NEEDS_YOU_ENTRY = 'needs-you';
 
 /**
  * Where a walkthrough was opened: the opener's path, and the name of the

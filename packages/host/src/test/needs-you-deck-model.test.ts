@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ReviewReport } from '../api/view-queries';
-import { needsYouCards } from '../components/needs-you-deck-model';
+import { needsYouCards, needsYouSections } from '../components/needs-you-deck-model';
 import { T0, blocked, decision, hoursAgo, question, report, stopped } from './needs-you-fixtures';
 import { needsYouRow } from './views-fixtures';
 
@@ -322,5 +322,64 @@ describe('a task', () => {
       { label: 'Size', text: 'Small' },
       { label: 'Priority', text: 'p1' },
     ]);
+  });
+});
+
+describe('the card’s project and records (MMR-723)', () => {
+  it('carries the project’s key and the records it holds: one, or a bundle’s decisions', () => {
+    const cards = needsYouCards(
+      report([
+        stopped('FLT-d2'),
+        decision('FLT-q1', { delivery: 'FLT-d2' }),
+        decision('FLT-q2', { delivery: 'FLT-d2' }),
+        decision('HUGI-q1', {}),
+        question('MMR-8'),
+      ]),
+    );
+    expect(
+      cards.map(({ key, projectKey, records }) => ({ key, projectKey, records })),
+    ).toStrictEqual([
+      { key: 'FLT-d2', projectKey: 'FLT', records: 1 },
+      { key: 'delivery:FLT-d2', projectKey: 'FLT', records: 2 },
+      { key: 'project:HUGI', projectKey: 'HUGI', records: 1 },
+      { key: 'MMR-8', projectKey: 'MMR', records: 1 },
+    ]);
+  });
+});
+
+describe('the cards by project (MMR-723)', () => {
+  it('places each project at its first card’s place and keeps its cards in rank, counting cards and records', () => {
+    const sections = needsYouSections(
+      report([
+        stopped('FLT-d2'),
+        question('MMR-8'),
+        decision('FLT-q1', { delivery: 'FLT-d2' }),
+        decision('MMR-q5', {}),
+        decision('FLT-q2', { delivery: 'FLT-d2' }),
+        blocked('FLT-9'),
+        decision('MMR-q6', {}),
+        decision('MMR-q7', {}),
+      ]),
+    );
+    expect(
+      sections.map(({ key, name, cards, records }) => ({
+        cards: cards.map((card) => card.key),
+        key,
+        name,
+        records,
+      })),
+    ).toStrictEqual([
+      { cards: ['FLT-d2', 'delivery:FLT-d2', 'FLT-9'], key: 'FLT', name: 'Fleet', records: 4 },
+      { cards: ['MMR-8', 'project:MMR'], key: 'MMR', name: 'Mimir', records: 4 },
+    ]);
+  });
+
+  it('names a project missing from the report’s projects by its key', () => {
+    const [section] = needsYouSections(report([question('HUGI-15')]));
+    expect(section).toMatchObject({ key: 'HUGI', name: 'HUGI' });
+  });
+
+  it('has no section for an empty set', () => {
+    expect(needsYouSections(report([]))).toStrictEqual([]);
   });
 });

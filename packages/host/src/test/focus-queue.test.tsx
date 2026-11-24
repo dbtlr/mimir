@@ -1,6 +1,7 @@
 import type { EngineNode } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getNode, groom } from '../api/fns/nodes';
@@ -12,7 +13,7 @@ import { consoleRoutes } from '../router';
 import { engineTree } from './engine-fixtures';
 import { engineTask } from './node-fixtures';
 import { serveNodes } from './node-fns';
-import { renderRoute } from './router';
+import { renderRoute, renderShell } from './router';
 import { serveShell } from './shell-fns';
 import { engineReview, needsYouRow, stripRow } from './views-fixtures';
 import { serveViews } from './views-fns';
@@ -169,7 +170,9 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     expect(next).toHaveTextContent('Screenshot a signed-in page');
     // The list's sections are gone while the queue is open.
     expect(screen.queryByRole('region', { name: /^Needs you/ })).toBeNull();
-    expect(screen.getByRole('link', { name: '← Back to the list' }).getAttribute('href')).toBe('/');
+    expect(screen.getByRole('link', { name: '← Back to the list' }).getAttribute('href')).toBe(
+      '/needs-you',
+    );
   });
 
   it('answers a question in place, and moves to the next decision', async () => {
@@ -248,7 +251,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     );
   });
 
-  it('skips without writing, and returns to / with the skipped decision still listed', async () => {
+  it('skips without writing, and returns to the Needs you page with the skipped decision still listed', async () => {
     serve(needsYou(question, block));
     const { router: testRouter } = await renderRoute(consoleRoutes, '/?mode=focus', reviewClient());
 
@@ -256,9 +259,9 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     const second = await cardFor(block);
     fireEvent.click(within(second).getByRole('button', { name: 'Skip' }));
 
-    // Home's deck still holds both: a card for each record.
-    await screen.findByRole('region', { name: 'Needs you 2 cards, 2 items' });
-    expect(testRouter.state.location.href).toBe('/');
+    // The page still holds both: a card for each record.
+    await screen.findByText('2 cards, 2 items in 1 project.');
+    expect(testRouter.state.location.href).toBe('/needs-you');
     expect(groom).not.toHaveBeenCalled();
   });
 
@@ -280,15 +283,16 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     expect(screen.getByText('2 of 2')).toBeDefined();
     expect(screen.queryByRole('region', { name: 'Up next' })).toBeNull();
     fireEvent.click(within(shown).getByRole('button', { name: 'Skip' }));
-    await screen.findByRole('region', { name: 'Needs you 2 cards, 2 items' });
+    await screen.findByText('2 cards, 2 items in 1 project.');
   });
 
-  it('returns to / when nothing needs you', async () => {
+  it('replaces itself with the Needs you page when nothing needs you', async () => {
     serve(needsYou());
     const { router: testRouter } = await renderRoute(consoleRoutes, '/?mode=focus', reviewClient());
 
     await screen.findByText('Nothing needs you.');
-    expect(testRouter.state.location.href).toBe('/');
+    expect(testRouter.state.location.href).toBe('/needs-you');
+    expect(testRouter.history).toHaveLength(1);
   });
 
   it('lands focus on the next decision’s first action after Skip', async () => {
@@ -332,5 +336,53 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     await expect(cardFor(question)).resolves.toBeDefined();
     expect(screen.queryByRole('region', { name: loomQuestion.task.title })).toBeNull();
     expect(testRouter.state.location.href).toBe('/?mode=focus');
+  });
+});
+
+/** The page, then Work through all, in the whole console so the shell carries out the return's focus. */
+async function openFromPage(report: ReviewReport) {
+  serve(report);
+  const view = await renderShell('/needs-you', reviewClient());
+  await userEvent.click(await screen.findByRole('link', { name: /^Work through/u }));
+  await screen.findByRole('heading', { level: 1, name: 'Work through these' });
+  return view;
+}
+
+describe('the focus queue’s return to the Needs you page (ADR 0013, MMR-723 refinement)', () => {
+  it('goes back one entry from Back to the list, to Work through all', async () => {
+    const { router: testRouter } = await openFromPage(needsYou(question, block));
+    await userEvent.click(screen.getByRole('link', { name: '← Back to the list' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Work through all 2' })).toHaveFocus();
+    });
+    expect(testRouter.state.location.href).toBe('/needs-you');
+    // Back, not a new entry: the history holds the page once, and the queue after it.
+    expect(testRouter.history).toHaveLength(2);
+  });
+
+  it('goes back one entry once nothing is left', async () => {
+    const serving = serve(needsYou(question));
+    const client = reviewClient();
+    const { router: testRouter } = await renderShell('/needs-you', client);
+    await userEvent.click(await screen.findByRole('link', { name: /^Work through/u }));
+    await cardFor(question);
+
+    serving.poll(needsYou());
+    await client.invalidateQueries({ queryKey: ['review'] });
+
+    await screen.findByText('Nothing needs you.');
+    expect(testRouter.state.location.href).toBe('/needs-you');
+    expect(testRouter.history).toHaveLength(2);
+  });
+
+  it('replaces itself with the page from Back to the list when it was not opened from the page', async () => {
+    serve(needsYou(question));
+    const { router: testRouter } = await renderRoute(consoleRoutes, '/?mode=focus', reviewClient());
+    await cardFor(question);
+    await userEvent.click(screen.getByRole('link', { name: '← Back to the list' }));
+
+    await screen.findByText('1 card, 1 item in 1 project.');
+    expect(testRouter.history).toHaveLength(1);
   });
 });
