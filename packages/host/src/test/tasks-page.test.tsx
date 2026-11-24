@@ -455,6 +455,31 @@ describe('tasksPage Finished windows (MMR-460)', () => {
     ).toStrictEqual(['Finished 0', 'Finished 1', 'Late edit', 'Finished 2']);
   });
 
+  it('opens the newest day first when an abandoned task settled after the latest done one', async () => {
+    const done = engineTask({
+      completedAt: new Date('2026-06-20T15:00:00.000Z'),
+      id: 'MMR-3001',
+      lifecycle: 'done',
+      status: 'done',
+      title: 'Done earlier',
+      updatedAt: new Date('2026-06-20T15:00:00.000Z'),
+    });
+    const abandoned = engineTask({
+      id: 'MMR-3002',
+      lifecycle: 'abandoned',
+      status: 'abandoned',
+      title: 'Abandoned later',
+      updatedAt: new Date('2026-06-22T15:00:00.000Z'),
+    });
+    mockTerminalApi([done, abandoned]);
+    await renderTasks('/p/MMR/tasks?status=terminal');
+    await screen.findByRole('button', { expanded: true });
+    expect(
+      screen.getAllByRole('button', { name: /June/ }).map((day) => day.textContent),
+    ).toStrictEqual(['Monday, 22 June 1', 'Saturday, 20 June 1']);
+    expect(screen.getByRole('button', { expanded: true })).toHaveTextContent('Monday, 22 June 1');
+  });
+
   it.each([
     ['/p/MMR/tasks?status=done', 'done'],
     ['/p/MMR/tasks?status=abandoned', 'abandoned'],

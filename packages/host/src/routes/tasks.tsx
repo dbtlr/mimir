@@ -167,7 +167,11 @@ function finishedRow(node: EngineNode, zone: string): ReactElement {
   );
 }
 
-/** Finished tasks folded by the day they finished in `zone`, newest first. */
+/**
+ * Finished tasks folded by the day they finished in `zone`, newest day first,
+ * rows within a day by completion. The days sort on their own, since an
+ * abandoned task's day (its last change) can be newer than a done one's.
+ */
 function foldDays(items: readonly EngineNode[], zone: string): FoldDay[] {
   const today = dayOf(Date.now(), zone);
   const days = new Map<string, EngineNode[]>();
@@ -175,7 +179,8 @@ function foldDays(items: readonly EngineNode[], zone: string): FoldDay[] {
     const day = dayOf(finishedAt(node).getTime(), zone);
     days.set(day, [...(days.get(day) ?? []), node]);
   }
-  return [...days.entries()].map(([day, nodes]) => ({
+  const newestFirst = [...days.entries()].toSorted(([a], [b]) => b.localeCompare(a));
+  return newestFirst.map(([day, nodes]) => ({
     count: nodes.length,
     key: day,
     label: foldLabel(day, today),
