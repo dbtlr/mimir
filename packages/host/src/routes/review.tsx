@@ -24,7 +24,8 @@ import { reviewRoute } from '../router';
  * `/` — Home (ADR 0013, MMR-722 refinement): one feed column. The page title
  * names the day and one sentence under it says what needs you, what runs,
  * and what shipped this week. Then the one-time notifications card when it
- * applies (MMR-734), Needs you as the ranked deck, Now as capped title cards,
+ * applies (MMR-734), Needs you as the ranked deck with See all to the Needs
+ * you page (MMR-723), Now as capped title cards,
  * the Shipped week, and what can wait for a spare minute. Projects live in
  * the sidebar, so the page has no rail. One read (`console.review`) feeds all
  * of it, and the top-bar alert reads the same entry. `?mode=focus` is the
@@ -116,7 +117,12 @@ export function ReviewPage() {
         <div className={cn(PAGE_COLUMN, 'px-3.5 pt-4 pb-10 md:px-5 md:pt-6 md:pb-12')}>
           <HomeHead report={report} shipped={week.total} zone={zone} />
           <PushSuggestion offline={conn.offline} />
-          <NeedsYouDeck report={report} offline={conn.offline} countItems />
+          <NeedsYouDeck
+            report={report}
+            offline={conn.offline}
+            countItems
+            seeAll={{ to: '/needs-you' }}
+          />
           <NowSection report={report} />
           <ShippedSection week={week} />
           <MinuteSection report={report} />
