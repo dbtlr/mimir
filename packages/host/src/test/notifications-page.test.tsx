@@ -740,7 +740,7 @@ describe('subscribed browsers', () => {
     expect(within(list).getAllByRole('button')).toHaveLength(2);
   });
 
-  it('offers no row actions until this browser’s subscription read settles', async () => {
+  it('disables row actions until this browser’s subscription read settles', async () => {
     const browser = onBrowser();
     const waiting: (() => void)[] = [];
     let released = false;
@@ -755,7 +755,27 @@ describe('subscribed browsers', () => {
     await open('phone', { browser, world });
     const list = await screen.findByRole('region', { name: 'Subscribed browsers · 3' });
     await settle();
-    expect(within(list).queryAllByRole('button')).toHaveLength(0);
+    // Every row's button stays, disabled, as any row may turn out to be this browser's.
+    const pending = within(list).getAllByRole('button');
+    expect(pending).toHaveLength(3);
+    for (const button of pending) {
+      expect(button).toHaveAttribute('aria-disabled', 'true');
+      // Quiet, not faded (DESIGN.md, Color roles): its name steps to ink-dim and its meta keeps
+      // ink-dim at full opacity, both 4.5:1 or better, and a hover changes nothing.
+      const classes = button.className.split(/\s+/);
+      expect(classes.filter((value) => value.includes('opacity-'))).toEqual([]);
+      expect(classes).toEqual(
+        expect.arrayContaining([
+          'aria-disabled:cursor-default',
+          'aria-disabled:hover:bg-transparent',
+        ]),
+      );
+    }
+    expect(within(pending[1] as HTMLElement).getByText('Android · Chrome')).toHaveClass(
+      'group-aria-disabled:text-ink-dim',
+    );
+    await userEvent.click(pending[1] as HTMLElement);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     await act(async () => {
       released = true;
       for (const resolve of waiting) {
@@ -804,6 +824,255 @@ describe('subscribed browsers', () => {
       expect(list).toHaveTextContent('This device');
     });
     expect(screen.queryByRole('dialog', { name: 'Android · Chrome' })).not.toBeInTheDocument();
+  });
+
+  it('keeps a row’s ••• mounted, and focused, while a reread is pending', async () => {
+    stubViewport('desktop');
+    const served = servePush(world);
+    const browser = onBrowser();
+    const client = new QueryClient();
+    await renderRoute(consoleRoutes, '/settings/notifications', client, withBrowser(browser));
+    const trigger = await screen.findByRole('button', { name: 'Actions for Android · Chrome' });
+    trigger.focus();
+    const waiting: (() => void)[] = [];
+    vi.spyOn(browser, 'subscription').mockImplementation(async () => {
+      const { promise, resolve } = Promise.withResolvers<void>();
+      waiting.push(resolve);
+      await promise;
+      return SUBSCRIPTION;
+    });
+    served.devices = [...served.devices, device({ endpoint: 'https://push.example/new' })];
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: pushDevicesQuery.queryKey });
+    });
+    await waitFor(() => {
+      expect(waiting).not.toHaveLength(0);
+    });
+    // The reread is pending: the button stays where focus is, and offers nothing until it settles.
+    expect(trigger).toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(trigger).toHaveAttribute('aria-disabled', 'true');
+    // A disabled glyph (DESIGN.md, Needs you deck, Arrow at an end): ink-faint, not a fade, and a
+    // hover keeps it so.
+    const classes = trigger.className.split(/\s+/);
+    expect(classes.filter((value) => value.includes('opacity-'))).toEqual([]);
+    expect(classes).toEqual(
+      expect.arrayContaining([
+        'aria-disabled:cursor-default',
+        'aria-disabled:text-ink-faint',
+        'aria-disabled:hover:bg-transparent',
+        'aria-disabled:hover:text-ink-faint',
+      ]),
+    );
+    await userEvent.click(trigger);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    await act(async () => {
+      for (const resolve of waiting) {
+        resolve();
+      }
+    });
+    await waitFor(() => {
+      expect(trigger).not.toHaveAttribute('aria-disabled');
+    });
+    expect(trigger).toHaveFocus();
+  });
+
+  it('on a phone, focus on this browser’s own row during a reread goes to the page once the row turns out to be this browser’s', async () => {
+    stubViewport('phone');
+    const served = servePush(world);
+    const browser = onBrowser();
+    const client = new QueryClient();
+    await renderRoute(consoleRoutes, '/settings/notifications', client, withBrowser(browser));
+    await screen.findByRole('button', { name: /^Android · Chrome/ });
+    const waiting: (() => void)[] = [];
+    vi.spyOn(browser, 'subscription').mockImplementation(async () => {
+      const { promise, resolve } = Promise.withResolvers<void>();
+      waiting.push(resolve);
+      await promise;
+      return SUBSCRIPTION;
+    });
+    served.devices = [...served.devices, device({ endpoint: 'https://push.example/new' })];
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: pushDevicesQuery.queryKey });
+    });
+    await waitFor(() => {
+      expect(waiting).not.toHaveLength(0);
+    });
+    // Until the reread settles no row is this browser's, so its own row is a disabled button Tab reaches.
+    const own = document.querySelector<HTMLElement>(`[data-push-row="${SUBSCRIPTION.endpoint}"]`);
+    expect(own).not.toBeNull();
+    own?.focus();
+    expect(own).toHaveFocus();
+    await act(async () => {
+      for (const resolve of waiting) {
+        resolve();
+      }
+    });
+    await waitFor(() => {
+      expect(own).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('main')).toHaveFocus();
+    });
+  });
+
+  it('focus already on a row’s ••• as a reread starts goes to the page once the row turns out to be this browser’s', async () => {
+    stubViewport('desktop');
+    const served = servePush(world);
+    // This browser holds no subscription yet, so its own row is another browser's, with a •••.
+    const browser = fakeBrowser();
+    const client = new QueryClient();
+    await renderRoute(consoleRoutes, '/settings/notifications', client, withBrowser(browser));
+    const trigger = await screen.findByRole('button', { name: 'Actions for Mac · Chrome' });
+    trigger.focus();
+    const waiting: (() => void)[] = [];
+    vi.spyOn(browser, 'subscription').mockImplementation(async () => {
+      const { promise, resolve } = Promise.withResolvers<void>();
+      waiting.push(resolve);
+      await promise;
+      return SUBSCRIPTION;
+    });
+    served.devices = [...served.devices, device({ endpoint: 'https://push.example/new' })];
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: pushDevicesQuery.queryKey });
+    });
+    await waitFor(() => {
+      expect(waiting).not.toHaveLength(0);
+    });
+    expect(trigger).toHaveFocus();
+    await act(async () => {
+      for (const resolve of waiting) {
+        resolve();
+      }
+    });
+    await waitFor(() => {
+      expect(trigger).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('main')).toHaveFocus();
+    });
+  });
+
+  it.each([
+    ['Enter', () => userEvent.keyboard('{Enter}')],
+    ['Space', () => userEvent.keyboard(' ')],
+    ['a click', (trigger: HTMLElement) => userEvent.click(trigger)],
+  ] as const)(
+    '%s on a row’s disabled ••• during a reread still sends focus to the page once the row turns out to be this browser’s',
+    async (_press, press) => {
+      stubViewport('desktop');
+      const served = servePush(world);
+      const browser = fakeBrowser();
+      const client = new QueryClient();
+      await renderRoute(consoleRoutes, '/settings/notifications', client, withBrowser(browser));
+      const trigger = await screen.findByRole('button', { name: 'Actions for Mac · Chrome' });
+      trigger.focus();
+      const waiting: (() => void)[] = [];
+      vi.spyOn(browser, 'subscription').mockImplementation(async () => {
+        const { promise, resolve } = Promise.withResolvers<void>();
+        waiting.push(resolve);
+        await promise;
+        return SUBSCRIPTION;
+      });
+      served.devices = [...served.devices, device({ endpoint: 'https://push.example/new' })];
+      await act(async () => {
+        await client.invalidateQueries({ queryKey: pushDevicesQuery.queryKey });
+      });
+      await waitFor(() => {
+        expect(waiting).not.toHaveLength(0);
+      });
+      // Pressing the disabled button does nothing and leaves focus on it, so its request stays.
+      await press(trigger);
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+      expect(trigger).toHaveFocus();
+      await act(async () => {
+        for (const resolve of waiting) {
+          resolve();
+        }
+      });
+      await waitFor(() => {
+        expect(trigger).not.toBeInTheDocument();
+      });
+      await waitFor(() => {
+        expect(screen.getByRole('main')).toHaveFocus();
+      });
+    },
+  );
+
+  it('leaves focus where a screen reader moved it during a reread, not back on the row it left', async () => {
+    stubViewport('phone');
+    const served = servePush(world);
+    const browser = onBrowser();
+    const client = new QueryClient();
+    await renderRoute(consoleRoutes, '/settings/notifications', client, withBrowser(browser));
+    await screen.findByRole('button', { name: /^Android · Chrome/ });
+    const waiting: (() => void)[] = [];
+    vi.spyOn(browser, 'subscription').mockImplementation(async () => {
+      const { promise, resolve } = Promise.withResolvers<void>();
+      waiting.push(resolve);
+      await promise;
+      return SUBSCRIPTION;
+    });
+    served.devices = [...served.devices, device({ endpoint: 'https://push.example/new' })];
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: pushDevicesQuery.queryKey });
+    });
+    await waitFor(() => {
+      expect(waiting).not.toHaveLength(0);
+    });
+    // A swipe moves focus with no key or pointer press, so nothing cancels the row's request.
+    document.querySelector<HTMLElement>(`[data-push-row="${SUBSCRIPTION.endpoint}"]`)?.focus();
+    const turnOff = screen.getByRole('button', { name: 'Turn off' });
+    turnOff.focus();
+    await act(async () => {
+      for (const resolve of waiting) {
+        resolve();
+      }
+    });
+    await settle();
+    expect(turnOff).toHaveFocus();
+  });
+
+  it('Shift+Tab onto this browser’s own ••• during a Send test’s reread leaves focus on the page, not the body', async () => {
+    const browser = onBrowser();
+    await open('desktop', { browser, world: { devices: [mine, other] } });
+    const { promise, resolve } = Promise.withResolvers<{ state: 'delivered' }>();
+    vi.mocked(sendTestPush).mockReturnValueOnce(promise);
+    const trigger = await screen.findByRole('button', { name: 'Actions for Android · Chrome' });
+    await userEvent.click(trigger);
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Send test notification' }));
+    await waitFor(() => {
+      expect(trigger).toHaveFocus();
+    });
+    const waiting: (() => void)[] = [];
+    vi.spyOn(browser, 'subscription').mockImplementation(async () => {
+      const held = Promise.withResolvers<void>();
+      waiting.push(held.resolve);
+      await held.promise;
+      return SUBSCRIPTION;
+    });
+    await act(async () => {
+      resolve({ state: 'delivered' });
+      await promise;
+    });
+    await waitFor(() => {
+      expect(waiting).not.toHaveLength(0);
+    });
+    await userEvent.tab({ shift: true });
+    const own = document.querySelector<HTMLElement>(`[data-push-row="${SUBSCRIPTION.endpoint}"]`);
+    expect(own).toHaveFocus();
+    await act(async () => {
+      for (const release of waiting) {
+        release();
+      }
+    });
+    await settle();
+    await waitFor(() => {
+      expect(own).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('main')).toHaveFocus();
+    });
   });
 
   it('offers Retry when the list fails to load, and shows it once a retry succeeds', async () => {

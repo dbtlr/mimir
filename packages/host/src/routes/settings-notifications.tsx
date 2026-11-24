@@ -1,5 +1,5 @@
 import { CancelledError, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactElement, RefObject } from 'react';
 
 import type { PushDevice, PushDeviceList, PushEventKind } from '../api/fns/push';
@@ -58,7 +58,10 @@ const TEXT_BUTTON =
 function RowText({ label, meta, oldKey }: { label: string; meta: string; oldKey?: boolean }) {
   return (
     <span className="flex min-w-0 flex-1 flex-col">
-      <span className="truncate text-body font-medium text-ink-bright">{label}</span>
+      {/* A disabled row button is quiet: its name steps to ink-dim, never faded (DESIGN.md). */}
+      <span className="truncate text-body font-medium text-ink-bright group-aria-disabled:text-ink-dim">
+        {label}
+      </span>
       {meta !== '' && (
         <span
           className={cn(
@@ -186,12 +189,16 @@ const focusInDialog = () =>
 
 /**
  * Give focus back to a row once the list has `settled` after an action, as a
- * fallback. An action's reread redraws the rows and hides their triggers, so
- * the trigger that held focus, or that a closing surface returned it to, is
- * gone meanwhile, and focus falls to `<body>`, or UI SDK moves it to a nearby
- * control. When the list settles, focus goes to the row, or the page when the
- * row is gone, unless a dialog holds it. Request it as the action is chosen:
- * a press or key from then on cancels it, so focus the operator moved stays.
+ * fallback. A row's trigger stays mounted, disabled, through the action's
+ * reread (MMR-760), so focus on it stays; the fallback matters when the reread
+ * takes the trigger away: the row leaves the list, or turns out to be this
+ * browser's, which has no trigger. When the list settles, focus goes to the
+ * row's trigger, or the page when there is none, unless a dialog holds it.
+ * Request it as the action is chosen: a press or key from then on cancels it,
+ * so focus the operator moved stays. Enter, Space, or a pointer press on the
+ * row's own trigger leaves focus on it, so those keep it. A trigger that takes
+ * focus during a reread requests it too, as the reread may show the row is
+ * this browser's, and so does a trigger that holds focus as a reread begins.
  * The request returns `land`, to call once the action's reread has started.
  */
 function useFocusBackToRow(settled: boolean) {
@@ -201,8 +208,13 @@ function useFocusBackToRow(settled: boolean) {
   const [, setLandings] = useState(0);
   useEffect(() => {
     if (settled && request.current?.landing === true) {
-      if (!focusInDialog()) {
-        const row = rowOpener(request.current.endpoint);
+      const row = rowOpener(request.current.endpoint);
+      // Only take focus that was lost: focus the user moved on to another
+      // control (a screen reader's swipe sends no key or pointer press)
+      // stays where they put it.
+      const active = document.activeElement;
+      const lost = active === null || active === document.body || active === row;
+      if (lost && !focusInDialog()) {
         if (row === null) {
           focusMain();
         } else {
@@ -212,7 +224,7 @@ function useFocusBackToRow(settled: boolean) {
       stop.current();
     }
   });
-  return (endpoint: string) => {
+  const ask = useCallback((endpoint: string) => {
     stop.current();
     const own = { endpoint, landing: false };
     request.current = own;
@@ -220,11 +232,20 @@ function useFocusBackToRow(settled: boolean) {
       if (request.current === own) {
         request.current = undefined;
       }
-      document.removeEventListener('pointerdown', release, true);
-      document.removeEventListener('keydown', release, true);
+      document.removeEventListener('pointerdown', onPress, true);
+      document.removeEventListener('keydown', onPress, true);
     };
-    document.addEventListener('pointerdown', release, true);
-    document.addEventListener('keydown', release, true);
+    // Pressing the row's own trigger, disabled while the reread runs, leaves focus on it, so the request
+    // stays; any other key or press may move focus, so it cancels.
+    const onPress = (event: KeyboardEvent | PointerEvent) => {
+      const activates =
+        !(event instanceof KeyboardEvent) || event.key === 'Enter' || event.key === ' ';
+      if (!activates || rowOf(event.target) !== endpoint) {
+        release();
+      }
+    };
+    document.addEventListener('pointerdown', onPress, true);
+    document.addEventListener('keydown', onPress, true);
     stop.current = release;
     return () => {
       if (request.current === own) {
@@ -232,8 +253,25 @@ function useFocusBackToRow(settled: boolean) {
         setLandings((count) => count + 1);
       }
     };
-  };
+  }, []);
+  // A trigger focused before the reread began asked nothing (its focus came first): ask for it now.
+  useEffect(() => {
+    if (settled || request.current !== undefined) {
+      return;
+    }
+    const endpoint = rowOf(document.activeElement);
+    if (endpoint !== undefined) {
+      ask(endpoint)();
+    }
+  }, [settled, ask]);
+  return ask;
 }
+
+/** The endpoint of the row trigger `target` is, or sits in. */
+const rowOf = (target: EventTarget | null) =>
+  target instanceof Element
+    ? target.closest<HTMLElement>('[data-push-row]')?.dataset.pushRow
+    : undefined;
 
 /** Where focus goes when another browser's menu or its Remove confirm closes: its row, or the page once the row is gone. */
 const afterRemoveFocus = (endpoint: string) => () => {
@@ -378,8 +416,10 @@ export function NotificationsPage() {
   const [removing, setRemoving] = useState<PushDevice | undefined>();
   // Set from Confirm until the Remove confirm closes: its own reread must not close it as stale.
   const [removeRunning, setRemoveRunning] = useState(false);
-  // The list redraws after a Send test or a failed Remove, which can drop focus from the row, so focus
-  // goes back to it once the redraw settles, unless the operator has moved on by then.
+  // The list redraws after a Send test or a failed Remove, which can take the row's trigger away (the row
+  // leaves, or turns out to be this browser's), so focus goes back to the row, or the page, once the redraw
+  // settles, unless the operator has moved on by then. Focus that reaches a trigger during a reread is held the
+  // same way, as the reread may show that row is this browser's, which has no trigger.
   const returnFocusToRow = useFocusBackToRow(!subscriptionPending);
   const [ownSaving, setOwnSaving] = useState(false);
   // A pending reread may answer another endpoint: until it settles, no row is this browser's.
@@ -490,8 +530,9 @@ export function NotificationsPage() {
       note(device.endpoint, "That browser couldn't be removed. Try again.");
     }
     await reload();
-    // The row stays, but the reread hides its trigger as the confirm closes, so focus comes back to it.
-    // The confirm holds focus until then, so the request starts here and lands at once.
+    // The row stays, and the confirm returns focus to its trigger as it closes; should the reread take the
+    // trigger away (the row turned out to be this browser's), focus goes to the page instead. The confirm
+    // holds focus until then, so the request starts here and lands at once.
     if (failed) {
       returnFocusToRow(device.endpoint)();
     }
@@ -685,14 +726,18 @@ export function NotificationsPage() {
                     {rowNote}
                   </p>
                 );
-                // Until the browser's read settles, any row may be this browser's: none offers actions.
-                if (mine || subscriptionPending) {
+                if (mine) {
                   return (
                     <li key={device.endpoint}>
                       <div className="flex min-h-14 items-center gap-3 px-4 py-2.5">{text}</div>
                     </li>
                   );
                 }
+                const holdFocus = subscriptionPending
+                  ? () => {
+                      returnFocusToRow(device.endpoint)();
+                    }
+                  : undefined;
                 const rowActions = (trigger: ReactElement) => (
                   <RowActions
                     device={device}
@@ -716,7 +761,9 @@ export function NotificationsPage() {
                             type="button"
                             data-push-row={device.endpoint}
                             aria-label={`Actions for ${device.label}`}
-                            className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-ink-dim hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
+                            aria-disabled={subscriptionPending || undefined}
+                            onFocus={holdFocus}
+                            className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-ink-dim hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent aria-disabled:cursor-default aria-disabled:text-ink-faint aria-disabled:hover:bg-transparent aria-disabled:hover:text-ink-faint"
                           >
                             <span aria-hidden>•••</span>
                           </button>,
@@ -728,7 +775,9 @@ export function NotificationsPage() {
                           type="button"
                           data-push-row={device.endpoint}
                           aria-label={`${device.label}, ${meta.text}`}
-                          className="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-well-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
+                          aria-disabled={subscriptionPending || undefined}
+                          onFocus={holdFocus}
+                          className="group flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-well-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent aria-disabled:cursor-default aria-disabled:hover:bg-transparent"
                         >
                           {text}
                           <span aria-hidden className="text-ink-faint">

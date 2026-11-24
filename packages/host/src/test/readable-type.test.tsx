@@ -166,7 +166,10 @@ const DECORATION: Record<string, { count: number; why: string }> = {
   'routes/artifact.tsx': { count: 1, why: 'the › separator between crumbs' },
   'routes/kit.tsx': { count: 2, why: 'the ink swatches name each token' },
   'routes/seed.tsx': { count: 1, why: 'the › separator between crumbs' },
-  'routes/settings-notifications.tsx': { count: 1, why: 'the › chevron after a row action' },
+  'routes/settings-notifications.tsx': {
+    count: 3,
+    why: 'the › chevron after a row action, and a row’s ••• while it is disabled, which keeps that ink on hover; its name reads',
+  },
   'routes/settings.tsx': { count: 1, why: 'the › chevron on a settings link row' },
 };
 
