@@ -7,6 +7,7 @@ import {
   createRoute,
   createRouter,
 } from '@tanstack/react-router';
+import { useEffect } from 'react';
 
 import { reviewQuery } from '../../src/api/view-queries';
 import { PreviewRoomProvider } from '../../src/components/patterns/feed/preview-room';
@@ -29,12 +30,17 @@ const REPORT = report(
   { names: { FLT: 'Fleet', LM: 'Loom CLI', MMR: 'Mimir' } },
 );
 
+/** `&late`: the review read lands after the page mounts, as on a cold load. */
+const late = new URLSearchParams(globalThis.location.search).has('late');
+
 /** A cache that holds the review read and never asks the host for it again. */
 function seededClient(): QueryClient {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   });
-  client.setQueryData(reviewQuery().queryKey, REPORT);
+  if (!late) {
+    client.setQueryData(reviewQuery().queryKey, REPORT);
+  }
   return client;
 }
 
@@ -73,6 +79,17 @@ const router = createRouter({
  * memory router (e2e/needs-you-page.test.ts).
  */
 export function NeedsYouPageHarness() {
+  useEffect(() => {
+    if (!late) {
+      return undefined;
+    }
+    const timer = globalThis.setTimeout(() => {
+      client.setQueryData(reviewQuery().queryKey, REPORT);
+    }, 300);
+    return () => {
+      globalThis.clearTimeout(timer);
+    };
+  }, []);
   return (
     <QueryClientProvider client={client}>
       <RouterProvider router={router} />

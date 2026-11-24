@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { RefObject } from 'react';
 
 import { reviewQuery } from '../api/view-queries';
 import { useConsoleNeedsYouWrites } from '../components/needs-you-deck';
@@ -39,11 +38,14 @@ function summary(sections: readonly NeedsYouSection[], records: number): string 
   return `${counted(cards, 'card')}, ${counted(records, 'item')} in ${counted(sections.length, 'project')}.`;
 }
 
-/** Whether the scroller has more below its view: the bar's top edge is then the overflow cue. */
-function useContinues(scroller: RefObject<HTMLElement | null>): boolean {
+/**
+ * Whether the scroller has more below its view: the bar's top edge is then the
+ * overflow cue. It takes the element itself, not a ref, because the scroller
+ * mounts only once the read lands, and a ref's change re-runs no effect.
+ */
+function useContinues(element: HTMLElement | null): boolean {
   const [continues, setContinues] = useState(false);
   useLayoutEffect(() => {
-    const element = scroller.current;
     if (element === null) {
       return undefined;
     }
@@ -62,7 +64,7 @@ function useContinues(scroller: RefObject<HTMLElement | null>): boolean {
       element.removeEventListener('scroll', report);
       observer?.disconnect();
     };
-  }, [scroller]);
+  }, [element]);
   return continues;
 }
 
@@ -128,12 +130,12 @@ export function NeedsYouPage() {
   const review = useQuery(reviewQuery());
   const conn = connectivity([review]);
   const writes = useConsoleNeedsYouWrites();
-  const scroller = useRef<HTMLElement>(null);
+  const [scroller, setScroller] = useState<HTMLElement | null>(null);
   const list = useRef<NeedsYouListHandle>(null);
   // Work through all holds focus: when it leaves with the last card, the quiet line takes it.
   const barFocused = useRef(false);
-  const continues = useContinues(scroller);
   const report = review.data;
+  const continues = useContinues(scroller);
   const records = report?.queue.length ?? 0;
   const sections = useMemo(() => (report === undefined ? [] : needsYouSections(report)), [report]);
   const empty = sections.length === 0;
@@ -159,7 +161,7 @@ export function NeedsYouPage() {
       <OfflineBanner {...conn} />
       {/* tabIndex -1: a focus fallback for a control that unmounts itself (focusMain). */}
       <main
-        ref={scroller}
+        ref={setScroller}
         tabIndex={-1}
         className={cn('min-h-0 flex-1 overflow-y-auto', conn.offline && 'offline-demoted')}
       >

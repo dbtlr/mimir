@@ -85,3 +85,19 @@ test('puts the bar under the scroller and above the footer strip, with the overf
   });
   await expect(barRow).not.toHaveAttribute('data-continues');
 });
+
+test('shows the overflow cue when the read lands after the page mounts, as on a cold load', async ({
+  page,
+}) => {
+  await page.setViewportSize(PHONE);
+  await page.goto(`${harness.origin}?form=needs-you-page&late`);
+  await expect(page.getByRole('heading', { level: 1, name: 'Needs you' })).toBeVisible();
+  const main = page.getByRole('main');
+  await expect
+    .poll(async () => main.evaluate((element) => element.scrollHeight > element.clientHeight))
+    .toBe(true);
+  await expect(page.locator('[data-slot="work-through-bar"]')).toHaveAttribute(
+    'data-continues',
+    '',
+  );
+});
