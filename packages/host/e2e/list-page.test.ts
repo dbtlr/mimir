@@ -11,8 +11,9 @@ import type { Harness } from './form-sheet/serve';
  * with its hairline only while pinned, and the next group's heading takes its
  * place, at a phone's width and a desktop's. The page's rhythm (the chip row
  * 8 below the search and 32 above the first head's row, the room under the
- * last card), and the phone Filter sheet's grip, seam, and first view, which
- * ends a field gap after Tag at 390 × 844.
+ * last card), the phone Filter sheet's grip, seam, and first view, which
+ * ends a field gap after Tag at 390 × 844, and the desktop Filter panel, whose
+ * body fills the room between its header and the footer on its bottom edge.
  */
 
 let harness: Harness;
@@ -167,6 +168,10 @@ test('the phone Filter sheet shows its grip and seam, and its first view ends a 
   await page.getByRole('button', { name: /^Filter/ }).click();
   const sheet = page.getByRole('dialog', { name: 'Filter tasks' });
   await expect(sheet.getByRole('button', { name: 'Show 18 tasks' })).toBeVisible();
+  // Measure once the sheet has slid up to rest on the viewport's bottom edge.
+  await expect
+    .poll(() => sheet.evaluate((el) => el.getBoundingClientRect().bottom))
+    .toBe(PHONE.height);
 
   // The grip shows inside the sheet, above the title.
   const grip = sheet.locator('[data-slot="drawer-grip"]');
@@ -191,11 +196,42 @@ test('the phone Filter sheet shows its grip and seam, and its first view ends a 
   expect(edge).toBe(seam);
 
   // The first view ends a field gap below Tag, with Sort wholly below it.
-  await page.waitForTimeout(300);
   const body = await boxOf(sheet.locator('[data-slot="filter-sheet-body"]'));
   const tag = await boxOf(sheet.getByRole('group', { name: 'Tag' }));
   const sort = await boxOf(sheet.getByRole('radiogroup', { name: 'Sort' }).locator('xpath=..'));
   expect(body.bottom - tag.bottom).toBeGreaterThanOrEqual(24);
   // Each box rounds to whole px on its own, so allow the one px that can part them.
   expect(sort.top).toBeGreaterThanOrEqual(body.bottom - 1);
+});
+
+/** Checks the desktop Filter panel's footer sits on its bottom edge, with the body filling the room above it. */
+async function checkDesktopFilterPanel(page: Page, viewport: { width: number; height: number }) {
+  await openList(page, viewport);
+  await page.getByRole('button', { name: /^Filter/ }).click();
+  const sheet = page.getByRole('dialog', { name: 'Filter tasks' });
+  await expect(sheet.getByRole('button', { name: 'Show 18 tasks' })).toBeVisible();
+  await expect
+    .poll(() => sheet.evaluate((el) => el.getBoundingClientRect().right))
+    .toBe(viewport.width);
+  const [panel, header, body, footer] = await Promise.all([
+    boxOf(sheet),
+    boxOf(sheet.locator('[data-slot="filter-sheet-header"]')),
+    boxOf(sheet.locator('[data-slot="filter-sheet-body"]')),
+    boxOf(sheet.locator('[data-slot="filter-sheet-footer"]')),
+  ]);
+  expect(footer.bottom).toBe(panel.bottom);
+  expect(body.top).toBe(header.bottom);
+  expect(body.bottom).toBe(footer.top);
+}
+
+test('the desktop Filter panel’s footer sits on its bottom edge at 1280 × 720', async ({
+  page,
+}) => {
+  await checkDesktopFilterPanel(page, { height: 720, width: 1280 });
+});
+
+test('the desktop Filter panel’s footer sits on its bottom edge at 1280 × 800', async ({
+  page,
+}) => {
+  await checkDesktopFilterPanel(page, DESKTOP);
 });

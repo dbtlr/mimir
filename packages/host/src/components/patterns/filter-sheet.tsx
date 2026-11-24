@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 import { cn } from '../../lib/cn';
 import { ActionButton } from '../ui/action-button';
-import { Drawer, DrawerBackdrop, DrawerContent, DrawerTitle } from '../ui/drawer';
+import { Drawer, DrawerBackdrop, DrawerContent, DrawerTitle, useDrawerSide } from '../ui/drawer';
 import { FIELD_LABEL_CLASS } from '../ui/field';
 import { SegmentedControl } from '../ui/segmented-control';
 import type { SegmentedOption } from '../ui/segmented-control';
@@ -118,13 +118,15 @@ export function FilterSheet({
  * The scrolling body (`SheetBody`). On a phone the sheet fits its content up
  * to 88% of the viewport; when the fields run past that, the body ends a field
  * gap below the last field that fits whole, so the first view never cuts a
- * field at the footer and the next shows on scroll.
+ * field at the footer and the next shows on scroll. From `md` up the panel is
+ * full height, so the body fills it and the footer stays on its bottom edge.
  */
 function FilterBody({ children }: { children: ReactNode }) {
   const body = useRef<HTMLDivElement>(null);
+  const bottomSheet = useDrawerSide() === 'bottom';
   useLayoutEffect(() => {
     const element = body.current;
-    if (element === null || typeof ResizeObserver === 'undefined') {
+    if (element === null || !bottomSheet || typeof ResizeObserver === 'undefined') {
       return undefined;
     }
     const fit = () => {
@@ -148,8 +150,10 @@ function FilterBody({ children }: { children: ReactNode }) {
     return () => {
       observer.disconnect();
       view?.removeEventListener('resize', fit);
+      // A sheet that crosses `md` while open becomes a full-height panel, uncapped.
+      element.style.maxHeight = '';
     };
-  }, []);
+  }, [bottomSheet]);
   return (
     <SheetBody body={body} slot="filter-sheet-body">
       {children}
