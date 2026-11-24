@@ -66,8 +66,9 @@ Rules:
   is ink at 500, the help ink-dim at 400.
 - **Sentence case everywhere.** The uppercase microlabel is the one all-caps
   idiom (ADR 0019 §6) and is for column and lane captions on dense feeds only,
-  never in a form, never as a label. One exception: a value passed through
-  from a provider keeps the provider's spelling. Reasoning effort reads
+  never in a form, never as a label. Two exceptions: the size chip's letter
+  (S, M, L; MMR-778), and a value passed through from a provider, which keeps
+  the provider's spelling. Reasoning effort reads
   `low`, `medium`, `high`, lowercase, in sans; a value is not recased to
   look like a label.
 - **Measure.** Prose aims for about 70 characters a line; 70 is a target,
@@ -355,7 +356,7 @@ column says otherwise.
 | | Status line | 13 / 20 ink-dim: the status badge, or for a set of decisions the word _Decisions_ after an attention dot, or _Stopped_ after an attention dot for a stopped delivery, or in the Needs you deck _Question_ after an attention dot for a task that needs answers (MMR-752), then the ID in 13px mono, 8 apart; the age right-aligned on line 1; 8 below it to the title | **adopted (MMR-719)** |
 | | Title | `text-title`, wraps; a long word breaks rather than overflow | existing role (MMR-718) |
 | | Detail | 13 / 20 ink-dim, 4 below the title, two lines at most | **adopted (MMR-719)** |
-| | Chip row | the row chips (size, grooming, stale), 4 apart, wrapping; 8 below the title or detail, staying with the content they describe | **adopted (MMR-719)** |
+| | Chip row | the row chips (size, grooming, stale), 4 apart, wrapping; 8 below the title or detail, staying with the content they describe. The size chip shows one uppercase mono letter, S, M, or L, the same width as a lowercase one and never mistaken for a pipe or a 1; its accessible name is the size in words ("Size large") | **adopted (MMR-719)**; the uppercase size letter **adopted (MMR-778)** |
 | | Button | one at most; at least 44 tall on a phone and 36 on desktop, which the card holds whatever the caller's button sets; at least 12 below the content above it, held to the card's bottom so buttons line up across a grid row | **adopted (MMR-719)** |
 | | Between cards | 8 in a stack; 12 in a desktop grid, where the cards of a row share its height, so a card without a button keeps room at its foot | **adopted (MMR-719)** |
 | Card grid | Columns | a stack below `md`. From `md` up, two columns only when the grid itself is at least 612 wide (two cards of 300 and the 12 gap), a container query on the grid, not the viewport's `md` alone. With the column's 20 gutters that is 652 of room. A closed feed is two columns at every desktop width (768 with no sidebar column and 1024 beside the 256 sidebar both leave a 728 grid); an open one is one column from 768 to 1091 and two from 1092 (see Preview panel) | **adopted (MMR-720)**: `CardGrid` turned two columns at `md` (`md:grid-cols-2`), whatever the room |

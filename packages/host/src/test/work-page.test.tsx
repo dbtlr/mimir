@@ -385,7 +385,7 @@ describe('work page sections', () => {
     expect(hrefOf(unlock, 'MMR-11')).toBe('/p/MMR/11');
     expect(unlock).toHaveTextContent('After MMR-11');
     expect(hrefOf(unlock, 'Remove the old backend')).toBe('/p/MMR/21');
-    expect(within(unlock).getByText('l')).toBeDefined();
+    expect(within(unlock).getByText('L')).toBeDefined();
 
     const groom = await section('To groom');
     expect(hrefOf(groom, 'Triage the flaky suite')).toBe('/p/MMR/22');

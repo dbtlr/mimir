@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { SeedKindChip } from '../components/seed-kind-chip';
-import { PriorityBadge } from '../components/signal-badges';
+import { PriorityBadge, SizeBadge } from '../components/signal-badges';
 
 /**
  * ADR 0019 §1 (MMR-626 refinement): status hues mark status alone. Priority
@@ -43,5 +43,22 @@ describe('priority and seed-kind chips stay off the status hues (ADR 0019 §1, M
     }
     const classes = new Set(SEED_KIND_VALUES.map((kind) => screen.getByText(kind).className));
     expect(classes.size).toBe(1);
+  });
+});
+
+/**
+ * MMR-778: the size chip shows one uppercase letter, which reads at 12px on a
+ * phone where a lowercase l passes for a pipe or a 1. Assistive tech hears the
+ * size in words.
+ */
+describe('size chip', () => {
+  it('shows S, M, or L on screen and names the size in words', () => {
+    const glyph = { large: 'L', medium: 'M', small: 'S' } as const;
+    for (const size of ['small', 'medium', 'large'] as const) {
+      const { unmount } = render(<SizeBadge size={size} />);
+      expect(screen.getByText(glyph[size])).toHaveAttribute('aria-hidden');
+      expect(screen.getByText(`Size ${size}`)).toBeDefined();
+      unmount();
+    }
   });
 });
