@@ -261,6 +261,15 @@ describe('the Start in T3… row (ADR 0040, MMR-726)', () => {
   });
 });
 
+/** Close the open settings form with Escape and wait for it to go. */
+async function closeSettings() {
+  const dialog = await settingsForm();
+  await userEvent.keyboard('{Escape}');
+  await waitFor(() => {
+    expect(dialog).not.toBeInTheDocument();
+  });
+}
+
 /** A peer that launches with defaults of its own: sonnet, approval required, the project checkout. */
 const peerWithDefaults = () =>
   reachableSystem({
@@ -630,6 +639,37 @@ describe('the settings dialog', () => {
     await waitFor(() => {
       expect(dialog).not.toBeInTheDocument();
     });
+    expect(screen.getByRole('button', { name: 'More' })).toHaveFocus();
+  });
+
+  // Each step is a focus target, so More drops out of the recent ones before the form opens.
+  it('returns focus to More after a long walk through its menu', async () => {
+    await show(connectedCatalog([peerWithDefaults(), reachableSystem()]));
+    await moreRows();
+    for (let step = 0; step < 12; step += 1) {
+      await userEvent.keyboard('{ArrowDown}');
+    }
+    screen.getByRole('menuitem', { name: 'Start in T3…' }).focus();
+    await userEvent.keyboard('{Enter}');
+    await closeSettings();
+    expect(screen.getByRole('button', { name: 'More' })).toHaveFocus();
+  });
+
+  it('on a phone, returns focus to More after a long walk through its sheet', async () => {
+    stubViewport('phone');
+    await show(connectedCatalog([peerWithDefaults(), reachableSystem()]));
+    await waitFor(() => {
+      expect(t3Catalog).toHaveBeenCalled();
+    });
+    await userEvent.click(await screen.findByRole('button', { name: 'More' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Launch from the console' });
+    await within(sheet).findByRole('button', { name: 'Start in T3…' });
+    for (let step = 0; step < 12; step += 1) {
+      await userEvent.tab();
+    }
+    within(sheet).getByRole('button', { name: 'Start in T3…' }).focus();
+    await userEvent.keyboard('{Enter}');
+    await closeSettings();
     expect(screen.getByRole('button', { name: 'More' })).toHaveFocus();
   });
 
