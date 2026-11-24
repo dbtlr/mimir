@@ -113,7 +113,9 @@ export function TaskFilterSheet({
     value: tag,
   }));
 
-  const total = selectsNothing ? 0 : count.data;
+  // While a changed draft's count loads, the last draft's number is not this one's.
+  const counted = count.isPlaceholderData ? undefined : count.data;
+  const total = selectsNothing ? 0 : counted;
   const commitLabel =
     total === undefined ? 'Show tasks' : `Show ${String(total)} ${total === 1 ? 'task' : 'tasks'}`;
   const set = (patch: Partial<TaskFilterDraft>) => {
@@ -127,7 +129,7 @@ export function TaskFilterSheet({
       title="Filter tasks"
       finalFocus={finalFocus}
       commitLabel={commitLabel}
-      commitDisabled={total === 0}
+      commitDisabled={selectsNothing}
       onCommit={() => {
         onApply(next);
       }}

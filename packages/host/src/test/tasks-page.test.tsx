@@ -8,7 +8,7 @@ import { FINISHED_PAGE_SIZE } from '../api/browse-queries';
 import { list } from '../api/fns/browse';
 import { tasksRoute } from '../router';
 import { taskSet } from './browse-fixtures';
-import { failBrowseReads, serveBrowse, serveListSelecting } from './browse-fns';
+import { answerList, failBrowseReads, serveBrowse, serveListSelecting } from './browse-fns';
 import { engineTask } from './node-fixtures';
 import { renderRoute } from './router';
 import { serveViews } from './views-fns';
@@ -860,6 +860,37 @@ describe('tasksPage Filter sheet (MMR-724)', () => {
     const { sheet, user } = await openSheet('/p/MMR/tasks?show=ready');
     await user.click(within(sheet).getByRole('checkbox', { name: 'Ready' }));
     expect(within(sheet).getByRole('button', { name: 'Show 0 tasks' })).toBeDisabled();
+  });
+
+  it('names no number while a changed draft’s count loads, rather than the last draft’s', async () => {
+    const { sheet, user } = await openSheet();
+    await within(sheet).findByRole('button', { name: 'Show 5 tasks' });
+    const held = Promise.withResolvers<void>();
+    vi.mocked(list).mockImplementation(async ({ data }) => {
+      if (data.limit === 0 && data.filters !== undefined) {
+        await held.promise;
+      }
+      return answerList(board, data);
+    });
+
+    await user.click(within(sheet).getByRole('checkbox', { name: 'p0' }));
+    expect(within(sheet).getByRole('button', { name: 'Show tasks' })).toBeEnabled();
+    held.resolve();
+    await expect(
+      within(sheet).findByRole('button', { name: 'Show 1 task' }),
+    ).resolves.toBeEnabled();
+  });
+
+  it('applies a filter no task matches, which the list says so for', async () => {
+    const { sheet, testRouter, user } = await openSheet('/p/MMR/tasks?show=ready');
+    await user.click(within(sheet).getByRole('checkbox', { name: 'p0' }));
+    const commit = await within(sheet).findByRole('button', { name: 'Show 0 tasks' });
+    expect(commit).toBeEnabled();
+    await user.click(commit);
+    await waitFor(() => {
+      expect(search(testRouter)).toEqual({ priority: 'p0', show: 'ready' });
+    });
+    await expect(screen.findByText('No tasks match.')).resolves.toBeVisible();
   });
 
   it('Clear resets the fields without applying them', async () => {
