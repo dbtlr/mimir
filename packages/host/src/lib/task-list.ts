@@ -45,7 +45,7 @@ export function presetStatuses(show: TaskPreset | undefined): readonly TaskStatu
       return ['ready'];
     }
     case 'shipped-week': {
-      return ['done', 'abandoned'];
+      return ['done'];
     }
     case 'going-cold':
     case undefined: {
@@ -124,7 +124,7 @@ const PRESET_SELECTOR: Record<TaskPreset, string> = {
   'going-cold': 'live',
   'in-flight': 'in_progress,under_review,staged,queued',
   ready: 'ready',
-  'shipped-week': 'terminal',
+  'shipped-week': 'done',
 };
 
 /**
@@ -132,7 +132,7 @@ const PRESET_SELECTOR: Record<TaskPreset, string> = {
  * picks its universe: in flight is in progress, under review, staged, and
  * queued, core's in-flight words (`isInFlightWord`), which Home's Now counts;
  * ready is ready; going cold is the live tasks the stale verdict holds;
- * shipped in the last 7 days is the terminal tasks whose `completed_at`
+ * shipped in the last 7 days is the done tasks whose `completed_at`
  * falls in the seven days ending today in `zone`, the window Home's Shipped
  * counts. With no preset, `status` is any selector a link carries, and the
  * default is every live task. Priority, size, and tag narrow it as any-of

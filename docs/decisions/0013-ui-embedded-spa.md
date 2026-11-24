@@ -1121,13 +1121,13 @@ filter the `list` read already takes.
   - `ready`: ready;
   - `going-cold`: the live tasks the `stale` verdict holds, the work
     page's `?is=stale` predicate;
-  - `shipped-week`: terminal tasks whose `completed_at` falls in the seven
-    days ending today in the browser's zone, sent as a bare-date
-    `at-or-after` filter with the zone (ADR 0029). It is the window Home's
-    Shipped counts (`lastSevenDays`, the core's `SHIPPED_WINDOW_DAYS`). Only
-    `done` stamps `completed_at`, so the preset lists the done tasks, the
-    ones Shipped counts; an abandoned task, which did not ship, is not in
-    it.
+  - `shipped-week`: done tasks whose `completed_at` falls in the seven
+    days ending today in the browser's zone, sent as `status: done` with a
+    bare-date `at-or-after` filter and the zone (ADR 0029). It is the window
+    Home's Shipped counts (`lastSevenDays`, the core's
+    `SHIPPED_WINDOW_DAYS`), over the tasks Shipped counts; an abandoned task,
+    which did not ship, is not in it, and the Filter sheet's Status offers
+    Done alone.
 
   With no preset the list shows every live task, as the default did. A
   `show` that names no preset is ignored.

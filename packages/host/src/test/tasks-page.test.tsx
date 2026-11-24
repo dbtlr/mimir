@@ -512,7 +512,7 @@ describe('tasksPage presets (MMR-724)', () => {
       {
         filters: [{ field: 'completed_at', op: 'at-or-after', value: '2026-11-18' }],
         limit: FINISHED_PAGE_SIZE,
-        status: 'terminal',
+        status: 'done',
         timeZone: 'America/New_York',
       },
     ],
@@ -776,6 +776,17 @@ describe('tasksPage Filter sheet (MMR-724)', () => {
       'href',
       '/p/MMR/65',
     );
+  });
+
+  it('offers only Done as shipped-week’s status, since the preset is done tasks alone', async () => {
+    const { sheet, user } = await openSheet();
+    await user.click(within(sheet).getByRole('radio', { name: 'Shipped, last 7 days' }));
+    const statuses = within(sheet).getByRole('group', { name: 'Status' });
+    expect(
+      within(statuses)
+        .getAllByRole('checkbox')
+        .map((box) => box.getAttribute('aria-label')),
+    ).toStrictEqual(['Done']);
   });
 
   it('offers no Sort for finished work, which folds by day', async () => {
