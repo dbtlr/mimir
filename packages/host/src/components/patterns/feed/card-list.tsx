@@ -55,6 +55,7 @@ export type FeedCardListHandle = {
 const IDENTITY = 'data-list-card';
 const TARGET = '[data-slot="feed-card-target"]';
 const PANEL = '[data-slot="drawer-content"]';
+const PANEL_TITLE = '[data-slot="drawer-title"]';
 
 export function FeedCardList({
   sections,
@@ -109,7 +110,7 @@ export function FeedCardList({
 /** Who holds focus for the list, so focus can move on when that element goes. */
 type FocusOwner =
   | { kind: 'card'; key: string; element: Element }
-  | { kind: 'preview'; key: string; element: Element }
+  | { kind: 'preview'; key: string; element: Element; panel: Element }
   | { kind: 'dialog'; key: string; element: Element };
 
 function ListBody({
@@ -170,8 +171,9 @@ function ListBody({
         return;
       }
       const previewed = openCardNow.current;
-      if (previewed !== null && target.closest(PANEL) !== null) {
-        owner.current = { element: target, key: previewed, kind: 'preview' };
+      const panel = target.closest(PANEL);
+      if (previewed !== null && panel !== null) {
+        owner.current = { element: target, key: previewed, kind: 'preview', panel };
         setFocusCard(previewed);
         return;
       }
@@ -239,6 +241,9 @@ function ListBody({
     if (stays && held.kind === 'card') {
       // The card stays but the control in it went (its button): its target takes focus.
       focusIn(held.key, 'target');
+    } else if (stays && held.kind === 'preview') {
+      // The card and its preview stay but the control in it went (its footer action): its title takes focus.
+      held.panel.querySelector<HTMLElement>(PANEL_TITLE)?.focus({ preventScroll: true });
     } else {
       focusInPlaceOf(held.key);
     }

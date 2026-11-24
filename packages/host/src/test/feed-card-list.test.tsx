@@ -181,6 +181,21 @@ describe('cards that leave', () => {
     expect(target('F-2')).toHaveFocus();
     expect(target('F-2')).toHaveAttribute('aria-expanded', 'false');
   });
+
+  it('keeps focus in the preview, on its title, when its card stays but its footer action goes', async () => {
+    const clear: CardAction = {
+      kind: 'write',
+      label: 'Clear stop',
+      name: 'Clear stop B',
+      run: vi.fn(),
+    };
+    const { refetch } = await renderList(sections(['Fleet', ['A', card('B', clear), 'C']]));
+    await userEvent.click(target('B'));
+    const panel = screen.getByRole('dialog');
+    within(panel).getByRole('button', { name: 'Clear stop B' }).focus();
+    refetch(sections(['Fleet', ['A', 'B', 'C']]));
+    expect(within(screen.getByRole('dialog')).getByRole('heading', { name: 'Card B' })).toHaveFocus();
+  });
 });
 
 describe('focus after a dialog opened from a card', () => {
