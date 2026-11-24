@@ -1116,7 +1116,8 @@ sets a filter on that list rather than opening a page of its own
 filter the `list` read already takes.
 
 - **The presets are the URL's `show`:**
-  - `in-flight`: in progress, under review, and staged;
+  - `in-flight`: in progress, under review, staged, and queued, the core's
+    in-flight words (`isInFlightWord`), the ones Home's Now counts;
   - `ready`: ready;
   - `going-cold`: the live tasks the `stale` verdict holds, the work
     page's `?is=stale` predicate;

@@ -39,7 +39,7 @@ export const LIVE_TASK_STATUSES: readonly TaskStatusWord[] = TASK_STATUS_ORDER.f
 export function presetStatuses(show: TaskPreset | undefined): readonly TaskStatusWord[] {
   switch (show) {
     case 'in-flight': {
-      return ['in_progress', 'under_review', 'staged'];
+      return ['in_progress', 'under_review', 'staged', 'queued'];
     }
     case 'ready': {
       return ['ready'];
@@ -122,14 +122,15 @@ export function presetSelection(show: TaskPreset | undefined, status: string | u
 /** The status selector a preset sends, before any narrowing. */
 const PRESET_SELECTOR: Record<TaskPreset, string> = {
   'going-cold': 'live',
-  'in-flight': 'in_progress,under_review,staged',
+  'in-flight': 'in_progress,under_review,staged,queued',
   ready: 'ready',
   'shipped-week': 'terminal',
 };
 
 /**
  * The list read a Tasks URL sends (ADR 0013, MMR-724 refinement). A preset
- * picks its universe: in flight is in progress, under review, and staged;
+ * picks its universe: in flight is in progress, under review, staged, and
+ * queued, core's in-flight words (`isInFlightWord`), which Home's Now counts;
  * ready is ready; going cold is the live tasks the stale verdict holds;
  * shipped in the last 7 days is the terminal tasks whose `completed_at`
  * falls in the seven days ending today in `zone`, the window Home's Shipped

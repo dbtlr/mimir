@@ -504,7 +504,7 @@ describe('tasksPage presets (MMR-724)', () => {
   });
 
   it.each<[string, Record<string, unknown>]>([
-    ['in-flight', { status: ['in_progress', 'under_review', 'staged'] }],
+    ['in-flight', { status: ['in_progress', 'under_review', 'staged', 'queued'] }],
     ['ready', { status: 'ready' }],
     ['going-cold', { status: 'live', verdicts: [{ negate: false, verdict: 'stale' }] }],
     [
@@ -570,6 +570,18 @@ describe('tasksPage presets (MMR-724)', () => {
       '[data-slot="feed-card"]',
     ) as HTMLElement;
     expect(within(card).getByText('⧗ stale')).toBeVisible();
+  });
+
+  it('lists a queued task under in flight, as Home’s Now counts it', async () => {
+    serveListSelecting([
+      engineTask({ id: 'MMR-40', lifecycle: 'in_progress', status: 'in_progress' }),
+      engineTask({ id: 'MMR-43', status: 'queued', title: 'Reserved for a run' }),
+      engineTask({ id: 'MMR-44', status: 'ready' }),
+    ]);
+    await renderTasks('/p/MMR/tasks?show=in-flight');
+    await expect(screen.findByText('2 tasks in flight')).resolves.toBeVisible();
+    expect(groupHeadings()).toStrictEqual(['In progress 1', 'Queued 1']);
+    expect(titlesIn('Queued 1')).toStrictEqual(['Reserved for a run']);
   });
 
   it('says what the count line counts for each preset', async () => {
@@ -679,7 +691,7 @@ describe('tasksPage Filter sheet (MMR-724)', () => {
       within(statuses)
         .getAllByRole('checkbox')
         .map((box) => box.getAttribute('aria-label')),
-    ).toStrictEqual(['In progress', 'Under review', 'Staged']);
+    ).toStrictEqual(['In progress', 'Under review', 'Staged', 'Queued']);
     expect(
       within(statuses)
         .getAllByRole('checkbox')
@@ -697,12 +709,12 @@ describe('tasksPage Filter sheet (MMR-724)', () => {
       expect(search(testRouter)).toEqual({
         priority: 'p0',
         show: 'in-flight',
-        status: 'in_progress,under_review',
+        status: 'in_progress,under_review,queued',
       });
     });
     expect(nodeReads().at(-1)).toMatchObject({
       filters: [{ field: 'priority', op: 'in', value: 'p0' }],
-      status: ['in_progress', 'under_review'],
+      status: ['in_progress', 'under_review', 'queued'],
     });
     expect(filterChip()).toHaveAccessibleName('Filter, 2 applied');
   });
