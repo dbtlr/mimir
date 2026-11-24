@@ -60,15 +60,6 @@ export function taskCount(record: EngineNode): number {
   return Object.values(record.distribution ?? {}).reduce((sum, count) => sum + count, 0);
 }
 
-/**
- * Work has nothing to show for an initiative or phase with no tasks under it.
- * A project's Work always has something: what needs the operator, seeds to
- * triage, and what went quiet span the whole board.
- */
-export function hasWork(record: EngineNode): boolean {
-  return record.type === 'project' || taskCount(record) > 0;
-}
-
 /** The record's own column: one centred column of at most 900px, no rail (MMR-726). */
 export function RecordColumn({
   offline,
@@ -451,7 +442,7 @@ export type ContainerTabs = {
 export function containerTabs(record: EngineNode, timelineCount: number) {
   const artifacts = record.artifacts?.length ?? 0;
   const tabs: RecordTab<ContainerTab>[] = [
-    ...(hasWork(record) ? [{ label: 'Work', value: 'work' as const }] : []),
+    ...(taskCount(record) > 0 ? [{ label: 'Work', value: 'work' as const }] : []),
     { label: 'Details', value: 'details' },
     { count: timelineCount, label: 'Timeline', value: 'timeline' },
     ...(artifacts > 0
