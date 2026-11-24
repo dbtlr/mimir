@@ -1007,3 +1007,39 @@ MMR-727 rebuilds them on Home's pattern.
 - **The trail is the way up.** The "↑" link to the parent that a phone page
   showed above its ID retires; the trail's last step is the parent, on every
   width. The sidebar outline still shows where the record sits.
+
+## Refinement (2026-11-24, MMR-729): the desktop frame matches the phone's
+
+The readability phase (MMR-717) makes desktop the phone layout with more
+room. The MMR-492 refinement's top bar kept the jump palette at every width,
+and the MMR-733 refinement left the wide bar with the brand, _Jump to_,
+_Needs you_, and "…". This revises both:
+
+- **_Jump to_ sits at the top of the sidebar.** Search then sits above the
+  list it searches across, and the sidebar reads as navigation from top to
+  bottom. It is a full-width control above the switcher (or, on Settings'
+  pages, above "← Back to work"), and it opens the same palette. ⌘K or
+  Ctrl K still opens the palette from any page.
+- **The top bar holds _Jump to_ only where the sidebar is not beside the
+  page.** From `lg` up, with the sidebar showing, the bar is the brand, then
+  _Needs you_ and "…" at its right: the right side of the phone's bar. Below
+  `lg`, where the sidebar is a drawer, the bar is unchanged (the MMR-715
+  refinement's phone bar, and from `md` the wider _Jump to_ button). A page
+  with no sidebar at any width, such as a fresh store's, keeps _Jump to_ in
+  the bar, so the control is always one click away.
+- **The drawer opens with _Jump to_ as well.** Choosing it closes the drawer
+  and then opens the palette; closing the palette returns focus to the
+  drawer's menu button, since the control that opened it has gone. A phone
+  has two ways in and one search.
+- **A page is one centred column, with no right column.** The column is 900
+  wide at most, beside the sidebar; a single-purpose page may be narrower
+  (the focus queue 720, pairing 560). Two rails remain until the tasks that
+  retire them: the task page's, which MMR-728 replaces with tabs, and the
+  seed, artifact, and delivery pages', which MMR-732's design pass decides.
+  Those pages keep their 1200 grid until then; every other page, including
+  Record health and the not-found and unavailable pages, takes the 900
+  column now.
+
+While a preview panel is open from 1024 to 1599, the sidebar yields (ADR
+0019's MMR-720 refinement), and its _Jump to_ with it; ⌘K or Ctrl K still
+opens the palette.
