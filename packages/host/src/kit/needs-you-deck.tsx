@@ -371,7 +371,6 @@ function useNeedsYouFixture(only: readonly string[] | undefined) {
  */
 export function NeedsYouDeckDemo({ only }: { only?: readonly string[] }) {
   const { answer, controls, offline, report, writes } = useNeedsYouFixture(only);
-  const sections = useMemo(() => needsYouSections(report), [report]);
   return (
     <Answering.Provider value={answer}>
       <div className="flex flex-col gap-3" data-kit="needs-you-deck">
