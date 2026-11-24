@@ -459,6 +459,35 @@ describe('Form sheet commit', () => {
     });
   });
 
+  it('a commit that settles after its sheet unmounted, as a form keyed by another record does, never closes the next one', async () => {
+    stubViewport('desktop');
+    const held = Promise.withResolvers<void>();
+    const onClose = vi.fn();
+    const sheet = (record: string, onCommit: () => void | Promise<void>) => (
+      <FormSheet
+        key={record}
+        open
+        onClose={onClose}
+        title="Project settings"
+        commitLabel="Save"
+        onCommit={onCommit}
+      >
+        <FormField label="Title">
+          <FormTextInput defaultValue={record} />
+        </FormField>
+      </FormSheet>
+    );
+    const { rerender } = render(sheet('MMR', () => held.promise));
+    await userEvent.click(await screen.findByRole('button', { name: 'Save' }));
+    rerender(sheet('NRN', ignore));
+    await act(async () => {
+      held.resolve();
+      await held.promise;
+    });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'Project settings' })).toBeInTheDocument();
+  });
+
   it('holds Escape while the caller reports its own call pending', async () => {
     stubViewport('phone');
     render(<Harness pending />);
