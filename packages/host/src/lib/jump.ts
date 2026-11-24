@@ -88,12 +88,18 @@ export function hitStatus(hit: Pick<EngineSearchHit, 'lifecycle'>): StatusWord |
   }
 }
 
+/** Whether the layout draws `element`. A browser without `checkVisibility` (Safari before 17.4) counts it as drawn. */
+function isRendered(element: HTMLElement): boolean {
+  return typeof element.checkVisibility !== 'function' || element.checkVisibility();
+}
+
 /**
  * Where focus goes when the jump palette closes (ADR 0013, MMR-729
  * refinement): the first candidate that can still take it, in order. A
  * candidate has gone when it left the page, sits in an inert subtree (a
- * yielded sidebar), or is the page itself. Null when none can, and the caller
- * falls back to `<main>`.
+ * yielded sidebar), is hidden by the layout (a control under `lg:hidden`
+ * once a resize crosses `lg`), or is the page itself. Null when none can,
+ * and the caller falls back to `<main>`.
  */
 export function paletteReturnTarget(
   candidates: readonly (HTMLElement | null | undefined)[],
@@ -105,7 +111,8 @@ export function paletteReturnTarget(
         element !== undefined &&
         element.isConnected &&
         element !== document.body &&
-        element.closest('[inert]') === null,
+        element.closest('[inert]') === null &&
+        isRendered(element),
     ) ?? null
   );
 }

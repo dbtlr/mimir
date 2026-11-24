@@ -81,6 +81,13 @@ describe('paletteReturnTarget (MMR-729)', () => {
     expect(paletteReturnTarget([button(sidebar)])).toBeNull();
   });
 
+  it('passes over a control the layout hides, such as one under lg:hidden past a resize', () => {
+    const hidden = button();
+    Object.defineProperty(hidden, 'checkVisibility', { value: () => false });
+    const jump = button();
+    expect(paletteReturnTarget([hidden, jump])).toBe(jump);
+  });
+
   it('passes over the page itself, which had focus when nothing else did', () => {
     expect(paletteReturnTarget([document.body])).toBeNull();
   });

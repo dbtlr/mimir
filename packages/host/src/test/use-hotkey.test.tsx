@@ -9,6 +9,7 @@ function Harness({
   enabled,
   withInput,
   withDialog,
+  withAlertDialog,
   withMenu,
   withListbox,
   focusedRole,
@@ -17,6 +18,7 @@ function Harness({
   enabled?: boolean;
   withInput?: boolean;
   withDialog?: boolean;
+  withAlertDialog?: boolean;
   withMenu?: boolean;
   withListbox?: boolean;
   focusedRole?: 'menuitem' | 'option' | 'combobox';
@@ -28,6 +30,11 @@ function Harness({
       {withDialog === true && (
         <div role="dialog" aria-label="open modal">
           modal
+        </div>
+      )}
+      {withAlertDialog === true && (
+        <div role="alertdialog" aria-label="open confirm">
+          confirm
         </div>
       )}
       {withMenu === true && (
@@ -81,6 +88,13 @@ describe('useHotkey (MMR-247 capture trigger)', () => {
   it('does not fire when another dialog is already open', async () => {
     const onFire = vi.fn();
     render(<Harness onFire={onFire} withDialog />);
+    await userEvent.keyboard('s');
+    expect(onFire).not.toHaveBeenCalled();
+  });
+
+  it('does not fire over an open confirmation (alertdialog)', async () => {
+    const onFire = vi.fn();
+    render(<Harness onFire={onFire} withAlertDialog />);
     await userEvent.keyboard('s');
     expect(onFire).not.toHaveBeenCalled();
   });
