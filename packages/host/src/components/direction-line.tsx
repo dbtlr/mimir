@@ -25,7 +25,7 @@ function subjectId(subject: DirectionTarget): string {
  * Save is a blind whole-text replace: the PATCH carries no version token, so
  * the last writer wins.
  */
-function DirectionDialog({
+export function DirectionDialog({
   subject,
   title,
   next,
@@ -159,21 +159,24 @@ function DirectionDialog({
 }
 
 /**
- * The direction in rail form (MMR-450, MMR-484): the owned `## Next` prose
- * rendered as markdown, clamped to six lines so a long rewrite cannot push the
- * rest of the rail off screen. "Read more" appears only when the text really
- * overflows and opens the reading dialog; Edit opens the whole-text rewrite.
+ * The direction (MMR-450, MMR-484): the owned `## Next` prose rendered as
+ * markdown, with Edit opening the whole-text rewrite. Clamped to six lines
+ * unless `full`, so a long rewrite cannot push what follows off screen; "Read
+ * more" appears only when the text really overflows and opens the reading
+ * dialog. A record's Details tab shows it in `full` (MMR-726).
  */
 export function DirectionPanel({
   subject,
   title,
   next,
   offline,
+  full = false,
 }: {
   subject: DirectionTarget;
   title: string;
   next: string | undefined;
   offline: boolean;
+  full?: boolean;
 }) {
   const id = subjectId(subject);
   // Held as the subject it was opened FOR, like the open dialog: the project
@@ -196,7 +199,11 @@ export function DirectionPanel({
       {empty ? (
         <p className="text-xs text-ink-dim">No direction set</p>
       ) : (
-        <MarkdownBody className="max-w-none" clamp={6} onClampMeasure={setMeasure}>
+        <MarkdownBody
+          className="max-w-[70ch]"
+          clamp={full ? undefined : 6}
+          onClampMeasure={setMeasure}
+        >
           {next}
         </MarkdownBody>
       )}

@@ -51,7 +51,8 @@ export function engineContainer(
     createdAt: FIXTURE_AT,
     deps: { awaitingOn: [], blocking: [], dependsOn: [] },
     description: null,
-    distribution: {},
+    // A container with a task under it, so its Work tab shows (MMR-726).
+    distribution: { ready: 1 },
     id,
     parent: 'MMR',
     tags: [],

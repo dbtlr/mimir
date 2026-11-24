@@ -89,7 +89,11 @@ function closeOnChoice(close: () => void) {
   };
 }
 
-/** The phone rail: a row of chips under the page head, each opening a bottom sheet. */
+/**
+ * The phone rail: a row of chips under the page head, each opening a bottom
+ * sheet. A chip sits on the page surface (well-900), so its edge is ink-dim,
+ * which meets 3:1 there in both themes, and it is a 44px tap target (MMR-726).
+ */
 function RailChips({ chips, label }: { chips: readonly RailChip[]; label: string }) {
   const [open, setOpen] = useState<string | null>(null);
   const active = chips.find((c) => c.label === open);
@@ -103,7 +107,7 @@ function RailChips({ chips, label }: { chips: readonly RailChip[]; label: string
             aria-haspopup="dialog"
             aria-expanded={open === chip.label}
             onClick={() => setOpen(chip.label)}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-full px-3.5 text-meta font-medium text-ink inset-ring inset-ring-line-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-3.5 text-meta font-medium text-ink inset-ring inset-ring-ink-dim transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
           >
             {chip.label}
             {chip.count !== undefined && (
@@ -148,7 +152,9 @@ function RailChips({ chips, label }: { chips: readonly RailChip[]; label: string
  * The record page shell (ADR 0013, v0.23 refinement): a main column beside a
  * rail, the same page on desktop and phone. Below `md` the rail folds into
  * chips under the page head, each opening its part of the rail in a bottom
- * sheet. Project, container, task, seed, and artifact pages share it. A page
+ * sheet. Task, seed, artifact, and delivery pages share it; a project,
+ * initiative, or phase page is one column under its record header and tabs
+ * (MMR-726). A page
  * that omits `chips` keeps its rail on a phone, stacked under the main column,
  * for a rail that holds in-place buttons whose dialogs would not survive a
  * bottom sheet closing.

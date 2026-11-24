@@ -2,12 +2,13 @@ import type { EngineNode } from '@mimir/contract';
 import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
 import { archive, unarchive, updateProject } from '../api/fns/shell';
 import type { NoticeHost, toast as realToast } from '../components/patterns/notice';
-import { ProjectSettingsButton } from '../components/project-settings-button';
+import { ProjectSettings } from '../components/project-settings';
 import { serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
 
@@ -43,6 +44,30 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/** What opens the settings on a page: here a plain button, on a project page More's Edit. */
+function ProjectSettingsButton({
+  project,
+  offline,
+}: {
+  project: Pick<EngineNode, 'id' | 'title' | 'description'>;
+  offline?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)}>
+        Project settings
+      </button>
+      <ProjectSettings
+        project={project}
+        offline={offline}
+        open={open}
+        onClose={() => setOpen(false)}
+      />
+    </>
+  );
+}
+
 function wrap(ui: ReactNode) {
   return render(<QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>);
 }
@@ -53,12 +78,7 @@ const baseProject: Pick<EngineNode, 'id' | 'title' | 'description'> = {
   title: 'My Project',
 };
 
-describe('projectSettingsButton', () => {
-  it('is disabled when offline', () => {
-    wrap(<ProjectSettingsButton project={baseProject} offline />);
-    expect(screen.getByRole('button', { name: /project settings/i })).toBeDisabled();
-  });
-
+describe('projectSettings', () => {
   it('clicking opens the form with title and description fields prefilled', () => {
     wrap(<ProjectSettingsButton project={baseProject} />);
     fireEvent.click(screen.getByRole('button', { name: /project settings/i }));

@@ -312,7 +312,7 @@ describe('seed form (12c, MMR-247; the Form sheet, MMR-743)', () => {
     mockApi();
     await renderApp();
     const user = userEvent.setup();
-    await screen.findByRole('heading', { name: 'Seeds' });
+    await screen.findByRole('region', { name: 'Seeds' });
 
     await user.keyboard('s');
     await expect(screen.findByLabelText('Seed')).resolves.toBeDefined();

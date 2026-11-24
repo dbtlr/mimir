@@ -1,48 +1,48 @@
-import type { EngineNode, EngineTree } from '@mimir/contract';
+import type { EngineNode, EngineTree, NodeRef } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useRef } from 'react';
-import type { KeyboardEvent, ReactNode } from 'react';
+import { useId, useRef, useState } from 'react';
+import type { ReactNode, UIEvent } from 'react';
 
 import { agentActivityQuery } from '../api/agent-queries';
 import { HostFaultError, isEngineRefusal } from '../api/errors';
+import type { DirectionTarget } from '../api/node-mutations';
 import { browserTimeZone } from '../api/queries';
 import { workQuery } from '../api/view-queries';
 import { scopedRun } from '../lib/agent-card';
 import { cn } from '../lib/cn';
 import { projectKeyOf } from '../lib/project-key';
+import { nodeLink } from '../lib/record-url';
 import { STATUS_META, STATUS_ORDER } from '../lib/status';
 import { absoluteTime } from '../lib/time';
-import { RAIL_ARTIFACT_CAP, newestArtifacts } from '../lib/work-page';
-import type { RecordArtifact } from '../lib/work-page';
+import { newestArtifacts } from '../lib/work-page';
 import { PhaseDeliveries } from './delivery-summary';
-import { DirectionPanel } from './direction-line';
+import { DirectionDialog, DirectionPanel } from './direction-line';
 import { DistributionBar } from './distribution-bar';
-import { FindingsChip } from './findings-chip';
 import { MarkdownBody } from './markdown-body';
 import { NewTaskButton } from './new-task-button';
-import {
-  ArtifactLinks,
-  MetaRow,
-  RefRow,
-  SignalBadges,
-  hasSignals,
-  prerequisiteRows,
-} from './node-record';
-import { ParentLink } from './parent-link';
-import { ProjectSettingsButton } from './project-settings-button';
-import { RailSection, RecordLayout } from './record-layout';
-import type { RailChip } from './record-layout';
-import { StatusBadge, StatusLineId } from './status-badge';
+import { ArtifactLinks, SignalBadges, hasSignals, prerequisiteRows } from './node-record';
+import type { ActionMenuAction } from './patterns/action-menu';
+import { FEED_FOCUS_RING } from './patterns/feed/link';
+import { RowGroup } from './patterns/feed/row-group';
+import { RecordHeader } from './patterns/record-header';
+import { ProjectSettings } from './project-settings';
+import { RECORD_TYPE_LABEL, RecordMore, moreEntries, recordTrail } from './record-head';
+import { RecordTabs } from './record-tabs';
+import type { RecordTab } from './record-tabs';
+import { StatusBadge } from './status-badge';
 import { Skeleton } from './ui/skeleton';
 import { WorkSections } from './work-sections';
 
 /*
- * The work page (ADR 0013, MMR-467 and MMR-492 refinements): a project,
- * initiative, or phase opens as five question-ordered sections beside a rail of
- * Direction, About, and Artifacts. The project's structure lives in the shell's
- * sidebar outline. One implementation serves all three scopes; a container adds
- * a parent link above its id on a phone and a Work | Timeline tab bar.
+ * The work page (ADR 0013, MMR-467, MMR-492, and MMR-726 refinements): a
+ * project, initiative, or phase opens under the record header with its tabs.
+ * Work, first, holds the progress bar, a project's Record health, and the five
+ * question-ordered sections; Details holds the Direction, the description,
+ * what the record depends on and blocks, and its dates. An initiative or phase
+ * adds Timeline and Artifacts; a project's other tabs are its browsers. A tab
+ * with nothing in it is hidden. The project's structure lives in the shell's
+ * sidebar outline.
  */
 
 /** `11 done · 2 parked · 1 in progress` — the rollup's counts, in the status system's order. */
@@ -55,210 +55,142 @@ function distributionLegend(distribution: NonNullable<EngineNode['distribution']
   );
 }
 
-/** The tab a container's page shows: its work sections or its notes. */
-export type WorkTab = 'work' | 'timeline';
+/** How many tasks the record's rollup counts. */
+export function taskCount(record: EngineNode): number {
+  return Object.values(record.distribution ?? {}).reduce((sum, count) => sum + count, 0);
+}
 
-/** What a container adds to the page: the Work | Timeline tabs, and the Timeline's own content. */
-export type ContainerTabs = {
-  tab: WorkTab;
-  onTab: (tab: WorkTab) => void;
-  /** The Timeline tab's body — the feed and its composer. */
-  timeline: ReactNode;
-  timelineCount: number;
-};
+/**
+ * Work has nothing to show for an initiative or phase with no tasks under it.
+ * A project's Work always has something: what needs the operator, seeds to
+ * triage, and what went quiet span the whole board.
+ */
+export function hasWork(record: EngineNode): boolean {
+  return record.type === 'project' || taskCount(record) > 0;
+}
 
-function WorkHead({
+/** The record's own column: one centred column of at most 900px, no rail (MMR-726). */
+export function RecordColumn({
+  offline,
+  onScroll,
+  children,
+}: {
+  offline: boolean;
+  onScroll?: (event: UIEvent<HTMLElement>) => void;
+  children: ReactNode;
+}) {
+  return (
+    // tabIndex -1: a focus fallback for a control that unmounts itself, such
+    // as a row's button once its action moves the row out of the list.
+    <main
+      tabIndex={-1}
+      onScroll={onScroll}
+      data-testid="record-scroll"
+      className={cn('min-h-0 w-full flex-1 overflow-y-auto', offline && 'offline-demoted')}
+    >
+      <div className="mx-auto w-full max-w-[900px] px-3.5 pt-4 pb-10 md:px-5 md:pt-6">
+        {children}
+      </div>
+    </main>
+  );
+}
+
+/**
+ * A project's, initiative's, or phase's header: its trail, status, type, and
+ * summary, New task as its main action, and More with what else it offers.
+ * A project has no summary of its own, so its description stands in for one.
+ */
+export function ContainerHead({
   record,
-  isProject,
   tree,
-  findings,
   offline,
 }: {
   record: EngineNode;
-  isProject: boolean;
   tree?: EngineTree;
-  findings: number;
   offline: boolean;
 }) {
+  const isProject = record.type === 'project';
   const projectKey = projectKeyOf(record.id);
-  const legend = record.distribution === undefined ? '' : distributionLegend(record.distribution);
+  const [editing, setEditing] = useState<'project' | 'direction' | null>(null);
+  const more = useRef<HTMLButtonElement>(null);
+  const subject: DirectionTarget = isProject
+    ? { key: record.id, kind: 'project' }
+    : { id: record.id, kind: 'node' };
+  const edit: ActionMenuAction[] = [
+    ...(isProject
+      ? [
+          {
+            disabled: offline,
+            key: 'edit',
+            kind: 'action' as const,
+            label: 'Edit',
+            onSelect: () => {
+              setEditing('project');
+            },
+          },
+        ]
+      : []),
+    {
+      disabled: offline,
+      key: 'direction',
+      kind: 'action',
+      label: 'Edit direction…',
+      onSelect: () => {
+        setEditing('direction');
+      },
+    },
+  ];
   return (
-    <header className="flex flex-col gap-1.5">
-      {!isProject && <ParentLink projectKey={projectKey} tree={tree} nodeId={record.id} />}
-      <div className="flex flex-wrap items-center gap-2">
-        <StatusBadge status={record.status} />
-        <StatusLineId id={record.id} type={isProject ? 'project' : record.type} />
-        {isProject && <FindingsChip projectKey={projectKey} findings={findings} />}
-      </div>
-      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
-        <h1 className="min-w-0 text-dossier leading-[1.35] font-bold tracking-[-0.01em] wrap-anywhere text-ink-bright md:text-header">
-          {record.title}
-        </h1>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <NewTaskButton
-            projectKey={projectKey}
-            offline={offline}
-            home={isProject ? undefined : record.id}
-          />
-          {isProject && <ProjectSettingsButton project={record} offline={offline} />}
-        </div>
-      </div>
-      {record.distribution !== undefined && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <DistributionBar
-            distribution={record.distribution}
-            className="h-[5px] w-full max-w-[160px]"
-          />
-          {legend !== '' && <span className="text-tag text-ink-dim">{legend}</span>}
-        </div>
+    <>
+      <RecordHeader
+        trail={isProject ? [] : recordTrail(projectKey, tree, record.id)}
+        title={record.title}
+        status={<StatusBadge status={record.status} />}
+        type={RECORD_TYPE_LABEL[isProject ? 'project' : record.type]}
+        recordId={record.id}
+        summary={isProject ? record.description : record.summary}
+        actions={
+          <>
+            <NewTaskButton
+              main
+              projectKey={projectKey}
+              offline={offline}
+              home={isProject ? undefined : record.id}
+            />
+            <RecordMore
+              title={record.title}
+              recordId={record.id}
+              entries={moreEntries([edit])}
+              triggerRef={more}
+            />
+          </>
+        }
+      />
+      {isProject && (
+        <ProjectSettings
+          project={record}
+          offline={offline}
+          open={editing === 'project'}
+          onClose={() => {
+            setEditing(null);
+          }}
+        />
       )}
-    </header>
-  );
-}
-
-/** A small label over a block inside the About rail section. */
-function AboutLabel({ children }: { children: ReactNode }) {
-  return <h3 className="microlabel text-ink-dim">{children}</h3>;
-}
-
-/**
- * The record's description and details — the rail's About. A project with no
- * description points at its settings, the one place it is edited; a container
- * has no editor, so it just says so.
- */
-function AboutPanel({ record, isProject }: { record: EngineNode; isProject: boolean }) {
-  const description = record.description?.trim() ?? '';
-  const prerequisites = record.deps === undefined ? [] : prerequisiteRows(record.deps);
-  const blocking = record.deps?.blocking ?? [];
-  return (
-    <div className="flex flex-col gap-3">
-      {description === '' ? (
-        <p className="text-xs text-ink-dim">
-          {isProject ? 'No description yet. Add one in project settings (⚙).' : 'No description.'}
-        </p>
-      ) : (
-        <MarkdownBody breaks className="max-w-none">
-          {description}
-        </MarkdownBody>
+      {editing === 'direction' && (
+        <DirectionDialog
+          subject={subject}
+          title={record.title}
+          next={record.next}
+          offline={offline}
+          open
+          editOnly
+          finalFocus={() => more.current}
+          onClose={() => {
+            setEditing(null);
+          }}
+        />
       )}
-      {prerequisites.length > 0 && (
-        <div className="flex flex-col gap-1">
-          <AboutLabel>Depends on</AboutLabel>
-          {prerequisites.map((r) => (
-            <RefRow key={r.id} refNode={r} />
-          ))}
-        </div>
-      )}
-      {blocking.length > 0 && (
-        <div className="flex flex-col gap-1">
-          <AboutLabel>Blocking · {blocking.length}</AboutLabel>
-          {blocking.map((r) => (
-            <RefRow key={r.id} refNode={r} />
-          ))}
-        </div>
-      )}
-      {hasSignals(record) && <SignalBadges node={record} />}
-      <dl className="flex flex-col gap-1">
-        <MetaRow label="created">{absoluteTime(record.createdAt)}</MetaRow>
-        <MetaRow label="updated">{absoluteTime(record.updatedAt)}</MetaRow>
-        {record.target != null && <MetaRow label="target">{record.target}</MetaRow>}
-      </dl>
-    </div>
-  );
-}
-
-/**
- * The rail's Artifacts. A project can hold hundreds, so it lists the newest few
- * and links to the artifact browser filtered to it. A container's attached set
- * is small and the browser has no per-record filter, so it lists them all.
- */
-function ArtifactsPanel({
-  artifacts,
-  projectKey,
-  isProject,
-}: {
-  artifacts: readonly RecordArtifact[];
-  projectKey: string;
-  isProject: boolean;
-}) {
-  const shown = isProject ? newestArtifacts(artifacts, RAIL_ARTIFACT_CAP) : artifacts;
-  return (
-    <div className="flex flex-col gap-1">
-      <ArtifactLinks artifacts={shown} />
-      {isProject && artifacts.length > RAIL_ARTIFACT_CAP && (
-        <Link
-          to="/p/$key/artifacts"
-          params={{ key: projectKey }}
-          className="rounded-sm px-1 py-0.5 text-xs text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
-        >
-          All {artifacts.length} artifacts
-        </Link>
-      )}
-    </div>
-  );
-}
-
-const TABS: readonly { value: WorkTab; label: string }[] = [
-  { label: 'Work', value: 'work' },
-  { label: 'Timeline', value: 'timeline' },
-];
-
-const tabId = (value: WorkTab) => `work-tab-${value}`;
-const panelId = (value: WorkTab) => `work-panel-${value}`;
-
-/** The Work | Timeline tab bar of a container; arrows move between the two. */
-function WorkTabs({ tabs }: { tabs: ContainerTabs }) {
-  const { tab, onTab, timelineCount } = tabs;
-  const refs = useRef(new Map<WorkTab, HTMLButtonElement>());
-  function handleKey(event: KeyboardEvent<HTMLButtonElement>) {
-    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
-      return;
-    }
-    event.preventDefault();
-    const next: WorkTab = tab === 'work' ? 'timeline' : 'work';
-    onTab(next);
-    refs.current.get(next)?.focus();
-  }
-  return (
-    <div role="tablist" aria-label="Page view" className="flex gap-1 border-b border-line">
-      {TABS.map(({ label, value }) => {
-        const selected = tab === value;
-        return (
-          <button
-            key={value}
-            ref={(el) => {
-              if (el === null) {
-                refs.current.delete(value);
-              } else {
-                refs.current.set(value, el);
-              }
-            }}
-            type="button"
-            role="tab"
-            id={tabId(value)}
-            aria-selected={selected}
-            // Only the selected panel is rendered, so only its tab names one.
-            aria-controls={selected ? panelId(value) : undefined}
-            tabIndex={selected ? 0 : -1}
-            onClick={() => {
-              onTab(value);
-            }}
-            onKeyDown={handleKey}
-            className={cn(
-              '-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-meta font-medium transition-colors focus-visible:outline-2 focus-visible:outline-accent',
-              selected
-                ? 'border-accent text-ink-bright'
-                : 'border-transparent text-ink-dim hover:text-ink',
-            )}
-          >
-            {label}
-            {value === 'timeline' && (
-              <span className="font-mono text-micro text-ink-dim">{timelineCount}</span>
-            )}
-          </button>
-        );
-      })}
-    </div>
+    </>
   );
 }
 
@@ -319,97 +251,250 @@ function WorkBody({
 }
 
 /**
- * The work page for a project, initiative, or phase. `record` is the scope's own
- * read; `tree` (read once by the caller) finds the phone parent link. `container`
- * is set for an initiative or phase and absent for a project: it adds the
- * Work | Timeline tabs and carries the Timeline's content.
+ * The Work tab: the rollup's progress bar and legend, a project's Record
+ * health findings as a row to the doctor panel, then the work sections.
  */
-export function WorkPage({
+export function WorkTab({
   record,
   tree,
   findings = 0,
+  offline,
+}: {
+  record: EngineNode;
+  tree?: EngineTree;
+  findings?: number;
+  offline: boolean;
+}) {
+  const isProject = record.type === 'project';
+  const projectKey = projectKeyOf(record.id);
+  const legend = record.distribution === undefined ? '' : distributionLegend(record.distribution);
+  return (
+    <div className="flex flex-col">
+      {record.distribution !== undefined && taskCount(record) > 0 && (
+        <div className="mb-3">
+          <DistributionBar distribution={record.distribution} className="h-1.5 w-full" />
+          {legend !== '' && <p className="mt-2 text-meta text-ink-dim">{legend}</p>}
+        </div>
+      )}
+      {isProject && findings > 0 && (
+        <div className="border-y border-line">
+          <RowGroup
+            label="Record health"
+            rows={[
+              {
+                count: findings,
+                name: 'Record health',
+                to: { search: { project: projectKey }, to: '/doctor' },
+              },
+            ]}
+          />
+        </div>
+      )}
+      <div className="mt-8">
+        <WorkBody
+          record={record}
+          projectKey={projectKey}
+          isProject={isProject}
+          offline={offline}
+          tree={tree}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** One titled part of the Details tab, divided from the next by a hairline. */
+function DetailsSection({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  count?: number;
+  children: ReactNode;
+}) {
+  const id = useId();
+  return (
+    <section
+      aria-labelledby={id}
+      className="border-b border-line py-6 first:pt-0 last:border-b-0 last:pb-0"
+    >
+      <h2 id={id} className="mb-2 text-base font-semibold text-ink-bright">
+        {title}{' '}
+        {count !== undefined && (
+          <span className="ml-2 text-meta font-normal text-ink-dim">{count}</span>
+        )}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * A link to a related record: its ID in mono at the line's size, its title,
+ * then its status at the right in the header's idiom, the dot right before a
+ * bright word.
+ */
+function RelationRow({ refNode }: { refNode: NodeRef }) {
+  return (
+    <Link
+      {...nodeLink(refNode.id)}
+      className={cn(
+        '-mx-1 flex min-h-11 min-w-0 items-center gap-2 rounded-md border-t border-line px-1 text-label text-ink transition-colors hover:bg-well-800 md:min-h-9',
+        FEED_FOCUS_RING,
+      )}
+    >
+      <span className="shrink-0 font-mono text-ink-dim [font-size-adjust:var(--mono-adjust)]">
+        {refNode.id}
+      </span>{' '}
+      <span className="min-w-0 flex-1 truncate">{refNode.title ?? ''}</span>{' '}
+      {refNode.status !== undefined && (
+        <StatusBadge status={refNode.status} className="shrink-0 pl-2" />
+      )}
+    </Link>
+  );
+}
+
+function Fact({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <>
+      <dt className="pt-px text-meta text-ink-dim">{label}</dt>
+      <dd className="m-0 min-w-0 text-label text-ink-bright">{children}</dd>
+    </>
+  );
+}
+
+/**
+ * The Details tab: the Direction, editable in place; the description, in
+ * full (a project's also stands in for the summary its header clamps); what
+ * it depends on and blocks; its signals; and its dates.
+ */
+export function ContainerDetails({ record, offline }: { record: EngineNode; offline: boolean }) {
+  const isProject = record.type === 'project';
+  const description = record.description?.trim() ?? '';
+  const prerequisites = record.deps === undefined ? [] : prerequisiteRows(record.deps);
+  const blocking = record.deps?.blocking ?? [];
+  return (
+    <div className="flex flex-col">
+      <DetailsSection title="Direction">
+        <DirectionPanel
+          full
+          subject={
+            isProject ? { key: record.id, kind: 'project' } : { id: record.id, kind: 'node' }
+          }
+          title={record.title}
+          next={record.next}
+          offline={offline}
+        />
+      </DetailsSection>
+      {description !== '' && (
+        <DetailsSection title="Description">
+          <MarkdownBody breaks className="max-w-[70ch]">
+            {description}
+          </MarkdownBody>
+        </DetailsSection>
+      )}
+      {prerequisites.length > 0 && (
+        <DetailsSection title="Depends on" count={prerequisites.length}>
+          <div className="border-b border-line">
+            {prerequisites.map((r) => (
+              <RelationRow key={r.id} refNode={r} />
+            ))}
+          </div>
+        </DetailsSection>
+      )}
+      {blocking.length > 0 && (
+        <DetailsSection title="Blocking" count={blocking.length}>
+          <div className="border-b border-line">
+            {blocking.map((r) => (
+              <RelationRow key={r.id} refNode={r} />
+            ))}
+          </div>
+        </DetailsSection>
+      )}
+      <section aria-label="Facts" className="py-6 last:pb-0">
+        {hasSignals(record) && (
+          <div className="mb-4">
+            <SignalBadges node={record} />
+          </div>
+        )}
+        <dl className="m-0 grid grid-cols-[104px_minmax(0,1fr)] gap-x-4 gap-y-3.5">
+          <Fact label="Created">{absoluteTime(record.createdAt)}</Fact>
+          <Fact label="Updated">{absoluteTime(record.updatedAt)}</Fact>
+          {record.target != null && <Fact label="Target">{record.target}</Fact>}
+        </dl>
+      </section>
+    </div>
+  );
+}
+
+/** The tabs of an initiative or phase, in their order. */
+export type ContainerTab = 'work' | 'details' | 'timeline' | 'artifacts';
+
+/** What the page adds to an initiative's or phase's tabs: the selected one, and the Timeline. */
+export type ContainerTabs = {
+  tab: ContainerTab | undefined;
+  onTab: (tab: ContainerTab) => void;
+  /** The Timeline tab's body — the feed and its composer. */
+  timeline: ReactNode;
+  timelineCount: number;
+};
+
+/**
+ * The tabs an initiative or phase shows, in order, hidden when empty: Work
+ * once it holds tasks, Details and Timeline always (a record always has its
+ * dates and its creation), Artifacts once one is attached.
+ */
+export function containerTabs(record: EngineNode, timelineCount: number) {
+  const artifacts = record.artifacts?.length ?? 0;
+  const tabs: RecordTab<ContainerTab>[] = [
+    ...(hasWork(record) ? [{ label: 'Work', value: 'work' as const }] : []),
+    { label: 'Details', value: 'details' },
+    { count: timelineCount, label: 'Timeline', value: 'timeline' },
+    ...(artifacts > 0
+      ? [{ count: artifacts, label: 'Artifacts', value: 'artifacts' as const }]
+      : []),
+  ];
+  return tabs;
+}
+
+/**
+ * An initiative's or phase's page. The URL names the tab; with none, or one
+ * that is hidden, the page opens on the first tab that has something in it.
+ */
+export function ContainerPage({
+  record,
+  tree,
   offline,
   container,
 }: {
   record: EngineNode;
   tree?: EngineTree;
-  /** The project's record-health findings, for its head chip. */
-  findings?: number;
   offline: boolean;
-  container?: ContainerTabs;
+  container: ContainerTabs;
 }) {
-  const isProject = container === undefined;
-  const projectKey = projectKeyOf(record.id);
-
-  const direction = (
-    <DirectionPanel
-      subject={isProject ? { key: record.id, kind: 'project' } : { id: record.id, kind: 'node' }}
-      title={record.title}
-      next={record.next}
-      offline={offline}
-    />
-  );
-  const about = <AboutPanel record={record} isProject={isProject} />;
-  const artifacts = record.artifacts ?? [];
-  const artifactsPanel = (
-    <ArtifactsPanel artifacts={artifacts} projectKey={projectKey} isProject={isProject} />
-  );
-
-  const chips: RailChip[] = [
-    { content: direction, label: 'Direction' },
-    { content: about, label: 'About' },
-    ...(artifacts.length > 0 ? [{ content: artifactsPanel, label: 'Artifacts' }] : []),
-  ];
-  const rail = (
-    <>
-      <RailSection label="Direction">{direction}</RailSection>
-      <RailSection label="About">{about}</RailSection>
-      {artifacts.length > 0 && <RailSection label="Artifacts">{artifactsPanel}</RailSection>}
-    </>
-  );
-
-  const work = (
-    <WorkBody
-      record={record}
-      projectKey={projectKey}
-      isProject={isProject}
-      offline={offline}
-      tree={tree}
-    />
-  );
-  const body =
-    container === undefined ? (
-      work
-    ) : (
-      <>
-        <WorkTabs tabs={container} />
-        <div
-          role="tabpanel"
-          id={panelId(container.tab)}
-          aria-labelledby={tabId(container.tab)}
-          className="flex flex-col gap-3"
-        >
-          {container.tab === 'work' ? work : container.timeline}
-        </div>
-      </>
-    );
-
+  const tabs = containerTabs(record, container.timelineCount);
+  const asked = container.tab ?? 'work';
+  const tab = tabs.find((t) => t.value === asked)?.value ?? tabs[0]?.value ?? 'details';
   return (
-    <RecordLayout
-      head={
-        <WorkHead
-          record={record}
-          isProject={isProject}
-          tree={tree}
-          findings={findings}
-          offline={offline}
-        />
-      }
-      rail={rail}
-      chips={chips}
-      className={cn(offline && 'offline-demoted')}
-    >
-      {body}
-    </RecordLayout>
+    <RecordColumn offline={offline}>
+      <ContainerHead record={record} tree={tree} offline={offline} />
+      <RecordTabs
+        tabs={tabs}
+        value={tab}
+        onSelect={(next) => {
+          container.onTab(next);
+        }}
+      >
+        {tab === 'work' && <WorkTab record={record} tree={tree} offline={offline} />}
+        {tab === 'details' && <ContainerDetails record={record} offline={offline} />}
+        {tab === 'timeline' && <div className="flex flex-col gap-3">{container.timeline}</div>}
+        {tab === 'artifacts' && (
+          <ArtifactLinks
+            artifacts={newestArtifacts(record.artifacts ?? [], record.artifacts?.length ?? 0)}
+          />
+        )}
+      </RecordTabs>
+    </RecordColumn>
   );
 }

@@ -5,23 +5,23 @@ import { isNotFound } from '../api/errors';
 import { projectQuery } from '../api/node-queries';
 import { ProjectDecisions } from '../components/decisions-walkthrough';
 import { OfflineBanner } from '../components/offline-banner';
+import { ProjectFrame } from '../components/project-frame';
 import { UnavailableProject } from '../components/project-unavailable';
-import { RecordPending } from '../components/record-layout';
-import { WorkPage } from '../components/work-page';
+import { ContainerDetails, WorkTab } from '../components/work-page';
 import { connectivity } from '../lib/connectivity';
 import { useRememberRecord } from '../lib/recent-records';
 import { useArchivedProject } from '../lib/use-archived-project';
 import { projectRoute } from '../router';
 
 /**
- * `/p/$key` — the project opens as its work page (ADR 0013, MMR-467
- * refinement): Now, Needs you, Frontier, Shipped, and Going cold beside a rail
- * of Direction, About, and Artifacts. Its structure is the sidebar outline
- * (MMR-496).
+ * `/p/$key` — the project's page (ADR 0013, MMR-467 and MMR-726 refinements):
+ * the record header, then its tabs. Work holds the progress bar, Record
+ * health, and the work sections; `?tab=details` its Direction and dates. Its structure is the sidebar
+ * outline (MMR-496).
  */
 export function ProjectPage() {
   const { key } = projectRoute.useParams();
-  const { mode } = projectRoute.useSearch();
+  const { mode, tab } = projectRoute.useSearch();
   // An archived project's record 404s (ADR 0015). Once the archived list names
   // the key, stop asking for it, so a retry or poll cannot swap the notice for
   // the loading skeleton.
@@ -34,31 +34,29 @@ export function ProjectPage() {
   useRememberRecord(
     project.data && { id: key, kind: 'project', project: key, title: project.data.title },
   );
-
   // Archived-404 semantics (ADR 0015): the server answered, so this is not
   // "offline"; the project query keeps polling, so an unarchive heals.
   if (archived !== undefined || isNotFound(project.error)) {
     return <UnavailableProject projectKey={key} />;
   }
-
-  if (project.data === undefined) {
-    return (
-      <>
-        <OfflineBanner {...conn} />
-        <RecordPending unreachable={project.isError} />
-      </>
-    );
-  }
+  const details = tab === 'details';
 
   return (
     <>
       <OfflineBanner {...conn} />
       {mode === 'decisions' && <ProjectDecisions key={key} projectKey={key} />}
-      <WorkPage
-        record={project.data}
-        findings={health.data?.finding_total ?? 0}
-        offline={conn.offline}
-      />
+      <ProjectFrame projectKey={key} tab={details ? 'details' : 'work'} offline={conn.offline}>
+        {project.data !== undefined &&
+          (details ? (
+            <ContainerDetails record={project.data} offline={conn.offline} />
+          ) : (
+            <WorkTab
+              record={project.data}
+              findings={health.data?.finding_total ?? 0}
+              offline={conn.offline}
+            />
+          ))}
+      </ProjectFrame>
     </>
   );
 }

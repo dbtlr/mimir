@@ -239,7 +239,7 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
     await renderTasks('/p/MMR/tasks?status=1');
     // `1` is no status, so no task can match it.
     await screen.findByText('No tasks match.');
-    expect(screen.getByRole('heading', { level: 1, name: 'Tasks' })).toBeDefined();
+    expect(screen.getByRole('region', { name: 'Tasks' })).toBeDefined();
   });
 
   it('removing the status chip hands keyboard focus to the search box', async () => {
@@ -301,13 +301,12 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
     await expect(screen.findByText('No tasks match.')).resolves.toBeDefined();
   });
 
-  it('unreachable with nothing cached keeps the honest error and disables + New task', async () => {
+  it('unreachable with nothing cached keeps the honest error', async () => {
     failBrowseReads(new Error('down'));
     await renderTasks();
     await expect(
       screen.findByText(/Unreachable — is the Mimir host running\?/),
     ).resolves.toBeDefined();
-    expect(screen.getByRole('button', { name: '+ New task' })).toHaveProperty('disabled', true);
   });
 });
 

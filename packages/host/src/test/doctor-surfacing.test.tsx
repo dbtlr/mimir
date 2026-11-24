@@ -30,18 +30,20 @@ function facet(n: number): RecordHealth {
 }
 
 describe('record-health surfacing (MMR-185, mock 15b)', () => {
-  it('puts an amber findings chip in the project header, linking to the panel', async () => {
+  it('opens the project’s Work tab on a Record health row, linking to the panel', async () => {
     serveShell({
       projects: [engineProject({ id: 'MMR', title: 'Mimir' })],
       trees: {
         MMR: engineTree({ id: 'MMR', status: 'in_progress', title: 'Mimir', type: 'project' }),
       },
     });
-    serveNodes({ nodes: [engineProject({ id: 'MMR', title: 'Mimir' })] });
+    serveNodes({
+      nodes: [engineProject({ distribution: { ready: 1 }, id: 'MMR', title: 'Mimir' })],
+    });
     serveBrowse({ health: facet(2) });
     await renderRoute([projectRoute], '/p/MMR');
 
-    const chip = await screen.findByRole('link', { name: /2 findings/ });
+    const chip = await screen.findByRole('link', { name: /Record health\s*2/ });
     expect(chip.getAttribute('href')).toContain('/doctor');
     expect(chip.getAttribute('href')).toContain('project=MMR');
     expect(doctor).toHaveBeenCalledWith({ data: { project: 'MMR' } });
