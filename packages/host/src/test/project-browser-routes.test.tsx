@@ -134,7 +134,11 @@ describe('a task id in the project segment', () => {
     '/p/MMR-5%s shows the project-unavailable page, not the task as a project',
     async (view) => {
       serveNodes({
-        nodes: [MMR, NRN, engineTask({ id: 'MMR-5', title: 'A task, not a project' })],
+        nodes: [
+          MMR,
+          NRN,
+          engineTask({ id: 'MMR-5', status: 'ready', title: 'A task, not a project' }),
+        ],
       });
       await renderAt(`/p/MMR-5${view}`);
       await expect(
