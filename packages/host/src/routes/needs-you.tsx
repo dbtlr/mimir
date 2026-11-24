@@ -161,7 +161,9 @@ export function NeedsYouPage() {
           <header className={cn('mb-8', !empty && 'border-b border-line pb-5')}>
             <h1 className="m-0 text-page leading-9 font-bold text-ink-bright">Needs you</h1>
             {!empty && (
-              <p className="mt-1 mb-0 max-w-[62ch] text-body text-ink">{summary(sections, records)}</p>
+              <p className="mt-1 mb-0 max-w-[62ch] text-body text-pretty text-ink">
+                {summary(sections, records)}
+              </p>
             )}
           </header>
           <NeedsYouListView ref={list} sections={sections} writes={writes} offline={conn.offline} />
