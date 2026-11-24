@@ -122,7 +122,7 @@ are measured against `well-850` / `well-900` / `well-950`.
 | Accent | `accent`, `accent-foreground` | 8.7, 10.5 on 850 | 3.7, 6.8 on 850 | focus, selection washes and rings, links (`-foreground` as text) |
 | Action | `action` / `action-foreground` | 8.0:1 | 9.5:1 | the one solid button per surface |
 | Danger | `status-blocked-foreground` | 8.7 on 850 | 6.3 on 850 | error text, the destructive outline's label |
-| Sheet seam | `sheet-seam` | `ink-dim`: 3.92–7.15 against the rendered scrim | `ink`: 4.38–7.29 against the rendered scrim | the top edge of a phone bottom sheet over the scrim: the preview panel's bottom sheet and a Select's bottom list. Its value was chosen by measurement against the rendered scrim (see Preview panel) |
+| Sheet seam | `sheet-seam` | `ink-dim`: 3.92–7.15 against the rendered scrim | `ink`: 4.38–7.29 against the rendered scrim | the top edge of a phone bottom sheet over the scrim: the preview panel's bottom sheet, a Select's bottom list, and the Action menu's bottom sheet (MMR-726). Its value was chosen by measurement against the rendered scrim (see Preview panel) |
 
 All existing (`styles.css`), except `sheet-seam`, **adopted (MMR-720)**. Rules:
 
@@ -479,7 +479,8 @@ Rules:
   feed scroll positions, over the page and over a card, and its value is
   chosen by measurement in the build. `ink-faint` does not: it measures about
   2.7–2.8:1 against the light scrim. A Select's bottom list uses the same
-  token. Measured in Chromium at 390 (MMR-720), the seam's pixels against the
+  token, and so does the Action menu's bottom sheet, with the same light
+  upward shadow (MMR-726). Measured in Chromium at 390 (MMR-720), the seam's pixels against the
   scrim's pixels just above it, at 12 points across the sheet's width, for four
   cards at five feed scroll positions: `ink-dim` in dark holds 3.92:1 at worst (a second measurement; the first read 3.98:1),
   where the scrim lies over a solid action, and `ink` in light 4.38:1. The
@@ -515,7 +516,7 @@ preview panel uses.
 
 The head of a project, initiative, phase, or task page (ADR 0019's MMR-726
 refinement), in `src/components/patterns/record-header.tsx`, and the tabs
-under it on the Tabs primitive.
+under it in `record-tabs.tsx` beside it, on the Tabs primitive.
 
 | Part | Phone (< 768) | Desktop (≥ 768) | Mark |
 | --- | --- | --- | --- |
@@ -531,9 +532,9 @@ under it on the Tabs primitive.
 | Panel | 20 below the tabs | 24 below the tabs | **adopted (MMR-726)** |
 | Details section | a 16 / 24 600 `ink-bright` heading, its count 13 / 20 `ink-dim` 8 after it inside the heading, 8 above its content; 24 above and below, a `line` hairline between sections | same | **adopted (MMR-726)** |
 | Direction (Details) | the direction in full, `text-body` prose, 70ch at most, with no button: More's _Edit direction…_ rewrites it. With none set, "No direction set." in `text-body` ink | same | **adopted (MMR-726)** |
-| Relation row (Depends on, Blocking) | a link, at least 44 tall with a `line` hairline above: the ID in mono at the line's 14, `ink-dim`; the title in ink, truncated; at the right the status dot right before its 13 / 600 `ink-bright` word | at least 36 tall | **adopted (MMR-726)** |
+| Relation row (Depends on, Blocking) | a link, at least 44 tall with a `line` hairline above, straight to the column's edges, and none of its own under the last row: the ID in mono at the line's 14, `ink-dim`; the title in ink, truncated; at the right the status dot right before its 13 / 600 `ink-bright` word | at least 36 tall | **adopted (MMR-726)** |
 | Facts | two columns, 104 then the rest, 16 apart, 14 between rows: the label 13 / 20 `ink-dim`, the value 14 / 20 `ink-bright` | same | **adopted (MMR-726)** |
-| Progress (Work) | the rollup's bar the column's width, 6 tall, then its legend 13 / 20 `ink-dim` 8 below; a project's Record health row (Row group) under it | same | **adopted (MMR-726)** |
+| Progress (Work) | the rollup's bar the column's width, 6 tall, then its legend 13 / 20 `ink-dim` 8 below; a project's Record health row (Row group) under it. With no Record health row, the work sections start 28 below the legend | same | **adopted (MMR-726)** |
 
 ## Sizes
 

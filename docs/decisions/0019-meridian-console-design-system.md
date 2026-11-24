@@ -2242,7 +2242,8 @@ feed blocks. It adds four options to the blocks rather than new blocks.
 
 Project, initiative, phase, and task pages open with one header, drawn by
 the record header pattern (`components/patterns/record-header.tsx`), and the
-three containers put everything else behind tabs on the Tabs primitive.
+three containers put everything else behind tabs, the record tabs pattern
+(`components/patterns/record-tabs.tsx`) on the Tabs primitive.
 The operator picked the form from three rounds of mocks after blind design
 review (principles 8 and 9 of MMR-a420). `packages/host/DESIGN.md` holds the
 numbers, under Record header. Seed, artifact, and delivery pages keep their
@@ -2284,7 +2285,8 @@ own heads until MMR-732 brings them onto the pattern.
   between two groups, and an empty group takes none. More is the Action
   menu as it ships (the MMR-736 refinement): an anchored menu from `md`, a
   bottom sheet with 44px rows and a Cancel row below it, headed by the
-  record's title and ID. Offline, every row is disabled where it stands. A
+  record's title and ID, its top edge the `sheet-seam` with the light
+  theme's upward shadow, as the preview sheet's. Offline, every row is disabled where it stands. A
   project's More holds Edit, which opens the project's settings, and _Edit
   direction…_; an initiative's or phase's holds _Edit direction…_. The
   task's Actions chip and its rail section are retired. The T3 rows replace
@@ -2304,7 +2306,9 @@ own heads until MMR-732 brings them onto the pattern.
   44 tap target below `md`, with its label at the left of its box so the
   first label sits on the page's gutter, and 36px tall from `md` with 20px
   between tabs. A row too wide for the screen scrolls sideways and is never
-  clipped. A tab's count is 13px sans in `ink-dim`, a step under its label.
+  clipped. The selected tab's 2px underline covers the row's hairline, which
+  the row draws as an inset shadow: the scrolling row clips to its padding
+  box, so a border under it cut the underline to 1px. A tab's count is 13px sans in `ink-dim`, a step under its label.
   Which tabs a page has, and how the URL holds the selected one, are ADR
   0013's (its MMR-726 refinement).
 - `packages/host/src/test/record-header.test.tsx` checks the clamp, where

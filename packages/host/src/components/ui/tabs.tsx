@@ -19,12 +19,17 @@ import { mergeClassName } from './class-name';
  */
 export { Tabs } from '@ui-sdk/react/tabs';
 
-/** The row of tabs, with a hairline under it that the selected tab's underline sits on. */
+/**
+ * The row of tabs, with a hairline under it that the selected tab's underline
+ * covers. The hairline is an inset shadow, not a border: the row scrolls, so
+ * it clips to its padding box, and a tab overlapping a border lost half its
+ * 2px underline.
+ */
 export function TabsList({ className, ...props }: ComponentProps<typeof SdkTabsList>) {
   return (
     <SdkTabsList
       className={mergeClassName(
-        'flex gap-5 overflow-x-auto border-b border-line [scrollbar-width:none]',
+        'flex gap-5 overflow-x-auto shadow-[inset_0_-1px_0_var(--color-line)] [scrollbar-width:none]',
         className,
       )}
       {...props}
@@ -37,7 +42,7 @@ export function TabsTab({ className, ...props }: ComponentProps<typeof SdkTabsTa
   return (
     <SdkTabsTab
       className={mergeClassName(
-        '-mb-px flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-start gap-1.5 border-b-2 border-transparent px-0.5 text-label font-medium whitespace-nowrap text-ink-dim transition-colors outline-none hover:text-ink focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-accent md:min-h-9 md:min-w-0 data-[disabled]:cursor-not-allowed data-[disabled]:text-ink-dim data-[disabled]:hover:text-ink-dim data-[selected]:border-accent data-[selected]:font-semibold data-[selected]:text-ink-bright',
+        'flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-start gap-1.5 border-b-2 border-transparent px-0.5 text-label font-medium whitespace-nowrap text-ink-dim transition-colors outline-none hover:text-ink focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-accent md:min-h-9 md:min-w-0 data-[disabled]:cursor-not-allowed data-[disabled]:text-ink-dim data-[disabled]:hover:text-ink-dim data-[selected]:border-accent data-[selected]:font-semibold data-[selected]:text-ink-bright',
         className,
       )}
       {...props}

@@ -257,6 +257,7 @@ export function WorkTab({
   const isProject = record.type === 'project';
   const projectKey = projectKeyOf(record.id);
   const legend = record.distribution === undefined ? '' : distributionLegend(record.distribution);
+  const health = isProject && findings > 0;
   return (
     <div className="flex flex-col">
       {record.distribution !== undefined && taskCount(record) > 0 && (
@@ -265,7 +266,7 @@ export function WorkTab({
           {legend !== '' && <p className="mt-2 text-meta text-ink-dim">{legend}</p>}
         </div>
       )}
-      {isProject && findings > 0 && (
+      {health && (
         <div className="border-y border-line">
           <RowGroup
             label="Record health"
@@ -279,7 +280,8 @@ export function WorkTab({
           />
         </div>
       )}
-      <div className="mt-8">
+      {/* The sections' own 16 top margin, after the legend's 12, sets them 28 below it. */}
+      <div className={cn(health && 'mt-8')}>
         <WorkBody
           record={record}
           projectKey={projectKey}
@@ -324,14 +326,14 @@ function DetailsSection({
 /**
  * A link to a related record: its ID in mono at the line's size, its title,
  * then its status at the right in the header's idiom, the dot right before a
- * bright word.
+ * bright word. Its hairline above runs straight to the column's edges.
  */
 function RelationRow({ refNode }: { refNode: NodeRef }) {
   return (
     <Link
       {...nodeLink(refNode.id)}
       className={cn(
-        '-mx-1 flex min-h-11 min-w-0 items-center gap-2 rounded-md border-t border-line px-1 text-label text-ink transition-colors hover:bg-well-800 md:min-h-9',
+        'flex min-h-11 min-w-0 items-center gap-2 border-t border-line text-label text-ink transition-colors hover:bg-well-800 md:min-h-9',
         FEED_FOCUS_RING,
       )}
     >

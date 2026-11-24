@@ -34,7 +34,7 @@ import { Separator } from '../ui/separator';
  * Action menu (ADR 0019, MMR-736): use it for a list of actions, including a
  * record's More, and for the one Choice a list may hold (the theme, as menu
  * radio items). From `md` up it is a menu anchored to its trigger; below `md`
- * it is a bottom Sheet with 44px rows and a Cancel row. The pattern makes that switch, so no
+ * it is a bottom Sheet with 44px rows and a Cancel row, its top edge the sheet seam. The pattern makes that switch, so no
  * feature builds both. A plain action closes it; a radio item keeps it open.
  * Focus returns to the trigger on close; an action that opens a confirm needs
  * nothing more, as the confirm takes focus from the trigger and gives it back.
@@ -166,7 +166,10 @@ export function ActionMenu({
     <Drawer side="bottom" open={open} onOpenChange={(next) => setOpen(next)}>
       <DrawerTrigger render={trigger} />
       <DrawerBackdrop />
-      <DrawerContent finalFocus={finalFocus} className="gap-1 p-3">
+      <DrawerContent
+        finalFocus={finalFocus}
+        className="gap-1 border-sheet-seam p-3 light:elevation-sheet-up"
+      >
         <div className="px-3 pb-2">
           <DrawerTitle>{title}</DrawerTitle>
           {description !== undefined && <DrawerDescription>{description}</DrawerDescription>}
