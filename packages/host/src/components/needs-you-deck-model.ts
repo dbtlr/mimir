@@ -53,6 +53,10 @@ export type NeedsYouCard = {
   id: string;
   /** The project's name after the ID; a project missing from the report shows its key. */
   project?: string;
+  /** The project's key, which the Needs you page groups the cards by (MMR-723). */
+  projectKey: string;
+  /** The records in the set the card holds: one, or a bundle's decisions. */
+  records: number;
   title: string;
   detail?: string;
   /** The instant the card's age counts from. */
@@ -103,7 +107,7 @@ function phaseFact(phase: { id: string; title: string | null }): NeedsYouFact {
 
 function deliveryBundle(
   bundle: Bundle & { set: { kind: 'delivery' } },
-  { facts, project }: { facts: Facts; project: string },
+  { facts, project, projectKey }: { facts: Facts; project: string; projectKey: string },
 ): NeedsYouCard {
   const { id } = bundle.set;
   const entry = facts.deliveries.find((each) => each.id === id);
@@ -123,6 +127,8 @@ function deliveryBundle(
       },
     },
     project,
+    projectKey,
+    records: bundle.count,
     title: entry?.title ?? `Decisions on ${id}`,
   };
 }
@@ -153,13 +159,20 @@ function projectBundle(
       },
     },
     project: name,
+    projectKey: key,
+    records: bundle.count,
     title: `${name ?? key} decisions without a delivery`,
   };
 }
 
 function stoppedDelivery(
   { delivery }: DeliveryRow,
-  { facts, project, waiting }: { facts: Facts; project: string; waiting: number },
+  {
+    facts,
+    project,
+    projectKey,
+    waiting,
+  }: { facts: Facts; project: string; projectKey: string; waiting: number },
 ): NeedsYouCard {
   const reason = delivery.hold_reason?.trim() ?? '';
   const split = reason === '' ? undefined : firstSentence(reason);
@@ -198,6 +211,8 @@ function stoppedDelivery(
       ...(split?.rest === undefined ? {} : { text: split.rest }),
     },
     project,
+    projectKey,
+    records: 1,
     title: delivery.title,
   };
 }
@@ -215,7 +230,10 @@ function factsOfTask(task: TaskRow['task']): NeedsYouFact[] {
   ];
 }
 
-function taskCard(row: TaskRow, project: string): NeedsYouCard {
+function taskCard(
+  row: TaskRow,
+  { project, projectKey }: { project: string; projectKey: string },
+): NeedsYouCard {
   const { task } = row;
   const asks = row.reason === 'needs_answers';
   const said = asks ? row.question : (task.holdReason ?? null);
@@ -246,6 +264,8 @@ function taskCard(row: TaskRow, project: string): NeedsYouCard {
       },
     },
     project,
+    projectKey,
+    records: 1,
     title: task.title,
   };
 }
@@ -325,14 +345,48 @@ export function needsYouCards(report: ReviewReport): NeedsYouCard[] {
       const { bundle } = each;
       const { set } = bundle;
       return set.kind === 'delivery'
-        ? deliveryBundle({ ...bundle, set }, { facts, project })
+        ? deliveryBundle({ ...bundle, set }, { facts, project, projectKey: each.project })
         : projectBundle({ ...bundle, set }, { facts, name });
     }
     const { row } = each;
     if (row.kind === 'delivery') {
       const waiting = bundles.get(entryName({ id: row.delivery.id, kind: 'delivery' }))?.count ?? 0;
-      return stoppedDelivery(row, { facts, project, waiting });
+      return stoppedDelivery(row, { facts, project, projectKey: each.project, waiting });
     }
-    return taskCard(row, project);
+    return taskCard(row, { project, projectKey: each.project });
   });
+}
+
+/** One project's cards on the Needs you page, in the set's order, and the records they hold. */
+export type NeedsYouSection = {
+  key: string;
+  /** The project's name; a project missing from the report's `projects` shows its key. */
+  name: string;
+  cards: NeedsYouCard[];
+  records: number;
+};
+
+/**
+ * The Needs you page's sections (ADR 0019, MMR-723 refinement: The list):
+ * one per project, placed at its first card's place in the set's one order,
+ * its cards following in that order. A project with no card has no section.
+ */
+export function needsYouSections(report: ReviewReport): NeedsYouSection[] {
+  const names = new Map(report.projects.map((project) => [project.key, project.name]));
+  const sections = new Map<string, NeedsYouSection>();
+  for (const card of needsYouCards(report)) {
+    const held = sections.get(card.projectKey);
+    if (held === undefined) {
+      sections.set(card.projectKey, {
+        cards: [card],
+        key: card.projectKey,
+        name: names.get(card.projectKey) ?? card.projectKey,
+        records: card.records,
+      });
+    } else {
+      held.cards.push(card);
+      held.records += card.records;
+    }
+  }
+  return [...sections.values()];
 }
