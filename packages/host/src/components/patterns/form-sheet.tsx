@@ -23,16 +23,14 @@ import {
   useDrawerSide,
 } from '../ui/drawer';
 import { Field, FieldDescription, FieldLabel, FieldOptional, FORM_PROSE_CLASS } from '../ui/field';
-import { CloseIcon } from '../ui/icons';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
-import { BLOCK_PROPS, BLOCK_SELECTOR } from './form-block';
+import { BLOCK_PROPS } from './form-block';
 import { useFinalFocus } from './opener';
 import type { FinalFocus } from './opener';
 import { useOpening } from './opening';
 import { RecordPicker } from './record-picker';
-import { restsOf, useRestingBody } from './resting-body';
-import type { MeasuredRests } from './resting-body';
+import { SHEET_FOOTER_CLASS, SheetBody, SheetClose } from './sheet-chrome';
 
 /*
  * Form sheet (ADR 0019, MMR-736): use it to create or edit a record with
@@ -55,44 +53,6 @@ import type { MeasuredRests } from './resting-body';
 const FOCUSABLE =
   'input:not([type=hidden]):not(:disabled), textarea:not(:disabled), select:not(:disabled), button:not(:disabled), [tabindex]:not([tabindex="-1"])';
 
-/** How far a negative margin on an element pulls its edge in, in px. */
-function pulled(element: Element | null, side: 'marginTop' | 'marginBottom'): number {
-  if (element === null) {
-    return 0;
-  }
-  const margin = Number.parseFloat(getComputedStyle(element)[side]);
-  return Number.isNaN(margin) ? 0 : Math.max(0, -margin);
-}
-
-/**
- * The form's blocks (`BLOCK_SELECTOR`), measured in the body's scroll space,
- * and the rests they make. The Filter sheet's body rests by the same blocks.
- */
-export function measureRests(element: HTMLElement): MeasuredRests {
-  const origin = element.getBoundingClientRect().top - element.scrollTop;
-  const blocks = [...element.querySelectorAll<HTMLElement>(BLOCK_SELECTOR)];
-  const extents = blocks.map((block) => {
-    const rect = block.getBoundingClientRect();
-    const first = block.firstElementChild;
-    return {
-      bottom:
-        rect.bottom -
-        origin -
-        Math.max(pulled(block, 'marginBottom'), pulled(first, 'marginBottom')),
-      top: rect.top - origin + Math.max(pulled(block, 'marginTop'), pulled(first, 'marginTop')),
-    };
-  });
-  const content = element.lastElementChild;
-  const last = blocks.at(-1);
-  const contentFollows =
-    content !== null &&
-    last !== undefined &&
-    content.getBoundingClientRect().bottom - last.getBoundingClientRect().bottom > 1;
-  const topPadding = Number.parseFloat(getComputedStyle(element).paddingTop);
-  const rests = restsOf(extents, contentFollows, Number.isNaN(topPadding) ? 0 : topPadding);
-  return { blocks, extents, origin, rests };
-}
-
 /**
  * The scrolling body, which rests by the Sheets rule (`useRestingBody`) over
  * the form's blocks. It mounts with the sheet's content, so it measures what
@@ -107,24 +67,20 @@ function FormBody({
   onScrolled: (scrolled: boolean) => void;
   children: ReactNode;
 }) {
-  const room = useRestingBody({ body, measure: measureRests });
-
   useEffect(() => {
     onScrolled(false);
   }, [onScrolled]);
 
   return (
-    <div
-      ref={body}
-      data-slot="form-sheet-body"
+    <SheetBody
+      body={body}
+      slot="form-sheet-body"
       onScroll={(event) => {
         onScrolled(event.currentTarget.scrollTop > 0);
       }}
-      style={room > 0 ? { paddingBottom: `calc(var(--form-body-end) + ${String(room)}px)` } : {}}
-      className="relative min-h-0 flex-1 overflow-y-auto px-5 pt-6 pb-(--form-body-end) [--form-body-end:2rem] md:px-8 md:pt-8 md:[--form-body-end:2.5rem]"
     >
-      <div className="flex flex-col gap-6">{children}</div>
-    </div>
+      {children}
+    </SheetBody>
   );
 }
 
@@ -261,22 +217,14 @@ export function FormSheet({
                 </DrawerDescription>
               )}
             </div>
-            <button
-              type="button"
-              aria-label="Close"
-              disabled={busy}
-              onClick={onClose}
-              className="-my-2 inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-ink-dim transition-colors hover:bg-line hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40 md:-my-1 md:size-9"
-            >
-              <CloseIcon className="size-5 md:size-[18px]" />
-            </button>
+            <SheetClose disabled={busy} onClick={onClose} className="-my-2 md:-my-1" />
           </header>
           <FormBody body={body} onScrolled={setScrolled}>
             <FormSheetBusy.Provider value={busy}>{children}</FormSheetBusy.Provider>
           </FormBody>
           <div
             data-slot="form-sheet-footer"
-            className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-t border-line bg-well-850 px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:flex-nowrap md:justify-end md:px-8 md:py-4"
+            className={SHEET_FOOTER_CLASS}
           >
             {note !== undefined && (
               <p
