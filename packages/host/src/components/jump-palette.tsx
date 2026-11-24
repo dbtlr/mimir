@@ -203,7 +203,8 @@ export function SidebarJumpTo({ onJump }: { onJump?: () => void }) {
         }
       }}
       className={cn(
-        'mb-3 flex w-full items-center gap-2 rounded-lg border border-ink-dim bg-well-850 px-3 text-label font-normal text-ink-dim transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+        // 10 below, plus the sidebar's 2 row gap: DESIGN.md's 12 above the switcher.
+        'mb-2.5 flex w-full items-center gap-2 rounded-lg border border-ink-dim bg-well-850 px-3 text-label font-normal text-ink-dim transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         inDrawer ? 'min-h-11' : 'min-h-9',
       )}
     >
