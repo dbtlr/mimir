@@ -679,6 +679,32 @@ describe('container page (MMR-450)', () => {
     );
   });
 
+  it('disables New task and Edit direction… while offline', async () => {
+    serve(phase);
+    failNotes();
+    await renderRoute(consoleRoutes, '/p/MMR/2', quietClient());
+
+    await screen.findByText(/Offline/);
+    expect(within(await header()).getByRole('button', { name: 'New task' })).toBeDisabled();
+    const sheet = await openMore();
+    expect(within(sheet).getByRole('button', { name: 'Edit direction…' })).toBeDisabled();
+  });
+
+  it('returns focus to More when Edit direction… closes', async () => {
+    serve(phase);
+    await renderRoute(consoleRoutes, '/p/MMR/2', quietClient());
+
+    await chooseMore('Edit direction…');
+    await screen.findByRole('textbox', { name: 'Direction text' });
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'More' })).toHaveFocus();
+    });
+  });
+
   it('lists what it depends on and what it blocks in Details, each status a dot and a bright word', async () => {
     serve({
       ...phase,

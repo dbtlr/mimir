@@ -4,6 +4,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, vi } from 'vitest';
 
+import { list } from '../api/fns/browse';
 import { getNode } from '../api/fns/nodes';
 import { consoleRoutes } from '../router';
 import { seedIn } from './browse-fixtures';
@@ -150,6 +151,28 @@ describe('project page (MMR-450, MMR-470, MMR-726)', () => {
     expect(tabNames()).toStrictEqual(['Work ', 'Tasks ', 'Seeds 1', 'Artifacts 1', 'Details ']);
   });
 
+  it('shows Seeds with no count while every seed is settled', async () => {
+    serveProject();
+    serveBrowse({ seeds: [seedIn('settled', { id: 'MMR-s2', project: 'MMR' })] });
+    await renderRoute(consoleRoutes, '/p/MMR', quietClient());
+
+    await screen.findByRole('tab', { name: /Seeds/ });
+    expect(tabNames()).toStrictEqual(['Work ', 'Tasks ', 'Seeds ', 'Details ']);
+  });
+
+  it('moves focus along its tabs with the arrow keys without opening the browsers', async () => {
+    serveProject();
+    const { router: testRouter } = await renderRoute(consoleRoutes, '/p/MMR', quietClient());
+
+    const work = await screen.findByRole('tab', { name: 'Work' });
+    work.focus();
+    await userEvent.keyboard('{ArrowRight}');
+
+    expect(screen.getByRole('tab', { name: 'Tasks' })).toHaveFocus();
+    expect(testRouter.state.location.pathname).toBe('/p/MMR');
+    expect(screen.getByRole('tab', { name: 'Work', selected: true })).toBeDefined();
+  });
+
   it('opens Details at ?tab=details, from a reload too, with the Direction editable and the description in full', async () => {
     serveProject();
     await renderRoute(consoleRoutes, '/p/MMR?tab=details', quietClient());
@@ -229,6 +252,21 @@ describe('project page (MMR-450, MMR-470, MMR-726)', () => {
     ).toStrictEqual(['Edit', 'Edit direction…', 'Cancel']);
     await userEvent.click(within(more).getByRole('button', { name: 'Edit' }));
     await expect(screen.findByLabelText(/title/i)).resolves.toHaveValue('Mimir');
+  });
+
+  it('disables Edit, Edit direction…, and New task in its header while offline', async () => {
+    serveProject();
+    vi.mocked(list).mockRejectedValue(new TypeError('fetch failed'));
+    await renderRoute(consoleRoutes, '/p/MMR/tasks', quietClient());
+
+    await screen.findByText(/Offline/);
+    const title = await screen.findByRole('heading', { level: 1, name: 'Mimir' });
+    const header = title.closest('header') as HTMLElement;
+    expect(within(header).getByRole('button', { name: 'New task' })).toBeDisabled();
+    await userEvent.click(within(header).getByRole('button', { name: 'More' }));
+    const more = await screen.findByRole('dialog', { name: 'Mimir' });
+    expect(within(more).getByRole('button', { name: 'Edit' })).toBeDisabled();
+    expect(within(more).getByRole('button', { name: 'Edit direction…' })).toBeDisabled();
   });
 
   it.each([
