@@ -309,7 +309,12 @@ export function RecordHeader({
       <h1 className="min-w-0 text-dossier leading-6 font-bold tracking-[-0.01em] text-pretty wrap-anywhere text-ink-bright md:text-header md:leading-7">
         {title}
       </h1>
-      <FeedStatusLine className="col-span-full mt-2" lead={status} type={type} recordId={recordId} />
+      <FeedStatusLine
+        className="col-span-full mt-2"
+        lead={status}
+        type={type}
+        recordId={recordId}
+      />
       {/* Keyed by the text, so a new summary measures its own clamp afresh. */}
       {text !== '' && <RecordSummary key={text} text={text} />}
       {chips !== undefined && chips !== null && (

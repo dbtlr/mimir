@@ -133,7 +133,9 @@ describe('a task id in the project segment', () => {
   it.each(['', '/tasks', '/seeds', '/artifacts'])(
     '/p/MMR-5%s shows the project-unavailable page, not the task as a project',
     async (view) => {
-      serveNodes({ nodes: [MMR, NRN, engineTask({ id: 'MMR-5', title: 'A task, not a project' })] });
+      serveNodes({
+        nodes: [MMR, NRN, engineTask({ id: 'MMR-5', title: 'A task, not a project' })],
+      });
       await renderAt(`/p/MMR-5${view}`);
       await expect(
         screen.findByRole('heading', { level: 1, name: 'Project unavailable' }),
