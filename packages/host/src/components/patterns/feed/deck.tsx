@@ -1,5 +1,4 @@
 import {
-  useCallback,
   useEffect,
   useId,
   useImperativeHandle,
@@ -12,10 +11,11 @@ import type { ComponentProps, KeyboardEvent, ReactNode, Ref, RefObject } from 'r
 import { flushSync } from 'react-dom';
 
 import { cn } from '../../../lib/cn';
-import { ActionButton } from '../../ui/action-button';
 import { useDrawerSide } from '../../ui/drawer';
 import { SwipeTrack } from '../../ui/swipe-track';
 import { FeedCard } from './card';
+import { cardElement, useCardActions } from './card-actions';
+import type { CardAction, CardPress, CardWrite } from './card-actions';
 import { cardButton } from './card-button';
 import { CardGrid } from './card-grid';
 import {
@@ -46,36 +46,14 @@ import { SectionHead } from './section-head';
 /** A card's content: the feed card's own fields, less what the deck supplies. */
 export type DeckCardContent = Omit<ComponentProps<typeof FeedCard>, 'previewKey' | 'action'>;
 
-/**
- * A write's progress, reported by the action that runs it. While it is in
- * flight the card's button and its preview's action are `aria-disabled`.
- * `landed` settles it: the card leaves only when the refreshed set drops it.
- * `refused` settles it too, and returns focus to the pressed control while
- * focus is still in that card or its preview.
- */
-export type DeckWrite = { start: () => void; landed: () => void; refused: () => void };
+/** A write's progress (`CardWrite`), as the deck's cards report it. */
+export type DeckWrite = CardWrite;
 
-/** A press on a card's action, from the card or from its preview's footer. */
-export type DeckPress = {
-  from: 'card' | 'preview';
-  /** The card's own button: the opener a next surface returns focus to. */
-  button: HTMLElement | null;
-  write: DeckWrite;
-};
+/** A press on a card's action (`CardPress`). */
+export type DeckPress = CardPress;
 
-/**
- * A card's one action. A `write` runs in place (_Clear stop_), so its preview
- * stays open while it is in flight; a `dialog` opens a dialog (_Answer…_);
- * both are `aria-disabled` offline and in flight. `navigate` opens another
- * surface (_Review N decisions_) and stays live offline.
- */
-export type DeckAction = {
-  kind: 'write' | 'dialog' | 'navigate';
-  label: string;
-  /** The accessible name, when the label alone does not say what it acts on. */
-  name?: string;
-  run: (press: DeckPress) => void;
-};
+/** A card's one action (`CardAction`). */
+export type DeckAction = CardAction;
 
 /** One card in the deck: its identity (never its index), its content, and its preview's key. */
 export type DeckCard = {
@@ -137,124 +115,22 @@ const SLOT = [
 const TARGET = '[data-slot="feed-card-target"]';
 const PANEL = '[data-slot="drawer-content"]';
 
+/** The attribute that carries a deck card's identity. */
+const IDENTITY = 'data-deck-card';
+
 /** The deck's card element for an identity. */
-function cardElement(root: HTMLElement | null, key: string): HTMLElement | null {
-  for (const element of root?.querySelectorAll<HTMLElement>('[data-deck-card]') ?? []) {
-    if (element.dataset.deckCard === key) {
-      return element;
-    }
-  }
-  return null;
+function deckCard(root: HTMLElement | null, key: string): HTMLElement | null {
+  return cardElement(root, IDENTITY, key);
 }
 
 export function FeedDeck({ cards, preview, offline = false, ref, ...rest }: FeedDeckProps) {
-  const [pending, setPending] = useState<ReadonlySet<string>>(() => new Set());
-  // The card whose dialog is open, from the press that opened it, which in
-  // Safari focuses nothing; its return (`restoreFocus`) settles it.
-  const [dialogCard, setDialogCard] = useState<string | null>(null);
   const root = useRef<HTMLElement | null>(null);
   const quietLine = useRef<HTMLParagraphElement>(null);
-
-  const settle = useCallback((key: string) => {
-    setPending((current) => {
-      const next = new Set(current);
-      next.delete(key);
-      return next;
-    });
-  }, []);
-
-  const blocked = useCallback(
-    (card: DeckCard) =>
-      card.action !== undefined &&
-      card.action.kind !== 'navigate' &&
-      (offline || pending.has(card.key)),
-    [offline, pending],
-  );
-
-  const press = useCallback(
-    (card: DeckCard, from: DeckPress['from'], button: HTMLElement | null) => {
-      const pressed = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      const write: DeckWrite = {
-        landed: () => {
-          settle(card.key);
-        },
-        refused: () => {
-          settle(card.key);
-          const active = document.activeElement;
-          const panel = pressed?.closest(PANEL) ?? null;
-          const stillThere =
-            active !== null &&
-            (cardElement(root.current, card.key)?.contains(active) === true ||
-              panel?.contains(active) === true);
-          if (stillThere && pressed?.isConnected === true) {
-            pressed.focus();
-          }
-        },
-        start: () => {
-          setPending((current) => new Set(current).add(card.key));
-        },
-      };
-      if (card.action?.kind === 'dialog') {
-        setDialogCard(card.key);
-      }
-      card.action?.run({ button, from, write });
-    },
-    [settle],
-  );
-
-  const byPreview = useMemo(() => new Map(cards.map((card) => [card.previewKey, card])), [cards]);
-
-  const previewOf = useCallback(
-    (previewKey: string): Preview | undefined => {
-      const card = byPreview.get(previewKey);
-      const base = card === undefined ? undefined : preview(previewKey);
-      const action = card?.action;
-      if (card === undefined || base === undefined || action === undefined) {
-        return base;
-      }
-      return {
-        ...base,
-        action: {
-          disabled: blocked(card),
-          keepsOpen: action.kind === 'write',
-          label: action.label,
-          name: action.name,
-          onAction: (button) => {
-            press(card, 'preview', button);
-          },
-        },
-      };
-    },
-    [blocked, byPreview, preview, press],
-  );
-
-  const actionOf = (card: DeckCard): ReactNode => {
-    const { action } = card;
-    if (action === undefined) {
-      return undefined;
-    }
-    const off = blocked(card);
-    return (
-      <ActionButton
-        size="form"
-        variant="formOutline"
-        className="md:h-9"
-        aria-label={action.name}
-        aria-disabled={off ? true : undefined}
-        onClick={(event) => {
-          if (!off) {
-            press(card, 'card', event.currentTarget);
-          }
-        }}
-      >
-        {action.label}
-      </ActionButton>
-    );
-  };
+  const actions = useCardActions({ cards, identity: IDENTITY, offline, preview, root });
 
   return (
     <FeedPreview
-      preview={previewOf}
+      preview={actions.preview}
       fallbackFocus={() =>
         root.current?.querySelector<HTMLElement>(`[data-current] ${TARGET}`) ?? quietLine.current
       }
@@ -262,11 +138,9 @@ export function FeedDeck({ cards, preview, offline = false, ref, ...rest }: Feed
       <DeckBody
         {...rest}
         cards={cards}
-        actionOf={actionOf}
-        dialogCard={dialogCard}
-        onDialogReturn={(key) => {
-          setDialogCard((open) => (open === key ? null : open));
-        }}
+        actionOf={actions.button}
+        dialogCard={actions.dialogCard}
+        onDialogReturn={actions.dialogReturned}
         handle={ref}
         root={root}
         quietLine={quietLine}
@@ -453,7 +327,7 @@ function DeckBody({
   }, [root]);
 
   const focusIn = (key: string, part: 'button' | 'target') => {
-    const card = cardElement(root.current, key);
+    const card = deckCard(root.current, key);
     const button = part === 'button' ? cardButton(card) : null;
     (button ?? card?.querySelector<HTMLElement>(TARGET))?.focus({ preventScroll: !desktop });
   };
