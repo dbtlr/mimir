@@ -23,8 +23,9 @@ export type RowGroupRow = {
  * minute" rows). A row with no destination is plain: no chevron, no hover
  * fill (MMR-722). A row counting zero is left out. A capped group ends in
  * `more`, a row of the same shape that opens the full list with a filter set.
- * A `framed` group stands alone on a page in a card's frame, as the Shipped
- * summary's breakdown sits in its card (MMR-722, MMR-s110).
+ * A `framed` group is a section's whole block beside a framed section, in a
+ * card's frame as the Shipped summary's breakdown sits in its card (MMR-722,
+ * MMR-780).
  */
 export function RowGroup({
   label,
