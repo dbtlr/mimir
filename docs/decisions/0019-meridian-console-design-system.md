@@ -912,8 +912,9 @@ agent's briefing. The chips stay as MMR-695 defines them.
   on a phone a toast sits 8 below the layer's header, as it sits below the
   console's top bar.
 - When a change removes the focused control and focus falls to the page body,
-  focus moves to the screen's heading except while a commit runs. A control
-  a layout switch remounts, such as the note crossing `md`, keeps focus.
+  focus moves to the screen's heading except while a commit runs. The
+  walkthrough's note, which a layout switch remounts as it crosses `md`, keeps
+  focus (MMR-770); its footer buttons do not yet (MMR-784).
 - The layer uses the console's tokens, so both themes apply.
 
 ### A step
@@ -1266,7 +1267,12 @@ Cancel row) and as an anchored menu from `md` up. The pattern makes that
 switch, so no feature builds both shapes. A feature whose trigger changes
 shape with the width, such as a row that is a full-width button on a phone,
 switches it at the same `md`. An action that ends or removes something wears
-the MMR-635 red hairline in both shapes.
+the MMR-635 red hairline in both shapes. When the row that holds the menu
+leaves, at once or after a refetch, and focus would fall to the page body,
+focus moves on to the next control on the page, else the page's `<main>`
+(2026-11-24, MMR-767). A caller that says where focus goes (`finalFocus`)
+keeps its own rule. This is a second rule beside the MMR-474 row handoff;
+which one the console keeps is an open design pass.
 
 ### The patterns
 
@@ -1604,15 +1610,15 @@ cards, not those rows or the focus queue's card.
   closed and down when open, the day in 14px/500 sans `ink`, and the
   day's count. It opens and closes at once, without the primitive's height
   animation or chevron turn, within §8's motion budget. Days run newest
-  first, as do the rows within a day, and only the latest day starts open. Inside it, finished work is one-line rows, each a link: the
+  first, as do the rows within a day, and only the latest day starts open. Inside it, finished work is rows, each a link: the
   status dot, the title demoted to `ink-dim` (§7, MMR-718), and the time in
   mono. An abandoned row adds a second line with its status word in bright
   ink and its reason, and every row's status is in its accessible text. A
   day with more rows than its cap (the caller's to set) ends in a _Show N
   more_ button that reveals the rest in place and moves focus to the first
-  revealed row. A row that holds focus stays shown when a refetch pushes it
-  past the cap, until focus leaves the day's rows and its _Show N more_ or a
-  refetch drops the row. (2026-11-24, MMR-779: below `md` a finished title takes up to
+  revealed row. (2026-11-24, MMR-761: a row that holds focus stays shown when
+  a refetch pushes it past the cap, until focus leaves the day's rows and its
+  _Show N more_ or a refetch drops the row.) (2026-11-24, MMR-779: below `md` a finished title takes up to
   two lines; from `md` up it keeps one.)
 - **The Shipped summary is a seven-day column chart, then a row group.**
   Each day is one column, with its count above the bar and its short name
