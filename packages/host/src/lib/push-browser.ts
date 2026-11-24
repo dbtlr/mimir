@@ -285,7 +285,9 @@ export function createBrowserPushBrowser(): PushBrowser {
     ready: async () => navigator.serviceWorker.ready,
     requestPermission: async () => Notification.requestPermission(),
     standalone: () =>
-      globalThis.matchMedia('(display-mode: standalone)').matches ||
+      // A server render reads the snapshot too, and it has no matchMedia: not installed.
+      (typeof globalThis.matchMedia === 'function' &&
+        globalThis.matchMedia('(display-mode: standalone)').matches) ||
       ('standalone' in navigator && navigator.standalone === true),
     storage: () => globalThis.localStorage,
     userAgent: navigator.userAgent,
