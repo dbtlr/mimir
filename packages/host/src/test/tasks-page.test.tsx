@@ -814,6 +814,19 @@ describe('tasksPage Filter sheet (MMR-724)', () => {
     expect(filterChip()).toHaveAccessibleName('Filter, 2 applied');
   });
 
+  it('checks every status of a Show option it changes to, dropping the last one’s narrowing', async () => {
+    const { sheet, testRouter, user } = await openSheet(
+      '/p/MMR/tasks?show=in-flight&status=in_progress',
+    );
+    await user.click(within(sheet).getByRole('radio', { name: 'Ready' }));
+    const statuses = within(sheet).getByRole('group', { name: 'Status' });
+    expect(within(statuses).getByRole('checkbox', { name: 'Ready' })).toBeChecked();
+    await user.click(await within(sheet).findByRole('button', { name: 'Show 2 tasks' }));
+    await waitFor(() => {
+      expect(search(testRouter)).toEqual({ show: 'ready' });
+    });
+  });
+
   it('holds its button when no status is checked', async () => {
     const { sheet, user } = await openSheet('/p/MMR/tasks?show=ready');
     await user.click(within(sheet).getByRole('checkbox', { name: 'Ready' }));
