@@ -307,14 +307,19 @@ function DeckBody({
       owner.current = null;
       setFocusCard(null);
     };
-    // Focus that leaves for nothing (a press on the page) lets go; focus lost to a removal does not.
+    // Focus that leaves for nothing (a press on the page) lets go; focus lost to a removal does not,
+    // nor focus a move blurs and React's commit hands back (a refetch that reorders the cards).
     const onFocusOut = (event: FocusEvent) => {
       const { target } = event;
       if (event.relatedTarget !== null || !(target instanceof Element)) {
         return;
       }
       queueMicrotask(() => {
-        if (target.isConnected && owner.current?.element === target) {
+        if (
+          target.isConnected &&
+          document.activeElement !== target &&
+          owner.current?.element === target
+        ) {
           owner.current = null;
           setFocusCard(null);
         }

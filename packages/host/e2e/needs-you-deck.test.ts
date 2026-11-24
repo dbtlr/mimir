@@ -26,10 +26,15 @@ test.afterAll(async () => {
 const PHONE = { height: 844, width: 390 };
 const DESKTOP = { height: 900, width: 1024 };
 
-async function openDeck(page: Page, viewport: { width: number; height: number }, only?: string) {
+async function openDeck(
+  page: Page,
+  viewport: { width: number; height: number },
+  only?: string,
+  query = '',
+) {
   await page.setViewportSize(viewport);
   await page.goto(
-    `${harness.origin}?form=needs-you-deck${only === undefined ? '' : `&only=${only}`}`,
+    `${harness.origin}?form=needs-you-deck${only === undefined ? '' : `&only=${only}`}${query}`,
   );
   await expect(page.getByRole('heading', { name: /Needs you/u })).toBeVisible();
 }
@@ -152,5 +157,32 @@ test.describe('a bundle’s preview', () => {
         expect(Math.round(line.top - before.bottom)).toBe(4);
       }
     }
+  });
+});
+
+test.describe('a refetch that reorders the cards', () => {
+  const targetOf = (page: Page, key: string) =>
+    page.locator(`[data-deck-card="${key}"] [data-slot="feed-card-target"]`);
+
+  /** Replaces the deck's report with the rows in a new queue order, as a refetch would. */
+  async function refetchInOrder(page: Page, ids: readonly string[]) {
+    await page.evaluate((order) => {
+      globalThis.dispatchEvent(new CustomEvent('needs-you-reorder', { detail: order }));
+    }, ids);
+  }
+
+  test('still moves focus on from a card it moved, once that card leaves', async ({ page }) => {
+    await openDeck(page, DESKTOP, undefined, '&refetch');
+    await targetOf(page, 'MMR-1').focus();
+    // MMR-2 now ranks first, so React moves MMR-1's node after it.
+    await refetchInOrder(page, ['MMR-2', 'MMR-1', 'MMR-3']);
+    await expect(page.locator('[data-deck-card]').first()).toHaveAttribute(
+      'data-deck-card',
+      'MMR-2',
+    );
+    await expect(targetOf(page, 'MMR-1')).toBeFocused();
+    await refetchInOrder(page, ['MMR-2', 'MMR-3']);
+    await expect(page.locator('[data-deck-card="MMR-1"]')).toHaveCount(0);
+    await expect(targetOf(page, 'MMR-3')).toBeFocused();
   });
 });
