@@ -912,7 +912,8 @@ agent's briefing. The chips stay as MMR-695 defines them.
   on a phone a toast sits 8 below the layer's header, as it sits below the
   console's top bar.
 - When a change removes the focused control and focus falls to the page body,
-  focus moves to the screen's heading except while a commit runs.
+  focus moves to the screen's heading except while a commit runs. A control
+  a layout switch remounts, such as the note crossing `md`, keeps focus.
 - The layer uses the console's tokens, so both themes apply.
 
 ### A step
