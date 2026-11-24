@@ -311,6 +311,26 @@ function barOrder(layer: HTMLElement): string[] {
   );
 }
 
+/** A viewport that starts on a phone; the call it returns crosses md to desktop. */
+function stubCrossableViewport(): () => void {
+  const listeners = new Set<() => void>();
+  let desktop = false;
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
+    get matches() {
+      return desktop && query === DRAWER_DESKTOP_QUERY;
+    },
+    media: query,
+    removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
+  }));
+  return () => {
+    act(() => {
+      desktop = true;
+      listeners.forEach((listener) => listener());
+    });
+  };
+}
+
 describe('WalkthroughRow', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -339,6 +359,55 @@ describe('WalkthroughRow', () => {
     const note = within(layer).getByRole('textbox', { name: 'Add a note' });
     const back = within(layer).getByRole('button', { name: 'Back' });
     expect(note.parentElement).toBe(back.parentElement);
+  });
+
+  it('keeps focus and the draft in the note when the window crosses md while typing', async () => {
+    const crossMd = stubCrossableViewport();
+    render(<RowHarness />);
+    const layer = await screen.findByRole('dialog');
+    await userEvent.type(within(layer).getByRole('textbox', { name: 'Add a note' }), 'Agr');
+    crossMd();
+    expect(barOrder(layer)).toStrictEqual(['Back', 'Add a note', 'Continue']);
+    const note = within(layer).getByRole('textbox', { name: 'Add a note' });
+    await waitFor(() => expect(note).toHaveFocus());
+    await userEvent.keyboard('eed');
+    expect(note).toHaveValue('Agreed');
+  });
+
+  it('keeps the caret where it was in the note when the window crosses md', async () => {
+    const crossMd = stubCrossableViewport();
+    render(<RowHarness />);
+    const layer = await screen.findByRole('dialog');
+    const phoneNote = within(layer).getByRole<HTMLTextAreaElement>('textbox', {
+      name: 'Add a note',
+    });
+    await userEvent.type(phoneNote, 'Agreed');
+    phoneNote.setSelectionRange(2, 2);
+    crossMd();
+    const note = within(layer).getByRole('textbox', { name: 'Add a note' });
+    await waitFor(() => expect(note).toHaveFocus());
+    await userEvent.keyboard('X');
+    expect(note).toHaveValue('AgXreed');
+  });
+
+  it('keeps a selection in the note when the window crosses md', async () => {
+    const crossMd = stubCrossableViewport();
+    render(<RowHarness />);
+    const layer = await screen.findByRole('dialog');
+    const phoneNote = within(layer).getByRole<HTMLTextAreaElement>('textbox', {
+      name: 'Add a note',
+    });
+    await userEvent.type(phoneNote, 'Agreed');
+    phoneNote.setSelectionRange(0, 6, 'backward');
+    crossMd();
+    const note = within(layer).getByRole<HTMLTextAreaElement>('textbox', { name: 'Add a note' });
+    await waitFor(() => expect(note).toHaveFocus());
+    expect(note).not.toBe(phoneNote);
+    expect([note.selectionStart, note.selectionEnd, note.selectionDirection]).toStrictEqual([
+      0,
+      6,
+      'backward',
+    ]);
   });
 });
 

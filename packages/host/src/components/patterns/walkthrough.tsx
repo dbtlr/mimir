@@ -27,7 +27,59 @@ type WalkthroughState = {
   busy: boolean;
   commit: ReturnType<typeof useOpening>['commit'];
   heading: RefObject<HTMLHeadingElement | null>;
+  note: NoteFocus;
 };
+
+/**
+ * Keeps focus in the screen's note across a remount: a `WalkthroughRow`
+ * crossing `md` swaps its tree, and the note, which held focus, is a new element.
+ */
+type NoteFocus = {
+  attach: (field: HTMLTextAreaElement | null) => void;
+  focused: () => void;
+  blurred: () => void;
+  /** Gives focus to the note again, with the caret or selection it had, when it held focus before it was remounted. */
+  restore: () => void;
+};
+
+function useNoteFocus(): NoteFocus {
+  const field = useRef<HTMLTextAreaElement | null>(null);
+  const held = useRef(false);
+  // The caret or selection of the field a remount detached, for the new field to take.
+  const selection = useRef<Parameters<HTMLTextAreaElement['setSelectionRange']>>([0, 0]);
+  return useMemo(
+    () => ({
+      attach: (attached) => {
+        const detached = field.current;
+        if (attached === null && detached !== null) {
+          selection.current = [
+            detached.selectionStart,
+            detached.selectionEnd,
+            detached.selectionDirection,
+          ];
+        }
+        field.current = attached;
+      },
+      // A remount delivers no blur: a detached note's focusout never reaches React's root. A blur is the user leaving.
+      blurred: () => {
+        held.current = false;
+      },
+      focused: () => {
+        held.current = true;
+      },
+      restore: () => {
+        const note = field.current;
+        if (note === null) {
+          held.current = false;
+        } else if (held.current && note.ownerDocument.activeElement !== note) {
+          note.focus();
+          note.setSelectionRange(...selection.current);
+        }
+      },
+    }),
+    [],
+  );
+}
 
 const WalkthroughContext = createContext<WalkthroughState | null>(null);
 
@@ -102,7 +154,8 @@ export function Walkthrough({
   const holdsFocus = useHoldFocus(heading, busy);
   const top = useRef<HTMLDivElement | null>(null);
   useLayerTopBar(top);
-  const state = useMemo(() => ({ busy, commit, heading }), [busy, commit]);
+  const note = useNoteFocus();
+  const state = useMemo(() => ({ busy, commit, heading, note }), [busy, commit, note]);
   return (
     <WalkthroughContext value={state}>
       <Dialog
@@ -301,7 +354,9 @@ export function WalkthroughBarLine({ children }: { children: ReactNode }) {
  * follows what the eye reads. From `md` up they share one row of three
  * columns. Below `md` the note is a row of its own, first, and the commit
  * fills the row under it beside Back. The two are different trees, chosen by
- * the breakpoint query, never reordered by CSS.
+ * the breakpoint query, never reordered by CSS. Crossing the breakpoint
+ * remounts the note, so a note that had focus takes it back, its draft kept
+ * by the caller.
  */
 export function WalkthroughRow({
   back,
@@ -313,6 +368,11 @@ export function WalkthroughRow({
   children: ReactNode;
 }) {
   const desktop = useMediaQuery(DRAWER_DESKTOP_QUERY);
+  const { note: noteFocus } = useWalkthrough();
+  // After every render: a switch that remounted the note leaves it held but unfocused.
+  useLayoutEffect(() => {
+    noteFocus.restore();
+  });
   if (desktop) {
     return (
       <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-end gap-2">
@@ -569,9 +629,18 @@ export function WalkthroughNote({
   value: string;
   onChange: (value: string) => void;
 }) {
-  const { busy } = useWalkthrough();
+  const { busy, note } = useWalkthrough();
   return (
     <Textarea
+      ref={(field) => {
+        note.attach(field);
+      }}
+      onFocus={() => {
+        note.focused();
+      }}
+      onBlur={() => {
+        note.blurred();
+      }}
       grow
       aria-label={label}
       placeholder={placeholder}
