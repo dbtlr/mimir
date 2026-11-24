@@ -8,6 +8,7 @@
 import * as jestDomMatchers from '@testing-library/jest-dom/matchers';
 import { cleanup } from '@testing-library/react';
 
+import { forgetOpenerFocusRequest } from '../lib/walkthrough-mark';
 import { PINNED_TIME_ZONE } from './global-setup';
 
 // Register jest-dom's matchers by hand instead of importing
@@ -240,6 +241,7 @@ beforeAll(() => {
 
 afterEach(() => {
   cleanup();
+  forgetOpenerFocusRequest();
   const calls = unmocked.calls.splice(0);
   if (calls.length > 0) {
     throw new Error(

@@ -69,6 +69,15 @@ export function linkBackAction(opener: string | undefined, pagePath: string): 'b
  */
 let pendingFocus: Mark | undefined;
 
+/**
+ * Drops the pending request. For tests only: a test that goes back with a
+ * stubbed history never resolves a location, so its request would otherwise
+ * outlive it and turn every later going-back into a no-op.
+ */
+export function forgetOpenerFocusRequest(): void {
+  pendingFocus = undefined;
+}
+
 /** The current history entry's mark, if the walkthrough was opened in-app. */
 export function useOpenerMark(): Mark | undefined {
   return useRouterState({ select: (s) => readMark(s.location.state) });
@@ -79,10 +88,19 @@ export function useOpenerPath(): string {
   return useRouterState({ select: (s) => s.location.pathname });
 }
 
-/** Go back one history entry to the opener, asking it to focus the control the mark names. */
+/**
+ * Go back one history entry to the opener, asking it to focus the control the
+ * mark names. A call while a back's request is pending, from any control, is
+ * ignored: a double click, or Close then the link back, would otherwise go
+ * back past the opener before the first back settles. The next page shown
+ * takes the request, so a back Forward cut short lets the next call go back.
+ */
 export function useBackToOpener(): (mark: Mark) => void {
   const router = useRouter();
   return (mark) => {
+    if (pendingFocus !== undefined) {
+      return;
+    }
     pendingFocus = mark;
     router.history.back();
   };
@@ -165,17 +183,17 @@ function focusNamed(entry: string): void {
  */
 export function useOpenerFocus(): void {
   const resolved = useRouterState({ select: (s) => s.resolvedLocation });
-  const href = resolved?.href;
-  const pathname = resolved?.pathname;
   useEffect(() => {
     // Nothing has shown yet; a request waits for the page it asks for.
-    if (href === undefined) {
+    if (resolved === undefined) {
       return;
     }
+    // Keyed on each resolution, not on a change of href: a Forward that
+    // re-shows the walkthrough at the same href still consumes the request.
     const request = pendingFocus;
     pendingFocus = undefined;
-    if (request !== undefined && request.opener === pathname) {
+    if (request !== undefined && request.opener === resolved.pathname) {
       void focusReturnTarget(request.entry);
     }
-  }, [href, pathname]);
+  }, [resolved]);
 }
