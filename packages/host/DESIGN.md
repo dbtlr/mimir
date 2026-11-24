@@ -12,7 +12,7 @@ Every value is marked:
   and now carried by the primitives and patterns (MMR-743 the Form sheet,
   MMR-718 readable type, MMR-719 the feed blocks, MMR-720 the preview
   panel, MMR-721 the Needs you deck, MMR-722 Home, MMR-723 the Needs you
-  page, MMR-726 the record header). The reason given beside
+  page, MMR-726 the record header, MMR-724 the list page). The reason given beside
   one says what the code did before.
 - **proposed**: missing from or different in the code. Each carries a one-line
   reason and needs the operator's ruling before a primitive adopts it.
@@ -377,7 +377,7 @@ column says otherwise.
 | | Name | `text-title` in ink, a step under a card title's ink-bright, so a door does not read as a work item; two lines at most | **adopted (MMR-719)** |
 | | Count and chevron | 13 / 20 ink-dim, right-aligned; the chevron ink-dim, decoration | **adopted (MMR-719)** |
 | | The capped group's last row | the same row shape, its name in `accent-foreground` ("5 more projects"), underlined on hover, a link to the list with a filter set | **adopted (MMR-719)** |
-| | Plain row | a row with no destination: the same height, key, name, and count, not a link, with no chevron and no hover fill. Home's Shipped rows by project and spare-minute rows, until the list pages give them a destination | **adopted (MMR-722)** |
+| | Plain row | a row with no destination: the same height, key, name, and count, not a link, with no chevron and no hover fill. Home's spare-minute rows that have no list yet (Seeds to triage, Doctor findings), and Ready to start and Going cold when their work spans projects (MMR-724: Shipped's rows by project, and those two rows for one project, are doors into the Tasks list) | **adopted (MMR-722)** |
 | | Framed group | a named option of the row group, for a group that is a section's whole block on a page that pairs it with a framed section (Home's When you have a minute, paired with Shipped this week; it keeps its frame in a week when nothing shipped and Shipped is hidden): it sits in a card's frame, `well-850`, 1px `line` edge, 10 radius, `shadow-card` in light, 16 sides, no top or bottom padding, so the first and last rows' 44 / 36 hold, matching the Shipped summary's card. Any other row group stays unframed | **adopted (MMR-722)**; named option **adopted (MMR-780)** |
 | Day fold | Trigger | a row 44 tall on a phone and 36 on desktop, its chevron at the section head's left edge: the Collapsible primitive's 16 chevron (right when closed, down when open), the day label, the count; it opens at once, with none of the Collapsible primitive's height animation or chevron turn (ADR 0019 §8) | **adopted (MMR-719)** |
 | | Finished row | a link, at least 44 tall on a phone and 36 on desktop: the status dot centred in a 16 column (as the chevron above it), the title `text-title` in ink-dim, two lines at most on a phone and one line from `md`, truncated past that, 8 after it so it lines up with the day label, the time 13 mono ink-dim at the right | **adopted (MMR-719)**; two lines on a phone **adopted (MMR-779)** |
@@ -544,6 +544,42 @@ panel's; the page adds only what is below.
 | Bar edge | a 1px top edge: while the scroller has more below, the overflow cue of the Preview panel's footer (`ink-ghost` in dark, `line-bright` in light, with its upward shadow); once it reaches its end, `line` with no shadow | same | **adopted (MMR-723)** |
 | Room under the last section | 40, Home's column bottom padding (`routes/review.tsx`); the scroller ends at the bar's top edge | 48 | **adopted (MMR-723)** |
 | Empty | the title alone, then the quiet line "Nothing needs you." 32 below it (Quiet line); no sentence, hairline, sections, or bar | same | **adopted (MMR-723)** |
+
+#### List page
+
+One layout for every kind of record's list (ADR 0019's MMR-724 refinement),
+in `src/components/patterns/list-page.tsx`, with the Filter sheet in
+`filter-sheet.tsx` beside it. The Tasks tab is the first; Seeds, Artifacts,
+and Projects follow. Its cards are the Card block's in the Card grid, its
+finished rows the Day fold's, and its preview the Preview panel's.
+
+| Part | Phone (< 768) | Desktop (≥ 768) | Mark |
+| --- | --- | --- | --- |
+| Count line | 13 / 20 `ink-dim`, in words ("9 tasks in flight", "42 finished in the last 7 days"; "50 of 120 …" while a window hides some), 20 below the tabs; its line keeps its height while the read is on its way | 24 below the tabs | **adopted (MMR-724)** |
+| Search | 16 below the count line, on its own row: 44 tall, 6 radius, `well-950`, a 1px `ink-dim` edge on the page ground (accent while focused), a 16 search glyph in `ink-dim`, 15 / 22 text, the placeholder "Search titles and IDs" in `ink-dim`; full width | the width of the Card grid's first track (about 424 in the 900 column, about 394 beside the open panel), full width wherever the grid stacks | **adopted (MMR-724)**: `BrowserSearch`'s `list` variant |
+| Chip row | 8 below the search; chips 8 apart, wrapping. The preset as one chip, then Filter | same | **adopted (MMR-724)** |
+| Chip | a 36 pill, 12 side padding, 14 / 20 at 500 `ink-bright` with a 1px `ink-dim` edge, in a 44 tap area | the 36 pill alone | **adopted (MMR-724)** |
+| Preset chip | the accent wash (`accent/12`, a 1px `accent` edge), its label 600 `accent-foreground`, then a 16 close glyph; the whole chip removes it, named "Remove In flight" | same | **adopted (MMR-724)** |
+| Filter chip | a 16 filter glyph, then "Filter"; with filters applied beyond the preset it takes the preset chip's wash and counts them ("Filter 2"); open, it says so with `aria-expanded` | same | **adopted (MMR-724)** |
+| First group | 32 from the chip row to the first group's head row, or to the first day fold, the gap between groups | same | **adopted (MMR-724)** |
+| Group head | the Section head's name and count (15 / 22 600 `ink-bright`, the count 13 / 20 `ink-dim`) in a 44 row, 12 above its cards; groups 32 apart | a 36 row | **adopted (MMR-724)** |
+| Pinned head | sticks to the top of the page's scroller while its group scrolls under it, as a band in the page's own ground (`well-900`) that reaches past the 14 gutters, so nothing shows at its sides; a 1px `line` hairline under it only while pinned. The next group's head pushes it up as it arrives | the same band past the 20 gutters | **adopted (MMR-724)** |
+| Finished work | the Day folds, straight under the chips with no status heads when the list holds only finished work; under a "Finished" group head after live groups otherwise. Five rows a day before the fold's Show N more | same | **adopted (MMR-724)** |
+| Show N more | the list's one text button: the Day fold's (14 / 20, 500, `accent-foreground`, underlined on hover), 12 below the last row, 44 tall; it names how many the next window adds ("Show 50 more") and stays focusable and `aria-disabled` while that window loads | 36 tall | **adopted (MMR-724)**: was a centred outline "Show more" |
+| Empty | the quiet line "No tasks match." 32 below the chips | same | **adopted (MMR-724)** |
+
+The Filter sheet:
+
+| Part | Phone (< 768) | Desktop (≥ 768) | Mark |
+| --- | --- | --- | --- |
+| Surface | the Content sheet's: a modal bottom sheet over the scrim, content-sized up to 88% of the visible viewport, with its grip | a modal 440 panel from the right over the scrim | **adopted (MMR-724)** |
+| Header | the title "Filter tasks" (17 / 24, 600 `ink-bright`) and the close (a 44 target, a 20 glyph); 12 top and bottom, 20 left; a `line` hairline under it | 20 top and bottom, 32 left; the close a 36 target, an 18 glyph | **adopted (MMR-724)** |
+| Body | 24 top, 32 bottom, 20 sides; fields 24 apart; scrolls between the bars | 32 top, 40 bottom, 32 sides | **adopted (MMR-724)** |
+| Field | its label (14 / 20, 500 ink), 8 above its pills | same | **adopted (MMR-724)** |
+| Pill | a 36 pill in a 44 tap area, at least 36 wide, 12 side padding, 14 / 20 500 `ink-bright` with a 1px `ink-faint` edge (`ink-dim` on hover); checked, the accent wash with its label 600 `accent-foreground`; mono for priorities and sizes; 8 apart | the 36 pill alone, 8 apart both ways | **adopted (MMR-724)** |
+| Fields | Show, one choice (a radio group): the presets, then "Every live task". Status, Priority, Size, and Tag, each several (checkboxes). Status offers the Show option's statuses, each with its dot, all checked when Show changes. Tag shows five pills, and those checked, then "N more". Sort, a Segmented Control (Recent, Priority, Oldest), absent for finished work | same | **adopted (MMR-724)** |
+| Footer | a `line` hairline above; Clear (the form outline) and the commit (the one solid), each 44 tall, sharing the row in equal halves, 12 apart; 12 top, 12 + the home-indicator inset below | Clear then the commit at the right, content width, 12 apart; 16 top and bottom | **adopted (MMR-724)** |
+| Commit | names what it will show, "Show 5 tasks" (singular at one), counted with the list's own read; nothing applies before it. With no status checked it reads "Show 0 tasks" and is disabled | same | **adopted (MMR-724)** |
 
 #### Record header
 
