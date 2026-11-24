@@ -455,6 +455,28 @@ describe('tasksPage Finished windows (MMR-460)', () => {
     ).toStrictEqual(['Finished 0', 'Finished 1', 'Late edit', 'Finished 2']);
   });
 
+  it.each([
+    ['/p/MMR/tasks?status=done', 'done'],
+    ['/p/MMR/tasks?status=abandoned', 'abandoned'],
+    ['/p/MMR/tasks?status=done,abandoned', ['done', 'abandoned']],
+    ['/p/MMR/tasks?show=shipped-week&status=done', 'done'],
+  ])('windows a finished-only selection too: %s', async (url, status) => {
+    mockApi();
+    await renderTasks(url);
+    await waitFor(() => {
+      expect(nodeReads()).toContainEqual(
+        expect.objectContaining({ limit: FINISHED_PAGE_SIZE, status }),
+      );
+    });
+  });
+
+  it('leaves a selection with live statuses in it unbounded', async () => {
+    mockApi();
+    await renderTasks('/p/MMR/tasks?status=ready,done');
+    await screen.findByText('Doctor the wire');
+    expect(nodeReads().map((read) => read.limit)).not.toContain(FINISHED_PAGE_SIZE);
+  });
+
   it('leaves the other views unbounded', async () => {
     mockTerminalApi(finishedTasks(finishedCount));
     await renderTasks();
