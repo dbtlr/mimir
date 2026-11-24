@@ -339,8 +339,11 @@ describe('task page (MMR-449)', () => {
       '—',
       'Abandon…',
     ]);
-    const abandon = within(screen.getByRole('dialog')).getByRole('button', { name: 'Abandon…' });
-    expect(abandon.className).toContain('text-status-blocked-foreground');
+    // The red label as a class of its own, not inside a state selector every row carries.
+    const labelInk = (name: string) =>
+      within(screen.getByRole('dialog')).getByRole('button', { name }).classList;
+    expect(labelInk('Abandon…')).toContain('text-status-blocked-foreground');
+    expect(labelInk('Park for later…')).not.toContain('text-status-blocked-foreground');
   });
 
   it('lists the status changes the main action leaves, before the holds', async () => {
