@@ -181,6 +181,8 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
   const scratchpadRows = useQuery(scratchpadsQuery(projectKey));
   const { tab } = nodeRoute.useSearch();
   const navigate = useNavigate({ from: nodeRoute.fullPath });
+  // The persister may restore an older read after mount, so freshness is by time, not isFetchedAfterMount.
+  const [mountedAt] = useState(() => Date.now());
   const conn = connectivity([node, annotations]);
   useRememberRecord(
     node.data && {
@@ -230,7 +232,14 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
           record={data}
           tree={tree.data}
           offline={offline}
-          container={{ onTab, tab, timeline, timelineCount: feed.length }}
+          container={{
+            onTab,
+            recordReadAt: node.dataUpdatedAt,
+            since: mountedAt,
+            tab,
+            timeline,
+            timelineCount: feed.length,
+          }}
         />
       </>
     );

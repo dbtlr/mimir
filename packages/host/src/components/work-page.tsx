@@ -428,6 +428,12 @@ export type ContainerTabs = {
   /** The Timeline tab's body — the feed and its composer. */
   timeline: ReactNode;
   timelineCount: number;
+  /**
+   * When the record's page mounted, and when its record was last read: a read
+   * from before then may be a cached one that predates what fills a tab.
+   */
+  since: number;
+  recordReadAt: number;
 };
 
 /**
@@ -452,8 +458,9 @@ export function containerTabs(record: EngineNode, timelineCount: number, liveDel
 /**
  * An initiative's or phase's page. The URL names the tab; with none, or one
  * that is hidden, the page opens on the first tab that has something in it
- * and replaces the URL with that tab, so the page stays on it when the
- * hidden one fills, and it reads as chosen.
+ * and, once the reads that decide the tabs are current, replaces the URL with
+ * that tab, so the page stays on it when the hidden one fills, and it reads as
+ * chosen.
  */
 export function ContainerPage({
   record,
@@ -466,23 +473,29 @@ export function ContainerPage({
   offline: boolean;
   container: ContainerTabs;
 }) {
-  // The read Work's Live deliveries makes; until it answers none, Work may hold them.
+  // The read Work's Live deliveries makes, here only while it decides whether
+  // a phase with no tasks has Work; until it answers none, Work may hold them.
+  const deliveriesDecideWork = record.type === 'phase' && taskCount(record) === 0;
   const deliveries = useQuery({
     ...phaseDeliveriesQuery(record.id),
-    enabled: record.type === 'phase',
+    enabled: deliveriesDecideWork,
   });
   const live = record.type === 'phase' && deliveries.data?.length !== 0;
   const tabs = containerTabs(record, container.timelineCount, live);
   const asked = container.tab ?? 'work';
   const tab = tabs.find((t) => t.value === asked)?.value ?? tabs[0]?.value ?? 'details';
+  // The URL takes the shown tab only from reads made since the page mounted.
+  const current =
+    container.recordReadAt >= container.since &&
+    (!deliveriesDecideWork || deliveries.dataUpdatedAt >= container.since);
   const settle = useEffectEvent(() => {
     container.onTab(tab, { replace: true });
   });
   useEffect(() => {
-    if (tab !== asked) {
+    if (tab !== asked && current) {
       settle();
     }
-  }, [tab, asked]);
+  }, [tab, asked, current]);
   return (
     <RecordColumn offline={offline}>
       <ContainerHead record={record} tree={tree} offline={offline} />

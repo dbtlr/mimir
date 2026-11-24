@@ -844,6 +844,39 @@ describe('container page (MMR-450)', () => {
       expect(testRouter.history).toHaveLength(1);
     });
 
+    it('keeps ?tab=artifacts while its cached record predates the artifact, and opens it once read', async () => {
+      const attached = {
+        ...phase,
+        artifacts: [{ createdAt: new Date(), id: 'MMR-a3', tags: [], title: 'Dialect spec' }],
+      };
+      serve(attached, withNote);
+      const served = vi.mocked(getNode).getMockImplementation();
+      let release: () => void = () => {};
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      vi.mocked(getNode).mockImplementation(async (options) => {
+        if (options.data.id === 'MMR-2' && options.data.facets?.length !== 1) {
+          await held;
+        }
+        return served!(options);
+      });
+      const client = quietClient();
+      client.setQueryData(['node', 'MMR-2'], phase, { updatedAt: Date.now() - 60_000 });
+      const { router: testRouter } = await renderRoute(
+        consoleRoutes,
+        '/p/MMR/2?tab=artifacts',
+        client,
+      );
+
+      // The cached record shows the first tab with something in it at once.
+      await screen.findByRole('tab', { name: 'Work', selected: true });
+      release();
+
+      await screen.findByRole('tab', { name: 'Artifacts 1', selected: true });
+      expect(testRouter.state.location.searchStr).toBe('?tab=artifacts');
+    });
+
     it('arrow keys move between the tabs', async () => {
       serve(phase, withNote);
       await renderRoute(consoleRoutes, '/p/MMR/2', quietClient());

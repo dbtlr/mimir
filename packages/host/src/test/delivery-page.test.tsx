@@ -6,6 +6,8 @@ import { screen, within, waitFor, fireEvent } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
+import { POLL_MS } from '../api/queries';
+import { createQueryClient } from '../api/query-client';
 import {
   confirm,
   overturn,
@@ -337,6 +339,39 @@ test('a phase with no tasks still shows its live delivery card, on Work', async 
   const cards = await screen.findByRole('region', { name: 'Live deliveries' });
   expect(within(cards).getByRole('link', { name: /Deliver the console/ })).toBeInTheDocument();
   expect(screen.getByRole('tab', { name: 'Work', selected: true })).toBeInTheDocument();
+});
+
+// A cached empty list may predate a delivery agreed since; only a current read hides Work for good.
+test('a phase with no tasks keeps Work in its URL until its delivery read is current', async () => {
+  const page = fixture();
+  serveNodes({ nodes: [{ ...page.phase, distribution: {} }] });
+  let answer: (rows: Awaited<ReturnType<typeof phaseDeliveries>>) => void = () => {};
+  vi.mocked(phaseDeliveries).mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+  );
+  const client = createQueryClient();
+  client.setQueryData(['nodes', 'deliveries', 'MMR-2'], [], { updatedAt: Date.now() - 12_000 });
+  const { router } = await renderRoute(consoleRoutes, '/p/MMR/2', client);
+  await screen.findByRole('tab', { name: 'Details', selected: true });
+  await waitFor(() => expect(phaseDeliveries).toHaveBeenCalled());
+  expect(router.state.location.searchStr).toBe('');
+  answer([{ delivery: { ...page.delivery, hold: 'none', lifecycle: 'agreed' }, members: [] }]);
+  await screen.findByRole('tab', { name: 'Work', selected: true });
+  expect(router.state.location.searchStr).toBe('');
+});
+
+// Work's own cards read the deliveries; the page reads them only while they decide Work's tab.
+test('a phase with tasks reads no deliveries off its Work tab', async () => {
+  const page = fixture();
+  serveNodes({ nodes: [{ ...page.phase, distribution: { ready: 1 } }] });
+  await renderRoute(consoleRoutes, '/p/MMR/2?tab=timeline', createQueryClient());
+  await screen.findByRole('tab', { name: /Timeline/, selected: true });
+  expect(screen.getByRole('tab', { name: 'Work' })).toBeInTheDocument();
+  await vi.advanceTimersByTimeAsync(POLL_MS + 100);
+  expect(phaseDeliveries).not.toHaveBeenCalled();
 });
 
 test('the alert marks this delivery and its decision omits a delivery self-link', async () => {
