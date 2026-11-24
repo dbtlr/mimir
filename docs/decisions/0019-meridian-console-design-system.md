@@ -318,6 +318,9 @@ operator out of the project they are in. §9's "the top-bar alert is a link to
   count badge carries the decision count, and the alert is absent when there
   are no decisions. The popover lists the same set the badge counts.
 
+(2026-11-24, MMR-723: revised; the popover and sheet retire, and the alert
+links to the Needs you page.)
+
 ## Refinement (2026-10-13, MMR-504): the project listing orders by pin, then activity
 
 The MMR-476 refinement says the review page's project list uses the decisions
@@ -2418,15 +2421,19 @@ the alert) carry a dated note where they stand.
   preview's scroll or by focus, is whole above it. The room under the
   last section is Home's column bottom padding alone (40 on a phone, 48
   from `md`). The bar takes no safe-area inset of its own: the footer
-  strip (about 23 tall, with no inset) lies between it and the screen's
+  strip (about 27 tall, with no inset) lies between it and the screen's
   edge, so the button clears a phone's home indicator by the bar's 12
-  bottom padding plus the strip, about 35 against a 34 inset. Its top edge is the overflow cue while the scroller
+  bottom padding plus the strip, about 39 against a 34 inset. Its top edge is the overflow cue while the scroller
   has more below, and a plain hairline once it reaches its end, as the
   preview's footer behaves (MMR-720).
 - **A desktop Notice floats over the bar** as it floats over any content
   (DESIGN.md, Content under a Notice): it sits 20 above the footer strip at
-  the left gutter, over the bar's note, for its few seconds, and the bar
-  does not move for it.
+  the content area's left gutter, over the bar's left end, for its few
+  seconds, and the bar does not move for it.
+- **_Work through all_ is a return target.** Its button carries the
+  MMR-714 return-target attribute with the name `needs-you:work-through`,
+  outside the `delivery:` and `project:` names of the sets, so the queue's
+  return (ADR 0013, MMR-723 refinement) lands on it.
 - **With the preview open on desktop** the bar spans the room left of the
   panel, where the column sits; the panel keeps its own footer.
 
