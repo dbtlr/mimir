@@ -5,7 +5,12 @@ import { notFound, projectNotFound, validation } from '../errors';
 import type { ExportedSeed } from '../export';
 import { renderSeedRef } from '../ids';
 import type { SeedRecord, SeedStore } from '../seeds/store';
-import { assertLiveSeed, canTransitionSeed, seedEdgesHint } from '../seeds/store';
+import {
+  TERMINAL_SEED_LIFECYCLES,
+  assertLiveSeed,
+  canTransitionSeed,
+  seedEdgesHint,
+} from '../seeds/store';
 import { now } from '../time';
 import { inLists, insertBatched } from './batch';
 import type { StoreDialect } from './dialect';
@@ -156,6 +161,27 @@ const mutableRow = async (tx: Transaction<DB>, key: string, seq: number): Promis
 export function createSqlSeedStore(db: Kysely<DB>, dialect: StoreDialect): SeedStore {
   const { list } = dialect.codecs;
   return {
+    async countForProject(key) {
+      // `count` skips the CASE's nulls, so `open` counts only the live rows.
+      const row = await db
+        .selectFrom('seed')
+        .select((eb) => [
+          eb.fn.countAll<string | number>().as('total'),
+          eb.fn
+            .count<string | number>(
+              eb
+                .case()
+                .when('lifecycle', 'not in', [...TERMINAL_SEED_LIFECYCLES])
+                .then(1)
+                .end(),
+            )
+            .as('open'),
+        ])
+        .where('project_key', '=', key)
+        .executeTakeFirstOrThrow();
+      return { open: Number(row.open), total: Number(row.total) };
+    },
+
     async create(input) {
       return dialect.write(db, async (tx) => {
         const allocated = await tx

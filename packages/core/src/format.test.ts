@@ -165,6 +165,23 @@ describe('formatNodeJson', () => {
     expect('upstream' in parsed).toBe(false);
   });
 
+  test('a project carries its seed tally as seed_counts when the facet was read (MMR-787)', () => {
+    const project: NodeView = {
+      createdAt: '2026-06-05T00:00:00.000Z',
+      description: null,
+      id: 'MMR',
+      parent: null,
+      seedCounts: { open: 2, total: 3 },
+      status: 'ready',
+      title: 'Mimir',
+      type: 'project',
+      updatedAt: '2026-06-05T00:00:00.000Z',
+    };
+    const parsed = parseJson<Record<string, unknown>>(formatNodeJson(project));
+    expect(parsed.seed_counts).toEqual({ open: 2, total: 3 });
+    expect('seedCounts' in parsed).toBe(false);
+  });
+
   test('artifacts facet carries summary on the wire when set, omits the key when absent (MMR-319)', () => {
     const parsed = parseJson<Record<string, unknown>>(
       formatNodeJson(

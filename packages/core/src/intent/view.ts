@@ -278,8 +278,7 @@ async function buildProjectArtifacts(
  * annotations, history) are silently absent.
  */
 export async function buildProjectView(
-  bodySections: BodySectionStore,
-  artifacts: ArtifactStore,
+  stores: Pick<Store, 'artifacts' | 'bodySections' | 'seeds'>,
   set: DerivationSet,
   project: Project,
   activity: ReadonlyMap<string, string>,
@@ -319,20 +318,24 @@ export async function buildProjectView(
     // A count, not the inventory — the archived shelf's `N artifacts` line
     // (MMR-125); archived projects 404 on the detail get, so the list facet is
     // the only address for it.
-    view.artifactCount = (await artifacts.listForProject(project.key)).length;
+    view.artifactCount = (await stores.artifacts.listForProject(project.key)).length;
+  }
+  if (facets.has('seedCounts')) {
+    // Counted in the store: the Seeds tab needs only the tally, not the history.
+    view.seedCounts = await stores.seeds.countForProject(project.key);
   }
   if (facets.has('tags')) {
     const records = set.ws.projectTags.get(project.key) ?? [];
     view.tags = records.map((r) => ({ createdAt: r.created_at, tag: r.tag }));
   }
   if (facets.has('artifacts')) {
-    view.artifacts = await buildProjectArtifacts(artifacts, project);
+    view.artifacts = await buildProjectArtifacts(stores.artifacts, project);
   }
   // The project's own `## Next` body section (MMR-321) — the one body facet
   // a project carries; its `description` rides the project row, above. Omitted
   // when the section is absent, exactly as on a container node.
   if (facets.has('next')) {
-    const sections = await bodySections.readSections(project.key, { next: true });
+    const sections = await stores.bodySections.readSections(project.key, { next: true });
     // The PROSE is the view's field — a present-but-empty section reads as no
     // direction to a human, and the heading's presence is a write-path fact.
     if (sections.next?.text != null) {
@@ -411,14 +414,7 @@ export async function projectViewByKey(
   const project = findProjectInSet(set, key);
   return project === undefined
     ? undefined
-    : buildProjectView(
-        store.bodySections,
-        store.artifacts,
-        set,
-        project,
-        await store.loadProjectActivity([project.key]),
-        facets,
-      );
+    : buildProjectView(store, set, project, await store.loadProjectActivity([project.key]), facets);
 }
 
 /** A project view over a fresh snapshot — the one-off echo path (verbs, transports). */
@@ -428,8 +424,7 @@ export async function projectViewOf(
   facets: ReadonlySet<FacetName> = new Set(),
 ): Promise<NodeView> {
   return buildProjectView(
-    store.bodySections,
-    store.artifacts,
+    store,
     deriveSet(await store.loadWorkingSet()),
     project,
     await store.loadProjectActivity([project.key]),

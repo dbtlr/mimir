@@ -49,7 +49,7 @@ test('a refusal prints its sentence and its hint on stderr', async () => {
   expect(run.stderr).toBe(
     [
       "mimir: --col adds optional columns; 'status' is always shown",
-      'optional columns: deps, description, next, annotations, artifacts, history, tags, children, distribution, leafCounts, artifactCount, verdicts, home, lede, content',
+      'optional columns: deps, description, next, annotations, artifacts, history, tags, children, distribution, leafCounts, artifactCount, seedCounts, verdicts, home, lede, content',
       'Run "mimir get --help" to see the usage.',
       '',
     ].join('\n'),

@@ -32,6 +32,9 @@ import type { ValueWarning } from './query';
 /** A non-leaf node's rollup breakdown — counts of each Status word among its direct children. */
 export type Distribution = Partial<Record<StatusWord, number>>;
 
+/** A board's seed tally (MMR-787): `total` counts every seed, `open` the unsettled ones. */
+export type SeedCounts = { total: number; open: number };
+
 /** The projected `type` vocabulary — the three tree-node types plus the project itself (MMR-32). */
 export type ViewType = NodeType | 'project';
 
@@ -468,6 +471,11 @@ export type NodeView = {
   /** Per-project artifact tally (MMR-125) — the archived shelf's count line; the
    * list-facet address for a count the archived-404 detail route can't serve. */
   artifactCount?: number;
+  /** Per-project seed tally (MMR-787) — every seed on the board, settled ones
+   * included, and the open ones (every lifecycle but `resolved` and `rejected`).
+   * The project page's Seeds tab draws from it, so the tab row never loads the
+   * board's whole seed history. */
+  seedCounts?: SeedCounts;
   verdicts?: Verdicts;
   /** Where the row lives (MMR-228) — project KEY + parent container ref. */
   home?: HomeFacet;
@@ -957,6 +965,7 @@ export const FACET_NAMES = [
   'distribution',
   'leafCounts',
   'artifactCount',
+  'seedCounts',
   'verdicts',
   'home',
   'lede',

@@ -1046,7 +1046,7 @@ exit 2
 | {
 |   "code": "usage",
 |   "hints": [
-|     "columns: deps, description, next, annotations, artifacts, history, tags, children, distribution, leafCounts, artifactCount, verdicts, home, lede, content"
+|     "columns: deps, description, next, annotations, artifacts, history, tags, children, distribution, leafCounts, artifactCount, seedCounts, verdicts, home, lede, content"
 |   ],
 |   "message": "unknown column: bogus"
 | }

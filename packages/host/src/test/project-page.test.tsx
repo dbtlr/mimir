@@ -4,12 +4,11 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, vi } from 'vitest';
 
-import { list } from '../api/fns/browse';
+import { list, seeds } from '../api/fns/browse';
 import { getNode } from '../api/fns/nodes';
 import { updateProject } from '../api/fns/shell';
 import { projectQuery } from '../api/node-queries';
 import { consoleRoutes } from '../router';
-import { seedIn } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
 import { serveNodes } from './node-fns';
@@ -154,12 +153,7 @@ describe('project page (MMR-450, MMR-470, MMR-726)', () => {
   it('counts open seeds and frozen artifacts on their tabs, in their order', async () => {
     serveProject({
       artifacts: [{ createdAt: new Date(), id: 'MMR-a1', tags: [], title: 'A spec' }],
-    });
-    serveBrowse({
-      seeds: [
-        seedIn('untriaged', { id: 'MMR-s1', project: 'MMR' }),
-        seedIn('settled', { id: 'MMR-s2', project: 'MMR' }),
-      ],
+      seedCounts: { open: 1, total: 2 },
     });
     await renderRoute(consoleRoutes, '/p/MMR', quietClient());
 
@@ -168,13 +162,31 @@ describe('project page (MMR-450, MMR-470, MMR-726)', () => {
   });
 
   it('shows Seeds with no count while every seed is settled', async () => {
-    serveProject();
-    serveBrowse({ seeds: [seedIn('settled', { id: 'MMR-s2', project: 'MMR' })] });
+    serveProject({ seedCounts: { open: 0, total: 1 } });
     await renderRoute(consoleRoutes, '/p/MMR', quietClient());
 
     await screen.findByRole('tab', { name: /Seeds/ });
     expect(tabNames()).toStrictEqual(['Work ', 'Tasks ', 'Seeds ', 'Details ']);
   });
+
+  // The tab row reads the project's seed tally; the seed list loads only on the Seeds tab (MMR-787).
+  it.each(['/p/MMR', '/p/MMR/tasks', '/p/MMR/artifacts'])(
+    'draws the Seeds tab at %s from the seed tally, never the seed list',
+    async (path) => {
+      serveProject({ seedCounts: { open: 2, total: 3 } });
+      await renderRoute(consoleRoutes, path, quietClient());
+
+      await screen.findByRole('tab', { name: /Seeds/ });
+      expect(tabNames()).toContain('Seeds 2');
+      expect(getNode).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          facets: expect.arrayContaining(['seedCounts']),
+          id: 'MMR',
+        }),
+      });
+      expect(seeds).not.toHaveBeenCalled();
+    },
+  );
 
   it('moves focus along its tabs with the arrow keys without opening the browsers', async () => {
     serveProject();

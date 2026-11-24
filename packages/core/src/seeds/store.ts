@@ -1,4 +1,5 @@
-import type { HistoryEntry, SeedKind, SeedLifecycle } from '@mimir/contract';
+import { SEED_LIFECYCLE_VALUES } from '@mimir/contract';
+import type { HistoryEntry, SeedCounts, SeedKind, SeedLifecycle } from '@mimir/contract';
 
 import { validation } from '../errors';
 
@@ -68,6 +69,9 @@ export type SeedStore = {
   ) => Promise<(SeedRecord & { description?: string | null }) | undefined>;
   /** A project's whole seed inventory, seq ascending. */
   listForProject: (key: string) => Promise<SeedRecord[]>;
+  /** A project's seed tally (MMR-787): every seed, and the open ones (not
+   * terminal), counted in the store, so no seed row reaches the caller. */
+  countForProject: (key: string) => Promise<SeedCounts>;
   /** A seed's `## History` transitions in log order (MMR-246) — the source
    * the triage pass reads the terminal resolution reason from; `undefined` when
    * the seed is absent, `[]` when its History is empty. */
@@ -128,6 +132,10 @@ export type TerminalSeedLifecycle = 'resolved' | 'rejected';
 export function isTerminalSeed(lifecycle: SeedLifecycle): lifecycle is TerminalSeedLifecycle {
   return SEED_TRANSITIONS[lifecycle].length === 0;
 }
+
+/** The terminal lifecycles as a list, for a store that counts the open seeds without reading them. */
+export const TERMINAL_SEED_LIFECYCLES: readonly TerminalSeedLifecycle[] =
+  SEED_LIFECYCLE_VALUES.filter(isTerminalSeed);
 
 /**
  * Refuse a mutation of a TERMINAL seed, in the one wording every backend gives.

@@ -546,8 +546,7 @@ export async function getNode(store: Store, id: string, opts: GetOptions = {}): 
       throw projectNotFound(identity.key);
     }
     return buildProjectView(
-      store.bodySections,
-      store.artifacts,
+      store,
       set,
       project,
       await store.loadProjectActivity([project.key]),
