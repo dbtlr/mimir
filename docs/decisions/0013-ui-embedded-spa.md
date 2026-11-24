@@ -997,7 +997,9 @@ MMR-727 rebuilds them on Home's pattern.
   to triage span the whole board; _Tasks_ hides while it holds no task,
   _Seeds_ while it has none, and _Artifacts_ while nothing is frozen to it.
   The tab on screen always shows. A URL that names a hidden tab, or none on
-  a container with no _Work_, opens the first tab with something in it.
+  a container with no _Work_, opens the first tab with something in it and
+  is replaced with that tab, so the page stays on it when the hidden tab
+  fills, and Back does not return to the hidden one.
 - **A task's page keeps its body, rail, and Links, Agent, and Details chips**
   under the new header, until MMR-728 gives it the same tabs. Its Actions
   chip and rail section are retired into More.

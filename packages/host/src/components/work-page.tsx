@@ -1,7 +1,7 @@
 import type { EngineNode, EngineTree, NodeRef } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useId, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useId, useRef, useState } from 'react';
 import type { ReactNode, UIEvent } from 'react';
 
 import { agentActivityQuery } from '../api/agent-queries';
@@ -434,7 +434,8 @@ export type ContainerTab = 'work' | 'details' | 'timeline' | 'artifacts';
 /** What the page adds to an initiative's or phase's tabs: the selected one, and the Timeline. */
 export type ContainerTabs = {
   tab: ContainerTab | undefined;
-  onTab: (tab: ContainerTab) => void;
+  /** Open `tab`; `replace` swaps the URL's entry rather than pushing one. */
+  onTab: (tab: ContainerTab, options?: { replace: boolean }) => void;
   /** The Timeline tab's body — the feed and its composer. */
   timeline: ReactNode;
   timelineCount: number;
@@ -460,7 +461,9 @@ export function containerTabs(record: EngineNode, timelineCount: number) {
 
 /**
  * An initiative's or phase's page. The URL names the tab; with none, or one
- * that is hidden, the page opens on the first tab that has something in it.
+ * that is hidden, the page opens on the first tab that has something in it
+ * and replaces the URL with that tab, so the page stays on it when the
+ * hidden one fills, and it reads as chosen.
  */
 export function ContainerPage({
   record,
@@ -476,6 +479,14 @@ export function ContainerPage({
   const tabs = containerTabs(record, container.timelineCount);
   const asked = container.tab ?? 'work';
   const tab = tabs.find((t) => t.value === asked)?.value ?? tabs[0]?.value ?? 'details';
+  const settle = useEffectEvent(() => {
+    container.onTab(tab, { replace: true });
+  });
+  useEffect(() => {
+    if (tab !== asked) {
+      settle();
+    }
+  }, [tab, asked]);
   return (
     <RecordColumn offline={offline}>
       <ContainerHead record={record} tree={tree} offline={offline} />

@@ -217,8 +217,11 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
         <AnnotationComposer nodeId={nodeId} offline={offline} />
       </>
     );
-    const onTab = (next: ContainerTab) => {
-      void navigate({ search: { tab: next === 'work' ? undefined : next } });
+    const onTab = (next: ContainerTab, options?: { replace: boolean }) => {
+      void navigate({
+        replace: options?.replace,
+        search: { tab: next === 'work' ? undefined : next },
+      });
     };
     return (
       <>

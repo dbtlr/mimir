@@ -791,6 +791,22 @@ describe('container page (MMR-450)', () => {
       expect(tabNames()).toStrictEqual(['Details ', 'Timeline 2']);
     });
 
+    it('replaces a URL that names a hidden tab with the tab it shows, so the page stays on it', async () => {
+      serve({ ...phase, distribution: {} }, withNote);
+      const { router: testRouter } = await renderRoute(
+        consoleRoutes,
+        '/p/MMR/2?tab=artifacts',
+        quietClient(),
+      );
+
+      await screen.findByRole('tab', { name: 'Details', selected: true });
+      await waitFor(() => {
+        expect(testRouter.state.location.searchStr).toBe('?tab=details');
+      });
+      // Replaced, not pushed: Back leaves the page rather than returning to the hidden tab.
+      expect(testRouter.history.length).toBe(1);
+    });
+
     it('arrow keys move between the tabs', async () => {
       serve(phase, withNote);
       await renderRoute(consoleRoutes, '/p/MMR/2', quietClient());
