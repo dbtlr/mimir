@@ -1,5 +1,6 @@
 import type { ReviewReport } from '../api/view-queries';
 import type { ShippedDay } from '../components/patterns/feed/shipped-summary';
+import type { TaskPreset } from './task-list';
 import { dayBefore, dayOf } from './work-page';
 
 /*
@@ -174,8 +175,31 @@ export function shippedWeek({
   return { byProject, days, total };
 }
 
-/** One spare-minute row: what it counts, and how many. */
-export type MinuteRow = { name: string; count: number };
+/**
+ * The one project every key names, or undefined when they span projects or
+ * there are none: a section opens one project's list only when it holds that
+ * project's work alone (MMR-724), since the Tasks list is per project.
+ */
+export function oneProject(keys: readonly string[]): string | undefined {
+  const [first] = keys;
+  return first !== undefined && keys.every((key) => key === first) ? first : undefined;
+}
+
+/**
+ * One spare-minute row: what it counts, how many, and the Tasks preset it
+ * opens in `project` when all of it belongs to that one project.
+ */
+export type MinuteRow = {
+  name: string;
+  count: number;
+  door?: { project: string; show: TaskPreset };
+};
+
+/** A door to `show` in the one project `keys` share, or none when they span projects. */
+function doorTo(keys: readonly string[], show: TaskPreset): Pick<MinuteRow, 'door'> {
+  const project = oneProject(keys);
+  return project === undefined ? {} : { door: { project, show } };
+}
 
 /** What can wait for a spare minute, across projects, in Home's order. */
 export function minuteRows(report: ReviewReport): MinuteRow[] {
@@ -183,8 +207,22 @@ export function minuteRows(report: ReviewReport): MinuteRow[] {
     report.triage.reduce((n, group) => n + pick(group), 0);
   return [
     { count: sum((group) => group.seeds.length), name: 'Seeds to triage' },
-    { count: report.runnable.length, name: 'Ready to start' },
-    { count: report.goingCold.length, name: 'Going cold' },
+    {
+      count: report.runnable.length,
+      name: 'Ready to start',
+      ...doorTo(
+        report.runnable.map((row) => row.project),
+        'ready',
+      ),
+    },
+    {
+      count: report.goingCold.length,
+      name: 'Going cold',
+      ...doorTo(
+        report.goingCold.map((row) => row.project),
+        'going-cold',
+      ),
+    },
     { count: sum((group) => group.findings), name: 'Doctor findings' },
   ];
 }

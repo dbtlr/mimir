@@ -181,6 +181,7 @@ export function answerList(tasks: readonly EngineNode[], input: EngineInput<'lis
   const selectors = input.status === undefined ? ['live'] : [input.status].flat();
   const matched = tasks.filter(
     (task) =>
+      (task.home?.projectKey ?? task.id.split('-')[0]) === input.project &&
       selectors.some((selector) => inSelector(task, selector)) &&
       (input.verdicts ?? []).every(
         ({ verdict, negate }) => (task.verdicts?.[verdict] === true) !== negate,

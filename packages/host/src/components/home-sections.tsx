@@ -1,10 +1,11 @@
 import { useRef } from 'react';
 
 import type { ReviewReport } from '../api/view-queries';
-import { minuteRows, nowCount, nowShown } from '../lib/home';
+import { minuteRows, nowCount, nowShown, oneProject } from '../lib/home';
 import type { ShippedWeek } from '../lib/home';
 import { nodeLink } from '../lib/record-url';
 import { STATUS_META } from '../lib/status';
+import { presetLink } from '../lib/task-list';
 import { ago, relativeTime } from '../lib/time';
 import { useMediaQuery } from '../lib/use-media-query';
 import { FeedCard } from './patterns/feed/card';
@@ -17,11 +18,14 @@ import { ShippedSummary } from './patterns/feed/shipped-summary';
 import { StatusBadge } from './status-badge';
 
 /*
- * Home's sections below Needs you (ADR 0013, MMR-722 refinement): Now as
- * capped title cards, the Shipped week as a summary by project, and the
+ * Home's sections below Needs you (ADR 0013, MMR-722 and MMR-724 refinements):
+ * Now as capped title cards, the Shipped week as a summary by project, and the
  * spare-minute work as count rows. Each hides when it has nothing to show;
- * the page's summary sentence says so once. No section has a See all yet, so
- * a row with nowhere to go is a plain row.
+ * the page's summary sentence says so once. The Tasks list is per project, so
+ * the doors into it are too: each project's Shipped row opens its finished
+ * week, and Now, Ready to start, and Going cold open their preset only when
+ * all of their work is one project's. Otherwise they keep their count with no
+ * link, and a row with nowhere to go is a plain row.
  */
 
 /** The width from which Home shows six Now cards rather than four: the deck's and the preview's 768. */
@@ -88,8 +92,13 @@ export function NowSection({ report }: { report: ReviewReport }) {
   const names = new Map(report.projects.map((project) => [project.key, project.name]));
   const shown = rows.slice(0, nowShown(rows.length, { desktop }));
   const byId = new Map(shown.map((row) => [row.task.id, row]));
+  const project = oneProject(rows.map((row) => row.project));
   return (
-    <FeedSection title="Now" count={nowCount(rows.length, { desktop })}>
+    <FeedSection
+      title="Now"
+      count={nowCount(rows.length, { desktop })}
+      seeAll={project === undefined ? undefined : presetLink(project, 'in-flight')}
+    >
       <FeedPreview
         // When a refetch or a narrower cap drops the card that opened the preview, focus a shown card.
         fallbackFocus={() =>
@@ -133,7 +142,17 @@ export function ShippedSection({ week }: { week: ShippedWeek }) {
     <FeedSection title="Shipped this week" count={week.total}>
       <ShippedSummary
         days={week.days}
-        breakdown={<RowGroup label="Shipped by project" rows={week.byProject} />}
+        breakdown={
+          <RowGroup
+            label="Shipped by project"
+            rows={week.byProject.map(({ key, name, count }) => ({
+              count,
+              key,
+              name,
+              to: presetLink(key, 'finished-week'),
+            }))}
+          />
+        }
       />
     </FeedSection>
   );
@@ -151,7 +170,15 @@ export function MinuteSection({ report }: { report: ReviewReport }) {
   }
   return (
     <FeedSection title="When you have a minute">
-      <RowGroup label="When you have a minute" rows={rows} framed />
+      <RowGroup
+        label="When you have a minute"
+        rows={rows.map(({ name, count, door }) => ({
+          count,
+          name,
+          to: door === undefined ? undefined : presetLink(door.project, door.show),
+        }))}
+        framed
+      />
     </FeedSection>
   );
 }

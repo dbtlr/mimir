@@ -69,6 +69,11 @@ export type TaskListSearch = {
   sort?: TaskSort;
 };
 
+/** A link to `project`'s Tasks list with `show` set: Home's See all doors (MMR-724). */
+export function presetLink(project: string, show: TaskPreset) {
+  return { params: { key: project }, search: { show }, to: '/p/$key/tasks' as const };
+}
+
 export const isTaskPreset = (value: string | undefined): value is TaskPreset =>
   (TASK_PRESETS as readonly (string | undefined)[]).includes(value);
 

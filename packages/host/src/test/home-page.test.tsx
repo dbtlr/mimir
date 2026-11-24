@@ -7,8 +7,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { review } from '../api/fns/views';
 import type { ReviewReport } from '../api/view-queries';
 import { consoleRoutes } from '../router';
-import { serveBrowse } from './browse-fns';
+import { serveBrowse, serveListSelecting } from './browse-fns';
 import { decision, question, report, stopped } from './needs-you-fixtures';
+import { engineTask } from './node-fixtures';
 import { renderRoute } from './router';
 import { failShellReads, serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
@@ -163,7 +164,7 @@ describe('Home at / (ADR 0013, MMR-722 refinement)', () => {
     ]);
   });
 
-  it('has no rail, no project health strip, and See all only on Needs you', async () => {
+  it('has no rail, no project health strip, and See all on Needs you and a one-project Now', async () => {
     await openHome(busy());
 
     expect(screen.queryByRole('complementary')).toBeNull();
@@ -171,8 +172,10 @@ describe('Home at / (ADR 0013, MMR-722 refinement)', () => {
     const seeAll = screen.getAllByRole('link', { name: /^See all/ });
     expect(seeAll.map((link) => link.getAttribute('aria-label'))).toStrictEqual([
       'See all in Needs you',
+      'See all in Now',
     ]);
     expect(seeAll[0]).toHaveAttribute('href', '/needs-you');
+    expect(seeAll[1]).toHaveAttribute('href', '/p/MMR/tasks?show=in-flight');
   });
 
   it('counts the deck’s cards beside the records the top-bar alert counts', async () => {
@@ -283,7 +286,7 @@ describe('Home at / (ADR 0013, MMR-722 refinement)', () => {
     );
   });
 
-  it('summarises the shipped week by day and by project, in plain rows', async () => {
+  it('summarises the shipped week by day and by project, each project a door to its finished week', async () => {
     await openHome(busy());
 
     const week = section(/^Shipped this week/);
@@ -294,7 +297,11 @@ describe('Home at / (ADR 0013, MMR-722 refinement)', () => {
       within(week).getByRole('list', { name: 'Shipped by project' }),
     ).getAllByRole('listitem');
     expect(rows.map((row) => row.textContent)).toEqual(['MMR Mimir 2', 'LM Loom CLI 1']);
-    expect(within(week).queryByRole('link')).toBeNull();
+    expect(
+      within(week)
+        .getAllByRole('link')
+        .map((link) => link.getAttribute('href')),
+    ).toEqual(['/p/MMR/tasks?show=finished-week', '/p/LM/tasks?show=finished-week']);
   });
 
   it('puts a shipped task on the day it finished in the browser’s zone', async () => {
@@ -312,7 +319,7 @@ describe('Home at / (ADR 0013, MMR-722 refinement)', () => {
     expect(screen.queryByRole('region', { name: /^Shipped/ })).toBeNull();
   });
 
-  it('counts the spare-minute work in plain rows', async () => {
+  it('counts the spare-minute work, Ready and Going cold opening their one project’s list', async () => {
     await openHome(busy());
 
     const spare = section(/^When you have a minute/);
@@ -323,7 +330,14 @@ describe('Home at / (ADR 0013, MMR-722 refinement)', () => {
       'Going cold 1',
       'Doctor findings 2',
     ]);
-    expect(within(spare).queryByRole('link')).toBeNull();
+    expect(
+      within(spare)
+        .getAllByRole('link')
+        .map((link) => [link.textContent, link.getAttribute('href')]),
+    ).toEqual([
+      ['Ready to start 1', '/p/LM/tasks?show=ready'],
+      ['Going cold 1', '/p/MMR/tasks?show=going-cold'],
+    ]);
   });
 
   it('leaves out a spare-minute row at zero, and the section when every row is zero', async () => {
@@ -356,6 +370,102 @@ describe('Home at / (ADR 0013, MMR-722 refinement)', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Work through these');
     expect(screen.queryByText('Monday, 23 November')).toBeNull();
     expect(screen.queryByRole('region', { name: /^Now/ })).toBeNull();
+  });
+});
+
+describe('Home’s See all doors (MMR-724)', () => {
+  it('keeps Now’s count but no See all when its tasks span projects', async () => {
+    await openHome(busy({ now: [running('MMR-700', 10), running('LM-701', 20)] }));
+
+    const now = section(/^Now/);
+    expect(within(now).getByRole('heading', { level: 2 })).toHaveTextContent('Now 2');
+    expect(within(now).queryByRole('link', { name: /^See all/ })).toBeNull();
+  });
+
+  it('keeps Ready and Going cold as plain counts when they span projects', async () => {
+    await openHome(
+      busy({
+        goingCold: [
+          { project: 'MMR', task: workTask({ id: 'MMR-90', status: 'in_progress' }) },
+          { project: 'LM', task: workTask({ id: 'LM-91', status: 'ready' }) },
+        ],
+        runnable: [
+          tagged(frontierRow({ grooming: 'groomed', id: 'LM-5', status: 'ready' })),
+          tagged(frontierRow({ grooming: 'groomed', id: 'MMR-6', status: 'ready' })),
+        ],
+      }),
+    );
+
+    const spare = section(/^When you have a minute/);
+    expect(within(spare).getByText('Ready to start').closest('a')).toBeNull();
+    expect(within(spare).getByText('Going cold').closest('a')).toBeNull();
+    expect(within(spare).queryByRole('link')).toBeNull();
+  });
+});
+
+const hoursAgo = (h: number) => new Date(NOW - h * 60 * 60_000);
+const done = (id: string, at: Date) =>
+  engineTask({
+    completedAt: at,
+    id,
+    lifecycle: 'done',
+    status: 'done',
+    title: `Done ${id}`,
+    updatedAt: at,
+  });
+/** An abandoned task: only `done` stamps completed_at, so it settled when it last changed. */
+const abandoned = (id: string, at: Date) =>
+  engineTask({
+    id,
+    lifecycle: 'abandoned',
+    status: 'abandoned',
+    title: `Dropped ${id}`,
+    updatedAt: at,
+  });
+
+describe('Shipped’s count and the finished-week list agree (MMR-724)', () => {
+  /**
+   * One board both reads are drawn from: done work across the week's edges
+   * (the first hour of the window's first day, and the day before it), an
+   * abandoned task, and another project's work.
+   */
+  const BOARD = [
+    done('MMR-1', minutesAgo(20)),
+    done('MMR-2', hoursAgo(20)),
+    done('MMR-3', daysAgo(3)),
+    // 00:30 on Tuesday 17 November in New York: the first day of the seven.
+    done('MMR-4', new Date('2026-11-17T05:30:00.000Z')),
+    // 23:30 on Monday 16 November in New York: the day before the window.
+    done('MMR-5', new Date('2026-11-17T04:30:00.000Z')),
+    abandoned('MMR-6', hoursAgo(2)),
+    done('LM-7', hoursAgo(3)),
+  ];
+
+  /** The review's finished rows for the board, as the Engine lists them: done and abandoned alike. */
+  const shippedRows = BOARD.map((task) =>
+    tagged(makeShippedRow(task, task.completedAt ?? task.updatedAt)),
+  );
+
+  it('opens a project’s finished week from its Shipped row, listing as many tasks as the row counts', async () => {
+    await openHome(busy({ shipped: shippedRows }));
+    serveListSelecting(BOARD);
+
+    const row = within(section(/^Shipped this week/)).getByRole('link', { name: /Mimir/ });
+    const shippedCount = Number(/(\d+)$/.exec(row.textContent)?.[1]);
+    expect(shippedCount).toBe(4);
+
+    await userEvent.click(row);
+    await screen.findByRole('button', { name: 'Remove Finished, last 7 days' });
+    // Each day's fold trigger: "Today 1", "Sunday, 22 November 1".
+    const folds = await screen.findAllByRole('button', {
+      name: /^(Today|Yesterday|\w+day, \d+ \w+) \d+$/,
+    });
+    const listed = folds.reduce(
+      (n, fold) => n + Number(/(\d+)$/.exec(fold.textContent)?.[1] ?? 0),
+      0,
+    );
+    expect(listed).toBe(shippedCount);
+    expect(screen.getByText(`${String(shippedCount)} finished in the last 7 days`)).toBeVisible();
   });
 });
 
