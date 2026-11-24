@@ -1,11 +1,13 @@
 import type { EngineNode } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, vi } from 'vitest';
 
 import { list } from '../api/fns/browse';
 import { getNode } from '../api/fns/nodes';
+import { updateProject } from '../api/fns/shell';
+import { projectQuery } from '../api/node-queries';
 import { consoleRoutes } from '../router';
 import { seedIn } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
@@ -279,5 +281,65 @@ describe('project page (MMR-450, MMR-470, MMR-726)', () => {
       expect(testRouter.state.location.pathname).toBe(pathname);
     });
     expect(testRouter.state.location.searchStr).toBe(search);
+  });
+});
+
+describe('a project change closes what its header opened (MMR-726)', () => {
+  const mimir = engineProject({ id: 'MMR', next: 'Keep Mimir direction.', title: 'Mimir' });
+  const norn = engineProject({ id: 'NRN', next: 'Keep Norn direction.', title: 'Norn' });
+
+  /** Open Norn then Mimir, both cached, so Back shows Norn at once in the same frame. */
+  async function onMimirAfterNorn() {
+    serveShell({ projects: [mimir, norn] });
+    serveNodes({ nodes: [mimir, norn] });
+    const client = quietClient();
+    client.setQueryData(projectQuery('MMR').queryKey, mimir);
+    client.setQueryData(projectQuery('NRN').queryKey, norn);
+    const { router: testRouter } = await renderRoute(consoleRoutes, '/p/NRN?tab=details', client);
+    await act(async () => {
+      await testRouter.navigate({
+        params: { key: 'MMR' },
+        search: { tab: 'details' },
+        to: '/p/$key',
+      });
+    });
+    await userEvent.click(await screen.findByRole('button', { name: 'More' }));
+    return testRouter;
+  }
+
+  async function goBackToNorn(testRouter: Awaited<ReturnType<typeof onMimirAfterNorn>>) {
+    act(() => {
+      testRouter.history.back();
+    });
+    await waitFor(() => {
+      expect(testRouter.state.location.pathname).toBe('/p/NRN');
+    });
+  }
+
+  it('closes the Direction editor, so a Mimir draft never saves to Norn', async () => {
+    const testRouter = await onMimirAfterNorn();
+    const more = await screen.findByRole('dialog', { name: 'Mimir' });
+    await userEvent.click(within(more).getByRole('button', { name: 'Edit direction…' }));
+    const draft = await screen.findByRole('textbox', { name: 'Direction text' });
+    await userEvent.clear(draft);
+    await userEvent.type(draft, 'New Mimir direction.');
+
+    await goBackToNorn(testRouter);
+
+    expect(screen.queryByRole('textbox', { name: 'Direction text' })).toBeNull();
+    expect(updateProject).not.toHaveBeenCalled();
+    expect(screen.getByRole('heading', { level: 1, name: 'Norn' })).toBeDefined();
+  });
+
+  it('closes the project settings opened for Mimir', async () => {
+    const testRouter = await onMimirAfterNorn();
+    const more = await screen.findByRole('dialog', { name: 'Mimir' });
+    await userEvent.click(within(more).getByRole('button', { name: 'Edit' }));
+    await screen.findByRole('dialog', { name: 'Project settings' });
+
+    await goBackToNorn(testRouter);
+
+    expect(screen.queryByRole('dialog', { name: 'Project settings' })).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: 'Norn' })).toBeDefined();
   });
 });

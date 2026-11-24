@@ -149,7 +149,10 @@ export function ProjectFrame({
         {project.data === undefined ? (
           <HeadPending unreachable={project.isError} />
         ) : (
-          <ContainerHead record={project.data} offline={offline} />
+          // Keyed by the project: the frame outlives a change of project (Back
+          // to a cached one), and an editor opened from More must close with
+          // the project it was opened for rather than save into the next.
+          <ContainerHead key={project.data.id} record={project.data} offline={offline} />
         )}
         <RecordTabs
           manual
