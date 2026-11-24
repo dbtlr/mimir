@@ -47,6 +47,8 @@ function restoreCommitFocus(button: HTMLButtonElement | null) {
  * life. Each time `open` turns true the dialog starts a new
  * opening with its own commit gate and no busy commit, so a commit from an
  * earlier opening that never settled cannot lock, close, or free this one.
+ * A commit whose dialog has unmounted since, such as a form keyed by a record
+ * the page moved away from, does not run `onCommitted` either.
  *
  * `busy` is true while this opening's commit promise runs, or while the caller
  * says its own call is `pending`. When a busy period ends with the dialog open
@@ -79,9 +81,14 @@ export function useOpening(
   // neither a click nor a settle can see it stale. (A passive effect could, if one landed before
   // the effect flushed; React 19 under jsdom flushes first, so no test here can show the gap.)
   // The gate and `busy` need no ref: a click runs the `commit` of the render it pressed.
-  const current = useRef(opening);
+  // Unmounting clears it, so a commit whose dialog remounted (a form keyed by another record)
+  // finds its opening gone and leaves the new one alone (MMR-768).
+  const current = useRef<Opening | null>(opening);
   useLayoutEffect(() => {
     current.current = opening;
+    return () => {
+      current.current = null;
+    };
   }, [opening]);
 
   const ran = useRef<{ button: HTMLButtonElement | null; opening: Opening } | null>(null);

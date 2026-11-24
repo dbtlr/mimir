@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 import { archive, unarchive, updateProject } from '../api/fns/shell';
 import type { NoticeHost, toast as realToast } from '../components/patterns/notice';
 import { ProjectSettings } from '../components/project-settings';
+import { engineProject } from './engine-fixtures';
 import { serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
 
@@ -274,6 +275,29 @@ describe('projectSettings', () => {
     await vi.waitFor(() => {
       expect(updateProject).toHaveBeenCalledWith({ data: { id: 'NRN', name: 'Renamed Norn' } });
     });
+  });
+
+  it('a save still in flight from the last project leaves the next project’s sheet open when it settles', async () => {
+    const held = Promise.withResolvers<Awaited<ReturnType<typeof updateProject>>>();
+    vi.mocked(updateProject).mockReturnValueOnce(held.promise);
+    const client = new QueryClient();
+    const settings = (project: typeof baseProject) => (
+      <QueryClientProvider client={client}>
+        <ProjectSettingsButton project={project} />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(settings(baseProject));
+    openSheet();
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Renamed' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    rerender(settings({ description: 'Norn description', id: 'NRN', title: 'Norn' }));
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Norn draft' } });
+
+    await act(async () => {
+      held.resolve(engineProject({ id: 'MMR', title: 'Renamed' }));
+    });
+    expect(screen.getByRole('dialog', { name: 'Project settings' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Title')).toHaveValue('Norn draft');
   });
 
   it.each(['', '   '])('an emptied description %j clears it with null', async (blank) => {
