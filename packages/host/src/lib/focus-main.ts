@@ -13,3 +13,13 @@ export function focusMain(): void {
   }
   main.focus();
 }
+
+/**
+ * Focus the page's `<main>` and return it, as a `finalFocus` for an overlay
+ * whose trigger or row is gone. It returns null when no `<main>` took focus.
+ */
+export function focusPage(): HTMLElement | null {
+  focusMain();
+  const active = document.activeElement;
+  return active instanceof HTMLElement && active !== document.body ? active : null;
+}

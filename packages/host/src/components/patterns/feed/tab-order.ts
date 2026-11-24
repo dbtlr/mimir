@@ -34,7 +34,7 @@ function shown(element: HTMLElement): boolean {
 }
 
 /** Whether Tab can land on `element`: in the sequence, enabled, not inert, and shown. */
-function reachable(element: HTMLElement): boolean {
+export function reachable(element: HTMLElement): boolean {
   const inSequence =
     element.tabIndex >= 0 || (!element.hasAttribute('tabindex') && isEditingHost(element));
   return (

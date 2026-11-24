@@ -125,6 +125,17 @@ describe.each([
     await screen.findByRole(desktop ? 'menu' : 'dialog');
     return trigger;
   };
+  const deleteRow = async (id: string) => {
+    await userEvent.click(screen.getByRole('button', { name: `More ${id}` }));
+    await screen.findByRole(desktop ? 'menu' : 'dialog');
+    await userEvent.click(screen.getByRole(desktop ? 'menuitem' : 'button', { name: 'Delete' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: `More ${id}` })).toBeNull();
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole(desktop ? 'menu' : 'dialog')).toBeNull();
+    });
+  };
 
   it('Escape closes it and focus returns to the trigger', async () => {
     viewport(desktop);
@@ -195,7 +206,101 @@ describe.each([
     });
     expect(trigger).toHaveFocus();
   });
+
+  it('a plain action inside main closes it and focus returns to the trigger', async () => {
+    viewport(desktop);
+    render(
+      <main>
+        <Harness entries={entries} />
+      </main>,
+    );
+    const trigger = await open();
+    await userEvent.click(screen.getByRole(desktop ? 'menuitem' : 'button', { name: 'Do it' }));
+    await waitFor(() => {
+      expect(screen.queryByRole(desktop ? 'menu' : 'dialog')).toBeNull();
+    });
+    expect(trigger).toHaveFocus();
+  });
+
+  describe.each([
+    ['at once', (remove: () => void) => remove()],
+    ['after a microtask', (remove: () => void) => queueMicrotask(remove)],
+    ['after a timer', (remove: () => void) => setTimeout(remove, 0)],
+  ] as const)('a row whose own menu removes it %s', (_when, later) => {
+    it('hands focus to the next row', async () => {
+      viewport(desktop);
+      render(<Rows ids={['a', 'b', 'c']} later={later} />);
+      await deleteRow('b');
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'More c' })).toHaveFocus();
+      });
+    });
+
+    it('hands focus to main when no row follows', async () => {
+      viewport(desktop);
+      render(<Rows ids={['a', 'b']} later={later} />);
+      await deleteRow('b');
+      await waitFor(() => {
+        expect(screen.getByRole('main')).toHaveFocus();
+      });
+    });
+
+    it('hands focus to main when the next row is disabled as its row leaves', async () => {
+      viewport(desktop);
+      render(<Rows ids={['a', 'b', 'c']} later={later} disableNext />);
+      await deleteRow('b');
+      await waitFor(() => {
+        expect(screen.getByRole('main')).toHaveFocus();
+      });
+    });
+  });
 });
+
+/**
+ * Rows inside main, each with a menu whose Delete removes the row, `later` deciding when.
+ * With `disableNext`, the same update disables the next row's trigger.
+ */
+function Rows({
+  ids,
+  later,
+  disableNext = false,
+}: {
+  ids: string[];
+  later: (remove: () => void) => void;
+  disableNext?: boolean;
+}) {
+  const [shown, setShown] = useState(ids);
+  const [disabled, setDisabled] = useState<string | undefined>();
+  return (
+    <main>
+      <h1>Rows</h1>
+      {shown.map((id) => (
+        <div key={id}>
+          <ActionMenu
+            title="Actions"
+            trigger={<button type="button" aria-label={`More ${id}`} disabled={disabled === id} />}
+            entries={[
+              {
+                destructive: true,
+                key: 'delete',
+                kind: 'action',
+                label: 'Delete',
+                onSelect: () => {
+                  later(() => {
+                    setShown((rows) => rows.filter((row) => row !== id));
+                    if (disableNext) {
+                      setDisabled(shown[shown.indexOf(id) + 1]);
+                    }
+                  });
+                },
+              },
+            ]}
+          />
+        </div>
+      ))}
+    </main>
+  );
+}
 
 function WithConfirm() {
   const [asking, setAsking] = useState(false);

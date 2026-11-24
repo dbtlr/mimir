@@ -14,7 +14,7 @@ import { SETTINGS_CARD, SettingsGroup, SettingsPage } from '../components/settin
 import { ActionButton } from '../components/ui/action-button';
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/cn';
-import { focusMain } from '../lib/focus-main';
+import { focusMain, focusPage } from '../lib/focus-main';
 import {
   healSettled,
   healThisBrowser,
@@ -176,12 +176,6 @@ function RowActions({
     />
   );
 }
-
-/** Move focus to the page's `<main>` and name it, for a `finalFocus` whose row is gone. */
-const focusPage = (): HTMLElement | null => {
-  focusMain();
-  return document.activeElement instanceof HTMLElement ? document.activeElement : null;
-};
 
 /** Whether a dialog, such as a confirm still closing, holds focus: it returns focus itself. */
 const focusInDialog = () =>

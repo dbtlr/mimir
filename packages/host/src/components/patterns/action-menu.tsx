@@ -1,7 +1,15 @@
-import { cloneElement, useId, useState } from 'react';
-import type { ComponentProps, KeyboardEvent, MouseEvent, ReactElement, ReactNode } from 'react';
+import { cloneElement, useId, useLayoutEffect, useRef, useState } from 'react';
+import type {
+  ComponentProps,
+  KeyboardEvent,
+  MouseEvent,
+  ReactElement,
+  ReactNode,
+  RefObject,
+} from 'react';
 
 import { cn } from '../../lib/cn';
+import { focusMain } from '../../lib/focus-main';
 import { useMediaQuery } from '../../lib/use-media-query';
 import { DESTRUCTIVE_OUTLINE } from '../ui/action-button';
 import {
@@ -29,6 +37,7 @@ import {
 } from '../ui/menu';
 import { Radio, RadioGroup } from '../ui/radio';
 import { Separator } from '../ui/separator';
+import { reachable, tabSequence } from './feed/tab-order';
 
 /*
  * Action menu (ADR 0019, MMR-736): use it for a list of actions, including a
@@ -36,7 +45,10 @@ import { Separator } from '../ui/separator';
  * radio items). From `md` up it is a menu anchored to its trigger; below `md`
  * it is a bottom Sheet with 44px rows and a Cancel row, its top edge the sheet seam. The pattern makes that switch, so no
  * feature builds both. A plain action closes it; a radio item keeps it open.
- * Focus returns to the trigger on close; an action that opens a confirm needs
+ * Focus returns to the trigger on close. When the row holding the menu leaves,
+ * at once or after a refetch, and the caller passed no `finalFocus`, focus
+ * moves on to the next control on the page, else the page's `<main>`, never
+ * body (MMR-767); an action that opens a confirm needs
  * nothing more, as the confirm takes focus from the trigger and gives it back.
  * The rest of a key that chose a row (its repeats, keypress, and keyup) is held
  * until it comes up, so it never presses what took focus.
@@ -143,6 +155,9 @@ export function ActionMenu({
     onOpenChange?.(next);
   };
   const finalFocus = given ?? 'trigger';
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  useFocusOnWhenRemoved(triggerRef, contentRef, given === undefined);
   const choose = (action: ActionMenuAction) => {
     action.onSelect?.();
     if (action.keepOpen !== true) {
@@ -153,8 +168,13 @@ export function ActionMenu({
   if (desktop) {
     return (
       <Menu open={open} onOpenChange={(next) => setOpen(next)}>
-        <MenuTrigger render={trigger} />
-        <MenuContent aria-label={title} finalFocus={finalFocus} className={menuClassName}>
+        <MenuTrigger ref={triggerRef} render={trigger} />
+        <MenuContent
+          ref={contentRef}
+          aria-label={title}
+          finalFocus={finalFocus}
+          className={menuClassName}
+        >
           {entries.map((entry) => (
             <MenuEntry key={entry.key} entry={entry} onChoose={choose} />
           ))}
@@ -164,9 +184,10 @@ export function ActionMenu({
   }
   return (
     <Drawer side="bottom" open={open} onOpenChange={(next) => setOpen(next)}>
-      <DrawerTrigger render={trigger} />
+      <DrawerTrigger ref={triggerRef} render={trigger} />
       <DrawerBackdrop />
       <DrawerContent
+        ref={contentRef}
         finalFocus={finalFocus}
         className="gap-1 border-sheet-seam p-3 light:elevation-sheet-up"
       >
@@ -182,6 +203,50 @@ export function ActionMenu({
         </DrawerClose>
       </DrawerContent>
     </Drawer>
+  );
+}
+
+/**
+ * When the menu unmounts holding focus, on its trigger or inside it (its row
+ * left), and focus then sits on body, moves focus to the next control Tab
+ * would have reached that is still on the page and can still take focus,
+ * else `<main>` (MMR-767).
+ * Off (`active` false) when the caller passes its own `finalFocus`.
+ */
+function useFocusOnWhenRemoved(
+  trigger: RefObject<HTMLElement | null>,
+  content: RefObject<HTMLElement | null>,
+  active: boolean,
+): void {
+  useLayoutEffect(
+    () => () => {
+      const from = trigger.current;
+      if (!active) {
+        return;
+      }
+      const focused = document.activeElement;
+      if (from === null || (focused !== from && content.current?.contains(focused) !== true)) {
+        return;
+      }
+      // Read now, while the leaving row is still in the document to say where it was.
+      const after = tabSequence(document).filter(
+        (element) =>
+          (from.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+      );
+      queueMicrotask(() => {
+        if (document.activeElement !== null && document.activeElement !== document.body) {
+          return;
+        }
+        // A control can be disabled or hidden after the read; it must still take focus now.
+        const next = after.find((element) => element.isConnected && reachable(element));
+        if (next === undefined) {
+          focusMain();
+        } else {
+          next.focus();
+        }
+      });
+    },
+    [trigger, content, active],
   );
 }
 
