@@ -17,6 +17,7 @@ import {
   overlayPins,
   projectSwitchTarget,
 } from '../lib/project-switcher';
+import { DRAWER_TAP_ROW } from '../lib/touch-target';
 import { lazySheet } from './lazy-sheet';
 import { RecordPickerPopup } from './patterns/record-picker';
 import {
@@ -108,7 +109,10 @@ export function ProjectPicker({
         trigger={
           <button
             type="button"
-            className="group flex w-full items-center gap-2 rounded-lg bg-well-850 px-2.5 py-2 text-left inset-ring inset-ring-line-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent data-[open]:inset-ring-accent/45"
+            className={cn(
+              'group flex w-full items-center gap-2 rounded-lg bg-well-850 px-2.5 py-2 text-left inset-ring inset-ring-line-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent data-[open]:inset-ring-accent/45',
+              DRAWER_TAP_ROW,
+            )}
           >
             {context.kind === 'all' ? (
               <>

@@ -5,6 +5,7 @@ import type { KeyboardEvent } from 'react';
 import { usePinProject } from '../api/shell-mutations';
 import { cn } from '../lib/cn';
 import { ALL_PROJECTS_KEY } from '../lib/project-switcher';
+import { PHONE_TOUCH_TARGET } from '../lib/touch-target';
 import { StatusDot } from './status-dot';
 
 /*
@@ -59,9 +60,12 @@ export function projectListMessage(input: {
   return loading ? 'Loading projects…' : undefined;
 }
 
-/** A project row's geometry, shared by the listbox option and the sidebar's link. */
-export const PROJECT_ROW =
-  'flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-meta text-ink-dim max-md:py-2.5';
+/**
+ * A project row's geometry, shared by the listbox option and the sidebar's
+ * link: a 44 tap row on a phone (DESIGN.md, Sizes), 32 from `md` up. The
+ * sidebar's drawer holds its rows at 44 up to `lg`.
+ */
+export const PROJECT_ROW = `flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-meta text-ink-dim ${PHONE_TOUCH_TARGET}`;
 
 /** A project row's content: its status (or snowflake), key, title, and needs-you count. */
 export function ProjectRowContent({

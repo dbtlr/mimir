@@ -8,6 +8,7 @@ import { projectsQuery } from '../api/shell-queries';
 import { reviewQuery } from '../api/view-queries';
 import { cn } from '../lib/cn';
 import { groupProjects, overlayPins, sidebarShortlist } from '../lib/project-switcher';
+import { DRAWER_TAP_ROW } from '../lib/touch-target';
 import { PROJECT_ROW, ProjectRowContent } from './project-options';
 
 /*
@@ -36,6 +37,7 @@ function ProjectLink({
         data-project={project.id}
         className={cn(
           PROJECT_ROW,
+          DRAWER_TAP_ROW,
           'transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent',
         )}
       >
