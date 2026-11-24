@@ -129,6 +129,10 @@ const actionsOf = (head: HTMLElement) =>
     .filter((button) => button.closest('nav') === null)
     .map((button) => button.textContent);
 
+/** The classes of the open More sheet's row named `name`. */
+const rowClasses = (name: string) =>
+  within(screen.getByRole('dialog')).getByRole('button', { name }).classList;
+
 /** The page's tab names, in order. */
 const tabNames = () => screen.getAllByRole('tab').map((tab) => tab.textContent);
 
@@ -340,10 +344,8 @@ describe('task page (MMR-449)', () => {
       'Abandon…',
     ]);
     // The red label as a class of its own, not inside a state selector every row carries.
-    const labelInk = (name: string) =>
-      within(screen.getByRole('dialog')).getByRole('button', { name }).classList;
-    expect(labelInk('Abandon…')).toContain('text-status-blocked-foreground');
-    expect(labelInk('Park for later…')).not.toContain('text-status-blocked-foreground');
+    expect(rowClasses('Abandon…')).toContain('text-status-blocked-foreground');
+    expect(rowClasses('Park for later…')).not.toContain('text-status-blocked-foreground');
   });
 
   it('lists the status changes the main action leaves, before the holds', async () => {
@@ -839,7 +841,7 @@ describe('container page (MMR-450)', () => {
         expect(testRouter.state.location.searchStr).toBe('?tab=details');
       });
       // Replaced, not pushed: Back leaves the page rather than returning to the hidden tab.
-      expect(testRouter.history.length).toBe(1);
+      expect(testRouter.history).toHaveLength(1);
     });
 
     it('arrow keys move between the tabs', async () => {

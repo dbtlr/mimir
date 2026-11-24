@@ -67,6 +67,16 @@ function LaunchMenu({ offline }: { offline: boolean }) {
   );
 }
 
+/** A second settings request while the form is open, as another opener of the same host sends one. */
+function AskAgain() {
+  const row = useT3LaunchEntries(task, false).find((entry) => entry.key === 't3-launch');
+  return (
+    <button type="button" onClick={() => row?.kind === 'action' && row.onSelect?.()}>
+      Ask again
+    </button>
+  );
+}
+
 function renderMenu(offline = false) {
   return renderInRouter(
     <T3LaunchSettingsHost>
@@ -631,16 +641,7 @@ describe('the settings dialog', () => {
       ],
     });
     serveT3Launch(connectedCatalog([system]));
-    // A second request while the form is open, as another opener of the same host would send.
-    function AskAgain() {
-      const row = useT3LaunchEntries(task, false).find((entry) => entry.key === 't3-launch');
-      return (
-        <button type="button" onClick={() => row?.kind === 'action' && row.onSelect?.()}>
-          Ask again
-        </button>
-      );
-    }
-    renderInRouter(
+    await renderInRouter(
       <T3LaunchSettingsHost>
         <LaunchMenu offline={false} />
         <AskAgain />
@@ -652,7 +653,7 @@ describe('the settings dialog', () => {
     expect(within(dialog).getByRole('button', { name: 'Launch' })).toBeEnabled();
 
     // Dispatched directly, since the modal form blocks pointer interaction behind it.
-    fireEvent.click(screen.getByRole('button', { name: 'Ask again', hidden: true }));
+    fireEvent.click(screen.getByRole('button', { hidden: true, name: 'Ask again' }));
     const replacement = await settingsForm();
     expect(within(replacement).getByRole('combobox', { name: 'Project' })).toHaveTextContent(
       'Choose a project…',
