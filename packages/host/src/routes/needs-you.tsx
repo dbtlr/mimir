@@ -14,6 +14,7 @@ import { RecordPending } from '../components/record-layout';
 import { actionButtonVariants } from '../components/ui/action-button';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
+import { PAGE_COLUMN } from '../lib/page-column';
 import { RETURN_TARGET_ATTRIBUTE } from '../lib/return-target';
 import { markState } from '../lib/walkthrough-mark';
 
@@ -85,7 +86,12 @@ function WorkThroughBar({
       data-continues={continues ? '' : undefined}
       className="shrink-0 border-t border-line bg-well-850 transition-[box-shadow,border-color] data-continues:border-ink-ghost data-continues:elevation-edge-up light:data-continues:border-line-bright"
     >
-      <div className="mx-auto flex w-full max-w-[900px] flex-wrap items-center gap-x-4 gap-y-2 px-3.5 py-3 md:px-5 md:py-4">
+      <div
+        className={cn(
+          PAGE_COLUMN,
+          'flex flex-wrap items-center gap-x-4 gap-y-2 px-3.5 py-3 md:px-5 md:py-4',
+        )}
+      >
         {/* The note takes the line's spare room, so the button keeps its width beside it and fills the line alone once it wraps under it. */}
         <p className="m-0 grow-9999 text-meta text-ink-dim max-md:hidden">
           One item at a time, in queue order across projects, then back here.
@@ -157,7 +163,7 @@ export function NeedsYouPage() {
         tabIndex={-1}
         className={cn('min-h-0 flex-1 overflow-y-auto', conn.offline && 'offline-demoted')}
       >
-        <div className="mx-auto w-full max-w-[900px] px-3.5 pt-4 pb-10 md:px-5 md:pt-6 md:pb-12">
+        <div className={cn(PAGE_COLUMN, 'px-3.5 pt-4 pb-10 md:px-5 md:pt-6 md:pb-12')}>
           <header className={cn('mb-8', !empty && 'border-b border-line pb-5')}>
             <h1 className="m-0 text-page leading-9 font-bold text-ink-bright">Needs you</h1>
             {!empty && (
