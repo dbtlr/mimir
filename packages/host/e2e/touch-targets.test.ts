@@ -122,8 +122,22 @@ test.describe('the needs-you alert', () => {
     // A point 23 above or below the centre is past a 44 tap (22 each way, with 1 to spare).
     expect(await hitsAt(pill, 0, -23)).toBe(false);
     expect(await hitsAt(pill, 0, 23)).toBe(false);
+    // Sideways the tap ends at the drawn pill, about 45 wide: 26 out is past it.
+    const { width } = await boxSize(pill);
+    expect(width).toBeLessThan(50);
+    expect(await hitsAt(pill, -26, 0)).toBe(false);
+    expect(await hitsAt(pill, 26, 0)).toBe(false);
+    // Each neighbour, a 44 icon button, takes a tap 1 inside each edge's midpoint.
     for (const name of ['Jump to…', 'More', 'Open project menu']) {
-      expect(await takesSquare(page.getByRole('button', { name }), 20)).toBe(true);
+      const neighbour = page.getByRole('button', { name });
+      for (const [dx, dy] of [
+        [-21, 0],
+        [21, 0],
+        [0, -21],
+        [0, 21],
+      ] as const) {
+        expect(await hitsAt(neighbour, dx, dy)).toBe(true);
+      }
     }
   });
 
@@ -158,6 +172,13 @@ test.describe('the project sidebar', () => {
         const drawer = page.getByRole('dialog', { name });
         if (context === 'project') {
           await openFolds(drawer);
+          // The rows inside a finished initiative indent by the disclosure's 44,
+          // plus the outline's own 12 step for their depth.
+          const disclosure = await drawer
+            .getByRole('button', { name: /^Contents of / })
+            .boundingBox();
+          const inside = await drawer.getByRole('link', { name: /MMR-6/u }).boundingBox();
+          expect(Math.round((inside?.x ?? 0) - (disclosure?.x ?? 0))).toBe(TARGET + 12);
         }
         const sizes = await controlSizes(drawer);
         expect(sizes).toHaveLength(controls);

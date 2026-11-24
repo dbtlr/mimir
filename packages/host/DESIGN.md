@@ -520,7 +520,7 @@ preview panel uses.
 | Close and icon buttons | 44 hit area, 20 glyph | 36 hit area, 18 glyph | **adopted (MMR-743)** |
 | Menu row in a Sheet | 44 | 36 | 44 existing (ADR 0019 MMR-736); 36 **adopted (MMR-743)** for 15px rows (Select item is `min-h-8`, 32, in 13px) |
 | Toast action (Undo) | 44 tall, 64 wide at least | 36 | **adopted (MMR-743)** |
-| Sidebar drawer row (the switcher, a section, an outline row, the finished fold, a project) | 44 min. The drawer holds it to 1023, below `lg`, past the phone's 768; a finished initiative's disclosure is a 44 square with a 12 chevron, and the rows inside it indent 44 | from `lg` (1024), beside the page: a section or a project 32, an outline row 25, the disclosure 24 wide | **adopted (MMR-716)**: the 12 chevron departs from the icon button's 20 glyph, recorded as seed MMR-s112 |
+| Sidebar drawer row (the switcher, a section, an outline row, the finished fold, a project) | 44 min. The drawer holds it to 1023, below `lg`, past the phone's 768; a finished initiative's disclosure is a 44 square with a 12 chevron, and the rows inside it indent 44 | from `lg` (1024), beside the page: the switcher 37, a section or a project 32, an outline row 25, the finished fold 24, the disclosure 24 wide | **adopted (MMR-716)**: the 12 chevron departs from the icon button's 20 glyph, recorded as seed MMR-s112 |
 
 Every tap target on a phone is at least 44 × 44, including a link inside help
 text's row and the close glyph.
