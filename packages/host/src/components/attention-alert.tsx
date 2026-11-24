@@ -25,9 +25,12 @@ import { Sheet, SheetClose, SheetContent } from './ui/sheet';
 const DESKTOP = '(min-width: 768px)';
 
 // On a phone the pill sits among 44px icon buttons, so it takes their scale:
-// 34px tall with a 14px count (MMR-715).
+// 34px tall with a 14px count (MMR-715). Its tap target is theirs too: an
+// overlay reaches 5px above and below the drawn pill, to 44 (DESIGN.md, Sizes;
+// MMR-754), and is never narrower than 44, centred, should a one-digit pill
+// draw narrower (its side margins leave the room).
 const PILL =
-  'inline-flex items-center gap-1.5 rounded-full whitespace-nowrap bg-attention/12 px-[11px] py-[5px] text-tag font-semibold text-attention-foreground inset-ring inset-ring-attention/24 transition-colors hover:bg-attention/16 focus-visible:outline-2 focus-visible:outline-accent max-md:mx-1 max-md:h-[34px] max-md:gap-2 max-md:px-3 max-md:py-0 max-md:text-body';
+  'relative inline-flex items-center gap-1.5 rounded-full whitespace-nowrap bg-attention/12 px-[11px] py-[5px] text-tag font-semibold text-attention-foreground inset-ring inset-ring-attention/24 transition-colors hover:bg-attention/16 focus-visible:outline-2 focus-visible:outline-accent max-md:mx-1 max-md:h-[34px] max-md:gap-2 max-md:px-3 max-md:py-0 max-md:text-body max-md:after:absolute max-md:after:-inset-y-[5px] max-md:after:left-1/2 max-md:after:w-full max-md:after:min-w-11 max-md:after:-translate-x-1/2';
 
 /** The id of the work node whose page is showing, or undefined on any other page. */
 function useCurrentNodeId(): string | undefined {

@@ -59,9 +59,13 @@ export function projectListMessage(input: {
   return loading ? 'Loading projects…' : undefined;
 }
 
-/** A project row's geometry, shared by the listbox option and the sidebar's link. */
+/**
+ * A project row's geometry, shared by the listbox option and the sidebar's
+ * link: a 44 tap row on a phone (DESIGN.md, Sizes), 32 from `md` up. The
+ * sidebar's drawer holds its rows at 44 up to `lg`.
+ */
 export const PROJECT_ROW =
-  'flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-meta text-ink-dim max-md:py-2.5';
+  'flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-meta text-ink-dim max-md:min-h-11';
 
 /** A project row's content: its status (or snowflake), key, title, and needs-you count. */
 export function ProjectRowContent({

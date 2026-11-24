@@ -1,0 +1,139 @@
+import { expect, test } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
+
+import { serveHarness } from './form-sheet/serve';
+import type { Harness } from './form-sheet/serve';
+
+/*
+ * The shell's phone touch targets in Chromium (DESIGN.md, Sizes: every tap
+ * target on a phone is at least 44 × 44): the needs-you alert's pill in the
+ * top bar (MMR-754) and every control in the project drawer (MMR-716), over
+ * seeded reads. From `md` (the pill) and `lg` (the sidebar) up, the sizes are
+ * the desktop's own and do not change.
+ */
+
+let harness: Harness;
+
+test.beforeAll(async () => {
+  harness = await serveHarness();
+});
+
+test.afterAll(async () => {
+  await harness.close();
+});
+
+const PHONE = { height: 844, width: 390 };
+const DESKTOP = { height: 900, width: 1280 };
+
+/** The phone minimum, in CSS pixels. */
+const TARGET = 44;
+
+async function open(page: Page, viewport: { width: number; height: number }) {
+  await page.setViewportSize(viewport);
+  await page.goto(`${harness.origin}?form=touch-targets`);
+  await expect(page.getByRole('button', { name: '1 needs you' })).toBeVisible();
+}
+
+/**
+ * Whether a tap anywhere in the `size` square centred on the control lands on
+ * it: its four corners and the midpoints of its edges, read with
+ * `elementFromPoint`, so a hit area an overlay extends past the drawn box counts.
+ */
+function takesSquare(control: Locator, size: number): Promise<boolean> {
+  return control.evaluate((element, side) => {
+    const box = element.getBoundingClientRect();
+    const x = box.left + box.width / 2;
+    const y = box.top + box.height / 2;
+    // Half a pixel in from the square's edge, so a point on the boundary is inside it.
+    const reach = side / 2 - 0.5;
+    const offsets = [-reach, 0, reach];
+    return offsets.every((dx) =>
+      offsets.every((dy) => {
+        const hit = document.elementFromPoint(x + dx, y + dy);
+        return hit !== null && element.contains(hit);
+      }),
+    );
+  }, size);
+}
+
+async function boxSize(control: Locator): Promise<{ width: number; height: number }> {
+  const box = await control.boundingBox();
+  if (box === null) {
+    throw new Error('the control has no box');
+  }
+  return { height: Math.round(box.height), width: Math.round(box.width) };
+}
+
+/** Open the Finished fold and the finished initiative's own disclosure, so every row shows. */
+async function openFolds(sidebar: Locator) {
+  await sidebar.getByText('1 finished initiative').click();
+  await sidebar.getByRole('button', { name: /^Contents of / }).click();
+  await expect(sidebar.getByRole('link', { name: /MMR-6/u })).toBeVisible();
+}
+
+/** Each control in the sidebar, as "its name: width × height", in document order. */
+async function controlSizes(sidebar: Locator): Promise<{ label: string; small: boolean }[]> {
+  const controls = sidebar.locator('a, button, summary');
+  const sizes: { label: string; small: boolean }[] = [];
+  for (let index = 0; index < (await controls.count()); index += 1) {
+    const control = controls.nth(index);
+    // The rendered text, with a line break between a row's parts; textContent runs them together.
+    // oxlint-disable-next-line unicorn/prefer-dom-node-text-content
+    const name = (await control.getAttribute('aria-label')) ?? (await control.innerText());
+    const { width, height } = await boxSize(control);
+    sizes.push({
+      label: `${name.replaceAll(/\s+/gu, ' ').trim()}: ${String(width)} × ${String(height)}`,
+      small: width < TARGET || height < TARGET,
+    });
+  }
+  return sizes;
+}
+
+test.describe('the needs-you alert', () => {
+  test('takes a 44 × 44 tap on a phone, its pill drawn 34 tall', async ({ page }) => {
+    await open(page, PHONE);
+    const pill = page.getByRole('button', { name: '1 needs you' });
+    expect((await boxSize(pill)).height).toBe(34);
+    expect(await takesSquare(pill, TARGET)).toBe(true);
+  });
+
+  test('keeps its desktop pill, with no hit area past it', async ({ page }) => {
+    await open(page, DESKTOP);
+    const pill = page.getByRole('button', { name: '1 needs you' });
+    const drawn = await boxSize(pill);
+    expect(drawn.height).toBe(28);
+    expect(await takesSquare(pill, drawn.height)).toBe(true);
+    expect(await takesSquare(pill, drawn.height + 4)).toBe(false);
+  });
+});
+
+test.describe('the project sidebar', () => {
+  test('gives every control in the phone drawer at least 44 × 44', async ({ page }) => {
+    await open(page, PHONE);
+    await page.getByRole('button', { name: 'Open project menu' }).click();
+    const drawer = page.getByRole('dialog', { name: 'Project' });
+    await openFolds(drawer);
+    const sizes = await controlSizes(drawer);
+    expect(sizes.length).toBeGreaterThan(8);
+    expect(sizes.filter(({ small }) => small).map(({ label }) => label)).toEqual([]);
+  });
+
+  test('keeps its desktop sizes', async ({ page }) => {
+    await open(page, DESKTOP);
+    const sidebar = page.getByRole('complementary', { name: 'Project' });
+    await openFolds(sidebar);
+    expect((await controlSizes(sidebar)).map(({ label }) => label)).toEqual([
+      'MMR Mimir: 235 × 37',
+      'Work: 235 × 32',
+      'initiative MMR-1 0/1: 225 × 25',
+      'phase MMR-2 0/0: 213 × 25',
+      '1 finished initiative: 225 × 24',
+      'Contents of initiative MMR-5: 24 × 25',
+      'initiative MMR-5 1/1: 201 × 25',
+      'phase MMR-6 0/0: 189 × 25',
+      'Tasks: 235 × 32',
+      'Seeds: 235 × 32',
+      'Artifacts: 235 × 32',
+    ]);
+  });
+});

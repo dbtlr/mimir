@@ -18,7 +18,7 @@ import { ProjectPicker } from './project-picker';
 import { SidebarProjects } from './sidebar-projects';
 import { StatusDot } from './status-dot';
 import { iconButtonClass } from './ui/icon-button';
-import { MenuIcon } from './ui/icons';
+import { ChevronRightIcon, MenuIcon } from './ui/icons';
 import { Skeleton } from './ui/skeleton';
 
 /*
@@ -45,6 +45,16 @@ const ROW_CURRENT =
 
 const ROW =
   'flex min-w-0 items-center gap-2 rounded-md px-2 text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent';
+
+/**
+ * Every row in the drawer, below `lg`, is a 44 tap row (DESIGN.md, Sizes:
+ * every tap target on a phone is at least 44 × 44); from `lg` up the sidebar
+ * keeps its compact rows.
+ */
+const DRAWER_TAP_ROW = 'max-lg:min-h-11';
+
+/** A section's row: Work, a browser, a Settings page, the way back to work. */
+const SECTION_ROW = cn(ROW, 'py-1.5 text-meta', DRAWER_TAP_ROW);
 
 /** Work is the project's page; its outline sits under it. `to` is the section's route. */
 const WORK = { label: 'Work', section: 'work', to: '/p/$key' } as const;
@@ -83,11 +93,7 @@ function SectionLink({
     to: entry.to,
   });
   return (
-    <a
-      {...linkProps}
-      aria-current={current}
-      className={cn(ROW, 'py-1.5 text-meta max-lg:py-2.5', SECTION_CURRENT)}
-    >
+    <a {...linkProps} aria-current={current} className={cn(SECTION_ROW, SECTION_CURRENT)}>
       {entry.label}
     </a>
   );
@@ -131,7 +137,8 @@ function OutlineRow({ entry, onNavigate }: { entry: OutlineEntry; onNavigate?: (
       onClick={onNavigate}
       className={cn(
         ROW,
-        'rounded-sm py-1 text-xs max-lg:py-2 data-[on-path]:text-ink-bright data-[on-path]:inset-ring data-[on-path]:inset-ring-accent/28',
+        DRAWER_TAP_ROW,
+        'rounded-sm py-1 text-xs data-[on-path]:text-ink-bright data-[on-path]:inset-ring data-[on-path]:inset-ring-accent/28',
         ROW_CURRENT,
       )}
       style={{ marginLeft: `${String(entry.depth * 0.75)}rem` }}
@@ -163,6 +170,13 @@ function useFoldState(initial: boolean, resetKey: string) {
 }
 
 /**
+ * The disclosure beside a finished initiative's row, and the gap that stands
+ * in for it: 24 wide beside the sidebar, 44 in the drawer, where its height is
+ * the row's 44. The rows inside it indent by the same width.
+ */
+const DISCLOSURE_WIDTH = 'w-6 max-lg:w-11';
+
+/**
  * A finished initiative inside the fold: its row, and a toggle that shows the
  * rows inside it. It starts shut unless the open record is the initiative or
  * sits inside it, and each navigation re-asserts that.
@@ -191,32 +205,27 @@ function FinishedInitiativeRows({
             onClick={() => {
               setOpen((v) => !v);
             }}
-            className="flex w-6 shrink-0 items-center justify-center self-stretch rounded-sm text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent max-lg:w-9"
+            className={cn(
+              'flex shrink-0 items-center justify-center self-stretch rounded-sm text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent',
+              DISCLOSURE_WIDTH,
+            )}
           >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-              className={cn('transition-transform', open && 'rotate-90')}
-            >
-              <path d="m9 6 6 6-6 6" />
-            </svg>
+            <ChevronRightIcon
+              className={cn(
+                'size-3 transition-transform [stroke-width:2.5] md:size-3',
+                open && 'rotate-90',
+              )}
+            />
           </button>
         ) : (
-          <span aria-hidden="true" className="w-6 shrink-0 max-lg:w-9" />
+          <span aria-hidden="true" className={cn('shrink-0', DISCLOSURE_WIDTH)} />
         )}
         <div className="flex min-w-0 flex-1 flex-col">
           <OutlineRow entry={row} onNavigate={onNavigate} />
         </div>
       </div>
       {open && (
-        <div id={insideId} className="ml-6 flex flex-col gap-px max-lg:ml-9">
+        <div id={insideId} className="ml-6 flex flex-col gap-px max-lg:ml-11">
           {inside.map((entry) => (
             <OutlineRow key={entry.id} entry={entry} onNavigate={onNavigate} />
           ))}
@@ -248,7 +257,9 @@ function FinishedFold({
         setOpen(event.currentTarget.open);
       }}
     >
-      <summary className="cursor-pointer rounded-sm px-2 py-1 text-xs text-ink-dim focus-visible:outline-2 focus-visible:outline-accent max-lg:py-2">
+      {/* A summary keeps its list-item display for the marker, so its 44 comes
+          from padding: the 16 line and 14 above and below. */}
+      <summary className="cursor-pointer rounded-sm px-2 py-1 text-xs text-ink-dim focus-visible:outline-2 focus-visible:outline-accent max-lg:py-3.5">
         {finished.length} finished {finished.length === 1 ? 'initiative' : 'initiatives'}
       </summary>
       <div className="flex flex-col gap-px">
@@ -368,7 +379,7 @@ function AllProjectsBody({ onNavigate }: { onNavigate?: () => void }) {
         to="/"
         activeOptions={{ exact: true, includeSearch: false }}
         onClick={onNavigate}
-        className={cn(ROW, 'py-1.5 text-meta max-lg:py-2.5', SECTION_CURRENT)}
+        className={cn(SECTION_ROW, SECTION_CURRENT)}
       >
         Work
       </Link>
@@ -414,11 +425,7 @@ function SettingsLink({
     current = 'true';
   }
   return (
-    <a
-      {...linkProps}
-      aria-current={current}
-      className={cn(ROW, 'py-1.5 text-meta max-lg:py-2.5', SECTION_CURRENT)}
-    >
+    <a {...linkProps} aria-current={current} className={cn(SECTION_ROW, SECTION_CURRENT)}>
       {label}
       {count !== undefined && count > 0 && (
         <>
@@ -444,11 +451,7 @@ function SettingsBody({ onNavigate }: { onNavigate?: () => void }) {
   const waiting = useQuery(pendingPairingsQuery).data?.length;
   return (
     <>
-      <Link
-        to="/"
-        onClick={onNavigate}
-        className={cn(ROW, 'py-1.5 text-meta max-lg:py-2.5 text-ink-dim')}
-      >
+      <Link to="/" onClick={onNavigate} className={cn(SECTION_ROW, 'text-ink-dim')}>
         ← Back to work
       </Link>
       <SettingsGroupHeading>This device</SettingsGroupHeading>

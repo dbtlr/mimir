@@ -1,7 +1,8 @@
 // A page that opens the console's real Form sheet forms, Notice, Walkthrough,
 // and Needs you deck in Chromium, for the layout checks a DOM without layout
 // cannot make (form-sheet-focus.test.ts, walkthrough-layer.test.ts,
-// feed-deck.test.ts, needs-you-deck.test.ts).
+// feed-deck.test.ts, needs-you-deck.test.ts), and the shell's phone touch
+// targets (touch-targets.test.ts).
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -24,6 +25,7 @@ import { T3LaunchForm } from '../../src/components/t3-launch-form';
 import { reachableSystem } from '../../src/test/t3-fixtures';
 import { DeckPage } from './deck-page';
 import { NeedsYouDeckPage } from './needs-you-deck-page';
+import { TouchTargetsPage } from './touch-targets-page';
 
 const params = new URLSearchParams(globalThis.location.search);
 const form = params.get('form') ?? 't3';
@@ -49,6 +51,9 @@ function Harness() {
   }
   if (form === 'needs-you-deck') {
     return <NeedsYouDeckPage />;
+  }
+  if (form === 'touch-targets') {
+    return <TouchTargetsPage />;
   }
   if (form === 'notice') {
     return (

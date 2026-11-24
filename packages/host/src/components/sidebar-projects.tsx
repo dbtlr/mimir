@@ -36,7 +36,8 @@ function ProjectLink({
         data-project={project.id}
         className={cn(
           PROJECT_ROW,
-          'transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent',
+          // The drawer's rows are 44 tap rows up to `lg` (project-sidebar.tsx).
+          'max-lg:min-h-11 transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent',
         )}
       >
         <ProjectRowContent project={project} needsYou={needsYou} />
