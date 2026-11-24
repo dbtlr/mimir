@@ -110,11 +110,17 @@ export function ProjectFrame({
   // stop asking, so a retry or poll cannot swap the notice for the page.
   const archived = useArchivedProject(projectKey);
   const project = useQuery({ ...projectQuery(projectKey), enabled: archived === undefined });
-  const seeds = useQuery(seedsQuery({ project: projectKey }));
-  const navigate = useNavigate();
-
   // A node id in the project segment (`/p/MMR-5/tasks`) names no project either.
   const notProject = project.data !== undefined && project.data.type !== 'project';
+  // The seeds only draw the Seeds tab, which waits for the project's record, so
+  // they wait for it too: an archived or unknown project reads none. (A 404's
+  // poll clears its error while it runs, so the error cannot gate them.)
+  const seeds = useQuery({
+    ...seedsQuery({ project: projectKey }),
+    enabled: archived === undefined && project.data?.type === 'project',
+  });
+  const navigate = useNavigate();
+
   if (archived !== undefined || isNotFound(project.error) || notProject) {
     return <UnavailableProject projectKey={projectKey} />;
   }

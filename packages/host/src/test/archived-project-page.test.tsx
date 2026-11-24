@@ -3,6 +3,7 @@ import { QueryClient } from '@tanstack/react-query';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { seeds } from '../api/fns/browse';
 import { getNode } from '../api/fns/nodes';
 import { projects, unarchive } from '../api/fns/shell';
 import { createQueryClient } from '../api/query-client';
@@ -166,6 +167,20 @@ describe('an archived project’s address (MMR-506)', () => {
     expect(button.isConnected).toBe(true);
     expect(removed.some((node) => node.contains(button))).toBe(false);
     expect(screen.queryByRole('heading', { name: 'Project unavailable' })).toBeNull();
+  });
+
+  // The record lookup keeps polling an unknown key, so it sees the project come back; the seeds wait for it.
+  it.each([
+    ['an archived', 'OLD'],
+    ['an unknown', 'ZZZ'],
+  ])('reads no seeds, across poll intervals, for %s project', async (_kind, key) => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    await renderRoute(routes, `/p/${key}`, createQueryClient());
+    await vi.advanceTimersByTimeAsync(40_000);
+
+    const title = key === 'OLD' ? 'Old project' : 'Project unavailable';
+    expect(screen.getByRole('heading', { level: 1, name: title })).toBeInTheDocument();
+    expect(seeds).not.toHaveBeenCalled();
   });
 
   it('keeps the unavailable page for a key that names no project', async () => {
