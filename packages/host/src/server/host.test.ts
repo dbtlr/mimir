@@ -5,16 +5,29 @@ import { chmod, mkdir, mkdtemp, readdir, realpath, rm, writeFile } from 'node:fs
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { configPath, SQLITE_FILE, warnConfigPermissions } from '@mimir/core';
+import type { McpSdkServerConfigWithInstance, SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import {
+  configPath,
+  parseSecretKey,
+  sealSecret,
+  SQLITE_FILE,
+  warnConfigPermissions,
+} from '@mimir/core';
 import { WINDOW_VERSION } from '@mimir/core/testing';
 import { RemoteEngine } from '@mimir/wire/client';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 
+import type { RunQuery } from './agent-runner';
 import { readHostConfig } from './config';
 import { guardEveryRoute, hostGuard } from './guard';
 import { openHost } from './host';
-import type { NotifierTimer } from './host';
+import type { HostDependencies, NotifierTimer } from './host';
 import { decryptPushBody, makeBrowserKeys } from './push-fixtures';
 import { stubPushService } from './push-stub';
+import { T3_SECRET_NAME } from './t3';
+import { parseT3LaunchInput } from './t3-input';
+import { STUB_ACCESS_TOKEN, stubT3 } from './t3-stub';
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -529,17 +542,24 @@ function timedHost() {
   return { armed, closeWindow, lines, log, notifierLines, timers, timing };
 }
 
-async function openTimedHost() {
+async function openTimedHost(
+  options: { env?: Record<string, string>; remote?: string; dependencies?: HostDependencies } = {},
+) {
   const root = await mkdtemp(join(tmpdir(), 'mimir-host-notifier-'));
   roots.push(root);
   const rig = timedHost();
   const host = await openHost(
-    await readHostConfig({ MIMIR_DATA_DIR: root }),
+    await readHostConfig({ MIMIR_DATA_DIR: root, ...options.env }),
     WINDOW_VERSION,
     rig.log,
-    { notifierTiming: rig.timing },
+    { ...options.dependencies, notifierTiming: rig.timing },
   );
-  await host.engine.create({ key: 'NTF', name: 'Notifier', type: 'project' });
+  await host.engine.create({
+    key: 'NTF',
+    name: 'Notifier',
+    type: 'project',
+    ...(options.remote === undefined ? {} : { remote: options.remote }),
+  });
   await host.engine.create({ parent: 'NTF', title: 'Plan', type: 'initiative' });
   await host.engine.create({ parent: 'NTF-1', title: 'First', type: 'task' });
   await host.engine.create({ parent: 'NTF-1', title: 'Second', type: 'task' });
@@ -547,7 +567,7 @@ async function openTimedHost() {
   await rig.closeWindow();
   // The setup check is over once its read limit timer is cleared.
   await until(() => rig.armed().length === 0);
-  return { host, rig };
+  return { host, rig, root };
 }
 
 async function pairedRemote(host: Awaited<ReturnType<typeof openHost>>) {
@@ -597,6 +617,148 @@ test('a block made through /trpc is another actor, so the operator is told', asy
     ]);
   } finally {
     await server.stop(true);
+    await host.close();
+  }
+});
+
+/** A stand-in for the agent SDK: a run whose one write is grooming its task to needs answers. */
+const groomingQuery: RunQuery = ({ options }) =>
+  (async function* run() {
+    // The run's one write, through its grant: the host's agent view of the Engine.
+    const server = Object.values(options.mcpServers ?? {})[0] as McpSdkServerConfigWithInstance;
+    const [serverSide, clientSide] = InMemoryTransport.createLinkedPair();
+    await server.instance.connect(serverSide);
+    const client = new Client({ name: 'host-test', version: '1.0.0' });
+    await client.connect(clientSide);
+    await client.callTool({
+      arguments: { note: 'Which region?', state: 'needs_answers' },
+      name: 'groom',
+    });
+    await client.close();
+    yield {
+      modelUsage: {},
+      subtype: 'success',
+      type: 'result',
+      usage: {},
+    } as unknown as SDKMessage;
+  })();
+
+test('an agent run that grooms a task to needs answers is another actor, so the operator is told', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mimir-host-agent-notifier-'));
+  roots.push(root);
+  const tokenFile = join(root, 'token');
+  await writeFile(tokenFile, 'sk-ant-oat01-test\n');
+  const { host, rig } = await openTimedHost({
+    dependencies: {
+      agentRuntime: {
+        query: groomingQuery,
+        syncClone: async () => {
+          const directory = join(root, 'clone');
+          await mkdir(directory, { recursive: true });
+          return { branch: 'main', commit: 'abc123', directory, fresh: true, ok: true };
+        },
+      },
+    },
+    env: {
+      MIMIR_AGENT_TOKEN_FILE: tokenFile,
+      MIMIR_HOSTS: 'github.com',
+    },
+    remote: 'https://github.com/acme/notifier',
+  });
+  try {
+    const start = await host.agent.startRun({
+      brief: { prompt: 'Groom the task.', systemPrompt: 'You groom tasks.' },
+      kind: 'groom',
+      project: 'NTF',
+      task: 'NTF-3',
+      trigger: 'console',
+    });
+    expect(start).toMatchObject({ started: true });
+    if (start.started) {
+      await start.finished;
+    }
+    await rig.closeWindow();
+    await until(() => rig.notifierLines().length > 0);
+    expect(rig.notifierLines()).toEqual([
+      expect.objectContaining({
+        event: 'needs_you_event',
+        ids: 'NTF-3',
+        kind: 'task_needs_answers',
+      }),
+    ]);
+  } finally {
+    await host.close();
+  }
+});
+
+test('a T3 launch is the operator, so it does not tell the operator what the console did', async () => {
+  const T3 = 'https://t3.example';
+  const key = Buffer.alloc(32, 7).toString('base64');
+  const stub = stubT3({
+    configured: 'env-valhalla',
+    environments: {
+      'env-valhalla': {
+        label: 'Valhalla',
+        projects: [{ id: 'p-notifier', remoteUrl: 'git@github.com:acme/notifier.git', title: 'n' }],
+        providers: [
+          {
+            displayName: 'Codex',
+            models: [{ id: 'gpt-6.1-sol', options: [] }],
+            providerInstanceId: 'codex',
+          },
+        ],
+        runtimeMode: 'auto',
+      },
+    },
+    links: [],
+    origin: T3,
+  });
+  const { host, rig, root } = await openTimedHost({
+    dependencies: { t3Fetch: stub.fetch },
+    env: { MIMIR_HOSTS: 'github.com', MIMIR_SECRET_KEY: key, MIMIR_T3_URL: T3 },
+    remote: 'https://github.com/acme/notifier',
+  });
+  try {
+    // The operator's connection to T3, sealed as the OAuth callback seals it.
+    const database = new Database(join(root, SQLITE_FILE));
+    database
+      .query(
+        'INSERT INTO host_secrets (name, ciphertext, created_at, updated_at) VALUES (?, ?, ?, ?)',
+      )
+      .run(
+        T3_SECRET_NAME,
+        sealSecret(
+          parseSecretKey(key)!,
+          T3_SECRET_NAME,
+          JSON.stringify({
+            accessToken: STUB_ACCESS_TOKEN,
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            issuer: T3,
+          }),
+        ),
+        'now',
+        'now',
+      );
+    database.close();
+    // The console's own write opens a window and would be withheld by itself.
+    await host.engine.block({ id: 'NTF-3', on: 'you', reason: 'Console help' });
+    const launched = await host.t3.launch(
+      parseT3LaunchInput({
+        attempt: 'attempt-0000000001',
+        environmentId: 'env-valhalla',
+        interactionMode: 'default',
+        model: { instanceId: 'codex', model: 'gpt-6.1-sol', options: [] },
+        projectId: 'p-notifier',
+        runtimeMode: 'auto',
+        task: 'NTF-2',
+        workspace: { type: 'worktree' },
+      }),
+    );
+    expect(launched).toMatchObject({ state: 'launched' });
+    await rig.closeWindow();
+    await until(() => rig.notifierLines().length > 0);
+    expect(rig.notifierLines()).toEqual([{ event: 'needs_you_withheld', ids: 'NTF-3' }]);
+  } finally {
     await host.close();
   }
 });
