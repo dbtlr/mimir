@@ -136,7 +136,8 @@ export const FINISHED_PAGE_SIZE = 50;
  * asks for the newest `FINISHED_PAGE_SIZE * windows` rows; "Show more" grows
  * `windows` and refetches that larger prefix, so a task that finishes or
  * reopens between loads can never skip or repeat a row the way offset paging
- * would. Every other view sends no limit. While the larger prefix loads the
+ * would; one that can hold abandoned tasks also asks for each row's history,
+ * where an abandoned task's day is. Every other view sends no limit. While the larger prefix loads the
  * previous rows stay (same filters only — a filter change must not show the
  * old selection). Keyed under `nodes`, so every write invalidates it.
  */
@@ -152,6 +153,10 @@ export const tasksBrowserQuery = (f: TaskFilters, windows = 1) => {
       }
       if (limit !== undefined) {
         input.limit = limit;
+        // An abandoned row's day is its move to abandoned, which only its history holds.
+        if (statusSelection(f.status ?? '')?.some((s) => s === 'terminal' || s === 'abandoned')) {
+          input.facets = [...(input.facets ?? []), 'history'];
+        }
       }
       return list({ data: input });
     },

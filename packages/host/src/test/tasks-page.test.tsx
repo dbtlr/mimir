@@ -186,7 +186,7 @@ describe('tasksPage (the Tasks list, MMR-454, MMR-724)', () => {
     await renderTasks('/p/MMR/tasks?status=terminal');
     await screen.findByRole('button', { name: 'Remove Finished' });
     expect(nodeReads()).toContainEqual({
-      facets: ['home', 'lede'],
+      facets: ['home', 'lede', 'history'],
       limit: FINISHED_PAGE_SIZE,
       project: 'MMR',
       status: 'terminal',
@@ -478,6 +478,31 @@ describe('tasksPage Finished windows (MMR-460)', () => {
       screen.getAllByRole('button', { name: /June/ }).map((day) => day.textContent),
     ).toStrictEqual(['Monday, 22 June 1', 'Saturday, 20 June 1']);
     expect(screen.getByRole('button', { expanded: true })).toHaveTextContent('Monday, 22 June 1');
+  });
+
+  it('files an abandoned task under the day it was abandoned, not its last edit', async () => {
+    const abandoned = engineTask({
+      history: [
+        {
+          at: new Date('2026-06-21T15:00:00.000Z'),
+          from: 'in_progress',
+          kind: 'lifecycle',
+          reason: 'Superseded',
+          to: 'abandoned',
+        },
+      ],
+      id: 'MMR-3003',
+      lifecycle: 'abandoned',
+      status: 'abandoned',
+      title: 'Abandoned, then edited',
+      updatedAt: new Date('2026-06-25T15:00:00.000Z'),
+    });
+    mockTerminalApi([abandoned]);
+    await renderTasks('/p/MMR/tasks?status=terminal');
+    await expect(screen.findByRole('button', { expanded: true })).resolves.toHaveTextContent(
+      'Sunday, 21 June 1',
+    );
+    expect(nodeReads().find((p) => p.status === 'terminal')?.facets).toContain('history');
   });
 
   it.each([

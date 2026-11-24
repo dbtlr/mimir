@@ -93,8 +93,15 @@ const projectKeyOfNode = (n: EngineNode) => n.home?.projectKey ?? projectKeyOf(n
 
 const seqOf = (id: string) => Number(id.slice(id.lastIndexOf('-') + 1));
 
-/** When a finished task finished: `done` stamps `completed_at`; an abandoned task settled when it last changed. */
-const finishedAt = (n: EngineNode) => n.completedAt ?? n.updatedAt;
+/**
+ * When a finished task finished: `done` stamps `completed_at`; an abandoned
+ * task finished at its latest move to abandoned, as review's `abandonedOf`
+ * reads it, or when it last changed when its history did not come.
+ */
+const finishedAt = (n: EngineNode) =>
+  n.completedAt ??
+  n.history?.findLast((h) => h.kind === 'lifecycle' && h.to === 'abandoned')?.at ??
+  n.updatedAt;
 
 /**
  * The finished rows' order: the server's own paging order (MMR-460) —
