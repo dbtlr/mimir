@@ -609,6 +609,67 @@ describe('tasksPage presets (MMR-724)', () => {
   });
 });
 
+describe('tasksPage Sort (MMR-724)', () => {
+  /** Four ready tasks, listed out of every order the sorts give. */
+  const ready = [
+    engineTask({
+      id: 'MMR-80',
+      priority: 'p1',
+      status: 'ready',
+      title: 'Older p1',
+      updatedAt: new Date('2026-06-11T10:00:00.000Z'),
+    }),
+    engineTask({
+      id: 'MMR-81',
+      status: 'ready',
+      title: 'No priority',
+      updatedAt: new Date('2026-06-11T12:00:00.000Z'),
+    }),
+    engineTask({
+      id: 'MMR-82',
+      priority: 'p0',
+      status: 'ready',
+      title: 'Oldest p0',
+      updatedAt: new Date('2026-06-11T09:00:00.000Z'),
+    }),
+    engineTask({
+      id: 'MMR-83',
+      priority: 'p1',
+      status: 'ready',
+      title: 'Newer p1',
+      updatedAt: new Date('2026-06-11T11:00:00.000Z'),
+    }),
+  ];
+
+  it.each([
+    ['', ['No priority', 'Newer p1', 'Older p1', 'Oldest p0']],
+    ['?sort=oldest', ['Oldest p0', 'Older p1', 'Newer p1', 'No priority']],
+    ['?sort=priority', ['Oldest p0', 'Newer p1', 'Older p1', 'No priority']],
+  ])('orders a group by the URL’s sort%s', async (query, titles) => {
+    serveBrowse({ tasks: ready });
+    await renderTasks(`/p/MMR/tasks${query}`);
+    await screen.findByText('Oldest p0');
+    expect(titlesIn('Ready 4')).toStrictEqual(titles);
+  });
+
+  it('applies a sort from the sheet, counted under Filter', async () => {
+    serveBrowse({ tasks: ready });
+    const testRouter = await renderTasks();
+    const user = userEvent.setup();
+    await screen.findByText('Oldest p0');
+    await user.click(filterChip());
+    const sheet = await screen.findByRole('dialog', { name: 'Filter tasks' });
+    const sorts = within(sheet).getByRole('radiogroup', { name: 'Sort' });
+    await user.click(within(sorts).getByRole('radio', { name: 'Priority' }));
+    await user.click(within(sheet).getByRole('button', { name: /^Show / }));
+    await waitFor(() => {
+      expect(search(testRouter)).toEqual({ sort: 'priority' });
+    });
+    expect(titlesIn('Ready 4')).toStrictEqual(['Oldest p0', 'Newer p1', 'Older p1', 'No priority']);
+    expect(filterChip()).toHaveAccessibleName('Filter, 1 applied');
+  });
+});
+
 /** Opens the Tasks list at `url` and its Filter sheet. */
 async function openSheet(url = '/p/MMR/tasks') {
   const testRouter = await renderTasks(url);
