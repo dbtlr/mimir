@@ -292,7 +292,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
 
     await screen.findByText('Nothing needs you.');
     expect(testRouter.state.location.href).toBe('/needs-you');
-    expect(testRouter.history.length).toBe(1);
+    expect(testRouter.history).toHaveLength(1);
   });
 
   it('lands focus on the next decision’s first action after Skip', async () => {
@@ -339,16 +339,16 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
   });
 });
 
-describe('the focus queue’s return to the Needs you page (ADR 0013, MMR-723 refinement)', () => {
-  /** The page, then Work through all, in the whole console so the shell carries out the return's focus. */
-  async function openFromPage(report: ReviewReport) {
-    serve(report);
-    const view = await renderShell('/needs-you', reviewClient());
-    await userEvent.click(await screen.findByRole('link', { name: /^Work through/u }));
-    await screen.findByRole('heading', { level: 1, name: 'Work through these' });
-    return view;
-  }
+/** The page, then Work through all, in the whole console so the shell carries out the return's focus. */
+async function openFromPage(report: ReviewReport) {
+  serve(report);
+  const view = await renderShell('/needs-you', reviewClient());
+  await userEvent.click(await screen.findByRole('link', { name: /^Work through/u }));
+  await screen.findByRole('heading', { level: 1, name: 'Work through these' });
+  return view;
+}
 
+describe('the focus queue’s return to the Needs you page (ADR 0013, MMR-723 refinement)', () => {
   it('goes back one entry from Back to the list, to Work through all', async () => {
     const { router: testRouter } = await openFromPage(needsYou(question, block));
     await userEvent.click(screen.getByRole('link', { name: '← Back to the list' }));
@@ -358,7 +358,7 @@ describe('the focus queue’s return to the Needs you page (ADR 0013, MMR-723 re
     });
     expect(testRouter.state.location.href).toBe('/needs-you');
     // Back, not a new entry: the history holds the page once, and the queue after it.
-    expect(testRouter.history.length).toBe(2);
+    expect(testRouter.history).toHaveLength(2);
   });
 
   it('goes back one entry once nothing is left', async () => {
@@ -373,7 +373,7 @@ describe('the focus queue’s return to the Needs you page (ADR 0013, MMR-723 re
 
     await screen.findByText('Nothing needs you.');
     expect(testRouter.state.location.href).toBe('/needs-you');
-    expect(testRouter.history.length).toBe(2);
+    expect(testRouter.history).toHaveLength(2);
   });
 
   it('replaces itself with the page from Back to the list when it was not opened from the page', async () => {
@@ -383,6 +383,6 @@ describe('the focus queue’s return to the Needs you page (ADR 0013, MMR-723 re
     await userEvent.click(screen.getByRole('link', { name: '← Back to the list' }));
 
     await screen.findByText('1 card, 1 item in 1 project.');
-    expect(testRouter.history.length).toBe(1);
+    expect(testRouter.history).toHaveLength(1);
   });
 });

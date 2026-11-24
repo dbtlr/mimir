@@ -2,9 +2,9 @@ import { useMemo, useRef } from 'react';
 
 import type { ReviewReport } from '../api/view-queries';
 import { useReturnTargetResolver } from '../lib/walkthrough-mark';
-import { needsYouCards } from './needs-you-deck-model';
 import { needsYouContent, needsYouPreview, useNeedsYouActions } from './needs-you-cards';
 import type { NeedsYouWrites } from './needs-you-cards';
+import { needsYouCards } from './needs-you-deck-model';
 import { FeedDeck } from './patterns/feed/deck';
 import type { DeckCard, FeedDeckHandle } from './patterns/feed/deck';
 import type { FeedLink } from './patterns/feed/link';

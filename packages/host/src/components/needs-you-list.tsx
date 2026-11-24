@@ -2,10 +2,10 @@ import { useImperativeHandle, useMemo, useRef } from 'react';
 import type { Ref } from 'react';
 
 import type { ReviewReport } from '../api/view-queries';
-import { needsYouSections } from './needs-you-deck-model';
-import type { NeedsYouCard } from './needs-you-deck-model';
 import { needsYouContent, needsYouPreview, useNeedsYouActions } from './needs-you-cards';
 import type { NeedsYouWrites } from './needs-you-cards';
+import { needsYouSections } from './needs-you-deck-model';
+import type { NeedsYouCard } from './needs-you-deck-model';
 import { FeedCardList } from './patterns/feed/card-list';
 import type { FeedCardListHandle, ListSection } from './patterns/feed/card-list';
 

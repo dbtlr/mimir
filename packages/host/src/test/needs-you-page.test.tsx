@@ -4,8 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ReviewReport } from '../api/view-queries';
-import { consoleRoutes } from '../router';
 import { readMark } from '../lib/walkthrough-mark';
+import { consoleRoutes } from '../router';
 import { serveBrowse } from './browse-fns';
 import { blocked, decision, question, report, stopped } from './needs-you-fixtures';
 import { renderRoute } from './router';

@@ -109,7 +109,9 @@ function WorkThroughBar({
           }}
           className={cn(actionButtonVariants({ size: 'form', variant: 'action' }), 'grow')}
         >
-          {records === 1 ? 'Work through 1 item' : `Work through all ${records.toLocaleString('en-US')}`}
+          {records === 1
+            ? 'Work through 1 item'
+            : `Work through all ${records.toLocaleString('en-US')}`}
         </Link>
       </div>
     </div>

@@ -60,7 +60,11 @@ const router = createRouter({
   history: createMemoryHistory({ initialEntries: ['/needs-you'] }),
   routeTree: root.addChildren([
     createRoute({ component: NeedsYouPage, getParentRoute: () => root, path: '/needs-you' }),
-    createRoute({ component: () => <main>Focus queue</main>, getParentRoute: () => root, path: '/' }),
+    createRoute({
+      component: () => <main>Focus queue</main>,
+      getParentRoute: () => root,
+      path: '/',
+    }),
   ]),
 });
 
