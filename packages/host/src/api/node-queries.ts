@@ -15,10 +15,17 @@ import { getNode, scratchList } from './fns/nodes';
  * the persister's buster (lib/persist.ts), so a bump drops every snapshot
  * written in the old shape instead of restoring it into the new code.
  */
-export const NODE_CACHE_VERSION = 2;
+export const NODE_CACHE_VERSION = 3;
 
-/** A project record's projection: its structure, rollup, tags, artifacts, and direction. */
-const PROJECT_FACETS: FacetName[] = ['children', 'distribution', 'tags', 'artifacts', 'next'];
+/** A project record's projection: its structure, rollup, task tally, tags, artifacts, and direction. */
+const PROJECT_FACETS: FacetName[] = [
+  'children',
+  'distribution',
+  'leafCounts',
+  'tags',
+  'artifacts',
+  'next',
+];
 
 /** A node record's projection: the list facets plus its artifacts, history, prose, and direction. */
 const NODE_FACETS: FacetName[] = [

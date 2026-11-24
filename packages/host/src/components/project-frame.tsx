@@ -16,7 +16,7 @@ import { RecordTabs } from './patterns/record-tabs';
 import type { RecordTab } from './patterns/record-tabs';
 import { UnavailableProject } from './project-unavailable';
 import { Skeleton } from './ui/skeleton';
-import { ContainerHead, RecordColumn, taskCount } from './work-page';
+import { ContainerHead, RecordColumn } from './work-page';
 
 /** A project page's tabs: Work and Details at `/p/KEY`, the rest its browsers. */
 export type ProjectTab = 'work' | 'tasks' | 'seeds' | 'artifacts' | 'details';
@@ -40,7 +40,8 @@ export function projectTabs(
   seeds: readonly EngineSeed[] | undefined,
   current: ProjectTab,
 ): RecordTab<ProjectTab>[] {
-  const tasks = project !== undefined && taskCount(project) > 0;
+  // The leaf tally, not the rollup: the rollup counts roots and drops an idle open-ended one.
+  const tasks = Object.values(project?.leafCounts ?? {}).some((count) => count > 0);
   const artifacts = project?.artifacts?.length ?? project?.artifactCount ?? 0;
   const open = seeds === undefined ? 0 : openSeeds(seeds);
   const all: (RecordTab<ProjectTab> & { shown: boolean })[] = [

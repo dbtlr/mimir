@@ -83,6 +83,7 @@ function serveProject(extra: Partial<EngineNode> = {}) {
         description: 'The **work** tool.',
         distribution: { in_progress: 1, ready: 1 },
         id: 'MMR',
+        leafCounts: { ready: 1 },
         next: 'Ship record pages.\n\nThen the work page.',
         title: 'Mimir',
         ...extra,
@@ -135,6 +136,19 @@ describe('project page (MMR-450, MMR-470, MMR-726)', () => {
 
     await screen.findByRole('tablist', { name: 'Record views' });
     expect(tabNames()).toStrictEqual(['Work ', 'Tasks ', 'Details ']);
+  });
+
+  // The rollup tallies the project's roots, not its tasks: an empty initiative counts there,
+  // and an idle open-ended phase holding tasks drops out of it (MMR-204).
+  it.each([
+    ['hides Tasks while its only root is an empty initiative', { ready: 1 }, {}, false],
+    ['shows Tasks for tasks under an idle open-ended phase', {}, { parked: 2 }, true],
+  ])('%s', async (_name, distribution, leafCounts, shown) => {
+    serveProject({ distribution, leafCounts });
+    await renderRoute(consoleRoutes, '/p/MMR', quietClient());
+
+    await screen.findByRole('tablist', { name: 'Record views' });
+    expect(tabNames().includes('Tasks ')).toBe(shown);
   });
 
   it('counts open seeds and frozen artifacts on their tabs, in their order', async () => {
