@@ -350,6 +350,25 @@ describe('feed day folds', () => {
     }
   });
 
+  it('gives a finished title up to two lines on a phone and one line from md', async () => {
+    await renderInRouter(
+      <FinishedRow
+        to={nodeLink('MMR-1')}
+        dot={<span />}
+        status="Done"
+        title="Home becomes one feed column, opening with the day"
+        time="09:00"
+      />,
+    );
+    const title = screen.getByText('Home becomes one feed column, opening with the day');
+    expect(title).toHaveClass(
+      'block',
+      'truncate',
+      'max-md:line-clamp-2',
+      'max-md:whitespace-normal',
+    );
+  });
+
   it('keeps a dot’s own text out of the row’s name', async () => {
     await renderInRouter(
       <FinishedRow

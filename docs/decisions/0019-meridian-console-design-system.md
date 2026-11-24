@@ -1610,7 +1610,8 @@ cards, not those rows or the focus queue's card.
   ink and its reason, and every row's status is in its accessible text. A
   day with more rows than its cap (the caller's to set) ends in a _Show N
   more_ button that reveals the rest in place and moves focus to the first
-  revealed row.
+  revealed row. (2026-11-24, MMR-779: below `md` a finished title takes up to
+  two lines; from `md` up it keeps one.)
 - **The Shipped summary is a seven-day column chart, then a row group.**
   Each day is one column, with its count above the bar and its short name
   below, and all columns share one baseline. Any day above zero draws at
