@@ -362,3 +362,10 @@ test('next transports delivery selection', async () => {
   ).toEqual([task.id]);
   expect((await remote.next({ project: 'ENG' })).items.map((n) => n.id)).not.toContain(task.id);
 });
+
+test('a project read carries its seed tally across the wire (MMR-787)', async () => {
+  const input = { facets: ['seedCounts' as const], id: 'ENG' };
+  const read = await remote.getNode(input);
+  expect(read.seedCounts).toEqual({ open: 1, total: 1 });
+  expect(read).toEqual(await local.getNode(input));
+});

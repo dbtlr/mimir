@@ -70,7 +70,7 @@ export type SeedStore = {
   /** A project's whole seed inventory, seq ascending. */
   listForProject: (key: string) => Promise<SeedRecord[]>;
   /** A project's seed tally (MMR-787): every seed, and the open ones (not
-   * terminal), counted in the store so no seed row is read. */
+   * terminal), counted in the store, so no seed row reaches the caller. */
   countForProject: (key: string) => Promise<SeedCounts>;
   /** A seed's `## History` transitions in log order (MMR-246) — the source
    * the triage pass reads the terminal resolution reason from; `undefined` when

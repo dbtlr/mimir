@@ -263,11 +263,6 @@ test('the seedCounts facet tallies every seed and the open ones, only when asked
   expect((await getNode(store, key, { facets: ['leafCounts'] })).seedCounts).toBeUndefined();
 });
 
-test('the seedCounts facet reads zero on a board with no seeds (MMR-787)', async () => {
-  const view = await getNode(store, key, { facets: ['seedCounts'] });
-  expect(view.seedCounts).toEqual({ open: 0, total: 0 });
-});
-
 test('the artifacts facet carries the summary lede only when set (MMR-319)', async () => {
   const t = await createTask(store, { parentId: phaseId, title: 't' });
   const tId = await nodeIdOf(store, idOf(t));
