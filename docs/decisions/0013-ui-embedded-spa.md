@@ -1024,7 +1024,7 @@ _Needs you_, and "…". This revises both:
   pick a project. ⌘K or Ctrl K still opens the palette from any page.
 - **The top bar holds _Jump to_ only where the sidebar is not beside the
   page.** From `lg` up, with the sidebar showing, the bar is the brand, then
-  _Needs you_ and "…" at its right: the right side of the phone's bar. Below
+  _Needs you_ and "…" at its right: the phone's bar without _Jump to_. Below
   `lg`, where the sidebar is a drawer, the bar is unchanged: the MMR-715
   refinement's phone bar, and from `md` the wider _Jump to_ button. A page
   with no sidebar at any width, such as a fresh store's, keeps _Jump to_ in
@@ -1037,10 +1037,10 @@ _Needs you_, and "…". This revises both:
 - **The drawer opens with _Jump to_ as well.** Choosing it closes the drawer
   and then opens the palette. A phone has two ways in and one search.
 - **Closing the palette returns focus to what had it** when the palette
-  opened. When that is gone, focus goes to the control that opens the
-  palette where the operator is: the drawer's menu button when the drawer
-  opened it, else the sidebar's _Jump to_, else the top bar's, else
-  `<main>` when the sidebar holding it has yielded.
+  opened. When that can no longer take focus, focus goes to the control
+  that opens the palette where the operator is: the drawer's menu button
+  when the drawer opened it; else `<main>` while the sidebar has yielded;
+  else the sidebar's _Jump to_, or the top bar's where the bar holds it.
 - **A page is one centred column, with no right column.** The column is 900
   wide at most, beside the sidebar; a single-purpose page may be narrower
   (the focus queue 720, pairing 560). Two rails remain until the tasks that
@@ -1048,5 +1048,8 @@ _Needs you_, and "…". This revises both:
   seed, artifact, and delivery pages', which MMR-732's design pass decides.
   Those pages keep their 1200 grid until then. Every other page takes the
   900 column now: Record health, the not-found page, the unavailable and
-  archived project pages, a fresh store's page, and the loading state any
-  page shows before its first read lands.
+  archived project pages, a fresh store's page, and the loading state a page
+  shows before its first read lands. The loading state cannot know whether
+  the record is a task, so on a rail page it gives way to the 1200 grid
+  when the read lands, until those rails retire. The dev-only `/kit` keeps
+  its own width.
