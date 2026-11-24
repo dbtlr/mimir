@@ -2228,7 +2228,9 @@ feed blocks. It adds four options to the blocks rather than new blocks.
   the card's `line` edge and 10 radius, 16 sides), so it matches the Shipped
   summary's card beside it on the page. This departs from DESIGN.md's row
   group, which is unframed rows, and seed MMR-s110 records the departure for
-  the design system to settle.
+  the design system to settle. (2026-11-24, MMR-780: settled; the framed
+  group is a named row group option, for a group that is a section's whole
+  block beside a framed section.)
 - **The deck's head can count records beside its cards.** A deck given the
   records its cards hold reads "N cards, M items" in its head: the cards, as
   the MMR-721 refinement counts them and the pager's N matches, then the
