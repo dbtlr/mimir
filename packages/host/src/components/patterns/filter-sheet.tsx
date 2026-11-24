@@ -8,8 +8,11 @@ import { FIELD_LABEL_CLASS } from '../ui/field';
 import { CloseIcon } from '../ui/icons';
 import { SegmentedControl } from '../ui/segmented-control';
 import type { SegmentedOption } from '../ui/segmented-control';
+import { BLOCK_PROPS } from './form-block';
+import { measureRests } from './form-sheet';
 import { useFinalFocus } from './opener';
 import type { FinalFocus } from './opener';
+import { useRestingBody } from './resting-body';
 
 /*
  * The Filter sheet (ADR 0019, MMR-724 refinement; DESIGN.md, List page): a list
@@ -88,12 +91,7 @@ export function FilterSheet({
             <CloseIcon className="size-5 md:size-[18px]" />
           </button>
         </header>
-        <div
-          data-slot="filter-sheet-body"
-          className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-5 pt-6 pb-8 md:px-8 md:pt-8 md:pb-10"
-        >
-          {children}
-        </div>
+        <FilterBody>{children}</FilterBody>
         <div
           data-slot="filter-sheet-footer"
           className="flex shrink-0 items-center gap-3 border-t border-line bg-well-850 px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:justify-end md:px-8 md:py-4"
@@ -120,6 +118,26 @@ export function FilterSheet({
         </div>
       </DrawerContent>
     </Drawer>
+  );
+}
+
+/**
+ * The scrolling body, which rests on whole fields by the Sheets rule
+ * (`useRestingBody`, DESIGN.md). It mounts with the sheet's content, so it
+ * measures what is shown.
+ */
+function FilterBody({ children }: { children: ReactNode }) {
+  const body = useRef<HTMLDivElement>(null);
+  const room = useRestingBody({ body, measure: measureRests });
+  return (
+    <div
+      ref={body}
+      data-slot="filter-sheet-body"
+      style={room > 0 ? { paddingBottom: `calc(var(--filter-body-end) + ${String(room)}px)` } : {}}
+      className="min-h-0 flex-1 overflow-y-auto px-5 pt-6 pb-(--filter-body-end) [--filter-body-end:2rem] md:px-8 md:pt-8 md:[--filter-body-end:2.5rem]"
+    >
+      <div className="flex flex-col gap-6">{children}</div>
+    </div>
   );
 }
 
@@ -184,9 +202,10 @@ export function FilterPills<T extends string>({
   }, [expanded]);
   return (
     <div
+      {...BLOCK_PROPS}
       role={kind === 'radio' ? 'radiogroup' : 'group'}
       aria-labelledby={labelId}
-      className="flex flex-col gap-2"
+      className={cn(BLOCK_PROPS.className, 'flex flex-col gap-2')}
     >
       <span id={labelId} className={FIELD_LABEL_CLASS}>
         {label}
@@ -262,7 +281,7 @@ export function FilterSegments<T extends string>({
 }) {
   const labelId = useId();
   return (
-    <div className="flex flex-col gap-2">
+    <div {...BLOCK_PROPS} className={cn(BLOCK_PROPS.className, 'flex flex-col gap-2')}>
       <span id={labelId} className={FIELD_LABEL_CLASS}>
         {label}
       </span>

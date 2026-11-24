@@ -64,8 +64,11 @@ function pulled(element: Element | null, side: 'marginTop' | 'marginBottom'): nu
   return Number.isNaN(margin) ? 0 : Math.max(0, -margin);
 }
 
-/** The form's blocks (`BLOCK_SELECTOR`), measured in the body's scroll space, and the rests they make. */
-function measureRests(element: HTMLElement): MeasuredRests {
+/**
+ * The form's blocks (`BLOCK_SELECTOR`), measured in the body's scroll space,
+ * and the rests they make. The Filter sheet's body rests by the same blocks.
+ */
+export function measureRests(element: HTMLElement): MeasuredRests {
   const origin = element.getBoundingClientRect().top - element.scrollTop;
   const blocks = [...element.querySelectorAll<HTMLElement>(BLOCK_SELECTOR)];
   const extents = blocks.map((block) => {
