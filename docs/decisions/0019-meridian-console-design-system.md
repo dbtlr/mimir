@@ -2373,7 +2373,10 @@ the alert) carry a dated note where they stand.
   card and drops none, so each record in the set appears once, inside a
   card, and a bundle is never split across projects. To group and count
   them, the card model gains two fields: the project's key, and the records
-  the card holds (one, or a bundle's decisions).
+  the card holds (one, or a bundle's decisions). One thing differs from the
+  deck: a card's status line, and its preview's, leave out the project's
+  name, which the section head above it already carries (the MMR-719 card
+  names the project only where a feed spans projects).
 - **One section per project, in the set's order.** A project's place is
   its first card's place in the set's one ranked order, and its cards
   follow in that order. So the first section holds the set's most urgent
