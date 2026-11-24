@@ -932,6 +932,33 @@ describe('tasksPage Filter sheet (MMR-724)', () => {
     });
   });
 
+  it('offers the tags of the tasks its Show option holds, the newest finished window for finished work', async () => {
+    const shipped = engineTask({
+      completedAt: new Date(NOW - 3_600_000),
+      id: 'MMR-67',
+      lifecycle: 'done',
+      status: 'done',
+      tags: [tag('release')],
+    });
+    serveListSelecting([...board, shipped]);
+    const { sheet, user } = await openSheet();
+    const offered = async () =>
+      within(await within(sheet).findByRole('group', { name: 'Tag' }))
+        .getAllByRole('checkbox')
+        .map((box) => (box as HTMLInputElement).value);
+    await waitFor(async () => {
+      await expect(offered()).resolves.toStrictEqual(['console', 'engine']);
+    });
+
+    await user.click(within(sheet).getByRole('radio', { name: 'Shipped, last 7 days' }));
+    await waitFor(async () => {
+      await expect(offered()).resolves.toStrictEqual(['release']);
+    });
+    expect(nodeReads()).toContainEqual(
+      expect.objectContaining({ facets: ['tags'], limit: FINISHED_PAGE_SIZE, status: 'done' }),
+    );
+  });
+
   it('folds shipped-week by day, latest day open, with no status headings', async () => {
     await renderTasks('/p/MMR/tasks?show=shipped-week');
     await screen.findByText('2 shipped in the last 7 days');

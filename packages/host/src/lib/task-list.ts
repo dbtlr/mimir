@@ -301,8 +301,8 @@ export function draftOf(search: TaskListSearch): TaskFilterDraft {
   };
 }
 
-/** The status selector a draft reads before its statuses narrow it. */
-const draftSelector = (draft: TaskFilterDraft) =>
+/** The status selector a draft reads before its statuses narrow it: its Show option's universe. */
+export const draftSelector = (draft: TaskFilterDraft) =>
   draft.carried ?? (draft.show === 'all' ? 'live' : PRESET_SELECTOR[draft.show]);
 
 /** Whether a draft selects finished work only, which folds by day and takes no sort. */

@@ -322,17 +322,23 @@ export const upstreamTasksQuery = (seedId: string) =>
   });
 
 /**
- * The tags on a project's live tasks, most used first, for the Filter sheet's
- * Tag field (MMR-724). Read only while the sheet is open: the live set is
- * bounded, where the whole history is not. Keyed under `nodes`, so a tag
- * write refreshes it.
+ * The tags on the tasks a status selector holds, most used first, for the
+ * Filter sheet's Tag field (MMR-724). Read only while the sheet is open. The
+ * live set is bounded, where the whole history is not, so finished work
+ * offers the tags of its newest window (`FINISHED_PAGE_SIZE`), the rows its
+ * view loads first. Keyed under `nodes`, so a tag write refreshes it.
  */
-export const taskTagsQuery = (project: string) =>
+export const taskTagsQuery = (project: string, status: string) =>
   queryOptions({
     queryFn: async () => {
-      const live = await list({ data: { facets: ['tags'], project, status: 'live' } });
+      const selection = listInput({ project, status });
+      if (selection === undefined) {
+        return [];
+      }
+      const window = isFinishedSelection(status) ? { limit: FINISHED_PAGE_SIZE } : {};
+      const tasks = await list({ data: { ...selection, ...window, facets: ['tags'] } });
       const uses = new Map<string, number>();
-      for (const task of live.items) {
+      for (const task of tasks.items) {
         for (const { tag } of task.tags ?? []) {
           uses.set(tag, (uses.get(tag) ?? 0) + 1);
         }
@@ -341,5 +347,5 @@ export const taskTagsQuery = (project: string) =>
         .toSorted(([a, an], [b, bn]) => bn - an || a.localeCompare(b))
         .map(([tag]) => tag);
     },
-    queryKey: ['nodes', 'task-tags', project],
+    queryKey: ['nodes', 'task-tags', project, status],
   });

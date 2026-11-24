@@ -12,6 +12,7 @@ import {
   TASK_PRESETS,
   draftIsFinished,
   draftOf,
+  draftSelector,
   presetStatuses,
   searchOf,
   taskListFilters,
@@ -106,8 +107,8 @@ export function TaskFilterSheet({
     enabled: open && !selectsNothing,
     placeholderData: keepPreviousData,
   });
-  const tags = useQuery({ ...taskTagsQuery(project), enabled: open });
-  // Tags already applied stay offered, even once no live task carries them.
+  const tags = useQuery({ ...taskTagsQuery(project, draftSelector(draft)), enabled: open });
+  // Tags already applied stay offered, even once no task the Show option holds carries them.
   const tagOptions = [...new Set([...(tags.data ?? []), ...draft.tags])].map((tag) => ({
     label: tag,
     value: tag,
