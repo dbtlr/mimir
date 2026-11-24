@@ -328,6 +328,17 @@ test('links the phase’s live delivery card to its dossier with time and member
   expect(within(cards).getByRole('img', { name: /1/ })).toBeInTheDocument();
 });
 
+// A delivery may name no tasks, so a phase with none can still have a live one.
+test('a phase with no tasks still shows its live delivery card, on Work', async () => {
+  const page = fixture();
+  serveNodes({ nodes: [{ ...page.phase, distribution: {} }] });
+  vi.mocked(phaseDeliveries).mockResolvedValue([{ delivery: page.delivery, members: [] }]);
+  await renderRoute(consoleRoutes, '/p/MMR/2');
+  const cards = await screen.findByRole('region', { name: 'Live deliveries' });
+  expect(within(cards).getByRole('link', { name: /Deliver the console/ })).toBeInTheDocument();
+  expect(screen.getByRole('tab', { name: 'Work', selected: true })).toBeInTheDocument();
+});
+
 test('the alert marks this delivery and its decision omits a delivery self-link', async () => {
   serveBrowse();
   stubViewport('desktop');

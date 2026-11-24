@@ -8,7 +8,7 @@ import { agentActivityQuery } from '../api/agent-queries';
 import { HostFaultError, isEngineRefusal } from '../api/errors';
 import type { DirectionTarget } from '../api/node-mutations';
 import { browserTimeZone } from '../api/queries';
-import { workQuery } from '../api/view-queries';
+import { phaseDeliveriesQuery, workQuery } from '../api/view-queries';
 import { scopedRun } from '../lib/agent-card';
 import { cn } from '../lib/cn';
 import { projectKeyOf } from '../lib/project-key';
@@ -432,13 +432,14 @@ export type ContainerTabs = {
 
 /**
  * The tabs an initiative or phase shows, in order, hidden when empty: Work
- * once it holds tasks, Details and Timeline always (a record always has its
- * dates and its creation), Artifacts once one is attached.
+ * once it holds tasks or `liveDeliveries` (a delivery may name no tasks),
+ * Details and Timeline always (a record always has its dates and its
+ * creation), Artifacts once one is attached.
  */
-export function containerTabs(record: EngineNode, timelineCount: number) {
+export function containerTabs(record: EngineNode, timelineCount: number, liveDeliveries: boolean) {
   const artifacts = record.artifacts?.length ?? 0;
   const tabs: RecordTab<ContainerTab>[] = [
-    ...(taskCount(record) > 0 ? [{ label: 'Work', value: 'work' as const }] : []),
+    ...(taskCount(record) > 0 || liveDeliveries ? [{ label: 'Work', value: 'work' as const }] : []),
     { label: 'Details', value: 'details' },
     { count: timelineCount, label: 'Timeline', value: 'timeline' },
     ...(artifacts > 0
@@ -465,7 +466,13 @@ export function ContainerPage({
   offline: boolean;
   container: ContainerTabs;
 }) {
-  const tabs = containerTabs(record, container.timelineCount);
+  // The read Work's Live deliveries makes; until it answers none, Work may hold them.
+  const deliveries = useQuery({
+    ...phaseDeliveriesQuery(record.id),
+    enabled: record.type === 'phase',
+  });
+  const live = record.type === 'phase' && deliveries.data?.length !== 0;
+  const tabs = containerTabs(record, container.timelineCount, live);
   const asked = container.tab ?? 'work';
   const tab = tabs.find((t) => t.value === asked)?.value ?? tabs[0]?.value ?? 'details';
   const settle = useEffectEvent(() => {
