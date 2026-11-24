@@ -1,10 +1,10 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { CancelledError, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
-import { pushDevices, pushStatus, setPushKind, subscribePush } from '../api/fns/push';
+import { pushDevices, pushStatus, resetPushKey, setPushKind, subscribePush } from '../api/fns/push';
 import type { PushDevice, PushEventKind, PushSetKindResult } from '../api/fns/push';
 import { pushDevicesQuery } from '../api/push-queries';
 import { PushHealer } from '../components/push-healer';
@@ -99,6 +99,14 @@ async function polled(times = 3) {
   await waitFor(() => {
     expect(vi.mocked(pushDevices).mock.calls.length).toBeGreaterThanOrEqual(start + times);
   });
+  await settle();
+}
+
+/** Reset the push key from the page and confirm it, as the operator does. */
+async function resetTheKey() {
+  await userEvent.click(await screen.findByRole('button', { name: 'Reset push key…' }));
+  const sheet = await screen.findByRole('alertdialog', { name: 'Reset the push key?' });
+  await userEvent.click(within(sheet).getByRole('button', { name: 'Reset' }));
   await settle();
 }
 
@@ -1126,6 +1134,68 @@ describe('a saved kind changes the listed row', () => {
       expect(screen.queryByRole('button', { name: 'Actions for Android · Chrome' })).toBeNull();
     });
     expect(metaOf('Mac · Chrome')).toHaveTextContent('Decisions off');
+  });
+
+  it('a save that answers during the list read after a key reset leaves the heal reading, not failed', async () => {
+    const { client, world } = await open('desktop', { world: { devices: [mine, other] } });
+    const kinds = await openKinds('desktop', 'Android · Chrome');
+    // The host saved the kind before the reset, and answers only afterwards.
+    const saved = Promise.withResolvers<void>();
+    vi.mocked(setPushKind).mockImplementationOnce(async () => {
+      await saved.promise;
+      return { state: 'saved' };
+    });
+    await userEvent.click(within(kinds).getByRole('switch', { name: 'Decisions to confirm' }));
+    await userEvent.click(within(kinds).getByRole('button', { name: 'Done' }));
+    // A list read, a poll's say, is in flight when the key is reset: the heal joins it.
+    const release = holdDevices(world);
+    act(() => {
+      void client.refetchQueries({ queryKey: pushDevicesQuery.queryKey });
+    });
+    await userEvent.click(await screen.findByRole('button', { name: 'Reset push key…' }));
+    const sheet = await screen.findByRole('alertdialog', { name: 'Reset the push key?' });
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Reset' }));
+    await waitFor(() => {
+      expect(resetPushKey).toHaveBeenCalledOnce();
+    });
+    await settle();
+    // The other row's save answers now: it cancels the read the heal joined, then reads again.
+    await act(async () => {
+      saved.resolve();
+    });
+    await release();
+    // The heal ran in this load: it subscribed this browser with the reset's key.
+    await waitFor(() => {
+      expect(subscribePush).toHaveBeenCalledWith({
+        data: expect.objectContaining({ serverKey: 'BNewKey' }),
+      });
+    });
+    expect(screen.queryByText(/couldn.t reload/)).toBeNull();
+  });
+
+  it('a list read after a key reset that fails for another reason is not read again', async () => {
+    await open('desktop', { world: { devices: [mine, other] } });
+    vi.mocked(pushDevices).mockRejectedValue(new Error('The host is unreachable.'));
+    const before = vi.mocked(pushDevices).mock.calls.length;
+    await resetTheKey();
+    await expect(screen.findByText(/couldn.t reload/)).resolves.toBeInTheDocument();
+    await settle();
+    // The heal read the list once; the reread every action ends with is the other read.
+    expect(vi.mocked(pushDevices).mock.calls.length - before).toBe(2);
+    expect(subscribePush).not.toHaveBeenCalled();
+  });
+
+  it('a list read after a key reset that keeps being cancelled stops after three reads', async () => {
+    await open('desktop', { world: { devices: [mine, other] } });
+    // Every read is cancelled, as saves that keep answering during it would.
+    vi.mocked(pushDevices).mockRejectedValue(new CancelledError());
+    const before = vi.mocked(pushDevices).mock.calls.length;
+    await resetTheKey();
+    await expect(screen.findByText(/couldn.t reload/)).resolves.toBeInTheDocument();
+    await settle();
+    // The heal read the list three times; the reread every action ends with is the fourth.
+    expect(vi.mocked(pushDevices).mock.calls.length - before).toBe(4);
+    expect(subscribePush).not.toHaveBeenCalled();
   });
 
   it('keeps the list’s read time, so the patch is not taken for a fresh read', async () => {
