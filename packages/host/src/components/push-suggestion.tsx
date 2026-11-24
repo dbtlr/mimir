@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 import { focusMain } from '../lib/focus-main';
 import { couldSuggestTurningOn, suggestsTurningOn } from '../lib/push-this-device';
@@ -38,28 +38,62 @@ function PushSuggestionCard({ offline }: { offline: boolean }) {
   const [answer, setAnswer] = useState<Answer>('open');
   const frame = useRef<HTMLElement>(null);
   const { busy, notice } = control;
-  const answered = answer !== 'open';
+  const { browser } = control;
+  // Read live: another tab may answer while this one is open, or before the host's status loads.
+  const answeredElsewhere = useSyncExternalStore(
+    browser.watchSuggestion,
+    browser.suggestionAnswered,
+    () => false,
+  );
   const gone = answer === 'gone' || (answer === 'turning_on' && !busy && notice === undefined);
+  const visible =
+    !gone &&
+    (answer !== 'open' ||
+      (!answeredElsewhere && suggestsTurningOn(control.state, browser.snapshot())));
 
-  // An answer that removes the card takes the focused button with it: hand focus to the page.
+  // Whether focus sits in the card, so its leaving moves only the focus it took with it.
+  const holdsFocus = useRef(false);
   useEffect(() => {
-    if (answered && gone && document.activeElement === document.body) {
-      focusMain();
+    const shown = frame.current;
+    if (!visible || shown === null) {
+      return undefined;
     }
-  }, [answered, gone]);
+    holdsFocus.current = shown.contains(document.activeElement);
+    const enter = () => {
+      holdsFocus.current = true;
+    };
+    const leave = () => {
+      // Read once the move settles. A browser may blur a focused control as the card is
+      // removed; a card that is gone still holds the focus it dropped.
+      queueMicrotask(() => {
+        if (shown.isConnected) {
+          holdsFocus.current = shown.contains(document.activeElement);
+        }
+      });
+    };
+    shown.addEventListener('focusin', enter);
+    shown.addEventListener('focusout', leave);
+    return () => {
+      shown.removeEventListener('focusin', enter);
+      shown.removeEventListener('focusout', leave);
+    };
+  }, [visible]);
 
-  if (gone) {
+  // A card that leaves holding focus takes the focused control with it: hand focus to the page.
+  useEffect(() => {
+    if (!visible && holdsFocus.current) {
+      holdsFocus.current = false;
+      if (document.activeElement === document.body) {
+        focusMain();
+      }
+    }
+  }, [visible]);
+
+  if (!visible) {
     return null;
   }
 
   if (answer === 'open') {
-    // Read the answer again: another tab may have answered while the host's status loaded.
-    if (
-      control.browser.suggestionAnswered() ||
-      !suggestsTurningOn(control.state, control.browser.snapshot())
-    ) {
-      return null;
-    }
     return (
       <ConfirmCard
         ref={frame}
@@ -82,7 +116,7 @@ function PushSuggestionCard({ offline }: { offline: boolean }) {
           disabled: offline,
           label: 'Not now',
           onClick: () => {
-            control.browser.answerSuggestion();
+            browser.answerSuggestion();
             setAnswer('gone');
           },
         }}

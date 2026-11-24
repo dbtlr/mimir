@@ -61,6 +61,8 @@ export type PushBrowser = {
   suggestionAnswered: () => boolean;
   /** Retires the suggestion in this browser; a blocked store keeps nothing, so it may show again. */
   answerSuggestion: () => void;
+  /** Calls `listener` when another tab answers the suggestion; returns the way to stop listening. */
+  watchSuggestion: (listener: () => void) => () => void;
 };
 
 type SubscriptionLike = Pick<PushSubscription, 'endpoint' | 'getKey' | 'unsubscribe'> & {
@@ -85,6 +87,8 @@ export type PushBrowserEnvironment = {
   }>;
   /** Throws or returns undefined where storage is blocked. */
   storage: () => Pick<Storage, 'getItem' | 'removeItem' | 'setItem'> | undefined;
+  /** Calls `listener` with the key of each change another tab makes to storage (`null` when it clears all). */
+  listenStorage: (listener: (key: string | null) => void) => () => void;
   /** Resolves after `ms`; how long the adapter waits for the service worker. */
   after: (ms: number) => Promise<void>;
 };
@@ -252,6 +256,13 @@ export function createPushBrowser(environment: PushBrowserEnvironment): PushBrow
       }
       await held.subscription?.unsubscribe();
     },
+    watchSuggestion(listener) {
+      return environment.listenStorage((key) => {
+        if (key === null || key === SUGGESTION_KEY) {
+          listener();
+        }
+      });
+    },
     writeRecord(record) {
       try {
         if (record === null) {
@@ -279,6 +290,15 @@ export function createBrowserPushBrowser(): PushBrowser {
       new Promise((resolve) => {
         setTimeout(resolve, ms);
       }),
+    listenStorage: (listener) => {
+      const onStorage = (event: StorageEvent) => {
+        listener(event.key);
+      };
+      globalThis.addEventListener('storage', onStorage);
+      return () => {
+        globalThis.removeEventListener('storage', onStorage);
+      };
+    },
     maxTouchPoints: navigator.maxTouchPoints,
     permission: () => (supported() ? Notification.permission : 'unsupported'),
     pushSupported: supported,

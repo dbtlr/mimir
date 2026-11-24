@@ -145,6 +145,40 @@ describe('the notifications card on Home (MMR-734)', () => {
     expect(card()).toBeNull();
   });
 
+  it('hides when another tab answers it, handing focus to the page', async () => {
+    const browser = fakeBrowser();
+    await openHome(browser);
+    const turnOn = await screen.findByRole('button', { name: 'Turn on' });
+    turnOn.focus();
+
+    act(() => {
+      browser.answerInAnotherTab();
+    });
+    expect(card()).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole('main'));
+  });
+
+  it('moves no focus when another tab answers it and focus was never in it', async () => {
+    const browser = fakeBrowser();
+    await openHome(browser);
+    await screen.findByRole('region', { name: CARD });
+    expect(document.activeElement).toBe(document.body);
+
+    act(() => {
+      browser.answerInAnotherTab();
+    });
+    expect(card()).toBeNull();
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it('moves no focus when the card never showed', async () => {
+    // The card waits on the host's status, which offers no push channel, so it never shows.
+    await openHome(fakeBrowser(), { status: { state: 'unconfigured' } });
+    expect(pushStatus).toHaveBeenCalled();
+    expect(card()).toBeNull();
+    expect(document.activeElement).toBe(document.body);
+  });
+
   it('Not now retires the card in this browser', async () => {
     const browser = fakeBrowser();
     const { view } = await openHome(browser);

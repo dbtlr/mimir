@@ -138,6 +138,8 @@ export type FakeBrowser = PushBrowser & {
   promptAnswer: BrowserSnapshot['permission'];
   /** Whether the notifications suggestion was answered. */
   answered: boolean;
+  /** Another tab answers the suggestion: the answer is stored and the listeners hear it. */
+  answerInAnotherTab: () => void;
 };
 
 export const SUBSCRIPTION: BrowserSubscription = {
@@ -154,7 +156,14 @@ export function fakeBrowser(
   } = {},
 ): FakeBrowser {
   let made = 0;
+  const listeners = new Set<() => void>();
   const fake: FakeBrowser = {
+    answerInAnotherTab() {
+      fake.answered = true;
+      for (const listener of listeners) {
+        listener();
+      }
+    },
     answerSuggestion() {
       fake.answered = true;
     },
@@ -189,6 +198,10 @@ export function fakeBrowser(
     suggestionAnswered: () => fake.answered,
     async unsubscribe() {
       fake.held = null;
+    },
+    watchSuggestion(listener) {
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
     },
     writeRecord(record) {
       fake.record = record;

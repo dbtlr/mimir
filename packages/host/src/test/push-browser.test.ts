@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { decodeBase64Url, encodeBase64Url } from '../lib/base64url';
-import { createPushBrowser, PushReadTimeoutError, RECORD_KEY } from '../lib/push-browser';
+import {
+  createBrowserPushBrowser,
+  createPushBrowser,
+  PushReadTimeoutError,
+  RECORD_KEY,
+  SUGGESTION_KEY,
+} from '../lib/push-browser';
 import type { PushBrowserEnvironment } from '../lib/push-browser';
 
 /** A push manager holding at most one subscription, made for the key it was given. */
@@ -32,6 +38,7 @@ function world(held: { endpoint: string; key: string } | null) {
   const store = new Map<string, string>();
   const environment: PushBrowserEnvironment = {
     after: async () => Promise.withResolvers<void>().promise,
+    listenStorage: () => () => {},
     maxTouchPoints: 0,
     permission: () => 'granted',
     pushSupported: () => true,
@@ -210,5 +217,27 @@ describe('createPushBrowser', () => {
       await expect(browser.subscribe(KEY_B)).rejects.toThrow('service worker');
       expect(after.mock.calls).toStrictEqual([[10_000]]);
     });
+  });
+});
+
+/** Another tab writes `key`; null is a tab clearing all of storage. */
+const storageEvent = (key: string | null) => {
+  globalThis.dispatchEvent(new StorageEvent('storage', { key }));
+};
+
+describe('this browser’s adapter hears another tab answer the suggestion (MMR-758)', () => {
+  it('tells a watcher of the suggestion key or a cleared storage, and nothing else, until stopped', () => {
+    const heard = vi.fn();
+    const stop = createBrowserPushBrowser().watchSuggestion(heard);
+    storageEvent(SUGGESTION_KEY);
+    expect(heard).toHaveBeenCalledTimes(1);
+    storageEvent(null);
+    expect(heard).toHaveBeenCalledTimes(2);
+    storageEvent(RECORD_KEY);
+    storageEvent('mimir-theme');
+    expect(heard).toHaveBeenCalledTimes(2);
+    stop();
+    storageEvent(SUGGESTION_KEY);
+    expect(heard).toHaveBeenCalledTimes(2);
   });
 });
