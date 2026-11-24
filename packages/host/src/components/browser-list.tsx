@@ -14,7 +14,11 @@ import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/legacy-menu';
  * a microlabel. Every row is a real link to its record's page.
  */
 
-/** The centred column with the page header: title, a dim count, and an optional action. */
+/**
+ * A browser's body under its project's header and tabs (MMR-726): the tab
+ * names the list, so it takes no heading of its own, and the row above the
+ * filters holds the dim count and an optional action.
+ */
 export function BrowserPage({
   title,
   count,
@@ -27,14 +31,15 @@ export function BrowserPage({
   children: ReactNode;
 }) {
   return (
-    <div className="mx-auto w-full max-w-[900px] px-4 pt-4 pb-8 md:px-5">
-      <header className="mb-3 flex flex-wrap items-center gap-2.5">
-        <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">{title}</h1>
-        {count !== undefined && <span className="text-meta text-ink-dim">{count}</span>}
-        {action !== undefined && <div className="ml-auto">{action}</div>}
-      </header>
+    <section aria-label={title} className="w-full">
+      {(count !== undefined || action !== undefined) && (
+        <div className="mb-3 flex min-h-9 flex-wrap items-center gap-2.5">
+          {count !== undefined && <span className="text-meta text-ink-dim">{count}</span>}
+          {action !== undefined && <div className="ml-auto">{action}</div>}
+        </div>
+      )}
       {children}
-    </div>
+    </section>
   );
 }
 

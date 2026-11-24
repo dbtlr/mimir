@@ -478,16 +478,16 @@ test('on a phone, Close returns focus to the Needs you alert when the sheet’s 
 
 test('a mark that names no control gives focus to the page’s main, even one not marked focusable', async () => {
   vi.mocked(deliveryPage).mockResolvedValue(page([decision(3, 'MMR-d3')]));
-  const { router } = await renderShell('/p/MMR/tasks', client());
+  const { router } = await renderShell('/doctor', client());
   const main = await screen.findByRole('main');
   expect(main).not.toHaveAttribute('tabindex');
   // The mark a release before MMR-714 wrote: an opener and no named control.
-  router.history.push('/p/MMR/d3?mode=decisions', { walkthroughOpener: '/p/MMR/tasks' });
+  router.history.push('/p/MMR/d3?mode=decisions', { walkthroughOpener: '/doctor' });
   await close(await screen.findByRole('dialog'));
   await waitFor(() => {
     expect(screen.getByRole('main')).toHaveFocus();
   });
-  expect(router.state.location.pathname).toBe('/p/MMR/tasks');
+  expect(router.state.location.pathname).toBe('/doctor');
 });
 
 test('a back that lands somewhere other than the opener drops its focus request', async () => {

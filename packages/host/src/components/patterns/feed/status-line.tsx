@@ -3,13 +3,17 @@ import type { ReactNode } from 'react';
 import { cn } from '../../../lib/cn';
 
 /**
- * A card's status line, shared with its preview's header: the lead, the
- * record's ID in mono, an optional project name, and the age at the right of
- * the first line. A long project name wraps rather than run past the card.
+ * A card's status line, shared with its preview's header and a record's
+ * header: the lead, the record's ID in mono, an optional project name, and
+ * the age at the right of the first line. A long project name wraps rather
+ * than run past the card. A record header passes `type`, which puts a
+ * hairline after the lead and the record's type before its ID ("● Ready |
+ * Task MMR-726"; ADR 0019, MMR-726).
  */
 export function FeedStatusLine({
   id,
   lead,
+  type,
   recordId,
   project,
   age,
@@ -18,6 +22,8 @@ export function FeedStatusLine({
   /** The element id, so a control can be described by the line. */
   id?: string;
   lead: ReactNode;
+  /** The record's type in words ("Task", "Project"), after a hairline. */
+  type?: string;
   recordId?: string;
   /** The project's name after the ID, where the card's feed spans projects (the Needs you deck). */
   project?: string;
@@ -30,9 +36,13 @@ export function FeedStatusLine({
         {lead}
         {/* Spaces between the parts: flex gaps set them apart on screen, the
             spaces keep them apart in an accessible description. */}{' '}
-        {recordId !== undefined && (
-          <span className="font-mono whitespace-nowrap">{recordId}</span>
-        )}{' '}
+        {type !== undefined && (
+          <>
+            <span aria-hidden className="h-3.5 w-px shrink-0 bg-line-bright" />{' '}
+            <span className="whitespace-nowrap">{type}</span>{' '}
+          </>
+        )}
+        {recordId !== undefined && <span className="font-mono whitespace-nowrap">{recordId}</span>}{' '}
         {project !== undefined && <span>{project}</span>}
       </span>{' '}
       {age !== undefined && <span className="shrink-0 whitespace-nowrap">{age}</span>}

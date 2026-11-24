@@ -86,7 +86,16 @@ const validateDecisionsSearch = (search: Record<string, unknown>): DecisionsSear
   mode: search.mode === 'decisions' ? 'decisions' : undefined,
 });
 
-/** A project's own page: what it is, where it is headed, and what it holds. */
+export type ProjectSearch = DecisionsSearch & {
+  /** The project's tab at `/p/KEY`; absent = Work. Only `details` is carried (MMR-726). */
+  tab?: 'details';
+};
+
+/**
+ * A project's own page: what it is, where it is headed, and what it holds.
+ * `?tab=details` opens its Details tab; its other tabs besides Work are the
+ * browsers below. Any other `tab` drops.
+ */
 export const projectRoute = createRoute({
   beforeLoad: ({ params }) => {
     canonicalKey(params.key, '/p/$key');
@@ -97,17 +106,24 @@ export const projectRoute = createRoute({
   ),
   getParentRoute: () => rootRoute,
   path: '/p/$key',
-  validateSearch: validateDecisionsSearch,
+  validateSearch: (search: Record<string, unknown>): ProjectSearch => ({
+    ...validateDecisionsSearch(search),
+    tab: search.tab === 'details' ? 'details' : undefined,
+  }),
 });
 
+/** The tabs a URL can name on an initiative or phase; Work, the first, takes no parameter. */
+const NODE_TABS = ['details', 'timeline', 'artifacts'] as const;
+
 export type NodeSearch = {
-  /** A container's selected tab; absent = its work page. Only `timeline` is carried. */
-  tab?: 'timeline';
+  /** A container's selected tab; absent = Work (MMR-726). */
+  tab?: (typeof NODE_TABS)[number];
 };
 
 /**
  * A work node's page: the node id split at its hyphen (`MMR-417` → `/p/MMR/417`).
- * A container's `?tab=timeline` opens its notes; any other value drops.
+ * A container's `?tab=details`, `timeline`, or `artifacts` opens that tab; any
+ * other value drops.
  */
 export const nodeRoute = createRoute({
   beforeLoad: ({ params }) => {
@@ -120,7 +136,7 @@ export const nodeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/p/$key/$seq',
   validateSearch: (search: Record<string, unknown>): NodeSearch => ({
-    tab: search.tab === 'timeline' ? 'timeline' : undefined,
+    tab: NODE_TABS.find((tab) => tab === search.tab),
   }),
 });
 

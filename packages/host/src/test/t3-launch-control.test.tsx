@@ -5,8 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { connectT3, launchT3, t3Catalog, t3Origin } from '../api/fns/t3';
 import type { T3Catalog, T3LaunchResult } from '../api/fns/t3';
+import { ActionMenu } from '../components/patterns/action-menu';
 import { toast } from '../components/patterns/notice';
-import { canLaunchOnT3, T3LaunchControl } from '../components/t3-launch-control';
+import {
+  canLaunchOnT3,
+  T3LaunchSettingsHost,
+  useT3LaunchEntries,
+} from '../components/t3-launch-control';
 import { T3LaunchForm } from '../components/t3-launch-form';
 import { T3_ATTEMPT_PATTERN } from '../server/t3-states';
 import { engineTask } from './node-fixtures';
@@ -50,12 +55,46 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function show(catalog: T3Catalog, launch?: T3LaunchResult, offline = false) {
-  serveT3Launch(catalog, launch);
+/** More with the rows the hook gives, as a task page holds them. */
+function LaunchMenu({ offline }: { offline: boolean }) {
+  const entries = useT3LaunchEntries(task, offline);
+  return (
+    <ActionMenu
+      title="Launch from the console"
+      trigger={<button type="button">More</button>}
+      entries={entries}
+    />
+  );
+}
+
+/** A second settings request while the form is open, as another opener of the same host sends one. */
+function AskAgain() {
+  const row = useT3LaunchEntries(task, false).find((entry) => entry.key === 't3-launch');
+  return (
+    <button type="button" onClick={() => row?.kind === 'action' && row.onSelect?.()}>
+      Ask again
+    </button>
+  );
+}
+
+function renderMenu(offline = false) {
   return renderInRouter(
-    <T3LaunchControl node={task} offline={offline} />,
+    <T3LaunchSettingsHost>
+      <LaunchMenu offline={offline} />
+    </T3LaunchSettingsHost>,
     new QueryClient({ defaultOptions: { queries: { retry: false } } }),
   );
+}
+
+async function show(catalog: T3Catalog, launch?: T3LaunchResult, offline = false) {
+  serveT3Launch(catalog, launch);
+  return renderMenu(offline);
+}
+
+/** Open More and find its row named `name`. */
+async function moreRow(name: string | RegExp) {
+  await userEvent.click(await screen.findByRole('button', { name: 'More' }));
+  return screen.findByRole('menuitem', { name });
 }
 
 const launchCalls = () => vi.mocked(launchT3).mock.calls.map(([options]) => options.data);
@@ -104,45 +143,57 @@ describe('who is offered the launch', () => {
   });
 });
 
-describe('the launch control (ADR 0040)', () => {
-  it('renders nothing and never reads the catalog while T3 is unconfigured', async () => {
+describe('the Start in T3… row (ADR 0040, MMR-726)', () => {
+  it('is absent, and the catalog never read, while T3 is unconfigured', async () => {
     serveT3Launch(connectedCatalog([reachableSystem()]), undefined, null);
-    const { container } = await renderInRouter(<T3LaunchControl node={task} offline={false} />);
+    await renderMenu();
     await waitFor(() => {
       expect(t3Origin).toHaveBeenCalled();
     });
-    expect(container).toBeEmptyDOMElement();
+    await userEvent.click(screen.getByRole('button', { name: 'More' }));
+    expect(screen.queryByRole('menuitem')).toBeNull();
     expect(t3Catalog).not.toHaveBeenCalled();
   });
 
-  it('shows a disabled button while the catalog loads', async () => {
+  it('is disabled while the catalog loads', async () => {
     serveT3Launch(connectedCatalog([]));
     vi.mocked(t3Catalog).mockReturnValue(Promise.withResolvers<T3Catalog>().promise);
-    await renderInRouter(<T3LaunchControl node={task} offline={false} />);
-    await expect(screen.findByRole('button', { name: 'Launch in T3…' })).resolves.toBeDisabled();
+    await renderMenu();
+    await waitFor(() => {
+      expect(t3Catalog).toHaveBeenCalled();
+    });
+    await expect(moreRow('Start in T3…')).resolves.toHaveAttribute('aria-disabled', 'true');
   });
 
-  it('names the setting and links to Connections when misconfigured', async () => {
+  it('names the setting when T3 is misconfigured, and is disabled', async () => {
     await show({ problem: 'not HTTPS', setting: 'MIMIR_URL', state: 'misconfigured' });
-    await expect(screen.findByRole('link', { name: 'Connections' })).resolves.toHaveAttribute(
-      'href',
-      '/settings/connections',
+    await waitFor(() => {
+      expect(t3Catalog).toHaveBeenCalled();
+    });
+    await expect(moreRow('Start in T3: MIMIR_URL is not HTTPS')).resolves.toHaveAttribute(
+      'aria-disabled',
+      'true',
     );
-    const button = screen.getByRole('button', { name: /Launch in T3/ });
-    expect(button).toBeDisabled();
-    expect(button).toHaveAttribute('title', expect.stringContaining('MIMIR_URL'));
   });
 
   it('offers Reconnect T3 when disconnected, and Reconnect starts Connect', async () => {
     vi.mocked(connectT3).mockResolvedValue({ state: 'unreachable' });
     await show({ reason: 'expired', state: 'disconnected' });
-    await userEvent.click(await screen.findByRole('button', { name: 'Reconnect T3' }));
-    expect(connectT3).toHaveBeenCalledOnce();
+    await waitFor(() => {
+      expect(t3Catalog).toHaveBeenCalled();
+    });
+    await userEvent.click(await moreRow('Reconnect T3'));
+    await waitFor(() => {
+      expect(connectT3).toHaveBeenCalledOnce();
+    });
   });
 
   it('says T3 is unreachable and rereads the catalog on select', async () => {
     await show({ state: 'unreachable' });
-    await userEvent.click(await screen.findByRole('button', { name: 'T3 unreachable' }));
+    await waitFor(() => {
+      expect(t3Catalog).toHaveBeenCalled();
+    });
+    await userEvent.click(await moreRow('T3 unreachable, try again'));
     await waitFor(() => {
       expect(t3Catalog).toHaveBeenCalledTimes(2);
     });
@@ -151,11 +202,14 @@ describe('the launch control (ADR 0040)', () => {
   it('reads a failed catalog request as unreachable', async () => {
     serveT3Launch(connectedCatalog([]));
     vi.mocked(t3Catalog).mockRejectedValue(new Error('down'));
-    await renderInRouter(
-      <T3LaunchControl node={task} offline={false} />,
-      new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+    await renderMenu();
+    await waitFor(() => {
+      expect(t3Catalog).toHaveBeenCalled();
+    });
+    await expect(moreRow('T3 unreachable, try again')).resolves.not.toHaveAttribute(
+      'aria-disabled',
+      'true',
     );
-    await expect(screen.findByRole('button', { name: 'T3 unreachable' })).resolves.toBeEnabled();
   });
 
   it.each([
@@ -168,23 +222,24 @@ describe('the launch control (ADR 0040)', () => {
     ],
   ])('is disabled with a reason for %s', async (_name, catalog, reason) => {
     await show(catalog);
-    await expect(screen.findByText(reason)).resolves.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Launch in T3…' })).toBeDisabled();
+    await waitFor(() => {
+      expect(t3Catalog).toHaveBeenCalled();
+    });
+    await expect(moreRow(reason)).resolves.toHaveAttribute('aria-disabled', 'true');
   });
 
   it('is disabled while offline', async () => {
     await show(connectedCatalog([reachableSystem()]), undefined, true);
-    await expect(
-      screen.findByRole('button', { name: 'Launch on Valhalla' }),
-    ).resolves.toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Choose where to launch' })).toBeDisabled();
+    await waitFor(() => {
+      expect(t3Catalog).toHaveBeenCalled();
+    });
+    await expect(moreRow('Start in T3…')).resolves.toHaveAttribute('aria-disabled', 'true');
   });
-});
 
-describe('the split button', () => {
-  it('launches at once with the defaults and a fresh attempt', async () => {
+  it('opens the settings at the defaults, and Launch sends them with a fresh attempt', async () => {
     await show(connectedCatalog([reachableSystem()]));
-    await userEvent.click(await screen.findByRole('button', { name: 'Launch on Valhalla' }));
+    const dialog = await openSettings();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Launch' }));
     await waitFor(() => {
       expect(launchT3).toHaveBeenCalledOnce();
     });
@@ -192,84 +247,135 @@ describe('the split button', () => {
     expect(input).toEqual({ ...DEFAULT_INPUT, attempt: expect.stringMatching(T3_ATTEMPT_PATTERN) });
   });
 
-  it('draws its caret with the icon set’s chevron, not a text glyph', async () => {
-    await show(connectedCatalog([reachableSystem()]));
-    const caret = await screen.findByRole('button', { name: 'Choose where to launch' });
-    expect(caret.textContent).toBe('');
-    expect(caret.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
-  });
-
-  it('lists every system in the caret menu, unreachable ones disabled, then Choose settings…', async () => {
-    const peer = reachableSystem({ configured: false, environmentId: 'peer', label: 'asgard' });
-    await show(connectedCatalog([reachableSystem(), peer, unreachableSystem()]));
-    await userEvent.click(await screen.findByRole('button', { name: 'Choose where to launch' }));
-    const items = await screen.findAllByRole('menuitem');
-    const names = items.map((item) => item.textContent);
-    expect(names).toEqual(
-      expect.arrayContaining([
-        'Launch on Valhalla',
-        'Launch on asgard',
-        'Launch on DB MBP',
-        'Choose settings…',
-      ]),
-    );
-    expect(items[names.indexOf('Launch on DB MBP')]).toHaveAttribute('aria-disabled', 'true');
-    expect(items[names.indexOf('Launch on asgard')]).not.toHaveAttribute('aria-disabled', 'true');
-    // Choose settings… sits below the separator, after every system.
-    expect(names.at(-1)).toBe('Choose settings…');
-  });
-
-  it('on a phone, the caret opens the same launches as a bottom sheet', async () => {
+  it('on a phone, sits in the More sheet and opens the same settings', async () => {
     stubViewport('phone');
-    const peer = reachableSystem({ configured: false, environmentId: 'peer', label: 'asgard' });
-    await show(connectedCatalog([reachableSystem(), peer]));
-    await userEvent.click(await screen.findByRole('button', { name: 'Choose where to launch' }));
-    const sheet = await screen.findByRole('dialog', { name: 'Launch in T3' });
+    await show(connectedCatalog([reachableSystem()]));
+    await waitFor(() => {
+      expect(t3Catalog).toHaveBeenCalled();
+    });
+    await userEvent.click(await screen.findByRole('button', { name: 'More' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Launch from the console' });
     expect(screen.queryByRole('menu')).toBeNull();
-    const rows = within(sheet)
-      .getAllByRole('button')
-      .map((row) => row.textContent);
-    expect(rows).toEqual(['Launch on Valhalla', 'Launch on asgard', 'Choose settings…', 'Cancel']);
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Start in T3…' }));
+    await expect(settingsForm()).resolves.toBeInTheDocument();
+  });
+});
+
+/** Close the open settings form with Escape and wait for it to go. */
+async function closeSettings() {
+  const dialog = await settingsForm();
+  await userEvent.keyboard('{Escape}');
+  await waitFor(() => {
+    expect(dialog).not.toBeInTheDocument();
+  });
+}
+
+/** A peer that launches with defaults of its own: sonnet, approval required, the project checkout. */
+const peerWithDefaults = () =>
+  reachableSystem({
+    configured: false,
+    defaultThreadEnvMode: 'local',
+    environmentId: 'peer',
+    label: 'asgard',
+    projects: [
+      {
+        defaultModelSelection: { instanceId: 'claude', model: 'sonnet' },
+        id: 'peer-proj',
+        title: 'mimir',
+      },
+    ],
+    providers: [
+      {
+        displayName: 'Claude',
+        models: [{ id: 'sonnet', label: null, options: [] }],
+        providerInstanceId: 'claude',
+        runtimeModes: ['approval-required'],
+      },
+    ],
   });
 
-  it('launches a peer with that system’s defaults', async () => {
-    const peer = reachableSystem({
-      configured: false,
-      defaultThreadEnvMode: 'local',
-      environmentId: 'peer',
-      label: 'asgard',
-      projects: [
-        {
-          defaultModelSelection: { instanceId: 'claude', model: 'sonnet' },
-          id: 'peer-proj',
-          title: 'mimir',
-        },
-      ],
-      providers: [
-        {
-          displayName: 'Claude',
-          models: [{ id: 'sonnet', label: null, options: [] }],
-          providerInstanceId: 'claude',
-          runtimeModes: ['approval-required'],
-        },
-      ],
+/** The rows More shows, by name, once T3 has answered. */
+async function moreRows() {
+  await waitFor(() => {
+    expect(t3Catalog).toHaveBeenCalled();
+  });
+  await userEvent.click(await screen.findByRole('button', { name: 'More' }));
+  await screen.findByRole('menuitem', { name: 'Start in T3…' });
+  return screen.getAllByRole('menuitem');
+}
+
+describe('the one-click Start on <System> rows (ADR 0040, MMR-726)', () => {
+  it('lists each system, the default first, then Start in T3…; an unreachable one is disabled', async () => {
+    await show(connectedCatalog([peerWithDefaults(), unreachableSystem(), reachableSystem()]));
+    const rows = await moreRows();
+    expect(rows.map((row) => row.textContent)).toStrictEqual([
+      'Start on Valhalla',
+      'Start on asgard',
+      'Start on DB MBP',
+      'Start in T3…',
+    ]);
+    expect(rows[2]).toHaveAttribute('aria-disabled', 'true');
+    expect(rows[1]).not.toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('with a remembered choice, starts its default system first and in one click', async () => {
+    localStorage.setItem(
+      'mimir:t3-launch:MMR',
+      JSON.stringify({ instanceId: 'claude', model: 'sonnet', runtimeMode: 'approval-required' }),
+    );
+    const valhalla = reachableSystem({
+      projects: [{ defaultModelSelection: null, id: 'proj-1', title: 'mimir' }],
     });
-    await show(connectedCatalog([reachableSystem(), peer]));
-    await userEvent.click(await screen.findByRole('button', { name: 'Choose where to launch' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Launch on asgard' }));
+    await show(connectedCatalog([peerWithDefaults(), valhalla]));
+    const rows = await moreRows();
+    expect(rows[0]).toHaveTextContent('Start on Valhalla');
+    await userEvent.click(rows[0]!);
     await waitFor(() => {
       expect(launchT3).toHaveBeenCalledOnce();
     });
-    expect(launchCalls()[0]).toMatchObject({
+    expect(launchCalls()[0]).toEqual({
+      ...DEFAULT_INPUT,
+      attempt: expect.stringMatching(T3_ATTEMPT_PATTERN),
+      model: { instanceId: 'claude', model: 'sonnet', options: [] },
+      runtimeMode: 'approval-required',
+    });
+    expect(screen.queryByRole('dialog', { name: 'Launch in T3' })).toBeNull();
+  });
+
+  it('starts on the default system in one click, without the settings form', async () => {
+    await show(connectedCatalog([reachableSystem()]));
+    await moreRows();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Start on Valhalla' }));
+    await waitFor(() => {
+      expect(launchT3).toHaveBeenCalledOnce();
+    });
+    expect(launchCalls()[0]).toEqual({
+      ...DEFAULT_INPUT,
+      attempt: expect.stringMatching(T3_ATTEMPT_PATTERN),
+    });
+    expect(screen.queryByRole('dialog', { name: 'Launch in T3' })).toBeNull();
+  });
+
+  it('starts a peer with that system’s defaults', async () => {
+    await show(connectedCatalog([reachableSystem(), peerWithDefaults()]));
+    await moreRows();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Start on asgard' }));
+    await waitFor(() => {
+      expect(launchT3).toHaveBeenCalledOnce();
+    });
+    expect(launchCalls()[0]).toEqual({
+      attempt: expect.stringMatching(T3_ATTEMPT_PATTERN),
       environmentId: 'peer',
+      interactionMode: 'default',
       model: { instanceId: 'claude', model: 'sonnet', options: [] },
       projectId: 'peer-proj',
       runtimeMode: 'approval-required',
+      task: 'MMR-9',
       workspace: { type: 'root' },
     });
   });
 
-  it('opens the settings, preselected, for a system with no defaults', async () => {
+  it('opens the settings form set to a system that has no defaults, launching nothing', async () => {
     const peer = reachableSystem({
       configured: false,
       environmentId: 'peer',
@@ -280,17 +386,28 @@ describe('the split button', () => {
       ],
     });
     await show(connectedCatalog([reachableSystem(), peer]));
-    await userEvent.click(await screen.findByRole('button', { name: 'Choose where to launch' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Launch on asgard' }));
+    await moreRows();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Start on asgard' }));
     const dialog = await settingsForm();
     expect(within(dialog).getByRole('combobox', { name: 'System' })).toHaveTextContent('asgard');
     expect(launchT3).not.toHaveBeenCalled();
   });
+
+  it('is disabled while offline', async () => {
+    await show(connectedCatalog([reachableSystem()]), undefined, true);
+    await moreRows();
+    expect(screen.getByRole('menuitem', { name: 'Start on Valhalla' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+  });
 });
 
 async function openSettings() {
-  await userEvent.click(await screen.findByRole('button', { name: 'Choose where to launch' }));
-  await userEvent.click(await screen.findByRole('menuitem', { name: 'Choose settings…' }));
+  await waitFor(() => {
+    expect(t3Catalog).toHaveBeenCalled();
+  });
+  await userEvent.click(await moreRow('Start in T3…'));
   return settingsForm();
 }
 
@@ -504,10 +621,7 @@ describe('the settings dialog', () => {
       ],
     });
     await show(connectedCatalog([system]));
-    // No defaults, so the main half opens the settings.
-    await screen.findByRole('button', { name: 'Choose where to launch' });
-    await userEvent.click(screen.getByRole('button', { name: 'Launch in T3…' }));
-    const dialog = await settingsForm();
+    const dialog = await openSettings();
     expect(within(dialog).getByRole('button', { name: 'Launch' })).toBeDisabled();
     await choose(dialog, 'Project', 'two');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Launch' }));
@@ -517,6 +631,48 @@ describe('the settings dialog', () => {
     expect(launchCalls()[0]?.projectId).toBe('p2');
   });
 
+  // MMR-742's finding: the old dialog dropped focus to <body> on close on a desktop.
+  it('returns focus to More when the settings close, its row being gone', async () => {
+    await show(connectedCatalog([reachableSystem()]));
+    const dialog = await openSettings();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(dialog).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: 'More' })).toHaveFocus();
+  });
+
+  // Each step is a focus target, so More drops out of the recent ones before the form opens.
+  it('returns focus to More after a long walk through its menu', async () => {
+    await show(connectedCatalog([peerWithDefaults(), reachableSystem()]));
+    await moreRows();
+    for (let step = 0; step < 12; step += 1) {
+      await userEvent.keyboard('{ArrowDown}');
+    }
+    screen.getByRole('menuitem', { name: 'Start in T3…' }).focus();
+    await userEvent.keyboard('{Enter}');
+    await closeSettings();
+    expect(screen.getByRole('button', { name: 'More' })).toHaveFocus();
+  });
+
+  it('on a phone, returns focus to More after a long walk through its sheet', async () => {
+    stubViewport('phone');
+    await show(connectedCatalog([peerWithDefaults(), reachableSystem()]));
+    await waitFor(() => {
+      expect(t3Catalog).toHaveBeenCalled();
+    });
+    await userEvent.click(await screen.findByRole('button', { name: 'More' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Launch from the console' });
+    await within(sheet).findByRole('button', { name: 'Start in T3…' });
+    for (let step = 0; step < 12; step += 1) {
+      await userEvent.tab();
+    }
+    within(sheet).getByRole('button', { name: 'Start in T3…' }).focus();
+    await userEvent.keyboard('{Enter}');
+    await closeSettings();
+    expect(screen.getByRole('button', { name: 'More' })).toHaveFocus();
+  });
+
   it('resets the form when a new settings request replaces one for the same task', async () => {
     const system = reachableSystem({
       projects: [
@@ -524,50 +680,25 @@ describe('the settings dialog', () => {
         { defaultModelSelection: null, id: 'p2', title: 'two' },
       ],
     });
-    await show(connectedCatalog([system]));
-    await screen.findByRole('button', { name: 'Choose where to launch' });
-    const trigger = screen.getByRole('button', { name: 'Launch in T3…' });
-    await userEvent.click(trigger);
-    const dialog = await settingsForm();
+    serveT3Launch(connectedCatalog([system]));
+    await renderInRouter(
+      <T3LaunchSettingsHost>
+        <LaunchMenu offline={false} />
+        <AskAgain />
+      </T3LaunchSettingsHost>,
+      new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+    );
+    const dialog = await openSettings();
     await choose(dialog, 'Project', 'two');
     expect(within(dialog).getByRole('button', { name: 'Launch' })).toBeEnabled();
 
-    // Dispatch through the same control while the modal blocks pointer interaction.
-    fireEvent.click(trigger);
+    // Dispatched directly, since the modal form blocks pointer interaction behind it.
+    fireEvent.click(screen.getByRole('button', { hidden: true, name: 'Ask again' }));
     const replacement = await settingsForm();
     expect(within(replacement).getByRole('combobox', { name: 'Project' })).toHaveTextContent(
       'Choose a project…',
     );
     expect(within(replacement).getByRole('button', { name: 'Launch' })).toBeDisabled();
-  });
-
-  // MMR-742's finding: the old dialog dropped focus to <body> on close on a desktop.
-  it('returns focus to the caret when settings opened from its menu close', async () => {
-    await show(connectedCatalog([reachableSystem()]));
-    const dialog = await openSettings();
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog')).toBeNull();
-    });
-    expect(screen.getByRole('button', { name: 'Choose where to launch' })).toHaveFocus();
-  });
-
-  it('returns focus to the main half when it opened the settings', async () => {
-    const system = reachableSystem({
-      projects: [
-        { defaultModelSelection: null, id: 'p1', title: 'one' },
-        { defaultModelSelection: null, id: 'p2', title: 'two' },
-      ],
-    });
-    await show(connectedCatalog([system]));
-    await screen.findByRole('button', { name: 'Choose where to launch' });
-    await userEvent.click(screen.getByRole('button', { name: 'Launch in T3…' }));
-    const dialog = await settingsForm();
-    await userEvent.keyboard('{Escape}');
-    await waitFor(() => {
-      expect(dialog).not.toBeInTheDocument();
-    });
-    expect(screen.getByRole('button', { name: 'Launch in T3…' })).toHaveFocus();
   });
 
   it('closes on Cancel without launching', async () => {
@@ -581,9 +712,15 @@ describe('the settings dialog', () => {
   });
 });
 
+/** Launch from the settings form, at its defaults. */
+async function launchFromSettings() {
+  const dialog = await openSettings();
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Launch' }));
+}
+
 async function launchNow(answer: T3LaunchResult) {
   await show(connectedCatalog([reachableSystem()]), answer);
-  await userEvent.click(await screen.findByRole('button', { name: 'Launch on Valhalla' }));
+  await launchFromSettings();
   await waitFor(() => {
     expect(launchT3).toHaveBeenCalled();
   });
@@ -638,7 +775,7 @@ describe('the answers', () => {
     await waitFor(() => {
       expect(launchT3).toHaveBeenCalledTimes(2);
     });
-    await userEvent.click(await screen.findByRole('button', { name: 'Launch on Valhalla' }));
+    await launchFromSettings();
     await waitFor(() => {
       expect(launchT3).toHaveBeenCalledTimes(3);
     });
@@ -663,7 +800,7 @@ describe('the answers', () => {
 
   it('an invalid answer rereads the catalog', async () => {
     await show(connectedCatalog([reachableSystem()]), { field: 'model', state: 'invalid' });
-    await userEvent.click(await screen.findByRole('button', { name: 'Launch on Valhalla' }));
+    await launchFromSettings();
     await waitFor(() => {
       expect(t3Catalog).toHaveBeenCalledTimes(2);
     });

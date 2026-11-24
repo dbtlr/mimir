@@ -8,10 +8,12 @@ import { artifacts, list, seeds } from '../api/fns/browse';
 import { projects } from '../api/fns/shell';
 import { SeedCaptureProvider } from '../components/seed-capture';
 import { readRememberedProject, rememberProject } from '../lib/current-project';
+import { readRecentRecords } from '../lib/recent-records';
 import { consoleRoutes } from '../router';
 import { taskSet } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
+import { engineTask } from './node-fixtures';
 import { serveNodes } from './node-fns';
 import { renderRoute, renderShell } from './router';
 import { failShellReads, serveShell } from './shell-fns';
@@ -81,11 +83,12 @@ describe('the project browsers are routes under their project (MMR-495)', () => 
     ['tasks', 'Tasks'],
     ['seeds', 'Seeds'],
     ['artifacts', 'Artifacts'],
-  ])('/p/KEY/%s renders its browser, not a record page', async (view, heading) => {
+  ])('/p/KEY/%s renders its browser as a tab of its project', async (view, tab) => {
     const { router: testRouter } = await renderAt(`/p/NRN/${view}`);
     await expect(
-      screen.findByRole('heading', { level: 1, name: heading }),
+      screen.findByRole('tab', { name: tab, selected: true }),
     ).resolves.toBeInTheDocument();
+    await expect(screen.findByRole('region', { name: tab })).resolves.toBeInTheDocument();
     expect(testRouter.state.location.pathname).toBe(`/p/NRN/${view}`);
   });
 
@@ -97,7 +100,7 @@ describe('the project browsers are routes under their project (MMR-495)', () => 
 
   it('keeps typed filters on the scoped routes', async () => {
     const { router: testRouter } = await renderAt('/p/MMR/tasks?status=blocked&q=wire');
-    await screen.findByRole('heading', { level: 1, name: 'Tasks' });
+    await screen.findByRole('tab', { name: 'Tasks', selected: true });
     expect(testRouter.state.location.search).toEqual({
       q: 'wire',
       status: 'blocked',
@@ -107,7 +110,7 @@ describe('the project browsers are routes under their project (MMR-495)', () => 
   it('still routes record suffixes to record pages', async () => {
     const { router: testRouter } = await renderAt('/p/MMR/417');
     expect((await settledAt(testRouter, '/p/MMR/417')).pathname).toBe('/p/MMR/417');
-    expect(screen.queryByRole('heading', { level: 1, name: 'Tasks' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Tasks' })).toBeNull();
   });
 });
 
@@ -120,6 +123,30 @@ describe('a browser under an unknown project (MMR-495)', () => {
         screen.findByRole('heading', { level: 1, name: 'Project unavailable' }),
       ).resolves.toBeInTheDocument();
       expect(screen.queryByText(/Unreachable/)).toBeNull();
+      // The server answered (ADR 0015), so the page does not read as offline.
+      expect(screen.queryByText(/Offline/)).toBeNull();
+    },
+  );
+});
+
+describe('a task id in the project segment', () => {
+  it.each(['', '/tasks', '/seeds', '/artifacts'])(
+    '/p/MMR-5%s shows the project-unavailable page, not the task as a project',
+    async (view) => {
+      serveNodes({
+        nodes: [
+          MMR,
+          NRN,
+          engineTask({ id: 'MMR-5', status: 'ready', title: 'A task, not a project' }),
+        ],
+      });
+      await renderAt(`/p/MMR-5${view}`);
+      await expect(
+        screen.findByRole('heading', { level: 1, name: 'Project unavailable' }),
+      ).resolves.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'A task, not a project' })).toBeNull();
+      // Nor does the jump palette learn the task as a project.
+      expect(readRecentRecords()).toStrictEqual([]);
     },
   );
 });

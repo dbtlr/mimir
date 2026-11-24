@@ -1,12 +1,10 @@
 import type { EngineNode } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode, RefObject } from 'react';
 
-import type { T3Catalog, T3LaunchInput, T3System } from '../api/fns/t3';
+import type { T3System } from '../api/fns/t3';
 import { t3CatalogQuery, t3OriginQuery, useConnectT3, useLaunchT3 } from '../api/t3-queries';
-import { cn } from '../lib/cn';
 import { projectKeyOf } from '../lib/project-key';
 import { newAttempt } from '../lib/t3-attempt';
 import {
@@ -16,16 +14,12 @@ import {
   rememberChoice,
 } from '../lib/t3-defaults';
 import type { LaunchChoice, RememberedChoice } from '../lib/t3-defaults';
-import { ActionMenu } from './patterns/action-menu';
-import type { ActionMenuEntry } from './patterns/action-menu';
+import type { ActionMenuAction } from './patterns/action-menu';
 import { toast } from './patterns/notice';
 import { announceLaunch } from './t3-launch-answers';
 import { T3LaunchForm } from './t3-launch-form';
-import { actionButtonVariants, ActionButton } from './ui/action-button';
-import { ChevronDownIcon } from './ui/icons';
 
 type ReachableSystem = Extract<T3System, { status: 'reachable' }>;
-type Connected = Extract<T3Catalog, { state: 'connected' }>;
 
 /** Where Start is offered and the task can be queued: ready or awaiting (todo, not held). */
 export function canLaunchOnT3(node: EngineNode): boolean {
@@ -40,13 +34,6 @@ type SettingsRequest = {
   remembered: RememberedChoice | null;
   environmentId?: string;
   run: (choice: LaunchChoice) => void;
-  /**
-   * The control focus returns to when the form closes: the half of the split
-   * button that asked. A menu row that asked is gone by then, so it names its
-   * trigger. Once that control is gone too (a phone's Actions sheet closed
-   * behind it), focus stays where the page's own handoff puts it.
-   */
-  opener: () => HTMLElement | null;
 };
 
 const OpenSettings = createContext<((request: SettingsRequest) => void) | null>(null);
@@ -74,16 +61,16 @@ function lastUsable(trail: readonly HTMLElement[]): HTMLElement | null {
 const TRAIL_LENGTH = 8;
 
 /**
- * The elements that last took focus, newest last. When the control that asked
- * for the settings is gone by the time the form closes (a phone's Actions
- * sheet closed behind it), focus walks back to the newest one still on the
- * page, as the chip that opened that sheet, never to the page's body.
+ * The elements that last took focus, newest last. The More row that asked for
+ * the settings is gone by the time the form closes, with the menu or sheet it
+ * sat in, so focus walks back to the newest one still on the page, the More
+ * button that opened them, never to the page's body.
  *
  * This stays with T3 rather than in `opener.ts`: the general rule there
  * (`useFinalFocus`) leaves focus to the page's own handoff once the opener is
- * gone (MMR-474). Only this host outlives the sheet that held its trigger, so
- * only it knows a chain of openers to walk back through; another overlay's
- * opener names its own fallback, as Settings › Notifications names a row.
+ * gone (MMR-474). Only this host outlives the menu that held its row, so only
+ * it knows a chain of openers to walk back through; another overlay's opener
+ * names its own fallback, as Settings › Notifications names a row.
  */
 function useFocusTrail(trail: RefObject<HTMLElement[]>) {
   useEffect(() => {
@@ -100,11 +87,10 @@ function useFocusTrail(trail: RefObject<HTMLElement[]>) {
 }
 
 /**
- * Holds Launch in T3's settings form above the controls that open it. On a
- * phone the control sits in a record's chip sheet, which closes on the choice
- * and unmounts it, so a form the control held would close with it; one held
- * here outlives that sheet. It closes when the task loses launch eligibility.
- * A control with no host above it makes its own.
+ * Holds Launch in T3's settings form above the More menu that opens it. The
+ * menu closes on the choice and unmounts its row, so a form the row held would
+ * close with it; one held here outlives the menu. It closes when the task
+ * loses launch eligibility.
  */
 export function T3LaunchSettingsHost({
   children,
@@ -114,20 +100,22 @@ export function T3LaunchSettingsHost({
   eligible?: boolean;
 }) {
   // The request stays through the form's close, so its exit and focus return can run.
-  const [request, setRequest] = useState<(SettingsRequest & { id: number }) | null>(null);
+  const [request, setRequest] = useState<
+    (SettingsRequest & { id: number; opener: () => HTMLElement | null }) | null
+  >(null);
   const [open, setOpen] = useState(false);
   const requestId = useRef(0);
   const trail = useRef<HTMLElement[]>([]);
   useFocusTrail(trail);
   const openSettings = useCallback((next: SettingsRequest) => {
     requestId.current += 1;
-    // Where focus was on the way here, newest last: the control, the sheet it sat in, the
-    // chip that opened that sheet. Read now, before the form takes focus.
+    // Where focus was on the way here, newest last: the row, the menu it sat in, the
+    // More button that opened it. Read now, before the form takes focus.
     const before = [...trail.current];
     setRequest({
       ...next,
       id: requestId.current,
-      opener: () => next.opener() ?? lastUsable(before),
+      opener: () => lastUsable(before),
     });
     setOpen(true);
   }, []);
@@ -161,44 +149,28 @@ export function T3LaunchSettingsHost({
 }
 
 /**
- * Launch this task in a new T3 thread (ADR 0040, Launch). It shows only when
- * the host has an Open in T3 origin, so an unconfigured console makes no T3
- * call and shows nothing.
+ * The More rows that start this task in a new T3 thread (ADR 0040, Launch;
+ * MMR-726). Once T3 can launch, each catalog system has a one-click "Start on
+ * <System>" row, the system the defaults name first: it launches with that
+ * system's defaults, or opens the settings form set to it when it has none.
+ * "Start in T3…" follows and opens the settings form at the defaults. The rows
+ * are offered only where Start is and the host has an Open in T3 origin, so an
+ * unconfigured console makes no catalog call and shows none. A state T3 cannot
+ * launch from reads as one disabled row that says why, except one the row can
+ * mend: a lapsed connection reconnects, and an unanswered catalog read asks
+ * again. Call it under a {@link T3LaunchSettingsHost}.
  */
-export function T3LaunchControl({ node, offline }: { node: EngineNode; offline: boolean }) {
-  if (useContext(OpenSettings) === null) {
-    return (
-      <T3LaunchSettingsHost>
-        <T3LaunchControl node={node} offline={offline} />
-      </T3LaunchSettingsHost>
-    );
-  }
-  return <LaunchControl node={node} offline={offline} />;
-}
-
-function LaunchControl({ node, offline }: { node: EngineNode; offline: boolean }) {
-  const origin = useQuery(t3OriginQuery).data?.origin ?? null;
-  if (origin === null) {
-    return null;
-  }
-  return <LaunchOnT3 node={node} offline={offline} origin={origin} />;
-}
-
-const reachable = (system: T3System): system is ReachableSystem =>
-  system.status === 'reachable' && system.projects.length > 0;
-
-function LaunchOnT3({
-  node,
-  offline,
-  origin,
-}: {
-  node: EngineNode;
-  offline: boolean;
-  origin: string;
-}) {
+export function useT3LaunchEntries(node: EngineNode, offline: boolean): ActionMenuAction[] {
+  const eligible = canLaunchOnT3(node);
   const project = projectKeyOf(node.id);
+  const openSettings = useContext(OpenSettings);
+  const origin = useQuery({ ...t3OriginQuery, enabled: eligible }).data?.origin ?? null;
   // T3 is another service, so its catalog is read on mount and on demand, not polled.
-  const catalog = useQuery({ ...t3CatalogQuery(project), refetchInterval: false });
+  const catalog = useQuery({
+    ...t3CatalogQuery(project),
+    enabled: eligible && origin !== null,
+    refetchInterval: false,
+  });
   const connect = useConnectT3((answer) => {
     toast.error(
       answer.state === 'misconfigured'
@@ -210,206 +182,124 @@ function LaunchOnT3({
     if (answer.state === 'launched') {
       rememberChoice(project, input);
     }
-    announceLaunch(answer, input, { origin, retry });
+    if (origin !== null) {
+      announceLaunch(answer, input, { origin, retry });
+    }
   });
-
-  // One user-initiated launch: a new attempt, kept for its Retry.
-  const run = (choice: LaunchChoice) => {
-    const input: T3LaunchInput = { ...choice, attempt: newAttempt(), task: node.id };
-    launch.mutate(input);
-  };
-
-  if (catalog.data === undefined) {
-    return catalog.isError ? (
-      <RetryRead onRetry={() => void catalog.refetch()} />
-    ) : (
-      <ActionButton size="sm" variant="outline" disabled>
-        Launch in T3…
-      </ActionButton>
-    );
+  if (!eligible || origin === null) {
+    return [];
   }
+  const row: ActionMenuAction = {
+    key: 't3-launch',
+    kind: 'action',
+    label: 'Start in T3…',
+  };
+  const reread: ActionMenuAction = {
+    ...row,
+    disabled: offline,
+    label: 'T3 unreachable, try again',
+    onSelect: () => void catalog.refetch(),
+  };
   const data = catalog.data;
-  if (data.state === 'unconfigured') {
-    return null;
+  if (data === undefined) {
+    return [catalog.isError ? reread : { ...row, disabled: true }];
   }
-  if (data.state === 'misconfigured') {
-    return (
-      <span className="inline-flex items-center gap-2">
-        <ActionButton
-          size="sm"
-          variant="outline"
-          disabled
-          title={`T3 is not set up: ${data.setting} is ${data.problem}`}
-        >
-          Launch in T3…
-        </ActionButton>
-        <Link to="/settings/connections" className="text-xs text-accent-foreground hover:underline">
-          Connections
-        </Link>
-      </span>
-    );
-  }
-  if (data.state === 'disconnected') {
-    return (
-      <ActionButton
-        size="sm"
-        variant="outline"
-        disabled={offline || connect.isPending}
-        onClick={() => {
-          connect.mutate();
-        }}
-      >
-        Reconnect T3
-      </ActionButton>
-    );
-  }
-  if (data.state === 'unreachable') {
-    return <RetryRead onRetry={() => void catalog.refetch()} />;
-  }
-  return (
-    <ConnectedLaunch
-      catalog={data}
-      project={project}
-      taskId={node.id}
-      taskTitle={node.title}
-      disabled={offline || launch.isPending}
-      onRun={run}
-    />
-  );
-}
-
-/** T3 did not answer the catalog read: the label retries it. */
-function RetryRead({ onRetry }: { onRetry: () => void }) {
-  return (
-    <ActionButton
-      size="sm"
-      variant="outline"
-      title="T3 did not answer. Select to try again."
-      onClick={onRetry}
-    >
-      T3 unreachable
-    </ActionButton>
-  );
-}
-
-function Unavailable({ reason }: { reason: string }) {
-  return (
-    <span className="inline-flex items-center gap-2">
-      <ActionButton size="sm" variant="outline" disabled title={reason}>
-        Launch in T3…
-      </ActionButton>
-      <span className="text-tag text-ink-dim">{reason}</span>
-    </span>
-  );
-}
-
-const HALF = 'inset-ring inset-ring-line-bright text-ink hover:bg-line/50 hover:text-ink-bright';
-
-function ConnectedLaunch({
-  catalog,
-  project,
-  taskId,
-  taskTitle,
-  disabled,
-  onRun,
-}: {
-  catalog: Connected;
-  project: string;
-  taskId: string;
-  taskTitle: string;
-  disabled: boolean;
-  onRun: (choice: LaunchChoice) => void;
-}) {
-  const openSettings = useContext(OpenSettings);
-  const main = useRef<HTMLButtonElement>(null);
-  const caret = useRef<HTMLButtonElement>(null);
-  if (catalog.noRemote) {
-    return <Unavailable reason="This project has no git remote for T3 to match." />;
-  }
-  const launchable = catalog.systems.filter(reachable);
-  if (launchable.length === 0) {
-    return <Unavailable reason="No T3 system has this project." />;
-  }
-  const remembered = recallChoice(project);
-  const defaults = launchDefaults(catalog.systems, remembered);
-  const defaultLabel = catalog.systems.find(
-    (s) => s.environmentId === defaults?.environmentId,
-  )?.label;
-  const onSettings = (environmentId: string | undefined, from: 'main' | 'menu') => {
-    const returnTo = from === 'main' ? main : caret;
-    openSettings?.({
-      environmentId,
-      opener: () => usable(returnTo.current),
-      remembered,
-      run: onRun,
-      systems: launchable,
-      taskId,
-      taskTitle,
-    });
-  };
-
-  return (
-    <span className="inline-flex">
-      <button
-        ref={main}
-        type="button"
-        disabled={disabled}
-        onClick={() => {
-          if (defaults === null) {
-            onSettings(undefined, 'main');
-          } else {
-            onRun(defaults);
-          }
-        }}
-        className={cn(actionButtonVariants({ size: 'sm', variant: 'outline' }), 'rounded-r-none')}
-      >
-        {defaultLabel === undefined ? 'Launch in T3…' : `Launch on ${defaultLabel}`}
-      </button>
-      <ActionMenu
-        title="Launch in T3"
-        trigger={
-          <button
-            ref={caret}
-            type="button"
-            disabled={disabled}
-            aria-label="Choose where to launch"
-            className={cn(
-              actionButtonVariants({ size: 'sm', variant: 'outline' }),
-              HALF,
-              'rounded-l-none px-2',
-            )}
-          >
-            <ChevronDownIcon className="size-4 md:size-4" />
-          </button>
-        }
-        entries={[
-          ...catalog.systems.map((system): ActionMenuEntry => {
-            const choice = defaultsForSystem(system, remembered);
-            return {
-              disabled: system.status !== 'reachable',
-              key: system.environmentId,
-              kind: 'action',
-              label: `Launch on ${system.label}`,
-              onSelect: () => {
-                if (choice === null) {
-                  onSettings(system.environmentId, 'menu');
-                } else {
-                  onRun(choice);
-                }
-              },
-            };
-          }),
-          { key: 'separator', kind: 'separator' },
-          {
-            key: 'settings',
-            kind: 'action',
-            label: 'Choose settings…',
-            onSelect: () => {
-              onSettings(defaults?.environmentId, 'menu');
-            },
+  switch (data.state) {
+    case 'unconfigured': {
+      return [];
+    }
+    case 'misconfigured': {
+      return [
+        {
+          ...row,
+          disabled: true,
+          label: `Start in T3: ${data.setting} is ${data.problem}`,
+        },
+      ];
+    }
+    case 'disconnected': {
+      return [
+        {
+          ...row,
+          disabled: offline || connect.isPending,
+          label: 'Reconnect T3',
+          onSelect: () => {
+            connect.mutate();
           },
-        ]}
-      />
-    </span>
-  );
+        },
+      ];
+    }
+    case 'unreachable': {
+      return [reread];
+    }
+    case 'connected': {
+      const systems = data.systems.filter(reachable);
+      if (data.noRemote) {
+        return [
+          {
+            ...row,
+            disabled: true,
+            label: 'Start in T3: this project has no git remote',
+          },
+        ];
+      }
+      if (systems.length === 0) {
+        return [
+          {
+            ...row,
+            disabled: true,
+            label: 'Start in T3: no T3 system has this project',
+          },
+        ];
+      }
+      const remembered = recallChoice(project);
+      const defaults = launchDefaults(data.systems, remembered);
+      const busy = offline || launch.isPending;
+      const run = (choice: LaunchChoice) => {
+        launch.mutate({ ...choice, attempt: newAttempt(), task: node.id });
+      };
+      const settings = (environmentId: string | undefined) => {
+        openSettings?.({
+          environmentId,
+          remembered,
+          run,
+          systems,
+          taskId: node.id,
+          taskTitle: node.title,
+        });
+      };
+      const startOn = (system: T3System): ActionMenuAction => ({
+        disabled: busy || !reachable(system),
+        key: `t3-start-${system.environmentId}`,
+        kind: 'action',
+        label: `Start on ${system.label}`,
+        onSelect: () => {
+          const choice = defaultsForSystem(system, remembered);
+          if (choice === null) {
+            settings(system.environmentId);
+          } else {
+            run(choice);
+          }
+        },
+      });
+      return [
+        ...defaultFirst(data.systems, defaults?.environmentId).map(startOn),
+        { ...row, disabled: busy, onSelect: () => settings(defaults?.environmentId) },
+      ];
+    }
+    default: {
+      const _exhaustive: never = data;
+      return _exhaustive;
+    }
+  }
 }
+
+/** The catalog's systems in order, the one the defaults name moved to the front. */
+function defaultFirst(systems: readonly T3System[], environmentId: string | undefined) {
+  const first = systems.filter((system) => system.environmentId === environmentId);
+  return [...first, ...systems.filter((system) => system.environmentId !== environmentId)];
+}
+
+/** A system that can take the launch: reachable, with a project matching this one. */
+const reachable = (system: T3System): system is ReachableSystem =>
+  system.status === 'reachable' && system.projects.length > 0;

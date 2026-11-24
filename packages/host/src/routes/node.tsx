@@ -1,14 +1,14 @@
-import type { EngineNode, EngineOutput } from '@mimir/contract';
+import type { EngineNode, EngineOutput, EngineTree } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { Fragment, useState } from 'react';
+import { useState } from 'react';
 
 import { isNotFound } from '../api/errors';
 import { annotationsQuery, nodeQuery, scratchpadsQuery } from '../api/node-queries';
 import { treeQuery } from '../api/shell-queries';
 import { GroomWithAgentCard } from '../components/agent-card';
 import { AnnotationComposer } from '../components/annotation-composer';
-import { GroomingBadge, GroomingChip } from '../components/grooming-chip';
+import { GroomingBadge } from '../components/grooming-chip';
 import { GroomingDialog } from '../components/grooming-dialog';
 import { MoveDialog } from '../components/move-dialog';
 import {
@@ -22,27 +22,31 @@ import {
   VerdictBlock,
   awaitsVerdict,
   hasSignals,
+  mainVerbLabel,
+  mainVerbs,
+  moreVerbs,
   prerequisiteRows,
-  recordVerbs,
   useNodeEdit,
   useNodeVerbs,
 } from '../components/node-record';
 import { FeedList } from '../components/node-timeline';
 import { OfflineBanner } from '../components/offline-banner';
 import { OpenInT3 } from '../components/open-in-t3';
-import { ParentLink } from '../components/parent-link';
+import type { ActionMenuAction } from '../components/patterns/action-menu';
+import { RecordHeader } from '../components/patterns/record-header';
+import { RECORD_TYPE_LABEL, RecordMore, moreEntries, recordTrail } from '../components/record-head';
 import { RailSection, RecordLayout, RecordPending } from '../components/record-layout';
 import type { RailChip } from '../components/record-layout';
-import { StatusBadge, StatusLineId } from '../components/status-badge';
+import { StatusBadge } from '../components/status-badge';
 import {
-  T3LaunchControl,
   T3LaunchSettingsHost,
   canLaunchOnT3,
+  useT3LaunchEntries,
 } from '../components/t3-launch-control';
 import { TaskForm } from '../components/task-form';
 import { ActionButton } from '../components/ui/action-button';
-import { WorkPage } from '../components/work-page';
-import type { WorkTab } from '../components/work-page';
+import { ContainerPage } from '../components/work-page';
+import type { ContainerTab } from '../components/work-page';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { visibleGrooming } from '../lib/grooming';
@@ -51,6 +55,7 @@ import { useRememberRecord } from '../lib/recent-records';
 import { nodeIdOf } from '../lib/record-url';
 import { absoluteTime } from '../lib/time';
 import { buildFeed } from '../lib/timeline';
+import type { NodeAnnotation } from '../lib/timeline';
 import type { VerbSpec } from '../lib/transitions';
 import { nodeRoute } from '../router';
 import { NotFoundPage } from './not-found';
@@ -61,9 +66,9 @@ type ScratchpadRow = EngineOutput<'scratchList'>[number];
 /**
  * `/p/$key/$seq` — a work node's own page (ADR 0013, v0.23 refinement). The
  * path is the node id split at its hyphen; a suffix that is not a node's shows
- * the not-found state without a lookup. A task's page carries its actions and
- * agent context; an initiative or phase opens as the work page (MMR-467
- * refinement), its notes behind a Timeline tab.
+ * the not-found state without a lookup. Every node opens under the record
+ * header (MMR-726): a task's page keeps its body and rail, and an initiative
+ * or phase opens as the work page with its tabs, its notes behind Timeline.
  */
 export function NodePage() {
   const { key, seq } = nodeRoute.useParams();
@@ -76,60 +81,6 @@ export function NodePage() {
     );
   }
   return <NodeRecord key={nodeId} nodeId={nodeId} />;
-}
-
-/** A task's Edit, Move…, grooming setter, and the transition verbs it offers outside its verdict block. */
-function ActionsPanel({
-  node,
-  actionVerbs,
-  launchEligible,
-  offline,
-  onEdit,
-  onMove,
-  onGroom,
-  onVerb,
-}: {
-  node: EngineNode;
-  actionVerbs: VerbSpec[];
-  launchEligible: boolean;
-  offline: boolean;
-  onEdit: () => void;
-  onMove: () => void;
-  onGroom: () => void;
-  onVerb: (v: VerbSpec) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap gap-1.5">
-        <ActionButton size="sm" variant="outline" disabled={offline} onClick={onEdit}>
-          Edit
-        </ActionButton>
-        <ActionButton size="sm" variant="outline" disabled={offline} onClick={onMove}>
-          Move…
-        </ActionButton>
-        {visibleGrooming(node) !== undefined && (
-          <ActionButton size="sm" variant="outline" disabled={offline} onClick={onGroom}>
-            Set grooming…
-          </ActionButton>
-        )}
-        {actionVerbs.map((v) => (
-          <Fragment key={v.verb}>
-            <ActionButton size="sm" variant="outline" disabled={offline} onClick={() => onVerb(v)}>
-              {v.label}
-              {v.needsReason && '…'}
-            </ActionButton>
-            {/* Launch in T3 sits beside Start, where the task can be queued. */}
-            {v.verb === 'start' && launchEligible && (
-              <T3LaunchControl node={node} offline={offline} />
-            )}
-          </Fragment>
-        ))}
-      </div>
-      {awaitsVerdict(node) && (
-        <p className="text-tag text-ink-dim">Approve and Send back sit in the verdict block.</p>
-      )}
-    </div>
-  );
 }
 
 /** Main conversation, optional whole-task worker, and execution context. */
@@ -221,19 +172,17 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
   const projectKey = projectKeyOf(nodeId);
   const node = useQuery(nodeQuery(nodeId));
   const annotations = useQuery(annotationsQuery(nodeId));
-  // The tree finds the phone parent link and the Scratchpad list names the
+  // The tree finds the header's trail and the Scratchpad list names the
   // agent's episode; a miss on either only thins the page, so neither counts
   // toward connectivity. The tree is the whole board, so it is read once rather
   // than polled; a console write invalidates it and returning to the window
   // refetches it.
   const tree = useQuery({ ...treeQuery(projectKey), refetchInterval: false });
   const scratchpadRows = useQuery(scratchpadsQuery(projectKey));
-  const edit = useNodeEdit(nodeId);
-  const verbs = useNodeVerbs(nodeId);
-  const [moving, setMoving] = useState(false);
-  const [grooming, setGrooming] = useState(false);
   const { tab } = nodeRoute.useSearch();
   const navigate = useNavigate({ from: nodeRoute.fullPath });
+  // The persister may restore an older read after mount, so freshness is by time, not isFetchedAfterMount.
+  const [mountedAt] = useState(() => Date.now());
   const conn = connectivity([node, annotations]);
   useRememberRecord(
     node.data && {
@@ -261,8 +210,8 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
   const feed = buildFeed(data.createdAt, data.history, annotations.data?.items);
   const offline = conn.offline;
 
-  // An initiative or phase opens as the work page (MMR-467 refinement), its
-  // notes under a Timeline tab that the URL selects.
+  // An initiative or phase opens as the work page (MMR-467 and MMR-726
+  // refinements), its tabs selected by the URL.
   if (data.type !== 'task') {
     const timeline = (
       <>
@@ -270,21 +219,24 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
         <AnnotationComposer nodeId={nodeId} offline={offline} />
       </>
     );
-    const onTab = (next: WorkTab) => {
+    const onTab = (next: ContainerTab, options?: { replace: boolean }) => {
       void navigate({
-        search: { tab: next === 'timeline' ? 'timeline' : undefined },
+        replace: options?.replace,
+        search: { tab: next === 'work' ? undefined : next },
       });
     };
     return (
       <>
         <OfflineBanner {...conn} />
-        <WorkPage
+        <ContainerPage
           record={data}
           tree={tree.data}
           offline={offline}
           container={{
             onTab,
-            tab: tab ?? 'work',
+            recordReadAt: node.dataUpdatedAt,
+            since: mountedAt,
+            tab,
             timeline,
             timelineCount: feed.length,
           }}
@@ -293,32 +245,58 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
     );
   }
 
-  const scratchpads = (scratchpadRows.data ?? []).filter((s) => s.linkedWork.includes(nodeId));
-  const prerequisites = data.deps === undefined ? [] : prerequisiteRows(data.deps);
-  const blocking = data.deps?.blocking ?? [];
-  const artifactCount = data.artifacts?.length ?? 0;
-  const groomingState = visibleGrooming(data);
-  const actionVerbs = recordVerbs(data);
-  const launchEligible = canLaunchOnT3(data) && actionVerbs.some((v) => v.verb === 'start');
+  return (
+    <TaskRecord
+      node={data}
+      tree={tree.data}
+      feed={feed}
+      annotations={annotations.data?.items}
+      annotationsPending={annotations.isPending}
+      scratchpadRows={scratchpadRows.data ?? []}
+      conn={conn}
+    />
+  );
+}
 
-  // Edit, Move…, and the transitions step aside while the edit form is open: a
-  // second Edit would re-snapshot the tag baseline under a form that kept the
-  // first one, and a transition would land mid-edit.
-  const actions =
-    edit.baseline === null ? (
-      <ActionsPanel
-        node={data}
-        actionVerbs={actionVerbs}
-        launchEligible={launchEligible}
-        offline={offline}
-        onEdit={() => edit.begin(data)}
-        onMove={() => setMoving(true)}
-        onGroom={() => setGrooming(true)}
-        onVerb={verbs.handleVerb}
-      />
-    ) : null;
-  const agent = hasAgentContext(data, scratchpads) ? (
-    <AgentPanel node={data} scratchpads={scratchpads} />
+/**
+ * A task's page: the record header, with the state's main action and More
+ * (MMR-726), over its body (the verdict's review, a hold, the description,
+ * and the timeline) beside the rail of its links, agent, and details.
+ */
+function TaskRecord({
+  node,
+  tree,
+  feed,
+  annotations,
+  annotationsPending,
+  scratchpadRows,
+  conn,
+}: {
+  node: EngineNode;
+  tree: EngineTree | undefined;
+  feed: ReturnType<typeof buildFeed>;
+  annotations: readonly NodeAnnotation[] | undefined;
+  annotationsPending: boolean;
+  scratchpadRows: readonly ScratchpadRow[];
+  conn: ReturnType<typeof connectivity>;
+}) {
+  const nodeId = node.id;
+  const projectKey = projectKeyOf(nodeId);
+  const offline = conn.offline;
+  const edit = useNodeEdit(nodeId);
+  const verbs = useNodeVerbs(nodeId);
+  const [moving, setMoving] = useState(false);
+  const [grooming, setGrooming] = useState(false);
+  const launchEligible = canLaunchOnT3(node);
+
+  const scratchpads = scratchpadRows.filter((s) => s.linkedWork.includes(nodeId));
+  const prerequisites = node.deps === undefined ? [] : prerequisiteRows(node.deps);
+  const blocking = node.deps?.blocking ?? [];
+  const artifactCount = node.artifacts?.length ?? 0;
+  const groomingState = visibleGrooming(node);
+
+  const agent = hasAgentContext(node, scratchpads) ? (
+    <AgentPanel node={node} scratchpads={scratchpads} />
   ) : null;
   const dependsOn =
     prerequisites.length > 0 ? (
@@ -342,12 +320,11 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
     ) : null;
   const artifacts = (
     <RailSection label="Artifacts" count={artifactCount > 0 ? artifactCount : undefined}>
-      <ArtifactLinks artifacts={data.artifacts} />
+      <ArtifactLinks artifacts={node.artifacts} />
     </RailSection>
   );
-  const details = <DetailsPanel node={data} />;
+  const details = <DetailsPanel node={node} />;
   const chips: RailChip[] = [
-    ...(actions === null ? [] : [{ content: actions, label: 'Actions' }]),
     {
       content: (
         <>
@@ -365,7 +342,6 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
 
   const rail = (
     <>
-      {actions !== null && <RailSection label="Actions">{actions}</RailSection>}
       {agent !== null && <RailSection label="Agent">{agent}</RailSection>}
       {dependsOn}
       {blocks}
@@ -375,22 +351,35 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
   );
 
   const head = (
-    <header className="flex flex-col gap-1.5">
-      <ParentLink projectKey={projectKey} tree={tree.data} nodeId={nodeId} />
-      <div className="flex flex-wrap items-center gap-2">
-        <StatusBadge status={data.status} />
-        <StatusLineId id={nodeId} type={data.type} />
-        <GroomingChip node={data} />
-      </div>
-      <h1 className="text-dossier leading-[1.35] font-bold tracking-[-0.01em] wrap-anywhere text-ink-bright md:text-header">
-        {data.title}
-      </h1>
-    </header>
+    <RecordHeader
+      trail={recordTrail(projectKey, tree, nodeId)}
+      title={node.title}
+      status={<StatusBadge status={node.status} />}
+      type={RECORD_TYPE_LABEL.task}
+      recordId={nodeId}
+      summary={node.summary}
+      chips={groomingState === undefined ? undefined : <GroomingBadge state={groomingState} />}
+      // The actions step aside while the edit form is open: a second Edit would
+      // re-snapshot the tag baseline under a form that kept the first one, and
+      // a transition would land mid-edit.
+      actions={
+        edit.baseline === null ? (
+          <TaskActions
+            node={node}
+            offline={offline}
+            onEdit={() => edit.begin(node)}
+            onMove={() => setMoving(true)}
+            onGroom={() => setGrooming(true)}
+            onVerb={verbs.handleVerb}
+          />
+        ) : undefined
+      }
+    />
   );
 
   return (
-    // Launch in T3's settings dialog lives above the rail, so it outlives the phone's Actions sheet.
-    <T3LaunchSettingsHost eligible={actions !== null && launchEligible}>
+    // Launch in T3's settings form lives above More, so it outlives the menu that opened it.
+    <T3LaunchSettingsHost eligible={edit.baseline === null && launchEligible}>
       <OfflineBanner {...conn} />
       <RecordLayout
         head={head}
@@ -407,28 +396,15 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
           />
         ) : (
           <>
-            {awaitsVerdict(data) && (
-              <VerdictBlock
-                node={data}
-                annotations={annotations.data?.items}
-                offline={offline}
-                onVerb={verbs.handleVerb}
-                heading
-              />
-            )}
-            <HoldCallout node={data} />
-            <GroomWithAgentCard node={data} offline={offline} />
-            <DescriptionSection description={data.description} />
+            {awaitsVerdict(node) && <VerdictBlock node={node} annotations={annotations} />}
+            <HoldCallout node={node} />
+            <GroomWithAgentCard node={node} offline={offline} />
+            <DescriptionSection description={node.description} />
             <section className="flex flex-col gap-3">
               <h2 className="microlabel border-b border-line pb-1.5 text-ink-dim">
                 Timeline · {feed.length}
               </h2>
-              <FeedList
-                items={feed}
-                pending={annotations.isPending}
-                empty="Nothing yet."
-                threaded
-              />
+              <FeedList items={feed} pending={annotationsPending} empty="Nothing yet." threaded />
               <AnnotationComposer nodeId={nodeId} offline={offline} />
             </section>
           </>
@@ -445,10 +421,98 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
       )}
       <MoveDialog
         nodeId={nodeId}
-        currentParent={data.parent}
+        currentParent={node.parent}
         open={moving}
         onClose={() => setMoving(false)}
       />
     </T3LaunchSettingsHost>
+  );
+}
+
+/** A verb as a More row: its label, with "…" when it asks for a reason first. */
+function verbRow(
+  v: VerbSpec,
+  offline: boolean,
+  onVerb: (v: VerbSpec) => void,
+  destructive = false,
+): ActionMenuAction {
+  return {
+    destructive,
+    disabled: offline,
+    key: v.verb,
+    kind: 'action',
+    label: v.needsReason ? `${v.label}…` : v.label,
+    onSelect: () => {
+      onVerb(v);
+    },
+  };
+}
+
+/**
+ * A task's main action and More (ADR 0019, MMR-726). More groups Edit with
+ * Move… and Set grooming… (until the edit sheet folds them in, MMR-731), then
+ * the status changes (the T3 rows after them), then the holds, then
+ * Abandon… alone, in the destructive hairline.
+ */
+function TaskActions({
+  node,
+  offline,
+  onEdit,
+  onMove,
+  onGroom,
+  onVerb,
+}: {
+  node: EngineNode;
+  offline: boolean;
+  onEdit: () => void;
+  onMove: () => void;
+  onGroom: () => void;
+  onVerb: (v: VerbSpec) => void;
+}) {
+  const t3 = useT3LaunchEntries(node, offline);
+  const grouped = moreVerbs(node);
+  const editing: ActionMenuAction[] = [
+    { disabled: offline, key: 'edit', kind: 'action', label: 'Edit', onSelect: onEdit },
+    { disabled: offline, key: 'move', kind: 'action', label: 'Move…', onSelect: onMove },
+    ...(visibleGrooming(node) === undefined
+      ? []
+      : [
+          {
+            disabled: offline,
+            key: 'grooming',
+            kind: 'action' as const,
+            label: 'Set grooming…',
+            onSelect: onGroom,
+          },
+        ]),
+  ];
+  const status = [...grouped.status.map((v) => verbRow(v, offline, onVerb)), ...t3];
+  return (
+    <>
+      {mainVerbs(node).map((v, index) => (
+        <ActionButton
+          key={v.verb}
+          size="header"
+          variant={index === 0 ? 'action' : 'pageOutline'}
+          disabled={offline}
+          aria-haspopup={v.needsReason ? 'dialog' : undefined}
+          onClick={() => {
+            onVerb(v);
+          }}
+        >
+          {mainVerbLabel(v)}
+        </ActionButton>
+      ))}
+      <RecordMore
+        title={node.title}
+        recordId={node.id}
+        entries={moreEntries([
+          editing,
+          status,
+          grouped.holds.map((v) => verbRow(v, offline, onVerb)),
+          grouped.abandon.map((v) => verbRow(v, offline, onVerb, true)),
+        ])}
+      />
+    </>
   );
 }

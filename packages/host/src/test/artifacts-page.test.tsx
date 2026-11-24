@@ -49,7 +49,7 @@ describe('artifactsPage', () => {
     await renderRoute([artifactsRoute], '/p/MMR/artifacts');
     const link = await screen.findByRole('link', { name: 'Artifacts browser' });
     expect(link).toHaveAttribute('href', '/p/MMR/a8');
-    expect(screen.getByRole('heading', { level: 1, name: 'Artifacts' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Artifacts', selected: true })).toBeInTheDocument();
     expect(screen.getByText('1 frozen')).toBeInTheDocument();
     expect(screen.getByRole('searchbox', { name: 'Search artifacts' })).toBeInTheDocument();
   });
@@ -102,7 +102,7 @@ describe('artifactsPage', () => {
     expect(artifacts).toHaveBeenCalledWith({ data: { limit: 100, project: 'MMR' } });
     expect(screen.getByText('101 frozen')).toBeInTheDocument();
     expect(screen.queryByText('Artifact 101')).toBeNull();
-    fireEvent.scroll(screen.getByTestId('artifact-scroll'));
+    fireEvent.scroll(screen.getByTestId('record-scroll'));
     await expect(screen.findByText('Artifact 101')).resolves.toBeDefined();
     expect(artifacts).toHaveBeenLastCalledWith({
       data: { limit: 100, offset: 100, project: 'MMR' },

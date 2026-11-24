@@ -13,6 +13,7 @@ import { PatternsKit } from '../kit/patterns';
 import { PickersKit } from '../kit/pickers';
 import { PopupsKit } from '../kit/popups';
 import { PreviewKit } from '../kit/preview';
+import { RecordHeaderKit } from '../kit/record-header';
 import { Section } from '../kit/section';
 import { StructureKit } from '../kit/structure';
 import { TextKit } from '../kit/text';
@@ -208,6 +209,7 @@ export function KitPage() {
       <TextKit />
       <PickersKit />
       <StructureKit />
+      <RecordHeaderKit />
       <FeedKit />
       <PreviewKit />
       <DeckKit />

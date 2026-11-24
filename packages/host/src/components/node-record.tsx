@@ -11,7 +11,7 @@ import { artifactLink, nodeLink } from '../lib/record-url';
 import type { TaskFormValues } from '../lib/schemas';
 import type { NodeAnnotation } from '../lib/timeline';
 import { availableTransitions, transitionLabel } from '../lib/transitions';
-import type { VerbSpec } from '../lib/transitions';
+import type { TransitionVerb, VerbSpec } from '../lib/transitions';
 import { verdictSummary } from '../lib/verdict';
 import type { RecordArtifact } from '../lib/work-page';
 import { LinkifiedText } from './linkified-text';
@@ -20,7 +20,6 @@ import { Reason } from './patterns/reason';
 import { OpenEndedBadge, PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
 import { StatusDot } from './status-dot';
 import type { TaskFormSubmit } from './task-form';
-import { ActionButton } from './ui/action-button';
 import { Badge } from './ui/badge';
 
 /*
@@ -204,70 +203,77 @@ export function awaitsVerdict(node: EngineNode): boolean {
 }
 
 /**
- * The verdict block — shown only while a task's review is pending. A task in
- * review is work in flight, not a decision the operator owes (ADR 0019), so
- * the block is neutral, not attention-styled. Approve fires `done`
- * immediately; Return opens the reason dialog. The submitted-summary line
- * comes from `verdictSummary` (MMR-262); the external ref is the real
- * `externalRef` field.
+ * The verdict block: the review a task under review carries, shown only while
+ * its review is pending. A task in review is work in flight, not a decision
+ * the operator owes (ADR 0019), so the block is neutral, not
+ * attention-styled. Approve and Send back… sit in the record header, as the
+ * state's main action (MMR-726). The submitted-summary line comes from
+ * `verdictSummary` (MMR-262); the external ref is the real `externalRef` field.
  */
 export function VerdictBlock({
   node,
   annotations,
-  offline,
-  onVerb,
-  heading = false,
 }: {
   node: EngineNode;
   annotations: readonly NodeAnnotation[] | undefined;
-  offline?: boolean;
-  onVerb: (v: VerbSpec) => void;
-  /** Label the block "Review": the header's status word already names the status (MMR-718). */
-  heading?: boolean;
 }) {
-  const verbs = availableTransitions(node.status);
-  const doneSpec = verbs.find((v) => v.verb === 'done');
-  const returnSpec = verbs.find((v) => v.verb === 'return');
   const summary = verdictSummary(node.history, annotations);
-
   return (
     <div className="flex flex-col gap-2.5 rounded-lg border border-line bg-well-850 p-3.5">
-      {heading && <p className="microlabel text-ink-dim">Review</p>}
+      {/* Labelled Review: the header's status word already names the status (MMR-718). */}
+      <p className="microlabel text-ink-dim">Review</p>
       {summary !== undefined && <p className="text-xs leading-relaxed text-ink">{summary}</p>}
       {node.externalRef != null && <ExternalRef value={node.externalRef} />}
-      <div className="flex gap-2">
-        {doneSpec !== undefined && (
-          <ActionButton size="sm" disabled={offline} onClick={() => onVerb(doneSpec)}>
-            Approve
-          </ActionButton>
-        )}
-        {returnSpec !== undefined && (
-          <ActionButton
-            size="sm"
-            variant="outline"
-            disabled={offline}
-            onClick={() => onVerb(returnSpec)}
-          >
-            {transitionLabel('return')}…
-          </ActionButton>
-        )}
-      </div>
     </div>
   );
 }
 
+const MAIN_VERBS: Partial<Record<EngineNode['status'], readonly TransitionVerb[]>> = {
+  ready: ['start'],
+  under_review: ['done', 'return'],
+};
+
 /**
- * The transition verbs a node offers outside its verdict block. Only a task
- * transitions: a container's status is a rollup of its children. Under
- * review, Approve and Return live in the verdict block instead.
+ * The verbs a task's header offers as its main action (ADR 0019, MMR-726):
+ * Start when it is ready, Approve and Send back… under review, and nothing
+ * otherwise, as while an agent runs or the task waits on others. Only a task
+ * transitions: a container's status is a rollup of its children.
  */
-export function recordVerbs(node: EngineNode): VerbSpec[] {
+export function mainVerbs(node: EngineNode): VerbSpec[] {
   if (node.type !== 'task') {
     return [];
   }
-  return availableTransitions(node.status).filter((v) =>
-    node.status === 'under_review' ? v.verb !== 'done' && v.verb !== 'return' : true,
-  );
+  const main = MAIN_VERBS[node.status] ?? [];
+  return availableTransitions(node.status).filter((v) => main.includes(v.verb));
+}
+
+/** The header's label for a main verb: under review, Mark done reads Approve. */
+export function mainVerbLabel(v: VerbSpec): string {
+  const label = v.verb === 'done' ? 'Approve' : v.label;
+  return v.needsReason ? `${label}…` : label;
+}
+
+const HOLD_VERBS: ReadonlySet<TransitionVerb> = new Set(['park', 'block', 'unpark', 'unblock']);
+
+/**
+ * The verbs a task's More offers, outside its main action, in More's groups:
+ * status changes, then holds, then Abandon on its own.
+ */
+export function moreVerbs(node: EngineNode): {
+  status: VerbSpec[];
+  holds: VerbSpec[];
+  abandon: VerbSpec[];
+} {
+  if (node.type !== 'task') {
+    return { abandon: [], holds: [], status: [] };
+  }
+  const main = new Set(mainVerbs(node).map((v) => v.verb));
+  const rest = availableTransitions(node.status).filter((v) => !main.has(v.verb));
+  return {
+    abandon: rest.filter((v) => v.verb === 'abandon'),
+    holds: rest.filter((v) => HOLD_VERBS.has(v.verb)),
+    status: rest.filter((v) => v.verb !== 'abandon' && !HOLD_VERBS.has(v.verb)),
+  };
 }
 
 function fromNode(n: EngineNode): TaskFormValues {

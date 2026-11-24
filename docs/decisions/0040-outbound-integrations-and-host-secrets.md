@@ -359,10 +359,12 @@ offers it, or else the broadest it may use: the ceiling is the access level
 the operator granted at Connect, and threads meant to run unattended need it.
 The workspace follows the system's `defaultThreadEnvMode` (`worktree`, or
 else the project checkout), and plan mode is off. When the Mimir project has
-no remote, or no reachable system has a matching T3 project, the launch control
-shows that state, disabled. When reachable systems exist but no system,
-project, or model can be picked this way, the control opens the settings
-instead of launching.
+no remote, or no reachable system has a matching T3 project, the task's More
+shows that state as one disabled row. Otherwise More offers a one-click
+_Start on <System>_ row per catalog system, the default system first, that
+launches with that system's defaults, then _Start in T3…_, which opens the
+settings at the defaults (MMR-726). When no project or model can be picked
+for a system, its row opens the settings set to it instead of launching.
 
 ## Why
 

@@ -1,64 +1,52 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { doctorQuery } from '../api/browse-queries';
-import { isNotFound } from '../api/errors';
 import { projectQuery } from '../api/node-queries';
 import { ProjectDecisions } from '../components/decisions-walkthrough';
-import { OfflineBanner } from '../components/offline-banner';
-import { UnavailableProject } from '../components/project-unavailable';
-import { RecordPending } from '../components/record-layout';
-import { WorkPage } from '../components/work-page';
-import { connectivity } from '../lib/connectivity';
+import { ProjectFrame } from '../components/project-frame';
+import { ContainerDetails, WorkTab } from '../components/work-page';
 import { useRememberRecord } from '../lib/recent-records';
 import { useArchivedProject } from '../lib/use-archived-project';
 import { projectRoute } from '../router';
 
 /**
- * `/p/$key` — the project opens as its work page (ADR 0013, MMR-467
- * refinement): Now, Needs you, Frontier, Shipped, and Going cold beside a rail
- * of Direction, About, and Artifacts. Its structure is the sidebar outline
- * (MMR-496).
+ * `/p/$key` — the project's Work and Details tabs (ADR 0013, MMR-467 and
+ * MMR-726 refinements) inside the project's frame, which owns the header, the
+ * tab row, and the unavailable and offline states. Work holds the progress
+ * bar, Record health, and the work sections; `?tab=details` the Direction,
+ * the description, and the dates.
  */
 export function ProjectPage() {
   const { key } = projectRoute.useParams();
-  const { mode } = projectRoute.useSearch();
-  // An archived project's record 404s (ADR 0015). Once the archived list names
-  // the key, stop asking for it, so a retry or poll cannot swap the notice for
-  // the loading skeleton.
+  const { mode, tab } = projectRoute.useSearch();
+  // The frame reads the same record; an archived project's record 404s, so
+  // once the archived list names the key, neither asks for it (ADR 0015).
   const archived = useArchivedProject(key);
   const project = useQuery({ ...projectQuery(key), enabled: archived === undefined });
   // The doctor read counts findings; a miss only thins the page, so it does not
   // count toward connectivity.
   const health = useQuery(doctorQuery(key));
-  const conn = connectivity([project]);
   useRememberRecord(
-    project.data && { id: key, kind: 'project', project: key, title: project.data.title },
+    project.data?.type === 'project'
+      ? { id: key, kind: 'project', project: key, title: project.data.title }
+      : undefined,
   );
-
-  // Archived-404 semantics (ADR 0015): the server answered, so this is not
-  // "offline"; the project query keeps polling, so an unarchive heals.
-  if (archived !== undefined || isNotFound(project.error)) {
-    return <UnavailableProject projectKey={key} />;
-  }
-
-  if (project.data === undefined) {
-    return (
-      <>
-        <OfflineBanner {...conn} />
-        <RecordPending unreachable={project.isError} />
-      </>
-    );
-  }
+  const details = tab === 'details';
+  const offline = project.isError;
 
   return (
-    <>
-      <OfflineBanner {...conn} />
+    <ProjectFrame projectKey={key} tab={details ? 'details' : 'work'} reads={[]}>
       {mode === 'decisions' && <ProjectDecisions key={key} projectKey={key} />}
-      <WorkPage
-        record={project.data}
-        findings={health.data?.finding_total ?? 0}
-        offline={conn.offline}
-      />
-    </>
+      {project.data !== undefined &&
+        (details ? (
+          <ContainerDetails record={project.data} />
+        ) : (
+          <WorkTab
+            record={project.data}
+            findings={health.data?.finding_total ?? 0}
+            offline={offline}
+          />
+        ))}
+    </ProjectFrame>
   );
 }

@@ -1,6 +1,6 @@
 import type { EngineNode } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -32,6 +32,7 @@ import type { ScratchpadRow } from './node-fixtures';
 import { failNotes, serveNodes } from './node-fns';
 import { renderRoute } from './router';
 import { serveShell } from './shell-fns';
+import { stubViewport } from './viewport';
 import { serveViews } from './views-fns';
 
 vi.mock('../api/fns/nodes');
@@ -90,11 +91,55 @@ beforeEach(() => {
   serveViews();
 });
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 /** The tag and untag writes issued for one node, in order. */
 function tagWrites(id: string) {
   return [...vi.mocked(tag).mock.calls, ...vi.mocked(untag).mock.calls].filter(([options]) =>
     options.data.ids.includes(id),
   );
+}
+
+/** Open the record header's More, which is a bottom sheet below md, and return it. */
+async function openMore() {
+  await userEvent.click(await screen.findByRole('button', { name: 'More' }));
+  return screen.findByRole('dialog');
+}
+
+/** Choose the row named `name` from More. */
+async function chooseMore(name: string) {
+  const sheet = await openMore();
+  await userEvent.click(within(sheet).getByRole('button', { name }));
+}
+
+/** More's rows, in order, with its separators as `—` and the sheet's Cancel left off. */
+async function moreRows() {
+  const sheet = await openMore();
+  return [...sheet.querySelectorAll('button, [data-slot="separator"], [role="separator"]')]
+    .map((el) => (el.tagName === 'BUTTON' ? (el.textContent ?? '') : '—'))
+    .filter((row) => row !== 'Cancel');
+}
+
+/** The names of a header's actions, leaving out its trail's "…". */
+const actionsOf = (head: HTMLElement) =>
+  within(head)
+    .getAllByRole('button')
+    .filter((button) => button.closest('nav') === null)
+    .map((button) => button.textContent);
+
+/** The classes of the open More sheet's row named `name`. */
+const rowClasses = (name: string) =>
+  within(screen.getByRole('dialog')).getByRole('button', { name }).classList;
+
+/** The page's tab names, in order. */
+const tabNames = () => screen.getAllByRole('tab').map((tab) => tab.textContent);
+
+/** The record header of the page. */
+async function header() {
+  const title = await screen.findByRole('heading', { level: 1 });
+  return title.closest('header') as HTMLElement;
 }
 
 /** Render the task page for `node` and wait for its desktop rail. */
@@ -129,15 +174,65 @@ describe('task page (MMR-449)', () => {
     });
   });
 
-  it('links its nearest container above the id for a phone, in place of a breadcrumb', async () => {
+  it('heads the page with its trail, title, status line, summary, grooming chip, then its actions', async () => {
+    serve({
+      ...sqlite,
+      grooming: 'groomed',
+      lifecycle: 'todo',
+      summary: 'One dialect, two stores.',
+    });
+    await renderRoute(consoleRoutes, '/p/MMR/417', quietClient());
+
+    const head = await header();
+    const parts = [
+      within(head).getByRole('navigation', { name: 'Ancestors' }),
+      within(head).getByRole('heading', { level: 1, name: 'Add the SQLite dialect' }),
+      within(head).getByText('Task'),
+      within(head).getByText('One dialect, two stores.'),
+      within(head).getByText('groomed'),
+      within(head).getByRole('button', { name: 'Start' }),
+      within(head).getByRole('button', { name: 'More' }),
+    ];
+    for (const [before, after] of parts.slice(0, -1).map((part, i) => [part, parts[i + 1]!])) {
+      // oxlint-disable-next-line no-bitwise -- DOM position flags are a bit mask
+      expect(
+        before!.compareDocumentPosition(after!) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
+    // The status, a hairline, then the type and the ID, in that order.
+    expect(head.textContent?.replaceAll(/\s+/g, ' ')).toContain('Ready Task MMR-417');
+  });
+
+  it('trails its project and parent, folding the ancestors between them into "…" on a phone', async () => {
     serve(sqlite);
     await renderRoute(consoleRoutes, '/p/MMR/417', quietClient());
 
-    const parent = await screen.findByRole('link', { name: /SQLite replaces Norn/ });
-    expect(parent.getAttribute('href')).toBe('/p/MMR/2');
-    // The sidebar outline carries the place from md up.
-    expect(parent.className).toContain('lg:hidden');
-    expect(screen.queryByRole('navigation', { name: 'Path' })).toBeNull();
+    const trail = await screen.findByRole('navigation', { name: 'Ancestors' });
+    await within(trail).findByRole('link', { name: 'SQLite replaces Norn' });
+    expect(
+      within(trail)
+        .getAllByRole('link')
+        .map((l) => l.getAttribute('href')),
+    ).toStrictEqual(['/p/MMR', '/p/MMR/2']);
+    // No arrow of any kind: the trail is the way up.
+    expect(trail.textContent).not.toMatch(/[↑←]/);
+    await userEvent.click(within(trail).getByRole('button', { name: 'Show 1 more ancestor' }));
+    expect(
+      within(trail)
+        .getAllByRole('link')
+        .map((l) => l.textContent),
+    ).toStrictEqual(['Mimir', 'Hosted and external backends', 'SQLite replaces Norn']);
+  });
+
+  it('shows every ancestor on desktop, where the trail has room', async () => {
+    stubViewport('desktop');
+    serve(sqlite);
+    await renderRoute(consoleRoutes, '/p/MMR/417', quietClient());
+
+    const trail = await screen.findByRole('navigation', { name: 'Ancestors' });
+    await within(trail).findByRole('link', { name: 'SQLite replaces Norn' });
+    expect(within(trail).getAllByRole('link')).toHaveLength(3);
+    expect(within(trail).queryByRole('button')).toBeNull();
   });
 
   it('links the project when no container holds the task', async () => {
@@ -205,14 +300,70 @@ describe('task page (MMR-449)', () => {
     expect(getNode).not.toHaveBeenCalled();
   });
 
-  it('labels the verdict block Review, still offering Approve and Send back…', async () => {
+  it('labels the verdict block Review, with Approve and Send back… in the header alone', async () => {
     serve({ ...sqlite, externalRef: 'https://github.com/x/pull/360', status: 'under_review' });
     await renderRoute(consoleRoutes, '/p/MMR/417', quietClient());
 
     await expect(screen.findByText('Review')).resolves.toBeDefined();
     expect(screen.queryByText(/needs your verdict/i)).toBeNull();
-    expect(screen.getByRole('button', { name: 'Approve' })).toBeDefined();
-    expect(screen.getByRole('button', { name: 'Send back…' })).toBeDefined();
+    const head = await header();
+    expect(actionsOf(head)).toStrictEqual(['Approve', 'Send back…', 'More']);
+    expect(screen.getAllByRole('button', { name: 'Approve' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Send back…' })).toHaveLength(1);
+  });
+
+  it.each([
+    ['ready', { status: 'ready' as const }, ['Start', 'More']],
+    [
+      'in progress, an agent at work',
+      { lifecycle: 'in_progress' as const, status: 'in_progress' as const },
+      ['More'],
+    ],
+    ['awaiting what it depends on', { status: 'awaiting' as const }, ['More']],
+    ['blocked', { hold: 'blocked' as const, status: 'blocked' as const }, ['More']],
+    ['done', { lifecycle: 'done' as const, status: 'done' as const }, ['More']],
+  ])('offers the main action its state calls for: %s', async (_name, state, buttons) => {
+    serve({ ...sqlite, ...state });
+    await renderRoute(consoleRoutes, '/p/MMR/417', quietClient());
+
+    const head = await header();
+    expect(actionsOf(head)).toStrictEqual(buttons);
+  });
+
+  it('groups More as Edit, then status changes, then holds, then Abandon… alone and in red', async () => {
+    serve(sqlite);
+    await renderRoute(consoleRoutes, '/p/MMR/417', quietClient());
+
+    await expect(moreRows()).resolves.toStrictEqual([
+      'Edit',
+      'Move…',
+      '—',
+      'Park for later…',
+      'Mark blocked…',
+      '—',
+      'Abandon…',
+    ]);
+    // The red label as a class of its own, not inside a state selector every row carries.
+    expect(rowClasses('Abandon…')).toContain('text-status-blocked-foreground');
+    expect(rowClasses('Park for later…')).not.toContain('text-status-blocked-foreground');
+  });
+
+  it('lists the status changes the main action leaves, before the holds', async () => {
+    serve({ ...sqlite, lifecycle: 'in_progress', status: 'in_progress' });
+    await renderRoute(consoleRoutes, '/p/MMR/417', quietClient());
+
+    await expect(moreRows()).resolves.toStrictEqual([
+      'Edit',
+      'Move…',
+      '—',
+      'Submit for review',
+      'Mark done',
+      '—',
+      'Park for later…',
+      'Mark blocked…',
+      '—',
+      'Abandon…',
+    ]);
   });
 
   it('offers a container no verdict and no task actions, whatever its rollup reads', async () => {
@@ -372,17 +523,19 @@ describe('task page (MMR-449)', () => {
     });
   });
 
-  it('closes a sheet when an action in it is chosen', async () => {
-    serve(sqlite);
+  it('retires the Actions chip and part of the rail, keeping Links, Agent, and Details', async () => {
+    serve({ ...sqlite, harness: 'claude-code', status: 'in_progress' });
     await renderRoute(consoleRoutes, '/p/MMR/417', quietClient());
-    const chips = await screen.findByRole('group', { name: 'Record details' });
 
-    fireEvent.click(within(chips).getByRole('button', { name: 'Actions' }));
-    const actions = await screen.findByRole('dialog', { name: 'Actions' });
-    fireEvent.click(within(actions).getByRole('button', { name: 'Edit' }));
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Actions' })).toBeNull();
-    });
+    const chips = await screen.findByRole('group', { name: 'Record details' });
+    expect(
+      within(chips)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toStrictEqual(['Links0', 'Agent', 'Details']);
+    const rail = screen.getByRole('complementary', { name: 'Record details' });
+    expect(within(rail).queryByRole('heading', { name: 'Actions' })).toBeNull();
+    expect(within(rail).queryByRole('button', { name: 'Edit' })).toBeNull();
   });
 
   it('shows the sessions and links the reason on the transition that settled the task', async () => {
@@ -425,13 +578,11 @@ describe('task page (MMR-449)', () => {
   it('sets the actions aside while the edit form is open', async () => {
     serve(sqlite);
     await renderRoute(consoleRoutes, '/p/MMR/417', quietClient());
-    const rail = await screen.findByRole('complementary', { name: 'Record details' });
 
-    fireEvent.click(within(rail).getByRole('button', { name: 'Edit' }));
-    await waitFor(() => {
-      expect(within(rail).queryByRole('button', { name: 'Edit' })).toBeNull();
-    });
-    expect(within(rail).queryByRole('button', { name: 'Start' })).toBeNull();
+    await chooseMore('Edit');
+    await screen.findByLabelText(/tags/i);
+    expect(screen.queryByRole('button', { name: 'More' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Start' })).toBeNull();
   });
 });
 
@@ -446,17 +597,24 @@ describe('container page (MMR-450)', () => {
     type: 'phase',
   });
 
-  it('shows its direction in full, with a way to rewrite it', async () => {
+  it('holds its direction in full in Details, rewritten from More rather than in place', async () => {
     serve(phase);
-    await renderRoute(consoleRoutes, '/p/MMR/2', quietClient());
+    await renderRoute(consoleRoutes, '/p/MMR/2?tab=details', quietClient());
 
-    const rail = await screen.findByRole('complementary', { name: 'Record details' });
-    expect(within(rail).getByText('Land the dialect first.')).toBeDefined();
-    expect(within(rail).getByText('Then remove the Norn backend.')).toBeDefined();
-    fireEvent.click(within(rail).getByRole('button', { name: 'Edit direction' }));
-    await expect(screen.findByRole('textbox', { name: 'Direction text' })).resolves.toHaveValue(
-      'Land the dialect first.\n\nThen remove the Norn backend.',
-    );
+    const panel = await screen.findByRole('tabpanel');
+    await within(panel).findByText('Land the dialect first.');
+    expect(within(panel).getByText('Then remove the Norn backend.')).toBeDefined();
+    expect(within(panel).getByText('store').tagName).toBe('STRONG');
+    expect(within(panel).queryByRole('button', { name: /Edit/ })).toBeNull();
+  });
+
+  it('says so in a quiet line at the body size when no direction is set', async () => {
+    serve({ ...phase, next: undefined });
+    await renderRoute(consoleRoutes, '/p/MMR/2?tab=details', quietClient());
+
+    const quiet = await within(await screen.findByRole('tabpanel')).findByText('No direction set.');
+    expect(quiet.classList).toContain('text-body');
+    expect(quiet.classList).toContain('text-ink');
   });
 
   it('opens as the work page, with its path, its sections, and no task actions', async () => {
@@ -467,13 +625,10 @@ describe('container page (MMR-450)', () => {
       screen.findByRole('heading', { level: 1, name: 'SQLite replaces Norn' }),
     ).resolves.toBeDefined();
     // The status line's ID is mono inside a sans line (MMR-718), so match the line's whole text.
-    expect(
-      screen.getByText((_, el) => el?.tagName === 'SPAN' && el.textContent === 'MMR-2 · phase'),
-    ).toBeDefined();
+    expect((await header()).textContent?.replaceAll(/\s+/g, ' ')).toContain('Ready Phase MMR-2');
     expect(
       screen.getByRole('link', { name: /Hosted and external backends/ }).getAttribute('href'),
     ).toBe('/p/MMR/1');
-    expect(screen.queryByRole('navigation', { name: 'Path' })).toBeNull();
     for (const name of ['Now', 'Needs you', 'Frontier', 'Shipped', 'Going cold']) {
       // oxlint-disable-next-line no-await-in-loop -- one section at a time reads clearest
       await expect(screen.findByRole('region', { name })).resolves.toBeDefined();
@@ -506,25 +661,117 @@ describe('container page (MMR-450)', () => {
     await expect(screen.findByRole('region', { name: 'Frontier' })).resolves.toBeDefined();
   });
 
-  describe('Work | Timeline tabs', () => {
+  it('retires the rail and its Direction, About, and Artifacts chips', async () => {
+    serve(phase);
+    await renderRoute(consoleRoutes, '/p/MMR/2', quietClient());
+
+    await screen.findByRole('heading', { level: 1 });
+    expect(screen.queryByRole('complementary', { name: 'Record details' })).toBeNull();
+    for (const chip of ['Direction', 'About', 'Artifacts']) {
+      expect(screen.queryByRole('button', { name: chip })).toBeNull();
+    }
+  });
+
+  it('makes New task its main action, filing into itself, with Edit direction… in More', async () => {
+    serve(phase);
+    await renderRoute(consoleRoutes, '/p/MMR/2', quietClient());
+
+    const head = await header();
+    expect(actionsOf(head)).toStrictEqual(['New task', 'More']);
+    await expect(moreRows()).resolves.toStrictEqual(['Edit direction…']);
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Edit direction…' }),
+    );
+    await expect(screen.findByRole('textbox', { name: 'Direction text' })).resolves.toHaveValue(
+      'Land the dialect first.\n\nThen remove the Norn backend.',
+    );
+  });
+
+  it('disables New task and Edit direction… while offline', async () => {
+    serve(phase);
+    failNotes();
+    await renderRoute(consoleRoutes, '/p/MMR/2', quietClient());
+
+    await screen.findByText(/Offline/);
+    expect(within(await header()).getByRole('button', { name: 'New task' })).toBeDisabled();
+    const sheet = await openMore();
+    expect(within(sheet).getByRole('button', { name: 'Edit direction…' })).toBeDisabled();
+  });
+
+  it('returns focus to More when Edit direction… closes', async () => {
+    serve(phase);
+    await renderRoute(consoleRoutes, '/p/MMR/2', quietClient());
+
+    await chooseMore('Edit direction…');
+    await screen.findByRole('textbox', { name: 'Direction text' });
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'More' })).toHaveFocus();
+    });
+  });
+
+  it('lists what it depends on and what it blocks in Details, each status a dot and a bright word', async () => {
+    serve({
+      ...phase,
+      deps: {
+        awaitingOn: [],
+        blocking: [{ id: 'MMR-758', status: 'awaiting', title: 'Daily briefing' }],
+        dependsOn: [{ id: 'MMR-702', status: 'done', title: 'The decisions walkthrough' }],
+      },
+      target: '2026-11-30',
+    });
+    await renderRoute(consoleRoutes, '/p/MMR/2?tab=details', quietClient());
+
+    const depends = await screen.findByRole('region', { name: 'Depends on 1' });
+    const row = within(depends).getByRole('link', { name: /MMR-702/ });
+    expect(row.getAttribute('href')).toBe('/p/MMR/702');
+    expect(within(row).getByText('Done').className).toContain('text-ink-bright');
+    expect(within(row).getByText('MMR-702').className).toContain('font-mono');
+    expect(
+      within(screen.getByRole('region', { name: 'Blocking 1' })).getByRole('link', {
+        name: /MMR-758/,
+      }),
+    ).toBeDefined();
+    const facts = screen.getByRole('region', { name: 'Facts' });
+    expect(within(facts).getByText('Target')).toBeDefined();
+    expect(within(facts).getByText('2026-11-30')).toBeDefined();
+  });
+
+  describe('tabs', () => {
     const withNote = { notes: [engineNote('Settled the dialect seam')] };
 
-    it('opens on Work, with the timeline a tab away', async () => {
+    it('opens on Work, with Details and the Timeline a tab away, and hides an empty Artifacts', async () => {
       serve(phase, withNote);
       await renderRoute(consoleRoutes, '/p/MMR/2', quietClient());
 
-      const tabs = await screen.findByRole('tablist');
-      const work = within(tabs).getByRole('tab', { name: 'Work' });
-      expect(work.getAttribute('aria-selected')).toBe('true');
-      expect(within(tabs).getByRole('tab', { name: /Timeline/ })).toHaveTextContent('Timeline2');
-      // Only the selected tab names a panel, and that panel is in the DOM.
-      const panel = screen.getByRole('tabpanel');
-      expect(work.getAttribute('aria-controls')).toBe(panel.id);
-      expect(within(tabs).getByRole('tab', { name: /Timeline/ })).not.toHaveAttribute(
-        'aria-controls',
-      );
+      await expect(
+        screen.findByRole('tab', { name: 'Work', selected: true }),
+      ).resolves.toBeDefined();
+      expect(tabNames()).toStrictEqual(['Work ', 'Details ', 'Timeline 2']);
       await expect(screen.findByRole('region', { name: 'Now' })).resolves.toBeDefined();
       expect(screen.queryByText('Settled the dialect seam')).toBeNull();
+    });
+
+    it('shows Artifacts with its count once one is attached, listing them', async () => {
+      serve(
+        {
+          ...phase,
+          artifacts: [{ createdAt: new Date(), id: 'MMR-a3', tags: [], title: 'Dialect spec' }],
+        },
+        withNote,
+      );
+      await renderRoute(consoleRoutes, '/p/MMR/2?tab=artifacts', quietClient());
+
+      await expect(
+        screen.findByRole('tab', { name: 'Artifacts 1', selected: true }),
+      ).resolves.toBeDefined();
+      expect(screen.getByRole('link', { name: /Dialect spec/ })).toHaveAttribute(
+        'href',
+        '/p/MMR/a3',
+      );
     });
 
     it('Timeline puts ?tab=timeline in the URL and shows the notes and the composer', async () => {
@@ -536,13 +783,14 @@ describe('container page (MMR-450)', () => {
       await expect(screen.findByText('Settled the dialect seam')).resolves.toBeDefined();
       expect(testRouter.state.location.searchStr).toBe('?tab=timeline');
       expect(screen.getByRole('textbox', { name: /note/i })).toBeDefined();
-      expect(screen.getByRole('tab', { name: /Timeline/ }).getAttribute('aria-selected')).toBe(
+      expect(screen.getByRole('tab', { name: /Timeline/ })).toHaveAttribute(
+        'aria-selected',
         'true',
       );
       expect(screen.queryByRole('region', { name: 'Now' })).toBeNull();
     });
 
-    it('opens on Timeline at ?tab=timeline, and Work takes the parameter back out', async () => {
+    it('opens on the tab its URL names, as on a reload, and Work takes the parameter back out', async () => {
       serve(phase, withNote);
       const { router: testRouter } = await renderRoute(
         consoleRoutes,
@@ -569,12 +817,70 @@ describe('container page (MMR-450)', () => {
       expect(testRouter.state.location.searchStr).toBe('');
     });
 
+    it('opens on the first tab with something in it when the one asked for is empty', async () => {
+      serve({ ...phase, distribution: {} }, withNote);
+      await renderRoute(consoleRoutes, '/p/MMR/2?tab=artifacts', quietClient());
+
+      await expect(
+        screen.findByRole('tab', { name: 'Details', selected: true }),
+      ).resolves.toBeDefined();
+      // A container with no task under it has no Work tab.
+      expect(tabNames()).toStrictEqual(['Details ', 'Timeline 2']);
+    });
+
+    it('replaces a URL that names a hidden tab with the tab it shows, so the page stays on it', async () => {
+      serve({ ...phase, distribution: {} }, withNote);
+      const { router: testRouter } = await renderRoute(
+        consoleRoutes,
+        '/p/MMR/2?tab=artifacts',
+        quietClient(),
+      );
+
+      await screen.findByRole('tab', { name: 'Details', selected: true });
+      await waitFor(() => {
+        expect(testRouter.state.location.searchStr).toBe('?tab=details');
+      });
+      // Replaced, not pushed: Back leaves the page rather than returning to the hidden tab.
+      expect(testRouter.history).toHaveLength(1);
+    });
+
+    it('keeps ?tab=artifacts while its cached record predates the artifact, and opens it once read', async () => {
+      const attached = {
+        ...phase,
+        artifacts: [{ createdAt: new Date(), id: 'MMR-a3', tags: [], title: 'Dialect spec' }],
+      };
+      serve(attached, withNote);
+      const served = vi.mocked(getNode).getMockImplementation();
+      const held = Promise.withResolvers<void>();
+      vi.mocked(getNode).mockImplementation(async (options) => {
+        if (options.data.id === 'MMR-2' && options.data.facets?.length !== 1) {
+          await held.promise;
+        }
+        return served!(options);
+      });
+      const client = quietClient();
+      client.setQueryData(['node', 'MMR-2'], phase, { updatedAt: Date.now() - 60_000 });
+      const { router: testRouter } = await renderRoute(
+        consoleRoutes,
+        '/p/MMR/2?tab=artifacts',
+        client,
+      );
+
+      // The cached record shows the first tab with something in it at once.
+      await screen.findByRole('tab', { name: 'Work', selected: true });
+      held.resolve();
+
+      await screen.findByRole('tab', { name: 'Artifacts 1', selected: true });
+      expect(testRouter.state.location.searchStr).toBe('?tab=artifacts');
+    });
+
     it('arrow keys move between the tabs', async () => {
       serve(phase, withNote);
       await renderRoute(consoleRoutes, '/p/MMR/2', quietClient());
 
       const work = await screen.findByRole('tab', { name: 'Work' });
-      fireEvent.keyDown(work, { key: 'ArrowRight' });
+      work.focus();
+      await userEvent.keyboard('{ArrowRight}{ArrowRight}');
 
       await expect(screen.findByText('Settled the dialect seam')).resolves.toBeDefined();
       expect(document.activeElement).toBe(screen.getByRole('tab', { name: /Timeline/ }));
@@ -593,8 +899,8 @@ describe('container page (MMR-450)', () => {
 
 /** Open the edit form for `node` and return its Tags field. */
 async function openEdit(node: EngineNode) {
-  const rail = await openTask(node);
-  await userEvent.click(within(rail).getByRole('button', { name: 'Edit' }));
+  await openTask(node);
+  await chooseMore('Edit');
   return screen.findByLabelText(/tags/i);
 }
 
@@ -722,17 +1028,17 @@ describe('task page edit (MMR-453)', () => {
 
 describe('task page verbs (MMR-453)', () => {
   it('a plain verb fires immediately', async () => {
-    const rail = await openTask(engineTask({ id: 'MMR-51', status: 'ready' }));
+    await openTask(engineTask({ id: 'MMR-51', status: 'ready' }));
 
-    await userEvent.click(within(rail).getByRole('button', { name: 'Start' }));
+    await userEvent.click(within(await header()).getByRole('button', { name: 'Start' }));
 
     expect(start).toHaveBeenCalledWith({ data: { id: 'MMR-51' } });
   });
 
   it('a verb that needs a reason asks for it first, then fires with it', async () => {
-    const rail = await openTask(engineTask({ id: 'MMR-51', status: 'ready' }));
+    await openTask(engineTask({ id: 'MMR-51', status: 'ready' }));
 
-    await userEvent.click(within(rail).getByRole('button', { name: 'Park for later…' }));
+    await chooseMore('Park for later…');
     expect(park).not.toHaveBeenCalled();
     const dialog = await screen.findByRole('dialog');
     await userEvent.type(within(dialog).getByRole('textbox'), 'later');
@@ -742,11 +1048,9 @@ describe('task page verbs (MMR-453)', () => {
   });
 
   it('cancels a queued task only after a reason is supplied', async () => {
-    const rail = await openTask(
-      engineTask({ id: 'MMR-417', lifecycle: 'queued', status: 'queued' }),
-    );
+    await openTask(engineTask({ id: 'MMR-417', lifecycle: 'queued', status: 'queued' }));
 
-    await userEvent.click(within(rail).getByRole('button', { name: 'Cancel reservation…' }));
+    await chooseMore('Cancel reservation…');
     const dialog = await screen.findByRole('dialog');
     const confirm = within(dialog).getByRole('button', { name: 'Confirm' });
     expect(confirm).toBeDisabled();
@@ -759,26 +1063,23 @@ describe('task page verbs (MMR-453)', () => {
   });
 
   it('Stage on a task under review fires stage, and a staged task offers done and return', async () => {
-    const rail = await openTask(
-      engineTask({ id: 'MMR-70', lifecycle: 'under_review', status: 'under_review' }),
-    );
+    await openTask(engineTask({ id: 'MMR-70', lifecycle: 'under_review', status: 'under_review' }));
 
-    await userEvent.click(within(rail).getByRole('button', { name: 'Stage' }));
+    await chooseMore('Stage');
 
     expect(stage).toHaveBeenCalledWith({ data: { id: 'MMR-70' } });
   });
 
   it('offers a staged task done and return but not stage', async () => {
-    const rail = await openTask(
-      engineTask({ id: 'MMR-71', lifecycle: 'staged', status: 'staged' }),
-    );
+    await openTask(engineTask({ id: 'MMR-71', lifecycle: 'staged', status: 'staged' }));
 
-    expect(within(rail).getByRole('button', { name: 'Mark done' })).toBeInTheDocument();
-    expect(within(rail).getByRole('button', { name: 'Send back…' })).toBeInTheDocument();
-    expect(within(rail).queryByRole('button', { name: 'Stage' })).not.toBeInTheDocument();
+    const rows = await moreRows();
+    expect(rows).toContain('Mark done');
+    expect(rows).toContain('Send back…');
+    expect(rows).not.toContain('Stage');
   });
 
-  it('Approve in the verdict block fires done', async () => {
+  it('Approve in the header fires done', async () => {
     await openTask(
       engineTask({
         externalRef: 'https://example.test/pr/41',
@@ -792,7 +1093,7 @@ describe('task page verbs (MMR-453)', () => {
     expect(done).toHaveBeenCalledWith({ data: { id: 'MMR-70' } });
   });
 
-  it('Send back… in the verdict block fires return with the reason entered', async () => {
+  it('Send back… in the header fires return with the reason entered', async () => {
     await openTask(
       engineTask({
         externalRef: 'https://example.test/pr/41',
@@ -844,9 +1145,8 @@ describe('task page verbs (MMR-453)', () => {
       }),
     );
 
-    const approve = await screen.findByRole('button', { name: 'Approve' });
-    const block = approve.parentElement!.parentElement!;
-    expect(block).toHaveTextContent('Review');
+    const block = (await screen.findByText('Review')).parentElement!;
+    expect(block).toHaveTextContent('example.test/pr/41');
     expect(block.className).not.toMatch(/attention/);
     expect(block.querySelectorAll('[class*="attention"]')).toHaveLength(0);
   });
@@ -858,21 +1158,21 @@ describe('task page verbs (MMR-453)', () => {
     failNotes();
     await renderRoute(consoleRoutes, '/p/MMR/51', quietClient());
 
-    const rail = await screen.findByRole('complementary', { name: 'Record details' });
-    await waitFor(() => {
-      expect(within(rail).getByRole('button', { name: 'Start' })).toBeDisabled();
+    await waitFor(async () => {
+      expect(within(await header()).getByRole('button', { name: 'Start' })).toBeDisabled();
     });
-    expect(within(rail).getByRole('button', { name: 'Edit' })).toBeDisabled();
-    expect(within(rail).getByRole('button', { name: 'Move…' })).toBeDisabled();
-    expect(within(rail).getByRole('button', { name: 'Set grooming…' })).toBeDisabled();
+    const sheet = await openMore();
+    for (const name of ['Edit', 'Move…', 'Set grooming…', 'Park for later…', 'Abandon…']) {
+      expect(within(sheet).getByRole('button', { name })).toBeDisabled();
+    }
   });
 });
 
 describe('task page move (MMR-453)', () => {
   it('Move… picks a new parent and moves the task there', async () => {
-    const rail = await openTask(sqlite);
+    await openTask(sqlite);
 
-    await userEvent.click(within(rail).getByRole('button', { name: 'Move…' }));
+    await chooseMore('Move…');
     // Options render once the tree loads (which also enables the select).
     await screen.findByRole('option', { name: /Hosted and external backends/ });
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'New parent' }), 'MMR-1');
@@ -1019,10 +1319,10 @@ describe('task page grooming state (MMR-466)', () => {
   });
 
   it('keeps the dialog open and toasts the error when the request fails', async () => {
-    const rail = await openTask(groomed());
+    await openTask(groomed());
     vi.mocked(groom).mockRejectedValue(new Error('needs_answers requires a note'));
 
-    await userEvent.click(within(rail).getByRole('button', { name: 'Set grooming…' }));
+    await chooseMore('Set grooming…');
     const dialog = await screen.findByRole('dialog', { name: 'Grooming state' });
     await userEvent.click(within(dialog).getByRole('radio', { name: /^not groomed/ }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Set grooming' }));
@@ -1045,26 +1345,25 @@ describe('task page grooming state (MMR-466)', () => {
 
     expect(screen.queryByText('groomed')).toBeNull();
     expect(within(rail).queryByText('grooming')).toBeNull();
-    expect(within(rail).queryByRole('button', { name: 'Set grooming…' })).toBeNull();
+    await expect(moreRows()).resolves.not.toContain('Set grooming…');
   });
 
   it('shows no state on a container', async () => {
-    const rail = await openTask({
-      ...engineTask({ id: 'MMR-2', status: 'ready' }),
+    serve({
+      ...engineContainer({ id: 'MMR-2', status: 'ready', type: 'phase' }),
       grooming: 'groomed',
-      type: 'phase',
     });
+    await renderRoute(consoleRoutes, '/p/MMR/2', quietClient());
 
+    await screen.findByRole('heading', { level: 1 });
     expect(screen.queryByText('groomed')).toBeNull();
-    expect(within(rail).queryByRole('button', { name: 'Set grooming…' })).toBeNull();
+    await expect(moreRows()).resolves.not.toContain('Set grooming…');
   });
 
   it('sets the state without a note unless it needs answers', async () => {
-    const rail = await openTask(
-      engineTask({ grooming: 'not_groomed', id: 'MMR-51', status: 'ready' }),
-    );
+    await openTask(engineTask({ grooming: 'not_groomed', id: 'MMR-51', status: 'ready' }));
 
-    await userEvent.click(within(rail).getByRole('button', { name: 'Set grooming…' }));
+    await chooseMore('Set grooming…');
     const dialog = await screen.findByRole('dialog', { name: 'Grooming state' });
     await userEvent.click(within(dialog).getByRole('radio', { name: /^groomed/ }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Set grooming' }));
@@ -1073,9 +1372,9 @@ describe('task page grooming state (MMR-466)', () => {
   });
 
   it('needs a note before it sets needs answers, and sends it with the state', async () => {
-    const rail = await openTask(groomed());
+    await openTask(groomed());
 
-    await userEvent.click(within(rail).getByRole('button', { name: 'Set grooming…' }));
+    await chooseMore('Set grooming…');
     const dialog = await screen.findByRole('dialog', { name: 'Grooming state' });
     await userEvent.click(within(dialog).getByRole('radio', { name: /^needs answers/ }));
     const submit = within(dialog).getByRole('button', { name: 'Set grooming' });
@@ -1094,10 +1393,10 @@ describe('task page grooming state (MMR-466)', () => {
   });
 
   it('refetches the task after the state is set', async () => {
-    const rail = await openTask(groomed());
+    await openTask(groomed());
     const before = taskReads().length;
 
-    await userEvent.click(within(rail).getByRole('button', { name: 'Set grooming…' }));
+    await chooseMore('Set grooming…');
     const dialog = await screen.findByRole('dialog', { name: 'Grooming state' });
     await userEvent.click(within(dialog).getByRole('radio', { name: /^not groomed/ }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Set grooming' }));
@@ -1107,14 +1406,14 @@ describe('task page grooming state (MMR-466)', () => {
     });
   });
 
-  it('is offered from the Actions sheet on a phone', async () => {
+  it('is offered beside Edit in More, before the status changes', async () => {
     serve(groomed());
     await renderRoute(consoleRoutes, '/p/MMR/51', quietClient());
-    const chips = await screen.findByRole('group', { name: 'Record details' });
 
-    fireEvent.click(within(chips).getByRole('button', { name: 'Actions' }));
-    const actions = await screen.findByRole('dialog', { name: 'Actions' });
-    fireEvent.click(within(actions).getByRole('button', { name: 'Set grooming…' }));
+    expect((await moreRows()).slice(0, 4)).toStrictEqual(['Edit', 'Move…', 'Set grooming…', '—']);
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Set grooming…' }),
+    );
 
     await expect(screen.findByRole('dialog', { name: 'Grooming state' })).resolves.toBeDefined();
   });
@@ -1178,5 +1477,55 @@ describe('task page hold callout (MMR-466)', () => {
     const article = screen.getByRole('article');
     expect(within(article).getByText('parked')).toBeDefined();
     expect(within(article).queryByText(/Blocked on/)).toBeNull();
+  });
+});
+
+describe('a record change closes what the container header opened (MMR-726)', () => {
+  it('Back from one phase to a cached one closes the Direction editor and writes nothing', async () => {
+    const a = engineContainer({
+      id: 'MMR-2',
+      next: 'A direction.',
+      parent: 'MMR',
+      status: 'ready',
+      title: 'Phase A',
+      type: 'phase',
+    });
+    const b = engineContainer({
+      id: 'MMR-3',
+      next: 'B direction.',
+      parent: 'MMR',
+      status: 'ready',
+      title: 'Phase B',
+      type: 'phase',
+    });
+    serveShell({ trees: { MMR: engineTree({ id: 'MMR', status: 'ready', type: 'project' }) } });
+    serveNodes({ nodes: [a, b], notes: { 'MMR-2': [], 'MMR-3': [] } });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { router } = await renderRoute(consoleRoutes, '/p/MMR/2?tab=details', client);
+    await screen.findByRole('heading', { level: 1, name: 'Phase A' });
+    await act(async () => {
+      await router.navigate({
+        params: { key: 'MMR', seq: '3' },
+        search: { tab: 'details' },
+        to: '/p/$key/$seq',
+      });
+    });
+    await screen.findByRole('heading', { level: 1, name: 'Phase B' });
+    await userEvent.click(await screen.findByRole('button', { name: 'More' }));
+    await userEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Edit direction…' }),
+    );
+    const draft = await screen.findByRole('textbox', { name: 'Direction text' });
+    await userEvent.clear(draft);
+    await userEvent.type(draft, 'New B direction.');
+    act(() => {
+      router.history.back();
+    });
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/p/MMR/2');
+    });
+    await screen.findByRole('heading', { hidden: true, level: 1, name: 'Phase A' });
+    expect(screen.queryByRole('textbox', { name: 'Direction text' })).toBeNull();
+    expect(update).not.toHaveBeenCalled();
   });
 });

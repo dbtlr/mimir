@@ -1,10 +1,15 @@
+import type { EngineNode } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, vi } from 'vitest';
 
+import { list } from '../api/fns/browse';
 import { getNode } from '../api/fns/nodes';
 import { updateProject } from '../api/fns/shell';
+import { projectQuery } from '../api/node-queries';
 import { consoleRoutes } from '../router';
+import { seedIn } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
 import { serveNodes } from './node-fns';
@@ -50,7 +55,7 @@ describe('project page archived-404 (MMR-230)', () => {
 });
 
 /** Serve the MMR project with direction, a description, and two top-level children. */
-function serveProject() {
+function serveProject(extra: Partial<EngineNode> = {}) {
   serveShell({
     projects: [engineProject({ id: 'MMR', title: 'Mimir' })],
     trees: {
@@ -78,44 +83,159 @@ function serveProject() {
         description: 'The **work** tool.',
         distribution: { in_progress: 1, ready: 1 },
         id: 'MMR',
+        leafCounts: { ready: 1 },
         next: 'Ship record pages.\n\nThen the work page.',
         title: 'Mimir',
+        ...extra,
       }),
     ],
   });
 }
 
-describe('project page (MMR-450, MMR-470)', () => {
-  it('opens the project itself at /p/KEY as its work page: title, then direction in full', async () => {
+/** The project page's tab names, in order. */
+const tabNames = () =>
+  within(screen.getByRole('tablist', { name: 'Record views' }))
+    .getAllByRole('tab')
+    .map((tab) => tab.textContent);
+
+describe('project page (MMR-450, MMR-470, MMR-726)', () => {
+  it('opens at /p/KEY under its header: title, status line, its description as the summary, Work selected', async () => {
     serveProject();
     await renderRoute(consoleRoutes, '/p/MMR', quietClient());
 
-    await expect(screen.findByRole('heading', { level: 1, name: 'Mimir' })).resolves.toBeDefined();
+    const title = await screen.findByRole('heading', { level: 1, name: 'Mimir' });
+    const header = title.closest('header') as HTMLElement;
+    // Status first, then the type, then the ID; a project heads its own trail, so it has none.
+    expect(header.textContent?.replaceAll(/\s+/g, ' ')).toContain('In progress Project MMR');
+    expect(within(header).queryByRole('navigation', { name: 'Ancestors' })).toBeNull();
+    expect(within(header).getByText('The **work** tool.')).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Work', selected: true })).toBeDefined();
     await expect(screen.findByRole('region', { name: 'Now' })).resolves.toBeDefined();
-    const rail = screen.getByRole('complementary', { name: 'Record details' });
-    expect(within(rail).getByText('Ship record pages.')).toBeDefined();
-    expect(within(rail).getByText('Then the work page.')).toBeDefined();
-    expect(within(rail).getByRole('button', { name: 'Edit direction' })).toBeDefined();
-    expect(screen.getByText('work').tagName).toBe('STRONG');
     // The server function mocks ignore facets, so the request is checked here.
     expect(getNode).toHaveBeenCalledWith({
       data: expect.objectContaining({ facets: expect.arrayContaining(['children']), id: 'MMR' }),
     });
   });
 
-  it('offers no board view, and its rail has no structure or other views (MMR-487, MMR-496)', async () => {
+  it('retires the rail and its chips: no Direction, About, or Artifacts chip, and no board view', async () => {
     serveProject();
     await renderRoute(consoleRoutes, '/p/MMR', quietClient());
 
-    const rail = await screen.findByRole('complementary', { name: 'Record details' });
-    expect(
-      within(rail)
-        .getAllByRole('heading', { level: 2 })
-        .map((h) => h.textContent),
-    ).toStrictEqual(['Direction', 'About']);
-    expect(within(rail).queryByRole('navigation')).toBeNull();
+    await screen.findByRole('heading', { level: 1, name: 'Mimir' });
+    expect(screen.queryByRole('complementary', { name: 'Record details' })).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Record details' })).toBeNull();
+    for (const chip of ['Direction', 'About', 'Artifacts']) {
+      expect(screen.queryByRole('button', { name: chip })).toBeNull();
+    }
     expect(screen.queryByRole('link', { name: /board/i })).toBeNull();
-    expect(screen.queryByRole('heading', { name: 'Actions' })).toBeNull();
+  });
+
+  it('tabs Work, Tasks, and Details, hiding Seeds and Artifacts while it has none', async () => {
+    serveProject();
+    await renderRoute(consoleRoutes, '/p/MMR', quietClient());
+
+    await screen.findByRole('tablist', { name: 'Record views' });
+    expect(tabNames()).toStrictEqual(['Work ', 'Tasks ', 'Details ']);
+  });
+
+  // The rollup tallies the project's roots, not its tasks: an empty initiative counts there,
+  // and an idle open-ended phase holding tasks drops out of it (MMR-204).
+  it.each([
+    ['hides Tasks while its only root is an empty initiative', { ready: 1 }, {}, false],
+    ['shows Tasks for tasks under an idle open-ended phase', {}, { parked: 2 }, true],
+  ])('%s', async (_name, distribution, leafCounts, shown) => {
+    serveProject({ distribution, leafCounts });
+    await renderRoute(consoleRoutes, '/p/MMR', quietClient());
+
+    await screen.findByRole('tablist', { name: 'Record views' });
+    expect(tabNames().includes('Tasks ')).toBe(shown);
+  });
+
+  it('counts open seeds and frozen artifacts on their tabs, in their order', async () => {
+    serveProject({
+      artifacts: [{ createdAt: new Date(), id: 'MMR-a1', tags: [], title: 'A spec' }],
+    });
+    serveBrowse({
+      seeds: [
+        seedIn('untriaged', { id: 'MMR-s1', project: 'MMR' }),
+        seedIn('settled', { id: 'MMR-s2', project: 'MMR' }),
+      ],
+    });
+    await renderRoute(consoleRoutes, '/p/MMR', quietClient());
+
+    await screen.findByRole('tab', { name: /Seeds/ });
+    expect(tabNames()).toStrictEqual(['Work ', 'Tasks ', 'Seeds 1', 'Artifacts 1', 'Details ']);
+  });
+
+  it('shows Seeds with no count while every seed is settled', async () => {
+    serveProject();
+    serveBrowse({ seeds: [seedIn('settled', { id: 'MMR-s2', project: 'MMR' })] });
+    await renderRoute(consoleRoutes, '/p/MMR', quietClient());
+
+    await screen.findByRole('tab', { name: /Seeds/ });
+    expect(tabNames()).toStrictEqual(['Work ', 'Tasks ', 'Seeds ', 'Details ']);
+  });
+
+  it('moves focus along its tabs with the arrow keys without opening the browsers', async () => {
+    serveProject();
+    const { router: testRouter } = await renderRoute(consoleRoutes, '/p/MMR', quietClient());
+
+    const work = await screen.findByRole('tab', { name: 'Work' });
+    work.focus();
+    await userEvent.keyboard('{ArrowRight}');
+
+    expect(screen.getByRole('tab', { name: 'Tasks' })).toHaveFocus();
+    expect(testRouter.state.location.pathname).toBe('/p/MMR');
+    expect(screen.getByRole('tab', { name: 'Work', selected: true })).toBeDefined();
+  });
+
+  it('opens Details at ?tab=details, from a reload too, with the Direction and the description in full', async () => {
+    serveProject();
+    await renderRoute(consoleRoutes, '/p/MMR?tab=details', quietClient());
+
+    await expect(
+      screen.findByRole('tab', { name: 'Details', selected: true }),
+    ).resolves.toBeDefined();
+    // The tab being shown is there before the record, so wait for the record's text.
+    await expect(screen.findByText('Ship record pages.')).resolves.toBeDefined();
+    expect(screen.getByText('Then the work page.')).toBeDefined();
+    expect(screen.getByText('work').tagName).toBe('STRONG');
+    expect(screen.queryByRole('region', { name: 'Now' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Edit direction' })).toBeNull();
+  });
+
+  it('puts the tab in the URL: Details adds ?tab=details, Work takes it out, Tasks opens the browser', async () => {
+    serveProject();
+    const { router: testRouter } = await renderRoute(consoleRoutes, '/p/MMR', quietClient());
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Details' }));
+    await waitFor(() => {
+      expect(testRouter.state.location.searchStr).toBe('?tab=details');
+    });
+    fireEvent.click(screen.getByRole('tab', { name: 'Work' }));
+    await waitFor(() => {
+      expect(testRouter.state.location.searchStr).toBe('');
+    });
+    fireEvent.click(screen.getByRole('tab', { name: 'Tasks' }));
+    await waitFor(() => {
+      expect(testRouter.state.location.pathname).toBe('/p/MMR/tasks');
+    });
+    await expect(
+      screen.findByRole('tab', { name: 'Tasks', selected: true }),
+    ).resolves.toBeDefined();
+    expect(screen.getByRole('heading', { level: 1, name: 'Mimir' })).toBeDefined();
+  });
+
+  it('drops a tab value it does not know, and opens on Work', async () => {
+    serveProject();
+    const { router: testRouter } = await renderRoute(
+      consoleRoutes,
+      '/p/MMR?tab=timeline',
+      quietClient(),
+    );
+
+    await expect(screen.findByRole('tab', { name: 'Work', selected: true })).resolves.toBeDefined();
+    expect(testRouter.state.location.searchStr).toBe('');
   });
 
   it('an old /board link reads as no record rather than a board (MMR-487)', async () => {
@@ -125,48 +245,44 @@ describe('project page (MMR-450, MMR-470)', () => {
     await expect(screen.findByText('No record at /p/MMR/board.')).resolves.toBeDefined();
   });
 
-  it('keeps New task and Project settings in the page head', async () => {
+  it('makes New task its main action, filing into the project', async () => {
     serveProject();
     await renderRoute(consoleRoutes, '/p/MMR', quietClient());
 
-    await screen.findByRole('heading', { level: 1, name: 'Mimir' });
-    expect(screen.getByRole('button', { name: 'Project settings' })).toBeDefined();
-    fireEvent.click(screen.getAllByRole('button', { name: 'New task' })[0] as HTMLElement);
+    const title = await screen.findByRole('heading', { level: 1, name: 'Mimir' });
+    const header = title.closest('header') as HTMLElement;
+    fireEvent.click(within(header).getByRole('button', { name: 'New task' }));
     await expect(screen.findByRole('dialog', { name: 'New work item' })).resolves.toBeDefined();
   });
 
-  it("rewrites the direction from the phone's Direction sheet", async () => {
+  it('opens the project settings from Edit in More, and the direction from Edit direction…', async () => {
     serveProject();
     await renderRoute(consoleRoutes, '/p/MMR', quietClient());
-    const chips = await screen.findByRole('group', { name: 'Record details' });
 
-    fireEvent.click(within(chips).getByRole('button', { name: 'Direction' }));
-    const sheet = await screen.findByRole('dialog', { name: 'Direction' });
-    fireEvent.click(within(sheet).getByRole('button', { name: 'Edit direction' }));
-    await expect(screen.findByRole('textbox', { name: 'Direction text' })).resolves.toBeDefined();
+    await userEvent.click(await screen.findByRole('button', { name: 'More' }));
+    const more = await screen.findByRole('dialog', { name: 'Mimir' });
+    expect(
+      within(more)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toStrictEqual(['Edit', 'Edit direction…', 'Cancel']);
+    await userEvent.click(within(more).getByRole('button', { name: 'Edit' }));
+    await expect(screen.findByLabelText(/title/i)).resolves.toHaveValue('Mimir');
   });
 
-  it('keeps the phone sheet open under the editor when a save fails, and the draft with it', async () => {
+  it('disables Edit, Edit direction…, and New task in its header while offline', async () => {
     serveProject();
-    vi.mocked(updateProject).mockRejectedValue(new Error('write refused'));
-    await renderRoute(consoleRoutes, '/p/MMR', quietClient());
-    const chips = await screen.findByRole('group', { name: 'Record details' });
+    vi.mocked(list).mockRejectedValue(new TypeError('fetch failed'));
+    await renderRoute(consoleRoutes, '/p/MMR/tasks', quietClient());
 
-    fireEvent.click(within(chips).getByRole('button', { name: 'Direction' }));
-    const sheet = await screen.findByRole('dialog', { name: 'Direction' });
-    fireEvent.click(within(sheet).getByRole('button', { name: 'Edit direction' }));
-    const draft = await screen.findByRole('textbox', { name: 'Direction text' });
-    fireEvent.change(draft, { target: { value: 'A new direction.' } });
-    // The editor is a portal child of the sheet, so its clicks reach the sheet's
-    // choice handler through React; one outside the sheet's body must not close it.
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-
-    await waitFor(() => {
-      expect(updateProject).toHaveBeenCalledOnce();
-    });
-    expect(screen.getByRole('textbox', { name: 'Direction text' })).toHaveValue('A new direction.');
-    // The editor's modal hides the sheet from the accessibility tree; both stay mounted.
-    expect(screen.getAllByRole('dialog', { hidden: true })).toHaveLength(2);
+    await screen.findByText(/Offline/);
+    const title = await screen.findByRole('heading', { level: 1, name: 'Mimir' });
+    const header = title.closest('header') as HTMLElement;
+    expect(within(header).getByRole('button', { name: 'New task' })).toBeDisabled();
+    await userEvent.click(within(header).getByRole('button', { name: 'More' }));
+    const more = await screen.findByRole('dialog', { name: 'Mimir' });
+    expect(within(more).getByRole('button', { name: 'Edit' })).toBeDisabled();
+    expect(within(more).getByRole('button', { name: 'Edit direction…' })).toBeDisabled();
   });
 
   it.each([
@@ -180,5 +296,65 @@ describe('project page (MMR-450, MMR-470)', () => {
       expect(testRouter.state.location.pathname).toBe(pathname);
     });
     expect(testRouter.state.location.searchStr).toBe(search);
+  });
+});
+
+describe('a project change closes what its header opened (MMR-726)', () => {
+  const mimir = engineProject({ id: 'MMR', next: 'Keep Mimir direction.', title: 'Mimir' });
+  const norn = engineProject({ id: 'NRN', next: 'Keep Norn direction.', title: 'Norn' });
+
+  /** Open Norn then Mimir, both cached, so Back shows Norn at once in the same frame. */
+  async function onMimirAfterNorn() {
+    serveShell({ projects: [mimir, norn] });
+    serveNodes({ nodes: [mimir, norn] });
+    const client = quietClient();
+    client.setQueryData(projectQuery('MMR').queryKey, mimir);
+    client.setQueryData(projectQuery('NRN').queryKey, norn);
+    const { router: testRouter } = await renderRoute(consoleRoutes, '/p/NRN?tab=details', client);
+    await act(async () => {
+      await testRouter.navigate({
+        params: { key: 'MMR' },
+        search: { tab: 'details' },
+        to: '/p/$key',
+      });
+    });
+    await userEvent.click(await screen.findByRole('button', { name: 'More' }));
+    return testRouter;
+  }
+
+  async function goBackToNorn(testRouter: Awaited<ReturnType<typeof onMimirAfterNorn>>) {
+    act(() => {
+      testRouter.history.back();
+    });
+    await waitFor(() => {
+      expect(testRouter.state.location.pathname).toBe('/p/NRN');
+    });
+  }
+
+  it('closes the Direction editor, so a Mimir draft never saves to Norn', async () => {
+    const testRouter = await onMimirAfterNorn();
+    const more = await screen.findByRole('dialog', { name: 'Mimir' });
+    await userEvent.click(within(more).getByRole('button', { name: 'Edit direction…' }));
+    const draft = await screen.findByRole('textbox', { name: 'Direction text' });
+    await userEvent.clear(draft);
+    await userEvent.type(draft, 'New Mimir direction.');
+
+    await goBackToNorn(testRouter);
+
+    expect(screen.queryByRole('textbox', { name: 'Direction text' })).toBeNull();
+    expect(updateProject).not.toHaveBeenCalled();
+    expect(screen.getByRole('heading', { level: 1, name: 'Norn' })).toBeDefined();
+  });
+
+  it('closes the project settings opened for Mimir', async () => {
+    const testRouter = await onMimirAfterNorn();
+    const more = await screen.findByRole('dialog', { name: 'Mimir' });
+    await userEvent.click(within(more).getByRole('button', { name: 'Edit' }));
+    await screen.findByRole('dialog', { name: 'Project settings' });
+
+    await goBackToNorn(testRouter);
+
+    expect(screen.queryByRole('dialog', { name: 'Project settings' })).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: 'Norn' })).toBeDefined();
   });
 });

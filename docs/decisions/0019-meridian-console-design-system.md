@@ -2237,3 +2237,81 @@ feed blocks. It adds four options to the blocks rather than new blocks.
 - `packages/host/src/test/feed-blocks.test.tsx` checks the plain row, the
   frame, and a worded count; `feed-deck.test.tsx` the deck's two counts; and
   `home-page.test.tsx` how Home uses them.
+
+## Refinement (2026-11-24, MMR-726): the record header, More, and the record tabs
+
+Project, initiative, phase, and task pages open with one header, drawn by
+the record header pattern (`components/patterns/record-header.tsx`), and the
+three containers put everything else behind tabs, the record tabs pattern
+(`components/patterns/record-tabs.tsx`) on the Tabs primitive.
+The operator picked the form from three rounds of mocks after blind design
+review (principles 8 and 9 of MMR-a420). `packages/host/DESIGN.md` holds the
+numbers, under Record header. Seed, artifact, and delivery pages keep their
+own heads until MMR-732 brings them onto the pattern.
+
+- **The header says what the record is, in one order.** A quiet trail of the
+  record's ancestors, outermost first, in one `ink-dim` line with no type
+  labels and `ink-faint` slashes between them; then the title; then the
+  status line; then the summary, clamped to three lines with a _more_ text
+  button when it runs past them; then a chip row for what the summary
+  leaves out (a task's grooming state, only before it starts); then the
+  actions. A project heads its own trail, so it has none, and its
+  description stands in for the summary it does not have. On a phone the
+  trail folds the ancestors between the project and the parent into "…",
+  which shows them; on desktop they give way first, each to 120px, then fold
+  the same way, and the parent keeps its whole name until it alone
+  overflows. The trail is the way up: the "↑" parent link it replaces is
+  gone, and the trail draws no arrow.
+- **The status line leads with the status, then the type, then the ID.** The
+  status's dot and bright word (the MMR-718 rule), a `line-bright` hairline,
+  then the type in words ("Task", "Project") and the ID in mono, both
+  `ink-dim`. It is the feed card's status line with a type, so the header
+  and a card read the same; the seed, artifact, and delivery heads keep the
+  older ID-then-type line until MMR-732.
+- **One main action, the rest under More.** The header offers the single
+  action the record's state calls for, as the one solid button, and More
+  beside it. A container's is New task, always. A task's is Start while it
+  is ready; Approve and _Send back…_ (an outline) while it is in review; and
+  nothing while an agent runs it, while it waits on others, or once it is
+  finished, when More stands alone. The review's text stays in the task's
+  body, without the verdict buttons it used to repeat. On desktop the
+  actions sit beside the title while the title keeps at least 440px;
+  otherwise, and always on a phone, they drop 16px below the summary.
+- **More groups everything else, in four groups.** Edit, with Move… and
+  Set grooming… beside it until the edit sheet folds them in (MMR-731); then
+  the status changes, with the T3 rows after them where Start is offered
+  and T3 is configured; then the holds (park, block, and their undoing);
+  then _Abandon…_ alone, wearing the MMR-635 red hairline. A separator falls
+  between two groups, and an empty group takes none. More is the Action
+  menu as it ships (the MMR-736 refinement): an anchored menu from `md`, a
+  bottom sheet with 44px rows and a Cancel row below it, headed by the
+  record's title and ID, its top edge the `sheet-seam` with the light
+  theme's upward shadow, as the preview sheet's. Offline, every row is disabled where it stands. A
+  project's More holds Edit, which opens the project's settings, and _Edit
+  direction…_; an initiative's or phase's holds _Edit direction…_. The
+  task's Actions chip and its rail section are retired. The T3 rows replace
+  the Launch in T3 split button and keep its one-click launch: a _Start on
+  <System>_ row per catalog system, the system the defaults name first,
+  launches with that system's defaults (or opens the settings form set to it
+  when it has none) and is disabled for a system that cannot take the
+  launch; _Start in T3…_ follows and opens the settings form at the
+  remembered choice. A T3 state that cannot launch reads as one disabled row
+  that says why.
+- **An outline button on the page surface takes an `ink-dim` edge.**
+  `ink-faint` measures 2.6:1 on `well-900` in light, under the 3:1 a
+  control's edge needs, so More, _Send back…_, and every record page's phone chips
+  draw their edge in `ink-dim` there. On a card or a sheet (`well-850`) an
+  outline keeps `ink-faint`.
+- **Tabs follow the header, Work first.** The Tabs primitive takes a 44 ×
+  44 tap target below `md`, with its label at the left of its box so the
+  first label sits on the page's gutter, and 36px tall from `md` with 20px
+  between tabs. A row too wide for the screen scrolls sideways and is never
+  clipped. The selected tab's 2px underline covers the row's hairline, which
+  the row draws as an inset shadow: the scrolling row clips to its padding
+  box, so a border under it cut the underline to 1px. A tab's count is 13px sans in `ink-dim`, a step under its label.
+  Which tabs a page has, and how the URL holds the selected one, are ADR
+  0013's (its MMR-726 refinement).
+- `packages/host/src/test/record-header.test.tsx` checks the clamp, where
+  the actions sit, and the desktop fold; `node-page.test.tsx`,
+  `project-page.test.tsx`, and `work-page.test.tsx` check how the four
+  record pages use the header, More, and the tabs.

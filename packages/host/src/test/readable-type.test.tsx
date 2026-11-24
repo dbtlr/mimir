@@ -154,6 +154,10 @@ const DECORATION: Record<string, { count: number; why: string }> = {
     count: 2,
     why: 'a pager arrow’s chevron at an end, which keeps that ink on hover; its name reads',
   },
+  'components/patterns/record-header.tsx': {
+    count: 1,
+    why: 'the / separators between a record header’s ancestors',
+  },
   'components/project-picker.tsx': {
     count: 2,
     why: 'the trigger chevron and the search icon beside the input',

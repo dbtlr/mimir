@@ -282,9 +282,6 @@ function groupByInitiative(rows: OutlineEntry[]): FinishedInitiative[] {
   return groups;
 }
 
-/** How many artifacts the project rail lists before pointing at the full browser. */
-export const RAIL_ARTIFACT_CAP = 5;
-
 /** The per-project sequence in an artifact id (`MMR-a12` is 12); 0 when the id has none. */
 function artifactSeq(id: string): number {
   const match = /-a(\d+)$/.exec(id);

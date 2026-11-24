@@ -11,7 +11,8 @@ Every value is marked:
 - **adopted (MMR-…)**: proposed with that task's mock, approved with it,
   and now carried by the primitives and patterns (MMR-743 the Form sheet,
   MMR-718 readable type, MMR-719 the feed blocks, MMR-720 the preview
-  panel, MMR-721 the Needs you deck, MMR-722 Home). The reason given beside
+  panel, MMR-721 the Needs you deck, MMR-722 Home, MMR-726 the record
+  header). The reason given beside
   one says what the code did before.
 - **proposed**: missing from or different in the code. Each carries a one-line
   reason and needs the operator's ruling before a primitive adopts it.
@@ -33,7 +34,7 @@ branch names, timestamps-as-data. Both are self-hosted through Fontsource
 | Page title | 28 / 36 | 700 | ink-bright | `text-page` | existing |
 | Section header on a page | 21 / 28, tracking -0.01em | 700 | ink-bright | `text-header` | existing |
 | Sheet or Dialog title (a form) | 21 / 28, tracking -0.01em | 600 | ink-bright | `text-header` | **adopted (MMR-743)** in the Form sheet; a Dialog's question title keeps `OVERLAY_TITLE_CLASS` (14px) |
-| Record title | 17 / 24 | 600 | ink-bright | `text-dossier` | existing |
+| Record title | 17 / 24 on a phone; 21 / 28, tracking -0.01em, from 768 | 700 | ink-bright | `text-dossier`, `md:text-header` | existing; corrected with MMR-726, as this row read 17 / 600 at every width while the record pages set 700 and step to 21 from 768 |
 | Preview panel title | 17 / 24 | 600 | ink-bright | `text-dossier` | **adopted (MMR-720)**: the Content sheet's title is 14 / 600 (`text-body`) |
 | Section head in a feed (Needs you, Now) | 15 / 22 | 600 | ink-bright; its count 13 / 20 ink-dim inside the heading | `text-section` | **adopted (MMR-719)**: feed sections were headed by the 12px all-caps microlabel in ink-dim, the faintest text in the section |
 | Row or card title in a feed | 16 / 22 | 500 | ink-bright | `text-title` | **adopted (MMR-718)**: rows were `text-body` (14, regular) and phone cards `text-card-mobile` (15); a title must lead its meta |
@@ -121,7 +122,7 @@ are measured against `well-850` / `well-900` / `well-950`.
 | Accent | `accent`, `accent-foreground` | 8.7, 10.5 on 850 | 3.7, 6.8 on 850 | focus, selection washes and rings, links (`-foreground` as text) |
 | Action | `action` / `action-foreground` | 8.0:1 | 9.5:1 | the one solid button per surface |
 | Danger | `status-blocked-foreground` | 8.7 on 850 | 6.3 on 850 | error text, the destructive outline's label |
-| Sheet seam | `sheet-seam` | `ink-dim`: 3.92–7.15 against the rendered scrim | `ink`: 4.38–7.29 against the rendered scrim | the top edge of a phone bottom sheet over the scrim: the preview panel's bottom sheet and a Select's bottom list. Its value was chosen by measurement against the rendered scrim (see Preview panel) |
+| Sheet seam | `sheet-seam` | `ink-dim`: 3.92–7.15 against the rendered scrim | `ink`: 4.38–7.29 against the rendered scrim | the top edge of a phone bottom sheet over the scrim: the preview panel's bottom sheet, a Select's bottom list, and the Action menu's bottom sheet (MMR-726). Its value was chosen by measurement against the rendered scrim (see Preview panel) |
 
 All existing (`styles.css`), except `sheet-seam`, **adopted (MMR-720)**. Rules:
 
@@ -132,7 +133,9 @@ All existing (`styles.css`), except `sheet-seam`, **adopted (MMR-720)**. Rules:
   MMR-718). The word is 13/20 semibold, sentence case, with no wash or ring,
   so the grey statuses read as well as the bright ones (`abandoned` as text
   measured 1.8:1 on a dark card). On a record header the status leads the
-  line, then a `line-bright` hairline, then the ID and type in `ink-dim`.
+  line, then a `line-bright` hairline, then the type in words and the ID,
+  both in `ink-dim` (MMR-726; the seed, artifact, and delivery heads keep
+  the ID first until MMR-732).
 - **Demotion stops at `ink-dim`.** A demoted row's title (done, abandoned,
   going cold) draws in `ink-dim`, never fainter; a status word never drops
   an ink tier.
@@ -171,6 +174,11 @@ All existing (`styles.css`), except `sheet-seam`, **adopted (MMR-720)**. Rules:
   edge is `ink-faint`: 3.2:1 on `well-850` in dark, 3.1:1 in light. Hover
   raises it to `ink-dim` (**adopted (MMR-743)**, `CONTROL_EDGE_CLASS`; the
   `line-bright` edge it replaced measured 1.4:1 dark and 1.5:1 light).
+  An outline button on the page surface (`well-900`), such as a record
+  header's More and _Send back…_ and every record page's phone chips, takes an
+  `ink-dim` edge instead: `ink-faint` measures 2.6:1 there in light
+  (**adopted (MMR-726)**, `pageOutline` in `action-button.tsx`; the deck's
+  arrows set the precedent).
   Checkbox and radio boxes already use `ink-dim` (existing).
   `line` and `line-bright` stay for structure: rules, panel edges, a toast's
   edge, never the edge that tells you where to type.
@@ -471,7 +479,8 @@ Rules:
   feed scroll positions, over the page and over a card, and its value is
   chosen by measurement in the build. `ink-faint` does not: it measures about
   2.7–2.8:1 against the light scrim. A Select's bottom list uses the same
-  token. Measured in Chromium at 390 (MMR-720), the seam's pixels against the
+  token, and so does the Action menu's bottom sheet, with the same light
+  upward shadow (MMR-726). Measured in Chromium at 390 (MMR-720), the seam's pixels against the
   scrim's pixels just above it, at 12 points across the sheet's width, for four
   cards at five feed scroll positions: `ink-dim` in dark holds 3.92:1 at worst (a second measurement; the first read 3.98:1),
   where the scrim lies over a solid action, and `ink` in light 4.38:1. The
@@ -502,6 +511,30 @@ preview panel uses.
 | One card | fills the width between the gutters; no peek, no pager | one page: no range or arrows (likewise for four or fewer) | **adopted (MMR-721)** |
 | No cards | the quiet line "Nothing needs you." in the section's place, with no head (Quiet line) | same | **adopted (MMR-721)** |
 | Turn | slides to rest with no overshoot, and after a card leaves the successor slides into its place as a turn does; at once under `prefers-reduced-motion`, where a swipe may track the finger but its settle and the reflow after a card leaves happen at once. The deck moves by `SwipeTrack`, a transform over UI SDK's `bindDrag` with its transitions off under reduced motion, since a scroll-snap settle slides even then (ADR 0019 §8) | at once, no slide: a page turn, and a page refilling after a card leaves | **adopted (MMR-721)** |
+
+#### Record header
+
+The head of a project, initiative, phase, or task page (ADR 0019's MMR-726
+refinement), in `src/components/patterns/record-header.tsx`, and the tabs
+under it in `record-tabs.tsx` beside it, on the Tabs primitive.
+
+| Part | Phone (< 768) | Desktop (≥ 768) | Mark |
+| --- | --- | --- | --- |
+| Trail | 13 / 20 `ink-dim`, one line, no type labels, `ink-faint` "/" between steps, 8 apart, 8 above the title; each step a link whose tap target is at least 44 × 44, centred on its text. The steps between the project and the parent fold into "…", a button that shows them | the same line; each link 36 tall. The steps between the project and the parent give way first, each to 120, then fold into "…"; the parent keeps its whole name until it alone overflows, then truncates | **adopted (MMR-726)** |
+| Title | Record title (17 / 24, 700), wraps; a long word breaks | Record title from 768 (21 / 28, 700) | **adopted (MMR-726)** |
+| Status line | 8 below the title: the status dot and word, a `line-bright` hairline 14 tall, the type, then the ID in mono, 8 apart, 13 / 20 | same | **adopted (MMR-726)** |
+| Summary | 12 below the status line: `text-body` in ink, 70ch at most, clamped to three lines | same | **adopted (MMR-726)** |
+| more | under the clamped summary, only when it runs past three lines: a text button, 14 / 20, 500, `accent-foreground`, underlined on hover, its tap target 44 × 44; "less" once open | its target 36 tall | **adopted (MMR-726)** |
+| Chip row | 8 below the summary, chips 4 apart, wrapping (a task's grooming chip, before it starts) | same | **adopted (MMR-726)** |
+| Actions | 16 below the summary (or the chip row): the main action (the one solid button) then More, 12 apart, each 44 tall with 16 side padding, 14 / 20 600 | beside the title, top-aligned, 24 after it, while the title keeps at least 440; otherwise below the summary as on a phone. Each 36 tall, 14 side padding | **adopted (MMR-726)** |
+| More | an outline on the page with an `ink-dim` edge, its label "More"; opens the Action menu's bottom sheet, headed by the record's title and ID, its rows grouped Edit, status changes, holds, then Abandon… in the MMR-635 hairline, with separators between groups and the Cancel row last | the same button with a 16 chevron in `ink-dim`; opens the anchored Action menu | **adopted (MMR-726)** |
+| Tabs | 20 below the header; the row runs to the screen's edges with the 14 gutter inside it and scrolls sideways when it does not fit, never clipping. Each tab is a 44 × 44 tap target with its label at the left of its box, 20 apart; the label 14 / 20, 500 `ink-dim`, the selected one 600 `ink-bright` over a 2px `accent` underline on the row's `line` hairline; a count 13 / 20 sans `ink-dim` 6 after it | 24 below the header, on the column's edges; each tab 36 tall, 20 apart | **adopted (MMR-726)**: tabs were 36 tall with a 12.5 mono count |
+| Panel | 20 below the tabs | 24 below the tabs | **adopted (MMR-726)** |
+| Details section | a 16 / 24 600 `ink-bright` heading, its count 13 / 20 `ink-dim` 8 after it inside the heading, 8 above its content; 24 above and below, a `line` hairline between sections | same | **adopted (MMR-726)** |
+| Direction (Details) | the direction in full, `text-body` prose, 70ch at most, with no button: More's _Edit direction…_ rewrites it. With none set, "No direction set." in `text-body` ink | same | **adopted (MMR-726)** |
+| Relation row (Depends on, Blocking) | a link, at least 44 tall with a `line` hairline above, straight to the column's edges, and none of its own under the last row: the ID in mono at the line's 14, `ink-dim`; the title in ink, truncated; at the right the status dot right before its 13 / 600 `ink-bright` word | at least 36 tall | **adopted (MMR-726)** |
+| Facts | two columns, 104 then the rest, 16 apart, 14 between rows: the label 13 / 20 `ink-dim`, the value 14 / 20 `ink-bright` | same | **adopted (MMR-726)** |
+| Progress (Work) | the rollup's bar the column's width, 6 tall, then its legend 13 / 20 `ink-dim` 8 below; a project's Record health row (Row group) under it. With no Record health row, the work sections start 28 below the legend | same | **adopted (MMR-726)** |
 
 ## Sizes
 

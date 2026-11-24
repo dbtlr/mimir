@@ -8,7 +8,7 @@ import { Badge } from './ui/badge';
 /**
  * Violet is the needs-you set's alone (ADR 0019), and grooming is a pre-start
  * judgment, not something that needs the operator. Needs answers is an unresolved
- * concern, so it takes the amber record damage uses (see findings-chip.tsx).
+ * concern, so it takes the amber record damage uses.
  * Groomed is settled but not finished, so it stays neutral and brighter than
  * not groomed (with a check, which also tells them apart in greyscale); a green
  * chip on a ready card would read as done.

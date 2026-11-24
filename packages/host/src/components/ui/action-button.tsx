@@ -48,6 +48,8 @@ export const actionButtonVariants = cva(
       size: {
         default: 'rounded-lg px-3 py-1.5 text-body',
         form: 'h-11 rounded-lg px-5 text-label',
+        /** A record header's main action and More: 44 tall on a phone, 36 from md. */
+        header: 'min-h-11 rounded-lg px-4 text-label md:min-h-9 md:px-3.5',
         sm: 'rounded-md px-3 py-1.5 text-xs',
       },
       variant: {
@@ -61,6 +63,12 @@ export const actionButtonVariants = cva(
           'inset-ring inset-ring-ink-faint text-ink-bright hover:inset-ring-ink-dim disabled:opacity-40 aria-disabled:opacity-40 aria-disabled:hover:inset-ring-ink-faint',
         outline:
           'inset-ring inset-ring-line-bright text-ink hover:bg-line/50 hover:text-ink-bright',
+        /**
+         * An outline on the page surface (well-900), as a record header's More:
+         * ink-faint measures 2.6:1 there in light, so the edge is ink-dim (DESIGN.md).
+         */
+        pageOutline:
+          'inset-ring inset-ring-ink-dim text-ink-bright hover:bg-line/50 disabled:opacity-40 aria-disabled:opacity-40',
       },
     },
   },
