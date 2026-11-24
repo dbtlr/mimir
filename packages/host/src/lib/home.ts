@@ -91,6 +91,23 @@ export function nowCount(total: number, width: { desktop: boolean }): number | s
   return shown < total ? `${String(shown)} of ${String(total)}` : total;
 }
 
+/**
+ * The seven `YYYY-MM-DD` days ending today in `zone`, oldest first: the window
+ * Shipped counts and the Tasks list's finished-in-the-last-7-days preset reads,
+ * so the two count the same tasks.
+ */
+export function lastSevenDays(
+  zone: string,
+  now = Date.now(),
+): { days: string[]; first: string; today: string } {
+  const today = dayOf(now, zone);
+  const days = [today];
+  while (days.length < 7) {
+    days.unshift(dayBefore(days[0] ?? today));
+  }
+  return { days, first: days[0] ?? today, today };
+}
+
 /** One project's shipped count. */
 export type ShippedProject = { key: string; name: string; count: number };
 
@@ -125,11 +142,7 @@ export function shippedWeek({
   zone: string;
   now?: number;
 }): ShippedWeek {
-  const today = dayOf(now, zone);
-  const window = [today];
-  while (window.length < 7) {
-    window.unshift(dayBefore(window[0] ?? today));
-  }
+  const { days: window, today } = lastSevenDays(zone, now);
   const perDay = new Map(window.map((day) => [day, 0]));
   const perProject = new Map<string, number>();
   let total = 0;

@@ -3,32 +3,53 @@ import { STATUS_SELECTOR_VALUES } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import type { ReactElement } from 'react';
 
-import { tasksBrowserQuery } from '../api/browse-queries';
+import { FINISHED_PAGE_SIZE, isFinishedSelection, tasksBrowserQuery } from '../api/browse-queries';
 import type { TaskFilters, TaskSet } from '../api/browse-queries';
-import {
-  BrowserEmpty,
-  BrowserGroup,
-  BrowserPage,
-  BrowserRow,
-  BrowserSearch,
-  BrowserShowMore,
-  FilterChip,
-  FilterRow,
-  RemovableChip,
-} from '../components/browser-list';
+import { browserTimeZone } from '../api/queries';
+import { BrowserSearch } from '../components/browser-list';
 import { GroomingChip } from '../components/grooming-chip';
+import { FeedCard } from '../components/patterns/feed/card';
+import { CardGrid } from '../components/patterns/feed/card-grid';
+import { DayFolds, FinishedRow } from '../components/patterns/feed/day-fold';
+import type { FoldDay } from '../components/patterns/feed/day-fold';
+import { FeedPreview } from '../components/patterns/feed/feed-preview';
+import type { Preview } from '../components/patterns/feed/preview-panel';
+import { Quiet } from '../components/patterns/feed/quiet';
+import {
+  FilterChip,
+  ListGroup,
+  ListPage,
+  ListShowMore,
+  PresetChip,
+} from '../components/patterns/list-page';
 import { ProjectFrame } from '../components/project-frame';
+import { SizeBadge, StaleBadge } from '../components/signal-badges';
+import { StatusBadge, StatusWord } from '../components/status-badge';
 import { StatusDot } from '../components/status-dot';
+import { TaskFilterSheet } from '../components/task-filter-sheet';
 import { Skeleton } from '../components/ui/skeleton';
+import { visibleGrooming } from '../lib/grooming';
 import { projectKeyOf } from '../lib/project-key';
 import { nodeLink } from '../lib/record-url';
 import { STATUS_META, TASK_STATUS_ORDER } from '../lib/status';
-import { relativeTime } from '../lib/time';
+import {
+  PRESET_LABEL,
+  bySort,
+  countLine,
+  extraFilterCount,
+  taskListFilters,
+} from '../lib/task-list';
+import { ago, relativeTime } from '../lib/time';
+import { dayBefore, dayOf, shippedTime } from '../lib/work-page';
 import { tasksRoute } from '../router';
 import type { TasksSearch } from '../router';
 
 const SEARCH_DEBOUNCE_MS = 250;
+
+/** Finished rows a day shows before its Show N more. */
+const FINISHED_DAY_CAP = 5;
 
 // The chip vocabulary is the task-closed set (TASK_STATUS_ORDER, 8 words) —
 // `new` is container-only, a task never carries it, and the status selector
@@ -36,9 +57,7 @@ const SEARCH_DEBOUNCE_MS = 250;
 const isTaskStatusWord = (v: string): v is TaskStatusWord =>
   (TASK_STATUS_ORDER as readonly string[]).includes(v);
 
-/** The union universe selectors (`live`, `terminal`, `all`). `live` and
- * `terminal` back the Live and Finished chips; a deep link can carry any of
- * them (or a word), and the server filters on it, so the UI must show it. */
+/** The union universe selectors (`live`, `terminal`, `all`), which a link can carry. */
 type UnionSelector = Exclude<StatusSelector, TaskStatusWord>;
 
 const UNION_LABEL: Record<UnionSelector, string> = {
@@ -50,45 +69,36 @@ const UNION_LABEL: Record<UnionSelector, string> = {
 const isUnionSelector = (v: string): v is UnionSelector =>
   (STATUS_SELECTOR_VALUES as readonly string[]).includes(v) && !isTaskStatusWord(v);
 
-/** Every valid selector in a (possibly comma-separated) `status` param, split
- * into concrete task words and union selectors. Both filter server-side;
- * invalid tokens (e.g. `new`) drop. */
-function parseStatusSelectors(status: string | undefined): {
-  words: TaskStatusWord[];
-  unions: UnionSelector[];
-} {
-  const words: TaskStatusWord[] = [];
-  const unions: UnionSelector[] = [];
-  for (const token of (status ?? '').split(',').map((t) => t.trim())) {
-    if (isTaskStatusWord(token) && !words.includes(token)) {
-      words.push(token);
-    } else if (isUnionSelector(token) && !unions.includes(token)) {
-      unions.push(token);
+/** The chip's label for a status a link carries without a preset: its words and unions. */
+function statusFilterLabel(status: string): string {
+  const labels: string[] = [];
+  for (const token of status.split(',').map((t) => t.trim())) {
+    let label: string | undefined;
+    if (isTaskStatusWord(token)) {
+      label = STATUS_META[token].label;
+    } else if (isUnionSelector(token)) {
+      label = UNION_LABEL[token];
+    }
+    if (label !== undefined && !labels.includes(label)) {
+      labels.push(label);
     }
   }
-  return { unions, words };
-}
-
-/** The removable chip's label for a status the Live/Finished chips don't own. */
-function statusFilterLabel(status: string): string {
-  const { unions, words } = parseStatusSelectors(status);
-  const labels = [...words.map((w) => STATUS_META[w].label), ...unions.map((u) => UNION_LABEL[u])];
   return labels.length > 0 ? labels.join(', ') : status;
 }
 
-/** Live is the default view: no `status` param, or `live` spelled out. */
-const isLiveView = (status: string | undefined) => status === undefined || status === 'live';
-
-type TaskGroup = { key: string; label: string; items: EngineNode[] };
-
-const newestFirst = (a: EngineNode, b: EngineNode) => b.updatedAt.getTime() - a.updatedAt.getTime();
+const isFinished = (n: EngineNode) => n.status === 'done' || n.status === 'abandoned';
 
 const projectKeyOfNode = (n: EngineNode) => n.home?.projectKey ?? projectKeyOf(n.id);
 
+const seqOf = (id: string) => Number(id.slice(id.lastIndexOf('-') + 1));
+
+/** When a finished task finished: `done` stamps `completed_at`; an abandoned task settled when it last changed. */
+const finishedAt = (n: EngineNode) => n.completedAt ?? n.updatedAt;
+
 /**
- * The Finished view's row order: the server's own paging order (MMR-460) —
+ * The finished rows' order: the server's own paging order (MMR-460) —
  * `completedAt` descending, unset last, ties by project key then seq — so a
- * "Show more" window appends to each group and never lands among shown rows.
+ * Show more window appends and never lands among shown rows.
  */
 const byCompletion = (a: EngineNode, b: EngineNode) => {
   const aDone = a.completedAt?.getTime();
@@ -107,14 +117,10 @@ const byCompletion = (a: EngineNode, b: EngineNode) => {
   return seqOf(a.id) - seqOf(b.id);
 };
 
-const seqOf = (id: string) => Number(id.slice(id.lastIndexOf('-') + 1));
+type TaskGroup = { key: string; label: string; items: EngineNode[] };
 
-/**
- * Bucket tasks into the browser's groups: one per status word present, in
- * display order. Rows within a group follow `order` (newest activity first
- * unless a view says otherwise); empty groups never appear.
- */
-function groupTasks(
+/** Live tasks in the list's groups: one per status present, in display order. */
+function groupLive(
   items: readonly EngineNode[],
   order: (a: EngineNode, b: EngineNode) => number,
 ): TaskGroup[] {
@@ -125,38 +131,116 @@ function groupTasks(
   })).filter((g) => g.items.length > 0);
 }
 
-/** The meta line: mono project key › parent title, ∞ on a standing home, then the age. */
-function TaskMeta({ node }: { node: EngineNode }) {
-  const home = node.home;
+/** "Today", "Yesterday", or "Sunday, 22 November": a fold's day, named in UTC so no zone moves it. */
+function foldLabel(day: string, today: string): string {
+  if (day === today) {
+    return 'Today';
+  }
+  if (day === dayBefore(today)) {
+    return 'Yesterday';
+  }
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+    weekday: 'long',
+  }).formatToParts(Date.parse(`${day}T00:00:00.000Z`));
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? '';
+  return `${part('weekday')}, ${part('day')} ${part('month')}`;
+}
+
+/** One finished task as a fold's row: its dot, title, and time; an abandoned one says so. */
+function finishedRow(node: EngineNode, zone: string): ReactElement {
+  const label = STATUS_META[node.status].label;
   return (
-    <>
-      <span className="font-mono">{home?.projectKey ?? projectKeyOf(node.id)}</span>
-      {home?.parentTitle != null && <> › {home.parentTitle}</>}
-      {home?.parentOpenEnded === true && (
-        // role="img" + aria-label: `title` alone is unreliable AT — the glyph's
-        // meaning must survive without a mouse. relative z-10 lifts it above the
-        // row's stretched link, so its tooltip still shows on hover.
-        <span
-          role="img"
-          aria-label="open-ended — a standing home"
-          title="open-ended — a standing home"
-          className="relative z-10"
-        >
-          {' ∞'}
-        </span>
-      )}
-      {' · '}
-      {relativeTime(node.updatedAt)}
-    </>
+    <FinishedRow
+      key={node.id}
+      to={nodeLink(node.id)}
+      dot={<StatusDot status={node.status} />}
+      status={label}
+      title={node.title}
+      time={shippedTime(finishedAt(node), zone)}
+      note={node.status === 'abandoned' ? <StatusWord>{label}</StatusWord> : undefined}
+    />
+  );
+}
+
+/** Finished tasks folded by the day they finished in `zone`, newest first. */
+function foldDays(items: readonly EngineNode[], zone: string): FoldDay[] {
+  const today = dayOf(Date.now(), zone);
+  const days = new Map<string, EngineNode[]>();
+  for (const node of items.toSorted(byCompletion)) {
+    const day = dayOf(finishedAt(node).getTime(), zone);
+    days.set(day, [...(days.get(day) ?? []), node]);
+  }
+  return [...days.entries()].map(([day, nodes]) => ({
+    count: nodes.length,
+    key: day,
+    label: foldLabel(day, today),
+    rows: nodes.map((node) => finishedRow(node, zone)),
+  }));
+}
+
+/** A live task's card preview: its status and last move, its lede, and where it sits. */
+function taskPreview(node: EngineNode): Preview {
+  const facts = [
+    ...(node.home?.parentTitle == null ? [] : [{ label: 'Parent', value: node.home.parentTitle }]),
+    ...(node.priority == null ? [] : [{ label: 'Priority', value: node.priority }]),
+    ...(node.harness == null ? [] : [{ label: 'Harness', value: node.harness }]),
+    ...(node.branch == null
+      ? []
+      : [{ label: 'Branch', value: <span className="font-mono">{node.branch}</span> }]),
+  ];
+  const text = node.lede ?? node.summary;
+  return {
+    age: relativeTime(node.updatedAt),
+    facts,
+    id: node.id,
+    lead: <StatusBadge status={node.status} />,
+    open: nodeLink(node.id),
+    reason: (
+      <>
+        <b>{STATUS_META[node.status].label}.</b> Last moved {ago(node.updatedAt)}.
+      </>
+    ),
+    text: text === null || text === undefined || text === '' ? undefined : text,
+    title: node.title,
+  };
+}
+
+/** A live task as a feed card: status, ID, and age, the title, and its size and grooming chips. */
+function TaskCard({ node }: { node: EngineNode }) {
+  const cold = node.verdicts?.stale === true;
+  const size = node.size == null ? null : <SizeBadge size={node.size} />;
+  const hasChips = size !== null || cold || visibleGrooming(node) !== undefined;
+  return (
+    <FeedCard
+      previewKey={node.id}
+      lead={<StatusBadge status={node.status} />}
+      id={node.id}
+      age={relativeTime(node.updatedAt)}
+      title={node.title}
+      cold={cold}
+      chips={
+        hasChips && (
+          <>
+            {size}
+            <GroomingChip node={node} />
+            {cold && <StaleBadge />}
+          </>
+        )
+      }
+    />
   );
 }
 
 /**
- * The browser's task read with its Show more window (MMR-460). `windows`
- * grows on each "Show more" and resets whenever the filters change; the
- * query refetches the larger prefix, keeping the shown rows meanwhile. If
- * that larger read fails the last good rows stay on screen and the failure
- * is reported beside the button, which retries it.
+ * The list read with its Show more window (MMR-460). `windows` grows on each
+ * Show more and resets whenever the filters change; the query refetches the
+ * larger prefix, keeping the shown rows meanwhile. If that larger read fails
+ * the last good rows stay on screen and the failure is reported beside the
+ * button, which retries it.
  */
 function useTaskWindow(filters: TaskFilters) {
   const scope = JSON.stringify(filters);
@@ -199,30 +283,27 @@ function useTaskWindow(filters: TaskFilters) {
 }
 
 /**
- * `/p/KEY/tasks` — the grouped reading list (MMR-454, mock "Browsers C"): every
- * task in the path's project, grouped by status, each row a real
- * link with its lede and where it lives. Live is the default view; the filter
- * set (`q`, `status`) is URL-addressable, so the browser stays the
- * complete view (ADR 0013) — any status a deep link carries still filters and
- * shows as a removable chip.
+ * `/p/KEY/tasks` — the Tasks list (ADR 0013, MMR-724 refinement; ADR 0019's
+ * list page): the count line, the search, the preset as a removable chip and
+ * Filter, then the tasks. Live tasks are feed cards grouped by status under
+ * headings that pin while their group scrolls; finished tasks are rows folded
+ * by the day they finished. Every filter is in the URL (`show`, `status`,
+ * `q`, `priority`, `size`, `tag`, `sort`), so a link opens the same list; a
+ * status a link carries without a preset still filters, as its own chip.
  */
 export function TasksPage() {
   const navigate = useNavigate();
   const { key: project } = tasksRoute.useParams();
   const search = tasksRoute.useSearch();
-  const liveView = isLiveView(search.status);
-  const finishedView = search.status === 'terminal';
-  const filters: TaskFilters = { lede: true, project };
-  // Live is the default view, so a URL with no status asks for it explicitly
-  // rather than leaning on the server's default.
-  filters.status = search.status ?? 'live';
-  if (search.q !== undefined) {
-    filters.q = search.q;
-  }
+  const zone = browserTimeZone();
+  const filters = taskListFilters(search, { project, zone });
+  const finishedOnly = isFinishedSelection(filters.status);
 
   const { tasks, loadedTasks, totalTasks, hasMore, loadingMore, loadMoreFailed, loadMore } =
     useTaskWindow(filters);
   const searchRef = useRef<HTMLDivElement>(null);
+  const filterChip = useRef<HTMLButtonElement>(null);
+  const [filtering, setFiltering] = useState(false);
 
   const setFilter = (partial: Partial<TasksSearch>) =>
     void navigate({
@@ -264,113 +345,146 @@ export function TasksPage() {
     };
   }, [q, search.q]);
 
-  const groups = useMemo(
-    () => groupTasks(loadedTasks ?? [], finishedView ? byCompletion : newestFirst),
-    [loadedTasks, finishedView],
-  );
+  const sort = search.sort ?? 'recent';
+  const { groups, finished, byId } = useMemo(() => {
+    const items = loadedTasks ?? [];
+    return {
+      byId: new Map(items.map((node) => [node.id, node])),
+      finished: items.filter(isFinished),
+      groups: groupLive(
+        items.filter((n) => !isFinished(n)),
+        bySort(sort),
+      ),
+    };
+  }, [loadedTasks, sort]);
+  const days = useMemo(() => foldDays(finished, zone), [finished, zone]);
+  const cards = useRef<HTMLDivElement>(null);
 
-  let countWord = 'match';
-  if (liveView) {
-    countWord = 'live';
-  } else if (finishedView) {
-    countWord = 'finished';
+  // The chip for the view: the preset, or a status a link carries without one.
+  let chip: { label: string; remove: Partial<TasksSearch> } | undefined;
+  if (search.show !== undefined) {
+    chip = { label: PRESET_LABEL[search.show], remove: { show: undefined, status: undefined } };
+  } else if (search.status !== undefined && search.status !== 'live') {
+    chip = { label: statusFilterLabel(search.status), remove: { status: undefined } };
   }
+
+  const folds = days.length > 0 && <DayFolds days={days} cap={FINISHED_DAY_CAP} />;
 
   return (
     <ProjectFrame projectKey={project} tab="tasks" reads={[tasks]}>
-      <BrowserPage
-        title="Tasks"
+      <ListPage
+        label="Tasks"
         count={
           loadedTasks !== undefined &&
           totalTasks !== undefined &&
-          // A windowed view says how much of the whole it shows (MMR-460).
-          `${loadedTasks.length < totalTasks ? `${loadedTasks.length} of ` : ''}${totalTasks} ${countWord}`
+          countLine({ show: search.show, status: search.status }, loadedTasks.length, totalTasks)
         }
-      >
-        <FilterRow>
-          <div ref={searchRef} className="flex min-w-0 flex-[1_1_260px]">
+        search={
+          <div ref={searchRef}>
             <BrowserSearch
+              variant="list"
               value={q}
               onChange={setQ}
               label="Search tasks"
-              placeholder="Search titles and IDs…"
+              placeholder="Search titles and IDs"
             />
           </div>
-          <FilterChip
-            on={liveView}
-            onClick={() => {
-              setFilter({ status: '' });
-            }}
-          >
-            Live
-          </FilterChip>
-          <FilterChip
-            on={finishedView}
-            onClick={() => {
-              setFilter({ status: 'terminal' });
-            }}
-          >
-            Finished
-          </FilterChip>
-          {/* Any other status a deep link carries (a word, a union, `all`)
-                still filters; it shows as an accent chip that removes it. */}
-          {!liveView && !finishedView && search.status !== undefined && (
-            <RemovableChip
-              label={statusFilterLabel(search.status)}
-              removeLabel={`Remove status filter ${statusFilterLabel(search.status)}`}
-              onRemove={() => {
-                searchRef.current?.querySelector('input')?.focus();
-                setFilter({ status: '' });
+        }
+        chips={
+          <>
+            {chip !== undefined && (
+              <PresetChip
+                label={chip.label}
+                onRemove={() => {
+                  searchRef.current?.querySelector('input')?.focus();
+                  setFilter(chip.remove);
+                }}
+              />
+            )}
+            <FilterChip
+              ref={filterChip}
+              open={filtering}
+              applied={extraFilterCount(search)}
+              onClick={() => {
+                setFiltering(true);
               }}
             />
-          )}
-        </FilterRow>
-
-        {tasks.isPending && loadedTasks === undefined && <Skeleton className="mt-4 h-40" />}
+          </>
+        }
+      >
+        {tasks.isPending && loadedTasks === undefined && <Skeleton className="h-40" />}
         {tasks.isError && loadedTasks === undefined && (
-          <p className="py-4 text-xs text-status-blocked-foreground">
+          <p className="text-meta text-status-blocked-foreground">
             Unreachable — is the Mimir host running?
           </p>
         )}
-        {loadedTasks !== undefined && groups.length === 0 && (
-          <BrowserEmpty>No tasks match.</BrowserEmpty>
+        {loadedTasks !== undefined && loadedTasks.length === 0 && <Quiet>No tasks match.</Quiet>}
+        {groups.length > 0 && (
+          <FeedPreview
+            // When a refetch drops the card that opened the preview, focus a shown card.
+            fallbackFocus={() =>
+              cards.current?.querySelector<HTMLElement>('[data-slot="feed-card-target"]') ?? null
+            }
+            preview={(key) => {
+              const node = byId.get(key);
+              return node === undefined || isFinished(node) ? undefined : taskPreview(node);
+            }}
+          >
+            <div ref={cards}>
+              {groups.map((group) => (
+                <ListGroup key={group.key} title={group.label} count={group.items.length}>
+                  <CardGrid>
+                    {group.items.map((node) => (
+                      <TaskCard key={node.id} node={node} />
+                    ))}
+                  </CardGrid>
+                </ListGroup>
+              ))}
+            </div>
+          </FeedPreview>
         )}
-        {groups.map((group) => (
-          <BrowserGroup key={group.key} label={group.label} count={group.items.length}>
-            {group.items.map((node) => (
-              <BrowserRow
-                key={node.id}
-                to={nodeLink(node.id)}
-                id={node.id}
-                title={node.title}
-                leading={
-                  <>
-                    <StatusDot status={node.status} />
-                    <span className="sr-only">{STATUS_META[node.status].label}</span>
-                  </>
-                }
-                afterTitle={<GroomingChip node={node} />}
-                lede={node.lede ?? node.summary}
-                meta={<TaskMeta node={node} />}
-                // Terminal rows demote by ink tier alone — never by opacity
-                // (ADR 0019 §7; opacity is offline's).
-                demoted={node.status === 'done' || node.status === 'abandoned'}
-                struck={node.status === 'abandoned'}
-              />
-            ))}
-          </BrowserGroup>
-        ))}
-        {hasMore && (
+        {/* A finished-only view folds straight under the chips; a mixed one heads them as a group. */}
+        {folds !== false &&
+          (finishedOnly ? (
+            folds
+          ) : (
+            <ListGroup title="Finished" count={finished.length}>
+              {folds}
+            </ListGroup>
+          ))}
+        {hasMore && totalTasks !== undefined && loadedTasks !== undefined && (
           <>
             {loadMoreFailed && (
-              <p role="alert" className="mt-4 text-center text-xs text-status-blocked-foreground">
+              <p role="alert" className="mt-4 text-meta text-status-blocked-foreground">
                 Couldn't load more finished tasks.
               </p>
             )}
-            <BrowserShowMore loading={loadingMore} onClick={loadMore} />
+            <ListShowMore
+              count={Math.min(FINISHED_PAGE_SIZE, totalTasks - loadedTasks.length)}
+              noun={finishedOnly ? 'finished tasks' : 'tasks'}
+              loading={loadingMore}
+              onClick={loadMore}
+            />
           </>
         )}
-      </BrowserPage>
+      </ListPage>
+      <TaskFilterSheet
+        open={filtering}
+        onClose={() => {
+          setFiltering(false);
+        }}
+        project={project}
+        search={search}
+        finalFocus={() => filterChip.current}
+        onApply={(next) => {
+          void navigate({
+            params: { key: project },
+            replace: true,
+            search: next,
+            to: '/p/$key/tasks',
+          });
+        }}
+      />
     </ProjectFrame>
   );
 }
