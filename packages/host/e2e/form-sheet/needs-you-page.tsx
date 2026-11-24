@@ -42,13 +42,14 @@ const REPORT = report(ROWS, { names: NAMES });
 /** `&late`: the review read lands after the page mounts, as on a cold load. */
 const late = new URLSearchParams(globalThis.location.search).has('late');
 
-/** How long the `&late` read takes to land. */
-const LATE_MS = 300;
+/** Dispatched on `window` by a test: the `&late` read lands now. */
+const RELEASE_EVENT = 'needs-you-release';
 
 /**
  * A cache that holds the review read and never asks the host for it again.
- * Under `&late` it starts the read itself, from the fixture, so the page's
- * mount joins that fetch and stays pending until it lands. (A query default's
+ * Under `&late` it starts the read itself, from the fixture, and holds it
+ * until the test dispatches `needs-you-release`, so the test sees the page
+ * pending first; the page's mount joins that fetch. (A query default's
  * `queryFn` would not serve: `reviewQuery()` names its own, which wins.)
  */
 function seededClient(): QueryClient {
@@ -59,9 +60,13 @@ function seededClient(): QueryClient {
     void client.prefetchQuery({
       queryFn: async () => {
         const { promise, resolve } = Promise.withResolvers<typeof REPORT>();
-        globalThis.setTimeout(() => {
-          resolve(REPORT);
-        }, LATE_MS);
+        globalThis.addEventListener(
+          RELEASE_EVENT,
+          () => {
+            resolve(REPORT);
+          },
+          { once: true },
+        );
         return promise;
       },
       queryKey: reviewQuery().queryKey,

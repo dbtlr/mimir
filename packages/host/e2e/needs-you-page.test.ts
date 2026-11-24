@@ -99,6 +99,12 @@ test('shows the overflow cue when the read lands after the page mounts, as on a 
     }).observe(document, { childList: true, subtree: true });
   });
   await page.goto(`${harness.origin}?form=needs-you-page&late`);
+  // The page mounts pending (the main region with no title yet); only then does the read land.
+  await expect(page.getByRole('main')).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Needs you' })).toHaveCount(0);
+  await page.evaluate(() => {
+    globalThis.dispatchEvent(new Event('needs-you-release'));
+  });
   await expect(page.getByRole('heading', { level: 1, name: 'Needs you' })).toBeVisible();
   await expect(page.locator('html')).not.toHaveAttribute('data-saw-unreachable');
   const main = page.getByRole('main');
@@ -198,6 +204,10 @@ test.describe('a refetch that reorders the cards', () => {
     await openPage(page, DESKTOP);
     await targetOf(page, 'MMR-731').focus();
     await refetchInOrder(page, WITHIN_SECTION);
+    await expect(page.locator('[data-list-card]').nth(2)).toHaveAttribute(
+      'data-list-card',
+      'MMR-688',
+    );
     await expect(targetOf(page, 'MMR-731')).toBeFocused();
     await refetchInOrder(page, WITHOUT_MMR_731);
     await expect(card(page, 'MMR-731')).toHaveCount(0);
@@ -210,6 +220,10 @@ test.describe('a refetch that reorders the cards', () => {
     await openPage(page, DESKTOP);
     await buttonOf(page, 'MMR-731').focus();
     await refetchInOrder(page, WITHIN_SECTION);
+    await expect(page.locator('[data-list-card]').nth(2)).toHaveAttribute(
+      'data-list-card',
+      'MMR-688',
+    );
     await expect(buttonOf(page, 'MMR-731')).toBeFocused();
     await refetchInOrder(page, WITHOUT_MMR_731);
     await expect(card(page, 'MMR-731')).toHaveCount(0);
@@ -222,6 +236,7 @@ test.describe('a refetch that reorders the cards', () => {
     await openPage(page, DESKTOP);
     await targetOf(page, 'FLT-d2').focus();
     await refetchInOrder(page, SECTION_AHEAD);
+    await expect(page.getByRole('heading', { level: 2 }).first()).toHaveText(/^Loom CLI/u);
     await expect(targetOf(page, 'FLT-d2')).toBeFocused();
     await refetchInOrder(page, WITHOUT_FLEET);
     await expect(page.getByRole('heading', { level: 2 })).toHaveCount(2);
