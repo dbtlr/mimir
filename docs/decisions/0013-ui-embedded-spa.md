@@ -1034,7 +1034,8 @@ _Needs you_, and "…". This revises both:
   other sidebar row does; the bar does not take it back, so the bar does not
   change when a panel opens. The palette waits for the panel: ⌘K or Ctrl K
   does nothing while a dialog is open, and the panel is one. Escape or a
-  click away closes the panel and brings the sidebar back.
+  click in the feed's empty space closes the panel and brings the sidebar
+  back.
 - **The drawer opens with _Jump to_ as well.** Choosing it closes the drawer
   and then opens the palette. A phone has two ways in and one search.
 - **Closing the palette returns focus to what had it** when the palette
