@@ -1,4 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { CancelledError, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactElement, RefObject } from 'react';
 
@@ -356,6 +356,9 @@ const withSavedKind =
         }
       : list;
 
+/** How many times a heal reads the device list when saves keep cancelling the read. */
+const DEVICES_READ_ATTEMPTS = 3;
+
 export function NotificationsPage() {
   const client = useQueryClient();
   // The row's shape follows the Action menu's: a ••• button where the menu is anchored, the row itself where it is a sheet.
@@ -495,6 +498,25 @@ export function NotificationsPage() {
   };
 
   /**
+   * A fresh device list. A saved kind cancels the read in flight with revert and starts another
+   * (onKindSaved). TanStack resolves a cancelled read that started here with the list the query held, when
+   * it held one; only a read joined here, one a poll or an action started, rejects with a CancelledError.
+   * That read is read again, up to DEVICES_READ_ATTEMPTS times; any other error is thrown at once.
+   */
+  const readDevicesFresh = async () => {
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        // oxlint-disable-next-line no-await-in-loop -- a read starts only after the one before it was cancelled
+        return await client.fetchQuery({ ...pushDevicesQuery, staleTime: 0 });
+      } catch (error) {
+        if (!(error instanceof CancelledError) || attempt === DEVICES_READ_ATTEMPTS) {
+          throw error;
+        }
+      }
+    }
+  };
+
+  /**
    * Subscribe this browser again with `publicKey`, the key the reset answered;
    * the others do when their console opens. A heal already running finishes
    * first, so this one reads what it left, and again after the reads, for a
@@ -508,7 +530,7 @@ export function NotificationsPage() {
       }
       const [fresh, listed] = await Promise.all([
         client.fetchQuery({ ...pushStatusQuery, staleTime: 0 }),
-        client.fetchQuery({ ...pushDevicesQuery, staleTime: 0 }),
+        readDevicesFresh(),
       ]);
       // A heal can start while the reads run; wait for it again, so this one never joins it with an older key.
       if (fresh.state !== 'ready' || !(await healSettled())) {
