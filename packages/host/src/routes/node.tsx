@@ -66,9 +66,9 @@ type ScratchpadRow = EngineOutput<'scratchList'>[number];
 /**
  * `/p/$key/$seq` — a work node's own page (ADR 0013, v0.23 refinement). The
  * path is the node id split at its hyphen; a suffix that is not a node's shows
- * the not-found state without a lookup. A task's page carries its actions and
- * agent context; an initiative or phase opens as the work page (MMR-467
- * refinement), its notes behind a Timeline tab.
+ * the not-found state without a lookup. Every node opens under the record
+ * header (MMR-726): a task's page keeps its body and rail, and an initiative
+ * or phase opens as the work page with its tabs, its notes behind Timeline.
  */
 export function NodePage() {
   const { key, seq } = nodeRoute.useParams();

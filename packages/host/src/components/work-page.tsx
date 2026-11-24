@@ -319,11 +319,13 @@ function DetailsSection({
       aria-labelledby={id}
       className="border-b border-line py-6 first:pt-0 last:border-b-0 last:pb-0"
     >
-      <h2 id={id} className="mb-2 text-base font-semibold text-ink-bright">
+      {/* A flex row, so the gap before the count is 8 and the space only keeps the name readable. */}
+      <h2
+        id={id}
+        className="mb-2 flex items-baseline gap-2 text-base font-semibold text-ink-bright"
+      >
         {title}{' '}
-        {count !== undefined && (
-          <span className="ml-2 text-meta font-normal text-ink-dim">{count}</span>
-        )}
+        {count !== undefined && <span className="text-meta font-normal text-ink-dim">{count}</span>}
       </h2>
       {children}
     </section>
