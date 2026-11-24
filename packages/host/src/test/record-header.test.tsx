@@ -1,5 +1,6 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { RecordHeader } from '../components/patterns/record-header';
@@ -90,11 +91,31 @@ describe('record header summary', () => {
   });
 });
 
-/** Whether the actions sit in the title's row rather than below the summary. */
+/** An action that holds state of its own, as New task holds its open sheet. */
+function SheetAction() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setOpen(true);
+        }}
+      >
+        New task
+      </button>
+      <button type="button">More</button>
+      {open && <div role="dialog" aria-label="New task" />}
+    </>
+  );
+}
+
+/**
+ * Whether the actions sit in the title's row rather than below the summary.
+ * jsdom lays nothing out, so this reads the place the header gives them.
+ */
 const besideTitle = () =>
-  screen
-    .getByRole('heading', { level: 1 })
-    .parentElement?.contains(screen.getByRole('button', { name: 'More' }));
+  screen.getByRole('button', { name: 'More' }).closest('[data-beside]') !== null;
 
 describe('record header actions', () => {
   it('sit beside the title on desktop while the title keeps 440px', async () => {
@@ -115,6 +136,29 @@ describe('record header actions', () => {
 
     await screen.findByRole('heading', { level: 1 });
     expect(besideTitle()).toBe(false);
+  });
+
+  it('keep their state when the layout moves them, so an open sheet stays open', async () => {
+    const setViewport = stubViewport('desktop');
+    stubLayout({ clientWidth: 700, rectWidth: 90 });
+    await renderInRouter(
+      <RecordHeader
+        title="Record pages share one header"
+        status={<span>Ready</span>}
+        type="Task"
+        recordId="MMR-726"
+        actions={<SheetAction />}
+      />,
+    );
+    await vi.waitFor(() => {
+      expect(besideTitle()).toBe(true);
+    });
+    await userEvent.click(screen.getByRole('button', { name: 'New task' }));
+
+    setViewport('phone');
+
+    expect(besideTitle()).toBe(false);
+    expect(screen.getByRole('dialog', { name: 'New task' })).toBeInTheDocument();
   });
 
   it('always sit below the summary on a phone', async () => {

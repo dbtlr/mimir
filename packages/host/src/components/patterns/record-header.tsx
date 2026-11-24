@@ -116,7 +116,7 @@ function RecordTrail({ steps }: { steps: readonly TrailStep[] }) {
       ref={nav}
       aria-label="Ancestors"
       className={cn(
-        'mb-2 flex min-w-0 items-center gap-2 text-meta whitespace-nowrap text-ink-dim',
+        'col-span-full mb-2 flex min-w-0 items-center gap-2 text-meta whitespace-nowrap text-ink-dim',
         expanded && 'flex-wrap gap-y-1',
       )}
     >
@@ -187,7 +187,7 @@ function RecordSummary({ text }: { text: string }) {
     };
   }, [open]);
   return (
-    <div className="mt-3 flex flex-col items-start">
+    <div className="col-span-full mt-3 flex flex-col items-start">
       <p
         id={id}
         ref={body}
@@ -291,34 +291,45 @@ export function RecordHeader({
   const group = useRef<HTMLDivElement>(null);
   const beside = useActionsBeside(header, group, desktop && actions !== undefined);
   const text = summary?.trim() ?? '';
-  // Beside the title, the 36px buttons centre on its 28px first line and lend
-  // the row only those 28, so the status line stays 8 below the title.
-  const actionRow =
-    actions === undefined ? null : (
-      <div
-        ref={group}
-        data-slot="record-actions"
-        className={cn('flex flex-wrap items-center gap-3', beside ? '-my-1 shrink-0' : 'mt-4')}
-      >
-        {actions}
-      </div>
-    );
+  // One action subtree, last in reading order and placed by the grid, so a
+  // change of place keeps an open sheet. Beside the title it takes the second
+  // column of the title's row; the 36px buttons centre on the title's 28px
+  // first line and lend the row only those 28, so the status line stays 8
+  // below the title.
   return (
-    <header ref={header} className={cn('flex min-w-0 flex-col', className)}>
+    <header
+      ref={header}
+      className={cn(
+        'grid min-w-0 items-start',
+        beside ? 'grid-cols-[minmax(0,1fr)_auto] gap-x-6' : 'grid-cols-1',
+        className,
+      )}
+    >
       {trail.length > 0 && <RecordTrail steps={trail} />}
-      <div className="flex items-start gap-6">
-        <h1 className="min-w-0 flex-1 text-dossier leading-6 font-bold tracking-[-0.01em] text-pretty wrap-anywhere text-ink-bright md:text-header md:leading-7">
-          {title}
-        </h1>
-        {beside && actionRow}
-      </div>
-      <FeedStatusLine className="mt-2" lead={status} type={type} recordId={recordId} />
+      <h1 className="min-w-0 text-dossier leading-6 font-bold tracking-[-0.01em] text-pretty wrap-anywhere text-ink-bright md:text-header md:leading-7">
+        {title}
+      </h1>
+      <FeedStatusLine className="col-span-full mt-2" lead={status} type={type} recordId={recordId} />
       {/* Keyed by the text, so a new summary measures its own clamp afresh. */}
       {text !== '' && <RecordSummary key={text} text={text} />}
       {chips !== undefined && chips !== null && (
-        <div className="mt-2 flex flex-wrap items-center gap-1">{chips}</div>
+        <div className="col-span-full mt-2 flex flex-wrap items-center gap-1">{chips}</div>
       )}
-      {!beside && actionRow}
+      {actions !== undefined && (
+        <div
+          ref={group}
+          data-slot="record-actions"
+          data-beside={beside ? '' : undefined}
+          className={cn(
+            'flex flex-wrap items-center gap-3',
+            !beside && 'mt-4',
+            beside && 'col-start-2 -my-1',
+            beside && (trail.length > 0 ? 'row-start-2' : 'row-start-1'),
+          )}
+        >
+          {actions}
+        </div>
+      )}
     </header>
   );
 }
