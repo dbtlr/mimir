@@ -296,17 +296,24 @@ export function FilterPills<T extends string>({
   );
 }
 
-/** A field of a few one-word choices on one row, such as Sort: a Segmented Control. */
+/**
+ * A field of a few one-word choices on one row, such as Sort: a Segmented
+ * Control. `fit` sizes each segment to its label, with 6 of padding a side on
+ * a phone and 44 at least, so a row of five (the Seeds list's Show) fits at
+ * 390 where equal shares would cut the longest label.
+ */
 export function FilterSegments<T extends string>({
   label,
   options,
   value,
   onChange,
+  fit = false,
 }: {
   label: string;
   options: readonly SegmentedOption<T>[];
   value: T;
   onChange: (value: T) => void;
+  fit?: boolean;
 }) {
   const labelId = useId();
   return (
@@ -320,6 +327,7 @@ export function FilterSegments<T extends string>({
         options={options}
         value={value}
         onChange={onChange}
+        segmentClassName={fit ? 'min-w-11 flex-auto px-1.5 md:px-3' : undefined}
       />
     </div>
   );

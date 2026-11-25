@@ -84,6 +84,7 @@ export function SeedFilterSheet({
       }}
     >
       <FilterSegments
+        fit
         label="Show"
         options={SHOW_OPTIONS}
         value={draft.show}
