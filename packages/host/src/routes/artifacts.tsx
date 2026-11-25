@@ -191,19 +191,13 @@ export function ArtifactsPage() {
         )}
         {days.length > 0 && <DayFolds days={days} cap={DAY_CAP} />}
         {hasMore && shown !== undefined && (
-          <>
-            {loadMoreFailed && (
-              <p role="alert" className="mt-4 text-meta text-status-blocked-foreground">
-                Couldn't load more artifacts.
-              </p>
-            )}
-            <ListShowMore
-              count={Math.min(ARTIFACT_PAGE_SIZE, shown.total - shown.items.length)}
-              noun="artifacts"
-              loading={loadingMore}
-              onClick={loadMore}
-            />
-          </>
+          <ListShowMore
+            count={Math.min(ARTIFACT_PAGE_SIZE, shown.total - shown.items.length)}
+            noun="artifacts"
+            loading={loadingMore}
+            failed={loadMoreFailed}
+            onClick={loadMore}
+          />
         )}
       </ListPage>
       <ArtifactFilterSheet

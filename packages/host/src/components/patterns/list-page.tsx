@@ -266,12 +266,14 @@ export function ListGroup({
 /**
  * The list's one text button, closing a list that loads by window: "Show 50
  * more", the Day fold's Show N more (`ShowMoreButton`), busy while the next
- * window loads.
+ * window loads. When the last press failed, an alert above it says so, and the
+ * button retries.
  */
 export function ListShowMore({
   count,
   noun,
   loading,
+  failed,
   onClick,
 }: {
   /** How many the press reveals. */
@@ -279,16 +281,25 @@ export function ListShowMore({
   /** What it reveals, for its accessible name after the visible words ("Show 50 more finished tasks"). */
   noun: string;
   loading: boolean;
+  /** Whether the last window failed to load ("Couldn't load more finished tasks."). */
+  failed: boolean;
   onClick: () => void;
 }) {
   return (
-    <ShowMoreButton
-      loading={loading}
-      aria-label={`Show ${count.toLocaleString('en-US')} more ${noun}`}
-      onClick={onClick}
-      className="mt-3 px-1"
-    >
-      Show {count.toLocaleString('en-US')} more
-    </ShowMoreButton>
+    <>
+      {failed && (
+        <p role="alert" className="mt-4 text-meta text-status-blocked-foreground">
+          Couldn't load more {noun}.
+        </p>
+      )}
+      <ShowMoreButton
+        loading={loading}
+        aria-label={`Show ${count.toLocaleString('en-US')} more ${noun}`}
+        onClick={onClick}
+        className="mt-3 px-1"
+      >
+        Show {count.toLocaleString('en-US')} more
+      </ShowMoreButton>
+    </>
   );
 }

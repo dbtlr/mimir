@@ -381,19 +381,13 @@ export function TasksPage() {
             </ListGroup>
           ))}
         {hasMore && totalTasks !== undefined && loadedTasks !== undefined && (
-          <>
-            {loadMoreFailed && (
-              <p role="alert" className="mt-4 text-meta text-status-blocked-foreground">
-                Couldn't load more finished tasks.
-              </p>
-            )}
-            <ListShowMore
-              count={Math.min(FINISHED_PAGE_SIZE, totalTasks - loadedTasks.length)}
-              noun={finishedOnly ? 'finished tasks' : 'tasks'}
-              loading={loadingMore}
-              onClick={loadMore}
-            />
-          </>
+          <ListShowMore
+            count={Math.min(FINISHED_PAGE_SIZE, totalTasks - loadedTasks.length)}
+            noun={finishedOnly ? 'finished tasks' : 'tasks'}
+            loading={loadingMore}
+            failed={loadMoreFailed}
+            onClick={loadMore}
+          />
         )}
       </ListPage>
       <TaskFilterSheet
