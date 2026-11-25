@@ -65,10 +65,13 @@ export function SeedFilterSheet({
   }
 
   const next = seedSearchOf(draft, search.q);
+  const matching =
+    seeds === undefined ? undefined : seedsMatching(seeds, { kind: next.kind, q: next.q ?? '' });
+  // All lists every lane, settled ones folded at the end, so it counts every match.
   const total =
-    seeds === undefined
+    matching === undefined
       ? undefined
-      : seedsInView(seedsMatching(seeds, { kind: next.kind, q: next.q ?? '' }), next.show).length;
+      : (next.show === undefined ? matching : seedsInView(matching, next.show)).length;
   const commitLabel =
     total === undefined
       ? 'Show seeds'

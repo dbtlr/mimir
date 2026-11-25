@@ -191,7 +191,8 @@ describe('seedsPage (the Seeds list, MMR-725)', () => {
     const sheet = await screen.findByRole('dialog', { name: 'Filter seeds' });
     const show = within(sheet).getByRole('radiogroup', { name: 'Show' });
     expect(within(show).getByRole('radio', { name: 'All' })).toBeChecked();
-    expect(within(sheet).getByRole('button', { name: 'Show 4 seeds' })).toBeEnabled();
+    // All lists the settled seeds too, folded after the open lanes, so its count holds them.
+    expect(within(sheet).getByRole('button', { name: 'Show 6 seeds' })).toBeEnabled();
 
     await user.click(within(show).getByRole('radio', { name: 'To resolve' }));
     await user.click(within(sheet).getByRole('checkbox', { name: 'Bug' }));
