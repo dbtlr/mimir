@@ -8,7 +8,7 @@ import { FeedPreview } from '../components/patterns/feed/feed-preview';
 import type { Preview } from '../components/patterns/feed/preview-panel';
 import { Quiet } from '../components/patterns/feed/quiet';
 import { RowGroup } from '../components/patterns/feed/row-group';
-import type { RowGroupRow } from '../components/patterns/feed/row-group';
+import type { RowGroupColumns, RowGroupRow } from '../components/patterns/feed/row-group';
 import { FeedSection } from '../components/patterns/feed/section-head';
 import { ShippedSummary } from '../components/patterns/feed/shipped-summary';
 import type { ShippedDay } from '../components/patterns/feed/shipped-summary';
@@ -59,6 +59,46 @@ const BY_PROJECT: RowGroupRow[] = [
   { count: 71, key: 'LM', name: 'Loom CLI', to: project('LM') },
   { count: 52, key: 'NORN', name: 'Norn', to: project('NORN') },
   { count: 34, key: 'MMR', name: 'Mimir', to: project('MMR') },
+];
+
+/** The Projects list's rows (MMR-790): one count on a phone, the figures from md up. */
+const PROJECT_COLUMNS: RowGroupColumns = {
+  figures: [
+    { caption: 'Need you', tone: 'attention' },
+    { caption: 'To triage' },
+    { caption: 'In flight' },
+    { caption: 'Live', tone: 'strong' },
+    { caption: 'Going cold' },
+  ],
+  key: 'Key',
+  name: 'Project',
+};
+const PROJECT_ROWS: RowGroupRow[] = [
+  {
+    count: 2,
+    figures: [2, 1, 3, 18, 0],
+    key: 'HUGI',
+    name: 'Hugi',
+    shows: { kind: 'attention', text: '2 need you' },
+    to: project('HUGI'),
+  },
+  {
+    count: 0,
+    figures: [0, 2, 2, 36, 5],
+    key: 'NORN',
+    name: 'Norn',
+    shows: { kind: 'words', text: '36 live' },
+    to: project('NORN'),
+  },
+  {
+    count: 0,
+    figures: [0, 1, 0, 0, 0],
+    key: 'BFR',
+    name: 'Bifrost Dashboard',
+    setBack: true,
+    shows: { kind: 'words', text: 'Nothing live' },
+    to: project('BFR'),
+  },
 ];
 
 const SPARE_MINUTE: RowGroupRow[] = [
@@ -288,6 +328,9 @@ export function FeedKit() {
           </FeedSection>
           <FeedSection title="When you have a minute">
             <RowGroup label="When you have a minute" rows={SPARE_MINUTE} />
+          </FeedSection>
+          <FeedSection title="Projects, in columns">
+            <RowGroup label="Projects" rows={PROJECT_ROWS} keepZero columns={PROJECT_COLUMNS} />
           </FeedSection>
           <FeedSection title="Finished, last 7 days" count={191}>
             <DayFolds days={DAYS} cap={4} />

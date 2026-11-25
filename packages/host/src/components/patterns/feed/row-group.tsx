@@ -1,10 +1,20 @@
 import { Link } from '@tanstack/react-router';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 import { cn } from '../../../lib/cn';
 import { cardVariants } from '../../ui/card';
 import { FEED_FOCUS_RING } from './link';
 import type { FeedLink } from './link';
+
+/**
+ * How a row says its count, when not as the bare number: in words ("36
+ * live", "Nothing live"), as the attention pill ("2 need you"), or not at all
+ * (an archived project's row, MMR-790).
+ */
+export type RowGroupCount =
+  | { kind: 'words'; text: string }
+  | { kind: 'attention'; text: string }
+  | { kind: 'none' };
 
 /** One row in a row group: an optional key, a name, its count, and where it leads, if anywhere. */
 export type RowGroupRow = {
@@ -13,48 +23,95 @@ export type RowGroupRow = {
   /** The row's label; a row without a key needs a name unique within the group. */
   name: string;
   count: number;
+  /** How the count shows; absent, the number. */
+  shows?: RowGroupCount;
+  /** The name set back to ink-dim: a project with nothing live, or an archived one. */
+  setBack?: boolean;
+  /** The row's figures under the group's columns, in their order; shown from `md` up. */
+  figures?: readonly number[];
   /** The row's destination; a row without one is a plain row, not a link. */
   to?: FeedLink;
+};
+
+/**
+ * One count column of a group laid out in columns (MMR-790). A figure above
+ * zero draws as the attention figure (the violet dot, ink-bright 600: Need
+ * you), as a strong one (ink, 500: Live), or plain (ink-dim).
+ */
+export type RowGroupColumn = { caption: string; tone?: 'attention' | 'strong' };
+
+/** The captions of a group laid out in columns: the key's, the name's, then each figure's. */
+export type RowGroupColumns = {
+  key: string;
+  name: string;
+  figures: readonly RowGroupColumn[];
 };
 
 /**
  * A row group (ADR 0019, MMR-719 refinement): compact rows of counts, each a
  * link when it has somewhere to go (counts by project, the "When you have a
  * minute" rows). A row with no destination is plain: no chevron, no hover
- * fill (MMR-722). A row counting zero is left out. A capped group ends in
- * `more`, a row of the same shape that opens the full list with a filter set.
- * A `framed` group is a section's whole block beside a framed section, in a
- * card's frame as the Shipped summary's breakdown sits in its card (MMR-722,
- * MMR-780).
+ * fill (MMR-722). A row counting zero is left out unless the group keeps it
+ * (`keepZero`). A capped group ends in `more`, a row of the same shape that
+ * opens the full list with a filter set. A `framed` group is a section's
+ * whole block beside a framed section, in a card's frame as the Shipped
+ * summary's breakdown sits in its card (MMR-722, MMR-780).
+ *
+ * The Projects list's options (MMR-790): a row's count `shows` in words or as
+ * the attention pill, and a group with `columns` lays each row's `figures`
+ * out under captions from `md` up, where they take the place of the one
+ * count. `keyChars` holds the key column to that many characters, so the
+ * Archived rows under their fold line up with the list above.
  */
 export function RowGroup({
   label,
   rows,
   more,
   framed = false,
+  keepZero = false,
+  columns,
+  keyChars,
 }: {
   /** The list's accessible name ("Shipped by project"). */
   label: string;
   rows: readonly RowGroupRow[];
   more?: { name: string; count: number; to: FeedLink };
   framed?: boolean;
+  /** Keep the rows that count zero. */
+  keepZero?: boolean;
+  columns?: RowGroupColumns;
+  /** The key column's width in characters, at least the 48 every key column keeps. */
+  keyChars?: number;
 }) {
-  const list = (
-    <ul aria-label={label} className="m-0 list-none divide-y divide-line p-0">
+  const layout: Layout = { columns, keyChars };
+  const items = (
+    <>
       {rows
-        .filter((row) => row.count > 0)
+        .filter((row) => keepZero || row.count > 0)
         .map((row) => (
           // Keyed by the row itself, so neither a row reaching zero nor a row
           // inserted or moved remounts a focused door and drops its focus.
-          <li key={rowKey(row)}>
-            {row.to === undefined ? <PlainRow row={row} /> : <Door row={row} to={row.to} />}
+          <li key={rowKey(row)} className={columns === undefined ? undefined : SUBGRID}>
+            {row.to === undefined ? (
+              <PlainRow row={row} layout={layout} />
+            ) : (
+              <Door row={row} to={row.to} layout={layout} />
+            )}
           </li>
         ))}
       {more !== undefined && more.count > 0 && (
-        <li>
-          <Door row={more} to={more.to} more />
+        <li className={columns === undefined ? undefined : SUBGRID}>
+          <Door row={more} to={more.to} layout={layout} more />
         </li>
       )}
+    </>
+  );
+  if (columns !== undefined) {
+    return <ColumnsGroup label={label} columns={columns} items={items} />;
+  }
+  const list = (
+    <ul aria-label={label} className="m-0 list-none divide-y divide-line p-0">
+      {items}
     </ul>
   );
   return framed ? (
@@ -63,6 +120,66 @@ export function RowGroup({
     </div>
   ) : (
     list
+  );
+}
+
+/** What a group's rows lay out by. */
+type Layout = { columns?: RowGroupColumns; keyChars?: number };
+
+/** A part that spans the group's grid and lays its children on the group's own tracks. */
+const SUBGRID = 'col-span-full grid grid-cols-subgrid';
+
+/**
+ * A group laid out in columns: one grid whose tracks every row shares, so the
+ * key column fits the longest key and each figure lines up under its caption.
+ * Below `md` the tracks are the key, the name, the one count, and the
+ * chevron; from `md` up the figures take the count's place. The caption row
+ * is a band in the page's ground that pins to the top of the page's scroller
+ * while the rows scroll under it, as a list group's head does; the rows name
+ * their figures themselves, so a screen reader skips it.
+ */
+function ColumnsGroup({
+  label,
+  columns,
+  items,
+}: {
+  label: string;
+  columns: RowGroupColumns;
+  items: ReactNode;
+}) {
+  const tracks: CSSProperties & Record<'--row-group-figures', number> = {
+    '--row-group-figures': columns.figures.length,
+  };
+  return (
+    <div
+      data-slot="row-group-table"
+      style={tracks}
+      className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] gap-x-3 md:grid-cols-[auto_minmax(0,1fr)_repeat(var(--row-group-figures),minmax(5.25rem,auto))_auto]"
+    >
+      <div
+        aria-hidden="true"
+        data-slot="row-group-captions"
+        className={cn(
+          SUBGRID,
+          // The band reaches past the 20 gutters; its hairline keeps to the column, as the rows' do.
+          'sticky top-0 z-10 -mx-5 min-h-9 items-center bg-well-900 px-5 max-md:hidden',
+          "after:absolute after:inset-x-5 after:bottom-0 after:h-px after:bg-line after:content-['']",
+          'microlabel text-ink-dim',
+        )}
+      >
+        <span>{columns.key}</span>
+        <span>{columns.name}</span>
+        {columns.figures.map((figure) => (
+          <span key={figure.caption} className="pl-3 text-right">
+            {figure.caption}
+          </span>
+        ))}
+        <span />
+      </div>
+      <ul aria-label={label} className={cn(SUBGRID, 'm-0 list-none divide-y divide-line p-0')}>
+        {items}
+      </ul>
+    </div>
   );
 }
 
@@ -76,15 +193,124 @@ function rowKey(row: RowGroupRow): string {
 }
 
 /** The row's height and spacing, shared by a door and a plain row. */
-const ROW = 'flex min-h-11 items-center gap-3 py-2.5 md:min-h-9 md:py-1.5';
+const ROW_HEIGHT = 'min-h-11 items-center py-2.5 md:min-h-9 md:py-1.5';
 
-/** A row's key, name, and count, in that order. */
-function RowText({ row, more = false }: { row: RowGroupRow; more?: boolean }): ReactNode {
+/** A row's box: a flex row, or in a group laid out in columns, a row of the group's grid. */
+function rowBox(layout: Layout): string {
+  return cn(ROW_HEIGHT, layout.columns === undefined ? 'flex gap-3' : SUBGRID);
+}
+
+/** The key column's width in characters, read by its `min-w` class. */
+function keyWidth(chars: number): CSSProperties & Record<'--row-key-width', string> {
+  return { '--row-key-width': `${String(chars)}ch` };
+}
+
+/** The violet dot of the attention hue, before a count that needs you. */
+function AttentionDot({ size }: { size: 'pill' | 'figure' }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn('shrink-0 rounded-full bg-attention', size === 'pill' ? 'size-1.5' : 'size-2')}
+    />
+  );
+}
+
+/** The row's one count: the number, its words, or the attention pill. */
+function Count({ row, columns }: { row: RowGroupRow; columns: boolean }) {
+  const shows = row.shows;
+  // With columns, the figures take the count's place from md up.
+  const phoneOnly = columns && 'md:hidden';
+  if (shows?.kind === 'none') {
+    // In columns the count's track stays filled, so the chevron keeps its own.
+    return columns ? <span className="md:hidden" /> : null;
+  }
+  if (shows?.kind === 'attention') {
+    return (
+      <span
+        data-slot="row-attention"
+        className={cn(
+          'inline-flex shrink-0 items-center gap-1.5 justify-self-end rounded-full bg-attention/12 px-2 text-xs leading-5 font-semibold whitespace-nowrap text-attention-foreground inset-ring inset-ring-attention/24',
+          phoneOnly,
+        )}
+      >
+        <AttentionDot size="pill" />
+        {shows.text}
+      </span>
+    );
+  }
+  return (
+    <span
+      className={cn(
+        'shrink-0 text-right text-meta whitespace-nowrap text-ink-dim tabular-nums',
+        phoneOnly,
+      )}
+    >
+      {shows?.kind === 'words' ? shows.text : row.count.toLocaleString('en-US')}
+    </span>
+  );
+}
+
+/**
+ * The row's figures under the group's columns, from `md` up. A zero is an en
+ * dash in ink-dim, hidden from a screen reader, which hears each figure named
+ * for its caption ("0 going cold").
+ */
+function Figures({ row, columns }: { row: RowGroupRow; columns: RowGroupColumns }) {
+  return columns.figures.map((column, i) => {
+    const value = row.figures?.[i] ?? 0;
+    const tone = value > 0 ? column.tone : undefined;
+    return (
+      <span
+        key={column.caption}
+        data-slot="row-figure"
+        data-tone={tone}
+        className={cn(
+          // 12 of lead room past the track's gap, so a wide caption still stands clear of the one before.
+          'flex items-center justify-end gap-1.5 pl-3 text-meta tabular-nums max-md:hidden',
+          tone === undefined && 'text-ink-dim',
+          tone === 'strong' && 'font-medium text-ink',
+          tone === 'attention' && 'font-semibold text-ink-bright',
+        )}
+      >
+        {tone === 'attention' && <AttentionDot size="figure" />}
+        <span aria-hidden={value > 0 ? undefined : 'true'}>
+          {value > 0 ? value.toLocaleString('en-US') : '–'}
+        </span>
+        <span className="sr-only">{`, ${value.toLocaleString('en-US')} ${column.caption.toLowerCase()}`}</span>
+      </span>
+    );
+  });
+}
+
+/** A row's key, name, and count, in that order, and its figures when the group has columns. */
+function RowText({
+  row,
+  layout,
+  more = false,
+}: {
+  row: RowGroupRow;
+  layout: Layout;
+  more?: boolean;
+}): ReactNode {
+  const { columns, keyChars } = layout;
+  let ink = 'text-ink';
+  if (more) {
+    // The door's underline answers a hover anywhere on its row.
+    ink = 'text-accent-foreground group-hover:underline';
+  } else if (row.setBack === true) {
+    ink = 'text-ink-dim';
+  }
   return (
     <>
-      {row.key !== undefined && (
+      {(row.key !== undefined || columns !== undefined) && (
         <>
-          <span className="min-w-12 shrink-0 font-mono text-mono-id text-ink-dim">
+          <span
+            style={keyChars === undefined ? undefined : keyWidth(keyChars)}
+            className={cn(
+              'min-w-12 shrink-0 font-mono text-mono-id text-ink-dim',
+              keyChars !== undefined && 'min-w-[max(3rem,var(--row-key-width))]',
+            )}
+          >
             {row.key}
           </span>{' '}
         </>
@@ -93,39 +319,52 @@ function RowText({ row, more = false }: { row: RowGroupRow; more?: boolean }): R
         className={cn(
           // The clamp sits on an unpadded box, so no part of a third line shows.
           'line-clamp-2 min-w-0 flex-1 text-title font-medium wrap-anywhere',
-          // The door's underline answers a hover anywhere on its row.
-          more ? 'text-accent-foreground group-hover:underline' : 'text-ink',
+          columns !== undefined && 'md:text-balance',
+          ink,
         )}
       >
         {row.name}
-      </span>{' '}
-      <span className="shrink-0 text-meta text-ink-dim">{row.count.toLocaleString('en-US')}</span>
+      </span>
+      {row.shows?.kind !== 'none' && ' '}
+      <Count row={row} columns={columns !== undefined} />
+      {columns !== undefined && <Figures row={row} columns={columns} />}
     </>
   );
 }
 
-function PlainRow({ row }: { row: RowGroupRow }) {
+function PlainRow({ row, layout }: { row: RowGroupRow; layout: Layout }) {
   return (
-    <div className={ROW}>
-      <RowText row={row} />
+    <div className={rowBox(layout)}>
+      <RowText row={row} layout={layout} />
+      {layout.columns !== undefined && <span />}
     </div>
   );
 }
 
-function Door({ row, to, more = false }: { row: RowGroupRow; to: FeedLink; more?: boolean }) {
+function Door({
+  row,
+  to,
+  layout,
+  more = false,
+}: {
+  row: RowGroupRow;
+  to: FeedLink;
+  layout: Layout;
+  more?: boolean;
+}) {
   return (
     <Link
       {...to}
       className={cn(
         // -mx-1 with px-1: the text sits on the column's edge while the hover
         // fill and focus ring reach 4 past it; the hairlines stay in the column.
-        ROW,
+        rowBox(layout),
         'group -mx-1 rounded-md px-1 text-ink-bright no-underline',
         'transition-colors hover:bg-well-800',
         FEED_FOCUS_RING,
       )}
     >
-      <RowText row={row} more={more} />
+      <RowText row={row} layout={layout} more={more} />
       <svg
         aria-hidden="true"
         className="size-3.5 shrink-0 text-ink-dim"
