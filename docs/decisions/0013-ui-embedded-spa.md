@@ -1197,7 +1197,10 @@ the Artifacts list sends filters the `artifacts` read already takes.
   list of bare tags: `session_summary`, `spec`, `plan`, `mock`,
   `investigation`, `report`, `spike`, `audit`, and `verification`. Every
   other tag stays a plain tag; `workspace_unconsolidated` is never a kind.
-  The artifact page reads the same kind.
+  The artifact page reads the same kind. The Filter sheet offers one Kind
+  per kind, and since the read takes one tag, a kind filters by one
+  spelling (the URL's, else the loaded rows' `kind:` tag, else the bare
+  tag); a server-side union of both spellings is seed MMR-s125.
 - **Home's Seeds to triage row is a door** to that project's Seeds list on
   `show=to-triage` when every seed to triage is one project's, the rule the
   MMR-724 refinement gave Ready to start and Going cold. Otherwise it keeps

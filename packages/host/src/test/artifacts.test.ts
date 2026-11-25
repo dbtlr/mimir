@@ -70,6 +70,22 @@ describe('kind tags as filter values', () => {
     expect(options.at(-2)?.tag).toBe('kind:review');
   });
 
+  it('offers one pill per kind when the rows spell it both ways', () => {
+    const specs = kindTagOptions([['kind:spec'], ['spec']], undefined).filter(
+      (o) => o.label === 'Spec',
+    );
+    expect(specs).toStrictEqual([{ label: 'Spec', tag: 'kind:spec' }]);
+  });
+
+  it("filters a kind by the spelling the rows use, or the URL's", () => {
+    const specTag = (rowTags: string[][], chosen: string | undefined) =>
+      kindTagOptions(rowTags, chosen).find((o) => o.label === 'Spec')?.tag;
+    expect(specTag([['kind:spec']], undefined)).toBe('kind:spec');
+    expect(specTag([['spec']], undefined)).toBe('spec');
+    expect(specTag([], undefined)).toBe('spec');
+    expect(specTag([['kind:spec']], 'spec')).toBe('spec');
+  });
+
   it('does not offer a plain tag as a kind', () => {
     const values = kindTagOptions([['doctor']], 'doctor').map((o) => o.tag);
     expect(values).not.toContain('doctor');

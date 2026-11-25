@@ -54,19 +54,22 @@ export function kindName(kind: string): string {
 }
 
 /**
- * The Filter sheet's Kind options: the fixed kinds in order, then any `kind:`
- * tag the loaded rows show, then the one the URL chose, so a linked kind always
- * has its pill. `tag` is what the `tag` filter takes; `label` names the kind.
+ * The Filter sheet's Kind options, one per kind: the fixed kinds in order, then
+ * any `kind:` tag the loaded rows show, then the one the URL chose, so a linked
+ * kind always has its pill. `tag` is what the `tag` filter takes; `label` names
+ * the kind. The read takes one tag, so a kind filters by one spelling: the
+ * URL's, else the rows' `kind:` tag, else the bare tag.
  */
 export function kindTagOptions(
   rowTags: readonly (readonly string[])[],
   chosen: string | undefined,
 ): { tag: string; label: string }[] {
-  const seen = new Set<string>(BARE_KIND_TAGS);
+  const tagByKind = new Map<string, string>(BARE_KIND_TAGS.map((tag) => [tag, tag]));
   for (const tag of [...rowTags.flat(), ...(chosen === undefined ? [] : [chosen])]) {
-    if (isPrefixedKind(tag)) {
-      seen.add(tag);
+    const kind = kindTagLabel(tag);
+    if (kind !== undefined && (isPrefixedKind(tag) || tag === chosen)) {
+      tagByKind.set(kind, tag);
     }
   }
-  return [...seen].map((tag) => ({ label: kindName(kindTagLabel(tag) ?? tag), tag }));
+  return [...tagByKind].map(([kind, tag]) => ({ label: kindName(kind), tag }));
 }
