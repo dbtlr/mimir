@@ -1239,8 +1239,9 @@ switcher already reads. It takes no search parameters.
 - **The sidebar on `/projects`** shows the All projects context, as on any
   page outside a project.
 
-The page becomes a consumer of the review report's per-project `needsYou`
-and `live` counts, so trimming that report (MMR-763) keeps them.
+The page becomes a consumer of the review report's per-project `needsYou`,
+`triage`, `inFlight`, `live`, and `goingCold` counts, so trimming that
+report (MMR-763) keeps them.
 
 Considered and rejected: the switcher's _All projects_ leading to the new
 page. `/` is the cross-project work page the MMR-503 refinement made it, and
