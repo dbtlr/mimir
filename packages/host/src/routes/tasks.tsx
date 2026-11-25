@@ -1,12 +1,10 @@
 import type { EngineNode, StatusSelector, TaskStatusWord } from '@mimir/contract';
 import { STATUS_SELECTOR_VALUES } from '@mimir/contract';
-import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 
 import { FINISHED_PAGE_SIZE, isFinishedSelection, tasksBrowserQuery } from '../api/browse-queries';
-import type { TaskFilters, TaskSet } from '../api/browse-queries';
 import { browserTimeZone } from '../api/queries';
 import { BrowserSearch } from '../components/browser-list';
 import { GroomingChip } from '../components/grooming-chip';
@@ -30,6 +28,7 @@ import { StatusBadge, StatusWord } from '../components/status-badge';
 import { StatusDot } from '../components/status-dot';
 import { TaskFilterSheet } from '../components/task-filter-sheet';
 import { Skeleton } from '../components/ui/skeleton';
+import { foldByDay } from '../lib/day-folds';
 import { visibleGrooming } from '../lib/grooming';
 import { projectKeyOf } from '../lib/project-key';
 import { nodeLink } from '../lib/record-url';
@@ -43,7 +42,8 @@ import {
   taskListFilters,
 } from '../lib/task-list';
 import { ago, relativeTime } from '../lib/time';
-import { dayBefore, dayOf, shippedTime } from '../lib/work-page';
+import { useListWindow } from '../lib/use-list-window';
+import { shippedTime } from '../lib/work-page';
 import { tasksRoute } from '../router';
 import type { TasksSearch } from '../router';
 
@@ -132,25 +132,6 @@ function groupLive(
   })).filter((g) => g.items.length > 0);
 }
 
-/** "Today", "Yesterday", or "Sunday, 22 November": a fold's day, named in UTC so no zone moves it. */
-function foldLabel(day: string, today: string): string {
-  if (day === today) {
-    return 'Today';
-  }
-  if (day === dayBefore(today)) {
-    return 'Yesterday';
-  }
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    timeZone: 'UTC',
-    weekday: 'long',
-  }).formatToParts(Date.parse(`${day}T00:00:00.000Z`));
-  const part = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((p) => p.type === type)?.value ?? '';
-  return `${part('weekday')}, ${part('day')} ${part('month')}`;
-}
-
 /** One finished task as a fold's row: its dot, title, and time; an abandoned one says so. */
 function finishedRow(node: EngineNode, zone: string): ReactElement {
   const label = STATUS_META[node.status].label;
@@ -169,28 +150,15 @@ function finishedRow(node: EngineNode, zone: string): ReactElement {
 
 /**
  * Finished tasks folded by the day they finished in `zone`, newest day first,
- * rows within a day by completion. The days sort on their own, since an
- * abandoned task's day (its last change) can be newer than a done one's.
+ * rows within a day by completion. An abandoned task's day (its last change)
+ * can be newer than a done one's, which `foldByDay` sorts out.
  */
 function foldDays(items: readonly EngineNode[], zone: string): FoldDay[] {
-  const today = dayOf(Date.now(), zone);
-  const days = new Map<string, EngineNode[]>();
-  for (const node of items.toSorted(byCompletion)) {
-    const day = dayOf(finishedAt(node).getTime(), zone);
-    const bucket = days.get(day);
-    if (bucket === undefined) {
-      days.set(day, [node]);
-    } else {
-      bucket.push(node);
-    }
-  }
-  const newestFirst = [...days.entries()].toSorted(([a], [b]) => b.localeCompare(a));
-  return newestFirst.map(([day, nodes]) => ({
-    count: nodes.length,
-    key: day,
-    label: foldLabel(day, today),
-    rows: nodes.map((node) => finishedRow(node, zone)),
-  }));
+  return foldByDay(items.toSorted(byCompletion), {
+    at: finishedAt,
+    row: (node) => finishedRow(node, zone),
+    zone,
+  });
 }
 
 /** A live task's card preview: its status and last move, its lede, and where it sits. */
@@ -251,53 +219,6 @@ function TaskCard({ node, goingCold }: { node: EngineNode; goingCold: boolean })
 }
 
 /**
- * The list read with its Show more window (MMR-460). `windows` grows on each
- * Show more and resets whenever the filters change; the query refetches the
- * larger prefix, keeping the shown rows meanwhile. If that larger read fails
- * the last good rows stay on screen and the failure is reported beside the
- * button, which retries it.
- */
-function useTaskWindow(filters: TaskFilters) {
-  const scope = JSON.stringify(filters);
-  const [grown, setGrown] = useState({ scope, windows: 1 });
-  // A filter change starts over at one window (reset during render, so the
-  // stale window count never reaches a query).
-  if (grown.scope !== scope) {
-    setGrown({ scope, windows: 1 });
-  }
-  const windows = grown.scope === scope ? grown.windows : 1;
-  const tasks = useQuery(tasksBrowserQuery(filters, windows));
-
-  // The last settled result for these filters, so a failed larger read does
-  // not blank the list (an errored query without data has none of its own).
-  const [kept, setKept] = useState<{ scope: string; data: TaskSet }>();
-  if (
-    tasks.data !== undefined &&
-    !tasks.isPlaceholderData &&
-    (kept?.scope !== scope || kept.data !== tasks.data)
-  ) {
-    setKept({ data: tasks.data, scope });
-  }
-  const shown = tasks.data ?? (kept?.scope === scope ? kept.data : undefined);
-
-  return {
-    hasMore: shown !== undefined && shown.items.length < shown.total,
-    loadMore: () => {
-      if (tasks.isError) {
-        void tasks.refetch();
-      } else {
-        setGrown({ scope, windows: windows + 1 });
-      }
-    },
-    loadMoreFailed: tasks.isError && tasks.data === undefined && shown !== undefined,
-    loadedTasks: shown?.items,
-    loadingMore: tasks.isPlaceholderData,
-    tasks,
-    totalTasks: shown?.total,
-  };
-}
-
-/**
  * `/p/KEY/tasks` — the Tasks list (ADR 0013, MMR-724 refinement; ADR 0019's
  * list page): the count line, the search, the preset as a removable chip and
  * Filter, then the tasks. Live tasks are feed cards grouped by status under
@@ -315,8 +236,16 @@ export function TasksPage() {
   const filters = taskListFilters(search, { project, zone });
   const finishedOnly = isFinishedSelection(filters.status);
 
-  const { tasks, loadedTasks, totalTasks, hasMore, loadingMore, loadMoreFailed, loadMore } =
-    useTaskWindow(filters);
+  const {
+    read: tasks,
+    shown,
+    hasMore,
+    loadingMore,
+    loadMoreFailed,
+    loadMore,
+  } = useListWindow(filters, (windows) => tasksBrowserQuery(filters, windows));
+  const loadedTasks = shown?.items;
+  const totalTasks = shown?.total;
   const searchRef = useRef<HTMLDivElement>(null);
   const filterChip = useRef<HTMLButtonElement>(null);
   const [filtering, setFiltering] = useState(false);
