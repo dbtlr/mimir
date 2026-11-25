@@ -21,11 +21,16 @@ describe('the Seeds count line (MMR-725)', () => {
   it('keeps each lane part on one line, so a phone wraps only after a comma', () => {
     const line = seedCountLine(board({ ready: 2, untriaged: 11 }), undefined);
     const [, breakdown = ''] = line.split(': ');
-    expect(breakdown.split(', ')).toEqual(['11\u00a0to\u00a0triage', '2\u00a0ready\u00a0to\u00a0resolve']);
+    expect(breakdown.split(', ')).toEqual([
+      '11\u00a0to\u00a0triage',
+      '2\u00a0ready\u00a0to\u00a0resolve',
+    ]);
   });
 
   it('leaves out an empty lane, and is singular at one', () => {
-    expect(seedCountLine(board({ untriaged: 1 }), undefined)).toBe('1 open seed: 1\u00a0to\u00a0triage');
+    expect(seedCountLine(board({ untriaged: 1 }), undefined)).toBe(
+      '1 open seed: 1\u00a0to\u00a0triage',
+    );
   });
 
   it('says when only settled seeds remain, and when there are none', () => {
