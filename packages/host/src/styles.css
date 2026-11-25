@@ -22,8 +22,17 @@
  * distribution bars, status badges, and record pages.
  */
 @theme {
-  --font-sans: 'Instrument Sans Variable', 'Instrument Sans', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+  /*
+   * Neither bundled face draws the command key (⌘, U+2318), which shows in
+   * titles and the Jump to shortcut, so each stack names the symbol faces that
+   * do on each platform before its generic family (MMR-725).
+   */
+  --font-sans:
+    'Instrument Sans Variable', 'Instrument Sans', system-ui, 'Apple Symbols', 'Segoe UI Symbol',
+    'Noto Sans Symbols 2', 'DejaVu Sans', sans-serif;
+  --font-mono:
+    'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'Apple Symbols', 'Segoe UI Symbol',
+    'Noto Sans Symbols 2', 'DejaVu Sans Mono', monospace;
 
   /*
    * The Meridian type scale. Semantic steps rendered against the 16px browser

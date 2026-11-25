@@ -25,8 +25,11 @@ export function FeedStatusLine({
   /** The record's type in words ("Task", "Project"), after a hairline. */
   type?: string;
   recordId?: string;
-  /** The project's name after the ID, where the card's feed spans projects (the Needs you deck). */
-  project?: string;
+  /**
+   * What follows the ID: the project's name where the card's feed spans
+   * projects (the Needs you deck), or where a seed was filed from (MMR-725).
+   */
+  project?: ReactNode;
   age?: string;
   className?: string;
 }) {

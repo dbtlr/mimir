@@ -2,7 +2,7 @@ import type { EngineNode, EngineTree, NodeRef } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useEffect, useEffectEvent, useId, useRef, useState } from 'react';
-import type { ReactNode, UIEvent } from 'react';
+import type { ReactNode } from 'react';
 
 import { agentActivityQuery } from '../api/agent-queries';
 import { HostFaultError, isEngineRefusal } from '../api/errors';
@@ -62,21 +62,12 @@ export function taskCount(record: EngineNode): number {
 }
 
 /** The record's own column: one centred column of at most 900px, no rail (MMR-726). */
-export function RecordColumn({
-  offline,
-  onScroll,
-  children,
-}: {
-  offline: boolean;
-  onScroll?: (event: UIEvent<HTMLElement>) => void;
-  children: ReactNode;
-}) {
+export function RecordColumn({ offline, children }: { offline: boolean; children: ReactNode }) {
   return (
     // tabIndex -1: a focus fallback for a control that unmounts itself, such
     // as a row's button once its action moves the row out of the list.
     <main
       tabIndex={-1}
-      onScroll={onScroll}
       data-testid="record-scroll"
       className={cn('min-h-0 w-full flex-1 overflow-y-auto', offline && 'offline-demoted')}
     >

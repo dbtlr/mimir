@@ -1,5 +1,5 @@
-import { SEED_KIND_VALUES, seedLane } from '@mimir/contract';
-import type { SeedKind, SeedLane } from '@mimir/contract';
+import { seedLane } from '@mimir/contract';
+import type { SeedLane } from '@mimir/contract';
 
 import type { EngineSeed } from '../api/browse-queries';
 
@@ -18,13 +18,13 @@ export const SEED_LANE_ORDER: readonly SeedLane[] = [
   'settled',
 ];
 
-/** Group-header label per lane — sentence case; the group header uppercases it. */
+/** Each lane's name, the Seeds list's group heads and folds (MMR-725). */
 export const SEED_LANE_LABEL: Record<SeedLane, string> = {
   parked: 'Parked',
   promoted: 'Promoted',
   ready: 'Ready to resolve',
   settled: 'Settled',
-  untriaged: 'Untriaged',
+  untriaged: 'To triage',
 };
 
 /** A lane's dot: the lane's hue sits on the dot, and its word reads in bright ink (MMR-718). */
@@ -74,27 +74,4 @@ export function seedMatchesQuery(seed: EngineSeed, query: string): boolean {
   return [seed.id, seed.title, seed.lede ?? ''].some((field) =>
     field.toLowerCase().includes(needle),
   );
-}
-
-/** Header summary: how many seeds await triage (untriaged) and resolution (ready). */
-export function seedSummary(seeds: readonly EngineSeed[]): {
-  toTriage: number;
-  toResolve: number;
-} {
-  let toTriage = 0;
-  let toResolve = 0;
-  for (const s of seeds) {
-    const lane = laneOf(s);
-    if (lane === 'untriaged') {
-      toTriage += 1;
-    } else if (lane === 'ready') {
-      toResolve += 1;
-    }
-  }
-  return { toResolve, toTriage };
-}
-
-/** Whether a URL value is one of the seed kinds (`validateSearch` drops anything else). */
-export function isSeedKind(value: unknown): value is SeedKind {
-  return typeof value === 'string' && (SEED_KIND_VALUES as readonly string[]).includes(value);
 }

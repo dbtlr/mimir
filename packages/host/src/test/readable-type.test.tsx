@@ -143,7 +143,6 @@ const DECORATION: Record<string, { count: number; why: string }> = {
     count: 2,
     why: 'the › after the home label and the ▾ picker chevron',
   },
-  'components/browser-list.tsx': { count: 1, why: 'the search icon beside the input' },
   'components/crumbs.tsx': { count: 1, why: 'the › separators between crumbs' },
   'components/decisions-walkthrough/rail.tsx': {
     count: 1,

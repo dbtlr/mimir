@@ -97,6 +97,15 @@ export function FilterIcon({ className }: IconProps) {
   );
 }
 
+/** Plus: a new record, the Seeds list's File a seed (MMR-725). */
+export function PlusIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="M12 5v14M5 12h14" />
+    </Icon>
+  );
+}
+
 export function SettingsIcon({ className }: IconProps) {
   return (
     <Icon className={className}>

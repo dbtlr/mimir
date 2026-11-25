@@ -37,8 +37,11 @@ export function FeedCard({
   lead: ReactNode;
   /** The record's ID, set in mono after the lead. */
   id?: string;
-  /** The project's name after the ID, where the feed spans projects (the Needs you deck, MMR-721). */
-  project?: string;
+  /**
+   * What follows the ID: the project's name where the feed spans projects (the
+   * Needs you deck, MMR-721), or a seed's origin ("from FLT", MMR-725).
+   */
+  project?: ReactNode;
   /** How long ago the item last moved ("50m"), at the right of the first line. */
   age?: string;
   title: string;
@@ -48,7 +51,7 @@ export function FeedCard({
   chips?: ReactNode;
   /** The card's one button, passed itself rather than wrapped, so the card can size it. */
   action?: ReactNode;
-  /** A going-cold card: its title is demoted to ink-dim (ADR 0019 §7, MMR-718). */
+  /** A card set back, its title demoted to ink-dim: a going-cold task (ADR 0019 §7, MMR-718) or a settled seed (MMR-725). */
   cold?: boolean;
 }) {
   const statusId = useId();

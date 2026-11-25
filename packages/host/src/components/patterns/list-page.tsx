@@ -3,16 +3,17 @@ import type { ReactNode, Ref, RefObject } from 'react';
 
 import { cn } from '../../lib/cn';
 import { CloseIcon, FilterIcon } from '../ui/icons';
+import { FEED_FOCUS_RING, FEED_LINK_TEXT } from './feed/link';
 import { ShowMoreButton } from './feed/show-more';
 
 /*
  * The list page (ADR 0019, MMR-724 refinement; DESIGN.md, List page): one
- * layout for every kind of record's list (Tasks now, then Seeds, Artifacts,
- * and Projects). It reads top down: the count line, the search on its own
- * row, the chip row (the preset as one removable chip, then Filter), and the
- * groups, each under a heading that stays in view while its group scrolls.
- * The feature hands it its own parts: the search box, the cards or rows, and
- * the Filter sheet.
+ * layout for every kind of record's list (Tasks, Seeds, and Artifacts now;
+ * Projects next). It reads top down: the count line, the search on its own
+ * row, the chip row (the preset as one removable chip, then Filter, then any
+ * filter a link carried), and the groups, each under a heading that stays in
+ * view while its group scrolls. The feature hands it its own parts: the search
+ * box, the cards or rows, and the Filter sheet.
  */
 
 /**
@@ -23,6 +24,7 @@ import { ShowMoreButton } from './feed/show-more';
 export function ListPage({
   label,
   count,
+  countAction,
   search,
   chips,
   children,
@@ -31,9 +33,11 @@ export function ListPage({
   label: string;
   /** The count line, in words ("9 tasks in flight"); absent until the read arrives. */
   count?: ReactNode;
+  /** A text action at the count line's right (`CountLineAction`): Seeds' File a seed. */
+  countAction?: ReactNode;
   /** The search box, on its own row. */
   search: ReactNode;
-  /** The chip row's chips: the preset chip, then the Filter chip. */
+  /** The chip row's chips: the preset chip, then the Filter chip, then any carried chips. */
   chips: ReactNode;
   children: ReactNode;
 }) {
@@ -42,9 +46,12 @@ export function ListPage({
     // own bottom padding, and 48 from `md` up, 8 more than that padding.
     <section aria-label={label} className="w-full md:pb-2">
       {/* The line holds its height while the count is on its way, so nothing below moves. */}
-      <p data-slot="list-count" className="m-0 mb-4 min-h-5 text-meta text-ink-dim">
-        {count}
-      </p>
+      <div className="mb-4 flex min-h-5 items-center justify-between gap-3">
+        <p data-slot="list-count" className="m-0 min-w-0 text-meta text-ink-dim">
+          {count}
+        </p>
+        {countAction}
+      </div>
       {search}
       {/* On a phone each 36 pill sits in a 44 tap area; the row pulls those 4s back, so the
           pills keep the 8 and 32 and wrapped rows sit 8 apart, as the Filter sheet's pills do. */}
@@ -62,12 +69,47 @@ export function ListPage({
 }
 
 /**
- * A chip's tap area and its pill: 44 tall on a phone around a 36 pill, and the
- * pill alone (36) from `md` up. The pill draws the state; the button holds focus,
- * and its ring is drawn on the pill.
+ * The count line's text action (MMR-725): a glyph and its words in the See all
+ * style (13 / 20, 500, `accent-foreground`, underlined on hover), at the line's
+ * right. Its tap target is 44 tall on a phone and 36 from `md` up, pulled back
+ * above and below so the line keeps its 20.
  */
-const CHIP_TARGET =
-  'group/chip inline-flex min-h-11 items-center rounded-full outline-none md:min-h-9';
+export function CountLineAction({
+  icon,
+  onClick,
+  children,
+}: {
+  icon?: ReactNode;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        '-my-3 -mr-1 inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-md px-1 text-meta font-medium whitespace-nowrap md:-my-2 md:min-h-9',
+        FEED_LINK_TEXT,
+        FEED_FOCUS_RING,
+      )}
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}
+
+/**
+ * A chip's tap area and its pill: 44 tall on a phone around a 36 pill, and 4
+ * past each side, half the 8 between chips, so a tap area is at least 44 wide
+ * and neighbours' areas meet without overlapping; the pill alone (36) from
+ * `md` up. The pill draws the state; the button holds focus, and its ring is
+ * drawn on the pill.
+ */
+const CHIP_TARGET = cn(
+  'group/chip relative inline-flex min-h-11 items-center rounded-full outline-none md:min-h-9',
+  "max-md:before:absolute max-md:before:inset-y-0 max-md:before:-inset-x-1 max-md:before:content-['']",
+);
 const CHIP_PILL = cn(
   'inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-label whitespace-nowrap inset-ring transition-colors',
   'group-focus-visible/chip:outline-2 group-focus-visible/chip:outline-offset-2 group-focus-visible/chip:outline-solid group-focus-visible/chip:outline-accent',
@@ -80,13 +122,24 @@ const CHIP_ON =
 
 /**
  * The preset in force, as one removable chip: the whole chip is the remove
- * target, named "Remove In flight".
+ * target, named "Remove In flight". A filter a link carries that the Filter
+ * sheet does not hold takes the same chip after Filter; `children` draws its
+ * label when part of it is set apart ("Tagged `workspace_unconsolidated`").
  */
-export function PresetChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+export function PresetChip({
+  label,
+  onRemove,
+  children,
+}: {
+  /** The chip's words, which its accessible name removes. */
+  label: string;
+  onRemove: () => void;
+  children?: ReactNode;
+}) {
   return (
     <button type="button" aria-label={`Remove ${label}`} onClick={onRemove} className={CHIP_TARGET}>
       <span className={cn(CHIP_PILL, CHIP_ON)}>
-        <span className="max-w-[16rem] truncate">{label}</span>
+        <span className="max-w-[16rem] truncate">{children ?? label}</span>
         <CloseIcon className="size-4 md:size-4" />
       </span>
     </button>
@@ -213,12 +266,14 @@ export function ListGroup({
 /**
  * The list's one text button, closing a list that loads by window: "Show 50
  * more", the Day fold's Show N more (`ShowMoreButton`), busy while the next
- * window loads.
+ * window loads. When the last press failed, an alert above it says so, and the
+ * button retries.
  */
 export function ListShowMore({
   count,
   noun,
   loading,
+  failed,
   onClick,
 }: {
   /** How many the press reveals. */
@@ -226,16 +281,25 @@ export function ListShowMore({
   /** What it reveals, for its accessible name after the visible words ("Show 50 more finished tasks"). */
   noun: string;
   loading: boolean;
+  /** Whether the last window failed to load ("Couldn't load more finished tasks."). */
+  failed: boolean;
   onClick: () => void;
 }) {
   return (
-    <ShowMoreButton
-      loading={loading}
-      aria-label={`Show ${count.toLocaleString('en-US')} more ${noun}`}
-      onClick={onClick}
-      className="mt-3 px-1"
-    >
-      Show {count.toLocaleString('en-US')} more
-    </ShowMoreButton>
+    <>
+      {failed && (
+        <p role="alert" className="mt-4 text-meta text-status-blocked-foreground">
+          Couldn't load more {noun}.
+        </p>
+      )}
+      <ShowMoreButton
+        loading={loading}
+        aria-label={`Show ${count.toLocaleString('en-US')} more ${noun}`}
+        onClick={onClick}
+        className="mt-3 px-1"
+      >
+        Show {count.toLocaleString('en-US')} more
+      </ShowMoreButton>
+    </>
   );
 }

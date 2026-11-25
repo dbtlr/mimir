@@ -3,6 +3,7 @@ import type { EngineNode, Priority, Size, TaskStatusWord } from '@mimir/contract
 
 import { isFinishedSelection } from '../api/browse-queries';
 import type { TaskFilters } from '../api/browse-queries';
+import { csv } from './comma-list';
 import { lastSevenDays } from './home';
 import { TASK_STATUS_ORDER } from './status';
 
@@ -80,17 +81,6 @@ export const isTaskPreset = (value: string | undefined): value is TaskPreset =>
 
 export const isTaskSort = (value: string | undefined): value is TaskSort =>
   (TASK_SORTS as readonly (string | undefined)[]).includes(value);
-
-/** A comma list's distinct, non-empty values, in order. */
-export function csv(value: string | undefined): string[] {
-  const seen: string[] = [];
-  for (const token of (value ?? '').split(',').map((t) => t.trim())) {
-    if (token !== '' && !seen.includes(token)) {
-      seen.push(token);
-    }
-  }
-  return seen;
-}
 
 const pick = <T extends string>(values: readonly T[], from: string | undefined): T[] =>
   csv(from).filter((token): token is T => (values as readonly string[]).includes(token));

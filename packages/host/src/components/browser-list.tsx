@@ -4,195 +4,50 @@ import type { ReactNode, Ref } from 'react';
 
 import { cn } from '../lib/cn';
 import type { artifactLink, nodeLink, seedLink } from '../lib/record-url';
-import { CloseIcon, SearchIcon } from './ui/icons';
-import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/legacy-menu';
+import { SearchIcon } from './ui/icons';
 
 /**
- * The grouped reading list (MMR-448 mock "Browsers C", MMR-454) — the shared
- * anatomy of the `/tasks`, `/artifacts`, and `/seeds` browsers: one centred
- * column, a header with a count, a row of filter chips, and rows grouped under
- * a microlabel. Every row is a real link to its record's page.
+ * The grouped reading list's parts (MMR-448 mock "Browsers C", MMR-454): a
+ * group under a microlabel and a row that is a real link to its record's page,
+ * which the work page and a delivery's tasks still list with; and the list
+ * page's search box (MMR-724).
  */
 
 /**
- * A browser's body under its project's header and tabs (MMR-726): the tab
- * names the list, so it takes no heading of its own, and the row above the
- * filters holds the dim count and an optional action.
- */
-export function BrowserPage({
-  title,
-  count,
-  action,
-  children,
-}: {
-  title: string;
-  count?: ReactNode;
-  action?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <section aria-label={title} className="w-full">
-      {(count !== undefined || action !== undefined) && (
-        <div className="mb-3 flex min-h-9 flex-wrap items-center gap-2.5">
-          {count !== undefined && <span className="text-meta text-ink-dim">{count}</span>}
-          {action !== undefined && <div className="ml-auto">{action}</div>}
-        </div>
-      )}
-      {children}
-    </section>
-  );
-}
-
-/** The filter row: a search box that takes the free width, then the chips. */
-export function FilterRow({ children }: { children: ReactNode }) {
-  return <div className="mb-2.5 flex flex-wrap items-center gap-1.5">{children}</div>;
-}
-
-/**
- * The browser search box — controlled; debouncing is the caller's concern.
- * `list` is the list page's search (MMR-724): a 44-tall field on its own row,
- * 15/22 text, an ink-dim edge on the page ground, full width wherever the
- * page's cards stack, and the width of the card grid's first track where they
- * sit two across, so it lines up with the first column of cards.
+ * The list page's search box (MMR-724), controlled; debouncing is the
+ * caller's concern. A 44-tall field on its own row, 15/22 text, an ink-dim
+ * edge on the page ground, full width wherever the page's cards stack, and the
+ * width of the card grid's first track where they sit two across, so it lines
+ * up with the first column of cards.
  */
 export function BrowserSearch({
   value,
   onChange,
   label,
   placeholder,
-  variant = 'compact',
 }: {
   value: string;
   onChange: (value: string) => void;
   label: string;
   placeholder: string;
-  variant?: 'compact' | 'list';
 }) {
-  const list = variant === 'list';
-  const field = (
-    <label
-      className={cn(
-        'flex min-w-0 items-center gap-2 bg-well-950 transition-colors focus-within:border-accent',
-        list
-          ? 'h-11 w-full rounded-md border border-ink-dim px-3 md:@min-[612px]:w-[calc((100%-0.75rem)/2)]'
-          : 'flex-[1_1_260px] rounded-[9px] border border-line-bright px-2.5 py-1.5',
-      )}
-    >
-      <SearchIcon
-        className={cn(
-          '[stroke-width:2]',
-          list ? 'size-4 text-ink-dim md:size-4' : 'size-4 text-ink-faint md:size-4',
-        )}
-      />
-      <input
-        type="search"
-        value={value}
-        onChange={(e) => {
-          onChange(e.target.value);
-        }}
-        aria-label={label}
-        placeholder={placeholder}
-        className={cn(
-          'min-w-0 flex-1 bg-transparent text-ink-bright caret-accent outline-none placeholder:text-ink-dim',
-          list ? 'text-[15px] leading-[22px]' : 'text-meta',
-        )}
-      />
-    </label>
-  );
   // The card grid's columns follow its container's width, so the field reads the same container.
-  return list ? <div className="@container w-full">{field}</div> : field;
-}
-
-const CHIP =
-  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-[3px] text-xs whitespace-nowrap inset-ring transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
-const CHIP_OFF = 'text-ink-dim inset-ring-line-bright hover:text-ink';
-const CHIP_ON = 'bg-accent/10 text-accent-foreground inset-ring-accent/28';
-
-/** A toggle chip (`Live`, `Finished`) — pressed state is the accent wash. */
-export function FilterChip({
-  on,
-  onClick,
-  children,
-}: {
-  on: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
   return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={onClick}
-      className={cn(CHIP, on ? CHIP_ON : CHIP_OFF)}
-    >
-      {children}
-    </button>
-  );
-}
-
-/**
- * A filter the URL carries but no chip offers (a deep-linked status, a date
- * window): shown in the accent wash with a close mark, and clicking removes it.
- */
-export function RemovableChip({
-  label,
-  removeLabel,
-  onRemove,
-}: {
-  label: string;
-  /** Accessible name — names the filter, e.g. "Remove status filter Ready". */
-  removeLabel: string;
-  onRemove: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={removeLabel}
-      onClick={onRemove}
-      className={cn(CHIP, CHIP_ON, 'hover:bg-accent/15')}
-    >
-      <span className="max-w-40 truncate">{label}</span>
-      <CloseIcon className="size-3 [stroke-width:2.5] md:size-3" />
-    </button>
-  );
-}
-
-export type MenuChipOption = { value: string; label: ReactNode };
-
-/**
- * A chip that opens a menu of options (`All projects ▾`, `Any kind ▾`,
- * `Group: status ▾`). It reads as `on` whenever a non-default value is chosen.
- */
-export function MenuChip({
-  label,
-  on,
-  options,
-  onSelect,
-}: {
-  label: ReactNode;
-  on: boolean;
-  options: readonly MenuChipOption[];
-  onSelect: (value: string) => void;
-}) {
-  return (
-    <MenuRoot>
-      <MenuTrigger className={cn(CHIP, on ? CHIP_ON : CHIP_OFF)}>
-        {label}
-        <span aria-hidden>▾</span>
-      </MenuTrigger>
-      <MenuContent className="max-h-80 w-56 overflow-y-auto">
-        {options.map((o) => (
-          <MenuItem
-            key={o.value}
-            onClick={() => {
-              onSelect(o.value);
-            }}
-          >
-            {o.label}
-          </MenuItem>
-        ))}
-      </MenuContent>
-    </MenuRoot>
+    <div className="@container w-full">
+      <label className="flex h-11 w-full min-w-0 items-center gap-2 rounded-md border border-ink-dim bg-well-950 px-3 transition-colors focus-within:border-accent md:@min-[612px]:w-[calc((100%-0.75rem)/2)]">
+        <SearchIcon className="size-4 text-ink-dim [stroke-width:2] md:size-4" />
+        <input
+          type="search"
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+          }}
+          aria-label={label}
+          placeholder={placeholder}
+          className="min-w-0 flex-1 bg-transparent text-[15px] leading-[22px] text-ink-bright caret-accent outline-none placeholder:text-ink-dim"
+        />
+      </label>
+    </div>
   );
 }
 
@@ -347,30 +202,6 @@ export function BrowserRow({
           {actions}
         </div>
       )}
-    </div>
-  );
-}
-
-/** The empty state shared by all three browsers. */
-export function BrowserEmpty({ children }: { children: ReactNode }) {
-  return <p className="px-4 py-10 text-center text-xs text-ink-dim">{children}</p>;
-}
-
-/**
- * The "Show more" control closing a windowed browser list (MMR-460): rendered
- * only while more rows remain, inert while the next window is loading.
- */
-export function BrowserShowMore({ onClick, loading }: { onClick: () => void; loading: boolean }) {
-  return (
-    <div className="mt-4 flex justify-center">
-      <button
-        type="button"
-        disabled={loading}
-        onClick={onClick}
-        className="rounded-lg px-3 py-1.5 text-xs font-semibold text-ink inset-ring inset-ring-line-bright transition-colors hover:bg-line/50 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40"
-      >
-        Show more
-      </button>
     </div>
   );
 }

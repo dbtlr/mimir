@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
-import type { ReactElement, ReactNode } from 'react';
+import type { ComponentProps, ReactElement, ReactNode, Ref } from 'react';
 
 import { cn } from '../../../lib/cn';
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from '../../ui/collapsible';
@@ -16,35 +16,49 @@ import { ShowMoreButton } from './show-more';
  * a refetch pushes it past the cap.
  */
 
+/** What every finished row has: its link, title, and time. */
+type FinishedRowBase = {
+  to: FeedLink;
+  title: string;
+  /** When it finished, or was frozen ("08:06"). */
+  time: string;
+};
+
 /**
  * One finished row: the status dot, the title (demoted to ink-dim, two lines
  * at most on a phone and one on desktop), and the time in mono. `status` leads
  * the row's accessible name on every row, so done and abandoned rows read
  * alike. An abandoned row's `note` is its second line: the feature's
  * StatusWord, then the reason.
+ *
+ * The `artifact` option (MMR-725) is a record frozen that day rather than work
+ * that finished: no dot, its title in ink-bright, wrapping, and `meta` as a
+ * second line that keeps to one (the kind, then the records it is on).
  */
-export function FinishedRow({
-  to,
-  dot,
-  status,
-  title,
-  time,
-  note,
-}: {
-  to: FeedLink;
-  /** The status dot, from the feature. */
-  dot: ReactNode;
-  /** The status's display label ("Done", "Abandoned"), read before the title. */
-  status: string;
-  title: string;
-  /** When it finished ("08:06"). */
-  time: string;
-  /** A second line: an abandoned row's status word and its reason. */
-  note?: ReactNode;
-}) {
+export function FinishedRow(
+  props: FinishedRowBase &
+    (
+      | {
+          variant?: 'finished';
+          /** The status dot, from the feature. */
+          dot: ReactNode;
+          /** The status's display label ("Done", "Abandoned"), read before the title. */
+          status: string;
+          /** A second line: an abandoned row's status word and its reason. */
+          note?: ReactNode;
+        }
+      | {
+          variant: 'artifact';
+          /** The one meta line; the caller keeps it to one line's content. */
+          meta?: ReactNode;
+        }
+    ),
+) {
+  const artifact = props.variant === 'artifact';
+  const second = artifact ? props.meta : props.note;
   return (
     <Link
-      {...to}
+      {...props.to}
       className={cn(
         // -mx-1 with px-1: the text sits on the column's edge while the hover
         // fill and focus ring reach 4 past it; the hairlines stay in the column.
@@ -55,21 +69,39 @@ export function FinishedRow({
       {/* The dot sits in a 16 column, as the fold's chevron does, so the title
           lines up with the day label. It is hidden: the status is in words. */}
       <span aria-hidden className="mt-2 flex w-4 shrink-0 justify-center">
-        {dot}
+        {artifact ? null : props.dot}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="sr-only">{status}:</span>{' '}
-        <span className="block truncate text-title font-medium text-ink-dim wrap-anywhere max-md:line-clamp-2 max-md:whitespace-normal">
-          {title}
+        {!artifact && (
+          <>
+            <span className="sr-only">{props.status}:</span>{' '}
+          </>
+        )}
+        <span
+          className={cn(
+            'block text-title font-medium wrap-anywhere',
+            artifact
+              ? 'text-ink-bright'
+              : 'truncate text-ink-dim max-md:line-clamp-2 max-md:whitespace-normal',
+          )}
+        >
+          {props.title}
         </span>
-        {note !== undefined && (
+        {second !== undefined && (
           <>
             {' '}
-            <span className="mt-0.5 block text-meta text-ink-dim">{note}</span>
+            <span
+              className={cn(
+                'mt-0.5 block text-meta text-ink-dim',
+                artifact && 'flex min-w-0 items-baseline gap-2 whitespace-nowrap',
+              )}
+            >
+              {second}
+            </span>
           </>
         )}
       </span>{' '}
-      <span className="shrink-0 font-mono text-meta leading-[22px] text-ink-dim">{time}</span>
+      <span className="shrink-0 font-mono text-meta leading-[22px] text-ink-dim">{props.time}</span>
     </Link>
   );
 }
@@ -158,6 +190,93 @@ export function DayFold({
     }
   }, [expanded]);
   return (
+    <Fold
+      label={label}
+      count={count}
+      open={open}
+      onOpenChange={onOpenChange}
+      triggerRef={triggerRef}
+      panel={{
+        // The hold lasts while focus stays in the fold: moving to Show N more
+        // keeps the row, so the button neither shifts under a press nor
+        // changes its label under focus.
+        onBlur: (event) => {
+          // The window losing focus (switching apps or tabs) blurs the link
+          // with no relatedTarget; keep the row, so focus returns to it when
+          // the window does.
+          if (event.relatedTarget === null && !document.hasFocus()) {
+            return;
+          }
+          if (!event.currentTarget.contains(event.relatedTarget)) {
+            setFocusedKey(null);
+          }
+        },
+      }}
+    >
+      <ul ref={listRef} className="m-0 list-none divide-y divide-line p-0">
+        {shown.map((row) => (
+          // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- it only notes which row holds focus; the row's own link stays the control
+          <li
+            key={row.key}
+            onFocus={() => {
+              setFocusedKey(row.key);
+            }}
+          >
+            {row}
+          </li>
+        ))}
+      </ul>
+      {hidden > 0 && (
+        <ShowMoreButton
+          // A mouse press leaves focus where it is. Otherwise the press
+          // blurs a held row (to the page in Safari and Firefox, or out of
+          // another day's fold), the row lets go, and the button moves up
+          // a row before the click lands. The reveal moves focus after.
+          onMouseDown={(event) => {
+            event.preventDefault();
+          }}
+          onClick={() => {
+            shownWhenPressed.current = shown.length;
+            setExpanded(true);
+          }}
+          // Indented to the titles' left edge: 4 of padding, the 16 dot
+          // column, and its 8 gap.
+          className="pr-1 pl-7"
+        >
+          Show {hidden} more
+        </ShowMoreButton>
+      )}
+    </Fold>
+  );
+}
+
+/**
+ * A fold (ADR 0019, MMR-719 refinement): a trigger row, the Collapsible
+ * primitive's 16 chevron, the label, and its count, 44 tall on a phone and 36
+ * on desktop, over what it holds. It opens at once, with none of the
+ * primitive's height animation or chevron turn (ADR 0019 §8). A day's fold
+ * holds its rows; the Seeds list's Parked and Settled lanes hold their cards
+ * (MMR-725).
+ */
+export function Fold({
+  label,
+  count,
+  open,
+  onOpenChange,
+  triggerRef,
+  panel,
+  children,
+}: {
+  label: string;
+  count: number;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  triggerRef?: Ref<HTMLButtonElement>;
+  /** Handlers on the panel that holds `children`. */
+  panel?: Pick<ComponentProps<typeof CollapsiblePanel>, 'onBlur'>;
+  children: ReactNode;
+}) {
+  return (
     <Collapsible
       open={open}
       onOpenChange={(next) => {
@@ -174,56 +293,8 @@ export function DayFold({
         {label}{' '}
         <span className="text-meta font-normal text-ink-dim">{count.toLocaleString('en-US')}</span>
       </CollapsibleTrigger>
-      <CollapsiblePanel
-        animated={false}
-        // The hold lasts while focus stays in the fold: moving to Show N more
-        // keeps the row, so the button neither shifts under a press nor
-        // changes its label under focus.
-        onBlur={(event) => {
-          // The window losing focus (switching apps or tabs) blurs the link
-          // with no relatedTarget; keep the row, so focus returns to it when
-          // the window does.
-          if (event.relatedTarget === null && !document.hasFocus()) {
-            return;
-          }
-          if (!event.currentTarget.contains(event.relatedTarget)) {
-            setFocusedKey(null);
-          }
-        }}
-      >
-        <ul ref={listRef} className="m-0 list-none divide-y divide-line p-0">
-          {shown.map((row) => (
-            // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- it only notes which row holds focus; the row's own link stays the control
-            <li
-              key={row.key}
-              onFocus={() => {
-                setFocusedKey(row.key);
-              }}
-            >
-              {row}
-            </li>
-          ))}
-        </ul>
-        {hidden > 0 && (
-          <ShowMoreButton
-            // A mouse press leaves focus where it is. Otherwise the press
-            // blurs a held row (to the page in Safari and Firefox, or out of
-            // another day's fold), the row lets go, and the button moves up
-            // a row before the click lands. The reveal moves focus after.
-            onMouseDown={(event) => {
-              event.preventDefault();
-            }}
-            onClick={() => {
-              shownWhenPressed.current = shown.length;
-              setExpanded(true);
-            }}
-            // Indented to the titles' left edge: 4 of padding, the 16 dot
-            // column, and its 8 gap.
-            className="pr-1 pl-7"
-          >
-            Show {hidden} more
-          </ShowMoreButton>
-        )}
+      <CollapsiblePanel animated={false} {...panel}>
+        {children}
       </CollapsiblePanel>
     </Collapsible>
   );

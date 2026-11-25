@@ -5,7 +5,7 @@ import { parse, stringify } from 'superjson';
 
 import { BROWSE_CACHE_VERSION } from '../api/browse-queries';
 import { NODE_CACHE_VERSION } from '../api/node-queries';
-import { INFINITE_QUERY_KEY_ROOTS, UNPERSISTED_QUERY_KEY_ROOTS } from '../api/queries';
+import { UNPERSISTED_QUERY_KEY_ROOTS } from '../api/queries';
 import { SHELL_CACHE_VERSION } from '../api/shell-queries';
 import { VIEW_CACHE_VERSION } from '../api/view-queries';
 
@@ -14,8 +14,7 @@ import { VIEW_CACHE_VERSION } from '../api/view-queries';
  * query (its queryKey shape, or its data shape — e.g. a plain query becoming an
  * infinite `{ pages, pageParams }` one, or a read changing its data type) MUST
  * change this. A stale-shape warm cache restored into the new code crashes the
- * route before app code runs; a new buster drops the old cache on restore. See {@link sanitizePersistedClient} for the shape
- * guard behind this.
+ * route before app code runs; a new buster drops the old cache on restore.
  *
  * Each area's query module owns a version of its own, so a change bumps the
  * one beside the reads it reshapes and parallel work on different areas never
@@ -52,34 +51,6 @@ export function shouldPersistQuery(query: {
     return false;
   }
   return query.state.data !== undefined;
-}
-
-/** A restored infinite query must carry `{ pages, pageParams }`. */
-function isInfiniteShaped(data: unknown): boolean {
-  return (
-    typeof data === 'object' && data !== null && Array.isArray((data as { pages?: unknown }).pages)
-  );
-}
-
-/**
- * Defense in depth behind the persister buster ({@link PERSIST_BUSTER}). If a warm cache
- * holds a flat, non-infinite payload under an infinite query's key — a legacy
- * shape from before the query became infinite, or any drift a missed buster
- * bump let through — restoring it would crash react-query's `hasNextPage`
- * (`pages.length` on `undefined`) while the InfiniteQueryObserver mounts, i.e.
- * before app code or `getNextPageParam` ever run and before any error boundary
- * short of the whole route. Drop the stale entry so the query refetches
- * cleanly instead. Non-infinite queries pass through untouched.
- */
-export function sanitizePersistedClient(client: PersistedClient): PersistedClient {
-  const queries = client.clientState.queries.filter((query) => {
-    const root = Array.isArray(query.queryKey) ? query.queryKey[0] : undefined;
-    if (typeof root === 'string' && INFINITE_QUERY_KEY_ROOTS.has(root)) {
-      return query.state.data === undefined || isInfiniteShaped(query.state.data);
-    }
-    return true;
-  });
-  return { ...client, clientState: { ...client.clientState, queries } };
 }
 
 /** A snapshot no restore accepts: its buster never matches, so the restore drops it. */
@@ -119,7 +90,7 @@ export function deserializeClient(cached: string): PersistedClient {
   } catch {
     return STALE_SNAPSHOT;
   }
-  return isPersistedClient(parsed) ? sanitizePersistedClient(parsed) : STALE_SNAPSHOT;
+  return isPersistedClient(parsed) ? parsed : STALE_SNAPSHOT;
 }
 
 export const persister = createAsyncStoragePersister({

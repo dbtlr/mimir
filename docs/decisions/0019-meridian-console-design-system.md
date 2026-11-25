@@ -2527,7 +2527,8 @@ that are about cards and focus, and has nothing to turn, page, or anchor.
 Every kind of record gets one list page (principle 2 of MMR-a420), and they
 share one layout, the **list page**, in `components/patterns/list-page.tsx`.
 The Tasks tab is the first (ADR 0013, MMR-724 refinement); Seeds,
-Artifacts, and Projects follow in MMR-725 on the same parts. The operator
+Artifacts, and Projects follow in MMR-725 on the same parts. (2026-11-25:
+MMR-725 brought Seeds and Artifacts; Projects follows on its own.) The operator
 picked variant A of three mocks; two members of a design review scored its
 third revision 9. `packages/host/DESIGN.md` holds its numbers, under Feed
 blocks, List page.
@@ -2536,8 +2537,8 @@ blocks, List page.
   row, the chip row, then the groups. The chip row holds the preset as one
   removable chip, then Filter, which opens the Filter sheet. The other
   presets live in the sheet, so the row never overflows a phone (variant
-  B's row of every preset did). The search is `BrowserSearch`'s `list`
-  option, 44 tall, as DESIGN.md's Input is at every width.
+  B's row of every preset did). The search is `BrowserSearch`, the list
+  page's one search box, 44 tall, as DESIGN.md's Input is at every width.
 - **A group's heading pins while its group scrolls,** as a band in the
   page's own ground with a `line` hairline only while it is pinned. The
   hairline says the heading is pinned; a band at rest carries none, so the
@@ -2595,3 +2596,68 @@ and the sheet, their reads and chips, the sheet's count, apply, Clear, and
 focus return, old `?status=` links, the day folds, and Show more's windows;
 `e2e/list-page.test.ts` checks the pinned heading in Chromium at a phone's
 width and a desktop's.
+
+## Refinement (2026-11-25, MMR-725): the Seeds and Artifacts lists
+
+The project's Seeds and Artifacts tabs take the list page and the Filter
+sheet of the MMR-724 refinement, with the options below; the URLs and reads
+are ADR 0013's MMR-725 refinement. The operator picked variant C of three
+mocks (seed cards, artifact rows); two members of a design review scored its
+second round 9. `packages/host/DESIGN.md` holds the numbers, under List page.
+
+- **Seeds are cards, set apart lanes fold.** A seed is a live thing to
+  triage, so it is an MMR-719 feed card that opens the MMR-720 preview, as a
+  task's does: its status line holds the seed kind chip (neutral ink, the
+  MMR-626 rule), the ID, "from KEY" when another project filed it, and its
+  age; its detail line says where its spawned work stands ("Became
+  MMR-456", "MMR-699 is done"). A list card carries no button. To triage,
+  Ready to resolve, and Promoted head pinned groups. Parked and Settled,
+  work set aside, follow them as fold rows shaped like a day fold ("Parked
+  15"), closed until opened; a settled card's title is demoted as a cold
+  task's is.
+- **Artifacts are rows in day folds.** An artifact is an archive entry
+  scanned by title and day, which is what finished work's day folds
+  already are. The row is the Finished row's `artifact` option: no dot, the
+  title in `ink-bright` since nothing about it is demoted, and one meta line
+  with the kind as a word, then "On" and the records it is attached to,
+  three at most and the rest as "+N". Only the newest day opens on a fresh
+  visit, and an open day shows five rows before its _Show N more_.
+- **A count line can hold one text action.** The Seeds list's _File a seed_
+  sits at the count line's right in the See all style, so it is always in
+  reach and never reads as a filter. It opens the seed form. The list page
+  takes it as `countAction` (`CountLineAction`), a 44 target on a phone and
+  36 on desktop that keeps the line's 20.
+- **A filter a link carries keeps its own chip after Filter.** The
+  Artifacts list's plain tag and date bounds have no field in the sheet, so
+  each shows in the preset chip's accent wash with its value ("Tagged
+  `workspace_unconsolidated`", "Since 20 November") and removes itself.
+- **The Seeds Show field is five segments,** All, To triage, To resolve,
+  Parked, and Settled, each sized to its label (FilterSegments' `fit`), a
+  named exception to the MMR-736 Choice rule: the row fits at 390, and at 320
+  its longer labels clip. Kind
+  is pills, several at once; the Artifacts Kind is pills, one choice, since
+  the read takes one tag. The Seeds sheet counts from the seeds the list
+  already holds, so its commit answers at once.
+- **Every chip and pill has a 44 square on a phone.** The chip row's chips
+  and the sheet's pills are 36 tall in a 44 tap area, and the area reaches 4
+  past each side, half the 8 between them, so a 36 pill ("S") meets the 44
+  minimum without changing the spacing.
+- **The command key draws from a symbol face.** Neither bundled face has ⌘
+  (U+2318), so both font stacks name the platform symbol faces before their
+  generic family.
+
+Considered and rejected:
+
+- **Cards for both (A).** A lede on every seed card doubled what the preview
+  shows and made a long lane long to scroll; artifact cards in a two-column
+  grid read as live work.
+- **Rows for both (B).** A seed row opens a page, not the preview, so
+  triage means leaving the list and coming back.
+- **File a seed as a chip in the chip row, or at the list's end.** A chip
+  reads as a filter, and the list's end is out of reach on a long list.
+
+`packages/host/src/test/seeds-page.test.tsx` and `artifacts-page.test.tsx`
+check the views and filters through the URL and the sheets, the count lines,
+the lane folds and day folds, File a seed, the empty states, and the
+Artifacts list's windows; `seed-list.test.ts` and `artifacts.test.ts` sweep
+the count line's words and the kind reading.

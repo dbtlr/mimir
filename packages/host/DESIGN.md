@@ -12,8 +12,9 @@ Every value is marked:
   and now carried by the primitives and patterns (MMR-743 the Form sheet,
   MMR-718 readable type, MMR-719 the feed blocks, MMR-720 the preview
   panel, MMR-721 the Needs you deck, MMR-722 Home, MMR-723 the Needs you
-  page, MMR-726 the record header, MMR-724 the list page). The reason given beside
-  one says what the code did before.
+  page, MMR-726 the record header, MMR-724 the list page, MMR-725 the Seeds
+  and Artifacts lists). The reason given beside one says what the code did
+  before.
 - **proposed**: missing from or different in the code. Each carries a one-line
   reason and needs the operator's ruling before a primitive adopts it.
 
@@ -241,6 +242,12 @@ options fit one row at every width. A second: a T3 model option's values come
 from the provider, unknown in advance, so it takes a Segmented Control only when
 every label is one short word (at most 8 characters for one or two choices, 6
 for three, 4 for four, counting Unset) and a Select otherwise, never a Radio.
+A third: the Seeds list's Filter sheet takes Show as five segments (All, To
+triage, To resolve, Parked, Settled), though two labels run past a word, as
+the picked mock drew it (**adopted (MMR-725)**). Each segment is sized to its
+label with 6 of padding a side on a phone and is 44 wide at least
+(FilterSegments' `fit`): the row fits at 390, where equal shares cut "To
+resolve", but at 320 every label but All clips by about 10.
 A form should not need a stacked choice
 list; where a Radio stacks, it follows these numbers:
 
@@ -377,10 +384,11 @@ column says otherwise.
 | | Name | `text-title` in ink, a step under a card title's ink-bright, so a door does not read as a work item; two lines at most | **adopted (MMR-719)** |
 | | Count and chevron | 13 / 20 ink-dim, right-aligned; the chevron ink-dim, decoration | **adopted (MMR-719)** |
 | | The capped group's last row | the same row shape, its name in `accent-foreground` ("5 more projects"), underlined on hover, a link to the list with a filter set | **adopted (MMR-719)** |
-| | Plain row | a row with no destination: the same height, key, name, and count, not a link, with no chevron and no hover fill. Home's spare-minute rows that have no list yet (Seeds to triage, Doctor findings), and Ready to start and Going cold when their work spans projects (MMR-724: Shipped's rows by project, and those two rows for one project, are doors into the Tasks list) | **adopted (MMR-722)** |
+| | Plain row | a row with no destination: the same height, key, name, and count, not a link, with no chevron and no hover fill. Home's spare-minute row that has no list yet (Doctor findings), and Seeds to triage, Ready to start, and Going cold when their work spans projects (MMR-724: Shipped's rows by project, and Ready to start and Going cold for one project, are doors into the Tasks list; MMR-725: Seeds to triage for one project is a door into the Seeds list on To triage) | **adopted (MMR-722)** |
 | | Framed group | a named option of the row group, for a group that is a section's whole block on a page that pairs it with a framed section (Home's When you have a minute, paired with Shipped this week; it keeps its frame in a week when nothing shipped and Shipped is hidden): it sits in a card's frame, `well-850`, 1px `line` edge, 10 radius, `shadow-card` in light, 16 sides, no top or bottom padding, so the first and last rows' 44 / 36 hold, matching the Shipped summary's card. Any other row group stays unframed | **adopted (MMR-722)**; named option **adopted (MMR-780)** |
 | Day fold | Trigger | a row 44 tall on a phone and 36 on desktop, its chevron at the section head's left edge: the Collapsible primitive's 16 chevron (right when closed, down when open), the day label, the count; it opens at once, with none of the Collapsible primitive's height animation or chevron turn (ADR 0019 §8) | **adopted (MMR-719)** |
 | | Finished row | a link, at least 44 tall on a phone and 36 on desktop: the status dot centred in a 16 column (as the chevron above it), the title `text-title` in ink-dim, two lines at most on a phone and one line from `md`, truncated past that, 8 after it so it lines up with the day label, the time 13 mono ink-dim at the right | **adopted (MMR-719)**; two lines on a phone **adopted (MMR-779)** |
+| | Artifact row | the Finished row's `artifact` option: the 16 column stays empty, so the title still lines up with the day label; the title `text-title` in ink-bright, wrapping; a second line, 13 / 20 ink-dim and kept to one line, holds the kind as a word in ink, then "On" and the records it is attached to in 13 mono, three at most, the rest as "+N" that stays when the records' list truncates; the time 13 mono ink-dim at the right | **adopted (MMR-725)** |
 | | Abandoned row | adds a second line, 13 / 20: the status word (ink-bright, 600, as every status word), then the reason in ink-dim | **adopted (MMR-719)** |
 | | Show N more | a text button 44 tall on a phone and 36 on desktop, 14 / 20, 500, `accent-foreground`, underlined on hover; indented 28 to line up with the row titles | **adopted (MMR-719)** |
 | Shipped summary | Chart | a 1px `ink-faint` baseline under the plot, a separator that carries the zero line (the breakdown's divider stays `line`), so a zero day reads as zero; seven columns, 8 apart, each a 16 count row, an 84 plot, and a 32 two-line label row, its track pinned to the column's share so a wide label overhangs rather than widen it; bars at most 44 wide, 3 top radius, in `status-done`; any day above zero at least 4 tall, so a smaller day never draws taller; the columns share the card's width | **adopted (MMR-719)** |
@@ -547,26 +555,33 @@ panel's; the page adds only what is below.
 
 #### List page
 
-One layout for every kind of record's list (ADR 0019's MMR-724 refinement),
-in `src/components/patterns/list-page.tsx`, with the Filter sheet in
-`filter-sheet.tsx` beside it. The Tasks tab is the first; Seeds, Artifacts,
-and Projects follow. Its cards are the Card block's in the Card grid, its
+One layout for every kind of record's list (ADR 0019's MMR-724 and MMR-725
+refinements), in `src/components/patterns/list-page.tsx`, with the Filter
+sheet in `filter-sheet.tsx` beside it. The Tasks tab was the first; Seeds and
+Artifacts followed (MMR-725), and Projects follows. Its cards are the Card block's in the Card grid, its
 finished rows the Day fold's, and its preview the Preview panel's.
 
 | Part | Phone (< 768) | Desktop (≥ 768) | Mark |
 | --- | --- | --- | --- |
 | Count line | 13 / 20 `ink-dim`, in words ("9 tasks in flight", "42 shipped in the last 7 days"; "50 of 120 …" while a window hides some), 20 below the tabs; its line keeps its height while the read is on its way | 24 below the tabs | **adopted (MMR-724)** |
-| Search | 16 below the count line, on its own row: 44 tall, 6 radius, `well-950`, a 1px `ink-dim` edge on the page ground (accent while focused), a 16 search glyph in `ink-dim`, 15 / 22 text, the placeholder "Search titles and IDs" in `ink-dim`; full width | the width of the Card grid's first track (about 424 in the 900 column, about 394 beside the open panel), full width wherever the grid stacks | **adopted (MMR-724)**: `BrowserSearch`'s `list` variant |
+| Count line, Seeds | leads with the open seeds, the Seeds tab's number, and breaks down every open lane that holds any, so the parts sum: "43 open seeds: 11 to triage, 2 ready to resolve, 15 promoted, 15 parked"; a view counts its lane ("11 seeds to triage", "15 parked seeds"); "No seeds" with none | same | **adopted (MMR-725)** |
+| Count-line action | one text action at the line's right (Seeds' _File a seed_): a 16 glyph, then its words, 6 apart, 13 / 20, 500, `accent-foreground`, underlined on hover, as See all; a 44 tap target, pulled back above and below so the line keeps its 20 | a 36 target | **adopted (MMR-725)** |
+| Search | 16 below the count line, on its own row: 44 tall, 6 radius, `well-950`, a 1px `ink-dim` edge on the page ground (accent while focused), a 16 search glyph in `ink-dim`, 15 / 22 text, the placeholder names what the read matches ("Search titles and IDs"; "Search titles" on Artifacts, whose read matches titles only) in `ink-dim`; full width | the width of the Card grid's first track (about 424 in the 900 column, about 394 beside the open panel), full width wherever the grid stacks | **adopted (MMR-724)**: `BrowserSearch`, the list page's one search box |
 | Chip row | 8 below the search, measured to the pills; chips 8 apart, wrapping. The preset as one chip, then Filter. The row pulls back the 4 each 44 tap area adds above and below its pill, so the tap areas add no height | 8 below the search; wrapped rows 8 apart | **adopted (MMR-724)** |
-| Chip | a 36 pill, 12 side padding, 14 / 20 at 500 `ink-bright` with a 1px `ink-dim` edge, in a 44 tap area | the 36 pill alone | **adopted (MMR-724)** |
+| Chip | a 36 pill, 12 side padding, 14 / 20 at 500 `ink-bright` with a 1px `ink-dim` edge, in a 44 tap area that also reaches 4 past each side, half the 8 between chips, so no tap area is under 44 wide (MMR-725) | the 36 pill alone | **adopted (MMR-724)** |
 | Preset chip | the accent wash (`accent/12`, a 1px `accent` edge), its label 600 `accent-foreground`, then a 16 close glyph; the whole chip removes it, named "Remove In flight" | same | **adopted (MMR-724)** |
 | Filter chip | a 16 filter glyph, then "Filter"; with filters applied beyond the preset it takes the preset chip's wash and counts them ("Filter 2"); open, it says so with `aria-expanded` | same | **adopted (MMR-724)** |
+| Carried chip | a filter a link carries that the Filter sheet does not hold (the Artifacts list's plain tag and date bounds), after Filter, one each: the preset chip's wash and close glyph, its words then its value, a tag in mono with `--mono-adjust` ("Tagged `workspace_unconsolidated`", "Since 20 November", "Until 24 November"; a date outside this year names it); named "Remove Since 20 November" | same | **adopted (MMR-725)** |
 | First group | 32 from the chip row to the first group's head row, or to the first day fold, the gap between groups | same | **adopted (MMR-724)** |
 | Group head | the Section head's name and count (15 / 22 600 `ink-bright`, the count 13 / 20 `ink-dim`) in a 44 row, 12 above its cards; groups 32 apart | a 36 row | **adopted (MMR-724)** |
 | Pinned head | sticks to the top of the page's scroller while its group scrolls under it, as a band in the page's own ground (`well-900`) that reaches past the 14 gutters, so nothing shows at its sides; a 1px `line` hairline under it only while pinned. The next group's head pushes it up as it arrives | the same band past the 20 gutters | **adopted (MMR-724)** |
 | Finished work | the Day folds, straight under the chips with no status heads when the list holds only finished work; under a "Finished" group head after live groups otherwise. Five rows a day before the fold's Show N more | same | **adopted (MMR-724)** |
+| Seed cards | the Card block in the Card grid: the status line holds the seed kind chip, the ID, "from `KEY`" when another project filed it, and the age; the detail line where its spawned work stands ("Became `MMR-456`", "`MMR-699` is done", "Resolved"); a settled seed's title in ink-dim; no button | same | **adopted (MMR-725)** |
+| Lane folds | with no view, Parked and Settled follow the live groups as fold rows, 32 below the last group: the Day fold's trigger ("Parked 15"), closed until opened, holding their cards 4 below it and 16 above the next fold's hairline; a view lists its lane's cards straight under the chips, with no head | same | **adopted (MMR-725)** |
+| Artifacts | the Day folds straight under the chips, newest first, the Artifact row; only the newest day open on a fresh visit | same | **adopted (MMR-725)** |
 | Show N more | the list's one text button: the Day fold's (14 / 20, 500, `accent-foreground`, underlined on hover), 12 below the last row, 44 tall; it names how many the next window adds ("Show 50 more") and stays focusable and `aria-disabled` while that window loads | 36 tall | **adopted (MMR-724)**: was a centred outline "Show more" |
 | Empty | the quiet line "No tasks match." 32 below the chips | same | **adopted (MMR-724)** |
+| Empty, Seeds and Artifacts | "No seeds yet." or "No artifacts yet." when the project holds none, with the count line's File a seed still above; "No seeds match." or "No artifacts match." when a filter or the search leaves none; a Seeds view with nothing in it says so ("Nothing to triage. Every seed has a lane.") | same | **adopted (MMR-725)** |
 | Room under the last item | 40, the record column's bottom padding, to the end of the page's scroller | 48, as on Home and the Needs you page | **adopted (MMR-724)** |
 
 The Filter sheet:
@@ -577,10 +592,12 @@ The Filter sheet:
 | Header | the title "Filter tasks" (17 / 24, 600 `ink-bright`) and the close (a 44 target, a 20 glyph, reaching into the padding); 12 below the grip, 12 bottom, 20 left; a `line` hairline under it | 20 top and bottom, 32 left; the close a 36 target, an 18 glyph | **adopted (MMR-724)** |
 | Body | 24 top, 32 bottom, 20 sides; fields 24 apart; scrolls between the bars. When the fields run past the sheet's 88%, the first view ends a field gap (24) below the last field that fits whole, so the footer never cuts one: after Tag at 390 × 844 with nine tags (from about 831 to 955 tall), after an earlier field on a shorter screen | 32 top, 40 bottom, 32 sides; the panel is the window's height, so its first view depends on the window | **adopted (MMR-724)** |
 | Field | its label (14 / 20, 500 ink), 8 above its pills | same | **adopted (MMR-724)** |
-| Pill | a 36 pill in a 44 tap area, at least 36 wide, 12 side padding, 14 / 20 500 `ink-bright` with a 1px `ink-faint` edge (`ink-dim` on hover); checked, the accent wash with its label 600 `accent-foreground`, a Status pill's word included (its dot keeps the status hue; a checked pill reads as selected first, so the status-word rule under Color roles gives way here); mono for priorities and sizes; 8 apart | the 36 pill alone, 8 apart both ways | **adopted (MMR-724)**: departs from A form's rule that a choice takes a Segmented Control, a Radio, or a Select; seed MMR-s118 settles it |
+| Pill | a 36 pill in a 44 tap area that reaches 4 past each side (MMR-725), at least 36 wide, 12 side padding, 14 / 20 500 `ink-bright` with a 1px `ink-faint` edge (`ink-dim` on hover); checked, the accent wash with its label 600 `accent-foreground`, a Status pill's word included (its dot keeps the status hue; a checked pill reads as selected first, so the status-word rule under Color roles gives way here); mono for priorities and sizes; 8 apart | the 36 pill alone, 8 apart both ways | **adopted (MMR-724)**: departs from A form's rule that a choice takes a Segmented Control, a Radio, or a Select; seed MMR-s118 settles it |
 | Fields | Show, one choice (a radio group): the presets, then "Every live task". Status, Priority, Size, and Tag, each several (checkboxes). Status offers the Show option's statuses, each with its dot, all checked when Show changes. Tag shows five pills, and those checked, then "N more". Sort, a Segmented Control (Recent, Priority, Oldest), absent for finished work | same | **adopted (MMR-724)** |
+| Fields, Seeds | Show, five segments sized to their labels (All, To triage, To resolve, Parked, Settled; see A form), then Kind, several (Idea, Bug, Feature, in sentence case as the seed form names them) | same | **adopted (MMR-725)** |
+| Fields, Artifacts | Kind, one choice: "Any kind", the fixed kinds as words (Session summary, Spec, Plan, Mock, Investigation, Report, Spike, Audit, Verification), then any `kind:` tag the loaded rows show; one pill per kind, which filters by one tag spelling (the server-side union is seed MMR-s125) | same | **adopted (MMR-725)** |
 | Footer | a `line` hairline above; Clear (the form outline) and the commit (the one solid), each 44 tall, sharing the row in equal halves, 12 apart; 12 top, 12 + the home-indicator inset below | Clear then the commit at the right, content width, 12 apart; 16 top and bottom | **adopted (MMR-724)** |
-| Commit | names what it will show, "Show 5 tasks" (singular at one), counted with the list's own read; nothing applies before it. While a changed draft's count loads it reads "Show tasks". With no status checked it reads "Show 0 tasks" and is disabled; a filter no task matches also reads "Show 0 tasks" but applies | same | **adopted (MMR-724)** |
+| Commit | names what it will show, "Show 5 tasks" (singular at one), counted with the list's own read ("Show 6 seeds" from the seeds the list holds, counting what its count line leads with; "Show 35 artifacts" from a count read, MMR-725); nothing applies before it. While a changed draft's count loads it reads "Show tasks". With no status checked it reads "Show 0 tasks" and is disabled; a filter no task matches also reads "Show 0 tasks" but applies | same | **adopted (MMR-724)** |
 
 #### Record header
 

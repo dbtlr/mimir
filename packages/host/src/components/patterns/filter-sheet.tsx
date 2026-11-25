@@ -167,9 +167,15 @@ function FilterBody({ children }: { children: ReactNode }) {
 /** One pill's value and label; `name` is its accessible name when the label is a glyph ("S" for Small). */
 export type FilterOption<T extends string> = { value: T; label: ReactNode; name?: string };
 
-/** The pill's tap area (44 on a phone) and its 36 pill, which draws the state and the focus ring. */
-const PILL_TARGET =
-  'group/pill relative inline-flex min-h-11 cursor-pointer items-center md:min-h-9';
+/**
+ * The pill's tap area and its 36 pill, which draws the state and the focus
+ * ring. On a phone the area is 44 tall and reaches 4 past each side, half the
+ * 8 between pills, so even a 36 pill ("S") has a 44 square to tap.
+ */
+const PILL_TARGET = cn(
+  'group/pill relative inline-flex min-h-11 cursor-pointer items-center md:min-h-9',
+  "max-md:before:absolute max-md:before:inset-y-0 max-md:before:-inset-x-1 max-md:before:content-['']",
+);
 const PILL = cn(
   'inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-full px-3 text-label font-medium whitespace-nowrap text-ink-bright inset-ring inset-ring-ink-faint transition-colors',
   'group-hover/pill:inset-ring-ink-dim',
@@ -269,38 +275,48 @@ export function FilterPills<T extends string>({
           );
         })}
         {hidden > 0 && (
-          <span className={PILL_TARGET}>
-            <button
-              type="button"
-              onClick={() => {
-                revealed.current = options.find((o) => !shown.includes(o))?.value ?? null;
-                setExpanded(true);
-              }}
+          // The button owns the whole tap area: under a wrapper, the area's ::before would sit over it and take the tap.
+          <button
+            type="button"
+            onClick={() => {
+              revealed.current = options.find((o) => !shown.includes(o))?.value ?? null;
+              setExpanded(true);
+            }}
+            className={cn(PILL_TARGET, 'outline-none')}
+          >
+            <span
               className={cn(
                 PILL,
-                'cursor-pointer outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent',
+                'group-focus-visible/pill:outline-2 group-focus-visible/pill:outline-offset-2 group-focus-visible/pill:outline-solid group-focus-visible/pill:outline-accent',
               )}
             >
               {hidden} more
-            </button>
-          </span>
+            </span>
+          </button>
         )}
       </div>
     </div>
   );
 }
 
-/** A field of a few one-word choices on one row, such as Sort: a Segmented Control. */
+/**
+ * A field of a few one-word choices on one row, such as Sort: a Segmented
+ * Control. `fit` sizes each segment to its label, with 6 of padding a side on
+ * a phone and 44 at least, so a row of five (the Seeds list's Show) fits at
+ * 390 where equal shares would cut the longest label.
+ */
 export function FilterSegments<T extends string>({
   label,
   options,
   value,
   onChange,
+  fit = false,
 }: {
   label: string;
   options: readonly SegmentedOption<T>[];
   value: T;
   onChange: (value: T) => void;
+  fit?: boolean;
 }) {
   const labelId = useId();
   return (
@@ -314,6 +330,7 @@ export function FilterSegments<T extends string>({
         options={options}
         value={value}
         onChange={onChange}
+        segmentClassName={fit ? 'min-w-11 flex-auto px-1.5 md:px-3' : undefined}
       />
     </div>
   );

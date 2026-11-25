@@ -1,7 +1,7 @@
 import type { EngineNode } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import type { ReactNode, UIEvent } from 'react';
+import type { ReactNode } from 'react';
 
 import { isNotFound } from '../api/errors';
 import { projectQuery } from '../api/node-queries';
@@ -86,15 +86,12 @@ export function ProjectFrame({
   projectKey,
   tab,
   reads,
-  onScroll,
   children,
 }: {
   projectKey: string;
   tab: ProjectTab;
   /** The tab's own reads, which count toward the page's connectivity. */
   reads: readonly ConnectivitySource[];
-  /** The page's scroll, for a browser that pulls its next window near the bottom. */
-  onScroll?: (event: UIEvent<HTMLElement>) => void;
   children: ReactNode;
 }) {
   // An archived project's record 404s; once the archived list names the key,
@@ -139,7 +136,7 @@ export function ProjectFrame({
   return (
     <>
       <OfflineBanner {...conn} />
-      <RecordColumn offline={offline} onScroll={onScroll}>
+      <RecordColumn offline={offline}>
         {project.data === undefined ? (
           <HeadPending unreachable={project.isError} />
         ) : (
