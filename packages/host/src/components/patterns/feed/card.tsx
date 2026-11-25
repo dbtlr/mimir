@@ -51,7 +51,7 @@ export function FeedCard({
   chips?: ReactNode;
   /** The card's one button, passed itself rather than wrapped, so the card can size it. */
   action?: ReactNode;
-  /** A going-cold card: its title is demoted to ink-dim (ADR 0019 §7, MMR-718). */
+  /** A card set back, its title demoted to ink-dim: a going-cold task (ADR 0019 §7, MMR-718) or a settled seed (MMR-725). */
   cold?: boolean;
 }) {
   const statusId = useId();
