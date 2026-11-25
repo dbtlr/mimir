@@ -294,6 +294,11 @@ describe('artifactsPage (the Artifacts list, MMR-725)', () => {
     await screen.findByRole('button', { name: /^Today/ });
     expect(listReads().at(-1)).toStrictEqual({ limit: 50, project: 'MMR', q: '2026' });
     expect(screen.getByRole('searchbox', { name: 'Search artifacts' })).toHaveValue('2026');
+    // The read matches q against titles only, so the box promises no IDs.
+    expect(screen.getByRole('searchbox', { name: 'Search artifacts' })).toHaveAttribute(
+      'placeholder',
+      'Search titles',
+    );
   });
 
   it('keeps a picked kind checked when a reread brings that kind in its other spelling', async () => {

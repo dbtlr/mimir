@@ -143,7 +143,7 @@ export function ArtifactsPage() {
               value={q}
               onChange={setQ}
               label="Search artifacts"
-              placeholder="Search titles and IDs"
+              placeholder="Search titles"
             />
           </div>
         }
