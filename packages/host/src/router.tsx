@@ -1,4 +1,3 @@
-import type { SeedKind } from '@mimir/contract';
 import {
   createRootRoute,
   createRoute,
@@ -22,7 +21,8 @@ import {
   seedLink,
   seedPath,
 } from './lib/record-url';
-import { isSeedKind } from './lib/seed-lanes';
+import { isSeedShow, seedKinds } from './lib/seed-list';
+import type { SeedListSearch } from './lib/seed-list';
 import { isTaskPreset, isTaskSort } from './lib/task-list';
 import type { TaskListSearch } from './lib/task-list';
 import { BrowserRedirect } from './routes/browser-redirect';
@@ -452,17 +452,18 @@ export const legacyDevicesRoute = createRoute({
   validateSearch: (search: Record<string, unknown>): Record<string, unknown> => search,
 });
 
-export type SeedsSearch = {
-  /** Client-side text filter over id, title, and lede. */
-  q?: string;
-  /** Client-side kind filter. */
-  kind?: SeedKind;
-};
+/** A Seeds URL: a view, the kinds, and the search (MMR-725). */
+export type SeedsSearch = SeedListSearch;
 
-const validateSeedsSearch = (search: Record<string, unknown>): SeedsSearch => ({
-  kind: isSeedKind(search.kind) ? search.kind : undefined,
-  q: textParam(search.q),
-});
+const validateSeedsSearch = (search: Record<string, unknown>): SeedsSearch => {
+  const show = textParam(search.show);
+  const kinds = seedKinds(textParam(search.kind));
+  return {
+    kind: kinds.length > 0 ? kinds.join(',') : undefined,
+    q: textParam(search.q),
+    show: isSeedShow(show) ? show : undefined,
+  };
+};
 
 export const seedsRoute = createRoute({
   beforeLoad: ({ params }) => {

@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
-import type { ReactElement, ReactNode } from 'react';
+import type { ComponentProps, ReactElement, ReactNode, Ref } from 'react';
 
 import { cn } from '../../../lib/cn';
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from '../../ui/collapsible';
@@ -190,6 +190,93 @@ export function DayFold({
     }
   }, [expanded]);
   return (
+    <Fold
+      label={label}
+      count={count}
+      open={open}
+      onOpenChange={onOpenChange}
+      triggerRef={triggerRef}
+      panel={{
+        // The hold lasts while focus stays in the fold: moving to Show N more
+        // keeps the row, so the button neither shifts under a press nor
+        // changes its label under focus.
+        onBlur: (event) => {
+          // The window losing focus (switching apps or tabs) blurs the link
+          // with no relatedTarget; keep the row, so focus returns to it when
+          // the window does.
+          if (event.relatedTarget === null && !document.hasFocus()) {
+            return;
+          }
+          if (!event.currentTarget.contains(event.relatedTarget)) {
+            setFocusedKey(null);
+          }
+        },
+      }}
+    >
+      <ul ref={listRef} className="m-0 list-none divide-y divide-line p-0">
+        {shown.map((row) => (
+          // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- it only notes which row holds focus; the row's own link stays the control
+          <li
+            key={row.key}
+            onFocus={() => {
+              setFocusedKey(row.key);
+            }}
+          >
+            {row}
+          </li>
+        ))}
+      </ul>
+      {hidden > 0 && (
+        <ShowMoreButton
+          // A mouse press leaves focus where it is. Otherwise the press
+          // blurs a held row (to the page in Safari and Firefox, or out of
+          // another day's fold), the row lets go, and the button moves up
+          // a row before the click lands. The reveal moves focus after.
+          onMouseDown={(event) => {
+            event.preventDefault();
+          }}
+          onClick={() => {
+            shownWhenPressed.current = shown.length;
+            setExpanded(true);
+          }}
+          // Indented to the titles' left edge: 4 of padding, the 16 dot
+          // column, and its 8 gap.
+          className="pr-1 pl-7"
+        >
+          Show {hidden} more
+        </ShowMoreButton>
+      )}
+    </Fold>
+  );
+}
+
+/**
+ * A fold (ADR 0019, MMR-719 refinement): a trigger row, the Collapsible
+ * primitive's 16 chevron, the label, and its count, 44 tall on a phone and 36
+ * on desktop, over what it holds. It opens at once, with none of the
+ * primitive's height animation or chevron turn (ADR 0019 §8). A day's fold
+ * holds its rows; the Seeds list's Parked and Settled lanes hold their cards
+ * (MMR-725).
+ */
+export function Fold({
+  label,
+  count,
+  open,
+  onOpenChange,
+  triggerRef,
+  panel,
+  children,
+}: {
+  label: string;
+  count: number;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  triggerRef?: Ref<HTMLButtonElement>;
+  /** Handlers on the panel that holds `children`. */
+  panel?: Pick<ComponentProps<typeof CollapsiblePanel>, 'onBlur'>;
+  children: ReactNode;
+}) {
+  return (
     <Collapsible
       open={open}
       onOpenChange={(next) => {
@@ -206,56 +293,8 @@ export function DayFold({
         {label}{' '}
         <span className="text-meta font-normal text-ink-dim">{count.toLocaleString('en-US')}</span>
       </CollapsibleTrigger>
-      <CollapsiblePanel
-        animated={false}
-        // The hold lasts while focus stays in the fold: moving to Show N more
-        // keeps the row, so the button neither shifts under a press nor
-        // changes its label under focus.
-        onBlur={(event) => {
-          // The window losing focus (switching apps or tabs) blurs the link
-          // with no relatedTarget; keep the row, so focus returns to it when
-          // the window does.
-          if (event.relatedTarget === null && !document.hasFocus()) {
-            return;
-          }
-          if (!event.currentTarget.contains(event.relatedTarget)) {
-            setFocusedKey(null);
-          }
-        }}
-      >
-        <ul ref={listRef} className="m-0 list-none divide-y divide-line p-0">
-          {shown.map((row) => (
-            // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- it only notes which row holds focus; the row's own link stays the control
-            <li
-              key={row.key}
-              onFocus={() => {
-                setFocusedKey(row.key);
-              }}
-            >
-              {row}
-            </li>
-          ))}
-        </ul>
-        {hidden > 0 && (
-          <ShowMoreButton
-            // A mouse press leaves focus where it is. Otherwise the press
-            // blurs a held row (to the page in Safari and Firefox, or out of
-            // another day's fold), the row lets go, and the button moves up
-            // a row before the click lands. The reveal moves focus after.
-            onMouseDown={(event) => {
-              event.preventDefault();
-            }}
-            onClick={() => {
-              shownWhenPressed.current = shown.length;
-              setExpanded(true);
-            }}
-            // Indented to the titles' left edge: 4 of padding, the 16 dot
-            // column, and its 8 gap.
-            className="pr-1 pl-7"
-          >
-            Show {hidden} more
-          </ShowMoreButton>
-        )}
+      <CollapsiblePanel animated={false} {...panel}>
+        {children}
       </CollapsiblePanel>
     </Collapsible>
   );

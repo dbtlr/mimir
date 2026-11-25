@@ -37,8 +37,11 @@ export function FeedCard({
   lead: ReactNode;
   /** The record's ID, set in mono after the lead. */
   id?: string;
-  /** The project's name after the ID, where the feed spans projects (the Needs you deck, MMR-721). */
-  project?: string;
+  /**
+   * What follows the ID: the project's name where the feed spans projects (the
+   * Needs you deck, MMR-721), or a seed's origin ("from FLT", MMR-725).
+   */
+  project?: ReactNode;
   /** How long ago the item last moved ("50m"), at the right of the first line. */
   age?: string;
   title: string;

@@ -167,9 +167,15 @@ function FilterBody({ children }: { children: ReactNode }) {
 /** One pill's value and label; `name` is its accessible name when the label is a glyph ("S" for Small). */
 export type FilterOption<T extends string> = { value: T; label: ReactNode; name?: string };
 
-/** The pill's tap area (44 on a phone) and its 36 pill, which draws the state and the focus ring. */
-const PILL_TARGET =
-  'group/pill relative inline-flex min-h-11 cursor-pointer items-center md:min-h-9';
+/**
+ * The pill's tap area and its 36 pill, which draws the state and the focus
+ * ring. On a phone the area is 44 tall and reaches 4 past each side, half the
+ * 8 between pills, so even a 36 pill ("S") has a 44 square to tap.
+ */
+const PILL_TARGET = cn(
+  'group/pill relative inline-flex min-h-11 cursor-pointer items-center md:min-h-9',
+  "max-md:before:absolute max-md:before:inset-y-0 max-md:before:-inset-x-1 max-md:before:content-['']",
+);
 const PILL = cn(
   'inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-full px-3 text-label font-medium whitespace-nowrap text-ink-bright inset-ring inset-ring-ink-faint transition-colors',
   'group-hover/pill:inset-ring-ink-dim',

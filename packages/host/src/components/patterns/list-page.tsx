@@ -3,6 +3,7 @@ import type { ReactNode, Ref, RefObject } from 'react';
 
 import { cn } from '../../lib/cn';
 import { CloseIcon, FilterIcon } from '../ui/icons';
+import { FEED_FOCUS_RING, FEED_LINK_TEXT } from './feed/link';
 import { ShowMoreButton } from './feed/show-more';
 
 /*
@@ -23,6 +24,7 @@ import { ShowMoreButton } from './feed/show-more';
 export function ListPage({
   label,
   count,
+  countAction,
   search,
   chips,
   children,
@@ -31,6 +33,8 @@ export function ListPage({
   label: string;
   /** The count line, in words ("9 tasks in flight"); absent until the read arrives. */
   count?: ReactNode;
+  /** A text action at the count line's right (`CountLineAction`): Seeds' File a seed. */
+  countAction?: ReactNode;
   /** The search box, on its own row. */
   search: ReactNode;
   /** The chip row's chips: the preset chip, then the Filter chip. */
@@ -42,9 +46,12 @@ export function ListPage({
     // own bottom padding, and 48 from `md` up, 8 more than that padding.
     <section aria-label={label} className="w-full md:pb-2">
       {/* The line holds its height while the count is on its way, so nothing below moves. */}
-      <p data-slot="list-count" className="m-0 mb-4 min-h-5 text-meta text-ink-dim">
-        {count}
-      </p>
+      <div className="mb-4 flex min-h-5 items-center justify-between gap-3">
+        <p data-slot="list-count" className="m-0 min-w-0 text-meta text-ink-dim">
+          {count}
+        </p>
+        {countAction}
+      </div>
       {search}
       {/* On a phone each 36 pill sits in a 44 tap area; the row pulls those 4s back, so the
           pills keep the 8 and 32 and wrapped rows sit 8 apart, as the Filter sheet's pills do. */}
@@ -62,12 +69,47 @@ export function ListPage({
 }
 
 /**
- * A chip's tap area and its pill: 44 tall on a phone around a 36 pill, and the
- * pill alone (36) from `md` up. The pill draws the state; the button holds focus,
- * and its ring is drawn on the pill.
+ * The count line's text action (MMR-725): a glyph and its words in the See all
+ * style (13 / 20, 500, `accent-foreground`, underlined on hover), at the line's
+ * right. Its tap target is 44 tall on a phone and 36 from `md` up, pulled back
+ * above and below so the line keeps its 20.
  */
-const CHIP_TARGET =
-  'group/chip inline-flex min-h-11 items-center rounded-full outline-none md:min-h-9';
+export function CountLineAction({
+  icon,
+  onClick,
+  children,
+}: {
+  icon?: ReactNode;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        '-my-3 -mr-1 inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-md px-1 text-meta font-medium whitespace-nowrap md:-my-2 md:min-h-9',
+        FEED_LINK_TEXT,
+        FEED_FOCUS_RING,
+      )}
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}
+
+/**
+ * A chip's tap area and its pill: 44 tall on a phone around a 36 pill, and 4
+ * past each side, half the 8 between chips, so a tap area is at least 44 wide
+ * and neighbours' areas meet without overlapping; the pill alone (36) from
+ * `md` up. The pill draws the state; the button holds focus, and its ring is
+ * drawn on the pill.
+ */
+const CHIP_TARGET = cn(
+  'group/chip relative inline-flex min-h-11 items-center rounded-full outline-none md:min-h-9',
+  "max-md:before:absolute max-md:before:inset-y-0 max-md:before:-inset-x-1 max-md:before:content-['']",
+);
 const CHIP_PILL = cn(
   'inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-label whitespace-nowrap inset-ring transition-colors',
   'group-focus-visible/chip:outline-2 group-focus-visible/chip:outline-offset-2 group-focus-visible/chip:outline-solid group-focus-visible/chip:outline-accent',

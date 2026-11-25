@@ -4,10 +4,8 @@ import {
   SEED_LANE_LABEL,
   SEED_LANE_ORDER,
   groupSeedsByLane,
-  isSeedKind,
   laneOf,
   seedMatchesQuery,
-  seedSummary,
 } from '../lib/seed-lanes';
 import { seedIn } from './browse-fixtures';
 
@@ -43,22 +41,9 @@ describe('seed lane grouping (MMR-247)', () => {
     expect(groups.map((g) => g.lane)).toStrictEqual(['untriaged']);
   });
 
-  it('seedSummary counts untriaged as to-triage and ready as to-resolve', () => {
-    const seeds = [
-      seedIn('untriaged'),
-      seedIn('untriaged'),
-      seedIn('ready'),
-      seedIn('promoted'),
-      seedIn('parked'),
-      seedIn('settled'),
-    ];
-    // A parked seed is set aside on purpose: it never counts as waiting on you.
-    expect(seedSummary(seeds)).toStrictEqual({ toResolve: 1, toTriage: 2 });
-  });
-
-  it('labels lanes in sentence case (the group header uppercases them)', () => {
+  it('names the lanes as the Seeds list heads them', () => {
     expect(SEED_LANE_ORDER.map((l) => SEED_LANE_LABEL[l])).toStrictEqual([
-      'Untriaged',
+      'To triage',
       'Ready to resolve',
       'Promoted',
       'Parked',
@@ -84,11 +69,5 @@ describe('seed lane grouping (MMR-247)', () => {
     expect(laneOf({ lifecycle: 'promoted', readyToResolve: true })).toBe('ready');
     expect(laneOf({ lifecycle: 'promoted', readyToResolve: false })).toBe('promoted');
     expect(laneOf({ lifecycle: 'rejected', readyToResolve: true })).toBe('settled');
-  });
-
-  it('isSeedKind accepts only the three kinds', () => {
-    expect(['idea', 'bug', 'feature'].every((k) => isSeedKind(k))).toBe(true);
-    expect(isSeedKind('epic')).toBe(false);
-    expect(isSeedKind(undefined)).toBe(false);
   });
 });

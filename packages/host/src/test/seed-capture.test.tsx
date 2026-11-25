@@ -58,7 +58,7 @@ describe('seed form (12c, MMR-247; the Form sheet, MMR-743)', () => {
     await renderApp();
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
+    await user.click(await screen.findByRole('button', { name: 'File a seed' }));
     // the form is up
     await screen.findByLabelText('Seed');
 
@@ -88,7 +88,7 @@ describe('seed form (12c, MMR-247; the Form sheet, MMR-743)', () => {
     await renderApp();
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
+    await user.click(await screen.findByRole('button', { name: 'File a seed' }));
     await screen.findByLabelText('Seed');
     for (const kind of ['Bug', 'Idea', 'Feature']) {
       const segment = screen.getByRole('radio', { name: kind });
@@ -106,7 +106,7 @@ describe('seed form (12c, MMR-247; the Form sheet, MMR-743)', () => {
     await renderApp();
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
+    await user.click(await screen.findByRole('button', { name: 'File a seed' }));
     const field = await screen.findByLabelText('Seed');
     await user.click(screen.getByRole('radio', { name: 'Bug' }));
 
@@ -129,7 +129,7 @@ describe('seed form (12c, MMR-247; the Form sheet, MMR-743)', () => {
     mockApi();
     await renderApp();
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
+    await user.click(await screen.findByRole('button', { name: 'File a seed' }));
     const field = await screen.findByLabelText('Seed');
     await user.click(field);
     await user.keyboard('{Enter}');
@@ -143,7 +143,7 @@ describe('seed form (12c, MMR-247; the Form sheet, MMR-743)', () => {
     vi.mocked(seedCreate).mockReturnValueOnce(held.promise);
     await renderApp();
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
+    await user.click(await screen.findByRole('button', { name: 'File a seed' }));
     const field = await screen.findByLabelText('Seed');
     const bug = screen.getByRole('radio', { name: 'Bug' });
     const project = screen.getByRole('button', { name: /Project MMR/ });
@@ -199,7 +199,7 @@ describe('seed form (12c, MMR-247; the Form sheet, MMR-743)', () => {
     const client = new QueryClient({ defaultOptions: { queries: { refetchInterval: false } } });
     await renderShell('/p/MMR/seeds', client);
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
+    await user.click(await screen.findByRole('button', { name: 'File a seed' }));
     const field = await screen.findByLabelText('Seed');
     await user.type(field, 'Keep this draft');
     const choose = async (name: RegExp) => {
@@ -292,7 +292,7 @@ describe('seed form (12c, MMR-247; the Form sheet, MMR-743)', () => {
     mockApi();
     await renderApp();
     const user = userEvent.setup();
-    const opener = await screen.findByRole('button', { name: '+ File a seed' });
+    const opener = await screen.findByRole('button', { name: 'File a seed' });
 
     await user.click(opener);
     await user.click(await screen.findByRole('radio', { name: 'Bug' }));

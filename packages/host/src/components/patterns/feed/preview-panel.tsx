@@ -45,8 +45,8 @@ export type PreviewAction = {
 export type Preview = {
   lead: ReactNode;
   id?: string;
-  /** The project's name after the ID, as the card shows it. */
-  project?: string;
+  /** What follows the ID, as the card shows it: the project's name, or a seed's origin. */
+  project?: ReactNode;
   age?: string;
   title: string;
   reason: ReactNode;
