@@ -938,6 +938,9 @@ Needs you.
   (2026-11-24, MMR-724: Shipped's rows by project, Now, and the Ready to
   start and Going cold rows open the Tasks list with a preset set, per
   project; see the MMR-724 refinement below.)
+  (2026-11-25, MMR-725: the Seeds to triage row opens the Seeds list on
+  To triage when one project holds every seed to triage; see the MMR-725
+  refinement below.)
 - **Home's spare-minute work no longer acts in place.** The rail's runnable
   tasks with _Start_ and untriaged seeds with their verbs (the MMR-476 and
   MMR-503 refinements' in-place triage) are now counts. Each project's work
@@ -1156,8 +1159,54 @@ filter the `list` read already takes.
   when everything in it belongs to one project; otherwise it keeps its count
   with no link. Seeds to triage and Doctor findings stay plain rows. This
   completes the MMR-722 refinement's "No See all … until the list pages
-  land".
+  land". (2026-11-25, MMR-725: Seeds to triage gains its door; see
+  the MMR-725 refinement below.)
 
 Considered and rejected: a cross-project Tasks list for Home's doors. It
 would change the list read's contract (one project per read), where
 per-project doors need no change.
+
+## Refinement (2026-11-25, MMR-725): the Seeds and Artifacts lists, and Home's Seeds to triage door
+
+A project's Seeds tab (`/p/KEY/seeds`) and Artifacts tab
+(`/p/KEY/artifacts`) move onto the list page (ADR 0019, MMR-724 and MMR-725
+refinements), each with its own views, filters, and grouping. The work is
+front-end only: the Seeds list filters the seeds read it already made, and
+the Artifacts list sends filters the `artifacts` read already takes.
+
+- **The Seeds list reads a project's every seed once** (`status: all`, as
+  before) and filters in the browser. Its URL carries:
+  - `show`, the view: `to-triage` (untriaged) and `ready-to-resolve`, the
+    two presets, and `parked` and `settled`, the lanes set aside. Each shows
+    as a removable chip and lists its lane alone. No `show` lists every
+    lane; only it lists Promoted. A `show` that names no view is ignored.
+  - `kind`, a comma list of seed kinds, any of them; a single kind, as
+    links wrote it before, still works, and a word that names no kind drops
+    out.
+  - `q`, the search over IDs, titles, and ledes, as before.
+- **The Seeds count line leads with the open seeds,** every lifecycle but
+  resolved and rejected, the number the Seeds tab shows (MMR-787), and
+  breaks down each open lane so the parts sum. A view counts its lane.
+- **The Artifacts list loads by window** of `ARTIFACT_PAGE_SIZE` (50),
+  newest first, growing the prefix it asks for on each _Show N more_, as
+  the Tasks list's finished work does (MMR-460), in place of the
+  scroll-triggered infinite read. Its URL keeps `tag`, `q`, `atOrAfter`,
+  and `atOrBefore`. A `tag` that names a kind is the Filter sheet's Kind; a
+  plain tag and each date bound show as their own removable chips.
+- **An artifact's kind** reads from a `kind:` tag first, then from a fixed
+  list of bare tags: `session_summary`, `spec`, `plan`, `mock`,
+  `investigation`, `report`, `spike`, `audit`, and `verification`. Every
+  other tag stays a plain tag; `workspace_unconsolidated` is never a kind.
+  The artifact page reads the same kind.
+- **Home's Seeds to triage row is a door** to that project's Seeds list on
+  `show=to-triage` when every seed to triage is one project's, the rule the
+  MMR-724 refinement gave Ready to start and Going cold. Otherwise it keeps
+  its count with no link. Doctor findings stays a plain row.
+
+The artifacts read is no longer an infinite query, so the persisted cache's
+guard for infinite reads goes with it, and the browse cache version steps to
+3 so no snapshot of the old shape is restored.
+
+Considered and rejected: a server-side seeds filter. The seed list is one
+project's and is read whole for its lanes already, so filtering it again on
+the server would add a contract change for no smaller read.
