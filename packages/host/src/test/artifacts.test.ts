@@ -44,6 +44,10 @@ describe('an artifact’s kind (MMR-725)', () => {
   });
 });
 
+/** The tag the Spec pill filters by, given the loaded rows' tags and the URL's. */
+const specTag = (rowTags: string[][], chosen: string | undefined) =>
+  kindTagOptions(rowTags, chosen).find((o) => o.label === 'Spec')?.tag;
+
 describe('kind tags as filter values', () => {
   it('names a kind tag by its kind, and a plain tag not at all', () => {
     expect(kindTagLabel('kind:spec')).toBe('spec');
@@ -78,8 +82,6 @@ describe('kind tags as filter values', () => {
   });
 
   it("filters a kind by the spelling the rows use, or the URL's", () => {
-    const specTag = (rowTags: string[][], chosen: string | undefined) =>
-      kindTagOptions(rowTags, chosen).find((o) => o.label === 'Spec')?.tag;
     expect(specTag([['kind:spec']], undefined)).toBe('kind:spec');
     expect(specTag([['spec']], undefined)).toBe('spec');
     expect(specTag([], undefined)).toBe('spec');

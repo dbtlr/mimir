@@ -220,7 +220,7 @@ describe('seedsPage (the Seeds list, MMR-725)', () => {
 
   it('offers "Show seeds" without a count while the seeds have not loaded', async () => {
     mockApi();
-    vi.mocked(seeds).mockReturnValue(new Promise(() => {}));
+    vi.mocked(seeds).mockReturnValue(Promise.withResolvers<EngineSeed[]>().promise);
     const user = userEvent.setup();
     await renderSeeds();
     await user.click(filterChip());

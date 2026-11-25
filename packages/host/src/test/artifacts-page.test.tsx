@@ -217,7 +217,7 @@ describe('artifactsPage (the Artifacts list, MMR-725)', () => {
     const served = vi.mocked(artifacts).getMockImplementation();
     vi.mocked(artifacts).mockImplementation(async (input) => {
       if (input.data.tag === 'spec' && input.data.limit !== 0) {
-        return new Promise(() => {});
+        return Promise.withResolvers<Awaited<ReturnType<typeof artifacts>>>().promise;
       }
       return served === undefined ? Promise.reject(new Error('unserved')) : served(input);
     });
