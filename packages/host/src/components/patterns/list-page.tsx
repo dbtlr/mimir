@@ -8,12 +8,12 @@ import { ShowMoreButton } from './feed/show-more';
 
 /*
  * The list page (ADR 0019, MMR-724 refinement; DESIGN.md, List page): one
- * layout for every kind of record's list (Tasks now, then Seeds, Artifacts,
- * and Projects). It reads top down: the count line, the search on its own
- * row, the chip row (the preset as one removable chip, then Filter), and the
- * groups, each under a heading that stays in view while its group scrolls.
- * The feature hands it its own parts: the search box, the cards or rows, and
- * the Filter sheet.
+ * layout for every kind of record's list (Tasks, Seeds, and Artifacts now;
+ * Projects next). It reads top down: the count line, the search on its own
+ * row, the chip row (the preset as one removable chip, then Filter, then any
+ * filter a link carried), and the groups, each under a heading that stays in
+ * view while its group scrolls. The feature hands it its own parts: the search
+ * box, the cards or rows, and the Filter sheet.
  */
 
 /**
@@ -37,7 +37,7 @@ export function ListPage({
   countAction?: ReactNode;
   /** The search box, on its own row. */
   search: ReactNode;
-  /** The chip row's chips: the preset chip, then the Filter chip. */
+  /** The chip row's chips: the preset chip, then the Filter chip, then any carried chips. */
   chips: ReactNode;
   children: ReactNode;
 }) {
