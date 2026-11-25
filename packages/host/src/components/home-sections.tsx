@@ -2,8 +2,9 @@ import { useRef } from 'react';
 
 import type { ReviewReport } from '../api/view-queries';
 import { minuteRows, nowCount, nowShown, oneProject } from '../lib/home';
-import type { ShippedWeek } from '../lib/home';
+import type { MinuteDoor, ShippedWeek } from '../lib/home';
 import { nodeLink } from '../lib/record-url';
+import { seedShowLink } from '../lib/seed-list';
 import { STATUS_META } from '../lib/status';
 import { presetLink } from '../lib/task-list';
 import { ago, relativeTime } from '../lib/time';
@@ -18,13 +19,13 @@ import { ShippedSummary } from './patterns/feed/shipped-summary';
 import { StatusBadge } from './status-badge';
 
 /*
- * Home's sections below Needs you (ADR 0013, MMR-722 and MMR-724 refinements):
+ * Home's sections below Needs you (ADR 0013, MMR-722, MMR-724, and MMR-725 refinements):
  * Now as capped title cards, the Shipped week as a summary by project, and the
  * spare-minute work as count rows. Each hides when it has nothing to show;
- * the page's summary sentence says so once. The Tasks list is per project, so
- * the doors into it are too: each project's Shipped row opens its finished
- * week, and Now, Ready to start, and Going cold open their preset only when
- * all of their work is one project's. Otherwise they keep their count with no
+ * the page's summary sentence says so once. The Tasks and Seeds lists are per
+ * project, so the doors into them are too: each project's Shipped row opens
+ * its finished week, and Now, Seeds to triage, Ready to start, and Going cold
+ * open their list only when all of their work is one project's. Otherwise they keep their count with no
  * link, and a row with nowhere to go is a plain row.
  */
 
@@ -158,6 +159,13 @@ export function ShippedSection({ week }: { week: ShippedWeek }) {
   );
 }
 
+/** A spare-minute row's door as a link: a Tasks preset or a Seeds view. */
+function doorLink(door: MinuteDoor) {
+  return door.list === 'tasks'
+    ? presetLink(door.project, door.show)
+    : seedShowLink(door.project, door.show);
+}
+
 /**
  * When you have a minute: what can wait, as count rows in a frame matching
  * Shipped's card. A row at zero is left out, and the section with it when
@@ -175,7 +183,7 @@ export function MinuteSection({ report }: { report: ReviewReport }) {
         rows={rows.map(({ name, count, door }) => ({
           count,
           name,
-          to: door === undefined ? undefined : presetLink(door.project, door.show),
+          to: door === undefined ? undefined : doorLink(door),
         }))}
         framed
       />

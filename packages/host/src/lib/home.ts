@@ -1,5 +1,6 @@
 import type { ReviewReport } from '../api/view-queries';
 import type { ShippedDay } from '../components/patterns/feed/shipped-summary';
+import type { SeedShow } from './seed-list';
 import type { TaskPreset } from './task-list';
 import { dayBefore, dayOf } from './work-page';
 
@@ -178,7 +179,7 @@ export function shippedWeek({
 /**
  * The one project every key names, or undefined when they span projects or
  * there are none: a section opens one project's list only when it holds that
- * project's work alone (MMR-724), since the Tasks list is per project.
+ * project's work alone (MMR-724, MMR-725), since the lists are per project.
  */
 export function oneProject(keys: readonly string[]): string | undefined {
   const [first] = keys;
@@ -186,19 +187,27 @@ export function oneProject(keys: readonly string[]): string | undefined {
 }
 
 /**
- * One spare-minute row: what it counts, how many, and the Tasks preset it
- * opens in `project` when all of it belongs to that one project.
+ * Where a spare-minute row leads: a Tasks preset or a Seeds view in one
+ * project, the lists being per project.
  */
+export type MinuteDoor =
+  | { list: 'tasks'; project: string; show: TaskPreset }
+  | { list: 'seeds'; project: string; show: SeedShow };
+
+/** One spare-minute row: what it counts, how many, and the list it opens when all of it is one project's. */
 export type MinuteRow = {
   name: string;
   count: number;
-  door?: { project: string; show: TaskPreset };
+  door?: MinuteDoor;
 };
 
 /** A door to `show` in the one project `keys` share, or none when they span projects. */
-function doorTo(keys: readonly string[], show: TaskPreset): Pick<MinuteRow, 'door'> {
+function doorTo(
+  keys: readonly string[],
+  to: { list: 'tasks'; show: TaskPreset } | { list: 'seeds'; show: SeedShow },
+): Pick<MinuteRow, 'door'> {
   const project = oneProject(keys);
-  return project === undefined ? {} : { door: { project, show } };
+  return project === undefined ? {} : { door: { ...to, project } };
 }
 
 /** What can wait for a spare minute, across projects, in Home's order. */
@@ -206,13 +215,20 @@ export function minuteRows(report: ReviewReport): MinuteRow[] {
   const sum = (pick: (group: ReviewReport['triage'][number]) => number) =>
     report.triage.reduce((n, group) => n + pick(group), 0);
   return [
-    { count: sum((group) => group.seeds.length), name: 'Seeds to triage' },
+    {
+      count: sum((group) => group.seeds.length),
+      name: 'Seeds to triage',
+      ...doorTo(
+        report.triage.filter((group) => group.seeds.length > 0).map((group) => group.project.key),
+        { list: 'seeds', show: 'to-triage' },
+      ),
+    },
     {
       count: report.runnable.length,
       name: 'Ready to start',
       ...doorTo(
         report.runnable.map((row) => row.project),
-        'ready',
+        { list: 'tasks', show: 'ready' },
       ),
     },
     {
@@ -220,7 +236,7 @@ export function minuteRows(report: ReviewReport): MinuteRow[] {
       name: 'Going cold',
       ...doorTo(
         report.goingCold.map((row) => row.project),
-        'going-cold',
+        { list: 'tasks', show: 'going-cold' },
       ),
     },
     { count: sum((group) => group.findings), name: 'Doctor findings' },

@@ -260,9 +260,41 @@ describe('the spare-minute rows', () => {
     expect(rows).toEqual([
       { count: 3, name: 'Seeds to triage' },
       { count: 0, name: 'Ready to start' },
-      { count: 1, door: { project: 'MMR', show: 'going-cold' }, name: 'Going cold' },
+      {
+        count: 1,
+        door: { list: 'tasks', project: 'MMR', show: 'going-cold' },
+        name: 'Going cold',
+      },
       { count: 3, name: 'Doctor findings' },
     ]);
+  });
+});
+
+/** A project's spare-minute group holding `seeds` seeds to triage. */
+const triageGroup = (key: string, seeds: number) => ({
+  findings: 0,
+  goingCold: 0,
+  project: { key, name: key },
+  seeds: Array.from({ length: seeds }, (_, i) => triageSeed({ id: `${key}-s${String(i + 1)}` })),
+});
+
+describe('the Seeds to triage door (MMR-725)', () => {
+  it('opens the one project’s Seeds list on To triage when it holds every seed to triage', () => {
+    const [seeds] = minuteRows(
+      engineReview({ triage: [triageGroup('LM', 0), triageGroup('MMR', 2)] }),
+    );
+    expect(seeds).toEqual({
+      count: 2,
+      door: { list: 'seeds', project: 'MMR', show: 'to-triage' },
+      name: 'Seeds to triage',
+    });
+  });
+
+  it('has no door when the seeds to triage span projects', () => {
+    const [seeds] = minuteRows(
+      engineReview({ triage: [triageGroup('LM', 1), triageGroup('MMR', 2)] }),
+    );
+    expect(seeds).toEqual({ count: 3, name: 'Seeds to triage' });
   });
 });
 

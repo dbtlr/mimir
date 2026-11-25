@@ -319,7 +319,7 @@ describe('Home at / (ADR 0013, MMR-722 refinement)', () => {
     expect(screen.queryByRole('region', { name: /^Shipped/ })).toBeNull();
   });
 
-  it('counts the spare-minute work, Ready and Going cold opening their one project’s list', async () => {
+  it('counts the spare-minute work, Seeds to triage, Ready, and Going cold opening their one project’s list', async () => {
     await openHome(busy());
 
     const spare = section(/^When you have a minute/);
@@ -335,6 +335,7 @@ describe('Home at / (ADR 0013, MMR-722 refinement)', () => {
         .getAllByRole('link')
         .map((link) => [link.textContent, link.getAttribute('href')]),
     ).toEqual([
+      ['Seeds to triage 2', '/p/MMR/seeds?show=to-triage'],
       ['Ready to start 1', '/p/LM/tasks?show=ready'],
       ['Going cold 1', '/p/MMR/tasks?show=going-cold'],
     ]);
@@ -382,7 +383,7 @@ describe('Home’s See all doors (MMR-724)', () => {
     expect(within(now).queryByRole('link', { name: /^See all/ })).toBeNull();
   });
 
-  it('keeps Ready and Going cold as plain counts when they span projects', async () => {
+  it('keeps Seeds to triage, Ready, and Going cold as plain counts when they span projects', async () => {
     await openHome(
       busy({
         goingCold: [
@@ -393,10 +394,25 @@ describe('Home’s See all doors (MMR-724)', () => {
           tagged(frontierRow({ grooming: 'groomed', id: 'LM-5', status: 'ready' })),
           tagged(frontierRow({ grooming: 'groomed', id: 'MMR-6', status: 'ready' })),
         ],
+        triage: [
+          {
+            findings: 0,
+            goingCold: 0,
+            project: { key: 'MMR', name: 'Mimir' },
+            seeds: [triageSeed({ id: 'MMR-s1' })],
+          },
+          {
+            findings: 0,
+            goingCold: 0,
+            project: { key: 'LM', name: 'Loom' },
+            seeds: [triageSeed({ id: 'LM-s1' })],
+          },
+        ],
       }),
     );
 
     const spare = section(/^When you have a minute/);
+    expect(within(spare).getByText('Seeds to triage').closest('a')).toBeNull();
     expect(within(spare).getByText('Ready to start').closest('a')).toBeNull();
     expect(within(spare).getByText('Going cold').closest('a')).toBeNull();
     expect(within(spare).queryByRole('link')).toBeNull();
