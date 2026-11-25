@@ -1,8 +1,9 @@
-import { useId, useLayoutEffect, useRef } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode, Ref, RefObject } from 'react';
 
 import { cn } from '../../lib/cn';
 import { CloseIcon, FilterIcon } from '../ui/icons';
+import { Fold } from './feed/day-fold';
 import { FEED_FOCUS_RING, FEED_LINK_TEXT } from './feed/link';
 import { ShowMoreButton } from './feed/show-more';
 
@@ -265,6 +266,32 @@ export function ListGroup({
       </div>
       {children}
     </section>
+  );
+}
+
+/**
+ * The folds set aside after a list's groups (Seeds' Parked and Settled, the
+ * archived projects), 32 below the last group, one fold's rule above the next.
+ */
+export function ListFolds({ children }: { children: ReactNode }) {
+  return <div className="mt-8 flex flex-col first:mt-0">{children}</div>;
+}
+
+/** One fold of `ListFolds`: its label and count, closed until opened, what it holds inside. */
+export function ListFold({
+  label,
+  count,
+  children,
+}: {
+  label: string;
+  count: number;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Fold label={label} count={count} open={open} onOpenChange={setOpen}>
+      <div className="pt-1 pb-4">{children}</div>
+    </Fold>
   );
 }
 

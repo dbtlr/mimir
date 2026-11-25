@@ -3,6 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { projects } from '../api/fns/shell';
 import { review } from '../api/fns/views';
 import type { ReviewReport } from '../api/view-queries';
 import { projectsRoute } from '../router';
@@ -61,6 +62,17 @@ function serve({
 }: { active?: ReviewReport['projects']; archived?: typeof ARCHIVED } = {}) {
   serveShell({ archived });
   serveViews({ review: engineReview({ projects: active }) });
+}
+
+/** The archived read fails; the active read still answers. */
+function failArchivedRead() {
+  const answer = vi.mocked(projects).getMockImplementation();
+  vi.mocked(projects).mockImplementation(async (args) => {
+    if (args.data.status === 'archived') {
+      throw new Error('unreachable');
+    }
+    return answer!(args);
+  });
 }
 
 const quietClient = () =>
@@ -175,6 +187,39 @@ describe('the Projects list (MMR-790)', () => {
     serve({ active: [] });
     await openPage();
     await expect(screen.findByRole('button', { name: 'Archived 2' })).resolves.toBeInTheDocument();
+    expect(countLine()).toHaveTextContent('No projects');
+    expect(screen.queryByText('No projects yet.')).toBeNull();
+  });
+
+  it('says the host is unreachable when the review read fails, and holds New project back', async () => {
+    serve();
+    vi.mocked(review).mockRejectedValue(new Error('unreachable'));
+    await openPage();
+    await expect(
+      screen.findByText('Unreachable — is the Mimir host running?'),
+    ).resolves.toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Active projects' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'New project' })).toBeDisabled();
+  });
+
+  it('says the host is unreachable under the list when the archived read fails', async () => {
+    serve();
+    failArchivedRead();
+    await openPage();
+    await expect(
+      screen.findByText('Unreachable — is the Mimir host running?'),
+    ).resolves.toBeInTheDocument();
+    expect(activeRows()).toHaveLength(4);
+    expect(screen.queryByRole('button', { name: /^Archived/ })).toBeNull();
+  });
+
+  it('says the host is unreachable, not that there are no projects, when only the archived read fails', async () => {
+    serve({ active: [] });
+    failArchivedRead();
+    await openPage();
+    await expect(
+      screen.findByText('Unreachable — is the Mimir host running?'),
+    ).resolves.toBeInTheDocument();
     expect(countLine()).toHaveTextContent('No projects');
     expect(screen.queryByText('No projects yet.')).toBeNull();
   });

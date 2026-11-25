@@ -325,6 +325,13 @@ describe('sidebar Projects section on All projects (MMR-562, MMR-567)', () => {
     expect(seeAll).not.toHaveAttribute('aria-current');
   });
 
+  it('counts one project as one in See all (MMR-790)', async () => {
+    await renderAt('/');
+    await expect(
+      within(await section()).findByRole('link', { name: 'See all 1 project' }),
+    ).resolves.toHaveAttribute('href', '/projects');
+  });
+
   it('marks See all as the page on the Projects list (MMR-790)', async () => {
     serveWorld();
     await renderAt('/projects');

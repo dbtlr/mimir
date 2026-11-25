@@ -26,6 +26,11 @@ export function projectsInListOrder(projects: readonly ListedProject[]): ListedP
   );
 }
 
+/** The archived projects' order: by title, as the active ones are by name. */
+export function archivedInListOrder<T extends { title: string }>(projects: readonly T[]): T[] {
+  return projects.toSorted((a, b) => byName.compare(a.title, b.title));
+}
+
 /** "11 projects", "1 project", or "No projects" when none is active. */
 export function projectCountLine(active: number): string {
   if (active === 0) {

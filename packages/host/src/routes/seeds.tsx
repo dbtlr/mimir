@@ -8,7 +8,6 @@ import type { EngineSeed } from '../api/browse-queries';
 import { BrowserSearch } from '../components/browser-list';
 import { FeedCard } from '../components/patterns/feed/card';
 import { CardGrid } from '../components/patterns/feed/card-grid';
-import { Fold } from '../components/patterns/feed/day-fold';
 import { FeedPreview } from '../components/patterns/feed/feed-preview';
 import { PreviewRelation } from '../components/patterns/feed/preview-panel';
 import type { Preview } from '../components/patterns/feed/preview-panel';
@@ -16,6 +15,8 @@ import { Quiet } from '../components/patterns/feed/quiet';
 import {
   CountLineAction,
   FilterChip,
+  ListFold,
+  ListFolds,
   ListGroup,
   ListPage,
   PresetChip,
@@ -153,18 +154,6 @@ function SeedCards({ seeds }: { seeds: readonly EngineSeed[] }) {
   );
 }
 
-/** A lane set aside (Parked, Settled) as a fold row, closed until opened, its cards inside. */
-function LaneFold({ label, seeds }: { label: string; seeds: readonly EngineSeed[] }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Fold label={label} count={seeds.length} open={open} onOpenChange={setOpen}>
-      <div className="pt-1 pb-4">
-        <SeedCards seeds={seeds} />
-      </div>
-    </Fold>
-  );
-}
-
 /**
  * `/p/KEY/seeds`: the Seeds list (ADR 0013, MMR-725 refinement; ADR 0019's
  * list page). The count line with File a seed at its right, the search, the
@@ -286,11 +275,13 @@ export function SeedsPage() {
                 </ListGroup>
               ))}
               {setAside.length > 0 && (
-                <div className="mt-8 flex flex-col first:mt-0">
+                <ListFolds>
                   {setAside.map(({ lane, seeds: laneSeeds }) => (
-                    <LaneFold key={lane} label={SEED_LANE_LABEL[lane]} seeds={laneSeeds} />
+                    <ListFold key={lane} label={SEED_LANE_LABEL[lane]} count={laneSeeds.length}>
+                      <SeedCards seeds={laneSeeds} />
+                    </ListFold>
                   ))}
-                </div>
+                </ListFolds>
               )}
             </div>
           </FeedPreview>

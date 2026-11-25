@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  archivedInListOrder,
   projectCountLine,
   projectPhoneCount,
   projectSetBack,
@@ -42,6 +43,28 @@ describe('the Projects list order (MMR-790)', () => {
     const input = [row('B', 'beta', 0, 0), row('A', 'Alpha', 0, 0), row('C', 'Gamma', 0, 0)];
     expect(projectsInListOrder(input).map((p) => p.name)).toStrictEqual(['Alpha', 'beta', 'Gamma']);
     expect(input.map((p) => p.key)).toStrictEqual(['B', 'A', 'C']);
+  });
+});
+
+describe('the Projects list’s names (MMR-790)', () => {
+  it('orders a number in a name by its value', () => {
+    const ordered = projectsInListOrder([row('B', 'Site 10', 0, 0), row('A', 'Site 2', 0, 0)]);
+    expect(ordered.map((p) => p.name)).toStrictEqual(['Site 2', 'Site 10']);
+  });
+
+  it('breaks a tie of the same counts and name by key', () => {
+    const ordered = projectsInListOrder([row('ZED', 'Twin', 1, 3), row('ABC', 'twin', 1, 3)]);
+    expect(ordered.map((p) => p.key)).toStrictEqual(['ABC', 'ZED']);
+  });
+
+  it('orders the archived projects by title, as the active ones by name, and leaves its input as it was', () => {
+    const archived = [{ title: 'Site 10' }, { title: 'site 2' }, { title: 'Alpha' }];
+    expect(archivedInListOrder(archived).map((p) => p.title)).toStrictEqual([
+      'Alpha',
+      'site 2',
+      'Site 10',
+    ]);
+    expect(archived.map((p) => p.title)).toStrictEqual(['Site 10', 'site 2', 'Alpha']);
   });
 });
 

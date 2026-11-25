@@ -5,11 +5,10 @@ import { archivedProjectsQuery } from '../api/shell-queries';
 import { reviewQuery } from '../api/view-queries';
 import { NewProjectSheet } from '../components/new-project-sheet';
 import { OfflineBanner } from '../components/offline-banner';
-import { Fold } from '../components/patterns/feed/day-fold';
 import { Quiet } from '../components/patterns/feed/quiet';
 import { RowGroup } from '../components/patterns/feed/row-group';
 import type { RowGroupColumns, RowGroupRow } from '../components/patterns/feed/row-group';
-import { ListPage } from '../components/patterns/list-page';
+import { ListFold, ListFolds, ListPage } from '../components/patterns/list-page';
 import { ActionButton } from '../components/ui/action-button';
 import { PlusIcon } from '../components/ui/icons';
 import { Skeleton } from '../components/ui/skeleton';
@@ -17,6 +16,7 @@ import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { PAGE_COLUMN } from '../lib/page-column';
 import {
+  archivedInListOrder,
   projectCountLine,
   projectPhoneCount,
   projectSetBack,
@@ -62,18 +62,6 @@ function activeRow(project: ListedProject): RowGroupRow {
   };
 }
 
-/** The archived projects, closed until opened: each row its key and name, set back. */
-function ArchivedFold({ rows, keyChars }: { rows: readonly RowGroupRow[]; keyChars: number }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Fold label="Archived" count={rows.length} open={open} onOpenChange={setOpen}>
-      <div className="pt-1 pb-4">
-        <RowGroup label="Archived projects" rows={rows} keepZero keyChars={keyChars} />
-      </div>
-    </Fold>
-  );
-}
-
 export function ProjectsPage() {
   const [creating, setCreating] = useState(false);
   const review = useQuery(reviewQuery());
@@ -81,16 +69,14 @@ export function ProjectsPage() {
   const conn = connectivity([review, archived]);
 
   const active = review.data === undefined ? undefined : projectsInListOrder(review.data.projects);
-  const archivedRows: RowGroupRow[] = (archived.data ?? [])
-    .toSorted((a, b) => a.title.localeCompare(b.title, 'en', { sensitivity: 'base' }))
-    .map((project) => ({
-      count: 0,
-      key: project.id,
-      name: project.title,
-      setBack: true,
-      shows: { kind: 'none' },
-      to: projectLink(project.id),
-    }));
+  const archivedRows: RowGroupRow[] = archivedInListOrder(archived.data ?? []).map((project) => ({
+    count: 0,
+    key: project.id,
+    name: project.title,
+    setBack: true,
+    shows: { kind: 'none' },
+    to: projectLink(project.id),
+  }));
   // The key column fits the longest key, active or archived, so the two line up.
   const keyChars = Math.max(
     0,
@@ -98,6 +84,9 @@ export function ProjectsPage() {
     ...archivedRows.map((row) => row.key?.length ?? 0),
   );
   const empty = active?.length === 0 && archived.data?.length === 0;
+  // Either read failing with nothing to show says so, once, where its part would be.
+  const unreachable =
+    (review.isError && active === undefined) || (archived.isError && archived.data === undefined);
 
   return (
     <>
@@ -126,11 +115,6 @@ export function ProjectsPage() {
           </header>
           <ListPage label="Projects" count={active && projectCountLine(active.length)}>
             {review.isPending && <Skeleton className="h-40" />}
-            {review.isError && active === undefined && (
-              <p className="text-meta text-status-blocked-foreground">
-                Unreachable — is the Mimir host running?
-              </p>
-            )}
             {empty && <Quiet>No projects yet.</Quiet>}
             {active !== undefined && active.length > 0 && (
               <RowGroup
@@ -141,10 +125,23 @@ export function ProjectsPage() {
                 keyChars={keyChars}
               />
             )}
+            {unreachable && (
+              <p className="mt-8 text-meta text-status-blocked-foreground first:mt-0">
+                Unreachable — is the Mimir host running?
+              </p>
+            )}
             {archivedRows.length > 0 && (
-              <div className="mt-8 flex flex-col first:mt-0">
-                <ArchivedFold rows={archivedRows} keyChars={keyChars} />
-              </div>
+              <ListFolds>
+                {/* The archived projects, closed until opened: each row its key and name, set back. */}
+                <ListFold label="Archived" count={archivedRows.length}>
+                  <RowGroup
+                    label="Archived projects"
+                    rows={archivedRows}
+                    keepZero
+                    keyChars={keyChars}
+                  />
+                </ListFold>
+              </ListFolds>
             )}
           </ListPage>
         </div>

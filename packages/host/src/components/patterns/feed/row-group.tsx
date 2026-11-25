@@ -241,7 +241,9 @@ function Count({ row, columns }: { row: RowGroupRow; columns: boolean }) {
   return (
     <span
       className={cn(
-        'shrink-0 text-right text-meta whitespace-nowrap text-ink-dim tabular-nums',
+        'shrink-0 text-meta text-ink-dim',
+        // The Projects list's counts keep to one line, set right in the count track.
+        (columns || shows !== undefined) && 'text-right whitespace-nowrap tabular-nums',
         phoneOnly,
       )}
     >

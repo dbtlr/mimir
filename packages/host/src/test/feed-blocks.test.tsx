@@ -276,6 +276,30 @@ describe('feed row group options (MMR-790)', () => {
     ]);
   });
 
+  it('sets a bare count as Home’s rows always have, and keeps a worded count to one line', async () => {
+    await renderInRouter(
+      <RowGroup
+        label="Projects"
+        rows={[
+          { count: 71, key: 'LM', name: 'Loom CLI', to: door('LM') },
+          {
+            count: 36,
+            key: 'NORN',
+            name: 'Norn',
+            shows: { kind: 'words', text: '36 live' },
+            to: door('NORN'),
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText('71').className).toBe('shrink-0 text-meta text-ink-dim');
+    expect(screen.getByText('36 live')).toHaveClass(
+      'text-right',
+      'whitespace-nowrap',
+      'tabular-nums',
+    );
+  });
+
   it('says a count in words, as the attention pill, or not at all, and sets a row’s name back', async () => {
     await renderInRouter(
       <RowGroup
@@ -332,6 +356,14 @@ describe('feed row group options (MMR-790)', () => {
             shows: { kind: 'attention', text: '1 needs you' },
             to: door('MMR'),
           },
+          {
+            count: 0,
+            figures: [0, 4],
+            key: 'NORN',
+            name: 'Norn',
+            shows: { kind: 'words', text: '4 live' },
+            to: door('NORN'),
+          },
         ]}
       />,
     );
@@ -347,7 +379,16 @@ describe('feed row group options (MMR-790)', () => {
     expect(within(figures[1] as HTMLElement).getByText('–')).toHaveAttribute('aria-hidden', 'true');
     expect(figures[0]).toHaveAttribute('data-tone', 'attention');
     // The phone's one count stays, for the phone; the figures take its place from md up.
-    expect(within(row).getByText('1 needs you')).toBeInTheDocument();
+    expect(within(row).getByText('1 needs you')).toHaveClass('md:hidden');
+    // A zero takes no tone: no dot and no bright ink under Need you, plain under Live.
+    const norn = screen.getByRole('link', { name: /^NORN Norn/ });
+    const [needYou, live] = [...norn.querySelectorAll('[data-slot="row-figure"]')];
+    expect(needYou).not.toHaveAttribute('data-tone');
+    expect(needYou).toHaveClass('text-ink-dim');
+    expect(needYou!.querySelector('.bg-attention')).toBeNull();
+    expect(figures[1]).not.toHaveAttribute('data-tone');
+    expect(live).toHaveAttribute('data-tone', 'strong');
+    expect(within(norn).getByText('4 live')).toHaveClass('md:hidden');
   });
 
   it('holds the key column to a width in characters, so groups set together line up', async () => {
