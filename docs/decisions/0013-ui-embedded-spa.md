@@ -1213,3 +1213,35 @@ guard for infinite reads goes with it, and the browse cache version steps to
 Considered and rejected: a server-side seeds filter. The seed list is one
 project's and is read whole for its lanes already, so filtering it again on
 the server would add a contract change for no smaller read.
+
+## Refinement (2026-11-26, MMR-790): the Projects list, and the sidebar's See all
+
+`/projects` is a top-level page that lists every project on the list page
+(ADR 0019, MMR-724 and MMR-790 refinements). Before it, projects appeared
+only in the sidebar's shortlist, the switcher, and Home's Shipped rows. The
+work is front-end only: the page reads the `review` entry's `projects`,
+which Home and the sidebar already read, and the archived projects the
+switcher already reads. It takes no search parameters.
+
+- **The rows are the active projects,** each with its needs-you, to-triage,
+  in-flight, live, and going-cold counts from the review report. They are
+  ordered by needs you (most first), then live (most first), then name.
+  Pins play no part. Each row opens `/p/KEY`.
+- **The archived projects fold after them,** in a closed _Archived N_ fold,
+  each row its key and name, ordered by name, opening the project's page,
+  which offers Unarchive. With nothing archived there is no fold.
+- **_New project_ sits beside the title** and opens the New project sheet
+  the switcher and Home's first-project prompt open.
+- **The All projects sidebar's Projects section ends in _See all N
+  projects_,** a link to `/projects` that counts every active project and
+  is marked the page there. The switcher's _All projects_ entry still leads
+  to `/`, as the MMR-503 refinement set it.
+- **The sidebar on `/projects`** shows the All projects context, as on any
+  page outside a project.
+
+The page becomes a consumer of the review report's per-project `needsYou`
+and `live` counts, so trimming that report (MMR-763) keeps them.
+
+Considered and rejected: the switcher's _All projects_ leading to the new
+page. `/` is the cross-project work page the MMR-503 refinement made it, and
+the operator picked the sidebar's See all as the way in.

@@ -2528,7 +2528,8 @@ Every kind of record gets one list page (principle 2 of MMR-a420), and they
 share one layout, the **list page**, in `components/patterns/list-page.tsx`.
 The Tasks tab is the first (ADR 0013, MMR-724 refinement); Seeds,
 Artifacts, and Projects follow in MMR-725 on the same parts. (2026-11-25:
-MMR-725 brought Seeds and Artifacts; Projects follows on its own.) The operator
+MMR-725 brought Seeds and Artifacts; 2026-11-26: MMR-790 brought Projects,
+see its refinement.) The operator
 picked variant A of three mocks; two members of a design review scored its
 third revision 9. `packages/host/DESIGN.md` holds its numbers, under Feed
 blocks, List page.
@@ -2661,3 +2662,66 @@ check the views and filters through the URL and the sheets, the count lines,
 the lane folds and day folds, File a seed, the empty states, and the
 Artifacts list's windows; `seed-list.test.ts` and `artifacts.test.ts` sweep
 the count line's words and the kind reading.
+
+## Refinement (2026-11-26, MMR-790): the Projects list
+
+`/projects` takes the list page of the MMR-724 refinement with no search and
+no chips, and its rows are the MMR-719 row group with options; the route and
+reads are ADR 0013's MMR-790 refinement. The operator ruled "A on mobile, C
+for desktop", then "Basically A, but with the new project button on top and
+taking advantage of the extra space desktop has using C's columns"; two
+members of a design review scored its third round 9. `packages/host/DESIGN.md`
+holds the numbers, under List page.
+
+- **The row group gains options rather than a table.** `keepZero` keeps
+  rows that count zero; a row's count `shows` in words ("36 live", "Nothing
+  live") or as the attention pill ("2 need you"); a row may be `setBack`,
+  its name in `ink-dim`; `columns` lays each row's figures under captions;
+  `keyChars` holds the key column to a width in characters, so groups set
+  apart line up. Callers that set none of them are unchanged.
+- **A phone row says one count.** The attention pill while anything needs
+  you, else how much is live, else "Nothing live" with the name set back. A
+  project that needs you keeps its name in ink, even with nothing live.
+- **A desktop row says five,** from `md` up: Need you, To triage, In
+  flight, Live, and Going cold, right-aligned in tabular figures under
+  uppercase captions, with Key and Project captions over the key and name.
+  A zero is an en dash in `ink-dim`, Live's included. Need you's figure
+  takes the attention dot. The rows share one grid (CSS subgrid), so each
+  figure lines up under its caption. The caption row pins to the top of the
+  page's scroller as a list group's head does, and is hidden from a screen
+  reader, since each figure carries its caption in its own name ("0 going
+  cold"). Names wrap balanced, two lines at most.
+- **Archived projects fold** after the list in the Day fold's trigger
+  ("Archived 3"), closed until opened, the Seeds list's lane fold. Its rows
+  show the key and name in `ink-dim` with no count and no indent, so they sit
+  in the active rows' key and name columns.
+- **New project is an outline button beside the title,** 44 tall on a
+  phone, pulled back to the title's line so the title sets the 4 to the
+  count line, and 36 from `md` up.
+- **The sidebar's Projects section ends in a See all row** in the See all
+  treatment (13 / 20, 500, `accent-foreground`, underlined on hover), its
+  words aligned with the rows' keys, 44 tall in the drawer. On `/projects`
+  it takes the sidebar's selection treatment.
+
+Four parts depart from `packages/host/DESIGN.md` as approved: the phone's
+need-you pill on a row group, the desktop count columns, uppercase captions
+on a list rather than a dense feed, and an action beside a list page's
+title rather than on its count line. Seed MMR-s126 settles them in the
+design system.
+
+Considered and rejected:
+
+- **One count on desktop too (A throughout).** It leaves the width a desktop
+  has unused, where the columns show what a project holds at a glance.
+- **New project on the count line, two counts a row (B),** Seeds' frame
+  whole. The operator kept A's one count and moved the action beside the
+  title.
+- **C's counts on a phone as a meta line under the name.** It doubles a
+  phone row's height for counts the phone has no room to compare.
+- **New project as the list's last row (A).** It is out of reach on a long
+  list.
+
+`packages/host/src/test/projects-page.test.tsx` checks the page's order,
+counts, captions, fold, empty states, and New project;
+`project-list.test.ts` sweeps the order and the words, and
+`feed-blocks.test.tsx` the row group's options.

@@ -13,7 +13,7 @@ Every value is marked:
   MMR-718 readable type, MMR-719 the feed blocks, MMR-720 the preview
   panel, MMR-721 the Needs you deck, MMR-722 Home, MMR-723 the Needs you
   page, MMR-726 the record header, MMR-724 the list page, MMR-725 the Seeds
-  and Artifacts lists). The reason given beside one says what the code did
+  and Artifacts lists, MMR-790 the Projects list). The reason given beside one says what the code did
   before.
 - **proposed**: missing from or different in the code. Each carries a one-line
   reason and needs the operator's ruling before a primitive adopts it.
@@ -558,7 +558,7 @@ panel's; the page adds only what is below.
 One layout for every kind of record's list (ADR 0019's MMR-724 and MMR-725
 refinements), in `src/components/patterns/list-page.tsx`, with the Filter
 sheet in `filter-sheet.tsx` beside it. The Tasks tab was the first; Seeds and
-Artifacts followed (MMR-725), and Projects follows. Its cards are the Card block's in the Card grid, its
+Artifacts followed (MMR-725), then Projects (MMR-790). Its cards are the Card block's in the Card grid, its
 finished rows the Day fold's, and its preview the Preview panel's.
 
 | Part | Phone (< 768) | Desktop (≥ 768) | Mark |
@@ -581,6 +581,10 @@ finished rows the Day fold's, and its preview the Preview panel's.
 | Artifacts | the Day folds straight under the chips, newest first, the Artifact row; only the newest day open on a fresh visit | same | **adopted (MMR-725)** |
 | Show N more | the list's one text button: the Day fold's (14 / 20, 500, `accent-foreground`, underlined on hover), 12 below the last row, 44 tall; it names how many the next window adds ("Show 50 more") and stays focusable and `aria-disabled` while that window loads | 36 tall | **adopted (MMR-724)**: was a centred outline "Show more" |
 | Empty | the quiet line "No tasks match." 32 below the chips | same | **adopted (MMR-724)** |
+| Projects | `/projects`, with no search or chips: the page title (`text-page`) with _New project_ beside it, a `pageOutline` button with a 16 plus glyph in `ink-dim`, 44 tall with 16 side padding and pulled back 4 above and below so the title's line box sets the 4 to the count line ("11 projects", "1 project", "No projects" with none active); the rows 24 below the count line. Rows are the Row group's with its MMR-790 options, kept at zero, ordered need you, then live, then name: the key column as wide as the longest key, active or archived; one count a row, the attention pill (12 / 20, 600, `attention-foreground` on `attention/12` with a 1px `attention/24` edge, a 6 dot) reading "1 needs you" or "2 need you" while anything needs you, else "36 live" in 13 / 20 `ink-dim`, else "Nothing live" with the name in `ink-dim` (a project that needs you keeps its name in ink) | the same head, the button 36 tall with 14 side padding. Each row carries five right-aligned figures in 13 / 20 tabular figures under 12 uppercase microlabel captions in a 36 row with a `line` hairline under it (Key, Project, Need you, To triage, In flight, Live, Going cold), each figure track at least 84 and 12 clear of the one before; a zero is an en dash in `ink-dim`, Live's included; Need you's figure is `ink-bright` 600 after an 8 attention dot, Live's ink 500, the rest `ink-dim`. Names wrap balanced, two lines at most. The caption row pins as the Pinned head does, and a screen reader skips it: each figure carries its caption ("0 going cold") | **adopted (MMR-790)**: departs from the Row group's one `ink-dim` count (the phone pill, the desktop columns), from the microlabel's dense-feed-only rule (the captions), and from the list page's one count-line action (_New project_ beside the title); seed MMR-s126 settles them |
+| Archived fold, Projects | after the rows, 32 below, the Lane folds' trigger ("Archived 3"), a full-width 44 row, closed until opened, holding the archived projects' rows 4 below it: key and name only, both `ink-dim`, no count, no indent, in the active rows' key and name columns, each opening `/p/KEY`; no fold with nothing archived | a 36 trigger | **adopted (MMR-790)** |
+| Empty, Projects | "No projects yet." 24 below the count line when the store holds no project, with _New project_ still beside the title; with every project archived, the count line reads "No projects" and the Archived fold stays | same | **adopted (MMR-790)** |
+| Sidebar's See all projects | the last row of the All projects sidebar's Projects section: "See all 11 projects", 13 / 20, 500, `accent-foreground`, underlined on hover (See all), its words lined up with the rows' keys; 44 tall in the drawer; on `/projects` the sidebar's selection treatment | 32 tall beside the page | **adopted (MMR-790)** |
 | Empty, Seeds and Artifacts | "No seeds yet." or "No artifacts yet." when the project holds none, with the count line's File a seed still above; "No seeds match." or "No artifacts match." when a filter or the search leaves none; a Seeds view with nothing in it says so ("Nothing to triage. Every seed has a lane.") | same | **adopted (MMR-725)** |
 | Room under the last item | 40, the record column's bottom padding, to the end of the page's scroller | 48, as on Home and the Needs you page | **adopted (MMR-724)** |
 
