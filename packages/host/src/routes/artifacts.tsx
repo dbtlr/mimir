@@ -140,7 +140,6 @@ export function ArtifactsPage() {
         search={
           <div ref={searchRef}>
             <BrowserSearch
-              variant="list"
               value={q}
               onChange={setQ}
               label="Search artifacts"
