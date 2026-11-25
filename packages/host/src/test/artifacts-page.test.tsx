@@ -212,6 +212,30 @@ describe('artifactsPage (the Artifacts list, MMR-725)', () => {
     expect(router.state.location.search).toEqual({ tag: 'spec' });
   });
 
+  it('does not show the old filter’s rows while a new filter loads', async () => {
+    serveRows([frozen(2, 1, { tags: ['spec'] }), frozen(1, 2, { tags: ['session_summary'] })]);
+    const served = vi.mocked(artifacts).getMockImplementation();
+    vi.mocked(artifacts).mockImplementation(async (input) => {
+      if (input.data.tag === 'spec' && input.data.limit !== 0) {
+        return new Promise(() => {});
+      }
+      return served === undefined ? Promise.reject(new Error('unserved')) : served(input);
+    });
+    const user = userEvent.setup();
+    await renderArtifacts();
+    await screen.findByText('Artifact 1');
+
+    await user.click(filterChip());
+    const sheet = await screen.findByRole('dialog', { name: 'Filter artifacts' });
+    await user.click(within(sheet).getByRole('radio', { name: 'Spec' }));
+    await user.click(await within(sheet).findByRole('button', { name: 'Show 1 artifact' }));
+    await waitFor(() => {
+      expect(listReads().at(-1)).toStrictEqual({ limit: 50, project: 'MMR', tag: 'spec' });
+    });
+    expect(screen.queryByText('Artifact 1')).toBeNull();
+    expect(screen.queryByText('Artifact 2')).toBeNull();
+  });
+
   it('keeps a plain tag and the dates a link carries as removable chips after Filter', async () => {
     serveRows([frozen(1, 1, { tags: ['workspace_unconsolidated'] })]);
     const user = userEvent.setup();
