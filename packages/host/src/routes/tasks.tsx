@@ -1,7 +1,7 @@
 import type { EngineNode, StatusSelector, TaskStatusWord } from '@mimir/contract';
 import { STATUS_SELECTOR_VALUES } from '@mimir/contract';
 import { useNavigate } from '@tanstack/react-router';
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 
 import { FINISHED_PAGE_SIZE, isFinishedSelection, tasksBrowserQuery } from '../api/browse-queries';
@@ -43,11 +43,10 @@ import {
 } from '../lib/task-list';
 import { ago, relativeTime } from '../lib/time';
 import { useListWindow } from '../lib/use-list-window';
+import { useSearchText } from '../lib/use-search-text';
 import { shippedTime } from '../lib/work-page';
 import { tasksRoute } from '../router';
 import type { TasksSearch } from '../router';
-
-const SEARCH_DEBOUNCE_MS = 250;
 
 /** Finished rows a day shows before its Show N more. */
 const FINISHED_DAY_CAP = 5;
@@ -266,29 +265,9 @@ export function TasksPage() {
       to: '/p/$key/tasks',
     });
 
-  // Controlled + debounced search (the MMR-63 pattern): the box updates now, the
-  // URL/query trails by the debounce; an external q change (Back/clear) re-syncs
-  // during render.
-  const [q, setQ] = useState(search.q ?? '');
-  const [syncedQ, setSyncedQ] = useState(search.q);
-  if (search.q !== syncedQ) {
-    setSyncedQ(search.q);
-    setQ(search.q ?? '');
-  }
-  const pushQ = useEffectEvent((value: string) => {
+  const [q, setQ] = useSearchText(search.q, (value) => {
     setFilter({ q: value });
   });
-  useEffect(() => {
-    if (q === (search.q ?? '')) {
-      return undefined;
-    }
-    const t = setTimeout(() => {
-      pushQ(q);
-    }, SEARCH_DEBOUNCE_MS);
-    return () => {
-      clearTimeout(t);
-    };
-  }, [q, search.q]);
 
   const sort = search.sort ?? 'recent';
   const { groups, finished, byId } = useMemo(() => {

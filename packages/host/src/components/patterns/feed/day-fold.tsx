@@ -16,35 +16,49 @@ import { ShowMoreButton } from './show-more';
  * a refetch pushes it past the cap.
  */
 
+/** What every finished row has: its link, title, and time. */
+type FinishedRowBase = {
+  to: FeedLink;
+  title: string;
+  /** When it finished, or was frozen ("08:06"). */
+  time: string;
+};
+
 /**
  * One finished row: the status dot, the title (demoted to ink-dim, two lines
  * at most on a phone and one on desktop), and the time in mono. `status` leads
  * the row's accessible name on every row, so done and abandoned rows read
  * alike. An abandoned row's `note` is its second line: the feature's
  * StatusWord, then the reason.
+ *
+ * The `artifact` option (MMR-725) is a record frozen that day rather than work
+ * that finished: no dot, its title in ink-bright, wrapping, and `meta` as a
+ * second line that keeps to one (the kind, then the records it is on).
  */
-export function FinishedRow({
-  to,
-  dot,
-  status,
-  title,
-  time,
-  note,
-}: {
-  to: FeedLink;
-  /** The status dot, from the feature. */
-  dot: ReactNode;
-  /** The status's display label ("Done", "Abandoned"), read before the title. */
-  status: string;
-  title: string;
-  /** When it finished ("08:06"). */
-  time: string;
-  /** A second line: an abandoned row's status word and its reason. */
-  note?: ReactNode;
-}) {
+export function FinishedRow(
+  props: FinishedRowBase &
+    (
+      | {
+          variant?: 'finished';
+          /** The status dot, from the feature. */
+          dot: ReactNode;
+          /** The status's display label ("Done", "Abandoned"), read before the title. */
+          status: string;
+          /** A second line: an abandoned row's status word and its reason. */
+          note?: ReactNode;
+        }
+      | {
+          variant: 'artifact';
+          /** The one meta line; the caller keeps it to one line's content. */
+          meta?: ReactNode;
+        }
+    ),
+) {
+  const artifact = props.variant === 'artifact';
+  const second = artifact ? props.meta : props.note;
   return (
     <Link
-      {...to}
+      {...props.to}
       className={cn(
         // -mx-1 with px-1: the text sits on the column's edge while the hover
         // fill and focus ring reach 4 past it; the hairlines stay in the column.
@@ -55,21 +69,39 @@ export function FinishedRow({
       {/* The dot sits in a 16 column, as the fold's chevron does, so the title
           lines up with the day label. It is hidden: the status is in words. */}
       <span aria-hidden className="mt-2 flex w-4 shrink-0 justify-center">
-        {dot}
+        {artifact ? null : props.dot}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="sr-only">{status}:</span>{' '}
-        <span className="block truncate text-title font-medium text-ink-dim wrap-anywhere max-md:line-clamp-2 max-md:whitespace-normal">
-          {title}
+        {!artifact && (
+          <>
+            <span className="sr-only">{props.status}:</span>{' '}
+          </>
+        )}
+        <span
+          className={cn(
+            'block text-title font-medium wrap-anywhere',
+            artifact
+              ? 'text-ink-bright'
+              : 'truncate text-ink-dim max-md:line-clamp-2 max-md:whitespace-normal',
+          )}
+        >
+          {props.title}
         </span>
-        {note !== undefined && (
+        {second !== undefined && (
           <>
             {' '}
-            <span className="mt-0.5 block text-meta text-ink-dim">{note}</span>
+            <span
+              className={cn(
+                'mt-0.5 block text-meta text-ink-dim',
+                artifact && 'flex min-w-0 items-baseline gap-2 whitespace-nowrap',
+              )}
+            >
+              {second}
+            </span>
           </>
         )}
       </span>{' '}
-      <span className="shrink-0 font-mono text-meta leading-[22px] text-ink-dim">{time}</span>
+      <span className="shrink-0 font-mono text-meta leading-[22px] text-ink-dim">{props.time}</span>
     </Link>
   );
 }

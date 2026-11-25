@@ -80,13 +80,24 @@ const CHIP_ON =
 
 /**
  * The preset in force, as one removable chip: the whole chip is the remove
- * target, named "Remove In flight".
+ * target, named "Remove In flight". A filter a link carries that the Filter
+ * sheet does not hold takes the same chip after Filter; `children` draws its
+ * label when part of it is set apart ("Tagged `workspace_unconsolidated`").
  */
-export function PresetChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+export function PresetChip({
+  label,
+  onRemove,
+  children,
+}: {
+  /** The chip's words, which its accessible name removes. */
+  label: string;
+  onRemove: () => void;
+  children?: ReactNode;
+}) {
   return (
     <button type="button" aria-label={`Remove ${label}`} onClick={onRemove} className={CHIP_TARGET}>
       <span className={cn(CHIP_PILL, CHIP_ON)}>
-        <span className="max-w-[16rem] truncate">{label}</span>
+        <span className="max-w-[16rem] truncate">{children ?? label}</span>
         <CloseIcon className="size-4 md:size-4" />
       </span>
     </button>

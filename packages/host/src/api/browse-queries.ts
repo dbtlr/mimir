@@ -6,7 +6,7 @@ import type {
   StatusSelector,
   StatusWord,
 } from '@mimir/contract';
-import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query';
+import { queryOptions } from '@tanstack/react-query';
 
 import {
   artifacts,
@@ -34,7 +34,7 @@ import { browserTimeZone } from './queries';
  * the persister's buster (lib/persist.ts), so a bump drops every snapshot
  * written in the old shape instead of restoring it into the new code.
  */
-export const BROWSE_CACHE_VERSION = 2;
+export const BROWSE_CACHE_VERSION = 3;
 
 /** A seed as the Engine reads it. */
 export type EngineSeed = EngineOutput<'getSeed'>;
@@ -253,31 +253,36 @@ export function artifactInput(f: ArtifactFilters): EngineInput<'artifacts'> {
   return input;
 }
 
-/** The artifact list's window size — one fetched page of the newest-first feed. */
-export const ARTIFACT_PAGE_SIZE = 100;
+/** The Artifacts list's window: the newest this many load first, and each Show more asks for this many more. */
+export const ARTIFACT_PAGE_SIZE = 50;
 
 /**
- * A project's artifact search — re-runs as filters change. Windowed (the list
- * footer's "scroll for more"): each page asks for an explicit limit/offset
- * slice, and the next offset is however many rows are already on screen,
- * until the set's `total` is reached.
+ * A project's Artifacts list (MMR-725), newest first: the first
+ * `ARTIFACT_PAGE_SIZE * windows` rows, so a Show more refetches the larger
+ * prefix and an artifact frozen between loads can never skip or repeat a row
+ * the way offset paging would. While the larger prefix loads the previous rows
+ * stay (same filters only: a filter change must not show the old selection).
  */
-export const artifactsQuery = (f: ArtifactFilters) =>
-  infiniteQueryOptions({
-    getNextPageParam: (last: EngineOutput<'artifacts'>, pages) => {
-      const fetched = pages.reduce((n, page) => n + page.items.length, 0);
-      return fetched < last.total && last.items.length > 0 ? fetched : undefined;
-    },
-    initialPageParam: 0,
-    queryFn: ({ pageParam }) =>
-      artifacts({
-        data: {
-          ...artifactInput(f),
-          limit: ARTIFACT_PAGE_SIZE,
-          ...(pageParam > 0 ? { offset: pageParam } : {}),
-        },
-      }),
-    queryKey: ['artifacts', f],
+export const artifactsQuery = (f: ArtifactFilters, windows = 1) =>
+  queryOptions({
+    placeholderData: (previous, previousQuery) =>
+      JSON.stringify(previousQuery?.queryKey[1]) === JSON.stringify(f) ? previous : undefined,
+    queryFn: () =>
+      artifacts({ data: { ...artifactInput(f), limit: ARTIFACT_PAGE_SIZE * windows } }),
+    queryKey: ['artifacts', f, windows],
+  });
+
+/**
+ * How many artifacts a filter set holds, for the Filter sheet's "Show N
+ * artifacts" (MMR-725): the same read with no rows (`limit: 0`). A passing
+ * question: never polled or persisted.
+ */
+export const artifactsCountQuery = (f: ArtifactFilters) =>
+  queryOptions({
+    gcTime: 60_000,
+    queryFn: async () => (await artifacts({ data: { ...artifactInput(f), limit: 0 } })).total,
+    queryKey: ['search', 'artifacts-count', f],
+    refetchInterval: false,
   });
 
 /** One artifact with its body — the reader's source. */

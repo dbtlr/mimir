@@ -69,9 +69,14 @@ export function serveBrowse(world: Partial<BrowseWorld> = {}): BrowseWorld {
   vi.mocked(list).mockImplementation(async () => taskSet(state.tasks));
   vi.mocked(consoleOpenTasks).mockImplementation(async () => taskSet(state.tasks));
   vi.mocked(artifacts).mockImplementation(async ({ data }) => {
+    // The tag filter as the Engine applies it: rows carrying that exact tag.
+    const matched =
+      data.tag === undefined
+        ? state.artifacts
+        : state.artifacts.filter((a) => a.tags.includes(data.tag ?? ''));
     const offset = data.offset ?? 0;
-    const items = state.artifacts.slice(offset, offset + (data.limit ?? state.artifacts.length));
-    return { items, returned: items.length, startsAt: offset, total: state.artifacts.length };
+    const items = matched.slice(offset, offset + (data.limit ?? matched.length));
+    return { items, returned: items.length, startsAt: offset, total: matched.length };
   });
   vi.mocked(getArtifact).mockImplementation(async ({ data }) => {
     const found = state.records[data.id];

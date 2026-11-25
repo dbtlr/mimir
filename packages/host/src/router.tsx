@@ -7,6 +7,7 @@ import {
   redirect,
 } from '@tanstack/react-router';
 
+import type { ArtifactListSearch } from './lib/artifact-list';
 import { warmable } from './lib/chunk-warmup';
 import {
   deliveryIdOf,
@@ -275,12 +276,7 @@ function textParam(value: unknown): string | undefined {
  * the search carries filters only.
  */
 
-export type ArtifactsSearch = {
-  tag?: string;
-  q?: string;
-  atOrAfter?: string;
-  atOrBefore?: string;
-};
+export type ArtifactsSearch = ArtifactListSearch;
 
 const validateArtifactsSearch = (search: Record<string, unknown>): ArtifactsSearch => ({
   atOrAfter: textParam(search.atOrAfter),
