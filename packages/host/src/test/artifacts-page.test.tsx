@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
@@ -294,5 +294,31 @@ describe('artifactsPage (the Artifacts list, MMR-725)', () => {
     await screen.findByRole('button', { name: /^Today/ });
     expect(listReads().at(-1)).toStrictEqual({ limit: 50, project: 'MMR', q: '2026' });
     expect(screen.getByRole('searchbox', { name: 'Search artifacts' })).toHaveValue('2026');
+  });
+
+  it('keeps a picked kind checked when a reread brings that kind in its other spelling', async () => {
+    const bare = frozen(1, 1, { tags: ['spec'] });
+    serveRows([bare]);
+    const user = userEvent.setup();
+    const client = new QueryClient({
+      defaultOptions: { queries: { refetchInterval: false, retry: false } },
+    });
+    const { router } = await renderRoute([artifactsRoute], '/p/MMR/artifacts', client);
+    await screen.findByRole('link', { name: /Artifact 1/ });
+    await user.click(filterChip());
+    const sheet = await screen.findByRole('dialog', { name: 'Filter artifacts' });
+    await user.click(within(sheet).getByRole('radio', { name: 'Spec' }));
+    const commit = await within(sheet).findByRole('button', { name: 'Show 1 artifact' });
+
+    serveRows([frozen(2, 0, { tags: ['kind:spec'] }), bare]);
+    await act(() => client.refetchQueries({ queryKey: ['artifacts'] }));
+    await waitFor(() => {
+      expect(countText()).toBe('2 artifacts');
+    });
+    expect(within(sheet).getByRole('radio', { name: 'Spec' })).toBeChecked();
+    await user.click(commit);
+    await waitFor(() => {
+      expect(router.state.location.search).toEqual({ tag: 'spec' });
+    });
   });
 });

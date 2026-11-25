@@ -91,7 +91,8 @@ export function ArtifactFilterSheet({
         kind="radio"
         options={[
           { label: 'Any kind', value: ANY },
-          ...kindTagOptions(rowTags, chosenKind(search)).map((o) => ({
+          // The draft's spelling holds its pill, so a reread can't uncheck what is about to apply.
+          ...kindTagOptions(rowTags, kind === ANY ? undefined : kind).map((o) => ({
             label: o.label,
             value: o.tag,
           })),
