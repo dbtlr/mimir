@@ -116,7 +116,9 @@ export function seedCountLine(seeds: readonly EngineSeed[], show: SeedShow | und
       }
       const parts = OPEN_LANE_WORDS.flatMap(([lane, words]) => {
         const inLane = seeds.filter((seed) => laneOf(seed) === lane).length;
-        return inLane === 0 ? [] : [`${inLane.toLocaleString('en-US')} ${words}`];
+        // No-break spaces hold each part together, so a phone wraps the line only after a comma.
+        const part = `${inLane.toLocaleString('en-US')} ${words}`.replaceAll(' ', '\u00a0');
+        return inLane === 0 ? [] : [part];
       });
       return `${number} open ${seedsWord(n)}: ${parts.join(', ')}`;
     }

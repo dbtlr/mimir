@@ -71,12 +71,12 @@ const renderSeeds = (initial = '/p/MMR/seeds') =>
 
 const line = () => document.querySelector('[data-slot="list-count"]')?.textContent ?? '';
 
-/** The count line's words, once the read has landed. */
+/** The count line's words, once the read has landed (its no-break spaces read as spaces). */
 async function countText() {
   await waitFor(() => {
     expect(line()).not.toBe('');
   });
-  return line();
+  return line().replaceAll('\u00a0', ' ');
 }
 const groupHeadings = () =>
   screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent ?? '');
