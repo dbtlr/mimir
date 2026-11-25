@@ -275,21 +275,24 @@ export function FilterPills<T extends string>({
           );
         })}
         {hidden > 0 && (
-          <span className={PILL_TARGET}>
-            <button
-              type="button"
-              onClick={() => {
-                revealed.current = options.find((o) => !shown.includes(o))?.value ?? null;
-                setExpanded(true);
-              }}
+          // The button owns the whole tap area: under a wrapper, the area's ::before would sit over it and take the tap.
+          <button
+            type="button"
+            onClick={() => {
+              revealed.current = options.find((o) => !shown.includes(o))?.value ?? null;
+              setExpanded(true);
+            }}
+            className={cn(PILL_TARGET, 'outline-none')}
+          >
+            <span
               className={cn(
                 PILL,
-                'cursor-pointer outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent',
+                'group-focus-visible/pill:outline-2 group-focus-visible/pill:outline-offset-2 group-focus-visible/pill:outline-solid group-focus-visible/pill:outline-accent',
               )}
             >
               {hidden} more
-            </button>
-          </span>
+            </span>
+          </button>
         )}
       </div>
     </div>
