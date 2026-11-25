@@ -301,7 +301,7 @@ export function SeedsPage() {
         onClose={() => {
           setFiltering(false);
         }}
-        seeds={all ?? []}
+        seeds={all}
         search={search}
         finalFocus={() => filterChip.current}
         onApply={apply}

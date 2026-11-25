@@ -34,7 +34,8 @@ const KIND_OPTIONS: FilterOption<SeedKind>[] = [
  * The Seeds list's Filter sheet (ADR 0013, MMR-725 refinement): Show (every
  * lane, a preset, or a lane set aside) and Kind (any of them). Nothing applies
  * until "Show N seeds", which counts what the list would show from the seeds
- * it already holds, so it answers at once; Clear resets the fields.
+ * it already holds, so it answers at once ("Show seeds" until they load);
+ * Clear resets the fields.
  */
 export function SeedFilterSheet({
   open,
@@ -46,8 +47,8 @@ export function SeedFilterSheet({
 }: {
   open: boolean;
   onClose: () => void;
-  /** The project's every seed, as the list read them. */
-  seeds: readonly EngineSeed[];
+  /** The project's every seed, as the list read them; undefined until they load. */
+  seeds: readonly EngineSeed[] | undefined;
   /** The applied filters, which the fields open on. */
   search: SeedListSearch;
   onApply: (next: SeedListSearch) => void;
@@ -64,10 +65,14 @@ export function SeedFilterSheet({
   }
 
   const next = seedSearchOf(draft, search.q);
-  const total = seedsInView(
-    seedsMatching(seeds, { kind: next.kind, q: next.q ?? '' }),
-    next.show,
-  ).length;
+  const total =
+    seeds === undefined
+      ? undefined
+      : seedsInView(seedsMatching(seeds, { kind: next.kind, q: next.q ?? '' }), next.show).length;
+  const commitLabel =
+    total === undefined
+      ? 'Show seeds'
+      : `Show ${total.toLocaleString('en-US')} ${total === 1 ? 'seed' : 'seeds'}`;
 
   return (
     <FilterSheet
@@ -75,7 +80,7 @@ export function SeedFilterSheet({
       onClose={onClose}
       title="Filter seeds"
       finalFocus={finalFocus}
-      commitLabel={`Show ${total.toLocaleString('en-US')} ${total === 1 ? 'seed' : 'seeds'}`}
+      commitLabel={commitLabel}
       onCommit={() => {
         onApply(next);
       }}

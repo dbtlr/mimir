@@ -218,6 +218,16 @@ describe('seedsPage (the Seeds list, MMR-725)', () => {
     expect(search(router)).toEqual({ kind: 'bug,feature', show: 'ready-to-resolve' });
   });
 
+  it('offers "Show seeds" without a count while the seeds have not loaded', async () => {
+    mockApi();
+    vi.mocked(seeds).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    await renderSeeds();
+    await user.click(filterChip());
+    const sheet = await screen.findByRole('dialog', { name: 'Filter seeds' });
+    expect(within(sheet).getByRole('button', { name: 'Show seeds' })).toBeEnabled();
+  });
+
   it('narrows by a comma list of kinds from the URL, dropping words that name no kind', async () => {
     mockApi();
     const { router } = await renderSeeds('/p/MMR/seeds?kind=feature,epic');
