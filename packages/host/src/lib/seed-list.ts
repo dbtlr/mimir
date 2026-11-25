@@ -2,8 +2,8 @@ import { SEED_KIND_VALUES } from '@mimir/contract';
 import type { SeedKind, SeedLane } from '@mimir/contract';
 
 import type { EngineSeed } from '../api/browse-queries';
+import { csv } from './comma-list';
 import { laneOf, seedMatchesQuery } from './seed-lanes';
-import { csv } from './task-list';
 
 /*
  * The Seeds list's views and filters (ADR 0013, MMR-725 refinement): what a
