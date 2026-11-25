@@ -2537,8 +2537,8 @@ blocks, List page.
   row, the chip row, then the groups. The chip row holds the preset as one
   removable chip, then Filter, which opens the Filter sheet. The other
   presets live in the sheet, so the row never overflows a phone (variant
-  B's row of every preset did). The search is `BrowserSearch`'s `list`
-  option, 44 tall, as DESIGN.md's Input is at every width.
+  B's row of every preset did). The search is `BrowserSearch`, the list
+  page's one search box, 44 tall, as DESIGN.md's Input is at every width.
 - **A group's heading pins while its group scrolls,** as a band in the
   page's own ground with a `line` hairline only while it is pinned. The
   hairline says the heading is pinned; a band at rest carries none, so the
