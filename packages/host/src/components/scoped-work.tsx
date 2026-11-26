@@ -7,7 +7,7 @@ import { needsYouId } from '../api/view-queries';
 import type { FrontierTask, ReviewReport, ShippedTask, WorkReport } from '../api/view-queries';
 import type { AgentRun } from '../lib/agent-card';
 import { useFocusHandoff } from '../lib/focus-main';
-import { lastSevenDays } from '../lib/home';
+import { lastSevenDays, weekday } from '../lib/home';
 import { nodeLink } from '../lib/record-url';
 import {
   lastFinishedAt,
@@ -184,12 +184,7 @@ function UpNextCards({
 /** "Today", or the weekday a done task finished on this week. */
 function shippedDay(at: Date, zone: string): string {
   const day = dayOf(at.getTime(), zone);
-  if (day === lastSevenDays(zone).today) {
-    return 'Today';
-  }
-  return new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'short' }).format(
-    Date.parse(`${day}T00:00:00.000Z`),
-  );
+  return day === lastSevenDays(zone).today ? 'Today' : weekday(day, 'short');
 }
 
 /** A phase's done task as a Shipped row, opening its page. */

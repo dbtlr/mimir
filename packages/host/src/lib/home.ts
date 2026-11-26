@@ -1,4 +1,4 @@
-import type { ReviewReport } from '../api/view-queries';
+import type { NowTask, ReviewReport } from '../api/view-queries';
 import type { ShippedDay } from '../components/patterns/feed/shipped-summary';
 import type { SeedShow } from './seed-list';
 import type { TaskPreset } from './task-list';
@@ -9,6 +9,12 @@ import { dayBefore, dayOf } from './work-page';
  * title's day, the summary sentence under it, Now's cap and its count, the
  * Shipped week and its counts by project, and the spare-minute rows.
  */
+
+/** When a Now card's status began: a review's or a stage's submit, else the start. */
+export function statusSince(row: NowTask): Date {
+  const submitted = row.task.status === 'under_review' || row.task.status === 'staged';
+  return submitted ? (row.submittedAt ?? row.startedAt) : row.startedAt;
+}
 
 /** How many Now cards Home shows: four on a phone, six from 768 up. */
 const NOW_CAP = { desktop: 6, phone: 4 } as const;
@@ -121,7 +127,7 @@ export type ShippedWeek = {
 };
 
 /** A `YYYY-MM-DD` day's weekday, long and short, named in UTC so no zone moves it. */
-function weekday(day: string, style: 'long' | 'short'): string {
+export function weekday(day: string, style: 'long' | 'short'): string {
   return new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: style }).format(
     Date.parse(`${day}T00:00:00.000Z`),
   );

@@ -95,15 +95,19 @@ export type ProjectOutline = {
 
 const isContainer = (node: EngineTree): boolean => node.type !== 'task';
 
+/** A container's status reads finished when it is done or abandoned. */
+export const isFinishedStatus = (status: EngineTree['status']): boolean =>
+  status === 'done' || status === 'abandoned';
+
 /** A finished initiative: done or abandoned. */
 const isFinished = (node: EngineTree): boolean =>
-  node.type === 'initiative' && (node.status === 'done' || node.status === 'abandoned');
+  node.type === 'initiative' && isFinishedStatus(node.status);
 
 /**
  * Done over total across a node's direct children, tasks and containers alike.
  * An abandoned child is out of the total, so a finished container reads N/N.
  */
-function childTally(node: EngineTree): { done: number; total: number } {
+export function childTally(node: EngineTree): { done: number; total: number } {
   const counted = node.children.filter((c) => c.status !== 'abandoned');
   return { done: counted.filter((c) => c.status === 'done').length, total: counted.length };
 }

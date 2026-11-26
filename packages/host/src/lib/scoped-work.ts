@@ -4,9 +4,9 @@ import type { NowTask, ShippedTask, WorkReport } from '../api/view-queries';
 import type { NeedsYouCard } from '../components/needs-you-deck-model';
 import type { ShippedDay } from '../components/patterns/feed/shipped-summary';
 import { subtreeOf } from './ancestry';
-import { lastSevenDays, shippedDays } from './home';
+import { lastSevenDays, shippedDays, statusSince } from './home';
 import type { MinuteRow } from './home';
-import { dayOf } from './work-page';
+import { childTally, dayOf, isFinishedStatus } from './work-page';
 
 /*
  * The pure derivations behind a project's, initiative's, or phase's Work tab
@@ -29,15 +29,9 @@ export function scopeCards(cards: readonly NeedsYouCard[], ids: readonly string[
   return cards.filter((card) => card.members.some((id) => inScope.has(id)));
 }
 
-/** A Now row's latest move: a review's or a stage's submit, else the start. */
-function lastMove(row: NowTask): number {
-  const submitted = row.task.status === 'under_review' || row.task.status === 'staged';
-  return (submitted ? (row.submittedAt ?? row.startedAt) : row.startedAt).getTime();
-}
-
 /** Now's rows most recent move first, as Home orders them; the work read lists them by rank. */
 export function latestMoveFirst<Row extends NowTask>(rows: readonly Row[]): Row[] {
-  return rows.toSorted((a, b) => lastMove(b) - lastMove(a));
+  return rows.toSorted((a, b) => statusSince(b).getTime() - statusSince(a).getTime());
 }
 
 /** How many tasks that can start Up next shows as cards. */
@@ -241,23 +235,9 @@ export type Part = { id: string; title: string; status: StatusWord; done: number
 /** A scope's parts, the live ones in tree order, the finished ones set apart for their fold. */
 export type Parts = { noun: 'initiatives' | 'phases'; open: Part[]; finished: Part[] };
 
-/** A part's rollup is finished when it is done or abandoned. */
-const isFinished = (status: StatusWord) => status === 'done' || status === 'abandoned';
-
-/**
- * Done over total across a part's direct children, as the sidebar's outline
- * counts them. An abandoned child is out of the total, so a finished part
- * reads N of N.
- */
+/** A part with done over total across its direct children, as the sidebar's outline counts them. */
 function partOf(node: EngineTree): Part {
-  const counted = node.children.filter((child) => child.status !== 'abandoned');
-  return {
-    done: counted.filter((child) => child.status === 'done').length,
-    id: node.id,
-    status: node.status,
-    title: node.title,
-    total: counted.length,
-  };
+  return { id: node.id, status: node.status, title: node.title, ...childTally(node) };
 }
 
 /**
@@ -276,9 +256,9 @@ export function partsOf(tree: EngineTree | undefined, scope: string): Parts | un
     return undefined;
   }
   return {
-    finished: children.filter((part) => isFinished(part.status)),
+    finished: children.filter((part) => isFinishedStatus(part.status)),
     noun: node.type === 'project' ? 'initiatives' : 'phases',
-    open: children.filter((part) => !isFinished(part.status)),
+    open: children.filter((part) => !isFinishedStatus(part.status)),
   };
 }
 

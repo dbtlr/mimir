@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 import type { NowTask } from '../api/view-queries';
 import { cn } from '../lib/cn';
-import { nowCount, nowShown } from '../lib/home';
+import { nowCount, nowShown, statusSince } from '../lib/home';
 import type { MinuteDoor, MinuteRow, ShippedWeek } from '../lib/home';
 import { nodeLink } from '../lib/record-url';
 import { seedShowLink } from '../lib/seed-list';
@@ -39,12 +39,6 @@ const DESKTOP = '(min-width: 768px)';
 /** A Now row; Home's rows name the project each belongs to. */
 type NowRow = NowTask & { project?: string };
 
-/** When the card's status began: a review's or a stage's submit, else the start. */
-function since(row: NowRow): Date | string {
-  const submitted = row.task.status === 'under_review' || row.task.status === 'staged';
-  return submitted ? (row.submittedAt ?? row.startedAt) : row.startedAt;
-}
-
 /** "Started 12m ago.", "Queued 1h ago.", or "Submitted 35m ago.": when the status began. */
 function sinceSentence(row: NowRow): string {
   const { status } = row.task;
@@ -54,7 +48,7 @@ function sinceSentence(row: NowRow): string {
   } else if (status === 'under_review' || status === 'staged') {
     verb = 'Submitted';
   }
-  return `${verb} ${ago(since(row))}.`;
+  return `${verb} ${ago(statusSince(row))}.`;
 }
 
 /** A Now card's preview: its status and when it began, and where its agent works. */
@@ -67,7 +61,7 @@ function nowPreview(row: NowRow, project: string | undefined): Preview {
       : [{ label: 'Branch', value: <span className="font-mono">{task.branch}</span> }]),
   ];
   return {
-    age: relativeTime(since(row)),
+    age: relativeTime(statusSince(row)),
     facts,
     id: task.id,
     lead: <StatusBadge status={task.status} />,
@@ -140,7 +134,7 @@ export function NowSection({
                 lead={<StatusBadge status={row.task.status} />}
                 id={row.task.id}
                 project={projectName(row, names)}
-                age={relativeTime(since(row))}
+                age={relativeTime(statusSince(row))}
                 title={row.task.title}
                 cold={row.stale}
               />
