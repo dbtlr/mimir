@@ -59,7 +59,7 @@ function RowText({ label, meta, oldKey }: { label: string; meta: string; oldKey?
   return (
     <span className="flex min-w-0 flex-1 flex-col">
       {/* A disabled row button is quiet: its name steps to ink-dim, never faded (DESIGN.md). */}
-      <span className="truncate text-body font-medium text-ink-bright group-aria-disabled:text-ink-dim">
+      <span className="truncate text-label font-medium text-ink-bright group-aria-disabled:text-ink-dim">
         {label}
       </span>
       {meta !== '' && (

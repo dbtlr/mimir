@@ -13,7 +13,7 @@ export function Quiet({ children, ref }: { children: ReactNode; ref?: Ref<HTMLPa
     <p
       ref={ref}
       tabIndex={ref === undefined ? undefined : -1}
-      className="mt-8 mb-0 max-w-prose text-body leading-[1.65] text-ink first:mt-0"
+      className="mt-8 mb-0 max-w-prose text-body text-ink first:mt-0"
     >
       {children}
     </p>

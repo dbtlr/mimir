@@ -387,10 +387,7 @@ function PreviewContent({
             {preview.reason}
           </div>
           {preview.text !== undefined && (
-            <div
-              data-slot="preview-text"
-              className="mt-3 text-body leading-[23px] text-pretty text-ink"
-            >
+            <div data-slot="preview-text" className="mt-3 text-body text-pretty text-ink">
               {preview.text}
             </div>
           )}

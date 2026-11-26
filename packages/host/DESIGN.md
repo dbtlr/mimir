@@ -56,7 +56,11 @@ branch names, timestamps-as-data. Both are self-hosted through Fontsource
 not prose, so it gets its own token: `--text-label` (14px) with a paired 20px
 line height, for a field label, a button label, a segment's text, a day
 fold's label, and a text button such as _Show N more_ (**adopted
-(MMR-743)**, `styles.css`; the last two MMR-719); `text-body` keeps 14 / 23 for body copy.
+(MMR-743)**, `styles.css`; the last two MMR-719), and a row's name that
+labels a control: the project picker's name, a notification switch, a
+Settings › Notifications row, and the phone alert's count (MMR-749).
+`text-body` keeps 14 / 23 for body copy, and the token carries that line
+height, so a body paragraph sets no `leading-*` of its own (MMR-749).
 
 Rules:
 

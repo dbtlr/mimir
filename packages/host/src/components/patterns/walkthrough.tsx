@@ -326,7 +326,7 @@ export function WalkthroughHeading({ className, children, ...props }: ComponentP
 export function WalkthroughBody({ children }: { children: ReactNode }) {
   return (
     <div className="flex-1 overflow-y-auto px-5 pt-6 pb-8 md:px-12 md:pt-8 md:pb-10">
-      <div className="flex flex-col text-body leading-[23px] md:max-w-[600px]">{children}</div>
+      <div className="flex flex-col text-body md:max-w-[600px]">{children}</div>
     </div>
   );
 }

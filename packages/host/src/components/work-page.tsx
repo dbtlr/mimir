@@ -361,7 +361,7 @@ export function ContainerDetails({ record }: { record: EngineNode }) {
     <div className="flex flex-col">
       <DetailsSection title="Direction">
         {direction === '' ? (
-          <p className="text-body leading-[1.65] text-ink">No direction set.</p>
+          <p className="text-body text-ink">No direction set.</p>
         ) : (
           <MarkdownBody className="max-w-[70ch]">{direction}</MarkdownBody>
         )}
