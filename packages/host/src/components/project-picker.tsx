@@ -117,7 +117,7 @@ export function ProjectPicker({
             {context.kind === 'all' ? (
               <>
                 <AllProjectsGlyph />
-                <span className="min-w-0 flex-1 truncate text-body font-semibold text-ink-bright">
+                <span className="min-w-0 flex-1 truncate text-label font-semibold text-ink-bright">
                   All projects
                 </span>
                 <NeedsYouCount count={everywhere} />
@@ -136,7 +136,7 @@ export function ProjectPicker({
                 </span>
                 <span
                   className={cn(
-                    'min-w-0 flex-1 truncate text-body font-semibold text-ink-bright',
+                    'min-w-0 flex-1 truncate text-label font-semibold text-ink-bright',
                     frozen !== undefined && 'text-ink-dim',
                   )}
                 >

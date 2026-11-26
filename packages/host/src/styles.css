@@ -37,9 +37,11 @@
   /*
    * The Meridian type scale. Semantic steps rendered against the 16px browser
    * default (html at 100%). Font-size only, so explicit `leading-*` keeps
-   * governing vertical rhythm, except `--text-title` and `--text-label`, which
-   * pair a line height (a title or label is not prose). `text-xs`/`sm`/`base`/`lg`
-   * (Tailwind) still carry the 0.75/0.875/1/1.125 steps where needed.
+   * governing vertical rhythm, except where a token pairs a line height:
+   * `--text-section`, `--text-title`, and `--text-label` (a head, title, or
+   * label is not prose), and `--text-body`, which carries prose's 23px line
+   * wherever it is used (MMR-749). `text-xs`/`sm`/`base`/`lg` (Tailwind) still
+   * carry the 0.75/0.875/1/1.125 steps where needed.
    */
   --text-page: 1.75rem; /* 28px — page title, weight 700 */
   --text-header: 1.3125rem; /* 21px — section header, 700, tracking -0.01em */
@@ -48,7 +50,8 @@
   --text-section--line-height: 1.375rem;
   --text-title: 1rem; /* 16px — a feed row or card title, 500, at every width (MMR-718) */
   --text-title--line-height: 1.375rem;
-  --text-body: 0.875rem; /* 14px — body 400 at lh 1.65 */
+  --text-body: 0.875rem; /* 14px — body 400, prose */
+  --text-body--line-height: 1.4375rem; /* 23px, about 1.65 */
   /* 14px with its own 20px line: a field label, a button label, a segment's text.
      A label is not prose, so it does not take body's 23px line. */
   --text-label: 0.875rem;

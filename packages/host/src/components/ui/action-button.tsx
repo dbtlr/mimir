@@ -46,7 +46,7 @@ export const actionButtonVariants = cva(
       // route through; `default` is the primary surface button (radius 8);
       // `form` is a Form sheet's footer button, 44 tall like the controls above it.
       size: {
-        default: 'rounded-lg px-3 py-1.5 text-body',
+        default: 'rounded-lg px-3 py-1.5 text-label',
         form: 'h-11 rounded-lg px-5 text-label',
         /** A record header's main action and More: 44 tall on a phone, 36 from md. */
         header: 'min-h-11 rounded-lg px-4 text-label md:min-h-9 md:px-3.5',

@@ -155,7 +155,7 @@ test.describe('the needs-you alert', () => {
 /** Each sidebar context: its page, the drawer's trigger and name, and how many controls it holds. */
 const DRAWERS = [
   { context: 'project', controls: 12, name: 'Project', trigger: 'Open project menu' },
-  { context: 'all', controls: 4, name: 'All projects', trigger: 'Open project menu' },
+  { context: 'all', controls: 5, name: 'All projects', trigger: 'Open project menu' },
   { context: 'settings', controls: 7, name: 'Settings', trigger: 'Open settings menu' },
 ];
 
@@ -194,7 +194,7 @@ test.describe('the project sidebar', () => {
     await openFolds(sidebar);
     expect((await controlSizes(sidebar)).map(({ label }) => label)).toEqual([
       'Jump to…: 235 × 36',
-      'MMR Mimir: 235 × 37',
+      'MMR Mimir: 235 × 36',
       'Work: 235 × 32',
       'initiative MMR-1 0/1: 225 × 25',
       'phase MMR-2 0/0: 213 × 25',

@@ -3,8 +3,8 @@
 // without layout cannot make (form-sheet-focus.test.ts, walkthrough-layer.test.ts,
 // feed-deck.test.ts, needs-you-deck.test.ts, needs-you-page.test.ts,
 // list-page.test.ts), the
-// shell's phone touch targets (touch-targets.test.ts), and the drawer's Jump to
-// (drawer-jump.test.ts).
+// shell's phone touch targets (touch-targets.test.ts), the drawer's Jump to
+// (drawer-jump.test.ts), and the body and label line heights (type-rhythm.test.ts).
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -30,6 +30,7 @@ import { NeedsYouDeckPage } from './needs-you-deck-page';
 import { NeedsYouPageHarness } from './needs-you-page';
 import { TasksPageHarness } from './tasks-page';
 import { TouchTargetsPage } from './touch-targets-page';
+import { TypeRhythmPage } from './type-rhythm-page';
 
 const params = new URLSearchParams(globalThis.location.search);
 const form = params.get('form') ?? 't3';
@@ -64,6 +65,9 @@ function Harness() {
   }
   if (form === 'touch-targets') {
     return <TouchTargetsPage />;
+  }
+  if (form === 'type-rhythm') {
+    return <TypeRhythmPage />;
   }
   if (form === 'notice') {
     return (

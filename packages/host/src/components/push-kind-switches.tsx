@@ -100,7 +100,7 @@ export function KindSwitches({
           <li key={kind}>
             {/* The row is the switch's label, so tapping its text flips it (ADR 0019, MMR-712). */}
             <label className="flex min-h-11 cursor-pointer items-center gap-3 px-4 py-2">
-              <span id={`${nameId}-${kind}`} className="flex-1 text-body text-ink-bright">
+              <span id={`${nameId}-${kind}`} className="flex-1 text-label text-ink-bright">
                 {KIND_NAMES[kind]}
               </span>
               <Switch

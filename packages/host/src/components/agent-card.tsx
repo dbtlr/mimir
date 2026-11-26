@@ -146,7 +146,7 @@ function Frame({
 }
 
 function Say({ children }: { children: ReactNode }) {
-  return <p className="text-body leading-[1.55] text-ink">{children}</p>;
+  return <p className="text-body text-ink">{children}</p>;
 }
 
 /** The token file's age, since a setup-token token lasts one year. */
