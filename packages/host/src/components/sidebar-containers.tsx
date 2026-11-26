@@ -191,8 +191,8 @@ function useFoldState(resetKey: string) {
 
 /**
  * The finished children, in one fold at the end of the list that opens in
- * place: "3 finished initiatives", "1 finished phase". It closes again on each
- * navigation.
+ * place: "3 finished initiatives", "1 finished phase". It closes again when
+ * you move to another page; a change of `?tab=` alone leaves it open.
  */
 function FinishedFold({
   rows,

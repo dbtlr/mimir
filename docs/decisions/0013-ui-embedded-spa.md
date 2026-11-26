@@ -1468,9 +1468,9 @@ are unchanged.
   then sequence). The finished children, those whose rollup is done or
   abandoned, gather in one closed fold at the end of the list, "N finished
   initiatives" (or phases; "1 finished phase"), that opens in place and
-  closes again on each navigation. Initiatives and phases are links; none of
-  them opens or closes. The per-initiative disclosure inside the old finished
-  fold retires.
+  closes again when you move to another page. Initiatives and phases are
+  links; none of them opens or closes. The per-initiative disclosure inside
+  the old finished fold retires.
 - **Home's row has no dot; its tally counts the active projects.** Its
   children are the projects, each row the switcher row's dot, key, and name,
   with its needs-you count in the attention colour where it has one: the
