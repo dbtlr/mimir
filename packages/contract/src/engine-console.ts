@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { checklistItemEngineSchema } from './checklist';
 import { decisionViewSchema, decisionEngineSchema } from './decision';
 import { deliveryDetailEngineSchema, deliveryEngineSchema } from './delivery';
-import { engineViews, nodeRefSchema, nodeSchema, seedSchema } from './engine-views';
+import { engineViews, nodeRefSchema, nodeSchema } from './engine-views';
 
 /** A work-page row tagged with the project it belongs to, as the review page lists them. */
 const tagged = <S extends z.ZodRawShape>(shape: S) => z.object({ ...shape, project: z.string() });
@@ -11,7 +11,6 @@ const tagged = <S extends z.ZodRawShape>(shape: S) => z.object({ ...shape, proje
 /** The console's composite pages, built over one instant codec like the read views. */
 function consoleViewSchemas<T extends z.ZodType>(instant: T) {
   const node = nodeSchema(instant);
-  const seed = seedSchema(instant);
   const stale = z.boolean();
   const project = z.object({ key: z.string(), name: z.string() });
   const reason = z.enum(['blocked', 'needs_answers']);
@@ -68,8 +67,6 @@ function consoleViewSchemas<T extends z.ZodType>(instant: T) {
   });
   return {
     review: z.object({
-      goingCold: z.array(z.object({ project: z.string(), task: node })),
-      lastFinished: shippedRow.nullable(),
       needsYou: z.array(z.object({ project, rows: z.array(needsYouRow) })),
       needsYouFacts: z.object({
         bundles: z.array(
@@ -92,24 +89,18 @@ function consoleViewSchemas<T extends z.ZodType>(instant: T) {
       now: z.array(tagged(nowRow.shape)),
       projects: z.array(
         project.extend({
+          findings: z.number(),
           goingCold: z.number(),
           inFlight: z.number(),
           live: z.number(),
           needsYou: z.number(),
+          runnable: z.number(),
           triage: z.number(),
+          untriaged: z.number(),
         }),
       ),
       queue: z.array(z.object({ id: z.string(), kind: z.enum(['delivery', 'decision', 'task']) })),
-      runnable: z.array(tagged(frontierRow.shape)),
       shipped: z.array(tagged(shippedRow.shape)),
-      triage: z.array(
-        z.object({
-          findings: z.number(),
-          goingCold: z.number(),
-          project,
-          seeds: z.array(seed),
-        }),
-      ),
     }),
     work: z.object({
       frontier: z.object({

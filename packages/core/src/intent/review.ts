@@ -1,19 +1,15 @@
 import type {
-  NodeView,
   ReviewNeedsYouGroup,
   ReviewProject,
   ReviewReport,
-  ReviewTriageGroup,
   ReviewWorkRow,
-  SeedView,
   WorkNeedsYouRow,
   WorkNowTask,
-  WorkShippedTask,
 } from '@mimir/contract';
 
 import { recentDaysWindow } from '../dates';
 import { isTerminalWord, nodeStatusWord } from '../derive';
-import type { Node, Project } from '../model';
+import type { Project } from '../model';
 import { listSeedsResolved } from '../seeds/intent';
 import type { Store } from '../store';
 import { now } from '../time';
@@ -28,15 +24,12 @@ import {
 } from './needs-you';
 import {
   SHIPPED_WINDOW_DAYS,
-  abandonedOf,
   classifyWork,
   cmpStr,
-  goingColdRowsOf,
+  isRunnable,
   latestOf,
   nowRowsOf,
   projectKeyOf,
-  runnableRowsOf,
-  seqOf,
   shippedRowsOf,
   workRowSource,
 } from './work';
@@ -61,93 +54,42 @@ type ProjectFacts = {
   project: Project;
   /** The project’s needs-you set in the shared five-kind order. */
   needsYou: WorkNeedsYouRow[];
-  seeds: SeedView[];
+  untriaged: number;
   goingCold: number;
   findings: number;
   inFlight: number;
   live: number;
+  runnable: number;
 };
 
-const triageCount = (f: ProjectFacts): number => f.seeds.length + f.goingCold + f.findings;
+const triageCount = (f: ProjectFacts): number => f.untriaged + f.goingCold + f.findings;
 
-const cmpKey = (a: ProjectFacts, b: ProjectFacts): number => cmpStr(a.project.key, b.project.key);
+/** How many of `items` each key holds. */
+function countBy<T>(items: readonly T[], keyOf: (item: T) => string): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    const key = keyOf(item);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
+}
 
 /** A now row's latest move: a review's submit, otherwise its reservation or start. */
 const lastMoveOf = (row: WorkNowTask): string => row.submittedAt ?? row.startedAt;
 
-/** The leading kind and its record’s own clock decide project urgency. */
-const leadOf = (f: ProjectFacts): { rank: number; updatedAt: string } | undefined => {
-  const [lead] = f.needsYou;
-  return lead === undefined
-    ? undefined
-    : { rank: needsYouRank(lead), updatedAt: needsYouClock(lead) };
-};
-
 /**
- * Project order: projects with needs-you rows first, by leading kind, then the
- * newer leading record, then key; the rest by triage count (most first),
- * then key.
+ * Urgency order over projects with needs-you rows: the leading row's kind,
+ * then the newer leading record by its own clock, then key.
  */
-function byProjectOrder(a: ProjectFacts, b: ProjectFacts): number {
-  const left = leadOf(a);
-  const right = leadOf(b);
-  if (left !== undefined && right !== undefined) {
-    return left.rank - right.rank || cmpStr(right.updatedAt, left.updatedAt) || cmpKey(a, b);
-  }
-  if (left !== undefined || right !== undefined) {
-    return left === undefined ? 1 : -1;
-  }
-  return triageCount(b) - triageCount(a) || cmpKey(a, b);
-}
-
-/** A finish candidate: the finished task and when it finished. */
-type Finish = { node: Node; at: string };
-
-/** Newer finish first; the higher seq breaks a same-millisecond tie, as on the work page. */
-const newerFinish = (a: Finish, b: Finish): number =>
-  cmpStr(b.at, a.at) || seqOf(b.node.id) - seqOf(a.node.id);
-
-/**
- * The newest done or abandoned task among `finished`, the work page's Shipped
- * rule without its window. A done task finished at `completed_at`. An abandon
- * finished at its transition, which only history records; `updated_at` is
- * never earlier, so only the abandons that could beat the newest done task are
- * read.
- */
-async function lastFinishOf(
-  store: Store,
-  viewOf: (node: Node) => Promise<NodeView>,
-  finished: readonly Node[],
-): Promise<WorkShippedTask | null> {
-  const [lastDone] = finished
-    .filter((n) => n.lifecycle === 'done')
-    .map((node) => ({ at: node.completed_at ?? node.updated_at, node }))
-    .toSorted(newerFinish);
-  const abandons = finished.filter(
-    (n) => n.lifecycle === 'abandoned' && (lastDone === undefined || n.updated_at >= lastDone.at),
+function byUrgency(
+  a: { key: string; lead: WorkNeedsYouRow },
+  b: { key: string; lead: WorkNeedsYouRow },
+): number {
+  return (
+    needsYouRank(a.lead) - needsYouRank(b.lead) ||
+    cmpStr(needsYouClock(b.lead), needsYouClock(a.lead)) ||
+    cmpStr(a.key, b.key)
   );
-  const histories = await store.bodySections.readSectionsMany(
-    abandons.map((n) => n.id),
-    { history: true },
-  );
-  const reasons = new Map<string, string | null>();
-  const candidates: Finish[] = abandons.map((node) => {
-    const abandoned = abandonedOf(node, histories.get(node.id)?.history ?? []);
-    reasons.set(node.id, abandoned.reason);
-    return { at: abandoned.at, node };
-  });
-  if (lastDone !== undefined) {
-    candidates.push(lastDone);
-  }
-  const [last] = candidates.toSorted(newerFinish);
-  return last === undefined
-    ? null
-    : {
-        abandonReason: reasons.get(last.node.id) ?? null,
-        finishedAt: last.at,
-        stale: false,
-        task: await viewOf(last.node),
-      };
 }
 
 /**
@@ -173,22 +115,19 @@ const tagged = <T extends { task: { id: string } }>(rows: readonly T[]): ReviewW
  *   follow `needsYouReasonOf`; delivery and decision rows come from
  *   `recordNeedsYou`), projects in urgency order.
  * - `queue`: each member’s kind and id, in the shared order across projects.
- * - `triage`: per project with anything to triage, the untriaged seeds (oldest
- *   first), the tasks going cold, and the findings; most first, then key.
  * - `projects`: every active project in the rail's order (pinned first, then
- *   newest activity), with its needs-you, triage, in-flight, live, and going-cold
- *   counts. `live` is the `--status live` group: every status but done and
- *   abandoned, so parked work counts.
- * - `now`, `shipped`, `runnable`, `goingCold` (MMR-504): the work page's rows
- *   across every active project. They come from the work page's own section
- *   rules and row builders ({@link classifyWork}), run once over all the
- *   projects' tasks, so a project's rows here equal its work report's. Across
- *   projects `now` lists the latest move (submit, else start) first, `runnable` follows the
- *   `projects` order and then each project's rank, `goingCold` the longest quiet
- *   first, and `shipped` the newest first. `shipped` needs `timeZone` to place
- *   its window and is empty without one.
- * - `lastFinished`: the newest done or abandoned task, for the page's all-clear
- *   state; null when nothing has finished.
+ *   newest activity), with its counts: needs-you, in-flight, live, untriaged
+ *   seeds, doctor findings, runnable, going cold, and triage (untriaged plus going
+ *   cold plus findings). `live` is the `--status live` group: every status but
+ *   done and abandoned, so parked work counts. `runnable` and `goingCold` count
+ *   the project's work-page `frontier.runnable` and `goingCold` rows without
+ *   building them (MMR-763).
+ * - `now`, `shipped` (MMR-504): the work page's rows across every active
+ *   project. They come from the work page's own section rules and row builders
+ *   ({@link classifyWork}), run once over all the projects' tasks, so a
+ *   project's rows here equal its work report's. Across projects `now` lists
+ *   the latest move (submit, else start) first and `shipped` the newest first.
+ *   `shipped` needs `timeZone` to place its window and is empty without one.
  *
  * `findings` is the `doctor` finding count per project key; a key that is not
  * an active project (`store`, an archived project) is ignored. Core never runs
@@ -211,7 +150,7 @@ export async function reviewOf(
     findings,
     store.loadProjectActivity(),
   ]);
-  const seedsByProject = Map.groupBy(views, (v) => v.project);
+  const untriagedByProject = countBy(views, (v) => v.project);
   const projects = set.ws.projects.filter((p) => p.archived_at === null);
   const tasksByProject = new Map(
     projects.map((p) => [
@@ -243,79 +182,61 @@ export async function reviewOf(
     byNeedsYouRowOrder,
   );
   const needsYouByProject = Map.groupBy(allNeedsYou, needsYouProject);
-  const inFlightByProject = Map.groupBy(buckets.now, (n) => n.project_id);
-  const coldByProject = Map.groupBy(buckets.stale, (n) => n.project_id);
+  const inFlightByProject = countBy(buckets.now, (n) => n.project_id);
+  const coldByProject = countBy(buckets.stale, (n) => n.project_id);
+  const runnableByProject = countBy(buckets.frontier.filter(isRunnable), (e) => e.node.project_id);
 
-  const facts: ProjectFacts[] = projects
-    .map((project) => ({
-      findings: findingCounts.get(project.key) ?? 0,
-      goingCold: coldByProject.get(project.key)?.length ?? 0,
-      inFlight: inFlightByProject.get(project.key)?.length ?? 0,
-      live: (tasksByProject.get(project.key) ?? []).filter(
-        (n) => !isTerminalWord(nodeStatusWord(set, n)),
-      ).length,
-      needsYou: needsYouByProject.get(project.key) ?? [],
-      project,
-      seeds: seedsByProject.get(project.key) ?? [],
-    }))
-    .toSorted(byProjectOrder);
+  const facts: ProjectFacts[] = projects.map((project) => ({
+    findings: findingCounts.get(project.key) ?? 0,
+    goingCold: coldByProject.get(project.key) ?? 0,
+    inFlight: inFlightByProject.get(project.key) ?? 0,
+    live: (tasksByProject.get(project.key) ?? []).filter(
+      (n) => !isTerminalWord(nodeStatusWord(set, n)),
+    ).length,
+    needsYou: needsYouByProject.get(project.key) ?? [],
+    project,
+    runnable: runnableByProject.get(project.key) ?? 0,
+    untriaged: untriagedByProject.get(project.key) ?? 0,
+  }));
 
-  const [nowRows, shippedRows, runnableRows, coldViews, lastFinished] = await Promise.all([
+  const [nowRows, shippedRows] = await Promise.all([
     nowRowsOf(source),
     shippedRowsOf(source, shippedWindow),
-    runnableRowsOf(source),
-    goingColdRowsOf(source),
-    lastFinishOf(
-      store,
-      source.viewOf,
-      tasks.filter((n) => n.lifecycle === 'done' || n.lifecycle === 'abandoned'),
-    ),
   ]);
   const needsYou: ReviewNeedsYouGroup[] = facts
-    .filter((f) => f.needsYou.length > 0)
-    .map((f) => ({ project: { key: f.project.key, name: f.project.name }, rows: f.needsYou }));
-  const queue = allNeedsYou.map((row) => ({ id: needsYouId(row), kind: row.kind }));
-
-  const triage: ReviewTriageGroup[] = facts
-    .filter((f) => triageCount(f) > 0)
-    .toSorted((a, b) => triageCount(b) - triageCount(a) || cmpKey(a, b))
-    .map((f) => ({
-      findings: f.findings,
-      goingCold: f.goingCold,
+    .flatMap((f) => {
+      const [lead] = f.needsYou;
+      return lead === undefined ? [] : [{ facts: f, key: f.project.key, lead }];
+    })
+    .toSorted(byUrgency)
+    .map(({ facts: f }) => ({
       project: { key: f.project.key, name: f.project.name },
-      seeds: f.seeds,
+      rows: f.needsYou,
     }));
+  const queue = allNeedsYou.map((row) => ({ id: needsYouId(row), kind: row.kind }));
 
   const railOrder = byRailOrder(activity);
   const reviewProjects: ReviewProject[] = facts
     .toSorted((a, b) => railOrder(a.project, b.project))
     .map((f) => ({
+      findings: f.findings,
       goingCold: f.goingCold,
       inFlight: f.inFlight,
       key: f.project.key,
       live: f.live,
       name: f.project.name,
       needsYou: f.needsYou.length,
+      runnable: f.runnable,
       triage: triageCount(f),
+      untriaged: f.untriaged,
     }));
 
-  const railIndex = new Map(reviewProjects.map((p, i) => [p.key, i]));
-
   return {
-    goingCold: coldViews.map((task) => ({ project: projectKeyOf(task.id), task })),
-    lastFinished,
     needsYou,
     needsYouFacts: needsYouFactsOf(set, allNeedsYou),
     now: tagged(nowRows).toSorted((a, b) => cmpStr(lastMoveOf(b), lastMoveOf(a))),
     projects: reviewProjects,
     queue,
-    // Project order, then the project's own rank: the rows arrive in one global
-    // rank order, which restricted to a project is that project's rank order, and
-    // the sort is stable.
-    runnable: tagged(runnableRows).toSorted(
-      (a, b) => (railIndex.get(a.project) ?? 0) - (railIndex.get(b.project) ?? 0),
-    ),
     shipped: tagged(shippedRows),
-    triage,
   };
 }

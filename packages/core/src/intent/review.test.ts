@@ -7,6 +7,7 @@ import {
   archiveProject,
   blockTask,
   completeTask,
+  depend,
   groomTasks,
   parkTask,
   startTask,
@@ -246,7 +247,6 @@ test('an archived project contributes nothing and is not listed', async () => {
   await archiveProject(store, 'OLD');
   const report = await review({}, new Map([['OLD', 4]]));
   expect(report.needsYou).toEqual([]);
-  expect(report.triage).toEqual([]);
   expect(report.projects.map((p) => p.key)).toEqual(['MMR']);
 });
 
@@ -325,16 +325,32 @@ test('the queue walks every block, then every question, newest first, and skips 
   expect((await review()).queue.map((r) => r.id)).toEqual([aBlock, bBlock, bAsk, aAsk]);
 });
 
-test('triage lists untriaged seeds oldest first, never a parked seed', async () => {
+test('untriaged counts the seeds still to triage, never a parked seed', async () => {
   await project('MMR');
-  const first = await fileSeed(store, { kind: 'idea', project: 'MMR', title: 'first' });
-  const second = await fileSeed(store, { kind: 'bug', project: 'MMR', title: 'second' });
+  await fileSeed(store, { kind: 'idea', project: 'MMR', title: 'first' });
+  await fileSeed(store, { kind: 'bug', project: 'MMR', title: 'second' });
   const parked = await fileSeed(store, { kind: 'idea', project: 'MMR', title: 'parked' });
   await parkSeed(store, parked.id);
-  const report = await review();
-  expect(report.triage).toHaveLength(1);
-  expect(report.triage[0]?.seeds.map((s) => s.id)).toEqual([first.id, second.id]);
-  expect(report.projects[0]?.triage).toBe(2);
+  const [mmr] = (await review()).projects;
+  expect(mmr).toMatchObject({ triage: 2, untriaged: 2 });
+});
+
+test("the runnable count is the work page's frontier.runnable rows: groomed, ready, and ranked", async () => {
+  await project('MMR');
+  const prerequisite = await task('MMR', 'one');
+  await groomTasks(store, [prerequisite, await task('MMR', 'two')], 'groomed');
+  // Not runnable: an ungroomed task, a groomed one with no rank, and a groomed,
+  // ranked one awaiting an open prerequisite.
+  await task('MMR', 'ungroomed');
+  const unranked = await task('MMR', 'unranked');
+  await groomTasks(store, [unranked], 'groomed');
+  await rawPatchNode(store, unranked, { rank: null });
+  const awaiting = await task('MMR', 'awaiting');
+  await groomTasks(store, [awaiting], 'groomed');
+  await depend(store, awaiting, [prerequisite]);
+  const page = await workPageOf(store, 'MMR', { timeZone: 'UTC' });
+  expect(page.frontier.runnable).toHaveLength(2);
+  expect((await review()).projects[0]?.runnable).toBe(page.frontier.runnable.length);
 });
 
 test("the going-cold count matches the work page's Going cold section it links to", async () => {
@@ -357,16 +373,16 @@ test("the going-cold count matches the work page's Going cold section it links t
   const page = await workPageOf(store, 'MMR', { asOf, timeZone: 'UTC' });
   const report = await review({ asOf });
   expect(page.goingCold.length).toBeGreaterThan(0);
-  expect(report.triage[0]?.goingCold).toBe(page.goingCold.length);
+  expect(report.projects[0]?.goingCold).toBe(page.goingCold.length);
 });
 
 test('findings can arrive as a promise, so the doctor scan overlaps the store load', async () => {
   await project('MMR');
   const report = await review({}, Promise.resolve(new Map([['MMR', 2]])));
-  expect(report.triage[0]?.findings).toBe(2);
+  expect(report.projects[0]?.findings).toBe(2);
 });
 
-test('triage counts the findings handed in and ignores keys that are not active projects', async () => {
+test('findings count what is handed in and ignore keys that are not active projects', async () => {
   await project('MMR');
   await project('OLD');
   await archiveProject(store, 'OLD');
@@ -378,37 +394,34 @@ test('triage counts the findings handed in and ignores keys that are not active 
       ['OLD', 2],
     ]),
   );
-  expect(report.triage.map((t) => [t.project.key, t.findings])).toEqual([['MMR', 3]]);
-  expect(report.projects.map((p) => [p.key, p.triage])).toEqual([['MMR', 3]]);
+  expect(report.projects.map((p) => [p.key, p.findings, p.triage])).toEqual([['MMR', 3, 3]]);
 });
 
-test('triage orders by count descending, then key, omits projects with nothing, and a decision-less project counts only triage', async () => {
+test('triage sums untriaged seeds, going cold, and findings per project', async () => {
+  const asOf = '2026-03-01T00:00:00.000Z';
   for (const key of ['AAA', 'BBB', 'CCC', 'DDD']) {
     await project(key);
   }
   await underReview('DDD');
   await fileSeed(store, { kind: 'idea', project: 'AAA', title: 'a' });
+  await at(await task('AAA', 'quiet'), '2026-01-01T00:00:00.000Z');
+  await at(await task('BBB', 'quiet'), '2026-01-01T00:00:00.000Z');
   const report = await review(
-    {},
+    { asOf },
     new Map([
       ['BBB', 1],
       ['CCC', 5],
     ]),
   );
-  expect(report.triage.map((t) => [t.project.key, t.findings])).toEqual([
-    ['CCC', 5],
-    ['AAA', 0],
-    ['BBB', 1],
-  ]);
   expect(
     report.projects
       .toSorted((a, b) => cmpStr(a.key, b.key))
-      .map((p) => [p.key, p.needsYou, p.triage]),
+      .map((p) => [p.key, p.untriaged, p.goingCold, p.findings, p.triage]),
   ).toEqual([
-    ['AAA', 0, 1],
-    ['BBB', 0, 1],
-    ['CCC', 0, 5],
-    ['DDD', 0, 0],
+    ['AAA', 1, 1, 0, 2],
+    ['BBB', 0, 1, 1, 2],
+    ['CCC', 0, 0, 5, 5],
+    ['DDD', 0, 0, 0, 0],
   ]);
 });
 test('inFlight counts the in-progress and under-review tasks of each project', async () => {
@@ -428,68 +441,32 @@ test('inFlight counts the in-progress and under-review tasks of each project', a
   ]);
 });
 
-test('lastFinished is the newest done task across projects, with its finish time', async () => {
-  await project('AAA');
-  await project('BBB');
-  const older = await task('AAA', 'older');
-  const newer = await task('BBB', 'newer');
-  await completeTask(store, older);
-  await completeTask(store, newer);
-  await rawPatchNode(store, older, { completed_at: '2026-01-01T00:00:00.000Z' });
-  await rawPatchNode(store, newer, { completed_at: '2026-01-02T00:00:00.000Z' });
-  const { lastFinished } = await review();
-  expect(lastFinished?.task.id).toBe(newer);
-  expect(lastFinished?.finishedAt).toBe('2026-01-02T00:00:00.000Z');
-  expect(lastFinished?.abandonReason).toBeNull();
-});
-
-test('an abandon newer than every done task is the last finish, timed by its transition', async () => {
-  await project('MMR');
-  const done = await task('MMR', 'done');
-  await completeTask(store, done);
-  await rawPatchNode(store, done, { completed_at: '2026-01-01T00:00:00.000Z' });
-  const dropped = await task('MMR', 'dropped');
-  await abandonTask(store, dropped, 'scope cut');
-  // A later touch moves updated_at, not the finish.
-  await rawPatchNode(store, dropped, { updated_at: '2099-01-01T00:00:00.000Z' });
-  const { lastFinished } = await review();
-  expect(lastFinished?.task.id).toBe(dropped);
-  expect(lastFinished?.abandonReason).toBe('scope cut');
-  expect(lastFinished?.finishedAt).not.toBe('2099-01-01T00:00:00.000Z');
-});
-
-test("an archived project's finish is not the last finish", async () => {
-  await project('MMR');
-  await project('OLD');
-  const kept = await task('MMR', 'kept');
-  await completeTask(store, kept);
-  await rawPatchNode(store, kept, { completed_at: '2026-01-01T00:00:00.000Z' });
-  const archived = await task('OLD', 'archived');
-  await completeTask(store, archived);
-  await archiveProject(store, 'OLD');
-  expect((await review()).lastFinished?.task.id).toBe(kept);
-});
-
-test('an all-clear store has no needsYou, queue, or triage but still lists its projects', async () => {
+test('an all-clear store has no needsYou, queue, or work rows but still lists its projects', async () => {
   await project('BBB', 'Bravo');
   await project('AAA', 'Alpha');
   await task('AAA', 'plain');
   const report = await review();
   expect(report.needsYouFacts).toEqual({ bundles: [], deliveries: [] });
-  const { needsYou, goingCold, now, queue, runnable, shipped, triage } = report;
-  expect({ goingCold, needsYou, now, queue, runnable, shipped, triage }).toEqual({
-    goingCold: [],
+  const { needsYou, now, queue, shipped } = report;
+  expect({ needsYou, now, queue, shipped }).toEqual({
     needsYou: [],
     now: [],
     queue: [],
-    runnable: [],
     shipped: [],
-    triage: [],
   });
+  const zero = {
+    findings: 0,
+    goingCold: 0,
+    inFlight: 0,
+    needsYou: 0,
+    runnable: 0,
+    triage: 0,
+    untriaged: 0,
+  };
   // AAA's task is the newest activity, so it leads the rail.
   expect(report.projects).toEqual([
-    { goingCold: 0, inFlight: 0, key: 'AAA', live: 1, name: 'Alpha', needsYou: 0, triage: 0 },
-    { goingCold: 0, inFlight: 0, key: 'BBB', live: 0, name: 'Bravo', needsYou: 0, triage: 0 },
+    { ...zero, key: 'AAA', live: 1, name: 'Alpha' },
+    { ...zero, key: 'BBB', live: 0, name: 'Bravo' },
   ]);
 });
 

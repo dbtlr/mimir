@@ -941,6 +941,9 @@ Needs you.
   (2026-11-25, MMR-725: the Seeds to triage row opens the Seeds list on
   To triage when one project holds every seed to triage; see the MMR-725
   refinement below.)
+  (2026-11-26, MMR-763: the spare-minute rows sum per-project counts on the
+  review report's `projects`; the report no longer lists the seeds, runnable
+  tasks, or going-cold tasks behind them.)
 - **Home's spare-minute work no longer acts in place.** The rail's runnable
   tasks with _Start_ and untriaged seeds with their verbs (the MMR-476 and
   MMR-503 refinements' in-place triage) are now counts. Each project's work

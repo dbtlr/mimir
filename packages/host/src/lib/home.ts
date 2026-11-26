@@ -210,35 +210,30 @@ function doorTo(
   return project === undefined ? {} : { door: { ...to, project } };
 }
 
+type ProjectCount = 'untriaged' | 'runnable' | 'goingCold' | 'findings';
+
 /** What can wait for a spare minute, across projects, in Home's order. */
 export function minuteRows(report: ReviewReport): MinuteRow[] {
-  const sum = (pick: (group: ReviewReport['triage'][number]) => number) =>
-    report.triage.reduce((n, group) => n + pick(group), 0);
+  const sum = (count: ProjectCount) =>
+    report.projects.reduce((n, project) => n + project[count], 0);
+  const holding = (count: ProjectCount) =>
+    report.projects.filter((project) => project[count] > 0).map((project) => project.key);
   return [
     {
-      count: sum((group) => group.seeds.length),
+      count: sum('untriaged'),
       name: 'Seeds to triage',
-      ...doorTo(
-        report.triage.filter((group) => group.seeds.length > 0).map((group) => group.project.key),
-        { list: 'seeds', show: 'to-triage' },
-      ),
+      ...doorTo(holding('untriaged'), { list: 'seeds', show: 'to-triage' }),
     },
     {
-      count: report.runnable.length,
+      count: sum('runnable'),
       name: 'Ready to start',
-      ...doorTo(
-        report.runnable.map((row) => row.project),
-        { list: 'tasks', show: 'ready' },
-      ),
+      ...doorTo(holding('runnable'), { list: 'tasks', show: 'ready' }),
     },
     {
-      count: report.goingCold.length,
+      count: sum('goingCold'),
       name: 'Going cold',
-      ...doorTo(
-        report.goingCold.map((row) => row.project),
-        { list: 'tasks', show: 'going-cold' },
-      ),
+      ...doorTo(holding('goingCold'), { list: 'tasks', show: 'going-cold' }),
     },
-    { count: sum((group) => group.findings), name: 'Doctor findings' },
+    { count: sum('findings'), name: 'Doctor findings' },
   ];
 }

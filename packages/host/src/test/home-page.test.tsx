@@ -16,13 +16,10 @@ import { stubViewport } from './viewport';
 import type { Viewport } from './viewport';
 import {
   engineReview,
-  frontierRow,
   nowRow as makeNowRow,
   shippedRow as makeShippedRow,
   stripRow,
   tagged,
-  triageSeed,
-  workTask,
 } from './views-fixtures';
 import { serveViews } from './views-fns';
 
@@ -59,10 +56,13 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const PROJECTS = [
-  stripRow({ key: 'MMR', name: 'Mimir' }),
-  stripRow({ key: 'FLT', name: 'Fleet' }),
-  stripRow({ key: 'LM', name: 'Loom CLI' }),
+type Counts = Parameters<typeof stripRow>[1];
+
+/** Home's three projects, each with the counts given for its key. */
+const projectsWith = (counts: { MMR?: Counts; FLT?: Counts; LM?: Counts } = {}) => [
+  stripRow({ key: 'MMR', name: 'Mimir' }, counts.MMR),
+  stripRow({ key: 'FLT', name: 'Fleet' }, counts.FLT),
+  stripRow({ key: 'LM', name: 'Loom CLI' }, counts.LM),
 ];
 
 /** A task in Now, started `minutes` ago, tagged with its project as the review read tags it. */
@@ -87,23 +87,16 @@ const NEEDS = report(
 function busy(overrides: Partial<ReviewReport> = {}): ReviewReport {
   return {
     ...NEEDS,
-    goingCold: [{ project: 'MMR', task: workTask({ id: 'MMR-90', status: 'in_progress' }) }],
     now: NINE,
-    projects: PROJECTS,
-    runnable: [tagged(frontierRow({ grooming: 'groomed', id: 'LM-5', status: 'ready' }))],
+    projects: projectsWith({
+      LM: { runnable: 1 },
+      MMR: { findings: 2, goingCold: 1, untriaged: 2 },
+    }),
     shipped: [
       shipped('MMR-1', minutesAgo(30)),
       shipped('MMR-2', daysAgo(1)),
       shipped('LM-3', daysAgo(2)),
       shipped('MMR-4', daysAgo(2), 'abandoned'),
-    ],
-    triage: [
-      {
-        findings: 2,
-        goingCold: 1,
-        project: { key: 'MMR', name: 'Mimir' },
-        seeds: [triageSeed({ id: 'MMR-s1' }), triageSeed({ id: 'MMR-s2' })],
-      },
     ],
     ...overrides,
   };
@@ -112,20 +105,11 @@ function busy(overrides: Partial<ReviewReport> = {}): ReviewReport {
 /** An empty Home: nothing needs you, runs, or shipped, and only some spare-minute work. */
 function quiet(overrides: Partial<ReviewReport> = {}): ReviewReport {
   return busy({
-    goingCold: [],
     needsYou: [],
     now: [],
+    projects: projectsWith({ MMR: { untriaged: 1 } }),
     queue: [],
-    runnable: [],
     shipped: [],
-    triage: [
-      {
-        findings: 0,
-        goingCold: 0,
-        project: { key: 'MMR', name: 'Mimir' },
-        seeds: [triageSeed({ id: 'MMR-s1' })],
-      },
-    ],
     ...overrides,
   });
 }
@@ -351,7 +335,7 @@ describe('Home at / (ADR 0013, MMR-722 refinement)', () => {
     ).toEqual(['Seeds to triage 1']);
     unmount();
 
-    await openHome(quiet({ triage: [] }));
+    await openHome(quiet({ projects: projectsWith() }));
     expect(screen.queryByRole('region', { name: /^When you have a minute/ })).toBeNull();
   });
 
@@ -386,28 +370,10 @@ describe('Home’s See all doors (MMR-724)', () => {
   it('keeps Seeds to triage, Ready, and Going cold as plain counts when they span projects', async () => {
     await openHome(
       busy({
-        goingCold: [
-          { project: 'MMR', task: workTask({ id: 'MMR-90', status: 'in_progress' }) },
-          { project: 'LM', task: workTask({ id: 'LM-91', status: 'ready' }) },
-        ],
-        runnable: [
-          tagged(frontierRow({ grooming: 'groomed', id: 'LM-5', status: 'ready' })),
-          tagged(frontierRow({ grooming: 'groomed', id: 'MMR-6', status: 'ready' })),
-        ],
-        triage: [
-          {
-            findings: 0,
-            goingCold: 0,
-            project: { key: 'MMR', name: 'Mimir' },
-            seeds: [triageSeed({ id: 'MMR-s1' })],
-          },
-          {
-            findings: 0,
-            goingCold: 0,
-            project: { key: 'LM', name: 'Loom' },
-            seeds: [triageSeed({ id: 'LM-s1' })],
-          },
-        ],
+        projects: projectsWith({
+          LM: { goingCold: 1, runnable: 1, untriaged: 1 },
+          MMR: { goingCold: 1, runnable: 1, untriaged: 1 },
+        }),
       }),
     );
 

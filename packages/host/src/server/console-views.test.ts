@@ -153,7 +153,12 @@ test('the fixture reaches every section the pages show', async () => {
   expect(review.now.map((row) => row.task.id)).toContain(ids.submitted);
   expect(review.now[0]?.startedAt).toBeInstanceOf(Date);
   expect(review.shipped[0]?.finishedAt).toBeInstanceOf(Date);
-  expect(review.triage.map((group) => group.project.key).toSorted()).toEqual(['ENG', 'OTH']);
+  expect(
+    review.projects
+      .filter((project) => project.triage > 0)
+      .map((project) => project.key)
+      .toSorted(),
+  ).toEqual(['ENG', 'OTH']);
   const work = await remote.console.projectWork({ project: 'ENG', timeZone: 'UTC' });
   expect(work.now[0]?.latestNote?.createdAt).toBeInstanceOf(Date);
   expect(work.frontier.toGroom.length).toBeGreaterThan(0);
@@ -193,9 +198,9 @@ test('console.openTasks finds an old open task that newer matching records crowd
 
 test('the review report counts the findings the host supplies, and none without a provider', async () => {
   const withFindings = await remote.console.review({ timeZone: 'UTC' });
-  expect(withFindings.triage.find((group) => group.project.key === 'ENG')?.findings).toBe(2);
+  expect(withFindings.projects.find((project) => project.key === 'ENG')?.findings).toBe(2);
   const bare = await new LocalEngine(fixture.store).console.review({ timeZone: 'UTC' });
-  expect(bare.triage.find((group) => group.project.key === 'ENG')).toBeUndefined();
+  expect(bare.projects.find((project) => project.key === 'ENG')?.findings).toBe(0);
 });
 
 test('a failing findings provider counts no findings instead of failing the page', async () => {
@@ -266,7 +271,7 @@ test('the as-of input places staleness far in the future', async () => {
     timeZone: 'UTC',
   };
   const later = await remote.console.review(input);
-  expect(later.goingCold.length).toBeGreaterThan(0);
+  expect(later.projects.some((project) => project.goingCold > 0)).toBe(true);
 });
 
 test('the as-of input reaches the work pages and the overview', async () => {
