@@ -98,6 +98,32 @@ type Outcome = {
   savedAny: boolean;
 };
 
+/** The field that shows each draft value's error; Open questions belongs to Grooming. */
+const ERROR_FIELD: Record<keyof TaskDraft, EditField> = {
+  description: 'description',
+  externalRef: 'externalRef',
+  grooming: 'grooming',
+  groomingPicked: 'grooming',
+  parent: 'parent',
+  priority: 'priority',
+  questions: 'grooming',
+  size: 'size',
+  summary: 'summary',
+  tags: 'tags',
+  title: 'title',
+};
+
+/** The errors left once the values in `next` change: a changed value is not the one that failed. */
+function withoutErrorsFor(errors: Outcome['errors'], next: Partial<TaskDraft>): Outcome['errors'] {
+  const left = { ...errors };
+  for (const [key, field] of Object.entries(ERROR_FIELD)) {
+    if (key in next) {
+      delete left[field];
+    }
+  }
+  return left;
+}
+
 function TaskEditForm({ node, tree, open, onClose, finalFocus }: TaskEditSheetProps) {
   const [baseline, setBaseline] = useState(() => taskDraft(node));
   const [draft, setDraft] = useState(baseline);
@@ -113,6 +139,9 @@ function TaskEditForm({ node, tree, open, onClose, finalFocus }: TaskEditSheetPr
   const invalidate = useInvalidateOnWrite();
   const change = (next: Partial<TaskDraft>) => {
     setDraft((current) => ({ ...current, ...next }));
+    setOutcome(
+      (current) => current && { ...current, errors: withoutErrorsFor(current.errors, next) },
+    );
   };
   const error = (field: EditField) => outcome?.errors[field];
 

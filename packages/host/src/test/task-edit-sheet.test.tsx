@@ -425,6 +425,33 @@ describe('task edit sheet: a Save that partly fails', () => {
     expect(update).not.toHaveBeenCalled();
   });
 
+  it("clears a failed field's error once its value changes, and keeps the others", async () => {
+    stubViewport('desktop');
+    const sheet = await openSheet(todo({ size: 'small' }));
+    vi.mocked(move).mockRejectedValueOnce(new Error("the host didn't answer"));
+    vi.mocked(update).mockRejectedValueOnce(new Error("the host didn't answer"));
+    await userEvent.click(within(sheet).getByRole('radio', { name: 'Medium' }));
+    await userEvent.click(within(sheet).getByRole('button', { name: /^Parent/ }));
+    await userEvent.click(await screen.findByRole('option', { name: /Console/ }));
+    await save(sheet);
+    const parent = await within(sheet).findByRole('button', { name: /^Parent/ });
+    await waitFor(() => {
+      expect(parent).toHaveAttribute('aria-invalid', 'true');
+    });
+
+    await userEvent.click(parent);
+    await userEvent.click(await screen.findByRole('option', { name: /SQLite/ }));
+
+    expect(within(sheet).getByRole('button', { name: /^Parent/ })).not.toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+    expect(within(sheet).getByRole('radiogroup', { name: 'Size' })).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+  });
+
   it('keeps Close after a later Save that saved nothing', async () => {
     stubViewport('desktop');
     const sheet = await openSheet(todo({ size: 'small' }));

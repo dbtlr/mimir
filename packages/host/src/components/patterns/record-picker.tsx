@@ -71,7 +71,12 @@ function grouped(records: readonly PickerRecord[]): { label: string; records: Pi
   const groups = new Map<string, PickerRecord[]>();
   for (const record of records) {
     const label = record.group ?? '';
-    groups.set(label, [...(groups.get(label) ?? []), record]);
+    const members = groups.get(label);
+    if (members === undefined) {
+      groups.set(label, [record]);
+    } else {
+      members.push(record);
+    }
   }
   return [...groups].map(([label, members]) => ({ label, records: members }));
 }
