@@ -8,6 +8,6 @@
 
 **Before and after.** Before, the `review` report had `runnable` and `goingCold` row lists, `triage` groups with each project's untriaged seeds, and `lastFinished`. After, those four fields are gone, and each `projects` entry has `runnable`, `untriaged`, and `findings` counts. `needsYou`, `needsYouFacts`, `queue`, `now`, `shipped`, and the existing project counts do not change.
 
-**Steps.** Update the host before its clients. A client that reads the removed fields reads the `projects` counts instead. A client that builds `review` reports, such as a test fixture, drops the four fields and adds the three counts to each project.
+**Steps.** Update the host before its clients. Then refresh every open console tab: a tab keeps its old console until it refreshes, and the old Home cannot read the new report. A client that reads the removed fields reads the `projects` counts instead. A client that builds `review` reports, such as a test fixture, drops the four fields and adds the three counts to each project.
 
 **Validation.** Open the console against the updated host and check that Home's When you have a minute rows show the same counts as before and open the same lists.
