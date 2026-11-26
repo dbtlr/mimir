@@ -141,7 +141,7 @@ describe('Now on the work page', () => {
     await expect(nowGroup()).resolves.toHaveTextContent(/^Now$/);
   });
 
-  it('leaves the row out of the head’s count of the tasks in Now', async () => {
+  it('sets the row of a run whose task has no card above the cards, out of the head’s count', async () => {
     serveShell({ trees: { MMR: TREE } });
     serveNodes({ nodes: [PROJECT] });
     serveViews({
@@ -149,13 +149,16 @@ describe('Now on the work page', () => {
     });
     serveAgent({ activity: runningActivity() });
     await renderRoute(consoleRoutes, '/p/MMR', quietClient());
-    await rowOf('Show each clone’s last sync time');
+    const { row } = await rowOf('Show each clone’s last sync time');
     await expect(nowGroup()).resolves.toHaveTextContent(/^Now 1$/);
-    expect(screen.getByRole('button', { name: 'Wire the dialect' })).toBeVisible();
+    const card = screen.getByRole('button', { name: 'Wire the dialect' });
+    expect(card).toBeVisible();
+    // oxlint-disable-next-line no-bitwise -- DOM position flags are a bit mask
+    expect(row.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  // A task queued while the agent grooms it is in Now on its own: it keeps its card, and the run its row above.
-  it('sets the row above the cards when its task has a card too', async () => {
+  // A task queued while the agent grooms it is in Now on its own: the run rides on its card, so the task shows once.
+  it('carries the run on its task’s card, with Stop, when its task has a card', async () => {
     serveShell({ trees: { MMR: TREE } });
     serveNodes({ nodes: [PROJECT] });
     serveViews({
@@ -165,15 +168,26 @@ describe('Now on the work page', () => {
         }),
       },
     });
-    serveAgent({ activity: runningActivity({ cancellable: true }, 'Show each clone’s last sync') });
+    serveAgent({
+      activity: runningActivity(
+        { cancellable: true, startedAt: new Date(NOW - 2 * 60_000) },
+        'Show each clone’s last sync',
+      ),
+    });
     await renderRoute(consoleRoutes, '/p/MMR', quietClient());
-    const { row } = await rowOf('Show each clone’s last sync');
-    const card = screen.getByRole('button', { name: 'Show each clone’s last sync' });
-    // oxlint-disable-next-line no-bitwise -- DOM position flags are a bit mask
-    expect(row.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const target = await screen.findByRole('button', { name: 'Show each clone’s last sync' });
+    expect(screen.queryByRole('link', { name: 'Show each clone’s last sync' })).toBeNull();
+    const card = target.closest<HTMLElement>('[data-slot="feed-card"]');
+    expect(card).not.toBeNull();
+    expect(card).toHaveTextContent('Agent grooming, started 2m ago');
+    expect(card).toHaveTextContent('0.36M of 4M tokens');
     expect(screen.getAllByRole('button', { name: /^Stop run on / })).toHaveLength(1);
-    expect(within(row).getByRole('button', { name: 'Stop run on MMR-640' })).toBeDefined();
+    const stop = within(card as HTMLElement).getByRole('button', { name: 'Stop run on MMR-640' });
     await expect(nowGroup()).resolves.toHaveTextContent(/^Now 1$/);
+    await userEvent.click(stop);
+    await expect(
+      screen.findByRole('alertdialog', { name: 'Stop the agent on MMR-640?' }),
+    ).resolves.toBeVisible();
   });
 
   it('has no Now when no agent run is active and nothing is in flight', async () => {

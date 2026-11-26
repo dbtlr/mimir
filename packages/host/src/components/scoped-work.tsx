@@ -25,6 +25,7 @@ import { presetLink } from '../lib/task-list';
 import { ago, relativeTime } from '../lib/time';
 import { dayOf } from '../lib/work-page';
 import { MinuteSection, NowSection, ShippedSection } from './home-sections';
+import type { NowAgent } from './home-sections';
 import { settle } from './needs-you-cards';
 import { NeedsYouDeck } from './needs-you-deck';
 import { needsYouCards } from './needs-you-deck-model';
@@ -41,7 +42,7 @@ import { ListFold } from './patterns/list-page';
 import { StatusBadge } from './status-badge';
 import { StatusDot } from './status-dot';
 import { Skeleton } from './ui/skeleton';
-import { AgentNowRow, useRowStop } from './work-sections';
+import { AgentFacts, AgentNowRow, useRowStop } from './work-sections';
 
 /*
  * A project's, initiative's, or phase's Work tab (ADR 0013, MMR-727
@@ -328,8 +329,15 @@ export function ScopedWork({
     shipped.total === 0;
   const untriaged = review?.projects.find((project) => project.key === projectKey)?.untriaged ?? 0;
   const parts = partsOf(tree, scope.id);
-  const agent: ReactNode =
-    agentRun === null ? undefined : <AgentNowRow run={agentRun} stopButton={stop.button} />;
+  const agent: NowAgent | undefined =
+    agentRun === null
+      ? undefined
+      : {
+          action: stop.button,
+          detail: <AgentFacts run={agentRun} />,
+          row: <AgentNowRow run={agentRun} stopButton={stop.button} />,
+          task: agentRun.task,
+        };
   // Focus held in a section the quiet sentence replaces goes to that sentence (ADR 0019).
   const busy = useRef<HTMLDivElement>(null);
   const quietLine = useRef<HTMLParagraphElement>(null);

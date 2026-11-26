@@ -39,6 +39,12 @@ const DESKTOP = '(min-width: 768px)';
 /** A Now row; Home's rows name the project each belongs to. */
 type NowRow = NowTask & { project?: string };
 
+/**
+ * A running agent run on a scoped page (MMR-727): its task, its own row, and
+ * what its task's card carries in place of that row: the run's facts and Stop.
+ */
+export type NowAgent = { task: string; row: ReactNode; detail: ReactNode; action: ReactNode };
+
 /** "Started 12m ago.", "Queued 1h ago.", or "Submitted 35m ago.": when the status began. */
 function sinceSentence(row: NowRow): string {
   const { status } = row.task;
@@ -87,8 +93,9 @@ function projectName(row: NowRow, names: ReadonlyMap<string, string> | undefined
  * from 768. The head counts what shows of the whole ("6 of 9") when the cap
  * hides cards. A card opens its preview, as the deck's do. `names` names each
  * card's project where the feed spans projects (Home). `agent` is a running
- * agent's row, above the cards while the run is live (a scoped page, MMR-727):
- * it keeps the section shown, and the head's count leaves it out.
+ * agent run (a scoped page, MMR-727): it rides on its task's card when one
+ * shows, so the task appears once; else its row sits above the cards, keeps
+ * the section shown, and is left out of the head's count.
  */
 export function NowSection({
   rows,
@@ -99,7 +106,7 @@ export function NowSection({
   rows: readonly NowRow[];
   names?: ReadonlyMap<string, string>;
   seeAll?: FeedLink;
-  agent?: ReactNode;
+  agent?: NowAgent;
 }) {
   const desktop = useMediaQuery(DESKTOP);
   const body = useRef<HTMLDivElement>(null);
@@ -108,13 +115,14 @@ export function NowSection({
   }
   const shown = rows.slice(0, nowShown(rows.length, { desktop }));
   const byId = new Map(shown.map((row) => [row.task.id, row]));
+  const agentRow = agent === undefined || byId.has(agent.task) ? undefined : agent.row;
   return (
     <FeedSection
       title="Now"
       count={rows.length === 0 ? undefined : nowCount(rows.length, { desktop })}
       seeAll={seeAll}
     >
-      {agent !== undefined && <div className={cn(rows.length > 0 && 'mb-3')}>{agent}</div>}
+      {agentRow !== undefined && <div className={cn(rows.length > 0 && 'mb-3')}>{agentRow}</div>}
       <FeedPreview
         // When a refetch or a narrower cap drops the card that opened the preview, focus a shown card.
         fallbackFocus={() =>
@@ -127,18 +135,23 @@ export function NowSection({
       >
         <div ref={body}>
           <CardGrid>
-            {shown.map((row) => (
-              <FeedCard
-                key={row.task.id}
-                previewKey={row.task.id}
-                lead={<StatusBadge status={row.task.status} />}
-                id={row.task.id}
-                project={projectName(row, names)}
-                age={relativeTime(statusSince(row))}
-                title={row.task.title}
-                cold={row.stale}
-              />
-            ))}
+            {shown.map((row) => {
+              const carried = agent?.task === row.task.id ? agent : undefined;
+              return (
+                <FeedCard
+                  key={row.task.id}
+                  previewKey={row.task.id}
+                  lead={<StatusBadge status={row.task.status} />}
+                  id={row.task.id}
+                  project={projectName(row, names)}
+                  age={relativeTime(statusSince(row))}
+                  title={row.task.title}
+                  detail={carried?.detail}
+                  action={carried?.action}
+                  cold={row.stale}
+                />
+              );
+            })}
           </CardGrid>
         </div>
       </FeedPreview>

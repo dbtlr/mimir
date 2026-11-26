@@ -24,8 +24,9 @@ import { RowTail } from './work-rows';
  * The rows for work in flight that the work page's old sections drew, kept for
  * the pages that still list with them: a Now row (a delivery's members), and a
  * running agent's row with its Stop (ADR 0041), which a scoped Work tab sets
- * above Now's cards (ADR 0013, MMR-727 refinement). Every row is a BrowserRow,
- * one real link to its record's page.
+ * above Now's cards when the run's task has no card of its own (ADR 0013,
+ * MMR-727 refinement). Every row is a BrowserRow, one real link to its
+ * record's page.
  */
 
 /** An empty section's line: a bold lead and what its emptiness means. */
@@ -149,6 +150,23 @@ export function NowRow({
         </div>
       }
     />
+  );
+}
+
+/**
+ * An agent run's facts on its task's Now card (a scoped page, MMR-727): what
+ * it is doing, whether it stopped reporting, and its tokens, as its row says.
+ */
+export function AgentFacts({ run }: { run: AgentRun }) {
+  return (
+    <>
+      Agent{' '}
+      {run.stopping ? 'stopping after its current step' : `grooming, started ${ago(run.startedAt)}`}
+      {run.stale ? ', stopped reporting' : ''}
+      <MetaPart>
+        {formatTokens(run.usedTokens)} of {formatTokens(run.reservedTokens)} tokens
+      </MetaPart>
+    </>
   );
 }
 
