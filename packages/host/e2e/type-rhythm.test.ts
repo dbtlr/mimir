@@ -45,9 +45,8 @@ test("the project picker's name and the phone alert's count draw the label's 20p
   await expect(alert).toHaveCSS('line-height', '20px');
 
   await page.setViewportSize(DESKTOP);
-  const sidebar = page.getByRole('complementary');
-  await expect(sidebar.getByText('Mimir', { exact: true }).first()).toHaveCSS(
-    'line-height',
-    '20px',
-  );
+  const picker = page
+    .getByRole('complementary', { name: 'Project' })
+    .getByRole('button', { exact: true, name: 'MMR Mimir' });
+  await expect(picker.getByText('Mimir', { exact: true })).toHaveCSS('line-height', '20px');
 });
