@@ -2,24 +2,21 @@ import type { EngineNode, NodeRef } from '@mimir/contract';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { useTag, useTransition, useUntag, useUpdateNode } from '../api/node-mutations';
+import { useTransition } from '../api/node-mutations';
 import { cn } from '../lib/cn';
 import { externalRefText, isBareUrl } from '../lib/links';
-import { proseEdit } from '../lib/prose';
-import type { TaskFormValues } from '../lib/schemas';
 import { availableTransitions, transitionLabel } from '../lib/transitions';
 import type { TransitionVerb, VerbSpec } from '../lib/transitions';
 import { MarkdownBody } from './markdown-body';
 import { FactMono } from './patterns/facts';
 import { Reason } from './patterns/reason';
 import { OpenEndedBadge, PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
-import type { TaskFormSubmit } from './task-form';
 import { Badge } from './ui/badge';
 import { ExternalIcon } from './ui/icons';
 
 /*
  * The pieces of a work node's record page: its description and signals,
- * detail rows, and the edit and transition wiring.
+ * detail rows, and the transition wiring.
  */
 
 /** A record's description as rendered markdown, or a quiet line when it has none. */
@@ -183,72 +180,6 @@ export function moreVerbs(node: EngineNode): {
     abandon: rest.filter((v) => v.verb === 'abandon'),
     holds: rest.filter((v) => HOLD_VERBS.has(v.verb)),
     status: rest.filter((v) => v.verb !== 'abandon' && !HOLD_VERBS.has(v.verb)),
-  };
-}
-
-function fromNode(n: EngineNode): TaskFormValues {
-  return {
-    description: n.description ?? '',
-    external_ref: n.externalRef ?? '',
-    priority: n.priority ?? '',
-    size: n.size ?? '',
-    summary: n.summary ?? '',
-    // Reparenting is the Move… verb (its own dialog), not the dumb update — the
-    // edit form carries no parent picker. Tags are editable here (MMR-257);
-    // submit diffs the submitted names against these to fire tag/untag.
-    tags: n.tags?.map((t) => t.tag) ?? [],
-    title: n.title,
-  };
-}
-
-/**
- * The edit form's state for one node. `baseline` snapshots the form's initial
- * values when editing begins; non-null means editing. It is also the tag-diff
- * baseline: diffing against live node data would misread a tag added
- * concurrently elsewhere (refetched while the form is open) as a removal.
- */
-export function useNodeEdit(nodeId: string) {
-  const [baseline, setBaseline] = useState<TaskFormValues | null>(null);
-  const update = useUpdateNode(nodeId);
-  const tag = useTag(nodeId);
-  const untag = useUntag(nodeId);
-
-  // Tags aren't a scalar field on the dumb update — diff the submitted names
-  // against the baseline and fire tag/untag per delta. An unchanged tag issues
-  // neither: re-issuing `tag` on one that already exists would PUT it with no
-  // note, silently dropping any note it carries.
-  async function handleSubmit(values: TaskFormSubmit) {
-    const currentTags = new Set(baseline?.tags);
-    const nextTags = new Set(values.tags);
-    const added = [...nextTags].filter((t) => !currentTags.has(t));
-    const removed = [...currentTags].filter((t) => !nextTags.has(t));
-
-    try {
-      await Promise.all([
-        update.mutateAsync({
-          description: proseEdit(values.description, baseline?.description),
-          externalRef: values.external_ref ?? undefined,
-          priority: values.priority ?? undefined,
-          size: values.size ?? undefined,
-          summary: values.summary ?? undefined,
-          title: values.title,
-        }),
-        ...added.map((t) => tag.mutateAsync(t)),
-        ...removed.map((t) => untag.mutateAsync(t)),
-      ]);
-      setBaseline(null);
-    } catch {
-      // Each mutation already toasts its own failure (onError in mutations.ts);
-      // this just keeps the edit form open instead of closing on a partial fail.
-    }
-  }
-
-  return {
-    baseline,
-    begin: (node: EngineNode) => setBaseline(fromNode(node)),
-    handleCancel: () => setBaseline(null),
-    handleSubmit,
-    submitting: update.isPending || tag.isPending || untag.isPending,
   };
 }
 

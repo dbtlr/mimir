@@ -7,9 +7,13 @@ import {
   FormCheckRow,
   FormField,
   FormGroup,
+  FormGrowTextArea,
+  FormProseEditor,
+  FormRecordPicker,
   FormSheet,
   FormTextArea,
   FormTextInput,
+  FormTokenInput,
 } from '../components/patterns/form-sheet';
 import { toast } from '../components/patterns/notice';
 import { NoticeBanner } from '../components/patterns/notice-banner';
@@ -48,6 +52,7 @@ export function PatternsKit() {
       <ActionMenuSample />
       <NoticeSample />
       <FormSheetSample />
+      <EditSheetSample />
       <RecordPickerSample />
       <ComposerSample />
       <WalkthroughSample />
@@ -232,6 +237,74 @@ function FormSheetSample() {
         </FormField>
         <FormGroup title="Advanced" collapsible>
           <FormCheckRow label="Plan first" checked={plan} onCheckedChange={setPlan} />
+        </FormGroup>
+      </FormSheet>
+    </Sample>
+  );
+}
+
+const KIT_PARENTS = [
+  { group: 'Initiatives', id: 'MMR-356', title: 'Console usability' },
+  { group: 'Initiatives', id: 'MMR-702', title: 'Web Push' },
+  { group: 'Phases', id: 'MMR-717', title: 'One feed system for phone and desktop' },
+  { group: 'Phases', id: 'MMR-706', title: 'Web Push notifications for the needs-you set' },
+];
+
+/** The edit sheet's parts: a growing Summary, the joined Write and Preview, a grouped picker, tags, and a Save that partly failed. */
+function EditSheetSample() {
+  const [open, setOpen] = useState(false);
+  const [parent, setParent] = useState<string | null>('MMR-706');
+  return (
+    <Sample label="form sheet · edit, after a Save that partly failed (Close, the error note, a field's error)">
+      <ActionButton variant="outline" onClick={() => setOpen(true)}>
+        Edit task…
+      </ActionButton>
+      <FormSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Edit task"
+        context={
+          <>
+            <span className="font-mono">MMR-730</span> The sidebar lists where you are
+          </>
+        }
+        note="Size and tags saved. The move didn't."
+        noteTone="error"
+        cancelLabel="Close"
+        commitLabel="Save"
+        onCommit={() => undefined}
+      >
+        <FormField label="Title">
+          <FormTextInput defaultValue="The sidebar lists where you are" />
+        </FormField>
+        <FormField label="Summary" optional>
+          <FormGrowTextArea
+            lines={3}
+            defaultValue="The current record's siblings, current first."
+          />
+        </FormField>
+        <FormField label="Description" optional>
+          <FormProseEditor
+            defaultValue="On a task: its **siblings**, current first."
+            preview={<p className="text-body text-ink">On a task: its siblings, current first.</p>}
+          />
+        </FormField>
+        <FormGroup title="Planning">
+          <FormRecordPicker
+            label="Parent"
+            records={KIT_PARENTS}
+            value={parent}
+            onValueChange={setParent}
+            placeholder="Choose a parent…"
+            searchLabel="Find an initiative or phase"
+            emptyText="No initiatives or phases match."
+            error="Not moved: the host didn't answer. Save again to move it."
+          />
+        </FormGroup>
+        <FormGroup title="Links">
+          <FormField label="Tags" optional help="Press Enter or type a comma to add a tag.">
+            <FormTokenInput defaultValue={['navigation']} />
+          </FormField>
         </FormGroup>
       </FormSheet>
     </Sample>

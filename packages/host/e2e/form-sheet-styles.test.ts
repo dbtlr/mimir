@@ -219,3 +219,48 @@ test('a phone’s model list blurs its scrim and opens with the tick alone on th
   await expect(chosen).toHaveAttribute('aria-selected', 'true');
   await context.close();
 });
+
+/** A control's border-box height. */
+function heightOf(control: Locator) {
+  return control.evaluate((element) => element.getBoundingClientRect().height);
+}
+
+test('a task’s Summary grows from one line to three, and its Description from three without a cap', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({ viewport: { height: 900, width: 1280 } });
+  const page = await context.newPage();
+  await openForm(page, 'task-edit');
+  const summary = page.getByRole('textbox', { name: /Summary/ });
+  const description = page.getByRole('textbox', { name: /Description/ });
+  expect(await heightOf(summary)).toBe(44);
+  expect(await heightOf(description)).toBe(88);
+  await summary.fill('A summary long enough to wrap. '.repeat(12));
+  await description.fill(Array.from({ length: 8 }, () => 'A line.').join('\n'));
+  await expect.poll(() => heightOf(summary)).toBe(88);
+  await expect.poll(() => heightOf(description)).toBe(22 + 8 * 22);
+  const scrolls = await description.evaluate(
+    (element) => element.scrollHeight > element.clientHeight,
+  );
+  expect(scrolls).toBe(false);
+  await context.close();
+});
+
+// oxlint-disable-next-line vitest/prefer-each -- Playwright has no `each`; this is its pattern
+for (const width of [390, 1280]) {
+  test(`a task’s Planning hairline sits 32 below its Description editor at ${width}px`, async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({ viewport: { height: 900, width } });
+    const page = await context.newPage();
+    await openForm(page, 'task-edit');
+    const description = page.getByRole('textbox', { name: /Description/ });
+    const planning = page.getByRole('region', { name: 'Planning' });
+    const editorBottom = await description.evaluate(
+      (element) => element.getBoundingClientRect().bottom,
+    );
+    const hairlineTop = await planning.evaluate((element) => element.getBoundingClientRect().top);
+    expect(hairlineTop - editorBottom).toBe(32);
+    await context.close();
+  });
+}

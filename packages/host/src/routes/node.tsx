@@ -1,21 +1,14 @@
 import type { EngineNode, EngineTree } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import type { Ref } from 'react';
 
 import { isNotFound } from '../api/errors';
 import { annotationsQuery, nodeQuery, scratchpadsQuery } from '../api/node-queries';
 import { treeQuery } from '../api/shell-queries';
 import { GroomingBadge } from '../components/grooming-chip';
-import { GroomingDialog } from '../components/grooming-dialog';
-import { MoveDialog } from '../components/move-dialog';
-import {
-  mainVerbLabel,
-  mainVerbs,
-  moreVerbs,
-  useNodeEdit,
-  useNodeVerbs,
-} from '../components/node-record';
+import { mainVerbLabel, mainVerbs, moreVerbs, useNodeVerbs } from '../components/node-record';
 import { RecordTimeline } from '../components/node-timeline';
 import { OfflineBanner } from '../components/offline-banner';
 import type { ActionMenuAction } from '../components/patterns/action-menu';
@@ -29,7 +22,7 @@ import {
   canLaunchOnT3,
   useT3LaunchEntries,
 } from '../components/t3-launch-control';
-import { TaskForm } from '../components/task-form';
+import { TaskEditSheet } from '../components/task-edit-sheet';
 import { TaskDetails, TaskWork } from '../components/task-page';
 import type { ScratchpadRow } from '../components/task-page';
 import { ActionButton } from '../components/ui/action-button';
@@ -166,8 +159,8 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
  * A task's page (ADR 0013, MMR-726 and MMR-728 refinements): the record
  * header, with the state's main action and More, over its tabs in the one
  * page column. Work is the default; Details holds the facts, Timeline the
- * record timeline, and Artifacts shows once one is attached. While the edit
- * form is open it takes the tabs' place.
+ * record timeline, and Artifacts shows once one is attached. More's Edit opens
+ * the edit sheet over the page (MMR-731).
  */
 function TaskRecord({
   node,
@@ -186,10 +179,9 @@ function TaskRecord({
 }) {
   const nodeId = node.id;
   const projectKey = projectKeyOf(nodeId);
-  const edit = useNodeEdit(nodeId);
   const verbs = useNodeVerbs(nodeId);
-  const [moving, setMoving] = useState(false);
-  const [grooming, setGrooming] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const more = useRef<HTMLButtonElement>(null);
   const launchEligible = canLaunchOnT3(node);
   const groomingState = visibleGrooming(node);
   const tabs = recordTabs(node, page.timelineCount, true);
@@ -197,7 +189,7 @@ function TaskRecord({
 
   return (
     // Launch in T3's settings form lives above More, so it outlives the menu that opened it.
-    <T3LaunchSettingsHost eligible={edit.baseline === null && launchEligible}>
+    <T3LaunchSettingsHost eligible={launchEligible}>
       <RecordColumn offline={offline}>
         <RecordHeader
           trail={recordTrail(projectKey, tree, nodeId)}
@@ -207,60 +199,40 @@ function TaskRecord({
           recordId={nodeId}
           summary={node.summary}
           chips={groomingState === undefined ? undefined : <GroomingBadge state={groomingState} />}
-          // The actions step aside while the edit form is open: a second Edit would
-          // re-snapshot the tag baseline under a form that kept the first one, and
-          // a transition would land mid-edit.
           actions={
-            edit.baseline === null ? (
-              <TaskActions
-                node={node}
-                offline={offline}
-                onEdit={() => edit.begin(node)}
-                onMove={() => setMoving(true)}
-                onGroom={() => setGrooming(true)}
-                onVerb={verbs.handleVerb}
-              />
-            ) : undefined
+            <TaskActions
+              node={node}
+              offline={offline}
+              moreRef={more}
+              onEdit={() => {
+                setEditing(true);
+              }}
+              onVerb={verbs.handleVerb}
+            />
           }
         />
-        {edit.baseline === null ? (
-          <RecordTabs
-            tabs={tabs}
-            value={tab}
-            onSelect={(next) => {
-              page.onTab(next);
-            }}
-          >
-            {tab === 'work' && <TaskWork node={node} annotations={annotations} offline={offline} />}
-            {tab === 'details' && <TaskDetails node={node} tree={tree} scratchpads={scratchpads} />}
-            {tab === 'timeline' && page.timeline}
-            {tab === 'artifacts' && <ArtifactsTab record={node} />}
-          </RecordTabs>
-        ) : (
-          <div className="mt-5 md:mt-6">
-            <TaskForm
-              initial={edit.baseline}
-              submitting={edit.submitting}
-              onSubmit={edit.handleSubmit}
-              onCancel={edit.handleCancel}
-            />
-          </div>
-        )}
+        <RecordTabs
+          tabs={tabs}
+          value={tab}
+          onSelect={(next) => {
+            page.onTab(next);
+          }}
+        >
+          {tab === 'work' && <TaskWork node={node} annotations={annotations} offline={offline} />}
+          {tab === 'details' && <TaskDetails node={node} tree={tree} scratchpads={scratchpads} />}
+          {tab === 'timeline' && page.timeline}
+          {tab === 'artifacts' && <ArtifactsTab record={node} />}
+        </RecordTabs>
       </RecordColumn>
       {verbs.dialog}
-      {grooming && groomingState !== undefined && (
-        <GroomingDialog
-          nodeId={nodeId}
-          current={groomingState}
-          open
-          onClose={() => setGrooming(false)}
-        />
-      )}
-      <MoveDialog
-        nodeId={nodeId}
-        currentParent={node.parent}
-        open={moving}
-        onClose={() => setMoving(false)}
+      <TaskEditSheet
+        node={node}
+        tree={tree}
+        open={editing}
+        finalFocus={() => more.current}
+        onClose={() => {
+          setEditing(false);
+        }}
       />
     </T3LaunchSettingsHost>
   );
@@ -286,42 +258,29 @@ function verbRow(
 }
 
 /**
- * A task's main action and More (ADR 0019, MMR-726). More groups Edit with
- * Move… and Set grooming… (until the edit sheet folds them in, MMR-731), then
- * the status changes (the T3 rows after them), then the holds, then
- * Abandon… alone, in the destructive hairline.
+ * A task's main action and More (ADR 0019, MMR-726). More leads with Edit,
+ * which opens the edit sheet (MMR-731), then the status changes (the T3 rows
+ * after them), then the holds, then Abandon… alone, in the destructive
+ * hairline.
  */
 function TaskActions({
   node,
   offline,
+  moreRef,
   onEdit,
-  onMove,
-  onGroom,
   onVerb,
 }: {
   node: EngineNode;
   offline: boolean;
+  /** More's button, where focus returns when the edit sheet closes. */
+  moreRef: Ref<HTMLButtonElement>;
   onEdit: () => void;
-  onMove: () => void;
-  onGroom: () => void;
   onVerb: (v: VerbSpec) => void;
 }) {
   const t3 = useT3LaunchEntries(node, offline);
   const grouped = moreVerbs(node);
   const editing: ActionMenuAction[] = [
     { disabled: offline, key: 'edit', kind: 'action', label: 'Edit', onSelect: onEdit },
-    { disabled: offline, key: 'move', kind: 'action', label: 'Move…', onSelect: onMove },
-    ...(visibleGrooming(node) === undefined
-      ? []
-      : [
-          {
-            disabled: offline,
-            key: 'grooming',
-            kind: 'action' as const,
-            label: 'Set grooming…',
-            onSelect: onGroom,
-          },
-        ]),
   ];
   const status = [...grouped.status.map((v) => verbRow(v, offline, onVerb)), ...t3];
   return (
@@ -343,6 +302,7 @@ function TaskActions({
       <RecordMore
         title={node.title}
         recordId={node.id}
+        triggerRef={moreRef}
         entries={moreEntries([
           editing,
           status,

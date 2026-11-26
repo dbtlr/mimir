@@ -58,6 +58,16 @@ export function TextKit() {
           <FieldDescription>Press Enter or comma after each tag.</FieldDescription>
         </Field>
       </Sample>
+      <Sample label="token input · field (a form's tags: 32 chips, 44 remove targets and rows on a phone)">
+        <Field className="w-full max-w-[576px]">
+          <FieldLabel>Tags</FieldLabel>
+          <TokenInput
+            size="field"
+            defaultValue={['navigation', 'console', 'release:v0.30', 'feed', 'phone', 'ui']}
+          />
+          <FieldDescription>Press Enter or type a comma to add a tag.</FieldDescription>
+        </Field>
+      </Sample>
     </Section>
   );
 }

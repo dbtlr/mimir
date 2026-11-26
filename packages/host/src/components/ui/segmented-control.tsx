@@ -22,11 +22,12 @@ export const segmentedTrackClass =
 
 /*
  * A form's track (DESIGN.md, Sizes): the field's full width on the control
- * ground, its edge ink-faint like every control's, 50 tall on a phone (a 3px
- * inset leaves each segment a 44 tap target) and 44 from `md` up.
+ * ground, its edge ink-faint like every control's (status-blocked while its
+ * field is invalid), 50 tall on a phone (a 3px inset leaves each segment a 44
+ * tap target) and 44 from `md` up.
  */
 const FIELD_TRACK_CLASS =
-  'flex h-[50px] w-full gap-0.5 rounded-lg bg-well-950 p-[3px] inset-ring inset-ring-ink-faint md:h-11';
+  'flex h-[50px] w-full gap-0.5 rounded-lg bg-well-950 p-[3px] inset-ring inset-ring-ink-faint aria-[invalid=true]:inset-ring-status-blocked md:h-11';
 
 /*
  * Segment text is 14/20 at 500 in sentence case (a provider's values keep their
@@ -54,7 +55,24 @@ export const segmentVariants = cva(
 export type SegmentedOption<T extends string> = {
   value: T;
   label: string;
+  /** Machine vocabulary (`p0`), set in mono at the sans x-height (DESIGN.md, Type). */
+  mono?: boolean;
 };
+
+/*
+ * A field track whose labels run past a word (the Seeds Show, a task's
+ * Grooming): on a phone each segment is sized to its label with 6 of padding a
+ * side, the row still spanning the field (DESIGN.md, A form). The label sits
+ * in a box at least 32 wide, so no segment is narrower than 44; when the row
+ * cannot hold every label on one line (a 320 phone), a label wraps to two
+ * lines inside its 44 tall segment, and none shrinks below its longest word,
+ * so nothing clips. From `md` up the segments share the track equally.
+ */
+const FIT_SEGMENT_CLASS = 'min-w-min flex-auto whitespace-normal py-0 px-1.5 md:flex-1 md:px-3';
+
+const FIT_LABEL_CLASS = 'inline-block min-w-8 text-balance';
+
+const MONO_SEGMENT_CLASS = 'font-mono [font-size-adjust:var(--mono-adjust)]';
 
 // Runs in the capture phase so it wins over the SDK's own Enter-submits-form
 // handling; Home/End select and focus the first or last option.
@@ -93,6 +111,7 @@ export function SegmentedControl<T extends string>({
   className,
   segmentClassName,
   size = 'compact',
+  fit = false,
 }: {
   options: readonly SegmentedOption<T>[];
   value: T;
@@ -100,6 +119,8 @@ export function SegmentedControl<T extends string>({
   ariaLabel: string;
   /** `field` spans a form field's width at the control height; `compact` sits inline. */
   size?: 'compact' | 'field';
+  /** On a `field` track, size each segment to its label on a phone (at least 44), for labels past a word. */
+  fit?: boolean;
   className?: string;
   /** Per-segment overrides (e.g. the authoring sheet's pill-shaped, mixed-case type selector). */
   segmentClassName?: string;
@@ -125,10 +146,12 @@ export function SegmentedControl<T extends string>({
           value={option.value}
           className={cn(
             segmentVariants({ active: value === option.value, size }),
+            fit && FIT_SEGMENT_CLASS,
+            option.mono === true && MONO_SEGMENT_CLASS,
             segmentClassName,
           )}
         >
-          {option.label}
+          {fit ? <span className={FIT_LABEL_CLASS}>{option.label}</span> : option.label}
         </SegmentedControlItem>
       ))}
     </SdkSegmentedControl>

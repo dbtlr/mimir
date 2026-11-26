@@ -9,16 +9,12 @@ import {
   annotate,
   done,
   getNode,
-  groom,
-  move,
   park,
   returnTask,
   stage,
   scratchList,
   start,
-  tag,
   unqueue,
-  untag,
   update,
 } from '../api/fns/nodes';
 import { t3Origin } from '../api/fns/t3';
@@ -26,7 +22,6 @@ import { nodeWork } from '../api/fns/views';
 import { POLL_MS } from '../api/queries';
 import { createQueryClient } from '../api/query-client';
 import { RecordTimeline } from '../components/node-timeline';
-import { toast } from '../components/patterns/notice';
 import { buildFeed } from '../lib/timeline';
 import { consoleRoutes } from '../router';
 import { readyCard } from './agent-fixtures';
@@ -99,13 +94,6 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
 });
-
-/** The tag and untag writes issued for one node, in order. */
-function tagWrites(id: string) {
-  return [...vi.mocked(tag).mock.calls, ...vi.mocked(untag).mock.calls].filter(([options]) =>
-    options.data.ids.includes(id),
-  );
-}
 
 /** Open the record header's More, which is a bottom sheet below md, and return it. */
 async function openMore() {
@@ -358,7 +346,6 @@ describe('task page (MMR-449)', () => {
 
     await expect(moreRows()).resolves.toStrictEqual([
       'Edit',
-      'Move…',
       '—',
       'Park for later…',
       'Mark blocked…',
@@ -376,7 +363,6 @@ describe('task page (MMR-449)', () => {
 
     await expect(moreRows()).resolves.toStrictEqual([
       'Edit',
-      'Move…',
       '—',
       'Submit for review',
       'Mark done',
@@ -481,16 +467,6 @@ describe('task page (MMR-449)', () => {
     expect(link.getAttribute('target')).toBe('_blank');
     expect(link.getAttribute('rel')).toBe('noopener noreferrer');
     expect(link.closest('p')?.textContent).toContain(' — Shipped in https://example.com/pull/9.');
-  });
-
-  it('sets the actions aside while the edit form is open', async () => {
-    serve(sqlite);
-    await renderRoute(consoleRoutes, '/p/MMR/417', quietClient());
-
-    await chooseMore('Edit');
-    await screen.findByLabelText(/tags/i);
-    expect(screen.queryByRole('button', { name: 'More' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Start' })).toBeNull();
   });
 });
 
@@ -1612,13 +1588,6 @@ describe('task page timeline (MMR-728)', () => {
   });
 });
 
-/** Open the edit form for `node` and return its Tags field. */
-async function openEdit(node: EngineNode) {
-  await openTask(node);
-  await chooseMore('Edit');
-  return screen.findByLabelText(/tags/i);
-}
-
 /** Open a task page whose only timeline note carries `content`. */
 async function openWithNote(content: string) {
   await openTask(
@@ -1627,121 +1596,6 @@ async function openWithNote(content: string) {
     'timeline',
   );
 }
-
-describe('task page edit (MMR-453)', () => {
-  const stamp = '2026-06-01T00:00:00.000Z';
-
-  it('pre-populates the existing tags in the edit form', async () => {
-    const tags = await openEdit(
-      engineTask({
-        id: 'MMR-90',
-        status: 'ready',
-        tags: [engineTag('ui', stamp), engineTag('release:v0.5', stamp)],
-      }),
-    );
-    expect(tags).toHaveValue('ui, release:v0.5');
-  });
-
-  it('saving with a removed tag removes exactly that tag', async () => {
-    await userEvent.clear(
-      await openEdit(engineTask({ id: 'MMR-92', status: 'ready', tags: [engineTag('ui', stamp)] })),
-    );
-    await userEvent.click(screen.getByRole('button', { name: /save/i }));
-
-    await waitFor(() => {
-      expect(untag).toHaveBeenCalledWith({ data: { ids: ['MMR-92'], tags: ['ui'] } });
-    });
-    expect(tagWrites('MMR-92')).toHaveLength(1);
-  });
-
-  it('saving with unchanged tags fires no tag request, but the scalars still update', async () => {
-    await openEdit(engineTask({ id: 'MMR-93', status: 'ready', tags: [engineTag('ui', stamp)] }));
-    await userEvent.click(screen.getByRole('button', { name: /save/i }));
-
-    await waitFor(() => {
-      expect(update).toHaveBeenCalledWith({
-        data: expect.objectContaining({ id: 'MMR-93' }),
-      });
-    });
-    expect(tagWrites('MMR-93')).toStrictEqual([]);
-  });
-
-  it('appending a tag by typing keeps the existing tag intact', async () => {
-    // Keystroke-by-keystroke append: a trailing comma must survive mid-typing,
-    // or "ui" and "feat" merge into one tag.
-    await userEvent.type(
-      await openEdit(engineTask({ id: 'MMR-94', status: 'ready', tags: [engineTag('ui', stamp)] })),
-      ', feat',
-    );
-    await userEvent.click(screen.getByRole('button', { name: /save/i }));
-
-    await waitFor(() => {
-      expect(tagWrites('MMR-94')).toStrictEqual([[{ data: { ids: ['MMR-94'], tags: ['feat'] } }]]);
-    });
-  });
-
-  it('one save adds and removes the changed tags and leaves the kept one alone', async () => {
-    const tags = await openEdit(
-      engineTask({
-        id: 'MMR-95',
-        status: 'ready',
-        tags: [engineTag('keep', stamp), engineTag('drop', stamp)],
-      }),
-    );
-    await userEvent.clear(tags);
-    await userEvent.type(tags, 'keep, fresh');
-    await userEvent.click(screen.getByRole('button', { name: /save/i }));
-
-    await waitFor(() => {
-      expect(tagWrites('MMR-95')).toHaveLength(2);
-    });
-    expect(tag).toHaveBeenCalledWith({ data: { ids: ['MMR-95'], tags: ['fresh'] } });
-    expect(untag).toHaveBeenCalledWith({ data: { ids: ['MMR-95'], tags: ['drop'] } });
-  });
-
-  it('a failed tag save keeps the edit form open', async () => {
-    const tags = await openEdit(engineTask({ id: 'MMR-96', status: 'ready', tags: [] }));
-    vi.mocked(tag).mockRejectedValue(new Error('tag write failed'));
-    await userEvent.type(tags, 'feat');
-    await userEvent.click(screen.getByRole('button', { name: /save/i }));
-
-    await waitFor(() => {
-      expect(tag).toHaveBeenCalledWith({ data: { ids: ['MMR-96'], tags: ['feat'] } });
-    });
-    // The partial failure must not close the form back to the record view.
-    expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/tags/i)).toBeInTheDocument();
-  });
-
-  it('sends null when the person empties a description that had text', async () => {
-    await openEdit(
-      engineTask({ description: 'Old prose.', id: 'MMR-66', status: 'ready', tags: [] }),
-    );
-    await userEvent.clear(screen.getByLabelText(/description/i));
-    await userEvent.click(screen.getByRole('button', { name: /save/i }));
-
-    await waitFor(() => {
-      expect(update).toHaveBeenCalledWith({
-        data: expect.objectContaining({ description: null, id: 'MMR-66' }),
-      });
-    });
-  });
-
-  it('omits empty optional fields from the PATCH instead of sending nulls', async () => {
-    await openEdit(
-      engineTask({ description: null, externalRef: null, id: 'MMR-65', status: 'ready' }),
-    );
-    await userEvent.click(screen.getByRole('button', { name: /save/i }));
-
-    await waitFor(() => {
-      expect(update).toHaveBeenCalledWith({ data: expect.objectContaining({ id: 'MMR-65' }) });
-    });
-    // A null would be sent as JSON null; an absent (undefined) field is dropped.
-    const { data } = vi.mocked(update).mock.calls[0]![0];
-    expect(data.description).toBeUndefined();
-    expect(data.externalRef).toBeUndefined();
-  });
-});
 
 describe('task page verbs (MMR-453)', () => {
   it('a plain verb fires immediately', async () => {
@@ -1853,7 +1707,7 @@ describe('task page verbs (MMR-453)', () => {
     expect(options.data).not.toHaveProperty('reason');
   });
 
-  it('offline disables Edit, Move…, Set grooming…, and the verbs', async () => {
+  it('offline disables Edit and the verbs', async () => {
     const node = engineTask({ grooming: 'groomed', id: 'MMR-51', status: 'ready' });
     serve(node);
     // An errored read over loaded data is the console's offline signal.
@@ -1864,23 +1718,9 @@ describe('task page verbs (MMR-453)', () => {
       expect(within(await header()).getByRole('button', { name: 'Start' })).toBeDisabled();
     });
     const sheet = await openMore();
-    for (const name of ['Edit', 'Move…', 'Set grooming…', 'Park for later…', 'Abandon…']) {
+    for (const name of ['Edit', 'Park for later…', 'Abandon…']) {
       expect(within(sheet).getByRole('button', { name })).toBeDisabled();
     }
-  });
-});
-
-describe('task page move (MMR-453)', () => {
-  it('Move… picks a new parent and moves the task there', async () => {
-    await openTask(sqlite);
-
-    await chooseMore('Move…');
-    // Options render once the tree loads (which also enables the select).
-    await screen.findByRole('option', { name: /Hosted and external backends/ });
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'New parent' }), 'MMR-1');
-    await userEvent.click(screen.getByRole('button', { name: 'Move' }));
-
-    expect(move).toHaveBeenCalledWith({ data: { id: 'MMR-417', to: 'MMR-1' } });
   });
 });
 
@@ -2069,14 +1909,6 @@ describe('live refresh (MMR-458)', () => {
 
 const groomed = () => engineTask({ grooming: 'groomed', id: 'MMR-51', status: 'ready' });
 
-/** The task read requests issued so far for MMR-51. */
-const taskReads = () =>
-  vi
-    .mocked(getNode)
-    .mock.calls.filter(
-      ([options]) => options.data.id === 'MMR-51' && options.data.facets?.length !== 1,
-    );
-
 describe('task page grooming state (MMR-466)', () => {
   it('shows the state in the header and as a Grooming row in Details', async () => {
     const { panel } = await openTask(groomed(), {}, 'details');
@@ -2113,21 +1945,6 @@ describe('task page grooming state (MMR-466)', () => {
     expect(within(await header()).getByText('groomed')).toBeDefined();
   });
 
-  it('keeps the dialog open and toasts the error when the request fails', async () => {
-    await openTask(groomed());
-    vi.mocked(groom).mockRejectedValue(new Error('needs_answers requires a note'));
-
-    await chooseMore('Set grooming…');
-    const dialog = await screen.findByRole('dialog', { name: 'Grooming state' });
-    await userEvent.click(within(dialog).getByRole('radio', { name: /^not groomed/ }));
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Set grooming' }));
-
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('needs_answers requires a note');
-    });
-    expect(screen.getByRole('dialog', { name: 'Grooming state' })).toBeDefined();
-  });
-
   it('shows no state once the task has started', async () => {
     const { panel } = await openTask(
       engineTask({
@@ -2142,7 +1959,6 @@ describe('task page grooming state (MMR-466)', () => {
 
     expect(screen.queryByText('groomed')).toBeNull();
     expect(within(panel).queryByText('Grooming')).toBeNull();
-    await expect(moreRows()).resolves.not.toContain('Set grooming…');
   });
 
   it('shows no state on a container', async () => {
@@ -2154,65 +1970,6 @@ describe('task page grooming state (MMR-466)', () => {
 
     await screen.findByRole('heading', { level: 1 });
     expect(screen.queryByText('groomed')).toBeNull();
-    await expect(moreRows()).resolves.not.toContain('Set grooming…');
-  });
-
-  it('sets the state without a note unless it needs answers', async () => {
-    await openTask(engineTask({ grooming: 'not_groomed', id: 'MMR-51', status: 'ready' }));
-
-    await chooseMore('Set grooming…');
-    const dialog = await screen.findByRole('dialog', { name: 'Grooming state' });
-    await userEvent.click(within(dialog).getByRole('radio', { name: /^groomed/ }));
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Set grooming' }));
-
-    expect(groom).toHaveBeenCalledWith({ data: { ids: ['MMR-51'], state: 'groomed' } });
-  });
-
-  it('needs a note before it sets needs answers, and sends it with the state', async () => {
-    await openTask(groomed());
-
-    await chooseMore('Set grooming…');
-    const dialog = await screen.findByRole('dialog', { name: 'Grooming state' });
-    await userEvent.click(within(dialog).getByRole('radio', { name: /^needs answers/ }));
-    const submit = within(dialog).getByRole('button', { name: 'Set grooming' });
-    expect(submit).toBeDisabled();
-
-    const note = within(dialog).getByRole('textbox', { name: /open questions/i });
-    await userEvent.type(note, '   ');
-    expect(submit).toBeDisabled();
-    await userEvent.type(note, 'Which backend wins?');
-    expect(submit).toBeEnabled();
-    await userEvent.click(submit);
-
-    expect(groom).toHaveBeenCalledWith({
-      data: { ids: ['MMR-51'], note: 'Which backend wins?', state: 'needs_answers' },
-    });
-  });
-
-  it('refetches the task after the state is set', async () => {
-    await openTask(groomed());
-    const before = taskReads().length;
-
-    await chooseMore('Set grooming…');
-    const dialog = await screen.findByRole('dialog', { name: 'Grooming state' });
-    await userEvent.click(within(dialog).getByRole('radio', { name: /^not groomed/ }));
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Set grooming' }));
-
-    await waitFor(() => {
-      expect(taskReads().length).toBeGreaterThan(before);
-    });
-  });
-
-  it('is offered beside Edit in More, before the status changes', async () => {
-    serve(groomed());
-    await renderRoute(consoleRoutes, '/p/MMR/51', quietClient());
-
-    expect((await moreRows()).slice(0, 4)).toStrictEqual(['Edit', 'Move…', 'Set grooming…', '—']);
-    await userEvent.click(
-      within(screen.getByRole('dialog')).getByRole('button', { name: 'Set grooming…' }),
-    );
-
-    await expect(screen.findByRole('dialog', { name: 'Grooming state' })).resolves.toBeDefined();
   });
 });
 

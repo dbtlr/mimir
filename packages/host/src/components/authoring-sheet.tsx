@@ -145,7 +145,7 @@ function AuthoringSheetBody({
   const [signalsOpen, setSignalsOpen] = useState(false);
   const [priority, setPriority] = useState('');
   const [size, setSize] = useState('');
-  // Raw tag text, TaskForm's MMR-257 pattern: parsing never rewrites mid-typing.
+  // Raw tag text (MMR-257): parsing never rewrites what is typed mid-typing.
   const [tagsText, setTagsText] = useState('');
   const [tagEntryOpen, setTagEntryOpen] = useState(false);
   const [createAnother, setCreateAnother] = useState(false);

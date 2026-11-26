@@ -22,9 +22,18 @@ import {
   DrawerTitle,
   useDrawerSide,
 } from '../ui/drawer';
-import { Field, FieldDescription, FieldLabel, FieldOptional, FORM_PROSE_CLASS } from '../ui/field';
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+  FieldOptional,
+  FORM_PROSE_CLASS,
+} from '../ui/field';
 import { Input } from '../ui/input';
+import { Tabs, TabsList, TabsPanel, TabsTab } from '../ui/tabs';
 import { Textarea } from '../ui/textarea';
+import { TokenInput } from '../ui/token-input';
 import { BLOCK_PROPS } from './form-block';
 import { useFinalFocus } from './opener';
 import type { FinalFocus } from './opener';
@@ -52,6 +61,33 @@ import { SHEET_FOOTER_CLASS, SheetBody, SheetClose } from './sheet-chrome';
 /** What a control in the body can take focus as, for the default first-field focus. */
 const FOCUSABLE =
   'input:not([type=hidden]):not(:disabled), textarea:not(:disabled), select:not(:disabled), button:not(:disabled), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * UI SDK's opening focus selects a text field's value (focus, then `select()`);
+ * the sheet puts the caret after it instead, so a first keystroke never
+ * replaces a saved title. The watch ends at the field's first key, press, or blur.
+ */
+function caretAfterOpeningSelect(field: HTMLElement) {
+  if (
+    !(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) ||
+    field.selectionStart === null
+  ) {
+    return;
+  }
+  const watch = new AbortController();
+  const { signal } = watch;
+  field.addEventListener(
+    'select',
+    () => {
+      field.setSelectionRange(field.value.length, field.value.length);
+      watch.abort();
+    },
+    { signal },
+  );
+  for (const type of ['keydown', 'pointerdown', 'blur']) {
+    field.addEventListener(type, () => watch.abort(), { signal });
+  }
+}
 
 /**
  * The scrolling body, which rests by the Sheets rule (`useRestingBody`) over
@@ -122,6 +158,10 @@ export type FormSheetProps = {
   pending?: boolean;
   /** One line on what the commit leads to; it sits with the commit and describes it. */
   note?: ReactNode;
+  /** `error` sets the note in the danger ink: what a commit that partly failed did not save. */
+  noteTone?: 'default' | 'error';
+  /** The desktop footer's back-out button: Cancel, or Close once part of a commit has saved. */
+  cancelLabel?: string;
   /** The field focus starts on, when it is not the first (Seed, after Kind). */
   initialFocus?: RefObject<HTMLElement | null>;
   /** Where focus goes on close, for an opener that is not a trigger the sheet knows. */
@@ -144,6 +184,8 @@ export function FormSheet({
   canCommit,
   pending = false,
   note,
+  noteTone = 'default',
+  cancelLabel = 'Cancel',
   initialFocus,
   finalFocus,
   children,
@@ -166,11 +208,12 @@ export function FormSheet({
   };
 
   const firstField = () => {
-    const named = initialFocus?.current;
-    if (named !== null && named !== undefined) {
-      return named;
+    const field = initialFocus?.current ?? body.current?.querySelector<HTMLElement>(FOCUSABLE);
+    if (field === null || field === undefined) {
+      return null;
     }
-    return body.current?.querySelector<HTMLElement>(FOCUSABLE) ?? null;
+    caretAfterOpeningSelect(field);
+    return field;
   };
 
   return (
@@ -226,14 +269,17 @@ export function FormSheet({
             {note !== undefined && (
               <p
                 id={noteId}
-                className="basis-full text-meta leading-5 text-ink-dim md:mr-auto md:basis-auto md:pr-4"
+                className={cn(
+                  'basis-full text-meta leading-5 md:mr-auto md:basis-auto md:pr-4',
+                  noteTone === 'error' ? 'text-status-blocked-foreground' : 'text-ink-dim',
+                )}
               >
                 {note}
               </p>
             )}
             {desktop && (
               <ActionButton size="form" variant="formOutline" disabled={busy} onClick={onClose}>
-                Cancel
+                {cancelLabel}
               </ActionButton>
             )}
             <ActionButton
@@ -271,6 +317,12 @@ export type FormFieldProps = {
   optional?: boolean;
   /** Help, only for a surprising input: a format, or behavior its label does not say. */
   help?: ReactNode;
+  /**
+   * What went wrong with this field's value, such as a write that failed
+   * ("Not moved: …"): the field turns invalid and the error stands 8 below
+   * the control, in the help's place.
+   */
+  error?: ReactNode;
   /** The control: FormTextInput, FormTextArea, a Select, or a Segmented Control. */
   children: ReactNode;
   className?: string;
@@ -285,14 +337,17 @@ export function FormField({
   choice = false,
   optional = false,
   help,
+  error,
   children,
   className,
 }: FormFieldProps) {
   const busy = useFormSheetBusy();
+  const failed = error !== undefined && error !== null;
   return (
     <Field
       {...BLOCK_PROPS}
       disabled={choice && busy}
+      invalid={failed ? true : undefined}
       className={cn(BLOCK_PROPS.className, className)}
     >
       <FieldLabel className="flex items-baseline">
@@ -300,7 +355,13 @@ export function FormField({
         {optional && <FieldOptional />}
       </FieldLabel>
       {children}
-      {help !== undefined && <FieldDescription>{help}</FieldDescription>}
+      {failed ? (
+        <FieldError match className="max-w-[440px] text-pretty">
+          {error}
+        </FieldError>
+      ) : (
+        help !== undefined && <FieldDescription>{help}</FieldDescription>
+      )}
     </Field>
   );
 }
@@ -320,6 +381,72 @@ export function FormTextArea({ className, readOnly, ...props }: ComponentProps<t
   const busy = useFormSheetBusy();
   return (
     <Textarea {...props} readOnly={busy || readOnly} className={cn('resize-none', className)} />
+  );
+}
+
+/**
+ * A text box that grows with its text. With `lines`, it starts one line tall
+ * and grows to them, then scrolls (the Composer's grow Textarea; a task's
+ * Summary grows to three). Without, it starts three lines tall and grows with
+ * no cap (the Description editor).
+ */
+export function FormGrowTextArea({
+  lines,
+  className,
+  readOnly,
+  ...props
+}: ComponentProps<typeof Textarea> & { lines?: 3 }) {
+  const busy = useFormSheetBusy();
+  return (
+    <Textarea
+      {...props}
+      grow
+      readOnly={busy || readOnly}
+      className={cn(lines === 3 ? 'max-h-22' : 'max-h-none min-h-22', className)}
+    />
+  );
+}
+
+/**
+ * A tag field: Token Input at the form's size, its chips 32 with 44 remove
+ * targets on a phone. Its value is the tag list; it holds while the sheet
+ * commits.
+ */
+export function FormTokenInput({ disabled, ...props }: ComponentProps<typeof TokenInput>) {
+  const busy = useFormSheetBusy();
+  return <TokenInput {...props} size="field" disabled={busy || disabled} />;
+}
+
+export type FormProseEditorProps = ComponentProps<typeof Textarea> & {
+  /** The rendered prose, shown on Preview in the editor's place. */
+  preview: ReactNode;
+};
+
+/**
+ * Long prose with Write and Preview as tabs joined to the editor's top edge
+ * (ADR 0019, MMR-731): Write is a text box that grows with its text, Preview
+ * the caller's rendering of it, in the same place. The editor stays mounted on
+ * Preview, so the field's label keeps naming it and the draft keeps its caret.
+ */
+export function FormProseEditor({ preview, className, ...props }: FormProseEditorProps) {
+  return (
+    <Tabs defaultValue="write" className="group/prose flex flex-col">
+      <TabsList joined aria-label="Write or preview">
+        <TabsTab value="write">Write</TabsTab>
+        <TabsTab value="preview">Preview</TabsTab>
+      </TabsList>
+      {/* A block textarea: inline, it would sit on the panel's text baseline and add 5 below. */}
+      <TabsPanel value="write" keepMounted className="pt-0">
+        <FormGrowTextArea {...props} className={cn('block rounded-t-none', className)} />
+      </TabsPanel>
+      {/* Preview takes the invalid edge of the editor it stands in for, which stays mounted. */}
+      <TabsPanel
+        value="preview"
+        className="min-h-22 rounded-b-md border border-line-bright bg-well-850 px-4 pt-3 pb-3 group-has-[[aria-invalid=true]]/prose:border-status-blocked"
+      >
+        {preview}
+      </TabsPanel>
+    </Tabs>
   );
 }
 

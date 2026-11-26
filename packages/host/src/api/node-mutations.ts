@@ -86,16 +86,19 @@ export type GroomInput = {
  * update. It stays pending until the refetches land, so the dialog closes on
  * fresh data and cannot write the same note twice.
  */
-export function useGroom(id: string) {
+export function useGroom(id: string, options?: WriteOptions) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
     mutationFn: ({ state, note }: GroomInput) => {
       const trimmed = note?.trim() ?? '';
       return groom({ data: { ids: [id], state, ...(trimmed === '' ? {} : { note: trimmed }) } });
     },
-    onError: (err: Error) => {
-      toast.error(err.message);
-    },
+    onError:
+      options?.silent === true
+        ? undefined
+        : (err: Error) => {
+            toast.error(err.message);
+          },
     onSettled: invalidate,
   });
 }
@@ -165,18 +168,19 @@ export type DependInput = {
   on: string[];
 };
 
-export type UseDependOptions = {
+export type WriteOptions = {
   /**
    * MMR-273: the hook owns the raw-cause toast by default (create mode's
    * single-write failures have no other narrator). A caller that folds the
    * outcome into its own message — e.g. promote's honest partial-failure
-   * recap, which already names the spawned task — passes `silent: true` so
-   * only its toast fires. One owner per flow, never both.
+   * recap, which already names the spawned task, or the task edit sheet's
+   * field errors — passes `silent: true` so only its own report shows. One
+   * owner per flow, never both.
    */
   silent?: boolean;
 };
 
-export function useDepend(options?: UseDependOptions) {
+export function useDepend(options?: WriteOptions) {
   const invalidate = useInvalidateOnWrite();
   const silent = options?.silent === true;
   return useMutation({
@@ -202,17 +206,18 @@ export type UpdateNodeInput = {
   description?: string | null;
   /** Owned direction prose (ADR 0026) — containers only; tasks never carry it. */
   next?: string | null;
-  summary?: string;
-  priority?: Priority;
-  size?: Size;
-  externalRef?: string;
+  /** A one-line field, size, or priority clears with `null`. */
+  summary?: string | null;
+  priority?: Priority | null;
+  size?: Size | null;
+  externalRef?: string | null;
 };
 
-export function useUpdateNode(id: string) {
+export function useUpdateNode(id: string, options?: WriteOptions) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
     mutationFn: (fields: UpdateNodeInput) => update({ data: { ...fields, id } }),
-    onError: (err: Error) => toast.error(err.message),
+    onError: options?.silent === true ? undefined : (err: Error) => toast.error(err.message),
     onSettled: () => void invalidate(),
   });
 }
@@ -222,11 +227,11 @@ export function useUpdateNode(id: string) {
  * verb (`move_node`), not the dumb `update` — so the edit form's parent change
  * goes through here, not the PATCH.
  */
-export function useMoveNode(id: string) {
+export function useMoveNode(id: string, options?: WriteOptions) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
     mutationFn: (to: string) => move({ data: { id, to } }),
-    onError: (err: Error) => toast.error(err.message),
+    onError: options?.silent === true ? undefined : (err: Error) => toast.error(err.message),
     onSettled: () => void invalidate(),
   });
 }
@@ -266,20 +271,20 @@ export function useAnnotate(id: string) {
   });
 }
 
-export function useTag(id: string) {
+export function useTag(id: string, options?: WriteOptions) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
     mutationFn: (name: string) => tag({ data: { ids: [id], tags: [name] } }),
-    onError: (err: Error) => toast.error(err.message),
+    onError: options?.silent === true ? undefined : (err: Error) => toast.error(err.message),
     onSettled: () => void invalidate(),
   });
 }
 
-export function useUntag(id: string) {
+export function useUntag(id: string, options?: WriteOptions) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
     mutationFn: (name: string) => untag({ data: { ids: [id], tags: [name] } }),
-    onError: (err: Error) => toast.error(err.message),
+    onError: options?.silent === true ? undefined : (err: Error) => toast.error(err.message),
     onSettled: () => void invalidate(),
   });
 }
