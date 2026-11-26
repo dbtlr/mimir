@@ -110,7 +110,9 @@ its own address: `/p/MMR` for the project, `/p/MMR/417` for `MMR-417`,
   - _Needs you_: the Needs you cards for work in this scope. With none, it
     reads "Nothing here needs you."
   - _Now_: what is queued, running, in review, or staged, as cards, most
-    recent move first. A running agent's row, with Stop, sits above them.
+    recent move first. A running agent rides on its task's card, with
+    Stop; when its task has no card, the agent's row, with Stop, sits
+    above them.
   - _Up next_: up to three tasks that can start now, each with Start, and
     one row for the next task, in board order, whose landing unlocks work
     waiting on it alone, which opens that task.

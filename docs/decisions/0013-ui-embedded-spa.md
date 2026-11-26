@@ -1330,9 +1330,12 @@ changes.
   2. _Now_, title cards for the scope's tasks in flight, as on Home: most
      recent move first, four on a phone and six from 768, and "6 of 9" in
      its head when the cap hides cards. A running agent's row and its
-     _Stop_ stay (ADR 0041, MMR-635 refinement): the row sits above the
-     cards while the run is live, whether or not its task has a card; the
-     head's count leaves it out, and it keeps Now shown.
+     _Stop_ stay (ADR 0041, MMR-635 refinement), and a task appears once:
+     when the run's task has a card, the run rides on that card, its
+     detail line the run's facts and its one action _Stop_, and the head
+     counts it as any card. Otherwise the run's row sits above the cards
+     while the run is live; the head's count leaves it out, and it keeps
+     Now shown.
   3. _Up next_, only the tasks that can start now (the Frontier's runnable
      set), as cards whose one action is _Start_, three at most, its head
      reading "N can start". One row may follow for what unlocks next: the
