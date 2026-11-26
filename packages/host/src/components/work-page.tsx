@@ -219,6 +219,7 @@ function WorkBody({
         ),
         findings,
         review: review.data,
+        reviewFailed: review.isError,
         tree: tree.data,
       }}
     />

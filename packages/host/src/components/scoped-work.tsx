@@ -40,6 +40,7 @@ import { FeedSection } from './patterns/feed/section-head';
 import { ListFold } from './patterns/list-page';
 import { StatusBadge } from './status-badge';
 import { StatusDot } from './status-dot';
+import { Skeleton } from './ui/skeleton';
 import { AgentNowRow, useRowStop } from './work-sections';
 
 /*
@@ -269,12 +270,30 @@ function PartsSection({ parts }: { parts: Parts }) {
   );
 }
 
+/**
+ * Needs you before the review read lands: a skeleton for the deck while it
+ * is pending, or one line once it failed with nothing cached.
+ */
+function NeedsYouUnread({ failed }: { failed: boolean }) {
+  return (
+    <FeedSection title="Needs you">
+      {failed ? (
+        <p className="m-0 text-xs text-status-blocked-foreground">Couldn’t load what needs you.</p>
+      ) : (
+        <Skeleton aria-busy className="h-20 w-full" />
+      )}
+    </FeedSection>
+  );
+}
+
 /** What the Work tab reads besides the work read. */
 export type ScopedReads = {
   /** The project tree: the parts, the Shipped split's names, and the last finish. */
   tree: EngineTree | undefined;
   /** The review report: the needs-you cards and the project's untriaged seeds. */
   review: ReviewReport | undefined;
+  /** The review read failed with nothing cached. */
+  reviewFailed: boolean;
   /** The project's Record health findings. */
   findings: number;
   /** The running agent run in this scope, if any. */
@@ -294,7 +313,7 @@ export function ScopedWork({
   offline: boolean;
   reads: ScopedReads;
 }) {
-  const { tree, review, findings, agentRun } = reads;
+  const { tree, review, reviewFailed, findings, agentRun } = reads;
   const { scope } = work;
   const isProject = scope.kind === 'project';
   const stop = useRowStop(agentRun ?? undefined);
@@ -329,7 +348,9 @@ export function ScopedWork({
         </Quiet>
       ) : (
         <div ref={busy} className="flex flex-col">
-          {review !== undefined && (
+          {review === undefined ? (
+            <NeedsYouUnread failed={reviewFailed} />
+          ) : (
             <NeedsYouDeck
               report={review}
               scope={needsYou}

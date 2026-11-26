@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HostFaultError } from '../api/errors';
 import { start } from '../api/fns/nodes';
 import { tree as shellTree } from '../api/fns/shell';
-import { nodeWork, projectWork } from '../api/fns/views';
+import { nodeWork, projectWork, review } from '../api/fns/views';
 import type { WorkReport } from '../api/view-queries';
 import type { RecordArtifact } from '../lib/work-page';
 import { nodeRoute, projectRoute } from '../router';
@@ -313,6 +313,26 @@ describe('the scoped Work tab (MMR-727)', () => {
     const needs = await section('Needs you');
     expect(cardTitles(needs)).toStrictEqual(['Task MMR-14']);
     expect(within(needs).queryByRole('link', { name: /See all/ })).toBeNull();
+  });
+
+  it('holds Needs you’s place with a skeleton while the review read is pending', async () => {
+    serve(PROJECT_SCOPE, engineWork({ needsYou: [answersRow], now: [nowRow] }));
+    vi.mocked(review).mockReturnValue(Promise.withResolvers<never>().promise);
+    await renderRoute(routes, PROJECT_SCOPE.url, quietClient());
+
+    const needs = await section('Needs you');
+    expect(needs.querySelector('[aria-busy]')).not.toBeNull();
+    await section('Now');
+  });
+
+  it('says so in one line when the review read fails with nothing cached', async () => {
+    serve(PROJECT_SCOPE, engineWork({ needsYou: [answersRow], now: [nowRow] }));
+    vi.mocked(review).mockRejectedValue(new TypeError('fetch failed'));
+    await renderRoute(routes, PROJECT_SCOPE.url, quietClient());
+
+    const needs = await section('Needs you');
+    await expect(within(needs).findByText('Couldn’t load what needs you.')).resolves.toBeVisible();
+    expect(needs.querySelector('[aria-busy]')).toBeNull();
   });
 
   it('says nothing here needs you when the deck has no card and other sections show', async () => {
