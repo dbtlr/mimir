@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  projectPlaceOf,
-  sectionOfPath,
-  sidebarContextOf,
-} from '../lib/project-sidebar';
+import { projectPlaceOf, sectionOfPath, sidebarContextOf } from '../lib/project-sidebar';
 
 describe('sectionOfPath', () => {
   it.each([

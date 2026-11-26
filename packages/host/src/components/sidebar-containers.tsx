@@ -161,12 +161,7 @@ export function ContainerRowLink({
           <span className="sr-only">, {tallyName}</span>
         </>
       )}
-      {trailing !== undefined && (
-        <>
-          {' '}
-          {trailing}
-        </>
-      )}
+      {trailing !== undefined && <> {trailing}</>}
       {mark === 'holds' && <span className="sr-only">, contains this page</span>}
     </RowLink>
   );
