@@ -26,19 +26,19 @@ import { Skeleton } from './ui/skeleton';
  */
 
 /** Where a sidebar row leads: Home, a project's page, or a node's page. */
-export type RowTarget =
+type RowTarget =
   | { to: '/' }
   | { to: '/p/$key'; params: { key: string } }
   | { to: '/p/$key/$seq'; params: { key: string; seq: string } };
 
 /** How a row stands to the page: it is the page, it holds the page, or neither. */
-export type RowMark = 'page' | 'holds' | undefined;
+type RowMark = 'page' | 'holds' | undefined;
 
 /** A child row, and the fold and its rows, sit 16 in from the current row. */
 export const CHILD_INDENT = 'ml-4';
 
 /** What a row shows at its right edge. */
-export function tallyText(tally: ContainerTally): string {
+function tallyText(tally: ContainerTally): string {
   switch (tally.kind) {
     case 'counts': {
       return `${String(tally.done)}/${String(tally.total)}`;
@@ -146,7 +146,7 @@ export function ContainerRowLink({
 }
 
 /** The link up a level: "←" and the parent's title, in `ink-dim`, with no dot or tally. */
-export function ParentLink({
+function ParentLink({
   target,
   title,
   onNavigate,

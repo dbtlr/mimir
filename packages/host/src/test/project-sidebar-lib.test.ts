@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  isSectionPage,
   projectPlaceOf,
   sectionOfPath,
   sidebarContextOf,
@@ -13,12 +12,16 @@ describe('sectionOfPath', () => {
     ['/p/MMR/tasks', 'tasks'],
     ['/p/MMR/seeds', 'seeds'],
     ['/p/MMR/artifacts', 'artifacts'],
-    ['/p/MMR/s41', 'seeds'],
-    ['/p/MMR/a219', 'artifacts'],
-    ['/p/MMR/417', 'work'],
-  ] as const)('%s is in %s', (path, section) => {
+  ] as const)("%s is %s's own route", (path, section) => {
     expect(sectionOfPath(path)).toBe(section);
   });
+
+  it.each(['/p/MMR/417', '/p/MMR/s41', '/p/MMR/a219'])(
+    '%s is a record inside a section, not its route',
+    (path) => {
+      expect(sectionOfPath(path)).toBeUndefined();
+    },
+  );
 
   it.each(['/', '/doctor', '/settings/devices', '/pair', '/nowhere'])('%s is in none', (path) => {
     expect(sectionOfPath(path)).toBeUndefined();
@@ -26,19 +29,6 @@ describe('sectionOfPath', () => {
 
   it('ignores a trailing slash', () => {
     expect(sectionOfPath('/p/MMR/tasks/')).toBe('tasks');
-  });
-});
-
-describe('isSectionPage', () => {
-  it.each(['/p/MMR', '/p/MMR/tasks', '/p/MMR/seeds', '/p/MMR/artifacts'])(
-    "%s is a section's own page",
-    (path) => {
-      expect(isSectionPage(path)).toBe(true);
-    },
-  );
-
-  it.each(['/p/MMR/417', '/p/MMR/s41', '/p/MMR/a219'])('%s is a record inside one', (path) => {
-    expect(isSectionPage(path)).toBe(false);
   });
 });
 

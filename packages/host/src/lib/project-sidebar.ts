@@ -4,7 +4,7 @@ import { nodeIdOf } from './record-url';
 /*
  * What the sidebar and the switcher read off the route (ADR 0013, MMR-492 and
  * MMR-730 refinements): the sidebar's context, where a project page sits in
- * its project, and which of the project's sections a page belongs to.
+ * its project, and which of the project's sections a page is the route of.
  */
 
 /** A project's sections, the routes the switcher keeps when it changes project. */
@@ -23,8 +23,6 @@ export type SidebarContext =
   | { kind: 'settings' };
 
 const PROJECT_PATH = /^\/p\/([^/]+)(?:\/([^/]+))?\/?$/;
-const SEED_SUFFIX = /^s\d+$/;
-const ARTIFACT_SUFFIX = /^a\d+$/;
 
 /** The key and trailing segment of a `/p/KEY[/segment]` path, or undefined off a project. */
 function projectSegments(pathname: string): { key: string; segment?: string } | undefined {
@@ -38,9 +36,8 @@ function projectSegments(pathname: string): { key: string; segment?: string } | 
 }
 
 /**
- * The section a page belongs to, or undefined off a project (`/`, `/doctor`).
- * A seed's or artifact's page belongs to its browser; a node's page reads as
- * Work.
+ * The section whose own route a page is (`/p/MMR` is Work, `/p/MMR/tasks`
+ * Tasks), or undefined on a record inside one and off a project.
  */
 export function sectionOfPath(pathname: string): SidebarSection | undefined {
   const segments = projectSegments(pathname);
@@ -48,33 +45,12 @@ export function sectionOfPath(pathname: string): SidebarSection | undefined {
     return undefined;
   }
   const { segment } = segments;
-  switch (segment) {
-    case undefined: {
-      return 'work';
-    }
-    case 'tasks':
-    case 'seeds':
-    case 'artifacts': {
-      return segment;
-    }
-    default: {
-      if (SEED_SUFFIX.test(segment)) {
-        return 'seeds';
-      }
-      if (ARTIFACT_SUFFIX.test(segment)) {
-        return 'artifacts';
-      }
-      return 'work';
-    }
+  if (segment === undefined) {
+    return 'work';
   }
-}
-
-/** Is this a section's own route (`/p/MMR`, `/p/MMR/tasks`), rather than a record inside it? */
-export function isSectionPage(pathname: string): boolean {
-  const segment = projectSegments(pathname)?.segment;
-  return (
-    segment === undefined || segment === 'tasks' || segment === 'seeds' || segment === 'artifacts'
-  );
+  return segment === 'tasks' || segment === 'seeds' || segment === 'artifacts'
+    ? segment
+    : undefined;
 }
 
 /**

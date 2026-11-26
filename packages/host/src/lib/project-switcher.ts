@@ -1,7 +1,7 @@
 import type { EngineNode } from '@mimir/contract';
 
 import { orderProjects } from './current-project';
-import { isSectionPage, sectionOfPath } from './project-sidebar';
+import { sectionOfPath } from './project-sidebar';
 import type { SidebarSection } from './project-sidebar';
 
 /*
@@ -99,6 +99,5 @@ export function projectSwitchTarget(
   pathname: string,
   key: string,
 ): { to: (typeof SECTION_ROUTES)[SidebarSection]; params: { key: string } } {
-  const section = isSectionPage(pathname) ? sectionOfPath(pathname) : undefined;
-  return { params: { key }, to: SECTION_ROUTES[section ?? 'work'] };
+  return { params: { key }, to: SECTION_ROUTES[sectionOfPath(pathname) ?? 'work'] };
 }
