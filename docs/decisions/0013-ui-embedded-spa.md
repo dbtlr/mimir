@@ -1355,9 +1355,10 @@ changes.
      and never to a container), Going cold, Waiting on others (the
      Frontier's blocked-by-others set), and Record health findings (on a
      project only). A row at zero is left out.
-  6. _Parts_, last: a project's initiatives or an initiative's phases, in
-     tree order, in a row group whose rows carry the part's status dot, its
-     title, and its done-over-total progress, each opening the part's page.
+  6. The parts, last, headed for what they are: _Initiatives_ on a
+     project or _Phases_ on an initiative, in tree order, in a row
+     group whose rows carry the part's status dot, its title, and its
+     done-over-total progress, each opening the part's page.
      The finished parts, those whose rollup is done or abandoned, gather in
      one Lane fold (ADR 0019), closed, "Finished phases N" (or
      initiatives), that opens in place. An initiative's direct
@@ -1369,7 +1370,7 @@ changes.
   (ADR 0019's MMR-719 refinement, with no frame) replaces them, Needs
   you's quiet line included. It reads "Nothing is running, ready to start,
   or waiting on you.", adding "The last task finished N days ago." when a task in the scope was ever done (the latest `completedAt` in
-  the tree). When you have a minute and Parts still follow it. The round-5
+  the tree). When you have a minute and the parts still follow it. The round-5
   mock drew it as a titled card; ADR 0019 later rejected a framed quiet card
   because it read as tappable, and the ADR governs.
 - **The progress bar and its legend retire** from the Work tab; the

@@ -279,9 +279,11 @@ function PartsSection({ parts }: { parts: Parts }) {
         <RowGroup label={`Finished ${parts.noun}`} rows={parts.finished.map(partRow)} keepZero />
       </ListFold>
     );
+  // Named for what the parts are, as the round-6 mock heads them: Initiatives or Phases.
+  const title = parts.noun === 'initiatives' ? 'Initiatives' : 'Phases';
   return (
-    <FeedSection title="Parts" count={count}>
-      <RowGroup label="Parts" rows={parts.open.map(partRow)} keepZero framed after={fold} />
+    <FeedSection title={title} count={count}>
+      <RowGroup label={title} rows={parts.open.map(partRow)} keepZero framed after={fold} />
     </FeedSection>
   );
 }

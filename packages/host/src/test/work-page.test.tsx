@@ -289,7 +289,7 @@ describe.each(SCOPES)('work page scope, $name', (scope) => {
 });
 
 describe('the scoped Work tab (MMR-727)', () => {
-  it('runs Needs you, Now, Up next, Shipped this week, When you have a minute, then Parts', async () => {
+  it('runs Needs you, Now, Up next, Shipped this week, When you have a minute, then the parts', async () => {
     const panel = await openBusyProject();
 
     await within(panel).findByRole('region', { name: /^Needs you/ });
@@ -302,7 +302,7 @@ describe('the scoped Work tab (MMR-727)', () => {
       'Up next 4 can start',
       'Shipped this week 3',
       'When you have a minute',
-      'Parts 4',
+      'Initiatives 4',
     ]);
   });
 
@@ -463,7 +463,7 @@ describe('the scoped Work tab (MMR-727)', () => {
   it('lists a project’s initiatives last, in tree order, the finished ones in a closed fold', async () => {
     await openBusyProject();
 
-    const parts = await section('Parts');
+    const parts = await section('Initiatives');
     expect(
       within(parts)
         .getAllByRole('link')
@@ -481,11 +481,11 @@ describe('the scoped Work tab (MMR-727)', () => {
     expect(hrefOf(parts, /Old arc/)).toBe('/p/MMR/111');
   });
 
-  it('gives a phase no Parts', async () => {
+  it('gives a phase no parts', async () => {
     await open(PHASE_SCOPE, busyWork());
 
     await section('When you have a minute');
-    expect(screen.queryByRole('region', { name: /^Parts/ })).toBeNull();
+    expect(screen.queryByRole('region', { name: /^(Initiatives|Phases)/ })).toBeNull();
   });
 
   it('says once what is quiet, with when the last task finished, above the spare minute and the parts', async () => {
@@ -501,7 +501,7 @@ describe('the scoped Work tab (MMR-727)', () => {
       expect(within(panel).queryByRole('region', { name: new RegExp(`^${name}`) })).toBeNull();
     }
     await expect(section('When you have a minute')).resolves.toBeDefined();
-    await expect(section('Parts')).resolves.toBeDefined();
+    await expect(section('Initiatives')).resolves.toBeDefined();
   });
 
   it('shows skeletons while the work read is pending', async () => {
@@ -562,7 +562,7 @@ describe('an initiative’s Work tab (MMR-727)', () => {
     await renderRoute(routes, '/p/MMR/120', quietClient());
 
     await screen.findByRole('tab', { name: 'Work', selected: true });
-    const parts = await section('Parts');
+    const parts = await section('Phases');
     expect(hrefOf(parts, /Maintenance/)).toBe('/p/MMR/121');
   });
 });

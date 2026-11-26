@@ -112,15 +112,15 @@ its own address: `/p/MMR` for the project, `/p/MMR/417` for `MMR-417`,
   - _Now_: what is queued, running, in review, or staged, as cards, most
     recent move first. A running agent's row, with Stop, sits above them.
   - _Up next_: up to three tasks that can start now, each with Start, and
-    one row for the task whose landing unlocks the most work waiting on it
-    alone, which opens that task.
+    one row for the next task, in board order, whose landing unlocks work
+    waiting on it alone, which opens that task.
   - _Shipped this week_: the last seven days as a chart, then the count by
     phase (or by initiative, for tasks directly under one). A phase lists
     its done tasks instead.
   - _When you have a minute_: counts of tasks to groom, seeds to triage (on
     a project), work going cold, work waiting on others, and Record health
     findings (on a project).
-  - _Parts_: a project's initiatives or an initiative's phases, each with
+  - _Initiatives_ on a project, or _Phases_ on an initiative, each with
     its status and how many of its parts are done. Finished ones fold into
     one line you can open.
 
@@ -133,8 +133,11 @@ its own address: `/p/MMR` for the project, `/p/MMR/417` for `MMR-417`,
   Timeline tab, at `?tab=timeline`, and its description and direction under
   Details. Its place in the project is marked in the sidebar, and the trail
   above its title leads to its parents.
-- **A task page** shows its description, a timeline with a note field, and a
-  rail with actions, agent context, dependencies, artifacts, and details. The
+- **A task page** has four tabs: _Work_ (a banner for its state, its
+  description, and what it depends on and blocks), _Details_ (its status,
+  record, and run facts), _Timeline_ (a note field, then its history, newest
+  first), and _Artifacts_ once one is attached. Its actions are in the
+  header and More. The
   sidebar lists the task under its phase or initiative, and below 1024px wide a link
   to that parent (or to the project) stands above its ID.
 - **A seed page** reads as a request: which board asks which, the description,
