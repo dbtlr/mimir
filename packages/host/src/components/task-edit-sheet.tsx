@@ -2,6 +2,7 @@ import { PRIORITY_VALUES, SIZE_VALUES } from '@mimir/contract';
 import type { EngineNode, EngineTree, Grooming, Priority, Size } from '@mimir/contract';
 import { useState } from 'react';
 
+import { useInvalidateOnWrite } from '../api/mutations';
 import { useGroom, useMoveNode, useTag, useUntag, useUpdateNode } from '../api/node-mutations';
 import { GROOMING_META, GROOMING_ORDER } from '../lib/grooming';
 import { parentOptions } from '../lib/parent-options';
@@ -109,6 +110,7 @@ function TaskEditForm({ node, tree, open, onClose, finalFocus }: TaskEditSheetPr
   const untag = useUntag(node.id, quiet);
   const move = useMoveNode(node.id, quiet);
   const groom = useGroom(node.id, quiet);
+  const invalidate = useInvalidateOnWrite();
   const change = (next: Partial<TaskDraft>) => {
     setDraft((current) => ({ ...current, ...next }));
   };
@@ -149,6 +151,10 @@ function TaskEditForm({ node, tree, open, onClose, finalFocus }: TaskEditSheetPr
       } catch (reason: unknown) {
         failed.push({ reason, write });
       }
+    }
+    // The sheet closes on the refetched record, so a reopen never starts from the stale one.
+    if (saved.length > 0) {
+      await invalidate();
     }
     if (failed.length === 0) {
       return;

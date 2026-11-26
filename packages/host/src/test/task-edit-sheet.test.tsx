@@ -1,10 +1,10 @@
 import type { EngineNode } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { groom, move, tag, untag, update } from '../api/fns/nodes';
+import { getNode, groom, move, tag, untag, update } from '../api/fns/nodes';
 import { toast } from '../components/patterns/notice';
 import { consoleRoutes } from '../router';
 import { serveBrowse } from './browse-fns';
@@ -68,10 +68,11 @@ afterEach(() => {
 /** Render the task page for `node`. */
 async function openTask(node: EngineNode) {
   serveShell({ trees: { MMR: TREE } });
-  serveNodes({ nodes: [node], notes: { [node.id]: [] } });
+  const world = serveNodes({ nodes: [node], notes: { [node.id]: [] } });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   await renderRoute(consoleRoutes, `/p/MMR/${node.id.replace('MMR-', '')}`, client);
   await screen.findByRole('heading', { level: 1 });
+  return world;
 }
 
 /** More's rows, in order, separators as `—`, Cancel left off. */
@@ -86,10 +87,66 @@ async function moreRows() {
 /** Open the task page for `node`, then its edit sheet, and return the sheet. */
 async function openSheet(node: EngineNode) {
   await openTask(node);
+  return openEdit();
+}
+
+/** Open the edit sheet from the open task page's More, and return the sheet. */
+async function openEdit() {
   await userEvent.click(await screen.findByRole('button', { name: 'More' }));
   // More is a bottom sheet of buttons on a phone and an anchored menu on desktop.
   await userEvent.click(await screen.findByText('Edit', { selector: 'button, [role="menuitem"]' }));
   return screen.findByRole('dialog', { name: 'Edit task' });
+}
+
+/**
+ * Open the edit sheet on `node`, whose content updates land in the served
+ * world, with every node read after the first update held until `release`.
+ */
+async function openHeldSheet(node: EngineNode) {
+  const world = await openTask(node);
+  const served = vi.mocked(getNode).getMockImplementation()!;
+  const hold = Promise.withResolvers<void>();
+  let wrote = false;
+  vi.mocked(getNode).mockImplementation(async (options) => {
+    if (wrote) {
+      await hold.promise;
+    }
+    return served(options);
+  });
+  vi.mocked(update).mockImplementation(async ({ data }) => {
+    const { id, ...fields } = data;
+    world.nodes = world.nodes.map((n) => (n.id === id ? ({ ...n, ...fields } as EngineNode) : n));
+    wrote = true;
+    return world.nodes.find((n) => n.id === id)!;
+  });
+  return { release: hold.resolve, sheet: await openEdit() };
+}
+
+/** Let pending promises and the query client's batched notifications run, a few task turns deep. */
+async function settle() {
+  await act(async () => {
+    for (let turn = 0; turn < 5; turn += 1) {
+      const { promise, resolve } = Promise.withResolvers<void>();
+      setTimeout(resolve, 0);
+      // oxlint-disable-next-line no-await-in-loop -- each turn waits for the one before it
+      await promise;
+    }
+  });
+}
+
+/** Save `sheet`, check it stays open and busy on the held refetch, then let the refetch land. */
+async function saveThroughRefetch(sheet: HTMLElement, release: () => void) {
+  await save(sheet);
+  await waitFor(() => {
+    expect(update).toHaveBeenCalled();
+  });
+  await settle();
+  expect(screen.getByRole('dialog', { name: 'Edit task' })).toBe(sheet);
+  expect(within(sheet).getByRole('button', { name: 'Save' })).toHaveAttribute('aria-busy', 'true');
+  release();
+  await waitFor(() => {
+    expect(screen.queryByRole('dialog', { name: 'Edit task' })).toBeNull();
+  });
 }
 
 const save = (sheet: HTMLElement) =>
@@ -296,6 +353,45 @@ describe('task edit sheet: grooming', () => {
     await userEvent.click(within(sheet).getByRole('radio', { name: 'Groomed' }));
     await userEvent.click(needs);
     expect(within(sheet).getByRole('textbox', { name: /Open questions/ })).toBeVisible();
+  });
+});
+
+describe('task edit sheet: a Save closes on the saved record', () => {
+  it('reopens on the saved title, so changing it back is sent', async () => {
+    stubViewport('desktop');
+    const { sheet, release } = await openHeldSheet(todo());
+    const title = within(sheet).getByRole('textbox', { name: 'Title' });
+    await userEvent.clear(title);
+    await userEvent.type(title, 'First save');
+    await saveThroughRefetch(sheet, release);
+
+    const again = await openEdit();
+    const reopened = within(again).getByRole('textbox', { name: 'Title' });
+    expect(reopened).toHaveValue('First save');
+    await userEvent.clear(reopened);
+    await userEvent.type(reopened, 'Add the SQLite dialect');
+    await save(again);
+
+    await waitFor(() => {
+      expect(sent(update).at(-1)).toStrictEqual({ id: 'MMR-417', title: 'Add the SQLite dialect' });
+    });
+  });
+
+  it('reopens on the saved description, so a further edit builds on it', async () => {
+    stubViewport('desktop');
+    const { sheet, release } = await openHeldSheet(todo());
+    const description = within(sheet).getByRole('textbox', { name: /Description/ });
+    await userEvent.clear(description);
+    await userEvent.type(description, 'New prose.');
+    await saveThroughRefetch(sheet, release);
+
+    const again = await openEdit();
+    await userEvent.type(within(again).getByRole('textbox', { name: /Description/ }), ' More.');
+    await save(again);
+
+    await waitFor(() => {
+      expect(sent(update).at(-1)).toStrictEqual({ description: 'New prose. More.', id: 'MMR-417' });
+    });
   });
 });
 
