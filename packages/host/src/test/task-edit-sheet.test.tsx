@@ -319,6 +319,27 @@ describe('task edit sheet: a Save that partly fails', () => {
     expect(update).not.toHaveBeenCalled();
   });
 
+  it('sends its writes one after another, each after the last settles, and still tries every one', async () => {
+    const sheet = await openSheet(todo());
+    const pending = Promise.withResolvers<never>();
+    vi.mocked(update).mockReturnValueOnce(pending.promise);
+    await userEvent.type(within(sheet).getByRole('textbox', { name: 'Title' }), '!');
+    await userEvent.click(sheet.querySelector('[aria-label="Remove ui"]')!);
+    await userEvent.click(within(sheet).getByRole('button', { name: /^Parent/ }));
+    await userEvent.click(await screen.findByRole('option', { name: /Console/ }));
+    await save(sheet);
+
+    await waitFor(() => {
+      expect(update).toHaveBeenCalledOnce();
+    });
+    expect(untag).not.toHaveBeenCalled();
+    expect(move).not.toHaveBeenCalled();
+    pending.reject(new Error("the host didn't answer"));
+    await within(sheet).findByText("Tags and the move saved. The title didn't.");
+    expect(sent(untag)).toStrictEqual([{ ids: ['MMR-417'], tags: ['ui'] }]);
+    expect(sent(move)).toStrictEqual([{ id: 'MMR-417', to: 'MMR-3' }]);
+  });
+
   it('raises no toast beside the error it shows on the field', async () => {
     const sheet = await openSheet(todo());
     vi.mocked(update).mockRejectedValueOnce(new Error("the host didn't answer"));

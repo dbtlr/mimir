@@ -141,18 +141,17 @@ function TaskEditForm({ node, tree, open, onClose, finalFocus }: TaskEditSheetPr
   }
 
   async function save() {
-    const writes = editWrites(baseline, draft);
-    // Every write runs to its end, so one's failure never hides another's.
-    const results = await Promise.allSettled(writes.map(send));
-    const saved = writes.filter((_, at) => results[at]?.status === 'fulfilled');
-    const failed = writes.flatMap((write, at) => {
-      const result = results[at];
-      if (result?.status !== 'rejected') {
-        return [];
+    const saved: EditWrite[] = [];
+    const failed: { write: EditWrite; reason: unknown }[] = [];
+    // One write at a time, so no two race at the node; each runs whether or not the last saved.
+    for (const write of editWrites(baseline, draft)) {
+      try {
+        await send(write);
+        saved.push(write);
+      } catch (reason: unknown) {
+        failed.push({ reason, write });
       }
-      const reason: unknown = result.reason;
-      return [{ reason, write }];
-    });
+    }
     if (failed.length === 0) {
       return;
     }
