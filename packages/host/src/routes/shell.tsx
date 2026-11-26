@@ -1,4 +1,4 @@
-import { Link, Outlet, useRouterState } from '@tanstack/react-router';
+import { Outlet, useRouterState } from '@tanstack/react-router';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode, RefObject } from 'react';
 
@@ -7,6 +7,7 @@ import { BrandMark } from '../components/brand-mark';
 import { JumpPaletteProvider, TopBarJumpTo } from '../components/jump-palette';
 import { PreviewRoomProvider, usePreviewRoomOpen } from '../components/patterns/feed/preview-room';
 import { NoticeHost } from '../components/patterns/notice';
+import { WayLink } from '../components/patterns/way-link';
 import { ProjectDrawer, ProjectSidebar } from '../components/project-sidebar';
 import { PushHealer } from '../components/push-healer';
 import { PwaUpdateBanner } from '../components/pwa-update-banner';
@@ -128,13 +129,13 @@ function ShellContent() {
             className="z-20 flex items-center gap-2 border-b border-line bg-well-950 px-4 pt-[calc(0.5rem+env(safe-area-inset-top))] pb-2 max-lg:px-2 max-md:gap-1"
           >
             {context !== undefined && !desktop && <ProjectDrawer context={context} />}
-            <Link
-              to="/"
+            <WayLink
+              link={{ to: '/' }}
               className="flex items-center gap-2 rounded font-mono text-[15px] font-bold max-md:ml-1 tracking-tight text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
             >
               <BrandMark />
               Mimir
-            </Link>
+            </WayLink>
             <div className="ml-auto flex items-center gap-1">
               {!sidebarShown && <TopBarJumpTo />}
               <AttentionAlert />

@@ -1,4 +1,3 @@
-import { Link } from '@tanstack/react-router';
 import { useId, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode, RefObject } from 'react';
 
@@ -8,6 +7,7 @@ import { DRAWER_DESKTOP_QUERY } from '../ui/drawer';
 import { FEED_FOCUS_RING } from './feed/link';
 import type { FeedLink } from './feed/link';
 import { FeedStatusLine } from './feed/status-line';
+import { WayLink } from './way-link';
 
 /*
  * The record header (ADR 0019, MMR-726 refinement): what a project, initiative,
@@ -141,8 +141,8 @@ function RecordTrail({ steps }: { steps: readonly TrailStep[] }) {
                 <TrailSeparator />
               </>
             )}
-            <Link
-              {...step.to}
+            <WayLink
+              link={step.to}
               data-middle={middle ? '' : undefined}
               className={cn(
                 TRAIL_LINK,
@@ -154,7 +154,7 @@ function RecordTrail({ steps }: { steps: readonly TrailStep[] }) {
               )}
             >
               <span className="truncate">{step.label}</span>
-            </Link>
+            </WayLink>
           </span>
         );
       })}

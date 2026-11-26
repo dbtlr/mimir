@@ -625,6 +625,24 @@ describe('sidebar on an archived or unavailable project (MMR-730)', () => {
   });
 });
 
+describe('one current page per document', () => {
+  it.each([
+    ['/', /^Home, \d+ project/],
+    ['/p/MMR/1', /^initiative MMR-1/],
+    ['/settings/about', /^About$/],
+  ])('marks only the sidebar’s row as the page on %s', async (path, row) => {
+    await renderAt(path);
+    const nav = await sidebar();
+    await waitFor(() => {
+      expect(within(nav).getByRole('link', { name: row })).toHaveAttribute('aria-current', 'page');
+    });
+    if (path === '/p/MMR/1') {
+      await screen.findByRole('navigation', { name: 'Ancestors' });
+    }
+    expect(document.querySelectorAll('[aria-current="page"]')).toHaveLength(1);
+  });
+});
+
 describe('sidebar announces where the page is', () => {
   it('names the sidebar landmark', async () => {
     await renderAt('/p/MMR');
