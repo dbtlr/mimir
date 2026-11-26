@@ -859,6 +859,20 @@ describe('task page tabs (MMR-728)', () => {
     expect(router.state.location.searchStr).toBe('');
   });
 
+  it('keeps an unsent note when another tab opens and the Timeline comes back', async () => {
+    await openTask(sqlite, withNote, 'timeline');
+
+    await userEvent.type(await screen.findByRole('textbox', { name: /note/i }), 'half a thought');
+    fireEvent.click(screen.getByRole('tab', { name: 'Details' }));
+    await screen.findByRole('heading', { level: 2, name: 'Record' });
+    fireEvent.click(screen.getByRole('tab', { name: /Timeline/ }));
+
+    const box = await screen.findByRole('textbox', { name: /note/i });
+    expect(box).toHaveValue('half a thought');
+    // The draft lives for the page load; empty it so no later test opens MMR-417 holding it.
+    fireEvent.change(box, { target: { value: '' } });
+  });
+
   it('opens on the tab its URL names, as on a reload', async () => {
     await openTask(sqlite, withNote, 'timeline');
 

@@ -23,6 +23,12 @@ export type ComposerProps = {
   onCommit: (text: string) => void | Promise<void>;
   /** Neither the box nor the commit takes input, as while offline. Typed text stays. */
   disabled?: boolean;
+  /**
+   * Text the caller kept from an earlier mount and the hook that keeps it: the
+   * box opens with `text` and reports every change, an emptied box included,
+   * so an unsent note outlives its tab closing.
+   */
+  draft?: { text: string; onChange: (text: string) => void };
 };
 
 /**
@@ -62,8 +68,13 @@ export function Composer({
   commitName,
   onCommit,
   disabled = false,
+  draft,
 }: ComposerProps) {
-  const [text, setText] = useState('');
+  const [text, setStoredText] = useState(draft?.text ?? '');
+  const setText = (next: string) => {
+    setStoredText(next);
+    draft?.onChange(next);
+  };
   const box = useRef<HTMLTextAreaElement | null>(null);
   // An inline composer is always open: one opening for its life, so a commit still holds the gate.
   const { busy, commit } = useOpening(true, false, disabled, { restoreFocusOnResolve: false });
