@@ -315,6 +315,31 @@ describe('sidebar Projects section on All projects (MMR-562, MMR-567)', () => {
     });
   });
 
+  it('ends in See all, counting every active project, a link to the Projects list (MMR-790)', async () => {
+    serveWorld();
+    await renderAt('/');
+    const seeAll = await within(await section()).findByRole('link', {
+      name: 'See all 4 projects',
+    });
+    expect(seeAll).toHaveAttribute('href', '/projects');
+    expect(seeAll).not.toHaveAttribute('aria-current');
+  });
+
+  it('counts one project as one in See all (MMR-790)', async () => {
+    await renderAt('/');
+    await expect(
+      within(await section()).findByRole('link', { name: 'See all 1 project' }),
+    ).resolves.toHaveAttribute('href', '/projects');
+  });
+
+  it('marks See all as the page on the Projects list (MMR-790)', async () => {
+    serveWorld();
+    await renderAt('/projects');
+    await expect(
+      within(await section()).findByRole('link', { name: 'See all 4 projects' }),
+    ).resolves.toHaveAttribute('aria-current', 'page');
+  });
+
   it('has no search of its own; the switcher above finds every project', async () => {
     serveWorld();
     await renderAt('/');

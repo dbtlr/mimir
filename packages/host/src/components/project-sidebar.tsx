@@ -18,6 +18,7 @@ import type { FinishedInitiative, OutlineEntry, OutlineTally } from '../lib/work
 import { SidebarJumpTo, useOpenJumpPalette } from './jump-palette';
 import { ProjectPicker } from './project-picker';
 import { SidebarProjects } from './sidebar-projects';
+import { ROW_CURRENT, SECTION_CURRENT } from './sidebar-selection';
 import { StatusDot } from './status-dot';
 import { iconButtonClass } from './ui/icon-button';
 import { ChevronRightIcon, MenuIcon } from './ui/icons';
@@ -34,16 +35,6 @@ import { Skeleton } from './ui/skeleton';
  * sits beside the page; below that it folds into a drawer behind a top-bar
  * button, because a record page's own rail needs the width a tablet has.
  */
-
-/**
- * The selection treatment (ADR 0019): the accent as a low-alpha wash with a
- * hairline inset ring, never a solid fill. Sections key it on any
- * `aria-current`, rows on `page`.
- */
-const SECTION_CURRENT =
-  'aria-[current]:bg-accent/10 aria-[current]:text-ink-bright aria-[current]:inset-ring aria-[current]:inset-ring-accent/28';
-const ROW_CURRENT =
-  'aria-[current=page]:bg-accent/10 aria-[current=page]:text-ink-bright aria-[current=page]:inset-ring aria-[current=page]:inset-ring-accent/28';
 
 const ROW =
   'flex min-w-0 items-center gap-2 rounded-md px-2 text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent';

@@ -256,6 +256,144 @@ describe('feed row group', () => {
   });
 });
 
+const door = (key: string) => ({ params: { key }, to: '/p/$key' }) as const;
+
+describe('feed row group options (MMR-790)', () => {
+  it('keeps a row counting zero when asked', async () => {
+    await renderInRouter(
+      <RowGroup
+        label="Projects"
+        keepZero
+        rows={[
+          { count: 0, key: 'MDG', name: 'Modgud', to: door('MDG') },
+          { count: 3, key: 'MMR', name: 'Mimir', to: door('MMR') },
+        ]}
+      />,
+    );
+    expect(screen.getAllByRole('link').map((link) => link.textContent)).toStrictEqual([
+      'MDG Modgud 0',
+      'MMR Mimir 3',
+    ]);
+  });
+
+  it('sets a bare count as Home’s rows always have, and keeps a worded count to one line', async () => {
+    await renderInRouter(
+      <RowGroup
+        label="Projects"
+        rows={[
+          { count: 71, key: 'LM', name: 'Loom CLI', to: door('LM') },
+          {
+            count: 36,
+            key: 'NORN',
+            name: 'Norn',
+            shows: { kind: 'words', text: '36 live' },
+            to: door('NORN'),
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText('71').className).toBe('shrink-0 text-meta text-ink-dim');
+    expect(screen.getByText('36 live')).toHaveClass(
+      'text-right',
+      'whitespace-nowrap',
+      'tabular-nums',
+    );
+  });
+
+  it('says a count in words, as the attention pill, or not at all, and sets a row’s name back', async () => {
+    await renderInRouter(
+      <RowGroup
+        label="Projects"
+        keepZero
+        rows={[
+          {
+            count: 2,
+            key: 'HUGI',
+            name: 'Hugi',
+            shows: { kind: 'attention', text: '2 need you' },
+            to: door('HUGI'),
+          },
+          {
+            count: 0,
+            key: 'BFR',
+            name: 'Bifrost',
+            setBack: true,
+            shows: { kind: 'words', text: 'Nothing live' },
+            to: door('BFR'),
+          },
+          { count: 0, key: 'SKL', name: 'Skald', setBack: true, shows: { kind: 'none' } },
+        ]}
+      />,
+    );
+    const hugi = screen.getByRole('link', { name: 'HUGI Hugi 2 need you' });
+    expect(within(hugi).getByText('2 need you')).toHaveAttribute('data-slot', 'row-attention');
+    expect(within(hugi).getByText('Hugi')).toHaveClass('text-ink');
+    const bifrost = screen.getByRole('link', { name: 'BFR Bifrost Nothing live' });
+    expect(within(bifrost).getByText('Bifrost')).toHaveClass('text-ink-dim');
+    const skald = within(screen.getByRole('list')).getAllByRole('listitem').at(-1);
+    expect(skald).toHaveTextContent(/^SKL Skald$/);
+  });
+
+  it('lays the figures under captions a screen reader skips, each named for its caption, a zero an en dash', async () => {
+    await renderInRouter(
+      <RowGroup
+        label="Projects"
+        keepZero
+        columns={{
+          figures: [
+            { caption: 'Need you', tone: 'attention' },
+            { caption: 'Live', tone: 'strong' },
+          ],
+          key: 'Key',
+          name: 'Project',
+        }}
+        rows={[
+          {
+            count: 1,
+            figures: [1, 0],
+            key: 'MMR',
+            name: 'Mimir',
+            shows: { kind: 'attention', text: '1 needs you' },
+            to: door('MMR'),
+          },
+          {
+            count: 0,
+            figures: [0, 4],
+            key: 'NORN',
+            name: 'Norn',
+            shows: { kind: 'words', text: '4 live' },
+            to: door('NORN'),
+          },
+        ]}
+      />,
+    );
+    const captions = document.querySelector('[data-slot="row-group-captions"]');
+    expect(captions).toHaveAttribute('aria-hidden', 'true');
+    expect(captions).toHaveTextContent('KeyProjectNeed youLive');
+    const row = screen.getByRole('link', { name: /^MMR Mimir/ });
+    const figures = [...row.querySelectorAll('[data-slot="row-figure"]')];
+    expect(figures.map((figure) => figure.textContent)).toStrictEqual([
+      '1, 1 need you',
+      '–, 0 live',
+    ]);
+    expect(within(figures[1] as HTMLElement).getByText('–')).toHaveAttribute('aria-hidden', 'true');
+    expect(figures[0]).toHaveAttribute('data-tone', 'attention');
+    // The phone's one count stays, for the phone; the figures take its place from md up.
+    expect(within(row).getByText('1 needs you')).toHaveClass('md:hidden');
+    // A focused row scrolls clear of the 36 caption band pinned above it (WCAG 2.4.11).
+    expect(row).toHaveClass('md:scroll-mt-9');
+    // A zero takes no tone: no dot and no bright ink under Need you, plain under Live.
+    const norn = screen.getByRole('link', { name: /^NORN Norn/ });
+    const [needYou, live] = [...norn.querySelectorAll('[data-slot="row-figure"]')];
+    expect(needYou).not.toHaveAttribute('data-tone');
+    expect(needYou).toHaveClass('text-ink-dim');
+    expect(needYou!.querySelector('.bg-attention')).toBeNull();
+    expect(figures[1]).not.toHaveAttribute('data-tone');
+    expect(live).toHaveAttribute('data-tone', 'strong');
+    expect(within(norn).getByText('4 live')).toHaveClass('md:hidden');
+  });
+});
+
 function finished(id: string, title: string, time: string, note?: string) {
   return (
     <FinishedRow

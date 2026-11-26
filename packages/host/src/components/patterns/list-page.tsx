@@ -1,25 +1,28 @@
-import { useId, useLayoutEffect, useRef } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode, Ref, RefObject } from 'react';
 
 import { cn } from '../../lib/cn';
 import { CloseIcon, FilterIcon } from '../ui/icons';
+import { Fold } from './feed/day-fold';
 import { FEED_FOCUS_RING, FEED_LINK_TEXT } from './feed/link';
 import { ShowMoreButton } from './feed/show-more';
 
 /*
  * The list page (ADR 0019, MMR-724 refinement; DESIGN.md, List page): one
- * layout for every kind of record's list (Tasks, Seeds, and Artifacts now;
- * Projects next). It reads top down: the count line, the search on its own
- * row, the chip row (the preset as one removable chip, then Filter, then any
- * filter a link carried), and the groups, each under a heading that stays in
- * view while its group scrolls. The feature hands it its own parts: the search
- * box, the cards or rows, and the Filter sheet.
+ * layout for every kind of record's list (Tasks, Seeds, Artifacts, and
+ * Projects). It reads top down: the count line, the search on its own row, the
+ * chip row (the preset as one removable chip, then Filter, then any filter a
+ * link carried), and the groups, each under a heading that stays in view while
+ * its group scrolls. The feature hands it its own parts: the search box, the
+ * cards or rows, and the Filter sheet. A list with nothing to search or filter
+ * (Projects, MMR-790) leaves the search and chips out.
  */
 
 /**
  * The page's frame: the count line 16 above the search, the search 8 above the
  * chips, and the chips 32 above the first group's head row, the gap between
- * groups, so the first group starts on the same beat as the rest.
+ * groups, so the first group starts on the same beat as the rest. Without a
+ * search or chips the list starts 24 below the count line.
  */
 export function ListPage({
   label,
@@ -36,17 +39,18 @@ export function ListPage({
   /** A text action at the count line's right (`CountLineAction`): Seeds' File a seed. */
   countAction?: ReactNode;
   /** The search box, on its own row. */
-  search: ReactNode;
+  search?: ReactNode;
   /** The chip row's chips: the preset chip, then the Filter chip, then any carried chips. */
-  chips: ReactNode;
+  chips?: ReactNode;
   children: ReactNode;
 }) {
+  const filtered = search !== undefined || chips !== undefined;
   return (
     // The room under the last item is Home's: 40 on a phone, the record column's
     // own bottom padding, and 48 from `md` up, 8 more than that padding.
     <section aria-label={label} className="w-full md:pb-2">
       {/* The line holds its height while the count is on its way, so nothing below moves. */}
-      <div className="mb-4 flex min-h-5 items-center justify-between gap-3">
+      <div className={cn('flex min-h-5 items-center justify-between gap-3', filtered && 'mb-4')}>
         <p data-slot="list-count" className="m-0 min-w-0 text-meta text-ink-dim">
           {count}
         </p>
@@ -55,13 +59,15 @@ export function ListPage({
       {search}
       {/* On a phone each 36 pill sits in a 44 tap area; the row pulls those 4s back, so the
           pills keep the 8 and 32 and wrapped rows sit 8 apart, as the Filter sheet's pills do. */}
-      <div
-        data-slot="list-chips"
-        className="-mb-1 mt-1 flex flex-wrap items-center gap-x-2 md:mt-2 md:mb-0 md:gap-y-2"
-      >
-        {chips}
-      </div>
-      <div data-slot="list-body" className="mt-8">
+      {chips !== undefined && (
+        <div
+          data-slot="list-chips"
+          className="-mb-1 mt-1 flex flex-wrap items-center gap-x-2 md:mt-2 md:mb-0 md:gap-y-2"
+        >
+          {chips}
+        </div>
+      )}
+      <div data-slot="list-body" className={filtered ? 'mt-8' : 'mt-6'}>
         {children}
       </div>
     </section>
@@ -260,6 +266,32 @@ export function ListGroup({
       </div>
       {children}
     </section>
+  );
+}
+
+/**
+ * The folds set aside after a list's groups (Seeds' Parked and Settled, the
+ * archived projects), 32 below the last group, one fold's rule above the next.
+ */
+export function ListFolds({ children }: { children: ReactNode }) {
+  return <div className="mt-8 flex flex-col first:mt-0">{children}</div>;
+}
+
+/** One fold of `ListFolds`: its label and count, closed until opened, what it holds inside. */
+export function ListFold({
+  label,
+  count,
+  children,
+}: {
+  label: string;
+  count: number;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Fold label={label} count={count} open={open} onOpenChange={setOpen}>
+      <div className="pt-1 pb-4">{children}</div>
+    </Fold>
   );
 }
 
