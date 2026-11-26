@@ -190,6 +190,30 @@ describe('Now on the work page', () => {
     ).resolves.toBeVisible();
   });
 
+  // The cap hides the run's task's card, so the run keeps its row, and Stop stays reachable.
+  it('keeps the run’s row, with Stop, when its task’s card is past the cap', async () => {
+    serveShell({ trees: { MMR: TREE } });
+    serveNodes({ nodes: [PROJECT] });
+    const newer = Array.from({ length: 6 }, (_, i) =>
+      nowRow(
+        { id: `MMR-${String(11 + i)}`, title: `Newer task ${String(i + 1)}` },
+        { startedAt: new Date(NOW - (i + 1) * 60_000) },
+      ),
+    );
+    const oldest = nowRow(
+      { id: 'MMR-640', status: 'queued', title: 'Show each clone’s last sync' },
+      { startedAt: new Date(NOW - 60 * 60_000) },
+    );
+    serveViews({ projects: { MMR: engineWork({ now: [...newer, oldest] }) } });
+    serveAgent({ activity: runningActivity({ cancellable: true }, 'Show each clone’s last sync') });
+    await renderRoute(consoleRoutes, '/p/MMR', quietClient());
+    await expect(
+      screen.findByRole('button', { name: 'Stop run on MMR-640' }),
+    ).resolves.toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Show each clone’s last sync' })).toBeNull();
+    await expect(nowGroup()).resolves.toHaveTextContent(/^Now \d of 7$/);
+  });
+
   it('has no Now when no agent run is active and nothing is in flight', async () => {
     await openProject({ running: null });
     await expect(screen.findByText(/^Nothing is running/)).resolves.toBeVisible();
