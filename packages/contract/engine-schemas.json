@@ -3593,10 +3593,10 @@
                         "runnable": {
                           "type": "number"
                         },
-                        "seeds": {
+                        "triage": {
                           "type": "number"
                         },
-                        "triage": {
+                        "untriaged": {
                           "type": "number"
                         }
                       },
@@ -3609,8 +3609,8 @@
                         "live",
                         "needsYou",
                         "runnable",
-                        "seeds",
-                        "triage"
+                        "triage",
+                        "untriaged"
                       ],
                       "additionalProperties": false
                     }

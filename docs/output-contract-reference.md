@@ -286,26 +286,30 @@ form. `timeZone` is required, as on the work reads: it is the caller's IANA zone
 and places the `shipped` window. A missing or unknown zone is a `validation`
 refusal. Field names follow the work page's convention above.
 
-- `decisions`: per project with any, the work page's `needs_you` rows, projects
-  in urgency order (leading reason, then newest, then key).
-- `queue`: every decision's task id, blocks on you then questions, newest first
-  within each.
-- `triage`: per project with anything to triage, `{ project, seeds, going_cold,
-  findings }`, most first, then key.
-- `last_finished`: the newest done or abandoned task, or `null`.
-- `now`, `shipped`, `runnable`, `going_cold`: the work page's `now`,
-  `shipped`, `frontier.runnable`, and `going_cold` rows across every active
-  project. One set of section rules and row builders serves both, so a project's
-  rows here equal its work report's rows. Across projects, `now` lists the latest move
-  first (a review's `submitted_at`, otherwise its `started_at`), `runnable` follows the `projects` order and then each
-  project's own rank, `going_cold` lists the longest quiet first, and `shipped`
-  lists the newest first. Every row adds `project`, the project key. A
-  `going_cold` row is the task object with `stale: true`.
+- `needs_you`: per project with any, the work page's `needs_you` rows (tasks,
+  stopped deliveries, and decisions), projects in urgency order (leading
+  reason, then newest, then key).
+- `needs_you_facts`: what the Needs you deck shows that the rows do not carry:
+  each shown delivery's title and phase, and each decision bundle's linked
+  tasks that are not abandoned.
+- `queue`: every needs-you member as `{ kind, id }`, `kind` one of `delivery`,
+  `decision`, or `task`, in the shared focus-queue order across projects.
+- `now`, `shipped`: the work page's `now` and `shipped` rows across every
+  active project. One set of section rules and row builders serves both, so a
+  project's rows here equal its work report's rows. Across projects, `now`
+  lists the latest move first (a review's `submitted_at`, otherwise its
+  `started_at`) and `shipped` lists the newest first. Every row adds `project`,
+  the project key.
 - `projects`: every active project, pinned first, then newest `last_activity_at`
-  first, then key. Each carries `key`, `name`, and counts: `decisions`, `triage`
-  (untriaged seeds + going cold + `doctor` findings), `in_flight` (status
-  `queued`, `in_progress`, `under_review`, or `staged`, the `now` rows), `live` (the `--status live` group: every status other than
-  `done` and `abandoned`, so parked work counts), and `going_cold` (tasks past the stale threshold).
+  first, then key. Each carries `key`, `name`, and counts: `needs_you`,
+  `in_flight` (status `queued`, `in_progress`, `under_review`, or `staged`, the
+  `now` rows), `live` (the `--status live` group: every status other than
+  `done` and `abandoned`, so parked work counts), `runnable` (the work page's
+  `frontier.runnable` rows: groomed, ready, and ranked), `triage`
+  (`untriaged` + `going_cold` + `findings`), `untriaged` (seeds in the `new`
+  lane), `going_cold` (tasks past the stale threshold), and `findings`
+  (`doctor` findings the project owns). The review report counts these rather
+  than listing them (MMR-763).
 
 ## Doctor diagnostics
 

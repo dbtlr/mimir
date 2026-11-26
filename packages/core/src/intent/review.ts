@@ -175,7 +175,7 @@ const tagged = <T extends { task: { id: string } }>(rows: readonly T[]): ReviewW
  * - `queue`: each member’s kind and id, in the shared order across projects.
  * - `projects`: every active project in the rail's order (pinned first, then
  *   newest activity), with its counts: needs-you, in-flight, live, untriaged
- *   seeds, doctor findings, runnable, going cold, and triage (seeds plus going
+ *   seeds, doctor findings, runnable, going cold, and triage (untriaged plus going
  *   cold plus findings). `live` is the `--status live` group: every status but
  *   done and abandoned, so parked work counts. `runnable` and `goingCold` count
  *   the project's work-page `frontier.runnable` and `goingCold` rows without

@@ -878,14 +878,6 @@ export type ReviewNeedsYouGroup = {
 export type ReviewProject = ReviewProjectRef & {
   /** Records that need the operator. */
   needsYou: number;
-  /** Untriaged seeds, plus tasks going cold, plus `doctor` findings: `seeds + goingCold + findings`. */
-  triage: number;
-  /** Untriaged seeds (a parked seed is not untriaged). */
-  seeds: number;
-  /** `doctor` findings owned by the project. */
-  findings: number;
-  /** Tasks the work page lists under `frontier.runnable`: groomed, ready, and ranked, `next`'s selection. */
-  runnable: number;
   /** Tasks whose status word is `queued`, `in_progress`, `under_review`, or `staged`: the `now` rows. */
   inFlight: number;
   /**
@@ -893,8 +885,16 @@ export type ReviewProject = ReviewProjectRef & {
    * `done` or `abandoned`. Parked work counts as live.
    */
   live: number;
+  /** Tasks the work page lists under `frontier.runnable`: groomed, ready, and ranked, `next`'s selection. */
+  runnable: number;
+  /** What to triage: `untriaged + goingCold + findings`. */
+  triage: number;
+  /** Seeds in the `new` lane (a parked seed is not untriaged). */
+  untriaged: number;
   /** Tasks past the stale threshold (the length of the project's work-page `goingCold` rows). */
   goingCold: number;
+  /** `doctor` findings owned by the project. */
+  findings: number;
 };
 
 /** A work-page row on the review page, tagged with the key of the project it belongs to. */
