@@ -60,14 +60,16 @@ export type SegmentedOption<T extends string> = {
 
 /*
  * A field track whose labels run past a word (the Seeds Show, a task's
- * Grooming): each segment sized to its label, 6 of padding a side on a phone,
- * the row still spanning the field (DESIGN.md, A form). When the labels still
- * do not fit (a 320 phone), a label wraps to two lines inside its 44 tall
- * segment, and no segment shrinks below its longest word, so nothing clips.
- * The short labels this takes (p0 to p3) grow to fill the row, which keeps
- * their 44 width at 320.
+ * Grooming): on a phone each segment is sized to its label with 6 of padding a
+ * side, the row still spanning the field (DESIGN.md, A form). The label sits
+ * in a box at least 32 wide, so no segment is narrower than 44; when the row
+ * cannot hold every label on one line (a 320 phone), a label wraps to two
+ * lines inside its 44 tall segment, and none shrinks below its longest word,
+ * so nothing clips. From `md` up the segments share the track equally.
  */
-const FIT_SEGMENT_CLASS = 'min-w-min flex-auto whitespace-normal py-0 text-balance px-1.5 md:px-3';
+const FIT_SEGMENT_CLASS = 'min-w-min flex-auto whitespace-normal py-0 px-1.5 md:flex-1 md:px-3';
+
+const FIT_LABEL_CLASS = 'inline-block min-w-8 text-balance';
 
 const MONO_SEGMENT_CLASS = 'font-mono [font-size-adjust:var(--mono-adjust)]';
 
@@ -116,7 +118,7 @@ export function SegmentedControl<T extends string>({
   ariaLabel: string;
   /** `field` spans a form field's width at the control height; `compact` sits inline. */
   size?: 'compact' | 'field';
-  /** On a `field` track, size each segment to its label on a phone, for labels past a word. */
+  /** On a `field` track, size each segment to its label on a phone (at least 44), for labels past a word. */
   fit?: boolean;
   className?: string;
   /** Per-segment overrides (e.g. the authoring sheet's pill-shaped, mixed-case type selector). */
@@ -148,7 +150,7 @@ export function SegmentedControl<T extends string>({
             segmentClassName,
           )}
         >
-          {option.label}
+          {fit ? <span className={FIT_LABEL_CLASS}>{option.label}</span> : option.label}
         </SegmentedControlItem>
       ))}
     </SdkSegmentedControl>

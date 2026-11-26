@@ -250,18 +250,20 @@ for three, 4 for four, counting Unset) and a Select otherwise, never a Radio.
 A third: the Seeds list's Filter sheet takes Show as five segments (All, To
 triage, To resolve, Parked, Settled), though two labels run past a word, as
 the picked mock drew it (**adopted (MMR-725)**). Each segment is sized to its
-label with 6 of padding a side on a phone and is 44 wide at least
-(the Segmented Control's `fit`): the row fits at 390, where equal shares cut "To
-resolve". Where the labels still do not fit (a 320 phone), a `fit` label wraps
-to two 20 lines inside its 44 segment, balanced, rather than clipping
-(**adopted (MMR-731)**: Show's labels clipped by about 10 at 320).
+label with 6 of padding a side on a phone and is 44 wide at least, its label
+in a box at least 32 wide (the Segmented Control's `fit`): the row fits on one
+line at 390, where equal shares cut "To resolve". Where the labels still do not
+fit (a 320 phone), a `fit` label wraps to two 20 lines inside its 44 segment,
+balanced, and no segment shrinks below its longest word or 44, so no label
+clips (**adopted (MMR-731)**: Show's labels clipped by about 10 at 320).
 A fourth: a task's Grooming in the edit sheet takes three segments (Not
 groomed, Needs answers, Groomed), though two labels run past a word, as the
 picked mock drew it (**adopted (MMR-731)**). Its segments are sized to their
 labels on a phone by `fit`, as Show's are: the row fits at 390, and at 320
 "Not groomed" and "Needs answers" wrap to two lines. The sheet's Size and Priority
 take `fit` too, so "Medium" and "None" fit at 320, where equal shares cut
-them; from `md` `fit` segments share the leftover width (`px-3`). Priority's
+them. From `md` up, `fit` segments share the track in equal widths, as every
+field track's do (`px-3`). Priority's
 values are mono with `--mono-adjust` (the option's `mono`); None stays sans.
 A form should not need a stacked choice
 list; where a Radio stacks, it follows these numbers:
@@ -671,7 +673,7 @@ them.
 | Control | Phone (< 768) | Desktop (≥ 768) | Mark |
 | --- | --- | --- | --- |
 | Input, Select trigger, Combobox | 44 tall | 44 tall | existing for Input (`h-11`); **adopted (MMR-743)** for Select (`min-h-9`, 36) so a form's controls share one height |
-| Segmented track | 50: a 3px inset (the 1px edge, then 2 clear) leaves each segment a 44 tap target; segments share the width | 44, segments 38, full field width, segments share it, so every control in a form ends on one right edge | **adopted (MMR-743)**: today about 28 |
+| Segmented track | 50: a 3px inset (the 1px edge, then 2 clear) leaves each segment a 44 tap target; segments share the width, or with `fit` each is sized to its label and at least 44 wide, a label wrapping to two lines rather than clipping | 44, segments 38, full field width, segments share it, so every control in a form ends on one right edge | **adopted (MMR-743)**: today about 28 |
 | Textarea | 3 lines: 88 (22 × 3 + 22 padding); grows by line | same | existing line height; height **adopted (MMR-743)** |
 | Textarea `grow` (Composer, Walkthrough note) | 1 line: 44; grows to 4 lines, 110 (22 × 4 + 22), then scrolls. Both are border-box heights: the 22 is 20 of padding and the 1px top and bottom borders, so `clientHeight` reads 108 at the cap | same | **adopted (MMR-744)**: `max-h-[110px]` |
 | Textarea `grow` in a form (`FormGrowTextArea`) | a task's Summary: 1 line, 44, growing to 3 lines, 88, then scrolling; with no line cap (the Description editor), it starts at 3 lines, 88, and grows with its text, never scrolling inside itself | same | **adopted (MMR-731)** |

@@ -2806,9 +2806,13 @@ mocks; two members of a design review scored its third round 9.
   groomed" and "Needs answers" run past a word, which the MMR-736 Choice
   gives to a Radio; as the Seeds list's Show (MMR-725), the picked mock draws
   them as a Segmented Control on one row. On a phone each segment is sized to
-  its label (the Segmented Control's `fit` option, 6 of padding a side, 44
-  at least), and Size and Priority take it too, so "Medium" and "None" never
-  clip at 320. Priority's values are mono (the option's `mono`), None in sans.
+  its label (the Segmented Control's `fit` option, 6 of padding a side, the
+  label in a box at least 32 wide, so every segment is at least 44 wide); a
+  label that the row cannot hold on one line wraps to two inside its 44 tall
+  segment rather than clipping, as at 320. Size and Priority take it too, so
+  "Medium" and "None" never clip at 320. From `md` up, `fit` segments share
+  the track in equal widths. Priority's values are mono (the option's
+  `mono`), None in sans.
 - **Write and Preview are tabs joined to the editor.** The Tabs primitive's
   `joined` option draws its row as the top edge of the control under it:
   the control's `ink-faint` edge on three sides, the panel's `well-850`, no
