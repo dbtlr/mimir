@@ -1,13 +1,13 @@
-import type { EngineNode } from '@mimir/contract';
-
+import type { ProjectPlace } from './container-list';
 import { nodeIdOf } from './record-url';
 
 /*
- * What the project sidebar reads off the route (ADR 0013, MMR-492 refinement):
- * which of its sections the page belongs to, and which node a record page opens.
+ * What the sidebar and the switcher read off the route (ADR 0013, MMR-492 and
+ * MMR-730 refinements): the sidebar's context, where a project page sits in
+ * its project, and which of the project's sections a page belongs to.
  */
 
-/** The sidebar's sections, in order. */
+/** A project's sections, the routes the switcher keeps when it changes project. */
 export type SidebarSection = 'work' | 'tasks' | 'seeds' | 'artifacts';
 
 /**
@@ -39,14 +39,10 @@ function projectSegments(pathname: string): { key: string; segment?: string } | 
 
 /**
  * The section a page belongs to, or undefined off a project (`/`, `/doctor`).
- * A seed's or artifact's page belongs to its browser, a task's page to Tasks,
- * and an initiative's or phase's to Work. `recordType` is the opened node's
- * type when the tree has loaded; until then a node page reads as Work.
+ * A seed's or artifact's page belongs to its browser; a node's page reads as
+ * Work.
  */
-export function sectionOfPath(
-  pathname: string,
-  recordType?: EngineNode['type'],
-): SidebarSection | undefined {
+export function sectionOfPath(pathname: string): SidebarSection | undefined {
   const segments = projectSegments(pathname);
   if (segments === undefined) {
     return undefined;
@@ -68,7 +64,7 @@ export function sectionOfPath(
       if (ARTIFACT_SUFFIX.test(segment)) {
         return 'artifacts';
       }
-      return recordType === 'task' ? 'tasks' : 'work';
+      return 'work';
     }
   }
 }
@@ -81,10 +77,22 @@ export function isSectionPage(pathname: string): boolean {
   );
 }
 
-/** The node id a record page's path opens (`/p/MMR/417` → `MMR-417`), or undefined. */
-export function openRecordId(pathname: string): string | undefined {
+/**
+ * Where a project page sits (MMR-730): the project's own page (`/p/MMR`,
+ * whatever its tab), a node's page (`/p/MMR/417`), or a page the project holds
+ * that names no node (its lists, a seed, an artifact, a delivery). Undefined
+ * off a project.
+ */
+export function projectPlaceOf(pathname: string): ProjectPlace | undefined {
   const segments = projectSegments(pathname);
-  return segments?.segment === undefined ? undefined : nodeIdOf(segments.key, segments.segment);
+  if (segments === undefined) {
+    return undefined;
+  }
+  if (segments.segment === undefined) {
+    return { kind: 'project' };
+  }
+  const id = nodeIdOf(segments.key, segments.segment);
+  return id === undefined ? { kind: 'held' } : { id, kind: 'node' };
 }
 
 /** `/pair` approves a pairing request, so it belongs to Settings' Devices. */

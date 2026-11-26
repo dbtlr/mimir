@@ -34,9 +34,10 @@ vi.mock('../api/fns/t3');
 vi.mock('../api/fns/push');
 
 /*
- * The shell's project sidebar (ADR 0013, MMR-492 refinement): the current
- * project's header, its sections, and its initiative and phase outline. On a
- * phone it is a drawer behind a top-bar button.
+ * The shell's sidebar (ADR 0013, MMR-730 refinement): Jump to, the switcher,
+ * then one container list at every level, a link to the parent, the current
+ * container, and its child containers. On a phone it is a drawer behind a
+ * top-bar button.
  */
 
 function node(
@@ -49,17 +50,30 @@ function node(
   return engineTree({ id, status, type, ...extra }, children);
 }
 
-/** MMR: an initiative holding a phase holding a task, a second phase, and a finished initiative. */
-const TREE = node('MMR', 'project', 'in_progress', [
-  node('MMR-1', 'initiative', 'in_progress', [
-    node('MMR-2', 'phase', 'in_progress', [node('MMR-3', 'task', 'blocked')]),
-    node('MMR-4', 'phase', 'ready'),
-  ]),
-  node('MMR-5', 'initiative', 'done', [node('MMR-6', 'phase', 'done')]),
-  node('MMR-7', 'task', 'ready'),
-  node('MMR-8', 'initiative', 'ready', [], { open_ended: true }),
-  node('MMR-9', 'initiative', 'parked', [node('MMR-10', 'task', 'parked')]),
-]);
+/**
+ * MMR: an initiative holding a phase with a task, an empty phase, and a direct
+ * task; a finished initiative; a task under the project; an open-ended
+ * initiative; and a parked one.
+ */
+const TREE = node(
+  'MMR',
+  'project',
+  'in_progress',
+  [
+    node('MMR-1', 'initiative', 'in_progress', [
+      node('MMR-2', 'phase', 'in_progress', [node('MMR-3', 'task', 'blocked')]),
+      node('MMR-4', 'phase', 'ready'),
+      node('MMR-11', 'task', 'ready'),
+    ]),
+    node('MMR-5', 'initiative', 'done', [
+      node('MMR-6', 'phase', 'done', [node('MMR-12', 'task', 'done')]),
+    ]),
+    node('MMR-7', 'task', 'ready'),
+    node('MMR-8', 'initiative', 'ready', [], { open_ended: true }),
+    node('MMR-9', 'initiative', 'parked', [node('MMR-10', 'task', 'parked')]),
+  ],
+  { title: 'Mimir' },
+);
 
 function serve(
   active: EngineNode[],
@@ -114,22 +128,32 @@ function needsYou(key: string, count: number): ReviewReport['projects'][number] 
 const topBar = () => screen.getAllByRole('banner')[0] as HTMLElement;
 const sidebar = () =>
   screen.findByRole('navigation', { name: /^(All projects|Project|Settings)$/ });
-const outline = async () => within(await sidebar()).findByRole('navigation', { name: 'Outline' });
 const allHeader = (nav: HTMLElement) => within(nav).getByRole('button', { name: /^All projects/ });
-const SECTIONS = ['Work', 'Tasks', 'Seeds', 'Artifacts'];
 
-/** The sidebar's sections currently marked as the page. */
-async function activeSections() {
+/** The sidebar's links in order, as their accessible text: everything under the switcher. */
+const rowsOf = (nav: HTMLElement) =>
+  within(nav)
+    .getAllByRole('link')
+    .filter((link) => link.closest('details:not([open])') === null)
+    .map((link) => link.textContent.replaceAll(/\s+/g, ' ').trim());
+
+/** The sidebar's rows once `expected` has landed. */
+async function expectRows(expected: string[]) {
   const nav = await sidebar();
-  return SECTIONS.filter((name) =>
-    ['page', 'true'].includes(
-      within(nav).getByRole('link', { name }).getAttribute('aria-current') ?? '',
-    ),
-  );
+  await waitFor(() => {
+    expect(rowsOf(nav)).toStrictEqual(expected);
+  });
+  return nav;
 }
 
+/** Every sidebar link marked as the current page. */
+const pageMarks = async () =>
+  within(await sidebar())
+    .queryAllByRole('link', { current: 'page' })
+    .map((l) => l.textContent.replaceAll(/\s+/g, ' ').trim());
+
 /*
- * The Projects section's world (MMR-562): two pinned projects and two others.
+ * Home's world (MMR-730): two pinned projects and two others.
  */
 const atDay = (day: string) => new Date(`2026-09-${day}T00:00:00.000Z`);
 const dated = (id: string, day: string, extra: Partial<EngineNode> = {}) =>
@@ -139,15 +163,14 @@ const LOM = dated('LOM', '03', { pinned: true });
 const HND = dated('HND', '09');
 const MUN = dated('MUN', '07');
 
-function serveWorld(decisionRows: ReviewReport['projects'] = []) {
-  serveShell({ projects: [FLT, LOM, HND, MUN] });
+function serveWorld(decisionRows: ReviewReport['projects'] = [], more: EngineNode[] = []) {
+  serveShell({ projects: [FLT, LOM, HND, MUN, ...more] });
   serveViews({ review: engineReview({ projects: decisionRows }) });
 }
 
-const section = async () => within(await sidebar()).findByRole('region', { name: 'Projects' });
-/** The keys of the rows a section lists. */
-const listedKeys = (area: HTMLElement) =>
-  [...area.querySelectorAll('[data-project]')].map((row) => row.getAttribute('data-project'));
+/** The keys of the projects Home lists. */
+const listedKeys = (nav: HTMLElement) =>
+  [...nav.querySelectorAll('[data-project]')].map((row) => row.getAttribute('data-project'));
 
 beforeEach(() => {
   serveBrowse();
@@ -165,42 +188,6 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('sidebar sections mark the page (MMR-485, MMR-496)', () => {
-  it.each([
-    ['/p/MMR/tasks', 'Tasks'],
-    ['/p/MMR/tasks?status=ready', 'Tasks'],
-    ['/p/MMR/s41', 'Seeds'],
-    ['/p/MMR/2', 'Work'],
-  ])('%s marks only %s', async (path, label) => {
-    await renderAt(path);
-    await waitFor(async () => {
-      await expect(activeSections()).resolves.toStrictEqual([label]);
-    });
-  });
-
-  it('marks Tasks on a task’s page once the tree names it a task', async () => {
-    await renderAt('/p/MMR/3');
-    await waitFor(async () => {
-      await expect(activeSections()).resolves.toStrictEqual(['Tasks']);
-    });
-  });
-
-  it('points the sections at the project', async () => {
-    await renderAt('/p/MMR');
-    const nav = await sidebar();
-    expect(
-      SECTIONS.map((name) => within(nav).getByRole('link', { name }).getAttribute('href')),
-    ).toStrictEqual(['/p/MMR', '/p/MMR/tasks', '/p/MMR/seeds', '/p/MMR/artifacts']);
-  });
-
-  it('washes the active section in the accent selection treatment, never solid', async () => {
-    await renderAt('/p/MMR/seeds');
-    const link = within(await sidebar()).getByRole('link', { name: 'Seeds' });
-    expect(link.className).toContain('aria-[current]:bg-accent/10');
-    expect(link.className).toContain('aria-[current]:inset-ring-accent/28');
-  });
-});
-
 describe('sidebar names the current project', () => {
   it('shows the URL’s project in the header', async () => {
     serve([MMR, NRN]);
@@ -209,9 +196,9 @@ describe('sidebar names the current project', () => {
     await expect(
       within(nav).findByRole('button', { name: /NRN.*Norn/ }),
     ).resolves.toBeInTheDocument();
-    expect(within(nav).getByRole('link', { name: 'Tasks' })).toHaveAttribute(
+    await expect(within(nav).findByRole('link', { name: /^NRN/ })).resolves.toHaveAttribute(
       'href',
-      '/p/NRN/tasks',
+      '/p/NRN',
     );
   });
 
@@ -229,42 +216,127 @@ describe('sidebar names the current project', () => {
   });
 });
 
-describe('sidebar on All projects (MMR-505)', () => {
-  it.each(['/'])(
-    'reads All projects on %s, whatever project was last visited, with Work and the Projects section only',
+describe('sidebar on Home (MMR-730)', () => {
+  it('reads All projects in the switcher, whatever project was last visited', async () => {
+    serve([MMR, NRN]);
+    rememberProject('NRN');
+    await renderAt('/');
+    const nav = await sidebar();
+    expect(allHeader(nav)).toBeInTheDocument();
+    expect(within(nav).queryByRole('button', { name: /NRN/ })).toBeNull();
+    expect(screen.getByRole('complementary', { name: 'All projects' })).toBeInTheDocument();
+    expect(tree).not.toHaveBeenCalled();
+  });
+
+  it('is Home, washed as the page, with no dot and the active projects counted', async () => {
+    serveWorld();
+    await renderAt('/');
+    const nav = await sidebar();
+    const home = await within(nav).findByRole('link', { name: 'Home 4' });
+    expect(home).toHaveAttribute('href', '/');
+    expect(home).toHaveAttribute('aria-current', 'page');
+    expect(home.querySelector('[class*="rounded-full"]')).toBeNull();
+    expect(home.className).toContain('aria-[current=page]:bg-accent/10');
+  });
+
+  it('lists the projects as its children, with no Work row, no browsers, and no parent link', async () => {
+    serveWorld();
+    await renderAt('/');
+    const nav = await expectRows([
+      'Home 4',
+      'FLT FLT title',
+      'LOM LOM title',
+      'HND HND title',
+      'MUN MUN title',
+      'See all 4 projects',
+    ]);
+    expect(within(nav).getByRole('link', { name: /^FLT/ })).toHaveAttribute('href', '/p/FLT');
+  });
+
+  it('leads with the projects that need you, most first, with their counts', async () => {
+    serveWorld([needsYou('MUN', 1), needsYou('HND', 3)]);
+    await renderAt('/');
+    const nav = await sidebar();
+    await waitFor(() => {
+      expect(listedKeys(nav)).toStrictEqual(['HND', 'MUN', 'FLT', 'LOM']);
+    });
+    await expect(
+      within(nav).findByRole('link', { name: /^HND.*3 need you/ }),
+    ).resolves.toBeInTheDocument();
+    const count = within(within(nav).getByRole('link', { name: /^MUN/ })).getByText('1');
+    expect(count).toHaveClass('text-attention-foreground');
+  });
+
+  it('holds six rows, then See all counting every active project', async () => {
+    serveWorld([], [dated('ZED', '01'), dated('YAK', '02'), dated('XEN', '04')]);
+    await renderAt('/');
+    const nav = await sidebar();
+    await waitFor(() => {
+      expect(listedKeys(nav)).toStrictEqual(['FLT', 'LOM', 'HND', 'MUN', 'XEN', 'YAK']);
+    });
+    expect(within(nav).getByRole('link', { name: 'See all 7 projects' })).toHaveAttribute(
+      'href',
+      '/projects',
+    );
+  });
+
+  it('counts one project as one in See all', async () => {
+    await renderAt('/');
+    await expect(
+      within(await sidebar()).findByRole('link', { name: 'See all 1 project' }),
+    ).resolves.toHaveAttribute('href', '/projects');
+  });
+
+  it('opens a project with a click', async () => {
+    serveWorld();
+    const testRouter = await renderAt('/');
+    await userEvent.click(await within(await sidebar()).findByRole('link', { name: /^LOM/ }));
+    await waitFor(() => {
+      expect(testRouter.state.location.pathname).toBe('/p/LOM');
+    });
+  });
+
+  it('shows a skeleton while the projects load, and no See all yet', async () => {
+    rememberProject('MMR');
+    vi.mocked(projects).mockReturnValue(Promise.withResolvers<never>().promise);
+    await renderAt('/');
+    const nav = await sidebar();
+    expect(within(nav).getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page');
+    expect(nav.querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(within(nav).queryByRole('link', { name: /See all/ })).toBeNull();
+  });
+
+  it('says so when the project list cannot be read', async () => {
+    serveWorld();
+    rememberProject('FLT');
+    vi.mocked(projects).mockRejectedValue(new Error('unreachable'));
+    await renderAt('/');
+    const nav = await sidebar();
+    await expect(
+      within(nav).findByText('Couldn’t load the projects.'),
+    ).resolves.toBeInTheDocument();
+    expect(within(nav).queryByRole('link', { name: /See all/ })).toBeNull();
+  });
+
+  it.each(['/projects', '/needs-you', '/doctor', '/nowhere'])(
+    'rings Home on %s, which it holds, and says so in words',
     async (path) => {
-      serve([MMR, NRN]);
-      rememberProject('NRN');
+      serveWorld();
       await renderAt(path);
       const nav = await sidebar();
-      expect(allHeader(nav)).toBeInTheDocument();
-      expect(within(nav).queryByRole('button', { name: /NRN/ })).toBeNull();
-      expect(screen.getByRole('complementary', { name: 'All projects' })).toBeInTheDocument();
-      expect(screen.queryByRole('navigation', { name: 'Project' })).toBeNull();
-      expect(within(nav).getByRole('link', { name: 'Work' })).toBeInTheDocument();
-      await expect(
-        within(nav).findByRole('region', { name: 'Projects' }),
-      ).resolves.toBeInTheDocument();
-      for (const name of ['Tasks', 'Seeds', 'Artifacts']) {
-        expect(within(nav).queryByRole('link', { name })).toBeNull();
-      }
-      expect(within(nav).queryByRole('navigation', { name: 'Outline' })).toBeNull();
-      expect(tree).not.toHaveBeenCalled();
+      const home = await within(nav).findByRole('link', { name: /^Home 4/ });
+      expect(home).not.toHaveAttribute('aria-current');
+      expect(home).toHaveAccessibleName('Home 4, contains this page');
+      expect(home).toHaveAttribute('data-holds', 'true');
     },
   );
 
-  it('links Work to / and marks it the page there', async () => {
-    await renderAt('/');
-    const work = within(await sidebar()).getByRole('link', { name: 'Work' });
-    expect(work).toHaveAttribute('href', '/');
-    expect(work).toHaveAttribute('aria-current', 'page');
-  });
-
-  it('marks nothing as the page on /doctor', async () => {
-    await renderAt('/doctor');
-    const work = within(await sidebar()).getByRole('link', { name: 'Work' });
-    expect(work).toHaveAttribute('href', '/');
-    expect(work).not.toHaveAttribute('aria-current');
+  it('marks See all as the page on the Projects list', async () => {
+    serveWorld();
+    await renderAt('/projects');
+    await waitFor(async () => {
+      await expect(pageMarks()).resolves.toStrictEqual(['See all 4 projects']);
+    });
   });
 
   it('returns to the project context on a project page', async () => {
@@ -278,92 +350,9 @@ describe('sidebar on All projects (MMR-505)', () => {
     await expect(
       within(await sidebar()).findByRole('button', { name: /NRN.*Norn/ }),
     ).resolves.toBeInTheDocument();
-    expect(within(await sidebar()).getByRole('link', { name: 'Seeds' })).toBeInTheDocument();
-  });
-});
-
-describe('sidebar Projects section on All projects (MMR-562, MMR-567)', () => {
-  it('lists the pinned projects as links to their work pages, with their needsYou', async () => {
-    serveWorld([needsYou('LOM', 2)]);
-    await renderAt('/');
-    const area = await section();
-    await waitFor(() => {
-      expect(listedKeys(area)).toStrictEqual(['FLT', 'LOM']);
-    });
-    expect(within(area).getByRole('link', { name: /^FLT/ })).toHaveAttribute('href', '/p/FLT');
     await expect(
-      within(area).findByRole('link', { name: /^LOM.*2 need you/ }),
+      within(await sidebar()).findByRole('link', { name: '← Home' }),
     ).resolves.toBeInTheDocument();
-  });
-
-  it('lists the five most recently active projects when nothing is pinned', async () => {
-    const days = ['01', '06', '02', '05', '03', '04'];
-    serveShell({ projects: days.map((day, i) => dated(`P${String(i)}`, day)) });
-    await renderAt('/');
-    const listed = await section();
-    await waitFor(() => {
-      expect(listedKeys(listed)).toStrictEqual(['P1', 'P3', 'P5', 'P4', 'P2']);
-    });
-  });
-
-  it('opens a pinned project with a click', async () => {
-    serveWorld();
-    const testRouter = await renderAt('/');
-    await userEvent.click(await within(await section()).findByRole('link', { name: /^LOM/ }));
-    await waitFor(() => {
-      expect(testRouter.state.location.pathname).toBe('/p/LOM');
-    });
-  });
-
-  it('ends in See all, counting every active project, a link to the Projects list (MMR-790)', async () => {
-    serveWorld();
-    await renderAt('/');
-    const seeAll = await within(await section()).findByRole('link', {
-      name: 'See all 4 projects',
-    });
-    expect(seeAll).toHaveAttribute('href', '/projects');
-    expect(seeAll).not.toHaveAttribute('aria-current');
-  });
-
-  it('counts one project as one in See all (MMR-790)', async () => {
-    await renderAt('/');
-    await expect(
-      within(await section()).findByRole('link', { name: 'See all 1 project' }),
-    ).resolves.toHaveAttribute('href', '/projects');
-  });
-
-  it('marks See all as the page on the Projects list (MMR-790)', async () => {
-    serveWorld();
-    await renderAt('/projects');
-    await expect(
-      within(await section()).findByRole('link', { name: 'See all 4 projects' }),
-    ).resolves.toHaveAttribute('aria-current', 'page');
-  });
-
-  it('has no search of its own; the switcher above finds every project', async () => {
-    serveWorld();
-    await renderAt('/');
-    const area = await section();
-    await within(area).findByRole('link', { name: /^FLT/ });
-    expect(within(area).queryByRole('combobox')).toBeNull();
-    expect(within(area).queryByRole('textbox')).toBeNull();
-  });
-
-  it('says so when the project list cannot be read', async () => {
-    serveWorld();
-    rememberProject('FLT');
-    vi.mocked(projects).mockRejectedValue(new Error('unreachable'));
-    await renderAt('/');
-    await expect(
-      within(await section()).findByText('Couldn’t load the projects.'),
-    ).resolves.toBeInTheDocument();
-  });
-
-  it('is not on a project page', async () => {
-    serveWorld();
-    await renderAt('/p/FLT');
-    await within(await sidebar()).findByRole('link', { name: 'Seeds' });
-    expect(within(await sidebar()).queryByRole('region', { name: 'Projects' })).toBeNull();
   });
 
   it('closes the phone drawer behind a pick', async () => {
@@ -408,188 +397,166 @@ describe('sidebar landmarks name their context (MMR-505)', () => {
   });
 });
 
-describe('sidebar outline', () => {
-  it('lists initiatives and phases, each linked to its page, and not tasks', async () => {
+describe('sidebar on a project (MMR-730)', () => {
+  it('leads back to Home, washes the project as the page, and lists its live initiatives', async () => {
     await renderAt('/p/MMR');
-    const nav = await outline();
-    const link = await within(nav).findByRole('link', { name: /initiative MMR-1/ });
-    expect(link).toHaveAttribute('href', '/p/MMR/1');
-    expect(within(nav).getByRole('link', { name: /phase MMR-2/ })).toHaveAttribute(
+    const nav = await expectRows([
+      '← Home',
+      'MMR Mimir 1/5',
+      'initiative MMR-1 0/3',
+      'initiative MMR-8 ∞',
+      'initiative MMR-9 parked',
+    ]);
+    expect(within(nav).getByRole('link', { name: '← Home' })).toHaveAttribute('href', '/');
+    expect(within(nav).getByRole('link', { name: /^MMR Mimir/ })).toHaveAttribute('href', '/p/MMR');
+    expect(within(nav).getByRole('link', { name: /initiative MMR-1/ })).toHaveAttribute(
       'href',
-      '/p/MMR/2',
+      '/p/MMR/1',
     );
-    expect(within(nav).queryByText(/task MMR-7/)).toBeNull();
-    expect(within(nav).getByText('0/2')).toBeInTheDocument();
+    await expect(pageMarks()).resolves.toStrictEqual(['MMR Mimir 1/5']);
   });
 
-  it('tallies each row: done over total, ∞ when open-ended, parked when parked', async () => {
-    await renderAt('/p/MMR');
-    const nav = await outline();
-    const rowOf = async (name: RegExp) => within(nav).findByRole('link', { name });
-    await expect(rowOf(/initiative MMR-1/)).resolves.toHaveTextContent('0/2');
-    await expect(rowOf(/initiative MMR-8/)).resolves.toHaveTextContent('∞');
-    await expect(rowOf(/initiative MMR-9/)).resolves.toHaveTextContent('parked');
-  });
-
-  it('opens the fold on a click to show the finished initiatives', async () => {
-    await renderAt('/p/MMR');
-    const nav = await outline();
-    await within(nav).findByRole('link', { name: /initiative MMR-1/ });
-    expect(within(nav).getByText('initiative MMR-5')).not.toBeVisible();
-    await userEvent.click(within(nav).getByText('1 finished initiative'));
-    expect(within(nav).getByText('initiative MMR-5')).toBeVisible();
-  });
-
-  it('keeps each finished initiative shut inside the fold until its own toggle opens it', async () => {
-    await renderAt('/p/MMR');
-    const nav = await outline();
-    await within(nav).findByRole('link', { name: /initiative MMR-1/ });
-    await userEvent.click(within(nav).getByText('1 finished initiative'));
-    const toggle = within(nav).getByRole('button', { name: 'Contents of initiative MMR-5' });
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    expect(within(nav).queryByRole('link', { name: /phase MMR-6/ })).toBeNull();
-
-    await userEvent.click(toggle);
-    expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    expect(within(nav).getByRole('link', { name: /phase MMR-6/ })).toBeVisible();
-  });
-
-  it('marks nothing as the page on the project’s own page', async () => {
-    await renderAt('/p/MMR');
-    const nav = await outline();
-    await within(nav).findByRole('link', { name: /phase MMR-2/ });
-    expect(within(nav).queryAllByRole('link', { current: 'page' })).toHaveLength(0);
-  });
-
-  it('marks a phase’s page and the initiative above it', async () => {
-    await renderAt('/p/MMR/2');
-    const nav = await outline();
-    const phase = await within(nav).findByRole('link', { name: /phase MMR-2/ });
-    await waitFor(() => {
-      expect(phase).toHaveAttribute('aria-current', 'page');
+  it('keeps the project the page on its Details tab', async () => {
+    await renderAt('/p/MMR?tab=details');
+    await waitFor(async () => {
+      await expect(pageMarks()).resolves.toStrictEqual(['MMR Mimir 1/5']);
     });
-    expect(within(nav).getByRole('link', { name: /initiative MMR-1/ })).toHaveAttribute(
-      'data-on-path',
-      'true',
-    );
-    expect(within(nav).getByRole('link', { name: /phase MMR-4/ })).not.toHaveAttribute(
-      'data-on-path',
-    );
   });
 
-  it('places a task under its nearest container, with the containers above it on its path', async () => {
-    await renderAt('/p/MMR/3');
-    const nav = await outline();
-    const taskRow = await within(nav).findByRole('link', { name: /task MMR-3/ });
-    expect(taskRow).toHaveAttribute('aria-current', 'page');
-    expect(taskRow).toHaveAttribute('href', '/p/MMR/3');
-    expect(within(nav).getByRole('link', { name: /phase MMR-2/ })).toHaveAttribute(
-      'data-on-path',
-      'true',
-    );
-    expect(within(nav).getByRole('link', { name: /initiative MMR-1/ })).toHaveAttribute(
-      'data-on-path',
-      'true',
-    );
-    const rows = within(nav)
-      .getAllByRole('link')
-      .map((l) => l.textContent);
-    expect(rows.findIndex((t) => t?.includes('MMR-3'))).toBe(
-      rows.findIndex((t) => t?.includes('phase MMR-2')) + 1,
-    );
+  it('shows no task, no Work row, and no Tasks, Seeds, or Artifacts rows', async () => {
+    await renderAt('/p/MMR');
+    const nav = await expectRows([
+      '← Home',
+      'MMR Mimir 1/5',
+      'initiative MMR-1 0/3',
+      'initiative MMR-8 ∞',
+      'initiative MMR-9 parked',
+    ]);
+    for (const name of ['Work', 'Tasks', 'Seeds', 'Artifacts', /task MMR-7/, /phase MMR-2/]) {
+      expect(within(nav).queryByRole('link', { name })).toBeNull();
+    }
   });
 
-  it('opens the finished-initiatives fold when the open record is inside one', async () => {
-    await renderAt('/p/MMR/6');
-    const nav = await outline();
-    const phase = await within(nav).findByRole('link', { name: /phase MMR-6/ });
-    expect(phase).toBeVisible();
+  it('folds the finished initiatives into one closed row, in the singular for one', async () => {
+    await renderAt('/p/MMR');
+    const nav = await sidebar();
+    const fold = await within(nav).findByText('1 finished initiative');
+    expect(within(nav).getByRole('link', { name: /initiative MMR-5/ })).not.toBeVisible();
+    await userEvent.click(fold);
+    const finished = within(nav).getByRole('link', { name: /initiative MMR-5/ });
+    expect(finished).toBeVisible();
+    expect(finished).toHaveAttribute('href', '/p/MMR/5');
+    // The fold holds rows, not disclosures of their own.
+    expect(within(nav).queryByRole('button', { name: /Contents of/ })).toBeNull();
+  });
+
+  it('closes the fold again on the next navigation', async () => {
+    const testRouter = await renderAt('/p/MMR');
+    const nav = await sidebar();
+    await userEvent.click(await within(nav).findByText('1 finished initiative'));
     expect(nav.querySelector('details')).toHaveAttribute('open');
-    expect(
-      within(nav).getByRole('button', { name: 'Contents of initiative MMR-5' }),
-    ).toHaveAttribute('aria-expanded', 'true');
-  });
-
-  it('reopens a fold shut by hand when the next open record is inside it too', async () => {
-    const testRouter = await renderAt('/p/MMR/6');
-    const nav = await outline();
-    await within(nav).findByRole('link', { name: /phase MMR-6/ });
-    await userEvent.click(within(nav).getByText('1 finished initiative'));
-    expect(nav.querySelector('details')).not.toHaveAttribute('open');
-
     await act(async () => {
-      await testRouter.navigate({ params: { key: 'MMR', seq: '5' }, to: '/p/$key/$seq' });
+      await testRouter.navigate({ params: { key: 'MMR' }, to: '/p/$key/tasks' });
     });
-    await within(nav).findByRole('link', { name: /initiative MMR-5/ });
-    expect(nav.querySelector('details')).toHaveAttribute('open');
-  });
-
-  it('reopens a finished initiative shut by hand when the next open record is inside it', async () => {
-    const testRouter = await renderAt('/p/MMR/6');
-    const nav = await outline();
-    await within(nav).findByRole('link', { name: /phase MMR-6/ });
-    const toggle = () => within(nav).getByRole('button', { name: 'Contents of initiative MMR-5' });
-    await userEvent.click(toggle());
-    expect(toggle()).toHaveAttribute('aria-expanded', 'false');
-
-    await act(async () => {
-      await testRouter.navigate({ params: { key: 'MMR', seq: '5' }, to: '/p/$key/$seq' });
-    });
-    await waitFor(() => {
-      expect(toggle()).toHaveAttribute('aria-expanded', 'true');
-    });
-  });
-
-  it('shuts a finished initiative opened by hand when the next open record is outside it', async () => {
-    const testRouter = await renderAt('/p/MMR/2');
-    const nav = await outline();
-    await within(nav).findByRole('link', { name: /phase MMR-2/ });
-    await userEvent.click(within(nav).getByText('1 finished initiative'));
-    await userEvent.click(
-      within(nav).getByRole('button', { name: 'Contents of initiative MMR-5' }),
-    );
-    expect(within(nav).getByRole('link', { name: /phase MMR-6/ })).toBeVisible();
-
-    await act(async () => {
-      await testRouter.navigate({ params: { key: 'MMR', seq: '4' }, to: '/p/$key/$seq' });
-    });
-    await waitFor(() => {
-      expect(within(nav).queryByRole('link', { name: /phase MMR-6/ })).toBeNull();
-    });
+    await within(nav).findByRole('link', { name: /^MMR Mimir.*contains this page/ });
     expect(nav.querySelector('details')).not.toHaveAttribute('open');
   });
 
-  it('keeps focus on a row inside the fold when it opens that row’s page', async () => {
-    await renderAt('/p/MMR/6');
-    const nav = await outline();
-    const initiative = await within(nav).findByRole('link', { name: /initiative MMR-5/ });
-    initiative.focus();
-    await userEvent.keyboard('{Enter}');
-    await waitFor(() => {
-      expect(within(nav).getByRole('link', { name: /initiative MMR-5/ })).toHaveAttribute(
-        'aria-current',
-        'page',
-      );
-    });
-    expect(document.activeElement).toBe(initiative);
+  it.each(['/p/MMR/tasks', '/p/MMR/seeds', '/p/MMR/artifacts', '/p/MMR/s41', '/p/MMR/99'])(
+    'rings the project on %s, which it holds, with its initiatives below',
+    async (path) => {
+      await renderAt(path);
+      const nav = await expectRows([
+        '← Home',
+        'MMR Mimir 1/5, contains this page',
+        'initiative MMR-1 0/3',
+        'initiative MMR-8 ∞',
+        'initiative MMR-9 parked',
+      ]);
+      const project = within(nav).getByRole('link', { name: /^MMR Mimir/ });
+      expect(project).not.toHaveAttribute('aria-current');
+      expect(project).toHaveAttribute('data-holds', 'true');
+      expect(project.className).toContain('data-[holds]:inset-ring-accent');
+      await expect(pageMarks()).resolves.toStrictEqual([]);
+    },
+  );
+
+  it('shows ← Home and a skeleton while the tree loads', async () => {
+    vi.mocked(tree).mockReturnValue(Promise.withResolvers<never>().promise);
+    await renderAt('/p/MMR');
+    const nav = await expectRows(['← Home']);
+    expect(nav.querySelector('[aria-busy="true"]')).not.toBeNull();
   });
 
-  it('keeps the fold shut otherwise', async () => {
-    await renderAt('/p/MMR/2');
-    const nav = await outline();
-    await within(nav).findByRole('link', { name: /phase MMR-2/ });
-    expect(nav.querySelector('details')).not.toHaveAttribute('open');
-    expect(within(nav).getByText('1 finished initiative')).toBeInTheDocument();
-  });
-
-  it('says so when the tree cannot be read', async () => {
+  it('says so when the tree cannot be read, keeping the project’s key and name', async () => {
     vi.mocked(tree).mockRejectedValue(new Error('down'));
     await renderAt('/p/MMR');
-    await expect(screen.findByText('Couldn’t load the structure.')).resolves.toBeInTheDocument();
+    const nav = await sidebar();
+    await expect(
+      within(nav).findByText('Couldn’t load the structure.'),
+    ).resolves.toBeInTheDocument();
+    expect(rowsOf(nav)).toStrictEqual(['← Home', 'MMR Mimir']);
   });
 });
 
-describe('sidebar on an archived project (MMR-506)', () => {
+describe('sidebar on an initiative (MMR-730)', () => {
+  it('leads back to the project and lists the initiative’s phases, Empty where nothing is under one', async () => {
+    await renderAt('/p/MMR/1');
+    const nav = await expectRows([
+      '← Mimir',
+      'initiative MMR-1 0/3',
+      'phase MMR-2 0/1',
+      'phase MMR-4 Empty',
+    ]);
+    expect(within(nav).getByRole('link', { name: '← Mimir' })).toHaveAttribute('href', '/p/MMR');
+    await expect(pageMarks()).resolves.toStrictEqual(['initiative MMR-1 0/3']);
+  });
+
+  it('folds a finished initiative’s phases into “1 finished phase”', async () => {
+    await renderAt('/p/MMR/5');
+    const nav = await expectRows(['← Mimir', 'initiative MMR-5 1/1']);
+    await userEvent.click(within(nav).getByText('1 finished phase'));
+    expect(within(nav).getByRole('link', { name: /phase MMR-6/ })).toBeVisible();
+  });
+});
+
+describe('sidebar on a phase (MMR-730)', () => {
+  it('leads back to its initiative and ends at the phase, washed as the page', async () => {
+    await renderAt('/p/MMR/2');
+    const nav = await expectRows(['← initiative MMR-1', 'phase MMR-2 0/1']);
+    expect(within(nav).getByRole('link', { name: '← initiative MMR-1' })).toHaveAttribute(
+      'href',
+      '/p/MMR/1',
+    );
+    await expect(pageMarks()).resolves.toStrictEqual(['phase MMR-2 0/1']);
+    expect(within(nav).queryByText(/finished/)).toBeNull();
+  });
+});
+
+describe('sidebar on a task (MMR-730)', () => {
+  it('under a phase: rings the phase, with no row for the task', async () => {
+    await renderAt('/p/MMR/3');
+    const nav = await expectRows(['← initiative MMR-1', 'phase MMR-2 0/1, contains this page']);
+    const phase = within(nav).getByRole('link', { name: /phase MMR-2/ });
+    expect(phase).toHaveAccessibleName('phase MMR-2 0/1, contains this page');
+    expect(phase).not.toHaveAttribute('aria-current');
+    expect(within(nav).queryByRole('link', { name: /task MMR-3/ })).toBeNull();
+    await expect(pageMarks()).resolves.toStrictEqual([]);
+  });
+
+  it('directly under an initiative: rings the initiative, with its phases below', async () => {
+    await renderAt('/p/MMR/11');
+    await expectRows([
+      '← Mimir',
+      'initiative MMR-1 0/3, contains this page',
+      'phase MMR-2 0/1',
+      'phase MMR-4 Empty',
+    ]);
+    await expect(pageMarks()).resolves.toStrictEqual([]);
+  });
+});
+
+describe('sidebar on an archived or unavailable project (MMR-730)', () => {
   const OLD = engineProject({
     archivedAt: new Date('2026-09-30T15:00:00.000Z'),
     id: 'OLD',
@@ -597,99 +564,40 @@ describe('sidebar on an archived project (MMR-506)', () => {
     title: 'Old project',
   });
 
-  /** `OLD` is archived: its record and tree 404, and the archived list names it. */
+  /** `OLD` is archived and `GONE` is no project: their records and trees 404. */
   function serveArchived() {
     vi.mocked(projects).mockImplementation(async ({ data }) =>
       data.status === 'archived' ? [OLD] : [MMR],
     );
     const servedTree = vi.mocked(tree).getMockImplementation();
     vi.mocked(tree).mockImplementation(async (options) => {
-      if (options.data.id === 'OLD') {
-        throw new ApiError('tree OLD → 404', 404);
+      if (options.data.id === 'OLD' || options.data.id === 'GONE') {
+        throw new ApiError(`tree ${options.data.id} → 404`, 404);
       }
       return servedTree?.(options) as Promise<EngineTree>;
     });
-    vi.mocked(getNode).mockRejectedValue(new MimirError('not_found', 'OLD is archived'));
+    vi.mocked(getNode).mockRejectedValue(new MimirError('not_found', 'no such project'));
   }
 
-  it('keeps the header and offers only Work, with no outline, browsers, or error line', async () => {
+  it('shows ← Home and the archived project’s key and name alone, with no dot, tally, or error', async () => {
     serveArchived();
     await renderAt('/p/OLD');
+    const nav = await expectRows(['← Home', 'OLD Old project']);
+    const row = within(nav).getByRole('link', { name: /^OLD/ });
+    expect(row).toHaveAttribute('aria-current', 'page');
+    expect(row.querySelector('[class*="rounded-full"]')).toBeNull();
+    expect(within(nav).queryByText('Couldn’t load the structure.')).toBeNull();
+  });
 
-    const nav = await sidebar();
-    expect(within(nav).getByRole('button', { name: /OLD/ })).toBeInTheDocument();
-    await waitFor(() => {
-      expect(within(nav).getByRole('link', { name: 'Work' })).toBeInTheDocument();
-    });
-    expect(
-      within(nav)
-        .getAllByRole('link')
-        .map((l) => l.textContent),
-    ).toStrictEqual(['Work']);
-    expect(within(nav).queryByRole('navigation', { name: 'Outline' })).toBeNull();
+  it('shows ← Home and an unavailable project’s key alone', async () => {
+    serveArchived();
+    await renderAt('/p/GONE');
+    const nav = await expectRows(['← Home', 'GONE']);
     expect(within(nav).queryByText('Couldn’t load the structure.')).toBeNull();
   });
 });
 
-/** Every sidebar link marked as the current page. */
-const pageMarks = async () =>
-  within(await sidebar())
-    .getAllByRole('link', { current: 'page' })
-    .map((l) => l.textContent);
-
 describe('sidebar announces where the page is', () => {
-  it('marks the phase row as the page and its section as a softer current, not both as the page', async () => {
-    await renderAt('/p/MMR/2');
-    const nav = await sidebar();
-    await waitFor(async () => {
-      await expect(pageMarks()).resolves.toStrictEqual([expect.stringContaining('phase MMR-2')]);
-    });
-    expect(within(nav).getByRole('link', { name: 'Work' })).toHaveAttribute('aria-current', 'true');
-  });
-
-  it('marks a task’s row as the page and Tasks as the current section', async () => {
-    await renderAt('/p/MMR/3');
-    const nav = await sidebar();
-    await waitFor(async () => {
-      await expect(pageMarks()).resolves.toStrictEqual([expect.stringContaining('task MMR-3')]);
-    });
-    expect(within(nav).getByRole('link', { name: 'Tasks' })).toHaveAttribute(
-      'aria-current',
-      'true',
-    );
-  });
-
-  it('marks a browser’s section as the page itself, since no row stands for it', async () => {
-    await renderAt('/p/MMR/seeds');
-    const nav = await sidebar();
-    await waitFor(() => {
-      expect(within(nav).getByRole('link', { name: 'Seeds' })).toHaveAttribute(
-        'aria-current',
-        'page',
-      );
-    });
-  });
-
-  it('says in words that a ringed ancestor contains the page', async () => {
-    await renderAt('/p/MMR/3');
-    const nav = await outline();
-    const initiative = await within(nav).findByRole('link', { name: /initiative MMR-1/ });
-    await waitFor(() => {
-      expect(initiative).toHaveAccessibleName(/contains this page/);
-    });
-    expect(within(nav).getByRole('link', { name: /phase MMR-4/ })).not.toHaveAccessibleName(
-      /contains this page/,
-    );
-  });
-
-  it('puts a task’s page under Tasks from its own record, without the tree', async () => {
-    vi.mocked(tree).mockRejectedValue(new Error('down'));
-    await renderAt('/p/MMR/3');
-    await waitFor(async () => {
-      await expect(activeSections()).resolves.toStrictEqual(['Tasks']);
-    });
-  });
-
   it('names the sidebar landmark', async () => {
     await renderAt('/p/MMR');
     await sidebar();
@@ -846,7 +754,7 @@ describe('top bar', () => {
     await renderAt('/p/MMR/tasks');
     await sidebar();
     const bar = topBar();
-    for (const name of SECTIONS) {
+    for (const name of ['Work', 'Tasks', 'Seeds', 'Artifacts']) {
       expect(within(bar).queryByRole('link', { name })).toBeNull();
     }
     expect(within(bar).queryByRole('button', { name: /MMR/ })).toBeNull();
@@ -891,10 +799,9 @@ describe('sidebar drawer on a phone', () => {
     await userEvent.click(open);
     const drawer = await screen.findByRole('dialog', { name: 'Project' });
     const nav = within(drawer).getByRole('navigation', { name: 'Project' });
-    expect(within(nav).getByRole('link', { name: 'Tasks' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+    await expect(
+      within(nav).findByRole('link', { name: /^MMR Mimir.*contains this page/ }),
+    ).resolves.toHaveAttribute('data-holds', 'true');
     expect(within(nav).getByRole('button', { name: /MMR.*Mimir/ })).toBeInTheDocument();
   });
 
@@ -921,17 +828,31 @@ describe('sidebar drawer on a phone', () => {
     });
   });
 
-  it('closes when a section is chosen', async () => {
+  it('closes when a container is chosen', async () => {
     const testRouter = await renderAt('/p/MMR');
     await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
     const drawer = await screen.findByRole('dialog', { name: 'Project' });
 
-    await userEvent.click(within(drawer).getByRole('link', { name: 'Seeds' }));
+    await userEvent.click(await within(drawer).findByRole('link', { name: /initiative MMR-1/ }));
 
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Project' })).toBeNull();
     });
-    expect(testRouter.state.location.pathname).toBe('/p/MMR/seeds');
+    expect(testRouter.state.location.pathname).toBe('/p/MMR/1');
+  });
+
+  it('draws its rows 44 tall, where the sidebar beside the page draws them 32', async () => {
+    await renderAt('/p/MMR/1');
+    await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
+    const drawer = await screen.findByRole('dialog', { name: 'Project' });
+    const rows = [
+      await within(drawer).findByRole('link', { name: '← Mimir' }),
+      within(drawer).getByRole('link', { name: /initiative MMR-1/ }),
+      within(drawer).getByRole('link', { name: /phase MMR-2/ }),
+    ];
+    for (const row of rows) {
+      expect(row).toHaveClass('min-h-8', 'max-lg:min-h-11');
+    }
   });
 
   it('closes when the page changes some other way, such as Back or the jump palette', async () => {
@@ -960,7 +881,7 @@ describe('sidebar drawer on a phone', () => {
     });
   });
 
-  it('opens on / with the All projects context: Work and Projects', async () => {
+  it('opens on / with the All projects context: Home and the projects', async () => {
     serve([MMR, NRN], {}, [needsYou('MMR', 1)]);
     await renderAt('/');
     await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
@@ -969,9 +890,14 @@ describe('sidebar drawer on a phone', () => {
     await expect(
       within(nav).findByRole('button', { name: /^All projects.*1 needs you/ }),
     ).resolves.toBeInTheDocument();
-    expect(within(nav).getByRole('region', { name: 'Projects' })).toBeInTheDocument();
-    expect(within(nav).queryByRole('link', { name: 'Tasks' })).toBeNull();
-    expect(within(nav).getByRole('link', { name: 'Work' })).toHaveAttribute('aria-current', 'page');
+    await expect(within(nav).findByRole('link', { name: /^MMR/ })).resolves.toHaveAttribute(
+      'href',
+      '/p/MMR',
+    );
+    expect(within(nav).getByRole('link', { name: 'Home 2' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
   });
 
   it('has no drawer button with no projects', async () => {

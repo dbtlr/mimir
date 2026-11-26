@@ -5,7 +5,7 @@ import {
   groupProjects,
   overlayPins,
   projectSwitchTarget,
-  sidebarShortlist,
+  homeShortlist,
 } from '../lib/project-switcher';
 import { engineProject } from './engine-fixtures';
 
@@ -34,26 +34,49 @@ describe('groupProjects (MMR-497)', () => {
   });
 });
 
-const project = (id: string, pinned = false) => engineProject({ id, pinned });
 const ids = (list: readonly { id: string }[]) => list.map((p) => p.id);
 
-describe('sidebarShortlist (MMR-562)', () => {
-  it('lists the pinned projects', () => {
-    const shown = sidebarShortlist({
-      pinned: [project('A', true), project('B', true)],
-      rest: [project('C'), project('D'), project('E')],
-    });
-    expect(ids(shown)).toStrictEqual(['A', 'B']);
+const recent = (id: string, day: string, pinned = false) =>
+  engineProject({ id, lastActivityAt: new Date(atDay(day)), pinned });
+
+describe('homeShortlist (MMR-730)', () => {
+  it('lists every project when there are six or fewer, pinned first, then by activity', () => {
+    const list = [recent('A', '01'), recent('B', '05', true), recent('C', '09')];
+    expect(ids(homeShortlist(list, new Map()))).toStrictEqual(['B', 'C', 'A']);
   });
 
-  it('lists the five most recent when nothing is pinned', () => {
-    const rest = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((id) => project(id));
-    expect(ids(sidebarShortlist({ pinned: [], rest }))).toStrictEqual(['A', 'B', 'C', 'D', 'E']);
+  it('leads with the projects that need you, most first, ties in the switcher’s order', () => {
+    const list = [
+      recent('A', '01'),
+      recent('B', '05', true),
+      recent('C', '09'),
+      recent('D', '03'),
+      recent('E', '02'),
+    ];
+    const needs = new Map([
+      ['A', 1],
+      ['D', 3],
+      ['C', 1],
+    ]);
+    expect(ids(homeShortlist(list, needs))).toStrictEqual(['D', 'C', 'A', 'B', 'E']);
   });
 
-  it('lists every pin however many there are', () => {
-    const pinned = ['A', 'B', 'C', 'D', 'E', 'F'].map((id) => project(id, true));
-    expect(sidebarShortlist({ pinned, rest: [] })).toHaveLength(6);
+  it('stops at six rows: need you, then pinned, then the most recently active', () => {
+    const list = [
+      recent('P1', '01', true),
+      recent('P2', '02', true),
+      ...['10', '11', '12', '13', '14', '15'].map((day) => recent(`R${day}`, day)),
+    ];
+    const needs = new Map([['R10', 2]]);
+    expect(ids(homeShortlist(list, needs))).toStrictEqual(['R10', 'P2', 'P1', 'R15', 'R14', 'R13']);
+  });
+
+  it('leaves archived projects out', () => {
+    const list = [
+      engineProject({ archivedAt: new Date(atDay('01')), id: 'ARC' }),
+      recent('A', '02'),
+    ];
+    expect(ids(homeShortlist(list, new Map([['ARC', 4]])))).toStrictEqual(['A']);
   });
 });
 

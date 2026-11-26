@@ -9,8 +9,8 @@ import { PHONE_TOUCH_TARGET } from '../lib/touch-target';
 import { StatusDot } from './status-dot';
 
 /*
- * The project rows the switcher's popover (MMR-497) and the All projects
- * sidebar's Projects section (MMR-562) share, and the switcher's listbox: a
+ * The project rows the switcher's popover (MMR-497) and Home's level of the
+ * sidebar (MMR-730) share, and the switcher's listbox: a
  * search box that owns focus as a combobox over its rows, with its keys and
  * its pin.
  */
@@ -61,11 +61,10 @@ export function projectListMessage(input: {
 }
 
 /**
- * A project row's geometry, shared by the listbox option and the sidebar's
- * link: a 44 tap row on a phone (DESIGN.md, Sizes), 32 from `md` up. The
- * sidebar's drawer holds its rows at 44 up to `lg`.
+ * A listbox option's geometry: a 44 tap row on a phone (DESIGN.md, Sizes), 32
+ * from `md` up.
  */
-export const PROJECT_ROW = `flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-meta text-ink-dim ${PHONE_TOUCH_TARGET}`;
+const PROJECT_ROW = `flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-meta text-ink-dim ${PHONE_TOUCH_TARGET}`;
 
 /** A project row's content: its status (or snowflake), key, title, and needs-you count. */
 export function ProjectRowContent({

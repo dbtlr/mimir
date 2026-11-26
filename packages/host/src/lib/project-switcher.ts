@@ -31,15 +31,24 @@ export function groupProjects<T extends Switchable>(
   };
 }
 
-/** How many projects the All projects sidebar lists when none is pinned. */
-const SHORTLIST_FALLBACK = 5;
+/** How many projects Home's sidebar list holds. */
+const HOME_SHORTLIST = 6;
 
 /**
- * What the All projects sidebar lists (MMR-562): the pinned projects, or with
- * none pinned the most recently active few.
+ * The projects Home's sidebar list holds (ADR 0013, MMR-730 refinement): the
+ * ones that need the operator, most first, then the pinned ones not yet
+ * listed, then the most recently active, six in all. Ties keep the switcher's
+ * order, which already puts pinned before the rest, each by activity.
  */
-export function sidebarShortlist<T>(groups: { pinned: readonly T[]; rest: readonly T[] }): T[] {
-  return groups.pinned.length > 0 ? [...groups.pinned] : groups.rest.slice(0, SHORTLIST_FALLBACK);
+export function homeShortlist<T extends Switchable>(
+  projects: readonly T[],
+  needsYou: ReadonlyMap<string, number>,
+): T[] {
+  const ordered = orderProjects(projects);
+  const needs = (p: T) => needsYou.get(p.id) ?? 0;
+  const needy = ordered.filter((p) => needs(p) > 0).toSorted((a, b) => needs(b) - needs(a));
+  const rest = ordered.filter((p) => needs(p) <= 0);
+  return [...needy, ...rest].slice(0, HOME_SHORTLIST);
 }
 
 /** One project carrying the pin it is on its way to, if it has one in flight. */
