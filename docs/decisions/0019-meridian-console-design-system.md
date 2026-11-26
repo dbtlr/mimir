@@ -1398,7 +1398,7 @@ Each existing ask's pattern:
 | Reason dialog (node verbs, seed reject, resolve, and park, delivery pause and abandon) | Reason |
 | Decision note dialog (MMR-695's _Confirm with note_ and _Answer with note_) | Reason, with two commits |
 | Move dialog | The Parent field of the task form, a Record picker |
-| Grooming dialog, set mode | A Choice (Radio) and a note field in the task form |
+| Grooming dialog, set mode | Grooming in the task edit sheet, three segments; a note only with Needs answers, as its required Open questions (MMR-731) |
 | Grooming dialog, answer mode | Reason, required |
 | _Direction_ dialog | A field of the container's form |
 | Seed capture dialog | The seed form in the Form sheet |
@@ -2791,7 +2791,9 @@ mocks; two members of a design review scored its third round 9.
 - **Content first, then two groups.** The sheet is headed "Edit task" with
   the context line "`MMR-730` The sidebar lists where you are", the ID and
   the saved title. Title (focused on open), Summary (one line that grows to
-  three, then scrolls), and Description come first. A Planning group holds
+  three, then scrolls, and holds Save past the Engine's 256 characters with
+  "Summary must be 256 characters or fewer" under it), and Description come
+  first. A Planning group holds
   Size, Priority, Grooming, and Parent; a Links group holds Tags and External
   ref. Every field but Title and the choices that always hold a value carries
   the Form sheet's _optional_ marker, so the conditional Open questions reads
@@ -2800,8 +2802,11 @@ mocks; two members of a design review scored its third round 9.
   as the grooming note; until it holds text Save is the quiet disabled
   button. A task that already needs answers opens with no Open questions
   until grooming changes away and back, since only a choice sends a grooming
-  write. The sheet's fields come from the record (`lib/task-edit.ts`), so
-  initiatives, phases, and projects can take it (MMR-793, MMR-794).
+  write. Only Needs answers carries a note: the retired grooming dialog let
+  any state take one, and the sheet sends none with Not groomed or Groomed,
+  a decided narrowing. The sheet is the task's (`TaskDraft` in
+  `lib/task-edit.ts`); MMR-793 and MMR-794 bring containers and projects onto
+  a sheet with their own fields.
 - **Grooming is three segments, an exception to the Choice rule.** "Not
   groomed" and "Needs answers" run past a word, which the MMR-736 Choice
   gives to a Radio; as the Seeds list's Show (MMR-725), the picked mock draws
@@ -2823,17 +2828,23 @@ mocks; two members of a design review scored its third round 9.
   draws 32 chips in the control's 14 / 20 and a 32 remove that takes a 44
   tap area on a phone, with a phone's rows at least 44 apart so the tap areas of
   wrapped rows never overlap; help reads "Press Enter or type a comma to add
-  a tag." (`FormTokenInput`). The Record picker gains an `optional` marker,
-  grouped records (Initiatives, then Phases), and an error.
+  a tag." (`FormTokenInput`). The Record picker gains grouped records
+  (Initiatives, then Phases) and an error.
 - **One Save, several writes.** Save sends only what changed since the
   sheet opened, as separate Engine writes through their mutations: the
   content update, one tag or untag per changed tag (never re-tagging a kept
-  one), the move, and the grooming change. Every write runs to its end, so
-  one's failure never hides another's success. On full success the sheet
+  one), the move, and the grooming change. They go one after another, so
+  no two race at the node, and every write runs whether or not the last
+  saved, so one's failure never hides another's success. The sheet owns
+  their failures, so its writes raise no toast (the mutations' `silent`,
+  one owner per flow). On full success the sheet
   closes. When some fail, the sheet stays open: what saved joins the
   snapshot, so a second Save sends only what failed; the field whose write
   failed turns invalid with its error under it ("Not moved: the host didn't
-  answer. Save again to move it."); the footer note, in the danger ink, names
+  answer. Save again to move it."; an Engine refusal says why with no "Save
+  again", and a content refusal shows under the field it names, as "Not
+  saved: summary must be 256 characters or fewer" under Summary); the footer
+  note, in the danger ink, names
   what saved and what didn't ("Size and tags saved. The move didn't."); and
   the desktop footer's Cancel reads Close, since what saved stays saved (the
   Form sheet's `cancelLabel` and `noteTone`, FormField's `error`).

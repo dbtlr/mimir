@@ -292,7 +292,6 @@ function EditSheetSample() {
         <FormGroup title="Planning">
           <FormRecordPicker
             label="Parent"
-            optional
             records={KIT_PARENTS}
             value={parent}
             onValueChange={setParent}

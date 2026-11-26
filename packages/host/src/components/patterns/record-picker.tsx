@@ -24,7 +24,6 @@ import {
   CommandList,
 } from '../ui/command';
 import { Dialog, DialogBackdrop, DialogClose, DialogContent } from '../ui/dialog';
-import { FieldOptional } from '../ui/field';
 import { ArrowDownIcon, ArrowUpIcon, CommandKeyIcon, EnterKeyIcon } from '../ui/icons';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { BLOCK_PROPS } from './form-block';
@@ -63,8 +62,6 @@ export type RecordPickerProps = {
   /** The line shown when nothing matches the search. */
   emptyText: string;
   disabled?: boolean;
-  /** Marks the field optional beside its label, as a Form sheet field does. */
-  optional?: boolean;
   /** What went wrong with the choice (a move that failed): the edge turns invalid and the error stands 8 below. */
   error?: ReactNode;
 };
@@ -124,7 +121,6 @@ export function RecordPicker({
   searchLabel,
   emptyText,
   disabled = false,
-  optional = false,
   error,
 }: RecordPickerProps) {
   const labelId = useId();
@@ -146,7 +142,6 @@ export function RecordPicker({
         )}
       >
         {label}
-        {optional && <FieldOptional />}
       </span>
       <Combobox
         value={value}
