@@ -874,23 +874,18 @@ export type ReviewNeedsYouGroup = {
   rows: WorkNeedsYouRow[];
 };
 
-/** One project's triage on the review page: what needs the operator eventually, stopping no agent. */
-export type ReviewTriageGroup = {
-  project: ReviewProjectRef;
-  /** Untriaged seeds, oldest first (a parked seed is not untriaged). */
-  seeds: SeedView[];
-  /** Tasks past the stale threshold. */
-  goingCold: number;
-  /** `doctor` findings owned by the project. */
-  findings: number;
-};
-
 /** One row of the review page's project list. */
 export type ReviewProject = ReviewProjectRef & {
   /** Records that need the operator. */
   needsYou: number;
-  /** Untriaged seeds, plus tasks going cold, plus `doctor` findings. */
+  /** Untriaged seeds, plus tasks going cold, plus `doctor` findings: `seeds + goingCold + findings`. */
   triage: number;
+  /** Untriaged seeds (a parked seed is not untriaged). */
+  seeds: number;
+  /** `doctor` findings owned by the project. */
+  findings: number;
+  /** Tasks the work page lists under `frontier.runnable`: groomed, ready, and ranked, `next`'s selection. */
+  runnable: number;
   /** Tasks whose status word is `queued`, `in_progress`, `under_review`, or `staged`: the `now` rows. */
   inFlight: number;
   /**
@@ -898,24 +893,22 @@ export type ReviewProject = ReviewProjectRef & {
    * `done` or `abandoned`. Parked work counts as live.
    */
   live: number;
-  /** Tasks past the stale threshold (the length of the project's `goingCold` rows). */
+  /** Tasks past the stale threshold (the length of the project's work-page `goingCold` rows). */
   goingCold: number;
 };
 
 /** A work-page row on the review page, tagged with the key of the project it belongs to. */
 export type ReviewWorkRow<T> = T & { project: string };
 
-/** A going-cold task on the review page: the work page lists these as bare tasks. */
-export type ReviewColdTask = { project: string; task: NodeView };
-
 /**
  * The console's cross-project review page (ADR 0019 and ADR 0013, MMR-476
- * refinements). `needsYou` and `triage` are in urgency order; `projects` is
- * the rail's order (pinned first, then newest activity); `queue` drops the
- * grouping and walks every member in focus-queue order. `now`, `shipped`,
- * `runnable`, and `goingCold` are the work page's rows across every active
- * project, built by the same rules and in the same order, each tagged with its
- * project key (MMR-504).
+ * refinements). `needsYou` is in urgency order; `projects` is the rail's order
+ * (pinned first, then newest activity) and carries each project's counts;
+ * `queue` drops the grouping and walks every member in focus-queue order.
+ * `now` and `shipped` are the work page's rows across every active project,
+ * built by the same rules and in the same order, each tagged with its project
+ * key (MMR-504). What Home only counts (seeds to triage, ready to start, going
+ * cold, doctor findings) arrives as counts on `projects`, not as rows (MMR-763).
  */
 export type ReviewReport = {
   /** Only projects with at least one needs-you row. */
@@ -933,8 +926,6 @@ export type ReviewReport = {
   };
   /** Every member’s kind and id in the shared five-kind order. */
   queue: { kind: WorkNeedsYouRow['kind']; id: string }[];
-  /** Only projects with something to triage, most first. */
-  triage: ReviewTriageGroup[];
   /** Every active project: pinned first, then newest activity first, then key. */
   projects: ReviewProject[];
   /** In-flight tasks, the work page's `now` rows, most recently started first. */
@@ -944,12 +935,6 @@ export type ReviewReport = {
    * the caller gave no time zone, since the window cannot be placed.
    */
   shipped: ReviewWorkRow<WorkShippedTask>[];
-  /** The work page's `frontier.runnable` rows, in `projects` order and then each project's rank. */
-  runnable: ReviewWorkRow<WorkFrontierTask>[];
-  /** Every stale task, the longest quiet (oldest `updated_at`) first. */
-  goingCold: ReviewColdTask[];
-  /** The newest done or abandoned task across active projects, for the all-clear state; null when none has finished. */
-  lastFinished: WorkShippedTask | null;
 };
 
 /** The set-valued column names (flat, MMR-38), for `--col` parsing and the cheap-vs-heavy default sets. */

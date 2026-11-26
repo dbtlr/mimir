@@ -173,22 +173,19 @@ const tagged = <T extends { task: { id: string } }>(rows: readonly T[]): ReviewW
  *   follow `needsYouReasonOf`; delivery and decision rows come from
  *   `recordNeedsYou`), projects in urgency order.
  * - `queue`: each member’s kind and id, in the shared order across projects.
- * - `triage`: per project with anything to triage, the untriaged seeds (oldest
- *   first), the tasks going cold, and the findings; most first, then key.
  * - `projects`: every active project in the rail's order (pinned first, then
- *   newest activity), with its needs-you, triage, in-flight, live, and going-cold
- *   counts. `live` is the `--status live` group: every status but done and
- *   abandoned, so parked work counts.
- * - `now`, `shipped`, `runnable`, `goingCold` (MMR-504): the work page's rows
- *   across every active project. They come from the work page's own section
- *   rules and row builders ({@link classifyWork}), run once over all the
- *   projects' tasks, so a project's rows here equal its work report's. Across
- *   projects `now` lists the latest move (submit, else start) first, `runnable` follows the
- *   `projects` order and then each project's rank, `goingCold` the longest quiet
- *   first, and `shipped` the newest first. `shipped` needs `timeZone` to place
- *   its window and is empty without one.
- * - `lastFinished`: the newest done or abandoned task, for the page's all-clear
- *   state; null when nothing has finished.
+ *   newest activity), with its counts: needs-you, in-flight, live, untriaged
+ *   seeds, doctor findings, runnable, going cold, and triage (seeds plus going
+ *   cold plus findings). `live` is the `--status live` group: every status but
+ *   done and abandoned, so parked work counts. `runnable` and `goingCold` count
+ *   the project's work-page `frontier.runnable` and `goingCold` rows without
+ *   building them (MMR-763).
+ * - `now`, `shipped` (MMR-504): the work page's rows across every active
+ *   project. They come from the work page's own section rules and row builders
+ *   ({@link classifyWork}), run once over all the projects' tasks, so a
+ *   project's rows here equal its work report's. Across projects `now` lists
+ *   the latest move (submit, else start) first and `shipped` the newest first.
+ *   `shipped` needs `timeZone` to place its window and is empty without one.
  *
  * `findings` is the `doctor` finding count per project key; a key that is not
  * an active project (`store`, an archived project) is ignored. Core never runs
