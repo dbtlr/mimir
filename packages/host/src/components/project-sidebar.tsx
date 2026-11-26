@@ -11,7 +11,7 @@ import { SidebarJumpTo, useOpenJumpPalette } from './jump-palette';
 import { ProjectPicker } from './project-picker';
 import { ProjectContainers } from './sidebar-containers';
 import { HomeContainers } from './sidebar-projects';
-import { SECTION_CURRENT } from './sidebar-selection';
+import { ROW_CURRENT, ROW_HOLDS } from './sidebar-selection';
 import { iconButtonClass } from './ui/icon-button';
 import { MenuIcon } from './ui/icons';
 
@@ -41,7 +41,8 @@ type SettingsTo =
 /**
  * A Settings page's link. The current page takes the selection treatment. On
  * `/pair`, which approves a request, Devices is the current section
- * (`aria-current="true"`), as a project's section is on one of its records.
+ * (`aria-current="true"`) and holds the page, ringed as a container's row is
+ * on a page it holds.
  * `count` is a number that needs the operator, in the attention color.
  */
 function SettingsLink({
@@ -68,7 +69,12 @@ function SettingsLink({
     current = 'true';
   }
   return (
-    <a {...linkProps} aria-current={current} className={cn(SECTION_ROW, SECTION_CURRENT)}>
+    <a
+      {...linkProps}
+      aria-current={current}
+      data-holds={current === 'true' ? 'true' : undefined}
+      className={cn(SECTION_ROW, ROW_CURRENT, ROW_HOLDS)}
+    >
       {label}
       {count !== undefined && count > 0 && (
         <>

@@ -996,16 +996,19 @@ describe('Settings sidebar (MMR-733)', () => {
     expect(current(nav)).toStrictEqual(['Connections']);
     const link = within(nav).getByRole('link', { name: 'Connections' });
     expect(link).toHaveAttribute('aria-current', 'page');
-    expect(link.className).toContain('aria-[current]:bg-accent/10');
+    expect(link.className).toContain('aria-[current=page]:bg-accent/10');
+    expect(link.className).toContain('aria-[current=page]:inset-ring-accent');
+    expect(link.className).not.toContain('inset-ring-accent/28');
   });
 
   it('marks Devices as the current section on /pair', async () => {
     await renderAt('/pair');
     const nav = await settingsNav();
-    expect(within(nav).getByRole('link', { name: 'Devices' })).toHaveAttribute(
-      'aria-current',
-      'true',
-    );
+    const devices = within(nav).getByRole('link', { name: 'Devices' });
+    expect(devices).toHaveAttribute('aria-current', 'true');
+    // It holds the page, as a container's row does: the full-strength ring alone.
+    expect(devices).toHaveAttribute('data-holds', 'true');
+    expect(devices.className).toContain('data-[holds]:inset-ring-accent');
     expect(current(nav)).toStrictEqual(['Devices']);
   });
 
