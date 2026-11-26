@@ -2790,11 +2790,11 @@ mocks; two members of a design review scored its third round 9.
 
 - **Content first, then two groups.** The sheet is headed "Edit task" with
   the context line "`MMR-730` The sidebar lists where you are", the ID and
-  the saved title. Title (focused on open), Summary (one line that grows to
-  three, then scrolls, and holds Save past the Engine's 256 characters with
-  "Summary must be 256 characters or fewer" under it), and Description come
-  first. A Planning group holds
-  Size, Priority, Grooming, and Parent; a Links group holds Tags and External
+  the saved title. Title (focused on open, the caret after its text),
+  Summary (one line that grows to three, then scrolls, and holds Save past
+  the Engine's 256 characters with "Summary must be 256 characters or fewer"
+  under it), and Description come first. A Planning group holds Size,
+  Priority, Grooming, and Parent; a Links group holds Tags and External
   ref. Every field but Title and the choices that always hold a value carries
   the Form sheet's _optional_ marker, so the conditional Open questions reads
   as required. Grooming shows only on a todo task (`visibleGrooming`).

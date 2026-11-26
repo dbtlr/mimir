@@ -486,3 +486,26 @@ test('a keyboard-focused field low in the form keeps the end padding above the f
   expect(at.bottom).toBeGreaterThanOrEqual(32);
   await context.close();
 });
+
+test('the task edit sheet opens on Title with the caret after the saved title, nothing selected', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({ viewport: { height: 900, width: 1280 } });
+  const page = await context.newPage();
+  await page.goto(`${harness.origin}?form=task-edit`);
+  const title = page.getByRole('textbox', { name: 'Title' });
+  await expect(title).toBeFocused();
+  await page.waitForTimeout(600);
+  const caret = await title.evaluate((element) => {
+    if (!(element instanceof HTMLInputElement)) {
+      throw new TypeError('Title is not an input');
+    }
+    return {
+      end: element.selectionEnd,
+      length: element.value.length,
+      start: element.selectionStart,
+    };
+  });
+  expect(caret).toStrictEqual({ end: caret.length, length: caret.length, start: caret.length });
+  await context.close();
+});

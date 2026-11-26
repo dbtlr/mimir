@@ -63,6 +63,33 @@ const FOCUSABLE =
   'input:not([type=hidden]):not(:disabled), textarea:not(:disabled), select:not(:disabled), button:not(:disabled), [tabindex]:not([tabindex="-1"])';
 
 /**
+ * UI SDK's opening focus selects a text field's value (focus, then `select()`);
+ * the sheet puts the caret after it instead, so a first keystroke never
+ * replaces a saved title. The watch ends at the field's first key, press, or blur.
+ */
+function caretAfterOpeningSelect(field: HTMLElement) {
+  if (
+    !(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) ||
+    field.selectionStart === null
+  ) {
+    return;
+  }
+  const watch = new AbortController();
+  const { signal } = watch;
+  field.addEventListener(
+    'select',
+    () => {
+      field.setSelectionRange(field.value.length, field.value.length);
+      watch.abort();
+    },
+    { signal },
+  );
+  for (const type of ['keydown', 'pointerdown', 'blur']) {
+    field.addEventListener(type, () => watch.abort(), { signal });
+  }
+}
+
+/**
  * The scrolling body, which rests by the Sheets rule (`useRestingBody`) over
  * the form's blocks. It mounts with the sheet's content, so it measures what
  * is shown, and reports whether it has scrolled, for the header's shadow.
@@ -181,11 +208,12 @@ export function FormSheet({
   };
 
   const firstField = () => {
-    const named = initialFocus?.current;
-    if (named !== null && named !== undefined) {
-      return named;
+    const field = initialFocus?.current ?? body.current?.querySelector<HTMLElement>(FOCUSABLE);
+    if (field === null || field === undefined) {
+      return null;
     }
-    return body.current?.querySelector<HTMLElement>(FOCUSABLE) ?? null;
+    caretAfterOpeningSelect(field);
+    return field;
   };
 
   return (
