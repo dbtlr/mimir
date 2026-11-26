@@ -170,7 +170,7 @@ function serveWorld(decisionRows: ReviewReport['projects'] = [], more: EngineNod
 
 /** The keys of the projects Home lists. */
 const listedKeys = (nav: HTMLElement) =>
-  [...nav.querySelectorAll('[data-project]')].map((row) => row.getAttribute('data-project'));
+  [...nav.querySelectorAll('a[href^="/p/"]')].map((row) => row.getAttribute('href')?.slice(3));
 
 beforeEach(() => {
   serveBrowse();
@@ -251,6 +251,17 @@ describe('sidebar on Home (MMR-730)', () => {
       'See all 4 projects',
     ]);
     expect(within(nav).getByRole('link', { name: /^FLT/ })).toHaveAttribute('href', '/p/FLT');
+  });
+
+  it('draws its projects with the container row every level shares', async () => {
+    serveWorld();
+    await renderAt('/');
+    const nav = await sidebar();
+    const flt = await within(nav).findByRole('link', { name: /^FLT/ });
+    expect(flt.closest('li')).toBeNull();
+    expect(flt.className).not.toContain('hover:text-ink-bright');
+    expect(flt.className).toContain('aria-[current=page]:inset-ring-accent');
+    expect(within(flt).getByText('FLT')).toHaveClass('w-10');
   });
 
   it('leads with the projects that need you, most first, with their counts', async () => {
@@ -414,6 +425,13 @@ describe('sidebar on a project (MMR-730)', () => {
       '/p/MMR/1',
     );
     await expect(pageMarks()).resolves.toStrictEqual(['MMR Mimir 1/5']);
+  });
+
+  it('sets the project’s key in the switcher row’s key column', async () => {
+    await renderAt('/p/MMR');
+    const nav = await sidebar();
+    const project = await within(nav).findByRole('link', { name: /^MMR Mimir/ });
+    expect(within(project).getByText('MMR')).toHaveClass('w-10');
   });
 
   it('keeps the project the page on its Details tab', async () => {

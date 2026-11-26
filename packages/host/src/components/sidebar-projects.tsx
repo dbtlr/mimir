@@ -8,7 +8,7 @@ import { reviewQuery } from '../api/view-queries';
 import { cn } from '../lib/cn';
 import { homeShortlist, overlayPins } from '../lib/project-switcher';
 import { FEED_LINK_TEXT } from './patterns/feed/link';
-import { ProjectRowContent } from './project-options';
+import { NeedsYouCount } from './project-options';
 import { CHILD_INDENT, ContainerRowLink } from './sidebar-containers';
 import { ROW_CURRENT, SIDEBAR_ROW } from './sidebar-selection';
 import { Skeleton } from './ui/skeleton';
@@ -21,7 +21,7 @@ import { Skeleton } from './ui/skeleton';
  * Finding any other project by name is the switcher's job, above.
  */
 
-/** A project's row: a link to its page, with the switcher row's dot, key, and name. */
+/** A project's row: the container row, with the switcher row's dot, key, name, and needs-you count. */
 function ProjectLink({
   project,
   needsYou,
@@ -32,17 +32,16 @@ function ProjectLink({
   onNavigate?: (() => void) | undefined;
 }) {
   return (
-    <li className="flex flex-col">
-      <Link
-        to="/p/$key"
-        params={{ key: project.id }}
-        onClick={onNavigate}
-        data-project={project.id}
-        className={cn(SIDEBAR_ROW, CHILD_INDENT, 'hover:text-ink-bright')}
-      >
-        <ProjectRowContent project={project} needsYou={needsYou} />
-      </Link>
-    </li>
+    <ContainerRowLink
+      target={{ params: { key: project.id }, to: '/p/$key' }}
+      mark={undefined}
+      status={project.status}
+      projectKey={project.id}
+      title={project.title}
+      trailing={<NeedsYouCount count={needsYou} />}
+      indent
+      onNavigate={onNavigate}
+    />
   );
 }
 
@@ -94,16 +93,14 @@ export function HomeContainers({ onNavigate }: { onNavigate?: (() => void) | und
     const rows = homeShortlist(overlayPins(listed, pendingPins), needsYou);
     return (
       <>
-        <ul aria-label="Projects" className="flex flex-col gap-px">
-          {rows.map((p) => (
-            <ProjectLink
-              key={p.id}
-              project={p}
-              needsYou={needsYou.get(p.id) ?? 0}
-              onNavigate={onNavigate}
-            />
-          ))}
-        </ul>
+        {rows.map((p) => (
+          <ProjectLink
+            key={p.id}
+            project={p}
+            needsYou={needsYou.get(p.id) ?? 0}
+            onNavigate={onNavigate}
+          />
+        ))}
         <SeeAllProjects count={listed.length} onNavigate={onNavigate} />
       </>
     );

@@ -94,10 +94,12 @@ function RowLink({
 }
 
 /**
- * A container's row: its status dot, a project's key, the title, and the
- * tally, each left out where the row has none. The current row's title is
- * semibold, and a row that holds the page says so in words. `tallyName` is
- * what a screen reader hears in place of a bare tally ("4 projects").
+ * A container's row: its status dot, a project's key in the switcher row's
+ * key column, the title, and the tally, each left out where the row has none.
+ * The current row's title is semibold, and a row that holds the page says so
+ * in words. `tallyName` is what a screen reader hears in place of a bare
+ * tally ("4 projects"). `trailing` takes the tally's place with a part of its
+ * own, as Home's projects do with their needs-you count.
  */
 export function ContainerRowLink({
   target,
@@ -107,6 +109,7 @@ export function ContainerRowLink({
   title,
   tally,
   tallyName,
+  trailing,
   indent = false,
   onNavigate,
 }: {
@@ -117,6 +120,7 @@ export function ContainerRowLink({
   title?: string | undefined;
   tally?: string | undefined;
   tallyName?: string | undefined;
+  trailing?: ReactNode;
   indent?: boolean;
   onNavigate?: (() => void) | undefined;
 }) {
@@ -129,7 +133,7 @@ export function ContainerRowLink({
     >
       {status !== undefined && <StatusDot status={status} />}
       {projectKey !== undefined && (
-        <span className="shrink-0 font-mono text-meta font-bold text-ink-bright">
+        <span className="w-10 shrink-0 font-mono text-meta font-bold text-ink-bright">
           {projectKey}
         </span>
       )}
@@ -155,6 +159,12 @@ export function ContainerRowLink({
             {tally}
           </span>
           <span className="sr-only">, {tallyName}</span>
+        </>
+      )}
+      {trailing !== undefined && (
+        <>
+          {' '}
+          {trailing}
         </>
       )}
       {mark === 'holds' && <span className="sr-only">, contains this page</span>}
