@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { externalRefText, isBareUrl, isExternalHref, splitLinks } from '../lib/links';
 
@@ -165,6 +165,23 @@ describe('externalRefText', () => {
       'https://github.com/x/mimir/issues/9#/pull/653',
     );
     expect(externalRefText('https://github.com/x/mimir/pull/653?w=1#top')).toBe('PR #653');
+  });
+
+  it('needs an owner and a repository ahead of /pull/, so an issue under an owner named pull stays whole', () => {
+    const issue = 'https://github.com/pull/653/issues/9';
+    expect(externalRefText(issue)).toBe(issue);
+  });
+
+  it('never calls URL.parse, which Safari before 18 lacks', () => {
+    const parse = vi.spyOn(URL, 'parse').mockImplementation(() => {
+      throw new TypeError('URL.parse is not a function');
+    });
+    try {
+      expect(externalRefText('https://github.com/x/mimir/pull/653')).toBe('PR #653');
+      expect(parse).not.toHaveBeenCalled();
+    } finally {
+      parse.mockRestore();
+    }
   });
 
   it('keeps any other value whole', () => {
