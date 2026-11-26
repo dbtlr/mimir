@@ -220,6 +220,11 @@ test('a phone’s model list blurs its scrim and opens with the tick alone on th
   await context.close();
 });
 
+/** A control's border-box height. */
+function heightOf(control: Locator) {
+  return control.evaluate((element) => element.getBoundingClientRect().height);
+}
+
 test('a task’s Summary grows from one line to three, and its Description from three without a cap', async ({
   browser,
 }) => {
@@ -228,14 +233,12 @@ test('a task’s Summary grows from one line to three, and its Description from 
   await openForm(page, 'task-edit');
   const summary = page.getByRole('textbox', { name: /Summary/ });
   const description = page.getByRole('textbox', { name: /Description/ });
-  const height = (box: Locator) =>
-    box.evaluate((element) => element.getBoundingClientRect().height);
-  expect(await height(summary)).toBe(44);
-  expect(await height(description)).toBe(88);
+  expect(await heightOf(summary)).toBe(44);
+  expect(await heightOf(description)).toBe(88);
   await summary.fill('A summary long enough to wrap. '.repeat(12));
   await description.fill(Array.from({ length: 8 }, () => 'A line.').join('\n'));
-  await expect.poll(() => height(summary)).toBe(88);
-  await expect.poll(() => height(description)).toBe(22 + 8 * 22);
+  await expect.poll(() => heightOf(summary)).toBe(88);
+  await expect.poll(() => heightOf(description)).toBe(22 + 8 * 22);
   const scrolls = await description.evaluate(
     (element) => element.scrollHeight > element.clientHeight,
   );

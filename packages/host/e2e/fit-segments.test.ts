@@ -76,7 +76,9 @@ async function openSheet(page: Page, form: string, width: number) {
   await page.waitForTimeout(SHEET_MOTION);
 }
 
+// oxlint-disable-next-line vitest/prefer-each -- Playwright has no `each`; this is its pattern
 for (const { form, tracks } of SHEETS) {
+  // oxlint-disable-next-line vitest/prefer-each -- Playwright has no `each`; this is its pattern
   for (const width of [320, 390]) {
     test(`${form}: every fit segment is a 44 target whose label stays inside it at ${String(width)}`, async ({
       page,
