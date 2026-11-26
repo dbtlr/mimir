@@ -146,7 +146,7 @@ function SidebarBody({
     <nav aria-label={landmarkLabel(context)} className="flex flex-col gap-0.5">
       <SidebarJumpTo onJump={onJump} />
       {context.kind !== 'settings' && (
-        <div className="mb-4">
+        <div className="mb-3.5">
           <ProjectPicker context={context} onNavigate={onNavigate} />
         </div>
       )}
@@ -169,7 +169,7 @@ export function ProjectSidebar({ context }: { context: SidebarContext }) {
   return (
     <aside
       aria-label={landmarkLabel(context)}
-      className="w-64 shrink-0 overflow-y-auto border-r border-line bg-well-950 p-2.5"
+      className="w-64 shrink-0 overflow-y-auto border-r border-line bg-well-950 p-3"
     >
       <SidebarBody context={context} />
     </aside>
