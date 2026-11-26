@@ -21,6 +21,7 @@ import {
   projectPhoneCount,
   projectSetBack,
   projectsInListOrder,
+  settleProjectLists,
 } from '../lib/project-list';
 import type { ListedProject } from '../lib/project-list';
 
@@ -68,13 +69,14 @@ export function ProjectsPage() {
   const archived = useQuery(archivedProjectsQuery);
   const conn = connectivity([review, archived]);
 
-  const active = review.data === undefined ? undefined : projectsInListOrder(review.data.projects);
-  // The two reads refresh apart after an archive or unarchive; until both land,
-  // a project in both lists shows once, as active.
-  const activeKeys = new Set(active?.map((project) => project.key));
-  const archivedRows: RowGroupRow[] = archivedInListOrder(
-    (archived.data ?? []).filter((project) => !activeKeys.has(project.id)),
-  ).map((project) => ({
+  // A project both reads list shows once, where the read that landed last puts it.
+  const settled = settleProjectLists(
+    review.data?.projects ?? [],
+    archived.data ?? [],
+    archived.dataUpdatedAt > review.dataUpdatedAt,
+  );
+  const active = review.data === undefined ? undefined : projectsInListOrder(settled.active);
+  const archivedRows: RowGroupRow[] = archivedInListOrder(settled.archived).map((project) => ({
     count: 0,
     key: project.id,
     name: project.title,

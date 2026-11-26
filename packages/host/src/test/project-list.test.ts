@@ -6,6 +6,7 @@ import {
   projectPhoneCount,
   projectSetBack,
   projectsInListOrder,
+  settleProjectLists,
 } from '../lib/project-list';
 import { stripRow } from './views-fixtures';
 
@@ -70,6 +71,39 @@ describe('the Projects list’s names (MMR-790)', () => {
       'Site 10',
     ]);
     expect(archived.map((p) => p.title)).toStrictEqual(['Site 10', 'site 2', 'Alpha']);
+  });
+});
+
+describe('a project both reads list (MMR-790)', () => {
+  const norn = row('NORN', 'Norn', 0, 3);
+  const others = { active: [row('HUGI', 'Hugi', 1, 2)], archived: [{ id: 'SKL' }] };
+
+  it('takes the archive’s word when it landed last, as after an archive whose review refresh failed', () => {
+    const settled = settleProjectLists(
+      [...others.active, norn],
+      [...others.archived, { id: 'NORN' }],
+      true,
+    );
+    expect(settled.active.map((p) => p.key)).toStrictEqual(['HUGI']);
+    expect(settled.archived.map((p) => p.id)).toStrictEqual(['SKL', 'NORN']);
+  });
+
+  it('takes the review’s word when it landed last, as after an unarchive', () => {
+    const settled = settleProjectLists(
+      [...others.active, norn],
+      [...others.archived, { id: 'NORN' }],
+      false,
+    );
+    expect(settled.active.map((p) => p.key)).toStrictEqual(['HUGI', 'NORN']);
+    expect(settled.archived.map((p) => p.id)).toStrictEqual(['SKL']);
+  });
+
+  it('leaves projects that only one read lists where they are', () => {
+    for (const archiveIsNewer of [true, false]) {
+      const settled = settleProjectLists(others.active, others.archived, archiveIsNewer);
+      expect(settled.active.map((p) => p.key)).toStrictEqual(['HUGI']);
+      expect(settled.archived.map((p) => p.id)).toStrictEqual(['SKL']);
+    }
   });
 });
 

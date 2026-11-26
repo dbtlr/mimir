@@ -26,6 +26,31 @@ export function projectsInListOrder(projects: readonly ListedProject[]): ListedP
   );
 }
 
+/**
+ * Places a project that both reads list in one of them. The review report and
+ * the archived read refresh apart after an archive or unarchive, and a refresh
+ * can fail and leave the older answer in place, so the read that landed last
+ * says where the project is.
+ */
+export function settleProjectLists<A extends { id: string }>(
+  active: readonly ListedProject[],
+  archived: readonly A[],
+  archiveIsNewer: boolean,
+): { active: ListedProject[]; archived: A[] } {
+  if (archiveIsNewer) {
+    const archivedIds = new Set(archived.map((project) => project.id));
+    return {
+      active: active.filter((project) => !archivedIds.has(project.key)),
+      archived: [...archived],
+    };
+  }
+  const activeKeys = new Set(active.map((project) => project.key));
+  return {
+    active: [...active],
+    archived: archived.filter((project) => !activeKeys.has(project.id)),
+  };
+}
+
 /** The archived projects' order: by title, as the active ones are by name. */
 export function archivedInListOrder<T extends { title: string }>(projects: readonly T[]): T[] {
   return projects.toSorted((a, b) => byName.compare(a.title, b.title));
