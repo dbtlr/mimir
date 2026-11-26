@@ -1383,7 +1383,9 @@ changes.
   that list.
 - **A phase's deliveries move to a _Deliveries_ tab,** after _Work_, shown
   when the phase has a live delivery and hidden otherwise, as the MMR-726
-  refinement hides an empty tab. The phase's deliveries read lists the live
+  refinement hides an empty tab. When the deliveries read has failed with
+  nothing cached, the tab stays, with no count, and says it could not load.
+  The phase's deliveries read lists the live
   attempts alone, as Work's cards did; a landed or abandoned delivery stays
   on its own page. `?tab=deliveries` opens it, and a URL that
   names it while it is hidden falls to the first shown tab and is replaced.

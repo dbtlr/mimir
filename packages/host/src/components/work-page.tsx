@@ -472,12 +472,15 @@ export function recordTabs(
   record: EngineNode,
   timelineCount: number,
   work: boolean,
-  deliveries = 0,
+  // A phase's live deliveries, or 'failed' when the read failed with nothing cached:
+  // the tab then stays, with no count, so it can say the read failed.
+  deliveries: number | 'failed' = 0,
 ) {
   const artifacts = record.artifacts?.length ?? 0;
   const tabs: RecordTab<RecordPageTab>[] = [
     ...(work ? [{ label: 'Work', value: 'work' as const }] : []),
-    ...(deliveries > 0
+    ...(deliveries === 'failed' ? [{ label: 'Deliveries', value: 'deliveries' as const }] : []),
+    ...(typeof deliveries === 'number' && deliveries > 0
       ? [{ count: deliveries, label: 'Deliveries', value: 'deliveries' as const }]
       : []),
     { label: 'Details', value: 'details' },
@@ -538,7 +541,16 @@ export function ContainerPage({
   const phase = record.type === 'phase';
   const deliveries = useQuery({ ...phaseDeliveriesQuery(record.id), enabled: phase });
   const work = containerHasWork(record, tree);
-  const tabs = recordTabs(record, container.timelineCount, work, deliveries.data?.length ?? 0);
+  const tabs = recordTabs(
+    record,
+    container.timelineCount,
+    work,
+    // errorUpdateCount, not isError: a retry with nothing cached resets the read to
+    // pending, which would hide the tab whose mount started the retry, in a loop.
+    deliveries.data === undefined && deliveries.errorUpdateCount > 0
+      ? 'failed'
+      : (deliveries.data?.length ?? 0),
+  );
   const tab = useShownTab(
     tabs,
     container.tab,

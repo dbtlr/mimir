@@ -382,6 +382,23 @@ test('a URL naming Deliveries on a phase with none falls to Work and is replaced
   expect(router.history).toHaveLength(1);
 });
 
+// A failed read cannot say whether a delivery is live, so the tab stays to say it failed.
+test('keeps the Deliveries tab its URL names when the delivery read fails, and says so', async () => {
+  const page = fixture();
+  serveNodes({ nodes: [page.phase] });
+  vi.mocked(phaseDeliveries).mockRejectedValue(new Error('host down'));
+  await renderRoute(
+    consoleRoutes,
+    '/p/MMR/2?tab=deliveries',
+    new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+  );
+  await screen.findByRole('tab', { name: 'Deliveries', selected: true });
+  await expect(screen.findByText('Couldn’t load deliveries.')).resolves.toBeInTheDocument();
+  // The tab's own read retries once on mount, and the tab holds through it.
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  expect(vi.mocked(phaseDeliveries).mock.calls.length).toBeLessThanOrEqual(2);
+});
+
 // A cached empty list may predate a delivery agreed since; only a current read settles the URL.
 test('keeps the URL until the phase’s delivery read is current', async () => {
   const page = fixture();
