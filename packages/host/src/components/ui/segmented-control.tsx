@@ -22,11 +22,12 @@ export const segmentedTrackClass =
 
 /*
  * A form's track (DESIGN.md, Sizes): the field's full width on the control
- * ground, its edge ink-faint like every control's, 50 tall on a phone (a 3px
- * inset leaves each segment a 44 tap target) and 44 from `md` up.
+ * ground, its edge ink-faint like every control's (status-blocked while its
+ * field is invalid), 50 tall on a phone (a 3px inset leaves each segment a 44
+ * tap target) and 44 from `md` up.
  */
 const FIELD_TRACK_CLASS =
-  'flex h-[50px] w-full gap-0.5 rounded-lg bg-well-950 p-[3px] inset-ring inset-ring-ink-faint md:h-11';
+  'flex h-[50px] w-full gap-0.5 rounded-lg bg-well-950 p-[3px] inset-ring inset-ring-ink-faint aria-[invalid=true]:inset-ring-status-blocked md:h-11';
 
 /*
  * Segment text is 14/20 at 500 in sentence case (a provider's values keep their

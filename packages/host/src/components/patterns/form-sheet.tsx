@@ -430,7 +430,7 @@ export type FormProseEditorProps = ComponentProps<typeof Textarea> & {
  */
 export function FormProseEditor({ preview, className, ...props }: FormProseEditorProps) {
   return (
-    <Tabs defaultValue="write" className="flex flex-col">
+    <Tabs defaultValue="write" className="group/prose flex flex-col">
       <TabsList joined aria-label="Write or preview">
         <TabsTab value="write">Write</TabsTab>
         <TabsTab value="preview">Preview</TabsTab>
@@ -439,9 +439,10 @@ export function FormProseEditor({ preview, className, ...props }: FormProseEdito
       <TabsPanel value="write" keepMounted className="pt-0">
         <FormGrowTextArea {...props} className={cn('block rounded-t-none', className)} />
       </TabsPanel>
+      {/* Preview takes the invalid edge of the editor it stands in for, which stays mounted. */}
       <TabsPanel
         value="preview"
-        className="min-h-22 rounded-b-md border border-line-bright bg-well-850 px-4 pt-3 pb-3"
+        className="min-h-22 rounded-b-md border border-line-bright bg-well-850 px-4 pt-3 pb-3 group-has-[[aria-invalid=true]]/prose:border-status-blocked"
       >
         {preview}
       </TabsPanel>
