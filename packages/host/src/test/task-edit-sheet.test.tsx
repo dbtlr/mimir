@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { groom, move, tag, untag, update } from '../api/fns/nodes';
+import { toast } from '../components/patterns/notice';
 import { consoleRoutes } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineTree } from './engine-fixtures';
@@ -316,5 +317,22 @@ describe('task edit sheet: a Save that partly fails', () => {
     });
     expect(sent(move)).toStrictEqual([{ id: 'MMR-417', to: 'MMR-3' }]);
     expect(update).not.toHaveBeenCalled();
+  });
+
+  it('raises no toast beside the error it shows on the field', async () => {
+    const sheet = await openSheet(todo());
+    vi.mocked(update).mockRejectedValueOnce(new Error("the host didn't answer"));
+    vi.mocked(untag).mockRejectedValueOnce(new Error("the host didn't answer"));
+    vi.mocked(move).mockRejectedValueOnce(new Error("the host didn't answer"));
+    vi.mocked(groom).mockRejectedValueOnce(new Error("the host didn't answer"));
+    await userEvent.type(within(sheet).getByRole('textbox', { name: 'Title' }), '!');
+    await userEvent.click(sheet.querySelector('[aria-label="Remove ui"]')!);
+    await userEvent.click(within(sheet).getByRole('button', { name: /^Parent/ }));
+    await userEvent.click(await screen.findByRole('option', { name: /Console/ }));
+    await userEvent.click(within(sheet).getByRole('radio', { name: 'Groomed' }));
+    await save(sheet);
+
+    await within(sheet).findByText('Nothing saved.');
+    expect(toast.error).not.toHaveBeenCalled();
   });
 });
