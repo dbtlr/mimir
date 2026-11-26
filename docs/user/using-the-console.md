@@ -10,7 +10,7 @@ For access from another device, `tailscale serve` keeps HTTPS and the
 installable PWA, and a
 [reverse proxy](../guides/host.md#use-a-reverse-proxy) does too.
 
-![Mimir project work page with the project sidebar and outline, and a rail of direction, about, and artifacts](../assets/console-project.png)
+![A Mimir project page: the sidebar shows the project under Home with its initiatives; the page has Work, Tasks, Seeds, Artifacts, and Details tabs, opening on Needs you and Now](../assets/console-project.png)
 
 ## Review what needs you
 
