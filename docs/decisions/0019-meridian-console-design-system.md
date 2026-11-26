@@ -2676,9 +2676,10 @@ holds the numbers, under List page.
 - **The row group gains options rather than a table.** `keepZero` keeps
   rows that count zero; a row's count `shows` in words ("36 live", "Nothing
   live") or as the attention pill ("2 need you"); a row may be `setBack`,
-  its name in `ink-dim`; `columns` lays each row's figures under captions;
-  `keyChars` holds the key column to a width in characters, so groups set
-  apart line up. Callers that set none of them are unchanged.
+  its name in `ink-dim`; `columns` lays each row's figures under captions.
+  The key column's 48 minimum holds the longest key a project may have (four
+  letters), so groups set apart line up with no option. Callers that set
+  none of them are unchanged.
 - **A phone row says one count.** The attention pill while anything needs
   you, else how much is live, else "Nothing live" with the name set back. A
   project that needs you keeps its name in ink, even with nothing live.

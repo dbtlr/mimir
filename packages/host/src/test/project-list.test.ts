@@ -52,6 +52,11 @@ describe('the Projects list’s names (MMR-790)', () => {
     expect(ordered.map((p) => p.name)).toStrictEqual(['Site 2', 'Site 10']);
   });
 
+  it('orders by name, not by key, when the counts tie', () => {
+    const ordered = projectsInListOrder([row('AA', 'Zulu', 0, 0), row('ZZ', 'Alpha', 0, 0)]);
+    expect(ordered.map((p) => p.key)).toStrictEqual(['ZZ', 'AA']);
+  });
+
   it('breaks a tie of the same counts and name by key', () => {
     const ordered = projectsInListOrder([row('ZED', 'Twin', 1, 3), row('ABC', 'twin', 1, 3)]);
     expect(ordered.map((p) => p.key)).toStrictEqual(['ABC', 'ZED']);
