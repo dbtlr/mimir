@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HostFaultError } from '../api/errors';
 import { start } from '../api/fns/nodes';
+import { tree as shellTree } from '../api/fns/shell';
 import { nodeWork, projectWork } from '../api/fns/views';
 import type { WorkReport } from '../api/view-queries';
 import type { RecordArtifact } from '../lib/work-page';
@@ -564,6 +565,31 @@ describe('an initiative’s Work tab (MMR-727)', () => {
     await screen.findByRole('tab', { name: 'Work', selected: true });
     const parts = await section('Phases');
     expect(hrefOf(parts, /Maintenance/)).toBe('/p/MMR/121');
+  });
+
+  it('keeps the URL on Work while a cached tree from before its first phase refetches', async () => {
+    serveShell({ trees: { MMR: tree } });
+    serveNodes({ nodes: [INITIATIVE] });
+    serveViews();
+    const served = vi.mocked(shellTree).getMockImplementation();
+    const held = Promise.withResolvers<void>();
+    vi.mocked(shellTree).mockImplementation(async (options) => {
+      await held.promise;
+      return served!(options);
+    });
+    const client = quietClient();
+    const before = engineTree({ id: 'MMR', status: 'in_progress', title: 'Mimir', type: 'project' }, [
+      node('MMR-120', 'initiative', 'ready', 'Standing work'),
+    ]);
+    client.setQueryData(['tree', 'MMR'], before, { updatedAt: Date.now() - 60_000 });
+    const { router: testRouter } = await renderRoute(routes, '/p/MMR/120', client);
+
+    // The cached tree holds no phase, so the page shows Details at once.
+    await screen.findByRole('tab', { name: 'Details', selected: true });
+    held.resolve();
+
+    await screen.findByRole('tab', { name: 'Work', selected: true });
+    expect(testRouter.state.location.searchStr).toBe('');
   });
 });
 

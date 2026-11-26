@@ -457,6 +457,8 @@ export type RecordPageTabs = {
    */
   since: number;
   recordReadAt: number;
+  /** When the project tree was last read, which says whether an initiative or phase has parts. */
+  treeReadAt: number;
 };
 
 /**
@@ -518,7 +520,8 @@ export function useShownTab(
  * parts (ADR 0013, MMR-727 refinement); a phase's Deliveries while it has a
  * live delivery. The URL settles on a shown tab only once the reads that
  * decide the tabs are current: the record, a phase's deliveries, and, for a
- * record whose rollup counts no task, the tree that holds its parts.
+ * record whose rollup counts no task, the tree that holds its parts (read
+ * since the page mounted, not a cached tree from before a part was added).
  */
 export function ContainerPage({
   record,
@@ -540,7 +543,7 @@ export function ContainerPage({
     container.tab,
     container.recordReadAt >= container.since &&
       (!phase || deliveries.dataUpdatedAt >= container.since) &&
-      (work || tree !== undefined),
+      (work || container.treeReadAt >= container.since),
     container.onTab,
   );
   return (
