@@ -21,8 +21,8 @@ type Refusal = Exclude<GroomCancelResult, { state: 'cancelling' }>;
 
 /**
  * The stop confirm, for the run `target` names. The caller mounts it only
- * while it is open, as the grooming dialog's callers do: closing unmounts the
- * whole dialog, so each opening starts with the question.
+ * while it is open: closing unmounts the whole dialog, so each opening starts
+ * with the question.
  */
 export function StopRunDialog({ target, onClose }: { target: StopTarget; onClose: () => void }) {
   const [refusal, setRefusal] = useState<Refusal | undefined>();

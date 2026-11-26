@@ -1588,7 +1588,6 @@ describe('task page timeline (MMR-728)', () => {
   });
 });
 
-/** Open the edit form for `node` and return its Tags field. */
 /** Open a task page whose only timeline note carries `content`. */
 async function openWithNote(content: string) {
   await openTask(
