@@ -938,6 +938,9 @@ Needs you.
   (2026-11-24, MMR-724: Shipped's rows by project, Now, and the Ready to
   start and Going cold rows open the Tasks list with a preset set, per
   project; see the MMR-724 refinement below.)
+  (2026-11-26, MMR-763: the spare-minute rows sum per-project counts on the
+  review report's `projects`; the report no longer lists the seeds, runnable
+  tasks, or going-cold tasks behind them.)
   (2026-11-25, MMR-725: the Seeds to triage row opens the Seeds list on
   To triage when one project holds every seed to triage; see the MMR-725
   refinement below.)

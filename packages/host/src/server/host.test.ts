@@ -217,8 +217,8 @@ test('host logs applied SQLite migrations and refuses a schema ahead with an ima
   expect(refusal instanceof Error ? refusal.message : '').toContain('update the image');
 });
 
-const total = (groups: { findings: number }[]) =>
-  groups.reduce((sum, group) => sum + group.findings, 0);
+const total = (projects: { findings: number }[]) =>
+  projects.reduce((sum, project) => sum + project.findings, 0);
 
 test('the host Engine counts stored record findings in console.review', async () => {
   const root = await mkdtemp(join(tmpdir(), 'mimir-host-review-findings-'));
@@ -233,7 +233,7 @@ test('the host Engine counts stored record findings in console.review', async ()
       database.close();
     }
     const page = await host.engine.console.review({ timeZone: 'UTC' });
-    expect(total(page.triage)).toBe(1);
+    expect(total(page.projects)).toBe(1);
   } finally {
     await host.close();
   }

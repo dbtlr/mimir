@@ -9,7 +9,7 @@ import {
   oneProject,
   shippedWeek,
 } from '../lib/home';
-import { engineReview, shippedRow, stripRow, tagged, triageSeed } from './views-fixtures';
+import { engineReview, shippedRow, stripRow, tagged } from './views-fixtures';
 
 /*
  * Home's derivations (ADR 0013, MMR-722 refinement): the page title's day, the
@@ -239,21 +239,9 @@ describe('the spare-minute rows', () => {
   it('counts seeds, runnable tasks, tasks going cold, and doctor findings across projects', () => {
     const rows = minuteRows(
       engineReview({
-        goingCold: [{ project: 'MMR', task: shippedRow({ id: 'MMR-9' }, new Date(NOW)).task }],
-        runnable: [],
-        triage: [
-          {
-            findings: 2,
-            goingCold: 1,
-            project: { key: 'MMR', name: 'Mimir' },
-            seeds: [triageSeed({ id: 'MMR-s1' }), triageSeed({ id: 'MMR-s2' })],
-          },
-          {
-            findings: 1,
-            goingCold: 0,
-            project: { key: 'LM', name: 'Loom CLI' },
-            seeds: [triageSeed({ id: 'LM-s1' })],
-          },
+        projects: [
+          stripRow({ key: 'MMR', name: 'Mimir' }, { findings: 2, goingCold: 1, untriaged: 2 }),
+          stripRow({ key: 'LM', name: 'Loom CLI' }, { findings: 1, untriaged: 1 }),
         ],
       }),
     );
@@ -270,18 +258,16 @@ describe('the spare-minute rows', () => {
   });
 });
 
-/** A project's spare-minute group holding `seeds` seeds to triage. */
-const triageGroup = (key: string, seeds: number) => ({
-  findings: 0,
-  goingCold: 0,
-  project: { key, name: key },
-  seeds: Array.from({ length: seeds }, (_, i) => triageSeed({ id: `${key}-s${String(i + 1)}` })),
-});
+/** A project in the review report with only the given counts. */
+const counted = (key: string, counts: Parameters<typeof stripRow>[1]) =>
+  stripRow({ key, name: key }, counts);
 
 describe('the Seeds to triage door (MMR-725)', () => {
   it('opens the one project’s Seeds list on To triage when it holds every seed to triage', () => {
     const [seeds] = minuteRows(
-      engineReview({ triage: [triageGroup('LM', 0), triageGroup('MMR', 2)] }),
+      engineReview({
+        projects: [counted('LM', { findings: 4 }), counted('MMR', { untriaged: 2 })],
+      }),
     );
     expect(seeds).toEqual({
       count: 2,
@@ -292,9 +278,39 @@ describe('the Seeds to triage door (MMR-725)', () => {
 
   it('has no door when the seeds to triage span projects', () => {
     const [seeds] = minuteRows(
-      engineReview({ triage: [triageGroup('LM', 1), triageGroup('MMR', 2)] }),
+      engineReview({
+        projects: [counted('LM', { untriaged: 1 }), counted('MMR', { untriaged: 2 })],
+      }),
     );
     expect(seeds).toEqual({ count: 3, name: 'Seeds to triage' });
+  });
+});
+
+describe('the Ready to start and Going cold doors (MMR-724)', () => {
+  it('open the one project’s Tasks preset when it holds the whole count', () => {
+    const [, ready, cold] = minuteRows(
+      engineReview({
+        projects: [
+          counted('LM', { goingCold: 1 }),
+          counted('MMR', { goingCold: 2, runnable: 3 }),
+          counted('NORN', {}),
+        ],
+      }),
+    );
+    expect(ready).toEqual({
+      count: 3,
+      door: { list: 'tasks', project: 'MMR', show: 'ready' },
+      name: 'Ready to start',
+    });
+    expect(cold).toEqual({ count: 3, name: 'Going cold' });
+  });
+
+  it('have no door when nothing counts', () => {
+    const [, ready, cold] = minuteRows(engineReview({ projects: [counted('MMR', {})] }));
+    expect([ready, cold]).toEqual([
+      { count: 0, name: 'Ready to start' },
+      { count: 0, name: 'Going cold' },
+    ]);
   });
 });
 

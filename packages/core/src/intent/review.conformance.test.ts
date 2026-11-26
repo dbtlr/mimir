@@ -23,13 +23,13 @@ import { cmpStr } from './work';
 beforeAll(bootPglite);
 
 /**
- * The review page's cross-project work rows (MMR-504): `now`, `shipped`,
- * `runnable`, and `goingCold` come from the same builders as the per-project
- * work page, so a project's rows in the review equal that project's work
- * report, and the project list carries the health counts the rail reads.
- * Across projects the lists have their own order: `now` most recently started
- * first, `runnable` in project (rail) order then rank, `goingCold` longest quiet
- * first, `shipped` newest first.
+ * The review page's cross-project work rows (MMR-504): `now` and `shipped`
+ * come from the same builders as the per-project work page, so a project's
+ * rows in the review equal that project's work report. The project list
+ * carries the counts Home and the rail read; its `runnable` and `goingCold`
+ * equal the lengths of the project's work-page sections (MMR-763). Across
+ * projects the lists have their own order: `now` most recently started first,
+ * `shipped` newest first.
  */
 
 const TZ = 'UTC';
@@ -118,9 +118,8 @@ for (const backend of backends) {
       const aaa = await populate(store, 'AAA');
       await tick();
       const bbb = await populate(store, 'BBB');
-      await rawPatchNode(store, aaa.cold, { updated_at: '2019-01-01T00:00:00.000Z' });
       const report = await review(store);
-      // BBB is newer on every axis but going cold, where AAA has been quiet longer.
+      // BBB is newer on every axis.
       expect(keyed(report.now)).toEqual([
         ['BBB', bbb.working],
         ['AAA', aaa.working],
@@ -128,14 +127,6 @@ for (const backend of backends) {
       expect(keyed(report.shipped)).toEqual([
         ['BBB', bbb.finished],
         ['AAA', aaa.finished],
-      ]);
-      expect(keyed(report.runnable)).toEqual([
-        ['BBB', bbb.runnable],
-        ['AAA', aaa.runnable],
-      ]);
-      expect(keyed(report.goingCold)).toEqual([
-        ['AAA', aaa.cold],
-        ['BBB', bbb.cold],
       ]);
     },
   );
@@ -146,117 +137,102 @@ for (const backend of backends) {
     await populate(store, 'OLD');
     await archiveProject(store, 'OLD');
     const report = await review(store);
-    for (const list of [report.now, report.shipped, report.runnable, report.goingCold]) {
+    for (const list of [report.now, report.shipped]) {
       expect(list.length).toBeGreaterThan(0);
       expect(list.every((r) => r.project === 'AAA')).toBe(true);
     }
     expect(report.projects.map((p) => p.key)).toEqual(['AAA']);
   });
 
-  itOnSqlite("a project's rows in the review equal that project's work report", async () => {
-    const store = await fresh();
-    const keys = ['AAA', 'BBB', 'CCC'];
-    for (const key of keys) {
-      const fx = await populate(store, key);
-      // A second row per list, so order within a project is observable.
-      const second = await task(store, key, fx.phase, `${key} second working`);
-      await startTask(store, second);
-      const dropped = await task(store, key, fx.phase, `${key} dropped`);
-      await abandonTask(store, dropped, 'scope cut');
-      const secondRunnable = await task(store, key, fx.phase, `${key} second runnable`);
-      await groomTasks(store, [secondRunnable], 'groomed');
-      const secondCold = await task(store, key, fx.phase, `${key} second cold`);
-      await rawPatchNode(store, secondCold, { updated_at: '2020-02-01T00:00:00.000Z' });
-      // Stale tasks that also sit in another section: going cold repeats them.
-      await rawPatchNode(store, fx.working, { updated_at: LONG_AGO });
-      await rawPatchNode(store, secondRunnable, { updated_at: '2020-03-01T00:00:00.000Z' });
-      await tick();
-    }
-    const pads = createScratchpadService(store.scratchpads, store.artifacts, store);
-    const [anchor] = (await workPageOf(store, 'AAA', { timeZone: TZ })).now;
-    await pads.create({ anchors: [anchor?.task.id ?? ''], project: 'AAA', title: 'pad' });
-    const report = await review(store);
-    for (const key of keys) {
-      const page = await workPageOf(store, key, { timeZone: TZ });
-      const mine = <T extends { project: string }>(rows: readonly T[]) =>
-        rows.filter((r) => r.project === key).map(withoutProject);
-      expect(page.now.length).toBeGreaterThan(1);
-      expect(page.shipped.length).toBeGreaterThan(1);
-      expect(page.frontier.runnable.length).toBeGreaterThan(1);
-      expect(page.goingCold.length).toBeGreaterThan(1);
-      // The staleness of a task in another section is carried on its row.
-      expect(page.now.some((r) => r.stale)).toBe(true);
-      expect(page.frontier.runnable.some((r) => r.stale)).toBe(true);
-      // The review lists `now` by latest move first (a review's submit, otherwise its start);
-      // the page lists it in rank order.
-      const lastMove = (r: (typeof page.now)[number]) => r.submittedAt ?? r.startedAt;
-      expect(mine(report.now)).toEqual(
-        page.now.toSorted((a, b) => cmpStr(lastMove(b), lastMove(a))),
-      );
-      expect(mine(report.shipped)).toEqual(page.shipped);
-      expect(mine(report.runnable)).toEqual(page.frontier.runnable);
-      expect(mine(report.goingCold).map((r) => r.task)).toEqual(page.goingCold);
-    }
-    expect(report.now.some((r) => r.scratchpads.length > 0)).toBe(true);
-  });
-
   itOnSqlite(
-    'orders the lists across projects: started, project then rank, quiet, newest finish',
+    "a project's rows and counts in the review equal that project's work report",
     async () => {
       const store = await fresh();
-      const fixtures = new Map<string, Fixture>();
-      // AAA, BBB, CCC are created and started in that order.
-      for (const key of ['AAA', 'BBB', 'CCC']) {
+      const keys = ['AAA', 'BBB', 'CCC'];
+      for (const key of keys) {
         const fx = await populate(store, key);
-        fixtures.set(key, fx);
-        await groomTasks(
-          store,
-          [await task(store, key, fx.phase, `${key} second runnable`)],
-          'groomed',
-        );
+        // A second row per list, so order within a project is observable.
+        const second = await task(store, key, fx.phase, `${key} second working`);
+        await startTask(store, second);
+        const dropped = await task(store, key, fx.phase, `${key} dropped`);
+        await abandonTask(store, dropped, 'scope cut');
+        const secondRunnable = await task(store, key, fx.phase, `${key} second runnable`);
+        await groomTasks(store, [secondRunnable], 'groomed');
+        const secondCold = await task(store, key, fx.phase, `${key} second cold`);
+        await rawPatchNode(store, secondCold, { updated_at: '2020-02-01T00:00:00.000Z' });
+        // Groomed but unranked: on the frontier, yet not runnable.
+        const unranked = await task(store, key, fx.phase, `${key} unranked`);
+        await groomTasks(store, [unranked], 'groomed');
+        await rawPatchNode(store, unranked, { rank: null });
+        // Stale tasks that also sit in another section: going cold repeats them.
+        await rawPatchNode(store, fx.working, { updated_at: LONG_AGO });
+        await rawPatchNode(store, secondRunnable, { updated_at: '2020-03-01T00:00:00.000Z' });
         await tick();
       }
-      const at = (key: string): Fixture => {
-        const fx = fixtures.get(key);
-        if (fx === undefined) {
-          throw new Error(`no fixture ${key}`);
-        }
-        return fx;
-      };
-      // Rail order: CCC pinned, then AAA (newest activity), then BBB.
-      await updateProject(store, 'CCC', { pinned: true });
-      await tick();
-      await rawPatchNode(store, at('AAA').cold, { updated_at: '2020-03-01T00:00:00.000Z' });
-      await rawPatchNode(store, at('BBB').cold, { updated_at: '2020-01-01T00:00:00.000Z' });
-      await rawPatchNode(store, at('CCC').cold, { updated_at: '2020-02-01T00:00:00.000Z' });
-      await rawPatchNode(store, at('AAA').finished, { completed_at: '2026-03-02T00:00:00.000Z' });
-      await rawPatchNode(store, at('BBB').finished, { completed_at: '2026-03-03T00:00:00.000Z' });
-      await rawPatchNode(store, at('CCC').finished, { completed_at: '2026-03-01T00:00:00.000Z' });
-      await tick();
-      await annotate(store, at('AAA').working, 'fresh news');
-      const report = await reviewOf(store, new Map(), {
-        asOf: '2026-03-04T00:00:00.000Z',
-        timeZone: TZ,
-      });
-      expect(report.projects.map((p) => p.key)).toEqual(['CCC', 'AAA', 'BBB']);
-      // Most recently started first.
-      expect(report.now.map((r) => r.project)).toEqual(['CCC', 'BBB', 'AAA']);
-      // Project order, then the project's own rank.
-      const runnable = report.runnable.map((r) => r.task.id);
-      const rankOf = async (key: string): Promise<string[]> =>
-        (await workPageOf(store, key, { timeZone: TZ })).frontier.runnable.map((r) => r.task.id);
-      expect(runnable).toEqual([
-        ...(await rankOf('CCC')),
-        ...(await rankOf('AAA')),
-        ...(await rankOf('BBB')),
-      ]);
-      expect(runnable).toHaveLength(6);
-      // Longest quiet first.
-      expect(report.goingCold.map((r) => r.project)).toEqual(['BBB', 'CCC', 'AAA']);
-      // Newest finish first.
-      expect(report.shipped.map((r) => r.project)).toEqual(['BBB', 'AAA', 'CCC']);
+      const pads = createScratchpadService(store.scratchpads, store.artifacts, store);
+      const [anchor] = (await workPageOf(store, 'AAA', { timeZone: TZ })).now;
+      await pads.create({ anchors: [anchor?.task.id ?? ''], project: 'AAA', title: 'pad' });
+      const report = await review(store);
+      for (const key of keys) {
+        const page = await workPageOf(store, key, { timeZone: TZ });
+        const mine = <T extends { project: string }>(rows: readonly T[]) =>
+          rows.filter((r) => r.project === key).map(withoutProject);
+        expect(page.now.length).toBeGreaterThan(1);
+        expect(page.shipped.length).toBeGreaterThan(1);
+        expect(page.frontier.runnable.length).toBeGreaterThan(1);
+        expect(page.goingCold.length).toBeGreaterThan(1);
+        // The staleness of a task in another section is carried on its row.
+        expect(page.now.some((r) => r.stale)).toBe(true);
+        expect(page.frontier.runnable.some((r) => r.stale)).toBe(true);
+        // The review lists `now` by latest move first (a review's submit, otherwise its start);
+        // the page lists it in rank order.
+        const lastMove = (r: (typeof page.now)[number]) => r.submittedAt ?? r.startedAt;
+        expect(mine(report.now)).toEqual(
+          page.now.toSorted((a, b) => cmpStr(lastMove(b), lastMove(a))),
+        );
+        expect(mine(report.shipped)).toEqual(page.shipped);
+        expect(report.projects.find((p) => p.key === key)).toMatchObject({
+          goingCold: page.goingCold.length,
+          runnable: page.frontier.runnable.length,
+        });
+      }
+      expect(report.now.some((r) => r.scratchpads.length > 0)).toBe(true);
     },
   );
+
+  itOnSqlite('orders the lists across projects: most recently started, newest finish', async () => {
+    const store = await fresh();
+    const fixtures = new Map<string, Fixture>();
+    // AAA, BBB, CCC are created and started in that order.
+    for (const key of ['AAA', 'BBB', 'CCC']) {
+      fixtures.set(key, await populate(store, key));
+      await tick();
+    }
+    const at = (key: string): Fixture => {
+      const fx = fixtures.get(key);
+      if (fx === undefined) {
+        throw new Error(`no fixture ${key}`);
+      }
+      return fx;
+    };
+    // Rail order: CCC pinned, then AAA (newest activity), then BBB.
+    await updateProject(store, 'CCC', { pinned: true });
+    await tick();
+    await rawPatchNode(store, at('AAA').finished, { completed_at: '2026-03-02T00:00:00.000Z' });
+    await rawPatchNode(store, at('BBB').finished, { completed_at: '2026-03-03T00:00:00.000Z' });
+    await rawPatchNode(store, at('CCC').finished, { completed_at: '2026-03-01T00:00:00.000Z' });
+    await tick();
+    await annotate(store, at('AAA').working, 'fresh news');
+    const report = await reviewOf(store, new Map(), {
+      asOf: '2026-03-04T00:00:00.000Z',
+      timeZone: TZ,
+    });
+    expect(report.projects.map((p) => p.key)).toEqual(['CCC', 'AAA', 'BBB']);
+    // Most recently started first.
+    expect(report.now.map((r) => r.project)).toEqual(['CCC', 'BBB', 'AAA']);
+    // Newest finish first.
+    expect(report.shipped.map((r) => r.project)).toEqual(['BBB', 'AAA', 'CCC']);
+  });
 
   itOnSqlite('shipped ends with the weekly window', async () => {
     const store = await fresh();
@@ -281,13 +257,13 @@ for (const backend of backends) {
     const aaa = await populate(store, 'AAA');
     const report = await reviewOf(store, new Map());
     expect(report.shipped).toEqual([]);
-    expect(report.lastFinished?.task.id).toBe(aaa.finished);
     expect(report.now.map((r) => r.task.id)).toEqual([aaa.working]);
+    expect(report.projects[0]).toMatchObject({ goingCold: 1, runnable: 1 });
   });
 
   // The rail order reads each project's newest activity as a SQL MAX over its
   // stamps, and the pin from a boolean column, so this case runs on both.
-  it('projects carry live and going-cold counts, pinned first then newest activity', async () => {
+  it('projects carry live, runnable, and going-cold counts, pinned first then newest activity', async () => {
     const store = await fresh();
     const aaa = await populate(store, 'AAA');
     await populate(store, 'BBB');
@@ -305,7 +281,7 @@ for (const backend of backends) {
     expect(report.projects.map((p) => p.key)).toEqual(['CCC', 'AAA', 'BBB']);
     const byKey = new Map(report.projects.map((p) => [p.key, p]));
     // AAA: working, runnable, cold, parked. The finished and abandoned tasks are not live.
-    expect(byKey.get('AAA')).toMatchObject({ goingCold: 1, live: 4 });
-    expect(byKey.get('BBB')).toMatchObject({ goingCold: 1, live: 3 });
+    expect(byKey.get('AAA')).toMatchObject({ goingCold: 1, live: 4, runnable: 1 });
+    expect(byKey.get('BBB')).toMatchObject({ goingCold: 1, live: 3, runnable: 1 });
   });
 }

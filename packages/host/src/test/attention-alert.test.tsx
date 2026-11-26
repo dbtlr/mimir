@@ -13,7 +13,7 @@ import { serveNodes } from './node-fns';
 import { renderShell } from './router';
 import { serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
-import { engineReview, needsYouRow, stripRow, triageSeed } from './views-fixtures';
+import { engineReview, needsYouRow, stripRow } from './views-fixtures';
 import { serveViews } from './views-fns';
 
 vi.mock('../api/fns/nodes');
@@ -132,10 +132,7 @@ describe('the attention alert', () => {
     await renderAt(
       '/',
       engineReview({
-        projects: [stripRow(MMR, { triage: 15 })],
-        triage: [
-          { findings: 12, goingCold: 2, project: MMR, seeds: [triageSeed({ id: 'MMR-s1' })] },
-        ],
+        projects: [stripRow(MMR, { findings: 12, goingCold: 2, untriaged: 1 })],
       }),
     );
     // Home's quiet line proves the review read has landed.

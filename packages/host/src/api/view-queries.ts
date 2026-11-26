@@ -91,9 +91,6 @@ export type WaitingTask = WorkReport['frontier']['waitingOnOthers'][number];
 /** One task that finished inside the shipped window. */
 export type ShippedTask = WorkReport['shipped'][number];
 
-/** One untriaged seed the review report lists. */
-export type TriageSeed = ReviewReport['triage'][number]['seeds'][number];
-
 /**
  * Home's review report (MMR-477): what needs the operator across every active
  * project, plus the project list. Its own key root, listed in the write keys,

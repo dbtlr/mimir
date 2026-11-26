@@ -8,7 +8,6 @@ import type {
   NowTask,
   ReviewReport,
   ShippedTask,
-  TriageSeed,
   WorkReport,
 } from '../api/view-queries';
 import { FIXTURE_AT, engineNode } from './engine-fixtures';
@@ -35,16 +34,12 @@ export function engineWork(overrides: Partial<WorkReport> = {}): WorkReport {
 /** Home's review report with nothing in it; override the parts a case fills. */
 export function engineReview(overrides: Partial<ReviewReport> = {}): ReviewReport {
   return {
-    goingCold: [],
-    lastFinished: null,
     needsYou: [],
     needsYouFacts: { bundles: [], deliveries: [] },
     now: [],
     projects: [],
     queue: [],
-    runnable: [],
     shipped: [],
-    triage: [],
     ...overrides,
   };
 }
@@ -116,26 +111,25 @@ export function tagged<R extends { task: EngineNode }>(row: R): R & { project: s
   return { ...row, project: row.task.id.split('-')[0] ?? 'MMR' };
 }
 
-/** A project's row in the review report. */
+/**
+ * A project's row in the review report. `triage` defaults to the sum of the
+ * `untriaged`, `goingCold`, and `findings` counts given, as the Engine sets it.
+ */
 export function stripRow(
   ref: { key: string; name: string },
   counts: Partial<ReviewReport['projects'][number]> = {},
 ): ReviewReport['projects'][number] {
-  return { ...ref, goingCold: 0, inFlight: 0, live: 0, needsYou: 0, triage: 0, ...counts };
-}
-
-/** An untriaged seed as the review report lists it. */
-export function triageSeed(overrides: Partial<TriageSeed> & Pick<TriageSeed, 'id'>): TriageSeed {
+  const { findings = 0, goingCold = 0, untriaged = 0 } = counts;
   return {
-    createdAt: FIXTURE_AT,
-    kind: 'idea',
-    lifecycle: 'new',
-    project: overrides.id.split('-')[0] ?? 'MMR',
-    readyToResolve: false,
-    requester: null,
-    spawned: [],
-    title: `seed ${overrides.id}`,
-    updatedAt: FIXTURE_AT,
-    ...overrides,
+    ...ref,
+    findings,
+    goingCold,
+    inFlight: 0,
+    live: 0,
+    needsYou: 0,
+    runnable: 0,
+    triage: untriaged + goingCold + findings,
+    untriaged,
+    ...counts,
   };
 }

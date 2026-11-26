@@ -212,17 +212,18 @@ const PROJECTS = new Map([
 function reportOf(rows: readonly Row[]): ReviewReport {
   const keys = [...new Set(rows.map(projectOf))];
   const project = ([key, name]: [string, string]) => ({
+    findings: 0,
     goingCold: 0,
     inFlight: 0,
     key,
     live: 0,
     name,
     needsYou: rows.filter((row) => projectOf(row) === key).length,
+    runnable: 0,
     triage: 0,
+    untriaged: 0,
   });
   return {
-    goingCold: [],
-    lastFinished: null,
     needsYou: keys.map((key) => ({
       project: { key, name: PROJECTS.get(key) ?? key },
       rows: rows.filter((row) => projectOf(row) === key),
@@ -258,9 +259,7 @@ function reportOf(rows: readonly Row[]): ReviewReport {
     now: [],
     projects: [...PROJECTS].map(project),
     queue: rows.map((row) => ({ id: idOf(row), kind: row.kind })),
-    runnable: [],
     shipped: [],
-    triage: [],
   };
 }
 

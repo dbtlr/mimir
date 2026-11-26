@@ -332,7 +332,7 @@ export async function workPageOf(store: Store, id: string, opts: WorkOptions): P
 }
 
 /** A frontier candidate: a todo task or break-down container, and the prerequisites it awaits. */
-type FrontierEntry = { node: Node; awaitingOn: NodeRef[] };
+export type FrontierEntry = { node: Node; awaitingOn: NodeRef[] };
 
 /**
  * A set of tasks sorted into the work page's sections. The one place the
@@ -486,14 +486,14 @@ export async function frontierRowOf(
   };
 }
 
-/** `frontier.runnable`: groomed, ready, and ranked: `next`'s selection, in rank order. */
+/** Whether a frontier entry is runnable: groomed, ready, and ranked, `next`'s selection. */
+export const isRunnable = (e: FrontierEntry): boolean =>
+  e.node.grooming === 'groomed' && e.awaitingOn.length === 0 && e.node.rank !== null;
+
+/** `frontier.runnable`: the runnable entries, in rank order. */
 export function runnableRowsOf(source: WorkRowSource): Promise<WorkFrontierTask[]> {
   return Promise.all(
-    source.buckets.frontier
-      .filter(
-        (e) => e.node.grooming === 'groomed' && e.awaitingOn.length === 0 && e.node.rank !== null,
-      )
-      .map((entry) => frontierRowOf(source, entry)),
+    source.buckets.frontier.filter(isRunnable).map((entry) => frontierRowOf(source, entry)),
   );
 }
 
