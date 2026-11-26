@@ -1236,8 +1236,8 @@ switcher already reads. It takes no search parameters.
   projects_,** a link to `/projects` that counts every active project and
   is marked the page there. The switcher's _All projects_ entry still leads
   to `/`, as the MMR-503 refinement set it.
-- **The sidebar on `/projects`** shows the All projects context, as on any
-  page outside a project.
+- **The sidebar on `/projects`** shows the All projects context, as on `/`,
+  `/needs-you`, and `/doctor`. Settings' pages and `/pair` keep their own.
 
 The page becomes a consumer of the review report's per-project `needsYou`,
 `triage`, `inFlight`, `live`, and `goingCold` counts, so trimming that
