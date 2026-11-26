@@ -54,8 +54,9 @@ export type ReasonProps = {
   commits: ReasonCommit[];
   /**
    * Further controls under the text box; they decide `commitDisabled` and disable while busy.
-   * Transitional: a Choice pattern only. The grooming answer's radios move to
-   * the Choice pattern (UI SDK Radio) with MMR-731; a feature passes no raw inputs.
+   * Transitional: a Choice pattern only. The grooming answer's radios are still
+   * raw inputs until they move to the Choice pattern (UI SDK Radio); a feature
+   * passes no raw inputs.
    */
   children?: ReactNode;
   /** Disables every commit for a reason beyond the text, such as offline or a missing choice. */

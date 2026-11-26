@@ -34,10 +34,7 @@ const LONG_TRAIL = [
 const noop = () => {};
 
 const TASK_MORE: ActionMenuEntry[] = moreEntries([
-  [
-    { key: 'edit', kind: 'action', label: 'Edit', onSelect: noop },
-    { key: 'move', kind: 'action', label: 'Move…', onSelect: noop },
-  ],
+  [{ key: 'edit', kind: 'action', label: 'Edit', onSelect: noop }],
   [{ key: 'stage', kind: 'action', label: 'Stage', onSelect: noop }],
   [
     { key: 'park', kind: 'action', label: 'Park for later…', onSelect: noop },

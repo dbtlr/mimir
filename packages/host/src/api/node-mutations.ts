@@ -202,10 +202,11 @@ export type UpdateNodeInput = {
   description?: string | null;
   /** Owned direction prose (ADR 0026) — containers only; tasks never carry it. */
   next?: string | null;
-  summary?: string;
-  priority?: Priority;
-  size?: Size;
-  externalRef?: string;
+  /** A one-line field, size, or priority clears with `null`. */
+  summary?: string | null;
+  priority?: Priority | null;
+  size?: Size | null;
+  externalRef?: string | null;
 };
 
 export function useUpdateNode(id: string) {

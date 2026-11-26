@@ -125,7 +125,6 @@ describe('Start in T3 from the task page’s More (ADR 0040, MMR-726)', () => {
         .map((b) => b.textContent),
     ).toStrictEqual([
       'Edit',
-      'Move…',
       'Start on Valhalla',
       'Start in T3…',
       'Park for later…',
@@ -147,7 +146,6 @@ describe('Start in T3 from the task page’s More (ADR 0040, MMR-726)', () => {
     );
     expect(rows).toStrictEqual([
       'Edit',
-      'Move…',
       '—',
       'Start',
       'Start on Valhalla',
