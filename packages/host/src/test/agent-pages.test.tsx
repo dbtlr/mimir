@@ -72,14 +72,14 @@ describe('the task page', () => {
     title: 'Show sync times',
   });
 
-  it('places the card above the description', async () => {
+  it('places the card in the banner slot on Work, above the description', async () => {
     serveShell({ trees: { MMR: TREE } });
     serveNodes({ nodes: [task], notes: { 'MMR-640': [] } });
     serveViews();
     serveAgent({ card: readyCard() });
     await renderRoute(consoleRoutes, '/p/MMR/640', quietClient());
     const card = await screen.findByRole('region', { name: 'Groom with agent' });
-    const description = screen.getByRole('heading', { name: 'Description' });
+    const description = screen.getByText('Sync times.');
     expect(
       card.compareDocumentPosition(description) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();

@@ -116,3 +116,12 @@ export function isBareUrl(value: string): boolean {
   const [only, ...rest] = splitLinks(value);
   return rest.length === 0 && only?.kind === 'url' && only.value === value;
 }
+
+/** A pull request's URL path: `/pull/653`, then anything after it. */
+const PULL_PATH = /^https?:\/\/[^/\s]+\/[^\s]*\/pull\/(\d+)(?:[/?#]|$)/i;
+
+/** An external ref as a link's words: a pull request URL as "PR #653", anything else as written. */
+export function externalRefText(value: string): string {
+  const pull = PULL_PATH.exec(value)?.[1];
+  return pull === undefined ? value : `PR #${pull}`;
+}

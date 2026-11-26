@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 
-import { ActionButton } from '../ui/action-button';
+import { cn } from '../../lib/cn';
+import { ActionButton, QUIET_DISABLED } from '../ui/action-button';
 import { Field, FieldLabel } from '../ui/field';
 import { Textarea } from '../ui/textarea';
 import { useOpening } from './opening';
@@ -25,11 +26,15 @@ export type ComposerProps = {
 };
 
 /**
- * The commit's look: the accent wash of the source mock, at the 44px height
- * of the box beside it. Disabled, it is the quiet button (DESIGN.md, Color
- * roles), which the `action` variant already draws.
+ * The commit's look: an outline on the page, at the 44px height of the box
+ * beside it, so it never makes a second solid beside a record header's main
+ * action (MMR-728). Disabled, it is the quiet button (DESIGN.md, Color roles)
+ * rather than a faded outline.
  */
-const COMMIT_CLASS = 'bg-accent/14 text-accent-foreground hover:bg-accent/20';
+const COMMIT_CLASS = `${QUIET_DISABLED} disabled:opacity-100 aria-disabled:opacity-100`;
+
+/** The box's edge on the page: ink-faint measures 2.6:1 on well-900 in light, so it steps up (DESIGN.md). */
+const BOX_EDGE_CLASS = 'light:border-ink-dim';
 
 /** Focus fell with the commit as it disabled, or stayed on it: the box takes it for the next note. */
 function refocusBox(box: HTMLTextAreaElement | null, button: HTMLButtonElement) {
@@ -70,6 +75,7 @@ export function Composer({
         <Textarea
           ref={box}
           grow
+          className={BOX_EDGE_CLASS}
           value={text}
           readOnly={busy}
           disabled={disabled}
@@ -79,7 +85,8 @@ export function Composer({
       </Field>
       <ActionButton
         size="form"
-        className={COMMIT_CLASS}
+        variant="pageOutline"
+        className={cn('px-4', COMMIT_CLASS)}
         aria-label={commitName}
         aria-busy={busy}
         disabled={disabled || busy || trimmed === ''}

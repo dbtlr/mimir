@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import type { ComponentProps } from 'react';
+import type { CSSProperties, ComponentProps } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import remarkGfm from 'remark-gfm';
@@ -200,13 +200,15 @@ const SIZE_PROSE: Record<MarkdownSize, string> = {
 /**
  * Height clamps in line units: `lh` resolves against the article's own
  * line-height, and block children (code, tables) clamp too, which
- * `-webkit-line-clamp` cannot do. The bottom fade only appears once the content
- * really overflows, so a short body is never dimmed; it needs no colour token.
+ * `-webkit-line-clamp` cannot do. Where layout reports line boxes, the clamp
+ * moves to the bottom of its last whole line (`--clamp-height`), so block
+ * margins never leave a line cut in half (MMR-728). The bottom fade covers
+ * that last line only, and only once the content really overflows, so a
+ * short body is never dimmed; it needs no colour token.
  */
 const CLAMP_PROSE: Record<MarkdownClamp, string> = {
-  2: 'max-h-[2lh] overflow-hidden',
-  3: 'max-h-[3lh] overflow-hidden',
-  6: 'max-h-[6lh] overflow-hidden',
+  12: 'max-h-[var(--clamp-height,12lh)] overflow-hidden',
+  3: 'max-h-[var(--clamp-height,3lh)] overflow-hidden',
 };
 const CLAMP_FADE =
   'data-[overflowing]:[mask-image:linear-gradient(to_bottom,black_calc(100%_-_1lh),transparent)]';
@@ -214,7 +216,64 @@ const CLAMP_FADE =
 /** What a clamped body measured: whether it overflows, and its approximate rendered line count. */
 export type ClampMeasure = { overflowing: boolean; lines: number };
 
-export type MarkdownClamp = 2 | 3 | 6;
+export type MarkdownClamp = 3 | 12;
+
+/** The measured clamp as the `--clamp-height` the clamp class reads; none leaves its `lh` fallback. */
+function clampStyle(height: number | undefined): CSSProperties | undefined {
+  if (height === undefined) {
+    return undefined;
+  }
+  const style: CSSProperties & Record<'--clamp-height', string> = {
+    '--clamp-height': `${String(height)}px`,
+  };
+  return style;
+}
+
+/**
+ * The distance from `el`'s top to the bottom of its `lines`-th rendered line,
+ * read from the text's boxes and `lineHeight`; undefined where layout reports none
+ * (jsdom) or the text has fewer lines.
+ */
+function wholeLinesHeight(el: HTMLElement, lines: number, lineHeight: number): number | undefined {
+  const range = el.ownerDocument.createRange();
+  // jsdom lays nothing out, and its ranges have no client rects to read.
+  if (typeof range.getClientRects !== 'function') {
+    return undefined;
+  }
+  const walker = el.ownerDocument.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const boxes: { top: number; bottom: number }[] = [];
+  for (let text = walker.nextNode(); text !== null; text = walker.nextNode()) {
+    // The whitespace between blocks lays out as no line, but still reports a box.
+    if (text.textContent?.trim() === '') {
+      continue;
+    }
+    range.selectNodeContents(text);
+    for (const rect of range.getClientRects()) {
+      if (rect.height > 0 && rect.width > 0) {
+        // A text box is its glyphs' height; the line box adds half the leading below.
+        boxes.push({
+          bottom: rect.bottom + Math.max(0, lineHeight - rect.height) / 2,
+          top: rect.top,
+        });
+      }
+    }
+  }
+  boxes.sort((a, b) => a.top - b.top);
+  // A box that starts above the current line's bottom shares its line (a code span, a link).
+  const bottoms: number[] = [];
+  let lineBottom: number | undefined;
+  for (const box of boxes) {
+    if (lineBottom !== undefined && box.top < lineBottom - 1) {
+      lineBottom = Math.max(lineBottom, box.bottom);
+      bottoms[bottoms.length - 1] = lineBottom;
+    } else {
+      lineBottom = box.bottom;
+      bottoms.push(lineBottom);
+    }
+  }
+  const bottom = bottoms[lines - 1];
+  return bottom === undefined ? undefined : bottom - el.getBoundingClientRect().top;
+}
 
 /**
  * The console's one markdown renderer — user prose on the Meridian prose
@@ -225,10 +284,11 @@ export type MarkdownClamp = 2 | 3 | 6;
  * wherever it is opened. `className` carries the host's measure (the reader
  * pins 620px), never a new palette; `size` picks the text scale.
  *
- * `clamp` limits the rendered height to that many lines, fading the last line
+ * `clamp` limits the rendered height to that many whole lines, fading the last line
  * when the content overflows, and reports the measure through
  * `onClampMeasure` (stable callback expected) so the host can offer an expander.
- * Omit `clamp` to show the whole body. `data-clamped` marks the clamped state.
+ * Omit `clamp` to show the whole body. `data-clamped` marks the clamped state
+ * with its line count.
  *
  * `breaks` keeps single newlines as line breaks. Comment-like fields
  * (descriptions, notes, seed bodies) pass it so authored line breaks survive,
@@ -258,6 +318,7 @@ export function MarkdownBody({
 }) {
   const ref = useRef<HTMLElement>(null);
   const [overflowing, setOverflowing] = useState(false);
+  const [clampHeight, setClampHeight] = useState<number | undefined>(undefined);
   useLayoutEffect(() => {
     const el = ref.current;
     if (clamp === undefined || el === null) {
@@ -268,6 +329,7 @@ export function MarkdownBody({
       const over = el.scrollHeight > el.clientHeight + 1;
       const lineHeight = Number.parseFloat(getComputedStyle(el).lineHeight);
       setOverflowing(over);
+      setClampHeight(wholeLinesHeight(el, clamp, lineHeight));
       onClampMeasure?.({
         lines: lineHeight > 0 ? Math.ceil(el.scrollHeight / lineHeight) : 0,
         overflowing: over,
@@ -284,7 +346,7 @@ export function MarkdownBody({
   return (
     <article
       ref={ref}
-      data-clamped={clamp === undefined ? undefined : 'true'}
+      data-clamped={clamp}
       data-overflowing={clamp !== undefined && overflowing ? 'true' : undefined}
       className={cn(
         'prose prose-sm dark:prose-invert',
@@ -298,6 +360,7 @@ export function MarkdownBody({
         clamp !== undefined && [CLAMP_PROSE[clamp], CLAMP_FADE],
         className,
       )}
+      style={clamp === undefined ? undefined : clampStyle(clampHeight)}
     >
       <ReactMarkdown
         remarkPlugins={breaks ? [remarkGfm, remarkBreaks] : [remarkGfm]}

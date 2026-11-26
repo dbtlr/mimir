@@ -24,6 +24,7 @@ import { MarkdownBody } from './markdown-body';
 import { NewTaskButton } from './new-task-button';
 import { ArtifactLinks, SignalBadges, hasSignals, prerequisiteRows } from './node-record';
 import type { ActionMenuAction } from './patterns/action-menu';
+import { Fact, Facts } from './patterns/facts';
 import { FEED_FOCUS_RING } from './patterns/feed/link';
 import { RowGroup } from './patterns/feed/row-group';
 import { RecordHeader } from './patterns/record-header';
@@ -31,7 +32,8 @@ import { RecordTabs } from './patterns/record-tabs';
 import type { RecordTab } from './patterns/record-tabs';
 import { ProjectSettings } from './project-settings';
 import { RECORD_TYPE_LABEL, RecordMore, moreEntries, recordTrail } from './record-head';
-import { StatusBadge } from './status-badge';
+import { StatusBadge, StatusWord } from './status-badge';
+import { StatusDot } from './status-dot';
 import { Skeleton } from './ui/skeleton';
 import { WorkSections } from './work-sections';
 
@@ -284,21 +286,28 @@ export function WorkTab({
   );
 }
 
-/** One titled part of the Details tab, divided from the next by a hairline. */
-function DetailsSection({
+/**
+ * One titled part of a record's tab, divided from the next by a hairline, as
+ * Details' sections are. `ruled={false}` leaves out the hairline and its
+ * padding, for sections the caller spaces itself (a task's Depends on and
+ * Blocks on Work).
+ */
+export function DetailsSection({
   title,
   count,
+  ruled = true,
   children,
 }: {
   title: string;
   count?: number;
+  ruled?: boolean;
   children: ReactNode;
 }) {
   const id = useId();
   return (
     <section
       aria-labelledby={id}
-      className="border-b border-line py-6 first:pt-0 last:border-b-0 last:pb-0"
+      className={cn(ruled && 'border-b border-line py-6 first:pt-0 last:border-b-0 last:pb-0')}
     >
       {/* A flex row, so the gap before the count is 8 and the space only keeps the name readable. */}
       <h2
@@ -317,8 +326,42 @@ function DetailsSection({
  * A link to a related record: its ID in mono at the line's size, its title,
  * then its status at the right in the header's idiom, the dot right before a
  * bright word. Its hairline above runs straight to the column's edges.
+ *
+ * `stacked` is a task's form on Work (MMR-728): the status dot in a 16
+ * column, the title in `text-title` `ink-bright` (two lines at most on a
+ * phone, one from `md`), and under it the ID in mono and the status word,
+ * 8 apart around a "·".
  */
-function RelationRow({ refNode }: { refNode: NodeRef }) {
+export function RelationRow({ refNode, stacked = false }: { refNode: NodeRef; stacked?: boolean }) {
+  if (stacked) {
+    return (
+      <Link
+        {...nodeLink(refNode.id)}
+        className={cn(
+          'grid min-h-11 grid-cols-[16px_minmax(0,1fr)] gap-x-2 border-t border-line py-[11px] transition-colors hover:bg-well-800 md:min-h-9 md:py-[7px]',
+          FEED_FOCUS_RING,
+        )}
+      >
+        <span aria-hidden className="flex justify-center pt-2">
+          {refNode.status !== undefined && <StatusDot status={refNode.status} />}
+        </span>
+        <span className="min-w-0">
+          <span className="block text-title font-medium text-ink-bright line-clamp-2 wrap-anywhere md:line-clamp-1">
+            {refNode.title ?? refNode.id}
+          </span>{' '}
+          <span className="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-meta text-ink-dim">
+            <span className="font-mono">{refNode.id}</span>
+            {refNode.status !== undefined && (
+              <>
+                <span aria-hidden>·</span>
+                <StatusWord>{STATUS_META[refNode.status].label}</StatusWord>
+              </>
+            )}
+          </span>
+        </span>
+      </Link>
+    );
+  }
   return (
     <Link
       {...nodeLink(refNode.id)}
@@ -335,15 +378,6 @@ function RelationRow({ refNode }: { refNode: NodeRef }) {
         <StatusBadge status={refNode.status} className="shrink-0 pl-2" />
       )}
     </Link>
-  );
-}
-
-function Fact({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <>
-      <dt className="pt-px text-meta text-ink-dim">{label}</dt>
-      <dd className="m-0 min-w-0 text-label text-ink-bright">{children}</dd>
-    </>
   );
 }
 
@@ -397,25 +431,27 @@ export function ContainerDetails({ record }: { record: EngineNode }) {
             <SignalBadges node={record} />
           </div>
         )}
-        <dl className="m-0 grid grid-cols-[104px_minmax(0,1fr)] gap-x-4 gap-y-3.5">
+        <Facts>
           <Fact label="Created">{absoluteTime(record.createdAt)}</Fact>
           <Fact label="Updated">{absoluteTime(record.updatedAt)}</Fact>
           {record.target != null && <Fact label="Target">{record.target}</Fact>}
-        </dl>
+        </Facts>
       </section>
     </div>
   );
 }
 
-/** The tabs of an initiative or phase, in their order. */
-export type ContainerTab = 'work' | 'details' | 'timeline' | 'artifacts';
+/** The tabs of an initiative, a phase, or a task, in their order. */
+export type RecordPageTab = 'work' | 'details' | 'timeline' | 'artifacts';
+
+/** Open `tab`; `replace` swaps the URL's entry rather than pushing one. */
+export type OpenTab = (tab: RecordPageTab, options?: { replace: boolean }) => void;
 
 /** What the page adds to an initiative's or phase's tabs: the selected one, and the Timeline. */
 export type ContainerTabs = {
-  tab: ContainerTab | undefined;
-  /** Open `tab`; `replace` swaps the URL's entry rather than pushing one. */
-  onTab: (tab: ContainerTab, options?: { replace: boolean }) => void;
-  /** The Timeline tab's body — the feed and its composer. */
+  tab: RecordPageTab | undefined;
+  onTab: OpenTab;
+  /** The Timeline tab's body — the record's timeline. */
   timeline: ReactNode;
   timelineCount: number;
   /**
@@ -427,15 +463,14 @@ export type ContainerTabs = {
 };
 
 /**
- * The tabs an initiative or phase shows, in order, hidden when empty: Work
- * once it holds tasks or `liveDeliveries` (a delivery may name no tasks),
- * Details and Timeline always (a record always has its dates and its
- * creation), Artifacts once one is attached.
+ * The tabs a record page shows, in order, hidden when empty: Work when
+ * `work` says it holds something, Details and Timeline always (a record
+ * always has its dates and its creation), Artifacts once one is attached.
  */
-export function containerTabs(record: EngineNode, timelineCount: number, liveDeliveries: boolean) {
+export function recordTabs(record: EngineNode, timelineCount: number, work: boolean) {
   const artifacts = record.artifacts?.length ?? 0;
-  const tabs: RecordTab<ContainerTab>[] = [
-    ...(taskCount(record) > 0 || liveDeliveries ? [{ label: 'Work', value: 'work' as const }] : []),
+  const tabs: RecordTab<RecordPageTab>[] = [
+    ...(work ? [{ label: 'Work', value: 'work' as const }] : []),
     { label: 'Details', value: 'details' },
     { count: timelineCount, label: 'Timeline', value: 'timeline' },
     ...(artifacts > 0
@@ -446,11 +481,42 @@ export function containerTabs(record: EngineNode, timelineCount: number, liveDel
 }
 
 /**
- * An initiative's or phase's page. The URL names the tab; with none, or one
- * that is hidden, the page opens on the first tab that has something in it
- * and, once the reads that decide the tabs are current, replaces the URL with
- * that tab, so the page stays on it when the hidden one fills, and it reads as
- * chosen.
+ * An initiative's or phase's tabs: Work once it holds tasks or
+ * `liveDeliveries` (a delivery may name no tasks).
+ */
+export function containerTabs(record: EngineNode, timelineCount: number, liveDeliveries: boolean) {
+  return recordTabs(record, timelineCount, taskCount(record) > 0 || liveDeliveries);
+}
+
+/**
+ * The tab a record page shows. The URL names it (`asked`; none is Work); when
+ * that one is hidden, the page shows the first tab that has something in it
+ * and, once `current` (the reads that decide the tabs are from since the page
+ * mounted), replaces the URL with it, so the page stays on it when the hidden
+ * one fills, and it reads as chosen.
+ */
+export function useShownTab(
+  tabs: readonly RecordTab<RecordPageTab>[],
+  asked: RecordPageTab | undefined,
+  current: boolean,
+  onTab: OpenTab,
+): RecordPageTab {
+  const wanted = asked ?? 'work';
+  const tab = tabs.find((t) => t.value === wanted)?.value ?? tabs[0]?.value ?? 'details';
+  const settle = useEffectEvent(() => {
+    onTab(tab, { replace: true });
+  });
+  useEffect(() => {
+    if (tab !== wanted && current) {
+      settle();
+    }
+  }, [tab, wanted, current]);
+  return tab;
+}
+
+/**
+ * An initiative's or phase's page: its header, then its tabs, the shown one
+ * as `useShownTab` picks it.
  */
 export function ContainerPage({
   record,
@@ -472,20 +538,13 @@ export function ContainerPage({
   });
   const live = record.type === 'phase' && deliveries.data?.length !== 0;
   const tabs = containerTabs(record, container.timelineCount, live);
-  const asked = container.tab ?? 'work';
-  const tab = tabs.find((t) => t.value === asked)?.value ?? tabs[0]?.value ?? 'details';
-  // The URL takes the shown tab only from reads made since the page mounted.
-  const current =
+  const tab = useShownTab(
+    tabs,
+    container.tab,
     container.recordReadAt >= container.since &&
-    (!deliveriesDecideWork || deliveries.dataUpdatedAt >= container.since);
-  const settle = useEffectEvent(() => {
-    container.onTab(tab, { replace: true });
-  });
-  useEffect(() => {
-    if (tab !== asked && current) {
-      settle();
-    }
-  }, [tab, asked, current]);
+      (!deliveriesDecideWork || deliveries.dataUpdatedAt >= container.since),
+    container.onTab,
+  );
   return (
     <RecordColumn offline={offline}>
       <ContainerHead record={record} tree={tree} offline={offline} />
@@ -498,7 +557,7 @@ export function ContainerPage({
       >
         {tab === 'work' && <WorkTab record={record} tree={tree} offline={offline} />}
         {tab === 'details' && <ContainerDetails record={record} />}
-        {tab === 'timeline' && <div className="flex flex-col gap-3">{container.timeline}</div>}
+        {tab === 'timeline' && container.timeline}
         {tab === 'artifacts' && (
           <ArtifactLinks
             artifacts={newestArtifacts(record.artifacts ?? [], record.artifacts?.length ?? 0)}

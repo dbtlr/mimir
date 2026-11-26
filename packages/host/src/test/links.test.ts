@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isBareUrl, isExternalHref, splitLinks } from '../lib/links';
+import { externalRefText, isBareUrl, isExternalHref, splitLinks } from '../lib/links';
 
 describe('splitLinks', () => {
   it('returns plain text as one text segment', () => {
@@ -149,5 +149,17 @@ describe('isBareUrl', () => {
   it('refuses ids and protocol-relative references', () => {
     expect(isBareUrl('JIRA-123')).toBe(false);
     expect(isBareUrl('//evil.test')).toBe(false);
+  });
+});
+
+describe('externalRefText', () => {
+  it('names a pull request URL by its number', () => {
+    expect(externalRefText('https://github.com/x/mimir/pull/653')).toBe('PR #653');
+    expect(externalRefText('https://github.com/x/mimir/pull/653/files')).toBe('PR #653');
+  });
+
+  it('keeps any other value whole', () => {
+    expect(externalRefText('https://example.test/issues/9')).toBe('https://example.test/issues/9');
+    expect(externalRefText('JIRA-123')).toBe('JIRA-123');
   });
 });

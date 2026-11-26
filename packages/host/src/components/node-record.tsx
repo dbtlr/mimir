@@ -4,44 +4,23 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useTag, useTransition, useUntag, useUpdateNode } from '../api/node-mutations';
-import { cn } from '../lib/cn';
 import { isBareUrl } from '../lib/links';
 import { proseEdit } from '../lib/prose';
-import { artifactLink, nodeLink } from '../lib/record-url';
+import { artifactLink } from '../lib/record-url';
 import type { TaskFormValues } from '../lib/schemas';
-import type { NodeAnnotation } from '../lib/timeline';
 import { availableTransitions, transitionLabel } from '../lib/transitions';
 import type { TransitionVerb, VerbSpec } from '../lib/transitions';
-import { verdictSummary } from '../lib/verdict';
 import type { RecordArtifact } from '../lib/work-page';
-import { LinkifiedText } from './linkified-text';
 import { MarkdownBody } from './markdown-body';
 import { Reason } from './patterns/reason';
 import { OpenEndedBadge, PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
-import { StatusDot } from './status-dot';
 import type { TaskFormSubmit } from './task-form';
 import { Badge } from './ui/badge';
 
 /*
- * The pieces of a work node's record page: links to other records, the verdict
- * block, the hold callout, detail rows, and the edit and transition wiring.
+ * The pieces of a work node's record page: links to its artifacts, its
+ * description and signals, detail rows, and the edit and transition wiring.
  */
-
-/** A link to another work node's page: status dot, id, and title. */
-export function RefRow({ refNode }: { refNode: NodeRef }) {
-  return (
-    <Link
-      {...nodeLink(refNode.id)}
-      className="flex min-w-0 items-center gap-2 rounded-sm px-1 py-0.5 text-left text-xs text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
-    >
-      {refNode.status !== undefined && <StatusDot status={refNode.status} />}
-      <span className="shrink-0 font-mono text-mono-id text-accent-foreground">{refNode.id}</span>
-      {refNode.title !== undefined && (
-        <span className="truncate text-ink-dim">{refNode.title}</span>
-      )}
-    </Link>
-  );
-}
 
 /** Links to a record's artifacts, each at its own page (MMR-452). */
 export function ArtifactLinks({ artifacts }: { artifacts?: readonly RecordArtifact[] }) {
@@ -163,69 +142,12 @@ export function MetaRow({ label, children }: { label: string; children: ReactNod
   );
 }
 
-/** Hold-reason callout wash, keyed to the hold kind (parked ≠ blocked hue); the label reads in bright ink (MMR-718). */
-const HOLD_CALLOUT: Record<'blocked' | 'parked', string> = {
-  blocked: 'bg-status-blocked/10 inset-ring-status-blocked/24',
-  parked: 'bg-status-parked/10 inset-ring-status-parked/24',
-};
-
-/** The callout's lead: a block names who can clear it; a park, a legacy block without an owner, just the hold. */
-function holdLabel(hold: 'blocked' | 'parked', owner: EngineNode['blockOwner']): string {
-  return hold === 'blocked' && owner != null ? `Blocked on ${owner}` : hold;
-}
-
-/**
- * A held task's callout: its reason when it gives one, and for a block, who can
- * clear it. A block always shows, so its owner is never hidden by a missing
- * reason; a park with no reason has nothing to say.
- */
-export function HoldCallout({ node }: { node: EngineNode }) {
-  if (node.hold !== 'parked' && node.hold !== 'blocked') {
-    return null;
+/** A hold's name: a block names who can clear it; a park, or a legacy block without an owner, just the hold. */
+export function holdLabel(hold: 'blocked' | 'parked', owner: EngineNode['blockOwner']): string {
+  if (hold === 'parked') {
+    return 'Parked';
   }
-  const reason = node.holdReason?.trim() ?? '';
-  if (node.hold === 'parked' && reason === '') {
-    return null;
-  }
-  return (
-    <div className={cn('rounded-lg p-2.5 text-xs text-ink inset-ring', HOLD_CALLOUT[node.hold])}>
-      <span className="microlabel mr-2 text-ink-bright">
-        {holdLabel(node.hold, node.blockOwner)}
-      </span>
-      <LinkifiedText>{reason}</LinkifiedText>
-    </div>
-  );
-}
-
-/** A task in review, awaiting its reviewer's verdict; a container's rollup never is. */
-export function awaitsVerdict(node: EngineNode): boolean {
-  return node.type === 'task' && node.status === 'under_review';
-}
-
-/**
- * The verdict block: the review a task under review carries, shown only while
- * its review is pending. A task in review is work in flight, not a decision
- * the operator owes (ADR 0019), so the block is neutral, not
- * attention-styled. Approve and Send back… sit in the record header, as the
- * state's main action (MMR-726). The submitted-summary line comes from
- * `verdictSummary` (MMR-262); the external ref is the real `externalRef` field.
- */
-export function VerdictBlock({
-  node,
-  annotations,
-}: {
-  node: EngineNode;
-  annotations: readonly NodeAnnotation[] | undefined;
-}) {
-  const summary = verdictSummary(node.history, annotations);
-  return (
-    <div className="flex flex-col gap-2.5 rounded-lg border border-line bg-well-850 p-3.5">
-      {/* Labelled Review: the header's status word already names the status (MMR-718). */}
-      <p className="microlabel text-ink-dim">Review</p>
-      {summary !== undefined && <p className="text-xs leading-relaxed text-ink">{summary}</p>}
-      {node.externalRef != null && <ExternalRef value={node.externalRef} />}
-    </div>
-  );
+  return owner == null ? 'Blocked' : `Blocked on ${owner}`;
 }
 
 const MAIN_VERBS: Partial<Record<EngineNode['status'], readonly TransitionVerb[]>> = {
@@ -234,16 +156,20 @@ const MAIN_VERBS: Partial<Record<EngineNode['status'], readonly TransitionVerb[]
 };
 
 /**
- * The verbs a task's header offers as its main action (ADR 0019, MMR-726):
- * Start when it is ready, Approve and Send back… under review, and nothing
- * otherwise, as while an agent runs or the task waits on others. Only a task
- * transitions: a container's status is a rollup of its children.
+ * The verbs a task's header offers as its main action (ADR 0019, MMR-726 and
+ * MMR-728): Start when it is ready, Approve and Send back… under review,
+ * Unblock when it is blocked on you, and nothing otherwise, as while an agent
+ * runs or the task waits on others. Only a task transitions: a container's
+ * status is a rollup of its children.
  */
 export function mainVerbs(node: EngineNode): VerbSpec[] {
   if (node.type !== 'task') {
     return [];
   }
-  const main = MAIN_VERBS[node.status] ?? [];
+  const main: readonly TransitionVerb[] =
+    node.status === 'blocked' && node.blockOwner === 'you'
+      ? ['unblock']
+      : (MAIN_VERBS[node.status] ?? []);
   return availableTransitions(node.status).filter((v) => main.includes(v.verb));
 }
 

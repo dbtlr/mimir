@@ -14,6 +14,7 @@ import { PickersKit } from '../kit/pickers';
 import { PopupsKit } from '../kit/popups';
 import { PreviewKit } from '../kit/preview';
 import { RecordHeaderKit } from '../kit/record-header';
+import { RecordPageKit } from '../kit/record-page';
 import { Section } from '../kit/section';
 import { StructureKit } from '../kit/structure';
 import { TextKit } from '../kit/text';
@@ -210,6 +211,7 @@ export function KitPage() {
       <PickersKit />
       <StructureKit />
       <RecordHeaderKit />
+      <RecordPageKit />
       <FeedKit />
       <PreviewKit />
       <DeckKit />

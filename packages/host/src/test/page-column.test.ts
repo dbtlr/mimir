@@ -9,8 +9,9 @@ import { describe, expect, it } from 'vitest';
 /*
  * A page is one centred column, 900 wide at most (ADR 0013, MMR-729
  * refinement; DESIGN.md, Page column). A page centres on PAGE_COLUMN or a
- * narrower width of its own, never a wider one. The rail grid of the task,
- * seed, artifact, and delivery pages stands until MMR-728 and MMR-732.
+ * narrower width of its own, never a wider one. The rail grid of the seed,
+ * artifact, and delivery pages stands until MMR-732; the task page left it
+ * with MMR-728.
  */
 
 const SRC = 'src';

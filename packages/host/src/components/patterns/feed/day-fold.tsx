@@ -128,6 +128,14 @@ function focusFirst(root: Element | undefined): boolean {
   return false;
 }
 
+/**
+ * A thread's list: 4 under the trigger, 12 before the next fold, and a
+ * `line-bright` line from the first dot's centre to the last, through the
+ * middle of the rows' 16 dot column.
+ */
+const THREAD_CLASS =
+  'relative mt-1 mb-3 before:absolute before:top-3.5 before:bottom-3.5 before:left-[7.5px] before:w-px before:bg-line-bright';
+
 /** One day's fold: its trigger row and its rows, capped with an in-place Show N more. */
 export function DayFold({
   label,
@@ -136,6 +144,7 @@ export function DayFold({
   cap,
   open,
   onOpenChange,
+  thread = false,
 }: {
   label: string;
   /**
@@ -157,6 +166,8 @@ export function DayFold({
   cap: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The rows hang on one thread through their dots, a record's timeline (MMR-728). */
+  thread?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const listRef = useRef<HTMLUListElement>(null);
@@ -213,11 +224,15 @@ export function DayFold({
         },
       }}
     >
-      <ul ref={listRef} className="m-0 list-none divide-y divide-line p-0">
+      <ul
+        ref={listRef}
+        className={cn('m-0 list-none p-0', thread ? THREAD_CLASS : 'divide-y divide-line')}
+      >
         {shown.map((row) => (
           // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- it only notes which row holds focus; the row's own link stays the control
           <li
             key={row.key}
+            className={cn(thread && 'py-1.5 md:py-[5px]')}
             onFocus={() => {
               setFocusedKey(row.key);
             }}
@@ -313,9 +328,19 @@ export type FoldDay = {
 /**
  * Days of finished work, newest first; only the latest day starts open. When a
  * new latest day arrives (the day rolls over and a refetch adds it), the folds
- * start over: the new day opens and the others close.
+ * start over: the new day opens and the others close. `thread` hangs each
+ * day's rows on one thread, as a record's timeline does (MMR-728), and draws
+ * a hairline above the first day too, closing off what sits above the days.
  */
-export function DayFolds({ days, cap }: { days: readonly FoldDay[]; cap: number }) {
+export function DayFolds({
+  days,
+  cap,
+  thread = false,
+}: {
+  days: readonly FoldDay[];
+  cap: number;
+  thread?: boolean;
+}) {
   const latest = days[0]?.key;
   const [openFor, setOpenFor] = useState(latest);
   const [open, setOpen] = useState<ReadonlySet<string>>(
@@ -328,7 +353,7 @@ export function DayFolds({ days, cap }: { days: readonly FoldDay[]; cap: number 
     setOpen(new Set(latest === undefined ? [] : [latest]));
   }
   return (
-    <div className="flex flex-col">
+    <div className={cn('flex flex-col', thread && 'border-t border-line')}>
       {days.map((day) => (
         <DayFold
           key={day.key}
@@ -336,6 +361,7 @@ export function DayFolds({ days, cap }: { days: readonly FoldDay[]; cap: number 
           count={day.count}
           rows={day.rows}
           cap={cap}
+          thread={thread}
           open={open.has(day.key)}
           onOpenChange={(next) => {
             setOpen((current) => {

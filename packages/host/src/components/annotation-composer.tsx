@@ -12,9 +12,8 @@ export function AnnotationComposer({ nodeId, offline }: { nodeId: string; offlin
   return (
     <Composer
       label="Add a note"
-      placeholder="Add a note…"
-      commitLabel="Append"
-      commitName="Append note"
+      placeholder="Add a note"
+      commitLabel="Add note"
       disabled={offline === true}
       onCommit={async (text) => {
         await annotate.mutateAsync(text);

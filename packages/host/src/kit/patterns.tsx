@@ -272,13 +272,12 @@ function settleSoon(): Promise<void> {
 
 function ComposerSample() {
   return (
-    <Sample label="composer · inline, one line growing to four; Append waits for text">
+    <Sample label="composer · inline, one line growing to four; Add note waits for text">
       <div className="w-full max-w-[576px]">
         <Composer
           label="Add a note"
-          placeholder="Add a note…"
-          commitLabel="Append"
-          commitName="Append note"
+          placeholder="Add a note"
+          commitLabel="Add note"
           onCommit={() => settleSoon()}
         />
       </div>

@@ -83,7 +83,7 @@ async function openTask(
   serveNodes({ nodes: [node], notes: { [node.id]: [] }, scratchpads: [] });
   serveT3Launch(connectedCatalog([system]), undefined, origin);
   await renderRoute(consoleRoutes, '/p/MMR/7', client);
-  return screen.findByRole('complementary', { name: 'Record details' });
+  return screen.findByRole('heading', { level: 1 });
 }
 
 /** Open the header's More, a bottom sheet on a phone, once T3 has answered. */
@@ -283,11 +283,11 @@ describe('Start in T3 from the task page’s More (ADR 0040, MMR-726)', () => {
 describe('Open in T3', () => {
   const handles = { harness: 't3', host: 'env-1', session: 'thread-1' };
 
-  it('links the agent panel to the thread', async () => {
-    const rail = await openTask(
-      engineTask({ id: 'MMR-7', parent: 'MMR-2', status: 'queued', ...handles }),
-    );
-    const link = await within(rail).findByRole('link', { name: /Open in T3/ });
+  it('links Details › Run to the thread', async () => {
+    await openTask(engineTask({ id: 'MMR-7', parent: 'MMR-2', status: 'queued', ...handles }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Details' }));
+    const run = await screen.findByRole('region', { name: 'Run' });
+    const link = await within(run).findByRole('link', { name: /Open in T3/ });
     expect(link).toHaveAttribute('href', 't3code://threads/env-1/thread-1');
     // The app link hands off to the T3 app; a new tab would only leave a blank one behind.
     expect(link).not.toHaveAttribute('target');

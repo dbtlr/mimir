@@ -16,10 +16,10 @@ function wrap(ui: ReactNode) {
 }
 
 describe('annotationComposer', () => {
-  it('append is disabled until non-blank, then sends the trimmed content', async () => {
+  it('Add note is disabled until non-blank, then sends the trimmed content', async () => {
     vi.mocked(annotate).mockResolvedValue(engineTask({ id: 'MMR-9', status: 'ready' }));
     wrap(<AnnotationComposer nodeId="MMR-9" offline={false} />);
-    const btn = screen.getByRole('button', { name: /append/i });
+    const btn = screen.getByRole('button', { name: /^add note$/i });
     expect(btn).toBeDisabled();
     fireEvent.change(screen.getByRole('textbox'), { target: { value: '  found a bug  ' } });
     expect(btn).toBeEnabled();
@@ -34,6 +34,6 @@ describe('annotationComposer', () => {
     // The textarea being disabled is the real offline gate — asserting the button
     // alone is a tautology (empty field already disables it regardless of offline).
     expect(screen.getByRole('textbox')).toBeDisabled();
-    expect(screen.getByRole('button', { name: /append/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^add note$/i })).toBeDisabled();
   });
 });
