@@ -1927,19 +1927,28 @@ describe('task page content (MMR-453)', () => {
     });
 
     it('clamps a long note at 12 lines, offers "Show all" with its rendered line count, and toggles the clamp', async () => {
-      stubHeights(200, 60);
+      stubHeights(300, 60);
       await openWithNote('- one\n- two\n- three');
 
-      // 200px of content at a 20px line-height: ten rendered lines.
-      const toggle = await screen.findByRole('button', { name: 'Show all 10 lines' });
+      // 300px of content at a 20px line-height: fifteen rendered lines.
+      const toggle = await screen.findByRole('button', { name: 'Show all 15 lines' });
       const article = screen.getByText('three').closest('article');
       expect(article).toHaveAttribute('data-clamped', '12');
       await userEvent.click(toggle);
       expect(screen.getByRole('button', { name: 'Show less' })).toBeInTheDocument();
       expect(article).not.toHaveAttribute('data-clamped');
       await userEvent.click(screen.getByRole('button', { name: 'Show less' }));
-      expect(screen.getByRole('button', { name: 'Show all 10 lines' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Show all 15 lines' })).toBeInTheDocument();
       expect(article).toHaveAttribute('data-clamped', '12');
+    });
+
+    it('names no line count when the note folds with no more than 12 lines of text', async () => {
+      // A rule or an image can fold a note of few lines; "Show all 10 lines"
+      // would then claim fewer lines than the clamp already shows.
+      stubHeights(200, 60);
+      await openWithNote('- one\n- two\n- three');
+
+      expect(await screen.findByRole('button', { name: 'Show all' })).toBeInTheDocument();
     });
 
     it('offers no toggle when the note fits its clamp', async () => {

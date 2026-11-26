@@ -82,14 +82,16 @@ function belowClamp(target: Element, article: HTMLElement): boolean {
 /**
  * A note's body, clamped to 12 whole lines with the last one faded. "Show all
  * N lines" appears only when the rendered note really overflows its clamp; N
- * is the rendered line count the clamp measured. Focus that reaches a link
- * below the clamp opens the note, so a folded note never scrolls to it unseen.
+ * is the rendered line count the clamp measured, named only when the text
+ * itself runs past the clamp (a note folded by a rule or an image under a few
+ * lines reads "Show all"). Focus that reaches a link below the clamp opens the
+ * note, so a folded note never scrolls to it unseen.
  */
 function NoteBody({ content, time }: { content: string; time: string }) {
   const [expanded, setExpanded] = useState(false);
   const [measure, setMeasure] = useState<ClampMeasure>({ lines: 0, overflowing: false });
   const more =
-    measure.lines > 0
+    measure.lines > NOTE_CLAMP
       ? `Show all ${String(measure.lines)} ${measure.lines === 1 ? 'line' : 'lines'}`
       : 'Show all';
   return (
