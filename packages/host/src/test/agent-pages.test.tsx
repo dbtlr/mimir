@@ -176,13 +176,16 @@ describe('Now on the work page', () => {
     });
     await renderRoute(consoleRoutes, '/p/MMR', quietClient());
     const target = await screen.findByRole('button', { name: 'Show each clone’s last sync' });
-    expect(screen.queryByRole('link', { name: 'Show each clone’s last sync' })).toBeNull();
     const card = target.closest<HTMLElement>('[data-slot="feed-card"]');
     expect(card).not.toBeNull();
+    // The agent's read lands apart from the work read: wait for its Stop before asserting the run.
+    const stop = await within(card as HTMLElement).findByRole('button', {
+      name: 'Stop run on MMR-640',
+    });
+    expect(screen.queryByRole('link', { name: 'Show each clone’s last sync' })).toBeNull();
     expect(card).toHaveTextContent('Agent grooming, started 2m ago');
     expect(card).toHaveTextContent('0.36M of 4M tokens');
     expect(screen.getAllByRole('button', { name: /^Stop run on / })).toHaveLength(1);
-    const stop = within(card as HTMLElement).getByRole('button', { name: 'Stop run on MMR-640' });
     await expect(nowGroup()).resolves.toHaveTextContent(/^Now 1$/);
     await userEvent.click(stop);
     await expect(
