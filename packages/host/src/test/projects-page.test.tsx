@@ -165,6 +165,19 @@ describe('the Projects list (MMR-790)', () => {
     expect(within(archived).getByText('Skald')).toHaveClass('text-ink-dim');
   });
 
+  it('lists a project once, as active, while the two reads disagree after an archive', async () => {
+    serve({
+      archived: [...ARCHIVED, engineProject({ archivedAt: new Date(), id: 'NORN', title: 'Norn' })],
+    });
+    const user = userEvent.setup();
+    await openPage();
+    await user.click(await screen.findByRole('button', { name: 'Archived 2' }));
+    const archived = screen.getByRole('list', { name: 'Archived projects' });
+    expect(within(archived).queryByText('Norn')).toBeNull();
+    const active = screen.getByRole('list', { name: 'Active projects' });
+    expect(within(active).getByText('Norn')).toBeInTheDocument();
+  });
+
   it('has no Archived fold when nothing is archived', async () => {
     serve({ archived: [] });
     await openPage();

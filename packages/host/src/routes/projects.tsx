@@ -69,7 +69,12 @@ export function ProjectsPage() {
   const conn = connectivity([review, archived]);
 
   const active = review.data === undefined ? undefined : projectsInListOrder(review.data.projects);
-  const archivedRows: RowGroupRow[] = archivedInListOrder(archived.data ?? []).map((project) => ({
+  // The two reads refresh apart after an archive or unarchive; until both land,
+  // a project in both lists shows once, as active.
+  const activeKeys = new Set(active?.map((project) => project.key));
+  const archivedRows: RowGroupRow[] = archivedInListOrder(
+    (archived.data ?? []).filter((project) => !activeKeys.has(project.id)),
+  ).map((project) => ({
     count: 0,
     key: project.id,
     name: project.title,
