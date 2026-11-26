@@ -54,7 +54,18 @@ export const segmentVariants = cva(
 export type SegmentedOption<T extends string> = {
   value: T;
   label: string;
+  /** Machine vocabulary (`p0`), set in mono at the sans x-height (DESIGN.md, Type). */
+  mono?: boolean;
 };
+
+/*
+ * A field track whose labels run past a word (the Seeds Show, a task's
+ * Grooming): each segment sized to its label, 6 of padding a side on a phone
+ * and 44 wide at least, the row still spanning the field (DESIGN.md, A form).
+ */
+const FIT_SEGMENT_CLASS = 'min-w-11 flex-auto px-1.5 md:px-3';
+
+const MONO_SEGMENT_CLASS = 'font-mono [font-size-adjust:var(--mono-adjust)]';
 
 // Runs in the capture phase so it wins over the SDK's own Enter-submits-form
 // handling; Home/End select and focus the first or last option.
@@ -93,6 +104,7 @@ export function SegmentedControl<T extends string>({
   className,
   segmentClassName,
   size = 'compact',
+  fit = false,
 }: {
   options: readonly SegmentedOption<T>[];
   value: T;
@@ -100,6 +112,8 @@ export function SegmentedControl<T extends string>({
   ariaLabel: string;
   /** `field` spans a form field's width at the control height; `compact` sits inline. */
   size?: 'compact' | 'field';
+  /** On a `field` track, size each segment to its label on a phone, for labels past a word. */
+  fit?: boolean;
   className?: string;
   /** Per-segment overrides (e.g. the authoring sheet's pill-shaped, mixed-case type selector). */
   segmentClassName?: string;
@@ -125,6 +139,8 @@ export function SegmentedControl<T extends string>({
           value={option.value}
           className={cn(
             segmentVariants({ active: value === option.value, size }),
+            fit && FIT_SEGMENT_CLASS,
+            option.mono === true && MONO_SEGMENT_CLASS,
             segmentClassName,
           )}
         >

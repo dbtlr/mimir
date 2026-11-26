@@ -330,7 +330,7 @@ export function FilterSegments<T extends string>({
         options={options}
         value={value}
         onChange={onChange}
-        segmentClassName={fit ? 'min-w-11 flex-auto px-1.5 md:px-3' : undefined}
+        fit={fit}
       />
     </div>
   );

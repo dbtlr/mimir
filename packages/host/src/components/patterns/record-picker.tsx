@@ -7,6 +7,8 @@ import {
   ComboboxButton,
   ComboboxContent,
   ComboboxEmpty,
+  ComboboxGroup,
+  ComboboxGroupLabel,
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
@@ -22,6 +24,7 @@ import {
   CommandList,
 } from '../ui/command';
 import { Dialog, DialogBackdrop, DialogClose, DialogContent } from '../ui/dialog';
+import { FieldOptional } from '../ui/field';
 import { ArrowDownIcon, ArrowUpIcon, CommandKeyIcon, EnterKeyIcon } from '../ui/icons';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { BLOCK_PROPS } from './form-block';
@@ -40,8 +43,12 @@ import type { FinalFocus } from './opener';
  *   caller (debounced, on the server) and run by Enter or a click.
  */
 
-/** A record a picker offers: its key (mono) and its title (sans). */
-export type PickerRecord = { id: string; title: string };
+/**
+ * A record a picker offers: its key (mono) and its title (sans). Records that
+ * name a `group` list under that group's heading, the groups in the order
+ * their first record comes (a task's Parent: Initiatives, then Phases).
+ */
+export type PickerRecord = { id: string; title: string; group?: string };
 
 export type RecordPickerProps = {
   /** The field's label, which names the control. */
@@ -56,7 +63,37 @@ export type RecordPickerProps = {
   /** The line shown when nothing matches the search. */
   emptyText: string;
   disabled?: boolean;
+  /** Marks the field optional beside its label, as a Form sheet field does. */
+  optional?: boolean;
+  /** What went wrong with the choice (a move that failed): the edge turns invalid and the error stands 8 below. */
+  error?: ReactNode;
 };
+
+/** The records in their groups, in the order each group's first record comes. */
+function grouped(records: readonly PickerRecord[]): { label: string; records: PickerRecord[] }[] {
+  const groups = new Map<string, PickerRecord[]>();
+  for (const record of records) {
+    const label = record.group ?? '';
+    groups.set(label, [...(groups.get(label) ?? []), record]);
+  }
+  return [...groups].map(([label, members]) => ({ label, records: members }));
+}
+
+/** One row of the open list: the key in its column, then the title. */
+function PickerRow({ record }: { record: PickerRecord }) {
+  return (
+    <ComboboxItem
+      value={record.id}
+      label={record.title}
+      className="min-h-9 text-[15px] leading-[22px] max-md:min-h-11"
+    >
+      <span className="min-w-12 shrink-0 font-mono text-ink-dim [font-size-adjust:var(--mono-adjust)]">
+        {record.id}
+      </span>
+      <span className="min-w-0 flex-1 truncate">{record.title}</span>
+    </ComboboxItem>
+  );
+}
 
 /** Narrows records by key or title, ignoring case. */
 function matches(record: PickerRecord, query: string): boolean {
@@ -87,9 +124,13 @@ export function RecordPicker({
   searchLabel,
   emptyText,
   disabled = false,
+  optional = false,
+  error,
 }: RecordPickerProps) {
   const labelId = useId();
   const valueId = useId();
+  const errorId = useId();
+  const failed = error !== undefined && error !== null;
   const [query, setQuery] = useState('');
   const [button, setButton] = useState<HTMLButtonElement | null>(null);
   const returnFocus = useRef(false);
@@ -97,8 +138,15 @@ export function RecordPicker({
   const shown = records.filter((record) => matches(record, query));
   return (
     <div {...BLOCK_PROPS} className={cn(BLOCK_PROPS.className, 'flex flex-col gap-2')}>
-      <span id={labelId} className="text-label font-medium text-ink">
+      <span
+        id={labelId}
+        className={cn(
+          'flex items-baseline text-label font-medium',
+          failed ? 'text-status-blocked-foreground' : 'text-ink',
+        )}
+      >
         {label}
+        {optional && <FieldOptional />}
       </span>
       <Combobox
         value={value}
@@ -132,6 +180,9 @@ export function RecordPicker({
           ref={setButton}
           aria-labelledby={`${labelId} ${valueId}`}
           aria-haspopup="listbox"
+          aria-invalid={failed ? true : undefined}
+          aria-describedby={failed ? errorId : undefined}
+          className={failed ? 'border-status-blocked' : undefined}
         >
           {chosen === undefined ? (
             <span id={valueId} className="text-ink-dim">
@@ -156,22 +207,29 @@ export function RecordPicker({
           />
           <ComboboxEmpty>{shown.length === 0 ? emptyText : null}</ComboboxEmpty>
           <ComboboxList>
-            {shown.map((record) => (
-              <ComboboxItem
-                key={record.id}
-                value={record.id}
-                label={record.title}
-                className="min-h-9 text-[15px] leading-[22px] max-md:min-h-11"
-              >
-                <span className="min-w-12 shrink-0 font-mono text-ink-dim [font-size-adjust:var(--mono-adjust)]">
-                  {record.id}
-                </span>
-                <span className="min-w-0 flex-1 truncate">{record.title}</span>
-              </ComboboxItem>
-            ))}
+            {grouped(shown).map((group) =>
+              group.label === '' ? (
+                group.records.map((record) => <PickerRow key={record.id} record={record} />)
+              ) : (
+                <ComboboxGroup key={group.label}>
+                  <ComboboxGroupLabel>{group.label}</ComboboxGroupLabel>
+                  {group.records.map((record) => (
+                    <PickerRow key={record.id} record={record} />
+                  ))}
+                </ComboboxGroup>
+              ),
+            )}
           </ComboboxList>
         </ComboboxContent>
       </Combobox>
+      {failed && (
+        <p
+          id={errorId}
+          className="max-w-[440px] text-meta leading-5 text-pretty text-status-blocked-foreground"
+        >
+          {error}
+        </p>
+      )}
     </div>
   );
 }

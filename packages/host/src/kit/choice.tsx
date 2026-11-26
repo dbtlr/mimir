@@ -38,12 +38,28 @@ const EFFORTS = [
   { label: 'high', value: 'high' },
 ] as const;
 
+const GROOMING = [
+  { label: 'Not groomed', value: 'not_groomed' },
+  { label: 'Needs answers', value: 'needs_answers' },
+  { label: 'Groomed', value: 'groomed' },
+] as const;
+
+const PRIORITIES = [
+  { label: 'None', value: 'none' },
+  { label: 'p0', mono: true, value: 'p0' },
+  { label: 'p1', mono: true, value: 'p1' },
+  { label: 'p2', mono: true, value: 'p2' },
+  { label: 'p3', mono: true, value: 'p3' },
+] as const;
+
 const LABEL_CLASS = 'flex items-center gap-2 text-meta text-ink';
 
 /** Segmented Control, Radio, Checkbox, Switch, and Select: the Choice primitives. */
 export function ChoiceKit() {
   const [theme, setTheme] = useState<Theme>('system');
   const [effort, setEffort] = useState<(typeof EFFORTS)[number]['value']>('medium');
+  const [grooming, setGrooming] = useState<(typeof GROOMING)[number]['value']>('needs_answers');
+  const [priority, setPriority] = useState<(typeof PRIORITIES)[number]['value']>('p1');
   return (
     <>
       <Section title="Segmented Control">
@@ -58,6 +74,29 @@ export function ChoiceKit() {
               options={EFFORTS}
               value={effort}
               onChange={setEffort}
+            />
+          </div>
+        </Sample>
+        <Sample label="segmented control · field, fit (labels past a word, sized to their label on a phone)">
+          <div className="w-full max-w-[576px]">
+            <SegmentedControl
+              size="field"
+              fit
+              ariaLabel="Grooming"
+              options={GROOMING}
+              value={grooming}
+              onChange={setGrooming}
+            />
+          </div>
+        </Sample>
+        <Sample label="segmented control · field, mono values (Priority)">
+          <div className="w-full max-w-[576px]">
+            <SegmentedControl
+              size="field"
+              ariaLabel="Priority"
+              options={PRIORITIES}
+              value={priority}
+              onChange={setPriority}
             />
           </div>
         </Sample>

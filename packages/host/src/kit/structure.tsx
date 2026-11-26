@@ -45,6 +45,26 @@ export function StructureKit() {
             <TabsPanel value="artifacts">Three artifacts are attached to this task.</TabsPanel>
           </Tabs>
         </Sample>
+        <Sample label="tabs · joined (Write and Preview on an editor's top edge)">
+          <Tabs className="flex w-full max-w-[576px] flex-col" defaultValue="write">
+            <TabsList joined aria-label="Write or preview">
+              <TabsTab value="write">Write</TabsTab>
+              <TabsTab value="preview">Preview</TabsTab>
+            </TabsList>
+            <TabsPanel
+              value="write"
+              className="min-h-22 rounded-b-md border border-ink-faint bg-well-950 px-3 py-2.5 pt-2.5"
+            >
+              The editor sits here, its top corners square under the row.
+            </TabsPanel>
+            <TabsPanel
+              value="preview"
+              className="min-h-22 rounded-b-md border border-line-bright bg-well-850 px-4 py-3 pt-3"
+            >
+              The rendered prose sits here.
+            </TabsPanel>
+          </Tabs>
+        </Sample>
       </Section>
       <Section title="Collapsible">
         <Sample label="collapsible · day folds (latest open)">

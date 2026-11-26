@@ -13,8 +13,9 @@ import { TEXT_FIELD_CLASS } from './input';
 
 /*
  * The Token Input primitive (ADR 0046): a text box whose finished words become
- * chips. The task form's tags use it: type a word, then press comma or Enter or
- * leave the box, and it becomes a removable chip (ADR 0019, MMR-736). Its value
+ * chips. A task's edit sheet takes its tags in it (`size="field"`): type a
+ * word, then press comma or Enter or leave the box, and it becomes a removable
+ * chip (ADR 0019, MMR-736 and MMR-731). Its value
  * is the list of tag strings. Tags are labels, so "Bug" and "bug" are one tag,
  * spelled as first entered.
  */
@@ -146,13 +147,28 @@ export const CHIP_CLASS =
 export const CHIP_REMOVE_CLASS =
   'inline-flex size-4 cursor-pointer items-center justify-center rounded-sm text-ink-dim hover:bg-well-700 hover:text-ink-bright data-[disabled]:cursor-not-allowed';
 
+/*
+ * A form field's chip (`size="field"`, ADR 0019, MMR-731): a 32 pill in the
+ * control's 14 / 20 ink-bright, its remove a 32 square that takes a 44 tap
+ * area on a phone. A phone's rows are 44 apart, so the tap areas of wrapped
+ * rows never overlap; the field is 46 with its edge once a chip lands.
+ */
+const FIELD_CHIP_CLASS =
+  'mx-0.5 inline-flex h-8 items-center rounded-full bg-well-800 pl-3 align-middle text-label whitespace-nowrap text-ink-bright inset-ring inset-ring-line-bright max-md:my-1.5 data-[selected]:inset-ring-accent';
+
+const FIELD_CHIP_REMOVE_CLASS =
+  'relative inline-flex size-8 cursor-pointer items-center justify-center rounded-full text-ink-dim hover:bg-well-700 hover:text-ink-bright focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent max-md:after:absolute max-md:after:-inset-1.5 data-[disabled]:cursor-not-allowed';
+
+/** The editor of a form field: rows of 32 chips 44 apart on a phone and 38 from `md`, in a 44 field. */
+const FIELD_EDITOR_CLASS = 'min-h-11 py-0 leading-[44px] md:py-0.5 md:leading-[38px]';
+
 /** The x drawn in a chip's remove button (web.css, which would draw it, is not loaded). */
-export function ChipRemoveIcon() {
+export function ChipRemoveIcon({ className = 'size-3' }: { className?: string }) {
   return (
     <svg
       aria-hidden="true"
       viewBox="0 0 24 24"
-      className="size-3"
+      className={className}
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
@@ -164,12 +180,15 @@ export function ChipRemoveIcon() {
 }
 
 /** A tag chip with a remove button. */
-function TagChip({ token }: { token: Token }) {
+function TagChip({ token, field }: { token: Token; field: boolean }) {
   return (
-    <TokenInputToken className={CHIP_CLASS}>
+    <TokenInputToken className={field ? FIELD_CHIP_CLASS : CHIP_CLASS}>
       {token.label}
-      <TokenInputTokenRemove aria-label={`Remove ${token.label}`} className={CHIP_REMOVE_CLASS}>
-        <ChipRemoveIcon />
+      <TokenInputTokenRemove
+        aria-label={`Remove ${token.label}`}
+        className={field ? FIELD_CHIP_REMOVE_CLASS : CHIP_REMOVE_CLASS}
+      >
+        <ChipRemoveIcon className={field ? 'size-3.5' : undefined} />
       </TokenInputTokenRemove>
     </TokenInputToken>
   );
@@ -185,6 +204,8 @@ export type TokenInputProps = {
   /** Runs with the full tag list whenever a tag is added or removed. */
   onValueChange?: (tags: string[]) => void;
   placeholder?: string;
+  /** `field` is a form's tag field (32 chips, 44 remove targets on a phone); `compact` the inline chips. */
+  size?: 'compact' | 'field';
 };
 
 export function TokenInput({
@@ -195,7 +216,9 @@ export function TokenInput({
   name,
   onValueChange,
   placeholder,
+  size = 'compact',
 }: TokenInputProps) {
+  const field = size === 'field';
   const [controller] = useState(createTokenInputController);
   const [initial] = useState(() => defaultValue.flatMap((tag) => [tagToken(tag), ' ']));
   const reported = useRef(defaultValue);
@@ -242,7 +265,7 @@ export function TokenInput({
         }
       }}
       onSubmit={() => commit(true)}
-      renderToken={(token) => <TagChip token={token} />}
+      renderToken={(token) => <TagChip token={token} field={field} />}
     >
       <TokenInputEditor
         aria-label={ariaLabel}
@@ -251,6 +274,7 @@ export function TokenInput({
         className={cn(
           TEXT_FIELD_CLASS,
           'min-h-11 py-2.5 leading-[26px] data-[empty]:before:text-ink-dim data-[empty]:before:content-[attr(aria-placeholder)]',
+          field && FIELD_EDITOR_CLASS,
           className,
         )}
       />
