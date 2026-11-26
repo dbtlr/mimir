@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { dayOf, newestArtifacts, shippedTime } from '../lib/work-page';
+import { dayOf, newestArtifacts, shippedTime, tallyOf } from '../lib/work-page';
 import type { RecordArtifact } from '../lib/work-page';
+import { engineTree } from './engine-fixtures';
 
 const NY = 'America/New_York';
 
@@ -60,5 +61,17 @@ describe('newestArtifacts', () => {
       'MMR-a9',
       'MMR-a2',
     ]);
+  });
+});
+
+describe('tallyOf (MMR-730)', () => {
+  it('reads ∞ for an open-ended container that is also parked', () => {
+    const parkedOpen = engineTree({
+      id: 'MMR-8',
+      open_ended: true,
+      status: 'parked',
+      type: 'initiative',
+    });
+    expect(tallyOf(parkedOpen)).toStrictEqual({ kind: 'open_ended' });
   });
 });
