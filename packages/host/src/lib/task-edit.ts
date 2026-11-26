@@ -1,5 +1,6 @@
 import type { EngineNode, Grooming, Priority, Size } from '@mimir/contract';
 
+import { isEngineRefusal } from '../api/errors';
 import type { UpdateNodeInput } from '../api/node-mutations';
 import { visibleGrooming } from './grooming';
 import { proseEdit } from './prose';
@@ -129,9 +130,26 @@ export function asksQuestions(draft: TaskDraft): boolean {
   return draft.grooming === 'needs_answers' && draft.groomingPicked;
 }
 
-/** Whether Save must wait: the title is empty, or a choice of Needs answers has no questions. */
+/** The longest summary the Engine stores; it refuses a longer one. */
+const SUMMARY_MAX = 256;
+
+/** The Summary's own error: longer than the Engine stores, counted as it trims it. */
+export function summaryError(draft: TaskDraft): string | undefined {
+  return draft.summary.trim().length > SUMMARY_MAX
+    ? `Summary must be ${String(SUMMARY_MAX)} characters or fewer`
+    : undefined;
+}
+
+/**
+ * Whether Save must wait: the title is empty, the summary is too long, or a
+ * choice of Needs answers has no questions.
+ */
 export function saveWaits(draft: TaskDraft): boolean {
-  return draft.title.trim() === '' || (asksQuestions(draft) && draft.questions.trim() === '');
+  return (
+    draft.title.trim() === '' ||
+    summaryError(draft) !== undefined ||
+    (asksQuestions(draft) && draft.questions.trim() === '')
+  );
 }
 
 /** The writes a Save sends to turn `before` into `after`: only what changed. */
@@ -207,42 +225,7 @@ export function settle(
   return next;
 }
 
-/** A refusal's reason, without its closing stop, to sit inside a sentence. */
-function reasonOf(error: unknown): string {
-  const message = (error instanceof Error ? error.message : String(error)).trim();
-  return message === '' ? 'the write failed' : message.replace(/\.$/, '');
-}
-
-/** A failed write's error: the field it shows under, and what to do. */
-export function writeError(
-  write: EditWrite,
-  error: unknown,
-): { field: EditField; message: string } {
-  const reason = reasonOf(error);
-  switch (write.kind) {
-    case 'content': {
-      return {
-        field: write.touched[0] ?? 'title',
-        message: `Not saved: ${reason}. Save again to save it.`,
-      };
-    }
-    case 'tag':
-    case 'untag': {
-      return { field: 'tags', message: `Tags not changed: ${reason}. Save again to change them.` };
-    }
-    case 'move': {
-      return { field: 'parent', message: `Not moved: ${reason}. Save again to move it.` };
-    }
-    case 'groom': {
-      return { field: 'grooming', message: `Grooming not set: ${reason}. Save again to set it.` };
-    }
-    default: {
-      const exhaustive: never = write;
-      return exhaustive;
-    }
-  }
-}
-
+/** How the footer note and a refusal name each content field. */
 const FIELD_WORD: Record<ContentField, string> = {
   description: 'description',
   externalRef: 'external ref',
@@ -251,6 +234,53 @@ const FIELD_WORD: Record<ContentField, string> = {
   summary: 'summary',
   title: 'title',
 };
+
+/** A refusal's reason, without its closing stop, to sit inside a sentence. */
+function reasonOf(error: unknown): string {
+  const message = (error instanceof Error ? error.message : String(error)).trim();
+  return message === '' ? 'the write failed' : message.replace(/\.$/, '');
+}
+
+/** The first touched field a refusal's reason names (`external_ref` reads as "external ref"). */
+function namedField(touched: readonly ContentField[], reason: string): ContentField | undefined {
+  const words = reason.toLowerCase().replaceAll('_', ' ');
+  return touched.find((field) => new RegExp(`\\b${FIELD_WORD[field]}\\b`).test(words));
+}
+
+/**
+ * A failed write's error: the field it shows under, and what to do. An Engine
+ * refusal says why it refused, so only a write that never landed (the host
+ * unreachable) asks for another Save.
+ */
+export function writeError(
+  write: EditWrite,
+  error: unknown,
+): { field: EditField; message: string } {
+  const reason = reasonOf(error);
+  const again = (act: string) => (isEngineRefusal(error) ? '' : ` Save again to ${act}.`);
+  switch (write.kind) {
+    case 'content': {
+      return {
+        field: namedField(write.touched, reason) ?? write.touched[0] ?? 'title',
+        message: `Not saved: ${reason}.${again('save it')}`,
+      };
+    }
+    case 'tag':
+    case 'untag': {
+      return { field: 'tags', message: `Tags not changed: ${reason}.${again('change them')}` };
+    }
+    case 'move': {
+      return { field: 'parent', message: `Not moved: ${reason}.${again('move it')}` };
+    }
+    case 'groom': {
+      return { field: 'grooming', message: `Grooming not set: ${reason}.${again('set it')}` };
+    }
+    default: {
+      const exhaustive: never = write;
+      return exhaustive;
+    }
+  }
+}
 
 /** How the footer note names each write: as saved, then as not saved. */
 function writeWords(write: EditWrite): { saved: string[]; failed: string[] } {

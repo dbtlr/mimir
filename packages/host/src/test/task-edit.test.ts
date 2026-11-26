@@ -1,6 +1,15 @@
+import { MimirError } from '@mimir/contract';
 import { describe, expect, it } from 'vitest';
 
-import { editWrites, saveReport, settle, taskDraft, writeError } from '../lib/task-edit';
+import {
+  editWrites,
+  saveReport,
+  saveWaits,
+  settle,
+  summaryError,
+  taskDraft,
+  writeError,
+} from '../lib/task-edit';
 import type { TaskDraft } from '../lib/task-edit';
 import { engineTag, engineTask } from './node-fixtures';
 
@@ -103,6 +112,17 @@ describe('editWrites', () => {
   });
 });
 
+describe('summaryError and saveWaits', () => {
+  it('holds Save on a summary past the Engine’s 256 characters, counted as it stores them', () => {
+    expect(summaryError(edit({ summary: `  ${'x'.repeat(256)}  ` }))).toBeUndefined();
+    expect(saveWaits(edit({ summary: 'x'.repeat(256) }))).toBe(false);
+    expect(summaryError(edit({ summary: 'x'.repeat(257) }))).toBe(
+      'Summary must be 256 characters or fewer',
+    );
+    expect(saveWaits(edit({ summary: 'x'.repeat(257) }))).toBe(true);
+  });
+});
+
 describe('settle', () => {
   it('takes what saved into the baseline, so a second save sends only what failed', () => {
     const draft = edit({ parent: 'MMR-1', size: 'large', tags: ['ui', 'feed', 'fresh'] });
@@ -126,6 +146,29 @@ describe('writeError and saveReport', () => {
         new Error('refused'),
       ),
     ).toStrictEqual({ field: 'title', message: 'Not saved: refused. Save again to save it.' });
+  });
+
+  it('puts an Engine refusal under the field it names, with no Save again', () => {
+    const content = {
+      fields: { summary: 'x', title: 'y' },
+      kind: 'content',
+      touched: ['title', 'summary'],
+    } as const;
+    expect(
+      writeError(
+        content,
+        new MimirError('validation', 'summary must be 256 characters or fewer (got 300)'),
+      ),
+    ).toStrictEqual({
+      field: 'summary',
+      message: 'Not saved: summary must be 256 characters or fewer (got 300).',
+    });
+    expect(
+      writeError(
+        { kind: 'move', to: 'MMR-1' },
+        new MimirError('validation', 'a task cannot move under a project'),
+      ),
+    ).toStrictEqual({ field: 'parent', message: 'Not moved: a task cannot move under a project.' });
   });
 
   it('says what saved and what did not', () => {

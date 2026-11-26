@@ -211,6 +211,21 @@ describe('task edit sheet: Save sends only what changed', () => {
     expect(update).not.toHaveBeenCalled();
   });
 
+  it('holds Save on a summary past 256 characters, with the cap under Summary', async () => {
+    const sheet = await openSheet(todo());
+    const summary = within(sheet).getByRole('textbox', { name: /Summary/ });
+    await userEvent.clear(summary);
+    await userEvent.click(summary);
+    await userEvent.paste('x'.repeat(257));
+
+    expect(summary).toHaveAttribute('aria-invalid', 'true');
+    expect(summary).toHaveAccessibleDescription('Summary must be 256 characters or fewer');
+    expect(within(sheet).getByRole('button', { name: 'Save' })).toBeDisabled();
+    await userEvent.type(summary, '{Backspace}');
+    expect(summary).not.toHaveAttribute('aria-invalid');
+    expect(within(sheet).getByRole('button', { name: 'Save' })).toBeEnabled();
+  });
+
   it('shows the description rendered on Preview, as the task page does', async () => {
     const sheet = await openSheet(todo({ description: 'Uses **bun:sqlite**.' }));
     await userEvent.click(within(sheet).getByRole('tab', { name: 'Preview' }));

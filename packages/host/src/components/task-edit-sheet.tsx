@@ -11,6 +11,7 @@ import {
   saveReport,
   saveWaits,
   settle,
+  summaryError,
   taskDraft,
   writeError,
 } from '../lib/task-edit';
@@ -200,7 +201,7 @@ function TaskEditForm({ node, tree, open, onClose, finalFocus }: TaskEditSheetPr
           }}
         />
       </FormField>
-      <FormField label="Summary" optional error={error('summary')}>
+      <FormField label="Summary" optional error={summaryError(draft) ?? error('summary')}>
         <FormGrowTextArea
           lines={3}
           value={draft.summary}
