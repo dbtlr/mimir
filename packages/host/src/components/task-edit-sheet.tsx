@@ -237,6 +237,7 @@ function TaskEditForm({ node, tree, open, onClose, finalFocus }: TaskEditSheetPr
         <FormField label="Size" choice error={error('size')}>
           <SegmentedControl
             size="field"
+            fit
             ariaLabel="Size"
             options={SIZE_OPTIONS}
             value={draft.size ?? NONE}
@@ -248,6 +249,7 @@ function TaskEditForm({ node, tree, open, onClose, finalFocus }: TaskEditSheetPr
         <FormField label="Priority" choice error={error('priority')}>
           <SegmentedControl
             size="field"
+            fit
             ariaLabel="Priority"
             options={PRIORITY_OPTIONS}
             value={draft.priority ?? NONE}

@@ -150,8 +150,8 @@ export const CHIP_REMOVE_CLASS =
 /*
  * A form field's chip (`size="field"`, ADR 0019, MMR-731): a 32 pill in the
  * control's 14 / 20 ink-bright, its remove a 32 square that takes a 44 tap
- * area on a phone. A phone's rows are 44 apart, so the tap areas of wrapped
- * rows never overlap; the field is 46 with its edge once a chip lands.
+ * area on a phone. A phone's rows are at least 44 apart, so the tap areas of
+ * wrapped rows never overlap; the field is about 47 tall with one row of chips.
  */
 const FIELD_CHIP_CLASS =
   'mx-0.5 inline-flex h-8 items-center rounded-full bg-well-800 pl-3 align-middle text-label whitespace-nowrap text-ink-bright inset-ring inset-ring-line-bright max-md:my-1.5 data-[selected]:inset-ring-accent';
