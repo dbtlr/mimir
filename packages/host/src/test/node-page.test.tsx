@@ -1948,7 +1948,8 @@ describe('task page content (MMR-453)', () => {
       stubHeights(200, 60);
       await openWithNote('- one\n- two\n- three');
 
-      expect(await screen.findByRole('button', { name: 'Show all' })).toBeInTheDocument();
+      await expect(screen.findByRole('button', { name: 'Show all' })).resolves.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Show all \d/ })).toBeNull();
     });
 
     it('offers no toggle when the note fits its clamp', async () => {
