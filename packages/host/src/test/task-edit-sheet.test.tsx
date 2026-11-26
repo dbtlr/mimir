@@ -234,6 +234,16 @@ describe('task edit sheet: Save sends only what changed', () => {
     const preview = within(sheet).getByRole('tabpanel');
     expect(within(preview).getByText('bun:sqlite').tagName).toBe('STRONG');
   });
+
+  it('shows an empty description on Preview as the task page shows it', async () => {
+    const sheet = await openSheet(todo({ description: '' }));
+    const onPage = screen.getAllByText('No description.').find((line) => !sheet.contains(line));
+    await userEvent.click(within(sheet).getByRole('tab', { name: 'Preview' }));
+
+    const inSheet = within(within(sheet).getByRole('tabpanel')).getByText('No description.');
+    expect(onPage).toBeDefined();
+    expect(inSheet.className).toBe(onPage?.className);
+  });
 });
 
 describe('task edit sheet: grooming', () => {

@@ -4,6 +4,7 @@ import { isEngineRefusal } from '../api/errors';
 import type { UpdateNodeInput } from '../api/node-mutations';
 import { visibleGrooming } from './grooming';
 import { proseEdit } from './prose';
+import { capitalized } from './sentence-case';
 
 /*
  * The edit sheet's model (ADR 0019, MMR-731): what the sheet holds for a task,
@@ -314,8 +315,6 @@ function andList(words: readonly string[]): string {
   }
   return `${distinct.slice(0, -1).join(', ')}, and ${distinct.at(-1) ?? ''}`;
 }
-
-const capitalized = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 /** The footer note after a Save that partly failed: what saved, then what didn't. */
 export function saveReport(saved: readonly EditWrite[], failed: readonly EditWrite[]): string {

@@ -237,6 +237,18 @@ function Relations({
   );
 }
 
+/** A task's description at reading width, or "No description." (the Work tab and the edit sheet's Preview). */
+export function TaskDescription({ text }: { text: string }) {
+  const description = text.trim();
+  return description === '' ? (
+    <p className="text-body leading-[23px] text-ink">No description.</p>
+  ) : (
+    <MarkdownBody breaks size="body" className="max-w-[70ch]">
+      {description}
+    </MarkdownBody>
+  );
+}
+
 /**
  * A task's Work tab: the state's banner, or the Groom with agent card in its
  * place before the task is groomed; the description at reading width; then a
@@ -251,19 +263,12 @@ export function TaskWork({
   annotations: readonly NodeAnnotation[];
   offline: boolean;
 }) {
-  const description = node.description?.trim() ?? '';
   const prerequisites = node.deps === undefined ? [] : prerequisiteRows(node.deps);
   const blocking = node.deps?.blocking ?? [];
   return (
     <div className="flex flex-col gap-6">
       {stateBanner(node, annotations) ?? <GroomWithAgentCard node={node} offline={offline} />}
-      {description === '' ? (
-        <p className="text-body leading-[23px] text-ink">No description.</p>
-      ) : (
-        <MarkdownBody breaks size="body" className="max-w-[70ch]">
-          {description}
-        </MarkdownBody>
-      )}
+      <TaskDescription text={node.description ?? ''} />
       {(prerequisites.length > 0 || blocking.length > 0) && (
         <div className="flex flex-col gap-7 border-t border-line pt-6">
           {prerequisites.length > 0 && <Relations title="Depends on" rows={prerequisites} />}

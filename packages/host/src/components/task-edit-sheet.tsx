@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useGroom, useMoveNode, useTag, useUntag, useUpdateNode } from '../api/node-mutations';
 import { GROOMING_META, GROOMING_ORDER } from '../lib/grooming';
 import { parentOptions } from '../lib/parent-options';
+import { capitalized } from '../lib/sentence-case';
 import {
   asksQuestions,
   editWrites,
@@ -16,7 +17,6 @@ import {
   writeError,
 } from '../lib/task-edit';
 import type { EditField, EditWrite, TaskDraft } from '../lib/task-edit';
-import { MarkdownBody } from './markdown-body';
 import {
   FormField,
   FormGroup,
@@ -32,6 +32,7 @@ import {
 import type { FinalFocus } from './patterns/opener';
 import { useOpeningKey } from './patterns/opening';
 import type { PickerRecord } from './patterns/record-picker';
+import { TaskDescription } from './task-page';
 import { SegmentedControl } from './ui/segmented-control';
 import type { SegmentedOption } from './ui/segmented-control';
 
@@ -48,10 +49,7 @@ const NONE = 'none';
 
 const SIZE_OPTIONS: readonly SegmentedOption<Size | typeof NONE>[] = [
   { label: 'None', value: NONE },
-  ...SIZE_VALUES.map((size) => ({
-    label: size.charAt(0).toUpperCase() + size.slice(1),
-    value: size,
-  })),
+  ...SIZE_VALUES.map((size) => ({ label: capitalized(size), value: size })),
 ];
 
 const PRIORITY_OPTIONS: readonly SegmentedOption<Priority | typeof NONE>[] = [
@@ -59,10 +57,10 @@ const PRIORITY_OPTIONS: readonly SegmentedOption<Priority | typeof NONE>[] = [
   ...PRIORITY_VALUES.map((priority) => ({ label: priority, mono: true, value: priority })),
 ];
 
-const GROOMING_OPTIONS: readonly SegmentedOption<Grooming>[] = GROOMING_ORDER.map((state) => {
-  const { label } = GROOMING_META[state];
-  return { label: label.charAt(0).toUpperCase() + label.slice(1), value: state };
-});
+const GROOMING_OPTIONS: readonly SegmentedOption<Grooming>[] = GROOMING_ORDER.map((state) => ({
+  label: capitalized(GROOMING_META[state].label),
+  value: state,
+}));
 
 /** The task's legal parents for the Record picker: its initiatives, then their phases. */
 function parentRecords(tree: EngineTree | undefined): PickerRecord[] {
@@ -224,15 +222,7 @@ function TaskEditForm({ node, tree, open, onClose, finalFocus }: TaskEditSheetPr
           onChange={(event) => {
             change({ description: event.target.value });
           }}
-          preview={
-            draft.description.trim() === '' ? (
-              <p className="text-body text-ink">No description.</p>
-            ) : (
-              <MarkdownBody breaks size="body">
-                {draft.description}
-              </MarkdownBody>
-            )
-          }
+          preview={<TaskDescription text={draft.description} />}
         />
       </FormField>
       <FormGroup title="Planning">
