@@ -1417,3 +1417,63 @@ Considered and rejected:
   the same number on every container; a project-level attention queue,
   which might carry it under the project, is its own design pass (MMR-804).
 - A container's direct tasks as parts. They would appear twice on the page.
+
+## Refinement (2026-11-26, MMR-730): the sidebar is container navigation
+
+The MMR-492 refinement gave a project's sidebar its sections (_Work_,
+_Tasks_, _Seeds_, _Artifacts_) and the project's whole initiative and phase
+outline; the MMR-503, MMR-562, MMR-567, and MMR-790 refinements gave the All
+projects sidebar _Work_ and a pinned or recent shortlist ending in _See all N
+projects_. The project page's tabs (the MMR-726 refinement) now reach those
+sections, and the page lists the tasks (the MMR-727 refinement). The sidebar
+keeps one job: it navigates containers. This revises those refinements'
+sidebar contents; Jump to (MMR-729), the switcher, Settings' own list
+(MMR-733), and the drawer below `lg` are unchanged.
+
+- **The sidebar is Jump to, the switcher, then one container list.** No
+  ordinary task appears in it. What needs the operator gets its own slot under
+  the switcher (MMR-804); until then the list follows the switcher directly.
+- **The list is the same at every level:** a link to the parent, reading "←"
+  and the parent's title; the current container; then its child containers.
+  A level with no child containers ends at the current row.
+
+  | Page | Link to the parent | Current row | Children |
+  | --- | --- | --- | --- |
+  | Home, and any page outside a project | none | _Home_ | the projects (below) |
+  | A project, and its other pages | ← Home | the project | its initiatives |
+  | An initiative | ← the project | the initiative | its phases |
+  | A phase | ← its initiative | the phase | none |
+  | A task | ← its phase's parent, or the project for a task directly under an initiative | the task's container, ringed | that container's child containers |
+
+  A project's other pages are its Tasks, Seeds, Artifacts, and Details tabs,
+  and a seed, artifact, or delivery page in it. On those, and on a task page,
+  the current row marks the container that holds the page rather than being
+  the page: it takes the ring alone, and the project's other pages mark the
+  project so. On the container's own page the row is the page and takes the
+  selection wash as well.
+- **A row is a link with a status dot, its title, and a tally** at its right:
+  done over its direct children, abandoned ones left out, the one count
+  MMR-727's parts rows show for the same record; "Empty" when nothing is under
+  it, "parked" when it is parked, "∞" when it is open-ended. Children keep the
+  tree's order (rank, then sequence). The finished children, those whose rollup
+  is done or abandoned, gather in one closed fold at the end of the list,
+  "N finished initiatives" (or phases), that opens in place. Initiatives and
+  phases are links; none of them opens or closes.
+- **Home's children are the projects,** each row its key, its name, and its
+  needs-you count in the attention colour where it has one: the projects that
+  need the operator, most first, then pinned projects not yet listed, then the
+  most recently active, six rows in all, then _See all N projects_ to
+  `/projects` (the MMR-790 refinement), marked the page there. The switcher's
+  _All projects_ entry still leads to `/`, which this list names _Home_.
+- **An archived or unavailable project** shows the link to Home and the
+  project's row alone, as the project page is the one that says so.
+- **The drawer shows the same list,** with every row 44 tall below `lg`.
+
+Considered and rejected:
+
+- The current record's siblings, tasks included (round 17 of MMR-717's
+  design). Putting tasks in the sidebar made it decide their order, cap, and
+  _See all_ destinations, a job the page already does; the operator ruled
+  that the sidebar lists containers and, separately, what needs attention.
+- A different tally on the sidebar from the parts rows. One record shows one
+  number wherever it appears.
