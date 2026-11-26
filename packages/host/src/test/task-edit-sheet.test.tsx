@@ -1,6 +1,6 @@
 import type { EngineNode } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
-import { act, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -155,6 +155,24 @@ const save = (sheet: HTMLElement) =>
 /** Every write of one kind, by its payload. */
 const sent = (fn: typeof update | typeof tag | typeof untag | typeof move | typeof groom) =>
   vi.mocked(fn).mock.calls.map(([options]) => options.data);
+
+describe('task edit sheet: Summary', () => {
+  it('joins a pasted line-break run as the one space the Engine stores', async () => {
+    const sheet = await openSheet(todo());
+    const summary = within(sheet).getByRole('textbox', { name: /Summary/ });
+    fireEvent.change(summary, { target: { value: 'One line\r\n\r\nand the next' } });
+    expect(summary).toHaveValue('One line and the next');
+  });
+
+  it('takes a long run of spaces in linear time', async () => {
+    const sheet = await openSheet(todo());
+    const summary = within(sheet).getByRole('textbox', { name: /Summary/ });
+    const started = performance.now();
+    fireEvent.change(summary, { target: { value: `${' '.repeat(60_000)}x` } });
+    // A backtracking pattern over the run takes seconds here; a linear one, milliseconds.
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
+});
 
 describe('task edit sheet: opening and closing', () => {
   it('is More’s one editing row: Move… and Set grooming… are gone', async () => {

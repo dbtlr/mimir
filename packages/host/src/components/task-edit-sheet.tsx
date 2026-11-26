@@ -240,8 +240,10 @@ function TaskEditForm({ node, tree, open, onClose, finalFocus }: TaskEditSheetPr
           lines={3}
           value={draft.summary}
           onChange={(event) => {
-            // A summary is one line: a pasted break joins the line instead.
-            change({ summary: event.target.value.replaceAll(/\s*\n\s*/g, ' ') });
+            // A summary is one line: a pasted run of line breaks becomes one space, as the
+            // Engine stores it. The pattern holds no `\s*` around the break, so a long run of
+            // spaces cannot backtrack.
+            change({ summary: event.target.value.replaceAll(/[\r\n]+/g, ' ') });
           }}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
