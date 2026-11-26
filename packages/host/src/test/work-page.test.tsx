@@ -515,8 +515,8 @@ describe('the scoped Work tab (MMR-727)', () => {
         node('MMR-204', 'initiative', 'in_progress', 'Upkeep', [
           node('MMR-205', 'phase', 'in_progress', 'Phase 1', [leaf('MMR-206', 'done')]),
         ]),
-        node('MMR-207', 'initiative', 'ready', 'Ideas'),
-        node('MMR-208', 'initiative', 'ready', 'Ideas'),
+        node('MMR-207', 'initiative', 'ready', 'Ideas', [leaf('MMR-209', 'done')]),
+        node('MMR-208', 'initiative', 'ready', 'Ideas', [leaf('MMR-210', 'done')]),
       ],
     );
     await open(
@@ -525,6 +525,9 @@ describe('the scoped Work tab (MMR-727)', () => {
         shipped: [
           shippedRow('MMR-203', '2026-10-12T20:30:00.000Z', { parent: 'MMR-202' }),
           shippedRow('MMR-206', '2026-10-12T14:00:00.000Z', { parent: 'MMR-205' }),
+          // Twins with nothing between them and the project: only their ids tell them apart.
+          shippedRow('MMR-209', '2026-10-12T12:00:00.000Z', { parent: 'MMR-207' }),
+          shippedRow('MMR-210', '2026-10-12T11:00:00.000Z', { parent: 'MMR-208' }),
         ],
       }),
       twins,
@@ -536,7 +539,7 @@ describe('the scoped Work tab (MMR-727)', () => {
       within(rows)
         .getAllByRole('listitem')
         .map((row) => row.textContent),
-    ).toStrictEqual(['Phase 1 · Console 1', 'Phase 1 · Upkeep 1']);
+    ).toStrictEqual(['Phase 1 · Console 1', 'Phase 1 · Upkeep 1', 'Ideas 1', 'Ideas 1']);
     const parts = await section('Initiatives');
     expect(
       within(parts)
