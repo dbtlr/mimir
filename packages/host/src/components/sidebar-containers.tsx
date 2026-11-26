@@ -348,9 +348,7 @@ export function ProjectContainers({
   }
   // A node id in the project segment (`/p/MMR-5`) reads back a tree that is no project's.
   const notProject = tree.data !== undefined && tree.data.type !== 'project';
-  if (tree.data !== undefined && !notProject) {
-    return <ContainerLevel list={containerListOf(tree.data, place)} onNavigate={onNavigate} />;
-  }
+  // A refetch that 404s (archived in another tab) outranks the tree still cached.
   if (notProject || isNotFound(tree.error)) {
     return (
       <>
@@ -358,6 +356,9 @@ export function ProjectContainers({
         {bare(undefined)}
       </>
     );
+  }
+  if (tree.data !== undefined) {
+    return <ContainerLevel list={containerListOf(tree.data, place)} onNavigate={onNavigate} />;
   }
   if (tree.isError) {
     return (

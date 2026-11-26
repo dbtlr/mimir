@@ -206,7 +206,7 @@ sidebar on the work pages, and Home offers **New project**.
   dot, its title (a project's row its key and name), and at the right the
   tasks and containers directly inside it that are done over those that are
   not abandoned. It reads ∞ when open-ended, _parked_ when parked, and _Empty_
-  when nothing sits inside it. Finished initiatives or phases fold into one
+  when nothing inside it is left that is not abandoned. Finished initiatives or phases fold into one
   line at the end, such as "3 finished initiatives", which opens in place and
   closes again when you move to another page.
 - **Home is the top level.** Its row counts the active projects. Below it are

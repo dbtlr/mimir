@@ -515,6 +515,25 @@ describe('sidebar on a project (MMR-730)', () => {
     ).resolves.toBeInTheDocument();
     expect(rowsOf(nav)).toStrictEqual(['← Home', 'MMR Mimir']);
   });
+
+  // Archived in another tab: the refetched tree 404s while the cached one still lists its initiatives.
+  it('drops the cached initiatives once a refetched tree is not found', async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { refetchInterval: false, retry: false } },
+    });
+    await renderShell('/p/MMR', client);
+    await expectRows([
+      '← Home',
+      'MMR Mimir 1/5',
+      'initiative MMR-1 0/3',
+      'initiative MMR-8 ∞',
+      'initiative MMR-9 parked',
+    ]);
+    vi.mocked(tree).mockRejectedValue(new ApiError('tree MMR → 404', 404));
+    await client.invalidateQueries({ queryKey: ['tree', 'MMR'] });
+    const nav = await expectRows(['← Home', 'MMR']);
+    expect(within(nav).queryByRole('link', { name: /^initiative/ })).toBeNull();
+  });
 });
 
 describe('sidebar on an initiative (MMR-730)', () => {
