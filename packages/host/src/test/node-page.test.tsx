@@ -1069,6 +1069,24 @@ describe('task page state banner (MMR-728)', () => {
     expect(banner.querySelectorAll('[class*="attention"]')).toHaveLength(0);
   });
 
+  it('sizes the external ref as a 44 link fact in the review banner and under Details › Record', async () => {
+    const { panel } = await openTask(inReview('https://github.com/x/mimir/pull/653'), reviewNotes);
+    const banner = within(panel).getByRole('region', { name: 'Submitted for review' });
+    expect(within(banner).getByRole('link', { name: /PR #653/ })).toHaveClass(
+      'min-w-11',
+      '-my-3',
+      'py-3',
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Details' }));
+    const record = await screen.findByRole('region', { name: 'Record' });
+    expect(within(record).getByRole('link', { name: /PR #653/ })).toHaveClass(
+      'min-w-11',
+      '-my-3',
+      'py-3',
+    );
+  });
+
   it('shows Submitted for review with no PR row when the task has no external ref', async () => {
     const { panel } = await openTask(inReview(null), reviewNotes);
 

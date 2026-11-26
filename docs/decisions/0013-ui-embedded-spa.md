@@ -986,7 +986,7 @@ MMR-727 rebuilds them on Home's pattern.
   (each a link with its status as the header shows one, the dot right before
   a bright word), and its created, updated, and target dates. _Timeline_ is
   the MMR-470 refinement's, with its count. _Artifacts_ lists what is
-  attached, newest first, with its count.
+  attached, newest first, folded by the day it was frozen, with its count.
 - **A project has tabs: _Work_, _Tasks_, _Seeds_, _Artifacts_, and
   _Details_.** This replaces the MMR-470 rule that a project has no tabs.
   _Work_ adds a _Record health_ row to the doctor panel, when the project has
@@ -1272,8 +1272,9 @@ column under its record header and tabs, as a container's is.
   done, abandon, park, block, and unqueue clear them, so _Run_ then holds
   only the Scratchpads, and queue replaces them with its own. The external
   ref survives every transition. Whether done should keep the handles is
-  seed MMR-s132. _Timeline_ is the record timeline below; _Artifacts_ lists what is attached, newest first,
-  folded by the day it was frozen in the Artifacts list's rows.
+  seed MMR-s132. _Timeline_ is the record timeline below; _Artifacts_ lists
+  what is attached, newest first, folded by the day it was frozen in the
+  Artifacts list's rows.
 - **The URL holds the tab, as on a container.** Work, the default, has no
   parameter; `?tab=` takes `details`, `timeline`, or `artifacts`, and a
   value the page does not know drops. _Work_, _Details_, and _Timeline_

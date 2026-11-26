@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 
 import { cn } from '../lib/cn';
 import { isExternalHref } from '../lib/links';
+import { clampFit } from '../lib/markdown-clamp';
 
 /**
  * Two code treatments, one rule (ADR 0019 §7 rule 4 and its MMR-445
@@ -24,10 +25,13 @@ const INLINE_CODE_PROSE = cn(
   '[--tw-prose-code:var(--color-code)] [--tw-prose-invert-code:var(--color-code)]',
 );
 
-/** Fenced code blocks — the same well; they scroll sideways rather than widen the host. */
+/**
+ * Fenced code blocks — the same well; they scroll sideways rather than widen
+ * the host (the 3-line preview clips them instead, see PREVIEW_COMPONENTS).
+ */
 const CODE_BLOCK_PROSE = cn(
   // The hairline keeps the well legible against the dark page.
-  'prose-pre:overflow-x-auto prose-pre:border prose-pre:border-line-bright prose-pre:bg-[#0B0F14] prose-pre:text-[#B9C4CD]',
+  'prose-pre:border prose-pre:border-line-bright prose-pre:bg-[#0B0F14] prose-pre:text-[#B9C4CD]',
   // Inside a block the code sits on the pre's own ground.
   // The block's code keeps the machine ink, never the inline colour.
   '[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-[#B9C4CD] [&_pre_code]:text-xs',
@@ -136,6 +140,15 @@ function ScrollingTable({ node: _node, ...props }: ComponentProps<'table'> & { n
   );
 }
 
+/** The preview's table: clipped at the measure, so its wrapper is no scroller to focus. */
+function ClippedTable({ node: _node, ...props }: ComponentProps<'table'> & { node?: unknown }) {
+  return (
+    <div data-md="table" className="my-3 overflow-hidden">
+      <table {...props} />
+    </div>
+  );
+}
+
 /**
  * An image as a link to it: opening a record never fetches a remote URL, which
  * would hand the viewer's IP and read time to whoever wrote the image in.
@@ -188,13 +201,20 @@ const DOCUMENT_COMPONENTS = { ...BODY_HEADINGS, a: MarkdownLink, table: Scrollin
 /**
  * The 3-line preview has no expander, so a link it clips would still take
  * focus and scroll it; its links stay out of the tab order, and the whole
- * text lives where the preview points (a task's Timeline).
+ * text lives where the preview points (a task's Timeline). A sideways
+ * scroller is focusable too, so its code blocks (PREVIEW_CODE_PROSE) and
+ * tables clip rather than scroll.
  */
 const PREVIEW_COMPONENTS = {
   ...BODY_COMPONENTS,
   a: (props: ComponentProps<typeof MarkdownLink>) => <MarkdownLink {...props} tabIndex={-1} />,
   img: (props: ComponentProps<'img'>) => <ImageLink {...props} tabIndex={-1} />,
+  table: ClippedTable,
 };
+
+/** How a fenced block meets a line too wide for it: the body scrolls it, the preview clips it. */
+const BODY_CODE_PROSE = 'prose-pre:overflow-x-auto';
+const PREVIEW_CODE_PROSE = 'prose-pre:overflow-hidden';
 
 /**
  * The text scales a host can ask for. `default` is the reading scale;
@@ -204,7 +224,8 @@ const PREVIEW_COMPONENTS = {
 export type MarkdownSize = 'default' | 'body';
 
 const SIZE_PROSE: Record<MarkdownSize, string> = {
-  body: 'text-body leading-[23px]',
+  // A paragraph's last line never holds a single word (DESIGN.md).
+  body: 'text-body leading-[23px] text-pretty',
   default: 'text-[0.84375rem] leading-[1.75] max-md:text-sm',
 };
 
@@ -213,8 +234,9 @@ const SIZE_PROSE: Record<MarkdownSize, string> = {
  * line-height, and block children (code, tables) clamp too, which
  * `-webkit-line-clamp` cannot do. Where layout reports line boxes, the clamp
  * moves to the bottom of its last whole line (`--clamp-height`), so block
- * margins never leave a line cut in half (MMR-728), and a text with no more
- * lines than the clamp shows whole. The 12-line fold fades
+ * margins never leave a line cut in half (MMR-728), and a body shows whole
+ * when its text has no more lines than the clamp and nothing else reaches
+ * below them (`clampFit`). The 12-line fold fades
  * that last line only, and only once the content really overflows, so a
  * short body is never dimmed; the 3-line preview ends on whole lines with no
  * fade.
@@ -292,6 +314,19 @@ function lineBottoms(el: HTMLElement, lineHeight: number): number[] | undefined 
 }
 
 /**
+ * The distance from `el`'s top to the bottom of its lowest element box. Border
+ * boxes leave out margins, so trailing block spacing is not content.
+ */
+function contentBottom(el: HTMLElement): number {
+  const top = el.getBoundingClientRect().top;
+  let bottom = top;
+  for (const child of el.querySelectorAll('*')) {
+    bottom = Math.max(bottom, child.getBoundingClientRect().bottom);
+  }
+  return bottom - top;
+}
+
+/**
  * The console's one markdown renderer — user prose on the Meridian prose
  * scale, with a heading ladder under the host's title, every element on Meridian
  * tokens, and machine-ground code. Shared by every
@@ -344,17 +379,16 @@ export function MarkdownBody({
     const measure = (): void => {
       const lineHeight = Number.parseFloat(getComputedStyle(el).lineHeight);
       const bottoms = lineBottoms(el, lineHeight);
-      // Where layout reports lines, only more lines than the clamp fold, so
-      // block margins alone never do. Otherwise, measured while clamped:
-      // scrollHeight is the full content, clientHeight the clamp.
-      const over =
-        bottoms === undefined ? el.scrollHeight > el.clientHeight + 1 : bottoms.length > clamp;
+      // Where layout reports lines, the text and every box below it decide the
+      // fold, so block margins alone never do. Otherwise, measured while
+      // clamped: scrollHeight is the full content, clientHeight the clamp.
+      const fit =
+        bottoms === undefined
+          ? undefined
+          : clampFit({ bottoms, clamp, contentHeight: contentBottom(el), lineHeight });
+      const over = fit?.overflowing ?? el.scrollHeight > el.clientHeight + 1;
       setOverflowing(over);
-      if (bottoms === undefined) {
-        setClampHeight(undefined);
-      } else {
-        setClampHeight(over ? bottoms[clamp - 1] : 'none');
-      }
+      setClampHeight(fit?.height);
       // Text lines where layout reports them, so block margins count as none.
       const estimate = lineHeight > 0 ? Math.ceil(el.scrollHeight / lineHeight) : 0;
       onClampMeasure?.({ lines: bottoms?.length ?? estimate, overflowing: over });
@@ -380,6 +414,7 @@ export function MarkdownBody({
         INK_PROSE,
         INLINE_CODE_PROSE,
         CODE_BLOCK_PROSE,
+        clamp === 3 ? PREVIEW_CODE_PROSE : BODY_CODE_PROSE,
         clamp !== undefined && CLAMP_PROSE[clamp],
         className,
       )}

@@ -454,7 +454,12 @@ function artifactRow(artifact: RecordArtifact, zone: string) {
       variant="artifact"
       to={artifactLink(artifact.id)}
       title={artifact.title}
-      meta={kind === undefined ? undefined : <span className="text-ink">{kindName(kind)}</span>}
+      meta={
+        // A long kind truncates within the row, as the records list beside a kind does elsewhere.
+        kind === undefined ? undefined : (
+          <span className="min-w-0 truncate text-ink">{kindName(kind)}</span>
+        )
+      }
       time={shippedTime(artifact.createdAt, zone)}
     />
   );

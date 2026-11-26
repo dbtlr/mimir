@@ -145,6 +145,24 @@ describe('markdownBody', () => {
     }
   });
 
+  it('clips a code block and a table in the 3-line preview, so neither scrolls nor takes focus, while a full body scrolls them', () => {
+    const { unmount } = render(<MarkdownBody clamp={3}>{SPECIMEN}</MarkdownBody>);
+    const preview = screen.getByRole('article');
+    const previewTable = within(preview).getByRole('table').closest('[data-md="table"]');
+    expect(preview).toHaveClass('prose-pre:overflow-hidden');
+    expect(preview).not.toHaveClass('prose-pre:overflow-x-auto');
+    expect(previewTable).toHaveClass('overflow-hidden');
+    expect(previewTable).not.toHaveClass('overflow-x-auto');
+    unmount();
+
+    render(<MarkdownBody clamp={12}>{SPECIMEN}</MarkdownBody>);
+    const fold = screen.getByRole('article');
+    expect(fold).toHaveClass('prose-pre:overflow-x-auto');
+    expect(within(fold).getByRole('table').closest('[data-md="table"]')).toHaveClass(
+      'overflow-x-auto',
+    );
+  });
+
   it('loads the image when the host opts in with `images`', () => {
     render(<MarkdownBody images>![build graph](https://example.com/graph.png)</MarkdownBody>);
 
