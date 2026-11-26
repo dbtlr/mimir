@@ -116,3 +116,31 @@ export function isBareUrl(value: string): boolean {
   const [only, ...rest] = splitLinks(value);
   return rest.length === 0 && only?.kind === 'url' && only.value === value;
 }
+
+/**
+ * A pull request's path: an owner and a repository, then `/pull/653`, ending
+ * there or going on to a subpage (`/files`).
+ */
+const PULL_PATH = /^\/[^/]+\/[^/]+\/pull\/(\d+)(?:\/|$)/i;
+
+/** A URL's path, or undefined when it does not parse. `new URL`, not `URL.parse`: Safari before 18 lacks it. */
+function pathOf(value: string): string | undefined {
+  try {
+    return new URL(value).pathname;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * An external ref as a link's words: a pull request URL as "PR #653", anything
+ * else as written. Only the URL's path counts, so a query or a fragment that
+ * mentions `/pull/` never relabels an issue.
+ */
+export function externalRefText(value: string): string {
+  if (!isBareUrl(value)) {
+    return value;
+  }
+  const pull = PULL_PATH.exec(pathOf(value) ?? '')?.[1];
+  return pull === undefined ? value : `PR #${pull}`;
+}

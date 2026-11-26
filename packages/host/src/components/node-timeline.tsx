@@ -1,14 +1,27 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
-import { cn } from '../lib/cn';
-import { ago } from '../lib/time';
+import { browserTimeZone } from '../api/queries';
+import { foldByDay } from '../lib/day-folds';
 import { describeTransition, sessionRoles } from '../lib/timeline';
 import type { FeedItem, HistoryEntry } from '../lib/timeline';
+import { shippedTime } from '../lib/work-page';
+import { AnnotationComposer } from './annotation-composer';
 import { LinkifiedText } from './linkified-text';
 import { MarkdownBody } from './markdown-body';
 import type { ClampMeasure } from './markdown-body';
 import { MetaPart } from './meta-part';
+import { DayFolds } from './patterns/feed/day-fold';
+import { ShowMoreButton } from './patterns/feed/show-more';
+import { ThreadDot, ThreadEvent, ThreadNote } from './patterns/feed/thread';
 import { Skeleton } from './ui/skeleton';
+
+/*
+ * A record's timeline (ADR 0019, MMR-728 refinement): the one timeline of a
+ * task's, an initiative's, and a phase's page. The composer leads; the
+ * record's creation, transitions, and notes follow, newest first, folded by
+ * the day they happened with only the latest day open, each hung on the
+ * thread: an event as one line, a note as a card.
+ */
 
 /** Filled dot color per transition destination; unmapped destinations stay neutral. */
 const TRANSITION_DOT: Record<string, string> = {
@@ -22,31 +35,22 @@ const TRANSITION_DOT: Record<string, string> = {
   under_review: 'bg-status-under-review',
 };
 
-/** Timeline dot: filled (status-colored) for transitions/creation, outlined for notes. */
-function FeedDot({ item }: { item: FeedItem }) {
-  if (item.variant === 'annotation') {
-    return (
-      <span
-        aria-hidden
-        className="mt-1 size-[7px] shrink-0 rounded-full border-[1.5px] border-ink-dim bg-well-850"
-      />
-    );
-  }
-  const fill =
-    item.variant === 'transition'
-      ? (TRANSITION_DOT[item.entry.to ?? ''] ?? 'bg-ink-dim')
-      : 'bg-ink-faint';
-  return <span aria-hidden className={cn('mt-1 size-[7px] shrink-0 rounded-full', fill)} />;
-}
+/** A note longer than this many lines folds under Show all. */
+const NOTE_CLAMP = 12;
 
 function TransitionLine({ entry }: { entry: HistoryEntry }) {
   const { label, detail } = describeTransition(entry);
   const roles =
     entry.kind === 'assignment' || entry.handles === undefined ? [] : sessionRoles(entry.handles);
   return (
-    <p className="text-meta text-ink">
-      <span className="font-medium">{label}</span>
-      {detail != null && <span className="font-mono text-ink-dim"> {detail}</span>}
+    <p>
+      <span className="font-medium text-ink-bright">{label}</span>
+      {detail != null && (
+        <>
+          {' '}
+          <span className="font-mono text-meta text-ink-dim">{detail}</span>
+        </>
+      )}
       {roles.length > 0 && (
         // A real space, not a margin, so the label and the handles read apart (MMR-718).
         <span className="text-ink-dim">
@@ -68,92 +72,176 @@ function TransitionLine({ entry }: { entry: HistoryEntry }) {
   );
 }
 
+/** Whether `target`, inside the clamped `article`, ends below the clamp, where the note hides it. */
+function belowClamp(target: Element, article: HTMLElement): boolean {
+  const offset =
+    target.getBoundingClientRect().bottom - article.getBoundingClientRect().top + article.scrollTop;
+  return offset > article.clientHeight;
+}
+
 /**
- * A note clamped to 3 lines. "Show all · N lines" appears only when the
- * rendered note really overflows its clamp; N is the approximate rendered
- * line count the clamp measured.
+ * A note's body, clamped to 12 whole lines with the last one faded. "Show all
+ * N lines" appears only when the rendered note really overflows its clamp; N
+ * is the rendered line count the clamp measured, named only when the text
+ * itself runs past the clamp (a note folded by a rule or an image under a few
+ * lines reads "Show all"). Focus that reaches a link below the clamp opens the
+ * note, so a folded note never scrolls to it unseen.
  */
-function TimelineNote({ content }: { content: string }) {
+function NoteBody({ content, time }: { content: string; time: string }) {
   const [expanded, setExpanded] = useState(false);
   const [measure, setMeasure] = useState<ClampMeasure>({ lines: 0, overflowing: false });
-  const count =
-    measure.lines > 0
-      ? ` · ${String(measure.lines)} ${measure.lines === 1 ? 'line' : 'lines'}`
-      : '';
+  const more =
+    measure.lines > NOTE_CLAMP
+      ? `Show all ${String(measure.lines)} ${measure.lines === 1 ? 'line' : 'lines'}`
+      : 'Show all';
   return (
-    <div className="flex flex-col gap-0.5">
-      <MarkdownBody
-        breaks
-        size="compact"
-        clamp={expanded ? undefined : 3}
-        onClampMeasure={setMeasure}
-        className="max-w-none"
+    <ThreadNote
+      time={time}
+      footer={
+        measure.overflowing && (
+          // Flush with the note's text, and pulled back below so the 44 (36 from md) target adds no height to the card.
+          <ShowMoreButton
+            className="ml-0 -mb-3 md:-mb-2"
+            onClick={() => {
+              setExpanded((open) => !open);
+            }}
+          >
+            {expanded ? 'Show less' : more}
+          </ShowMoreButton>
+        )
+      }
+    >
+      <div
+        onFocus={(event) => {
+          const article = event.target.closest('article');
+          if (
+            !expanded &&
+            measure.overflowing &&
+            article !== null &&
+            belowClamp(event.target, article)
+          ) {
+            setExpanded(true);
+          }
+        }}
       >
-        {content}
-      </MarkdownBody>
-      {measure.overflowing && (
-        <button
-          type="button"
-          onClick={() => setExpanded((e) => !e)}
-          className="self-start text-micro text-accent-foreground transition-colors hover:text-accent"
+        <MarkdownBody
+          breaks
+          size="body"
+          clamp={expanded ? undefined : NOTE_CLAMP}
+          onClampMeasure={setMeasure}
+          className="max-w-[70ch]"
         >
-          {expanded ? 'Show less ⌃' : `Show all${count} ⌄`}
-        </button>
-      )}
-    </div>
+          {content}
+        </MarkdownBody>
+      </div>
+    </ThreadNote>
   );
 }
 
-function FeedRow({ item }: { item: FeedItem }) {
-  return (
-    <li className="relative flex gap-2.5">
-      <FeedDot item={item} />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        {item.variant === 'created' && <span className="text-meta text-ink-dim">Created</span>}
-        {item.variant === 'transition' && <TransitionLine entry={item.entry} />}
-        {item.variant === 'annotation' && <TimelineNote content={item.content} />}
-        <time className="font-mono text-micro text-ink-dim">{ago(item.at)}</time>
-      </div>
-    </li>
-  );
+/** One entry of the timeline on its thread. */
+function TimelineRow({ item, zone }: { item: FeedItem; zone: string }) {
+  const time = shippedTime(item.at, zone);
+  switch (item.variant) {
+    case 'annotation': {
+      return <NoteBody content={item.content} time={time} />;
+    }
+    case 'transition': {
+      return (
+        <ThreadEvent
+          dot={<ThreadDot className={TRANSITION_DOT[item.entry.to ?? ''] ?? 'bg-ink-dim'} />}
+          time={time}
+        >
+          <TransitionLine entry={item.entry} />
+        </ThreadEvent>
+      );
+    }
+    case 'created': {
+      return (
+        <ThreadEvent dot={<ThreadDot className="bg-ink-dim" />} time={time}>
+          <span className="font-medium text-ink-bright">Created</span>
+        </ThreadEvent>
+      );
+    }
+    default: {
+      const _exhaustive: never = item;
+      return _exhaustive;
+    }
+  }
+}
+
+/** What tells an entry apart from the others, whatever arrives before it. */
+function entryIdentity(item: FeedItem): string {
+  switch (item.variant) {
+    case 'created': {
+      return 'created';
+    }
+    case 'transition': {
+      return `transition-${String(item.sort)}-${item.entry.kind}-${item.entry.to ?? ''}`;
+    }
+    case 'annotation': {
+      return `annotation-${String(item.sort)}-${item.content}`;
+    }
+    default: {
+      const _exhaustive: never = item;
+      return _exhaustive;
+    }
+  }
 }
 
 /**
- * A node's timeline entries, oldest first — a skeleton while the first load is
- * pending, `empty` once there is nothing to show. `threaded` draws the line
- * that joins the dots, as the record page does.
+ * Each entry with a key from its identity, so its row keeps its state when an
+ * older entry arrives. The repeat count leads, ended by a colon no count holds,
+ * so a twin's key never matches another entry's identity.
  */
-export function FeedList({
+function keyEntries(items: readonly FeedItem[]): { item: FeedItem; key: string }[] {
+  const seen = new Map<string, number>();
+  return items.map((item) => {
+    const identity = entryIdentity(item);
+    const repeats = seen.get(identity) ?? 0;
+    seen.set(identity, repeats + 1);
+    return { item, key: `${String(repeats)}:${identity}` };
+  });
+}
+
+/** An entry's row, keyed for its day's fold. */
+function timelineRow(item: FeedItem, key: string, zone: string) {
+  return <TimelineRow key={key} item={item} zone={zone} />;
+}
+
+/**
+ * A record's timeline: the composer, then `items` folded by day, newest
+ * first. While the notes' first read is pending, a skeleton stands above the
+ * entries already known (the creation and the transitions).
+ */
+export function RecordTimeline({
   items,
   pending,
-  empty,
-  threaded = false,
+  nodeId,
+  offline,
 }: {
+  /** The record's entries, oldest first, as `buildFeed` merges them. */
   items: readonly FeedItem[];
   pending: boolean;
-  empty: string;
-  threaded?: boolean;
+  nodeId: string;
+  offline: boolean;
 }) {
-  if (pending && items.length === 0) {
-    return <Skeleton className="h-12 w-full" />;
-  }
-  if (items.length === 0) {
-    return <p className="text-xs text-ink-dim">{empty}</p>;
-  }
+  const zone = browserTimeZone();
+  const days = useMemo(
+    () =>
+      foldByDay(keyEntries(items).toReversed(), {
+        at: ({ item }) => item.at,
+        row: ({ item, key }) => timelineRow(item, key, zone),
+        zone,
+      }),
+    [items, zone],
+  );
   return (
-    <ol
-      className={cn(
-        'relative flex flex-col gap-3',
-        // The thread runs through the dot centres (7px dots at the row's left edge).
-        threaded &&
-          'before:absolute before:top-2 before:bottom-2 before:left-[3px] before:w-px before:bg-line',
-      )}
-    >
-      {items.map((i, idx) => (
-        // Index disambiguates same-millisecond entries (two annotations can share
-        // createdAt), which `${variant}-${at}-${sort}` alone would collide on.
-        <FeedRow key={`${i.variant}-${String(i.sort)}-${String(idx)}`} item={i} />
-      ))}
-    </ol>
+    <div className="flex flex-col">
+      <div className="pb-6">
+        <AnnotationComposer nodeId={nodeId} offline={offline} />
+      </div>
+      {pending && <Skeleton className="mb-3 h-12 w-full" />}
+      <DayFolds days={days} cap={Number.POSITIVE_INFINITY} thread />
+    </div>
   );
 }

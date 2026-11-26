@@ -1,11 +1,13 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import type { ComponentProps } from 'react';
+import type { CSSProperties, ComponentProps } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import remarkGfm from 'remark-gfm';
 
 import { cn } from '../lib/cn';
 import { isExternalHref } from '../lib/links';
+import { clampFit } from '../lib/markdown-clamp';
+import type { ClampBox } from '../lib/markdown-clamp';
 
 /**
  * Two code treatments, one rule (ADR 0019 §7 rule 4 and its MMR-445
@@ -24,10 +26,13 @@ const INLINE_CODE_PROSE = cn(
   '[--tw-prose-code:var(--color-code)] [--tw-prose-invert-code:var(--color-code)]',
 );
 
-/** Fenced code blocks — the same well; they scroll sideways rather than widen the host. */
+/**
+ * Fenced code blocks — the same well; they scroll sideways rather than widen
+ * the host (the 3-line preview clips them instead, see PREVIEW_COMPONENTS).
+ */
 const CODE_BLOCK_PROSE = cn(
   // The hairline keeps the well legible against the dark page.
-  'prose-pre:overflow-x-auto prose-pre:border prose-pre:border-line-bright prose-pre:bg-[#0B0F14] prose-pre:text-[#B9C4CD]',
+  'prose-pre:border prose-pre:border-line-bright prose-pre:bg-[#0B0F14] prose-pre:text-[#B9C4CD]',
   // Inside a block the code sits on the pre's own ground.
   // The block's code keeps the machine ink, never the inline colour.
   '[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-[#B9C4CD] [&_pre_code]:text-xs',
@@ -136,16 +141,26 @@ function ScrollingTable({ node: _node, ...props }: ComponentProps<'table'> & { n
   );
 }
 
+/** The preview's table: clipped at the measure, so its wrapper is no scroller to focus. */
+function ClippedTable({ node: _node, ...props }: ComponentProps<'table'> & { node?: unknown }) {
+  return (
+    <div data-md="table" className="my-3 overflow-hidden">
+      <table {...props} />
+    </div>
+  );
+}
+
 /**
  * An image as a link to it: opening a record never fetches a remote URL, which
  * would hand the viewer's IP and read time to whoever wrote the image in.
  */
-function ImageLink({ src, alt }: ComponentProps<'img'>) {
+function ImageLink({ src, alt, tabIndex }: ComponentProps<'img'>) {
   const href = typeof src === 'string' ? src : undefined;
   const external = isExternalHref(href);
   return (
     <a
       href={href}
+      tabIndex={tabIndex}
       target={external ? '_blank' : undefined}
       rel={external ? 'noopener noreferrer' : undefined}
     >
@@ -185,36 +200,144 @@ const BODY_COMPONENTS = {
 const DOCUMENT_COMPONENTS = { ...BODY_HEADINGS, a: MarkdownLink, table: ScrollingTable };
 
 /**
- * The two text scales a host can ask for. `default` is the reading scale;
- * `compact` is the secondary-text scale (`text-meta`) for dense surfaces — a
- * timeline note — with the block margins tightened to match.
+ * The 3-line preview has no expander, so a link it clips would still take
+ * focus and scroll it; its links stay out of the tab order, and the whole
+ * text lives where the preview points (a task's Timeline). A sideways
+ * scroller is focusable too, so its code blocks (PREVIEW_CODE_PROSE) and
+ * tables clip rather than scroll.
  */
-export type MarkdownSize = 'default' | 'compact';
+const PREVIEW_COMPONENTS = {
+  ...BODY_COMPONENTS,
+  a: (props: ComponentProps<typeof MarkdownLink>) => <MarkdownLink {...props} tabIndex={-1} />,
+  img: (props: ComponentProps<'img'>) => <ImageLink {...props} tabIndex={-1} />,
+  table: ClippedTable,
+};
+
+/** How a fenced block meets a line too wide for it: the body scrolls it, the preview clips it. */
+const BODY_CODE_PROSE = 'prose-pre:overflow-x-auto';
+const PREVIEW_CODE_PROSE = 'prose-pre:overflow-hidden';
+
+/**
+ * The text scales a host can ask for. `default` is the reading scale;
+ * `body` is `text-body`, 14 / 23 at every width, for the task page's prose
+ * (its description, a state banner's, a timeline note's).
+ */
+export type MarkdownSize = 'default' | 'body';
 
 const SIZE_PROSE: Record<MarkdownSize, string> = {
-  compact:
-    'text-meta leading-[1.6] prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-pre:my-1.5 prose-hr:my-3 prose-li:my-0 [&_[data-md=table]]:my-2',
+  // A paragraph's last line never holds a single word (DESIGN.md).
+  body: 'text-body leading-[23px] text-pretty',
   default: 'text-[0.84375rem] leading-[1.75] max-md:text-sm',
 };
 
 /**
  * Height clamps in line units: `lh` resolves against the article's own
  * line-height, and block children (code, tables) clamp too, which
- * `-webkit-line-clamp` cannot do. The bottom fade only appears once the content
- * really overflows, so a short body is never dimmed; it needs no colour token.
+ * `-webkit-line-clamp` cannot do. Where layout reports line boxes, the clamp
+ * moves to the bottom of its last whole line (`--clamp-height`), so block
+ * margins never leave a line cut in half (MMR-728), and a body shows whole
+ * when its text has no more lines than the clamp and nothing else reaches
+ * below them (`clampFit`). The 12-line fold fades
+ * that last line only, and only once the content really overflows, so a
+ * short body is never dimmed; the 3-line preview ends on whole lines with no
+ * fade.
  */
-const CLAMP_PROSE: Record<MarkdownClamp, string> = {
-  2: 'max-h-[2lh] overflow-hidden',
-  3: 'max-h-[3lh] overflow-hidden',
-  6: 'max-h-[6lh] overflow-hidden',
-};
 const CLAMP_FADE =
   'data-[overflowing]:[mask-image:linear-gradient(to_bottom,black_calc(100%_-_1lh),transparent)]';
+const CLAMP_PROSE: Record<MarkdownClamp, string> = {
+  12: cn('max-h-[var(--clamp-height,12lh)] overflow-hidden', CLAMP_FADE),
+  3: 'max-h-[var(--clamp-height,3lh)] overflow-hidden',
+};
 
-/** What a clamped body measured: whether it overflows, and its approximate rendered line count. */
+/** What a clamped body measured: whether it overflows, and its rendered line count. */
 export type ClampMeasure = { overflowing: boolean; lines: number };
 
-export type MarkdownClamp = 2 | 3 | 6;
+export type MarkdownClamp = 3 | 12;
+
+/**
+ * The measured clamp as the `--clamp-height` the clamp class reads: a height,
+ * or `none` for a text that fits; undefined leaves its `lh` fallback.
+ */
+function clampStyle(height: number | 'none' | undefined): CSSProperties | undefined {
+  if (height === undefined) {
+    return undefined;
+  }
+  const style: CSSProperties & Record<'--clamp-height', string> = {
+    '--clamp-height': height === 'none' ? 'none' : `${String(height)}px`,
+  };
+  return style;
+}
+
+/**
+ * The distance from `el`'s top to the bottom of each rendered line of its
+ * text, in order, read from the text's boxes and `lineHeight`; undefined where
+ * layout reports none (jsdom).
+ */
+function lineBottoms(el: HTMLElement, lineHeight: number): number[] | undefined {
+  const range = el.ownerDocument.createRange();
+  // jsdom lays nothing out, and its ranges have no client rects to read.
+  if (typeof range.getClientRects !== 'function') {
+    return undefined;
+  }
+  const walker = el.ownerDocument.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const boxes: { top: number; bottom: number }[] = [];
+  for (let text = walker.nextNode(); text !== null; text = walker.nextNode()) {
+    // The whitespace between blocks lays out as no line, but still reports a box.
+    if (text.textContent?.trim() === '') {
+      continue;
+    }
+    range.selectNodeContents(text);
+    for (const rect of range.getClientRects()) {
+      if (rect.height > 0 && rect.width > 0) {
+        // A text box is its glyphs' height; the line box adds half the leading below.
+        boxes.push({
+          bottom: rect.bottom + Math.max(0, lineHeight - rect.height) / 2,
+          top: rect.top,
+        });
+      }
+    }
+  }
+  boxes.sort((a, b) => a.top - b.top);
+  // A box that starts above the current line's bottom shares its line (a code span, a link).
+  const bottoms: number[] = [];
+  let lineBottom: number | undefined;
+  for (const box of boxes) {
+    if (lineBottom !== undefined && box.top < lineBottom - 1) {
+      lineBottom = Math.max(lineBottom, box.bottom);
+      bottoms[bottoms.length - 1] = lineBottom;
+    } else {
+      lineBottom = box.bottom;
+      bottoms.push(lineBottom);
+    }
+  }
+  const top = el.getBoundingClientRect().top;
+  return bottoms.map((bottom) => bottom - top);
+}
+
+/** The blocks a body draws without text, which the clamp counts as the lines they cover. */
+const NON_TEXT_BLOCKS = 'hr, img, video, iframe, svg, canvas';
+
+/** Each non-text block's box, from `el`'s top. */
+function nonTextBlocks(el: HTMLElement): ClampBox[] {
+  const top = el.getBoundingClientRect().top;
+  return [...el.querySelectorAll(NON_TEXT_BLOCKS)].map((block) => {
+    const rect = block.getBoundingClientRect();
+    return { bottom: rect.bottom - top, top: rect.top - top };
+  });
+}
+
+/**
+ * The distance from `el`'s top to the bottom of its lowest element box. Border
+ * boxes leave out margins, so trailing block spacing is not content.
+ */
+function contentBottom(el: HTMLElement): number {
+  const top = el.getBoundingClientRect().top;
+  let bottom = top;
+  for (const child of el.querySelectorAll('*')) {
+    bottom = Math.max(bottom, child.getBoundingClientRect().bottom);
+  }
+  return bottom - top;
+}
 
 /**
  * The console's one markdown renderer — user prose on the Meridian prose
@@ -225,10 +348,11 @@ export type MarkdownClamp = 2 | 3 | 6;
  * wherever it is opened. `className` carries the host's measure (the reader
  * pins 620px), never a new palette; `size` picks the text scale.
  *
- * `clamp` limits the rendered height to that many lines, fading the last line
- * when the content overflows, and reports the measure through
+ * `clamp` limits the rendered height to that many whole lines (the 12-line
+ * fold fading its last line when the content overflows), and reports the measure through
  * `onClampMeasure` (stable callback expected) so the host can offer an expander.
- * Omit `clamp` to show the whole body. `data-clamped` marks the clamped state.
+ * Omit `clamp` to show the whole body. `data-clamped` marks the clamped state
+ * with its line count. The 3-line preview keeps its links out of the tab order.
  *
  * `breaks` keeps single newlines as line breaks. Comment-like fields
  * (descriptions, notes, seed bodies) pass it so authored line breaks survive,
@@ -257,21 +381,36 @@ export function MarkdownBody({
   onClampMeasure?: (measure: ClampMeasure) => void;
 }) {
   const ref = useRef<HTMLElement>(null);
+  const bodyComponents = clamp === 3 ? PREVIEW_COMPONENTS : BODY_COMPONENTS;
   const [overflowing, setOverflowing] = useState(false);
+  const [clampHeight, setClampHeight] = useState<number | 'none' | undefined>(undefined);
   useLayoutEffect(() => {
     const el = ref.current;
     if (clamp === undefined || el === null) {
       return undefined;
     }
     const measure = (): void => {
-      // Measured while clamped: scrollHeight is the full content, clientHeight the clamp.
-      const over = el.scrollHeight > el.clientHeight + 1;
       const lineHeight = Number.parseFloat(getComputedStyle(el).lineHeight);
+      const bottoms = lineBottoms(el, lineHeight);
+      // Where layout reports lines, the text and every box below it decide the
+      // fold, so block margins alone never do. Otherwise, measured while
+      // clamped: scrollHeight is the full content, clientHeight the clamp.
+      const fit =
+        bottoms === undefined
+          ? undefined
+          : clampFit({
+              blocks: nonTextBlocks(el),
+              bottoms,
+              clamp,
+              contentHeight: contentBottom(el),
+              lineHeight,
+            });
+      const over = fit?.overflowing ?? el.scrollHeight > el.clientHeight + 1;
       setOverflowing(over);
-      onClampMeasure?.({
-        lines: lineHeight > 0 ? Math.ceil(el.scrollHeight / lineHeight) : 0,
-        overflowing: over,
-      });
+      setClampHeight(fit?.height);
+      // Text lines where layout reports them, so block margins count as none.
+      const estimate = lineHeight > 0 ? Math.ceil(el.scrollHeight / lineHeight) : 0;
+      onClampMeasure?.({ lines: bottoms?.length ?? estimate, overflowing: over });
     };
     measure();
     // A width change rewraps the text, so the overflow verdict can flip on resize.
@@ -284,24 +423,25 @@ export function MarkdownBody({
   return (
     <article
       ref={ref}
-      data-clamped={clamp === undefined ? undefined : 'true'}
+      data-clamped={clamp}
       data-overflowing={clamp !== undefined && overflowing ? 'true' : undefined}
       className={cn(
         'prose prose-sm dark:prose-invert',
         HEADING_PROSE,
         BLOCK_PROSE,
-        // After BLOCK_PROSE so the compact margins win the merge.
         SIZE_PROSE[size],
         INK_PROSE,
         INLINE_CODE_PROSE,
         CODE_BLOCK_PROSE,
-        clamp !== undefined && [CLAMP_PROSE[clamp], CLAMP_FADE],
+        clamp === 3 ? PREVIEW_CODE_PROSE : BODY_CODE_PROSE,
+        clamp !== undefined && CLAMP_PROSE[clamp],
         className,
       )}
+      style={clamp === undefined ? undefined : clampStyle(clampHeight)}
     >
       <ReactMarkdown
         remarkPlugins={breaks ? [remarkGfm, remarkBreaks] : [remarkGfm]}
-        components={images ? DOCUMENT_COMPONENTS : BODY_COMPONENTS}
+        components={images ? DOCUMENT_COMPONENTS : bodyComponents}
       >
         {children}
       </ReactMarkdown>

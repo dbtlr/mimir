@@ -27,7 +27,7 @@ export const DESTRUCTIVE_OUTLINE =
  * by under 1.1:1. The other variants are hairlines already, so they fade.
  * `aria-disabled` looks the same: a write that keeps focus while it cannot run.
  */
-const QUIET_DISABLED =
+export const QUIET_DISABLED =
   'disabled:bg-well-800 disabled:text-ink-dim disabled:inset-ring disabled:inset-ring-ink-ghost aria-disabled:bg-well-800 aria-disabled:text-ink-dim aria-disabled:inset-ring aria-disabled:inset-ring-ink-ghost aria-disabled:hover:bg-well-800';
 
 export const actionButtonVariants = cva(

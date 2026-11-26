@@ -13,7 +13,7 @@ Every value is marked:
   MMR-718 readable type, MMR-719 the feed blocks, MMR-720 the preview
   panel, MMR-721 the Needs you deck, MMR-722 Home, MMR-723 the Needs you
   page, MMR-726 the record header, MMR-724 the list page, MMR-725 the Seeds
-  and Artifacts lists, MMR-790 the Projects list). The reason given beside one says what the code did
+  and Artifacts lists, MMR-790 the Projects list, MMR-728 the task page). The reason given beside one says what the code did
   before.
 - **proposed**: missing from or different in the code. Each carries a one-line
   reason and needs the operator's ruling before a primitive adopts it.
@@ -360,7 +360,7 @@ A Notice that needs to stay longer than a banner would be a banner itself.
 | Home's page head | the page title (`text-page`, the day: "Monday, 23 November"), 4 to the one summary sentence (`text-body` ink, at most 62ch), then 20 to a `line` hairline and 32 from it to the first section; the column 900 at most, 16 top on a phone and 24 on desktop | **adopted (MMR-722)** |
 | Between page sections | 24–40 | existing range (`/kit` uses 40) |
 | Between feed sections | 32 | **adopted (MMR-719)** |
-| Page column | one centred column, 900 at most, beside the sidebar and never with a column to its right; a single-purpose page may be narrower (the focus queue 720, pairing 560). A rail page's loading state is 900 too and gives way to its 1200 grid when the read lands; the dev-only `/kit` keeps its own width | **adopted (MMR-729)** for Record health (was 960), the not-found, archived project, and fresh-store pages and the loading state (were 1200), and the unavailable project page (was 1600); Home, the work pages, and Settings already were. The task, seed, artifact, and delivery pages keep their 1200 grid and 300 rail until MMR-728 and MMR-732 |
+| Page column | one centred column, 900 at most, beside the sidebar and never with a column to its right; a single-purpose page may be narrower (the focus queue 720, pairing 560). A rail page's loading state is 900 too and gives way to its 1200 grid when the read lands; the dev-only `/kit` keeps its own width | **adopted (MMR-729)** for Record health (was 960), the not-found, archived project, and fresh-store pages and the loading state (were 1200), and the unavailable project page (was 1600); Home, the work pages, and Settings already were. The task page joined it with MMR-728 (was the 1200 grid and 300 rail). The seed, artifact, and delivery pages keep their 1200 grid and 300 rail until MMR-732 |
 | Sidebar's Jump to | the first thing in the sidebar and the drawer, full width, 12 above the switcher (or Settings' "← Back to work"): `well-850`, a 1px `ink-dim` edge (the page-surface outline's; `ink-faint` is 2.9:1 on the sidebar's `well-950` in light), `well-800` on hover as a sidebar row is, 8 radius, 12 sides; a 16 search icon and "Jump to…" in `text-label` at 400, `ink-dim`, 8 apart; beside the page, the shortcut (⌘K or Ctrl K) at its right in 12 mono `ink-dim`; the drawer draws no shortcut, since a drawer is opened by touch. Focus takes the button's 2px `accent` outline at 2px offset | **adopted (MMR-729)**: it was the top bar's button, which stays below `lg` and on a page with no sidebar, unchanged (32 tall from `md`, a `line` edge at about 1.2:1, below the 3:1 a control edge meets; seed MMR-s116) |
 
 ### Feed blocks
@@ -631,6 +631,30 @@ under it in `record-tabs.tsx` beside it, on the Tabs primitive.
 | Facts | two columns, 104 then the rest, 16 apart, 14 between rows: the label 13 / 20 `ink-dim`, the value 14 / 20 `ink-bright` | same | **adopted (MMR-726)** |
 | Progress (Work) | the rollup's bar the column's width, 6 tall, then its legend 13 / 20 `ink-dim` 8 below; a project's Record health row (Row group) under it. With no Record health row, the work sections start 28 below the legend | same | **adopted (MMR-726)** |
 
+#### Task page
+
+A task's tabs (ADR 0019's MMR-728 refinement): Work, Details, Timeline, and
+Artifacts, under the Record header in the page column. The state banner is in
+`src/components/patterns/state-banner.tsx`, Facts in `facts.tsx`, and the
+timeline's rows in `feed/thread.tsx`, on the Day fold's `thread` option. Three
+parts depart from this file as approved, marked below; seed MMR-s129 settles
+them.
+
+| Part | Phone (< 768) | Desktop (≥ 768) | Mark |
+| --- | --- | --- | --- |
+| State banner | Work's first block, 24 above the description, one at most: the Card block's surface (`well-850`, 1px `line` edge, 10 radius, `shadow-card` in light), 12 top, 16 sides and bottom. Its head: the state's 7 dot, 8 to the title (15 / 22, 600, `ink-bright`), its age 13 / 20 `ink-dim` at the right. Prose 14 / 23 ink, 8 below the head; a label over it ("Latest note") 13 / 20 `ink-dim`, 12 below the head and 2 above its text. Facts 16 below the prose under a `line` hairline, the first fact 16 under it; a button 16 below them | same | **adopted (MMR-728)** |
+| Banner states | Agent at work, only while a run is live (in progress with a session): the latest note, clamped to 3 whole lines with no fade, its links out of the tab order and its code blocks and tables clipped rather than scrolled, so nothing below the clamp takes focus (the Timeline holds the note whole), its age, Harness, Worker (its harness and session), and Branch as Details › Run labels them, then Open in T3, an outline with an `ink-faint` edge (on the card). Submitted for review: the summary written since the submit, its age, and the external ref as a link fact ("Pull request", "PR #653"); with no external ref, no facts. A hold: Blocked on you takes a 7 `attention` dot and the card's edge in `attention` at 35%; Blocked on others and Parked keep the neutral card with the status dot. A park with no reason has no banner. An ungroomed task's Groom with agent card takes the banner's place | same | **adopted (MMR-728)** |
+| Description (Work) | the task's description as `text-body` prose, 70ch at most; with none, "No description." in `text-body` ink | same | **adopted (MMR-728)** |
+| Depends on, Blocks (Work) | a `line` hairline 24 under the description, then the Details section head 24 under it; 28 between the two sections. Each a relation row in its stacked form: the status dot centred in a 16 column, 8 to the title (`text-title`, 500, `ink-bright`, two lines at most on a phone), then the ID in 13 mono and the status word, 8 apart around a "·", 13 / 20 `ink-dim` with the word in `ink-bright` 600; at least 44 tall, a `line` hairline above | the title one line; at least 36 tall | **adopted (MMR-728)**; departs from the Relation row (Record header), which reads the ID first and the status at the right |
+| Details sections | Status (the status, size in words, priority in mono, grooming before the task starts as a plain value ("Groomed", "Not groomed", "Needs answers"), tags, other signals), Record (the parent as a link fact, created, updated, completed with "Not yet" in `ink-dim`, target, external ref), each date in the timeline's voice ("Today, 14:52", "23 November, 09:14"; Today and Yesterday need no year, and any other date adds it when it is not this one) with the full zoned time as its title, and Run (harness, main session, worker, branch, host, scratchpads, then Open in T3 20 below, a `pageOutline`). Run shows whenever any run fact is set and hides for a task that never ran; an external ref alone is not a run | same | **adopted (MMR-728)** |
+| Link fact | a fact's value that is a link (a PR, the parent) is one target at least 44 tall and 44 wide, its whole wrapped value, pulled back above and below so the list keeps its 14 between rows; `accent-foreground`, underlined on hover; a link out of the console adds a 16 external arrow 4 after its words | at least 36 tall | **adopted (MMR-728)** |
+| Timeline | the composer first (Composer, 44 tall: the box, then _Add note_ 8 after it, an outline with an `ink-dim` edge on the page that is the quiet disabled button while the box is empty, so it never makes a second solid beside the header's main action; the box's edge `ink-dim` in light), then 24 to a `line` hairline over the Day folds, newest day first, only the latest open, every row of a day shown. While the notes load, the creation and transitions already known show under a 48 skeleton | same | **adopted (MMR-728)** |
+| Thread | a day's rows on one 1px `line-bright` line through the 16 dot column, from 14 below the list's top to 14 above its bottom; rows 6 apart above and below, the list 4 under the fold's trigger and 12 above the next fold. Each dot 7, ringed 3 in `well-900`; a note's hollow (a 1.5 `ink-dim` inset ring). Content starts 8 after the column, on the day label's edge | rows 5 apart | **adopted (MMR-728)** |
+| Event row | not a link: the event (14 / 20, its lead 500 `ink-bright`, its detail `ink-dim` with handles in 13 mono), the time 13 mono `ink-dim` at the right, held to the first line when the event wraps | same | **adopted (MMR-728)**; departs from the Day fold's 44 / 36 finished row |
+| Note card | the Card block's surface, 10 top, 16 sides, 14 bottom; its head "Note" and the time, 13 / 20 `ink-dim`, 6 above the body; the body the note's prose in `text-body`, 70ch at most | same | **adopted (MMR-728)** |
+| Long note | clamped to 12 whole lines, the clamp ending at the bottom of the twelfth line box; a fade over that last line only; then _Show all N lines_ (N its rendered text lines); a note of 12 lines or fewer shows whole, however its blocks are spaced, unless a block with no text (a rule) reaches past the room those 12 lines take; the Show N more text button flush with the note's text, pulled back below so its 44 target adds no height; focus reaching a link below the clamp opens the note; _Show less_ once open | its target 36 | **adopted (MMR-728)**; a new treatment: elsewhere clamped prose is only the header summary's plain three lines |
+| Artifacts | the Day folds, newest day first, only the latest open, every row of a day shown; each the Artifact row, its second line the kind alone, since every one is on this record; a kind-less artifact shows its title alone | same | **adopted (MMR-728)** |
+
 ## Sizes
 
 | Control | Phone (< 768) | Desktop (≥ 768) | Mark |
@@ -684,7 +708,7 @@ card inside a sheet.
 | Sheet, content | bottom sheet below 768; 440 right panel from 768 | existing (`drawer.tsx`) |
 | Sheet, form | full screen below 768; 640 right panel from 768, so 576 of field width | existing (`drawer.tsx`) |
 | Breakpoint where a sheet becomes a panel | 768 (`md`) | existing (`DRAWER_DESKTOP_QUERY`) |
-| Content column | 900 max, centred, for every page (see Page column under Pages); 560–720 for single-purpose pages. The task, seed, artifact, and delivery pages' 1200 grid with its 300 rail stands until MMR-728 and MMR-732 | **adopted (MMR-729)** (`PAGE_COLUMN` in `lib/page-column.ts`); the rail grid existing (`record-layout.tsx`) |
+| Content column | 900 max, centred, for every page (see Page column under Pages); 560–720 for single-purpose pages. The seed, artifact, and delivery pages' 1200 grid with its 300 rail stands until MMR-732; the task page left it with MMR-728 | **adopted (MMR-729)** (`PAGE_COLUMN` in `lib/page-column.ts`); the rail grid existing (`record-layout.tsx`) |
 | Prose measure | about 70ch, a target rather than a hard limit; 440px for all prose in a form | existing practice (walkthrough uses 62ch); the form measure **adopted (MMR-743)** |
 
 ## The Form sheet, assembled

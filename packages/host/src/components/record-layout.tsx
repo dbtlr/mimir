@@ -154,9 +154,9 @@ function RailChips({ chips, label }: { chips: readonly RailChip[]; label: string
  * The record page shell (ADR 0013, v0.23 refinement): a main column beside a
  * rail, the same page on desktop and phone. Below `md` the rail folds into
  * chips under the page head, each opening its part of the rail in a bottom
- * sheet. Task, seed, artifact, and delivery pages share it; a project,
- * initiative, or phase page is one column under its record header and tabs
- * (MMR-726). A page
+ * sheet. Seed, artifact, and delivery pages share it until MMR-732; a
+ * project, initiative, phase, or task page is one column under its record
+ * header and tabs (MMR-726, MMR-728). A page
  * that omits `chips` keeps its rail on a phone, stacked under the main column,
  * for a rail that holds in-place buttons whose dialogs would not survive a
  * bottom sheet closing.

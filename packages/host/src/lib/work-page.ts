@@ -13,15 +13,27 @@ export const SHIPPED_DAY_CAP = 3;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/** One day formatter per zone: building one per call made a long history's fold pay for every entry. */
+const dayFormats = new Map<string, Intl.DateTimeFormat>();
+
+function dayFormat(zone: string): Intl.DateTimeFormat {
+  let format = dayFormats.get(zone);
+  if (format === undefined) {
+    format = new Intl.DateTimeFormat('en-US', {
+      day: '2-digit',
+      month: '2-digit',
+      timeZone: zone,
+      year: 'numeric',
+    });
+    dayFormats.set(zone, format);
+  }
+  return format;
+}
+
 /** The calendar day of an instant in `zone`, `YYYY-MM-DD`. */
 export function dayOf(at: number, zone: string): string {
   // Built from the parts, not a locale's whole format: ICU has changed en-CA's date pattern before.
-  const parts = new Intl.DateTimeFormat('en-US', {
-    day: '2-digit',
-    month: '2-digit',
-    timeZone: zone,
-    year: 'numeric',
-  }).formatToParts(at);
+  const parts = dayFormat(zone).formatToParts(at);
   const part = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((each) => each.type === type)?.value ?? '';
   return `${part('year')}-${part('month')}-${part('day')}`;

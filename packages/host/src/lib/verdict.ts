@@ -3,7 +3,7 @@ import type { HistoryEntry, NodeAnnotation } from './timeline';
 /**
  * The verdict-block summary (MMR-262) — the latest annotation authored at/after
  * the most recent submit-into-review transition. This is the single source for
- * the task page's verdict block; the wire's generic `summary`
+ * the task page's Submitted for review banner (MMR-728); the wire's generic `summary`
  * field is an unrelated list-row lede (MMR-162), not this. No summary text is
  * fabricated when neither a submit transition nor a post-submit annotation exists.
  */

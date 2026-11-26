@@ -140,6 +140,15 @@ export function ChevronRightIcon({ className }: IconProps) {
   );
 }
 
+/** A link that leaves the console: an arrow out to the top right (Open in T3, a pull request). */
+export function ExternalIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="M8 16 16 8m-7 0h7v7" />
+    </Icon>
+  );
+}
+
 /*
  * Key glyphs for a key hint (the jump palette's footer), drawn on the same
  * grid rather than taken from the system font, so they match its weight.

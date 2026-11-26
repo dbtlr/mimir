@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 
-import { ActionButton } from '../ui/action-button';
+import { cn } from '../../lib/cn';
+import { ActionButton, QUIET_DISABLED } from '../ui/action-button';
 import { Field, FieldLabel } from '../ui/field';
 import { Textarea } from '../ui/textarea';
 import { useOpening } from './opening';
@@ -9,9 +10,9 @@ export type ComposerProps = {
   /** Names the text box for assistive technology; the box has no visible label. */
   label: string;
   placeholder?: string;
-  /** The commit's visible text, such as "Append". */
+  /** The commit's visible text, such as "Add note". */
   commitLabel: string;
-  /** The commit's accessible name when it says more than its label, such as "Append note". */
+  /** The commit's accessible name when it says more than its label, such as "Add note to MMR-728". */
   commitName?: string;
   /**
    * Runs with the trimmed text. A call to the host returns its promise (a
@@ -22,14 +23,24 @@ export type ComposerProps = {
   onCommit: (text: string) => void | Promise<void>;
   /** Neither the box nor the commit takes input, as while offline. Typed text stays. */
   disabled?: boolean;
+  /**
+   * Text the caller kept from an earlier mount and the hook that keeps it: the
+   * box opens with `text` and reports every change, an emptied box included,
+   * so an unsent note outlives its tab closing.
+   */
+  draft?: { text: string; onChange: (text: string) => void };
 };
 
 /**
- * The commit's look: the accent wash of the source mock, at the 44px height
- * of the box beside it. Disabled, it is the quiet button (DESIGN.md, Color
- * roles), which the `action` variant already draws.
+ * The commit's look: an outline on the page, at the 44px height of the box
+ * beside it, so it never makes a second solid beside a record header's main
+ * action (MMR-728). Disabled, it is the quiet button (DESIGN.md, Color roles)
+ * rather than a faded outline.
  */
-const COMMIT_CLASS = 'bg-accent/14 text-accent-foreground hover:bg-accent/20';
+const COMMIT_CLASS = `${QUIET_DISABLED} disabled:opacity-100 aria-disabled:opacity-100`;
+
+/** The box's edge on the page: ink-faint measures 2.6:1 on well-900 in light, so it steps up (DESIGN.md). */
+const BOX_EDGE_CLASS = 'light:border-ink-dim';
 
 /** Focus fell with the commit as it disabled, or stayed on it: the box takes it for the next note. */
 function refocusBox(box: HTMLTextAreaElement | null, button: HTMLButtonElement) {
@@ -57,8 +68,13 @@ export function Composer({
   commitName,
   onCommit,
   disabled = false,
+  draft,
 }: ComposerProps) {
-  const [text, setText] = useState('');
+  const [text, setStoredText] = useState(draft?.text ?? '');
+  const setText = (next: string) => {
+    setStoredText(next);
+    draft?.onChange(next);
+  };
   const box = useRef<HTMLTextAreaElement | null>(null);
   // An inline composer is always open: one opening for its life, so a commit still holds the gate.
   const { busy, commit } = useOpening(true, false, disabled, { restoreFocusOnResolve: false });
@@ -70,6 +86,7 @@ export function Composer({
         <Textarea
           ref={box}
           grow
+          className={BOX_EDGE_CLASS}
           value={text}
           readOnly={busy}
           disabled={disabled}
@@ -79,7 +96,8 @@ export function Composer({
       </Field>
       <ActionButton
         size="form"
-        className={COMMIT_CLASS}
+        variant="pageOutline"
+        className={cn('px-4', COMMIT_CLASS)}
         aria-label={commitName}
         aria-busy={busy}
         disabled={disabled || busy || trimmed === ''}

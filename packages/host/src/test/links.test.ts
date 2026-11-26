@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { isBareUrl, isExternalHref, splitLinks } from '../lib/links';
+import { externalRefText, isBareUrl, isExternalHref, splitLinks } from '../lib/links';
 
 describe('splitLinks', () => {
   it('returns plain text as one text segment', () => {
@@ -149,5 +149,43 @@ describe('isBareUrl', () => {
   it('refuses ids and protocol-relative references', () => {
     expect(isBareUrl('JIRA-123')).toBe(false);
     expect(isBareUrl('//evil.test')).toBe(false);
+  });
+});
+
+describe('externalRefText', () => {
+  it('names a pull request URL by its number', () => {
+    expect(externalRefText('https://github.com/x/mimir/pull/653')).toBe('PR #653');
+    expect(externalRefText('https://github.com/x/mimir/pull/653/files')).toBe('PR #653');
+  });
+
+  it('reads the pull request number from the path alone, never the query or the fragment', () => {
+    const issue = 'https://github.com/x/mimir/issues/9?next=/pull/653';
+    expect(externalRefText(issue)).toBe(issue);
+    expect(externalRefText('https://github.com/x/mimir/issues/9#/pull/653')).toBe(
+      'https://github.com/x/mimir/issues/9#/pull/653',
+    );
+    expect(externalRefText('https://github.com/x/mimir/pull/653?w=1#top')).toBe('PR #653');
+  });
+
+  it('needs an owner and a repository ahead of /pull/, so an issue under an owner named pull stays whole', () => {
+    const issue = 'https://github.com/pull/653/issues/9';
+    expect(externalRefText(issue)).toBe(issue);
+  });
+
+  it('never calls URL.parse, which Safari before 18 lacks', () => {
+    const parse = vi.spyOn(URL, 'parse').mockImplementation(() => {
+      throw new TypeError('URL.parse is not a function');
+    });
+    try {
+      expect(externalRefText('https://github.com/x/mimir/pull/653')).toBe('PR #653');
+      expect(parse).not.toHaveBeenCalled();
+    } finally {
+      parse.mockRestore();
+    }
+  });
+
+  it('keeps any other value whole', () => {
+    expect(externalRefText('https://example.test/issues/9')).toBe('https://example.test/issues/9');
+    expect(externalRefText('JIRA-123')).toBe('JIRA-123');
   });
 });

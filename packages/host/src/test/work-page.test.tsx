@@ -1157,12 +1157,64 @@ describe('work page Artifacts (MMR-486, MMR-726)', () => {
     expect(screen.queryByRole('tab', { name: /Artifacts/ })).toBeNull();
   });
 
-  it('a container lists what is attached to it, uncapped, on its Artifacts tab', async () => {
+  it('a container lists what is attached to it, uncapped, on its Artifacts tab, folded by day', async () => {
     serve({ ...PHASE_SCOPE, record: { ...PHASE, artifacts: artifactsOf(7) } });
     await renderRoute(routes, '/p/MMR/105?tab=artifacts', quietClient());
 
     const panel = await screen.findByRole('tabpanel');
+    // One artifact a day: the newest day's open, and the six before it fold.
+    expect(within(panel).getByRole('link', { name: /Brief 7/ })).toBeDefined();
+    const folds = within(panel)
+      .getAllByRole('button')
+      .filter((button) => button.hasAttribute('aria-expanded'));
+    expect(folds).toHaveLength(7);
+    for (const fold of folds.slice(1)) {
+      fireEvent.click(fold);
+    }
     expect(within(panel).getAllByRole('link')).toHaveLength(7);
     expect(within(panel).queryByRole('link', { name: /^All \d+ artifacts$/ })).toBeNull();
+  });
+
+  it('lists two artifacts frozen on one day newest first on the Artifacts tab', async () => {
+    const artifacts: RecordArtifact[] = [
+      {
+        createdAt: new Date('2026-06-03T09:00:00.000Z'),
+        id: 'MMR-a1',
+        tags: [],
+        title: 'Morning brief',
+      },
+      {
+        createdAt: new Date('2026-06-03T15:00:00.000Z'),
+        id: 'MMR-a2',
+        tags: [],
+        title: 'Afternoon brief',
+      },
+    ];
+    serve({ ...PHASE_SCOPE, record: { ...PHASE, artifacts } });
+    await renderRoute(routes, '/p/MMR/105?tab=artifacts', quietClient());
+
+    const panel = await screen.findByRole('tabpanel');
+    await within(panel).findByRole('link', { name: /Afternoon brief/ });
+    expect(
+      within(panel)
+        .getAllByRole('link')
+        .map((link) => link.textContent),
+    ).toEqual([
+      expect.stringContaining('Afternoon brief'),
+      expect.stringContaining('Morning brief'),
+    ]);
+  });
+
+  it('truncates a long kind within its row on the Artifacts tab rather than widening it', async () => {
+    const kind = 'an_improbably_long_kind_that_runs_well_past_the_phone_measure_of_the_row';
+    const artifacts: RecordArtifact[] = [
+      { ...artifactsOf(1)[0]!, tags: [`kind:${kind}`], title: 'Long kind brief' },
+    ];
+    serve({ ...PHASE_SCOPE, record: { ...PHASE, artifacts } });
+    await renderRoute(routes, '/p/MMR/105?tab=artifacts', quietClient());
+
+    const panel = await screen.findByRole('tabpanel');
+    const word = await within(panel).findByText(/^An improbably long kind/);
+    expect(word).toHaveClass('min-w-0', 'truncate');
   });
 });

@@ -143,18 +143,18 @@ export const projectRoute = createRoute({
   }),
 });
 
-/** The tabs a URL can name on an initiative or phase; Work, the first, takes no parameter. */
+/** The tabs a URL can name on an initiative, a phase, or a task; Work, the first, takes no parameter. */
 const NODE_TABS = ['details', 'timeline', 'artifacts'] as const;
 
 export type NodeSearch = {
-  /** A container's selected tab; absent = Work (MMR-726). */
+  /** A container's or task's selected tab; absent = Work (MMR-726, MMR-728). */
   tab?: (typeof NODE_TABS)[number];
 };
 
 /**
  * A work node's page: the node id split at its hyphen (`MMR-417` → `/p/MMR/417`).
- * A container's `?tab=details`, `timeline`, or `artifacts` opens that tab; any
- * other value drops.
+ * A container's or task's `?tab=details`, `timeline`, or `artifacts` opens
+ * that tab; any other value drops.
  */
 export const nodeRoute = createRoute({
   beforeLoad: ({ params }) => {

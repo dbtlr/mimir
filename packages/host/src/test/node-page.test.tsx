@@ -1,9 +1,10 @@
 import type { EngineNode } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { groomCard } from '../api/fns/agent';
 import {
   annotate,
   done,
@@ -20,17 +21,21 @@ import {
   untag,
   update,
 } from '../api/fns/nodes';
+import { t3Origin } from '../api/fns/t3';
 import { nodeWork } from '../api/fns/views';
 import { POLL_MS } from '../api/queries';
 import { createQueryClient } from '../api/query-client';
+import { RecordTimeline } from '../components/node-timeline';
 import { toast } from '../components/patterns/notice';
+import { buildFeed } from '../lib/timeline';
 import { consoleRoutes } from '../router';
+import { readyCard } from './agent-fixtures';
 import { serveBrowse } from './browse-fns';
-import { engineTree } from './engine-fixtures';
+import { FIXTURE_AT, engineTree } from './engine-fixtures';
 import { engineContainer, engineNote, engineTag, engineTask, scratchpadRow } from './node-fixtures';
 import type { ScratchpadRow } from './node-fixtures';
 import { failNotes, serveNodes } from './node-fns';
-import { renderRoute } from './router';
+import { renderInRouter, renderRoute } from './router';
 import { serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
 import { serveViews } from './views-fns';
@@ -142,11 +147,17 @@ async function header() {
   return title.closest('header') as HTMLElement;
 }
 
-/** Render the task page for `node` and wait for its desktop rail. */
-async function openTask(node: EngineNode, extra: Extra = {}) {
+/** Render the task page for `node`, on `tab` when one is given, and return the open tab's panel. */
+async function openTask(node: EngineNode, extra: Extra = {}, tab?: string) {
   serve(node, extra);
-  await renderRoute(consoleRoutes, `/p/MMR/${node.id.replace('MMR-', '')}`, quietClient());
-  return screen.findByRole('complementary', { name: 'Record details' });
+  const search = tab === undefined ? '' : `?tab=${tab}`;
+  const rendered = await renderRoute(
+    consoleRoutes,
+    `/p/MMR/${node.id.replace('MMR-', '')}${search}`,
+    quietClient(),
+  );
+  await screen.findByRole('heading', { level: 1 });
+  return { panel: await screen.findByRole('tabpanel'), router: rendered.router };
 }
 
 describe('task page (MMR-449)', () => {
@@ -158,7 +169,6 @@ describe('task page (MMR-449)', () => {
       screen.findByRole('heading', { level: 1, name: 'Add the SQLite dialect' }),
     ).resolves.toBeDefined();
     expect(screen.getByText('bun:sqlite')).toBeDefined();
-    expect(screen.getByRole('textbox', { name: /note/i })).toBeDefined();
     // The server function mocks ignore facets, so the request is checked here.
     expect(getNode).toHaveBeenCalledWith({
       data: expect.objectContaining({ facets: expect.arrayContaining(['deps']), id: 'MMR-417' }),
@@ -167,8 +177,9 @@ describe('task page (MMR-449)', () => {
       expect(scratchList).toHaveBeenCalledWith({ data: { project: 'MMR' } });
     });
 
-    await userEvent.type(screen.getByRole('textbox', { name: /note/i }), 'next steps');
-    await userEvent.click(screen.getByRole('button', { name: 'Append note' }));
+    fireEvent.click(screen.getByRole('tab', { name: /Timeline/ }));
+    await userEvent.type(await screen.findByRole('textbox', { name: /note/i }), 'next steps');
+    await userEvent.click(screen.getByRole('button', { name: 'Add note' }));
     await waitFor(() => {
       expect(annotate).toHaveBeenCalledWith({ data: { content: 'next steps', id: 'MMR-417' } });
     });
@@ -300,11 +311,13 @@ describe('task page (MMR-449)', () => {
     expect(getNode).not.toHaveBeenCalled();
   });
 
-  it('labels the verdict block Review, with Approve and Send back… in the header alone', async () => {
+  it('heads the review banner Submitted for review, with Approve and Send back… in the header alone', async () => {
     serve({ ...sqlite, externalRef: 'https://github.com/x/pull/360', status: 'under_review' });
     await renderRoute(consoleRoutes, '/p/MMR/417', quietClient());
 
-    await expect(screen.findByText('Review')).resolves.toBeDefined();
+    await expect(
+      screen.findByRole('region', { name: 'Submitted for review' }),
+    ).resolves.toBeDefined();
     expect(screen.queryByText(/needs your verdict/i)).toBeNull();
     const head = await header();
     expect(actionsOf(head)).toStrictEqual(['Approve', 'Send back…', 'More']);
@@ -320,7 +333,16 @@ describe('task page (MMR-449)', () => {
       ['More'],
     ],
     ['awaiting what it depends on', { status: 'awaiting' as const }, ['More']],
-    ['blocked', { hold: 'blocked' as const, status: 'blocked' as const }, ['More']],
+    [
+      'blocked on others',
+      { blockOwner: 'others' as const, hold: 'blocked' as const, status: 'blocked' as const },
+      ['More'],
+    ],
+    [
+      'blocked on you',
+      { blockOwner: 'you' as const, hold: 'blocked' as const, status: 'blocked' as const },
+      ['Unblock', 'More'],
+    ],
     ['done', { lifecycle: 'done' as const, status: 'done' as const }, ['More']],
   ])('offers the main action its state calls for: %s', async (_name, state, buttons) => {
     serve({ ...sqlite, ...state });
@@ -386,8 +408,8 @@ describe('task page (MMR-449)', () => {
     expect(screen.queryByRole('button', { name: 'Actions' })).toBeNull();
   });
 
-  it('links what the task depends on and what it blocks to their pages', async () => {
-    serve({
+  it('lists what the task depends on and what it blocks on Work, each a link to its page', async () => {
+    const { panel } = await openTask({
       ...sqlite,
       deps: {
         awaitingOn: [],
@@ -395,169 +417,55 @@ describe('task page (MMR-449)', () => {
         dependsOn: [{ id: 'MMR-416', status: 'done', title: 'Extract a dialect seam' }],
       },
     });
-    await renderRoute(consoleRoutes, '/p/MMR/417', quietClient());
 
-    const rail = await screen.findByRole('complementary', { name: 'Record details' });
-    expect(
-      within(rail)
-        .getByRole('link', { name: /MMR-416/ })
-        .getAttribute('href'),
-    ).toBe('/p/MMR/416');
-    expect(
-      within(rail)
-        .getByRole('link', { name: /MMR-418/ })
-        .getAttribute('href'),
-    ).toBe('/p/MMR/418');
-  });
-
-  it('links each of its artifacts to the artifact page (MMR-452)', async () => {
-    serve({
-      ...sqlite,
-      artifacts: [
-        {
-          createdAt: new Date('2026-06-10T00:00:00.000Z'),
-          id: 'MMR-a3',
-          tags: [],
-          title: 'Dialect spec',
-        },
-      ],
-    });
-    await renderRoute(consoleRoutes, '/p/MMR/417', quietClient());
-
-    const rail = await screen.findByRole('complementary', { name: 'Record details' });
-    expect(within(rail).getByRole('link', { name: /Dialect spec/ })).toHaveAttribute(
+    const depends = within(panel).getByRole('region', { name: 'Depends on 1' });
+    const row = within(depends).getByRole('link', { name: /Extract a dialect seam/ });
+    expect(row).toHaveAttribute('href', '/p/MMR/416');
+    expect(within(row).getByText('MMR-416').className).toContain('font-mono');
+    expect(within(row).getByText('Done').className).toContain('text-ink-bright');
+    const blocks = within(panel).getByRole('region', { name: 'Blocks 1' });
+    expect(within(blocks).getByRole('link', { name: /Remove the Norn backend/ })).toHaveAttribute(
       'href',
-      '/p/MMR/a3',
+      '/p/MMR/418',
     );
   });
 
-  it('each rail chip opens its part of the rail in a sheet', async () => {
-    serve({
-      ...sqlite,
-      deps: {
-        awaitingOn: [],
-        blocking: [{ id: 'MMR-418', status: 'awaiting', title: 'Remove the Norn backend' }],
-        dependsOn: [{ id: 'MMR-416', status: 'done', title: 'Extract a dialect seam' }],
-      },
-    });
-    await renderRoute(consoleRoutes, '/p/MMR/417', quietClient());
+  it('holds no rail and no chips: the task page is the one column under its tabs', async () => {
+    await openTask({ ...sqlite, harness: 'claude-code', status: 'in_progress' });
 
-    const chips = await screen.findByRole('group', { name: 'Record details' });
-    fireEvent.click(within(chips).getByRole('button', { name: /links/i }));
-
-    const sheet = await screen.findByRole('dialog', { name: /links/i });
-    expect(
-      within(sheet)
-        .getByRole('link', { name: /MMR-416/ })
-        .getAttribute('href'),
-    ).toBe('/p/MMR/416');
-  });
-
-  it('shows where an agent is working on it, with its Scratchpad', async () => {
-    serve(
-      { ...sqlite, branch: 'feat/mmr-417-sqlite', harness: 'claude-code', status: 'in_progress' },
-      {
-        scratchpads: [
-          scratchpadRow({
-            id: 'a',
-            linkedWork: ['MMR-417'],
-            openAgenda: 1,
-            title: 'SQLite cutover episode',
-          }),
-          scratchpadRow({ id: 'b', linkedWork: ['MMR-12'], title: 'Unrelated episode' }),
-        ],
-      },
-    );
-    await renderRoute(consoleRoutes, '/p/MMR/417', quietClient());
-
-    const rail = await screen.findByRole('complementary', { name: 'Record details' });
-    await expect(within(rail).findByText('SQLite cutover episode')).resolves.toBeDefined();
-    expect(within(rail).getByText('claude-code')).toBeDefined();
-    expect(within(rail).getByText('feat/mmr-417-sqlite')).toBeDefined();
-    expect(within(rail).queryByText('Unrelated episode')).toBeNull();
-  });
-
-  it('shows the main conversation and the distinct whole-task worker', async () => {
-    serve({
-      ...sqlite,
-      harness: 'codex',
-      session: 'main-conversation',
-      status: 'in_progress',
-      workerHarness: 'claude',
-      workerSession: 'task-worker',
-    });
-    await renderRoute(consoleRoutes, '/p/MMR/417', quietClient());
-    const rail = await screen.findByRole('complementary', { name: 'Record details' });
-    await expect(within(rail).findByText('main-conversation')).resolves.toBeDefined();
-    expect(within(rail).getByText('Main session')).toBeDefined();
-    expect(within(rail).getByText('Worker session')).toBeDefined();
-    expect(within(rail).getByText('task-worker')).toBeDefined();
-  });
-
-  it('closes a sheet when a link in it is chosen, not when its text is', async () => {
-    serve({
-      ...sqlite,
-      deps: {
-        awaitingOn: [],
-        blocking: [],
-        dependsOn: [{ id: 'MMR-416', status: 'done', title: 'Extract a dialect seam' }],
-      },
-    });
-    await renderRoute(consoleRoutes, '/p/MMR/417', quietClient());
-    const chips = await screen.findByRole('group', { name: 'Record details' });
-
-    fireEvent.click(within(chips).getByRole('button', { name: /details/i }));
-    const details = await screen.findByRole('dialog', { name: /details/i });
-    fireEvent.click(within(details).getByText('created'));
-    expect(screen.getByRole('dialog', { name: /details/i })).toBeDefined();
-    fireEvent.click(within(details).getByRole('button', { name: 'Close' }));
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog')).toBeNull();
-    });
-
-    fireEvent.click(within(chips).getByRole('button', { name: /links/i }));
-    const links = await screen.findByRole('dialog', { name: /links/i });
-    fireEvent.click(within(links).getByRole('link', { name: /MMR-416/ }));
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: /links/i })).toBeNull();
-    });
-  });
-
-  it('retires the Actions chip and part of the rail, keeping Links, Agent, and Details', async () => {
-    serve({ ...sqlite, harness: 'claude-code', status: 'in_progress' });
-    await renderRoute(consoleRoutes, '/p/MMR/417', quietClient());
-
-    const chips = await screen.findByRole('group', { name: 'Record details' });
-    expect(
-      within(chips)
-        .getAllByRole('button')
-        .map((b) => b.textContent),
-    ).toStrictEqual(['Links0', 'Agent', 'Details']);
-    const rail = screen.getByRole('complementary', { name: 'Record details' });
-    expect(within(rail).queryByRole('heading', { name: 'Actions' })).toBeNull();
-    expect(within(rail).queryByRole('button', { name: 'Edit' })).toBeNull();
+    expect(screen.queryByRole('complementary', { name: 'Record details' })).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Record details' })).toBeNull();
+    for (const chip of [/^Links/, /^Agent$/]) {
+      expect(screen.queryByRole('button', { name: chip })).toBeNull();
+    }
+    expect(screen.queryByRole('button', { name: 'Details' })).toBeNull();
+    expect(screen.getByTestId('record-scroll')).toContainElement(screen.getByRole('tablist'));
   });
 
   it('shows the sessions and links the reason on the transition that settled the task', async () => {
-    await openTask({
-      ...sqlite,
-      history: [
-        {
-          at: new Date('2026-06-04T09:00:00.000Z'),
-          from: 'in_progress',
-          handles: {
-            harness: 'codex',
-            session: 'conversation',
-            worker_harness: 'claude',
-            worker_session: 'build-session',
+    await openTask(
+      {
+        ...sqlite,
+        history: [
+          {
+            at: new Date('2026-06-04T09:00:00.000Z'),
+            from: 'in_progress',
+            handles: {
+              harness: 'codex',
+              session: 'conversation',
+              worker_harness: 'claude',
+              worker_session: 'build-session',
+            },
+            kind: 'lifecycle',
+            reason: 'Shipped in https://example.com/pull/9.',
+            to: 'done',
           },
-          kind: 'lifecycle',
-          reason: 'Shipped in https://example.com/pull/9.',
-          to: 'done',
-        },
-      ],
-      status: 'done',
-    });
+        ],
+        status: 'done',
+      },
+      {},
+      'timeline',
+    );
 
     // Each handle is its own part of the line (MMR-718), so match the handles' whole text.
     await expect(
@@ -886,14 +794,821 @@ describe('container page (MMR-450)', () => {
       expect(document.activeElement).toBe(screen.getByRole('tab', { name: /Timeline/ }));
     });
 
-    it('a task page has no tabs, and ignores the parameter', async () => {
-      serve(sqlite);
-      await renderRoute(consoleRoutes, '/p/MMR/417?tab=timeline', quietClient());
+    it('folds its Timeline by day as a task page does, the composer on top', async () => {
+      serve(phase, { notes: THREE_NOTES });
+      await renderRoute(consoleRoutes, '/p/MMR/2?tab=timeline', quietClient());
 
-      await screen.findByRole('heading', { level: 1, name: 'Add the SQLite dialect' });
-      expect(screen.queryByRole('tablist')).toBeNull();
-      expect(screen.getByRole('heading', { name: /Timeline/ })).toBeDefined();
+      const panel = await screen.findByRole('tabpanel');
+      await within(panel).findByText('Afternoon note');
+      expect(foldsOf(panel)).toStrictEqual([
+        ['Wednesday, 3 June 2', 'true'],
+        ['Monday, 1 June 2', 'false'],
+      ]);
+      expect(within(panel).getByRole('button', { name: 'Add note' })).toBeDisabled();
     });
+  });
+});
+
+/** Three notes over two days: one on Monday 1 June, two on Wednesday 3 June (New York). */
+const THREE_NOTES = [
+  engineNote('Older day note', '2026-06-01T15:00:00.000Z'),
+  engineNote('Morning note', '2026-06-03T14:00:00.000Z'),
+  engineNote('Afternoon note', '2026-06-03T18:00:00.000Z'),
+];
+
+/** Each day fold's trigger in `panel`: its text, and whether it is open. */
+const foldsOf = (panel: HTMLElement) =>
+  within(panel)
+    .getAllByRole('button')
+    .filter((button) => button.hasAttribute('aria-expanded'))
+    .map((button) => [button.textContent, button.getAttribute('aria-expanded')]);
+
+/** The timeline row that holds `text`. */
+const rowOf = (text: string) => screen.getByText(text).closest('li') as HTMLElement;
+
+/** `before` comes before `after` in the document. */
+function precedes(before: Element, after: Element): boolean {
+  // oxlint-disable-next-line no-bitwise -- DOM position flags are a bit mask
+  return (before.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+}
+
+describe('task page tabs (MMR-728)', () => {
+  const withNote = { notes: [engineNote('Settled the dialect seam')] };
+
+  it('opens on Work, with Details and the Timeline a tab away, and hides an empty Artifacts', async () => {
+    const { panel } = await openTask(sqlite, withNote);
+
+    await screen.findByRole('tab', { name: 'Timeline 2' });
+    expect(screen.getByRole('tab', { name: 'Work', selected: true })).toBeDefined();
+    expect(tabNames()).toStrictEqual(['Work ', 'Details ', 'Timeline 2']);
+    expect(within(panel).getByText('bun:sqlite')).toBeDefined();
+    expect(screen.queryByText('Settled the dialect seam')).toBeNull();
+  });
+
+  it('puts the tab it opens in the URL, and Work takes the parameter back out', async () => {
+    const { router } = await openTask(sqlite, withNote);
+
+    fireEvent.click(screen.getByRole('tab', { name: /Timeline/ }));
+    await expect(screen.findByText('Settled the dialect seam')).resolves.toBeDefined();
+    expect(router.state.location.searchStr).toBe('?tab=timeline');
+    fireEvent.click(screen.getByRole('tab', { name: 'Details' }));
+    await screen.findByRole('heading', { level: 2, name: 'Record' });
+    expect(router.state.location.searchStr).toBe('?tab=details');
+    fireEvent.click(screen.getByRole('tab', { name: 'Work' }));
+    await screen.findByText('bun:sqlite');
+    expect(router.state.location.searchStr).toBe('');
+  });
+
+  it('keeps an unsent note when another tab opens and the Timeline comes back', async () => {
+    await openTask(sqlite, withNote, 'timeline');
+
+    await userEvent.type(await screen.findByRole('textbox', { name: /note/i }), 'half a thought');
+    fireEvent.click(screen.getByRole('tab', { name: 'Details' }));
+    await screen.findByRole('heading', { level: 2, name: 'Record' });
+    fireEvent.click(screen.getByRole('tab', { name: /Timeline/ }));
+
+    const box = await screen.findByRole('textbox', { name: /note/i });
+    expect(box).toHaveValue('half a thought');
+    // The draft lives for the page load; empty it so no later test opens MMR-417 holding it.
+    fireEvent.change(box, { target: { value: '' } });
+  });
+
+  it('opens on the tab its URL names, as on a reload', async () => {
+    await openTask(sqlite, withNote, 'timeline');
+
+    await expect(screen.findByText('Settled the dialect seam')).resolves.toBeDefined();
+    expect(screen.getByRole('tab', { name: /Timeline/, selected: true })).toBeDefined();
+  });
+
+  it('drops a tab value it does not know', async () => {
+    const { router } = await openTask(sqlite, withNote, 'sections');
+
+    await expect(screen.findByRole('tab', { name: 'Work', selected: true })).resolves.toBeDefined();
+    expect(router.state.location.searchStr).toBe('');
+  });
+
+  it('replaces ?tab=artifacts with Work while the task has none, so Back leaves the page', async () => {
+    const { router } = await openTask(sqlite, withNote, 'artifacts');
+
+    await expect(screen.findByRole('tab', { name: 'Work', selected: true })).resolves.toBeDefined();
+    await waitFor(() => {
+      expect(router.state.location.searchStr).toBe('');
+    });
+    expect(router.history).toHaveLength(1);
+  });
+
+  it('shows Artifacts with its count once one is attached, each a link to its page', async () => {
+    await openTask(
+      {
+        ...sqlite,
+        artifacts: [
+          {
+            createdAt: new Date('2026-06-10T00:00:00.000Z'),
+            id: 'MMR-a3',
+            tags: [],
+            title: 'Dialect spec',
+          },
+        ],
+      },
+      {},
+      'artifacts',
+    );
+
+    await expect(
+      screen.findByRole('tab', { name: 'Artifacts 1', selected: true }),
+    ).resolves.toBeDefined();
+    expect(screen.getByRole('link', { name: /Dialect spec/ })).toHaveAttribute('href', '/p/MMR/a3');
+  });
+
+  it('lists the artifacts as the Artifacts list does: folded by day, each row its title, kind, and time, a 44 target', async () => {
+    const { panel } = await openTask(
+      {
+        ...sqlite,
+        artifacts: [
+          {
+            createdAt: new Date('2026-06-09T09:05:00.000Z'),
+            id: 'MMR-a2',
+            tags: [],
+            title: 'Seam notes',
+          },
+          {
+            createdAt: new Date('2026-06-10T14:52:00.000Z'),
+            id: 'MMR-a3',
+            tags: ['kind:spec'],
+            title: 'Dialect spec',
+          },
+        ],
+      },
+      {},
+      'artifacts',
+    );
+
+    const row = await within(panel).findByRole('link', { name: /Dialect spec/ });
+    expect(row).toHaveClass('min-h-11', 'md:min-h-9');
+    expect(within(row).getByText('Dialect spec')).toHaveClass('text-title', 'text-ink-bright');
+    expect(within(row).getByText('Spec')).toBeDefined();
+    expect(within(row).getByText('10:52')).toBeDefined();
+    expect(foldsOf(panel)).toStrictEqual([
+      ['Wednesday, 10 June 1', 'true'],
+      ['Tuesday, 9 June 1', 'false'],
+    ]);
+  });
+
+  it('keeps ?tab=artifacts while its cached record predates the artifact, and opens it once read', async () => {
+    const attached = {
+      ...sqlite,
+      artifacts: [{ createdAt: new Date(), id: 'MMR-a3', tags: [], title: 'Dialect spec' }],
+    };
+    serve(attached, withNote);
+    const served = vi.mocked(getNode).getMockImplementation();
+    const held = Promise.withResolvers<void>();
+    vi.mocked(getNode).mockImplementation(async (options) => {
+      if (options.data.id === 'MMR-417' && options.data.facets?.length !== 1) {
+        await held.promise;
+      }
+      return served!(options);
+    });
+    const client = quietClient();
+    client.setQueryData(['node', 'MMR-417'], sqlite, { updatedAt: Date.now() - 60_000 });
+    const { router: testRouter } = await renderRoute(
+      consoleRoutes,
+      '/p/MMR/417?tab=artifacts',
+      client,
+    );
+
+    // The cached record shows Work at once, and leaves the URL alone.
+    await screen.findByRole('tab', { name: 'Work', selected: true });
+    expect(testRouter.state.location.searchStr).toBe('?tab=artifacts');
+    held.resolve();
+
+    await screen.findByRole('tab', { name: 'Artifacts 1', selected: true });
+    expect(testRouter.state.location.searchStr).toBe('?tab=artifacts');
+  });
+});
+
+/** The state banners a Work tab may lead with. */
+const BANNER = /^(Agent at work|Submitted for review|Blocked|Parked)/;
+
+/** A task in review since 3 June, carrying `externalRef`. */
+const inReview = (externalRef: string | null) =>
+  engineTask({
+    externalRef,
+    history: [
+      {
+        at: new Date('2026-06-03T10:00:00.000Z'),
+        from: 'in_progress',
+        kind: 'lifecycle',
+        reason: null,
+        to: 'under_review',
+      },
+    ],
+    id: 'MMR-70',
+    status: 'under_review',
+  });
+
+describe('task page state banner (MMR-728)', () => {
+  const running = engineTask({
+    branch: 'feat/mmr-60-sqlite',
+    harness: 'claude-code',
+    id: 'MMR-60',
+    lifecycle: 'in_progress',
+    session: '5c2e9f10',
+    status: 'in_progress',
+    workerHarness: 'codex',
+    workerSession: 'c41e02b9',
+  });
+
+  it('shows Agent at work while a run is live: its harness, worker, branch, and latest note', async () => {
+    const { panel } = await openTask(running, {
+      notes: [
+        engineNote('Wired the dialect seam.', '2026-06-02T09:00:00.000Z'),
+        engineNote('Next: the migration.', '2026-06-02T10:00:00.000Z'),
+      ],
+    });
+
+    const banner = within(panel).getByRole('region', { name: 'Agent at work' });
+    await within(banner).findByText('Next: the migration.');
+    expect(within(banner).queryByText('Wired the dialect seam.')).toBeNull();
+    expect(within(banner).getByText('claude-code')).toBeDefined();
+    expect(within(banner).getByText('codex')).toBeDefined();
+    expect(within(banner).getByText('feat/mmr-60-sqlite')).toBeDefined();
+    // The banner comes before the description.
+    expect(precedes(banner, within(panel).getByText('No description.'))).toBe(true);
+  });
+
+  it('offers Open in T3 on Agent at work when T3 can open the run', async () => {
+    vi.mocked(t3Origin).mockResolvedValue({ origin: 'https://t3.example' });
+    try {
+      const { panel } = await openTask({ ...running, harness: 't3', host: 'asgard' });
+
+      const banner = within(panel).getByRole('region', { name: 'Agent at work' });
+      await expect(
+        within(banner).findByRole('link', { name: /Open in T3/ }),
+      ).resolves.toHaveAttribute('href', 't3code://threads/asgard/5c2e9f10');
+    } finally {
+      vi.mocked(t3Origin).mockResolvedValue({ origin: null });
+    }
+  });
+
+  it.each([
+    [
+      'in progress with no session',
+      { harness: 'claude-code', lifecycle: 'in_progress' as const, status: 'in_progress' as const },
+    ],
+    ['ready, a session left from an earlier run', { session: 'old', status: 'ready' as const }],
+    ['done', { lifecycle: 'done' as const, session: 'old', status: 'done' as const }],
+  ])('shows no banner while no run is live: %s', async (_name, state) => {
+    const { panel } = await openTask(engineTask({ id: 'MMR-61', ...state }));
+
+    expect(within(panel).queryByRole('region', { name: BANNER })).toBeNull();
+  });
+
+  const reviewNotes = {
+    notes: [
+      engineNote('Before the submit.', '2026-06-03T09:00:00.000Z'),
+      engineNote('Tests cover all three branches.', '2026-06-03T11:00:00.000Z'),
+    ],
+  };
+
+  it('shows Submitted for review with what was written since the submit, its PR a link, and no attention hue', async () => {
+    const { panel } = await openTask(inReview('https://github.com/x/mimir/pull/653'), reviewNotes);
+
+    const banner = within(panel).getByRole('region', { name: 'Submitted for review' });
+    await within(banner).findByText('Tests cover all three branches.');
+    expect(within(banner).queryByText('Before the submit.')).toBeNull();
+    const pr = within(banner).getByRole('link', { name: /PR #653/ });
+    expect(pr).toHaveAttribute('href', 'https://github.com/x/mimir/pull/653');
+    expect(pr).toHaveAttribute('target', '_blank');
+    expect(banner.className).not.toMatch(/attention/);
+    expect(banner.querySelectorAll('[class*="attention"]')).toHaveLength(0);
+  });
+
+  it('sizes the external ref as a 44 link fact in the review banner and under Details › Record', async () => {
+    const { panel } = await openTask(inReview('https://github.com/x/mimir/pull/653'), reviewNotes);
+    const banner = within(panel).getByRole('region', { name: 'Submitted for review' });
+    expect(within(banner).getByRole('link', { name: /PR #653/ })).toHaveClass(
+      'min-w-11',
+      '-my-3',
+      'py-3',
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Details' }));
+    const record = await screen.findByRole('region', { name: 'Record' });
+    expect(within(record).getByRole('link', { name: /PR #653/ })).toHaveClass(
+      'min-w-11',
+      '-my-3',
+      'py-3',
+    );
+  });
+
+  it('shows Submitted for review with no PR row when the task has no external ref', async () => {
+    const { panel } = await openTask(inReview(null), reviewNotes);
+
+    const banner = within(panel).getByRole('region', { name: 'Submitted for review' });
+    await within(banner).findByText('Tests cover all three branches.');
+    expect(within(banner).queryByText('Pull request')).toBeNull();
+    expect(within(banner).queryByRole('link')).toBeNull();
+  });
+
+  it('shows Blocked on you in the attention violet, with its reason', async () => {
+    const { panel } = await openTask(
+      engineTask({
+        blockOwner: 'you',
+        hold: 'blocked',
+        holdReason: 'Needs an API token',
+        id: 'MMR-51',
+        status: 'blocked',
+      }),
+    );
+
+    const banner = within(panel).getByRole('region', { name: 'Blocked on you' });
+    expect(banner).toHaveTextContent('Needs an API token');
+    expect(banner.className).toMatch(/attention/);
+  });
+
+  it('shows Blocked on others in the neutral treatment', async () => {
+    const { panel } = await openTask(
+      engineTask({
+        blockOwner: 'others',
+        hold: 'blocked',
+        holdReason: 'Waiting on the vendor',
+        id: 'MMR-52',
+        status: 'blocked',
+      }),
+    );
+
+    const banner = within(panel).getByRole('region', { name: 'Blocked on others' });
+    expect(banner).toHaveTextContent('Waiting on the vendor');
+    expect(banner.className).not.toMatch(/attention/);
+    expect(banner.querySelectorAll('[class*="attention"]')).toHaveLength(0);
+  });
+
+  it('links a URL in the hold reason, opening in a new tab', async () => {
+    const { panel } = await openTask(
+      engineTask({
+        blockOwner: 'you',
+        hold: 'blocked',
+        holdReason: 'Pick a variant from https://example.com/a/b.',
+        id: 'MMR-51',
+        status: 'blocked',
+      }),
+    );
+
+    const link = within(panel).getByRole('link', { name: 'https://example.com/a/b' });
+    expect(link.getAttribute('href')).toBe('https://example.com/a/b');
+    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+  });
+
+  it('shows Parked with its reason, and no banner for a park with none', async () => {
+    const { panel } = await openTask(
+      engineTask({ hold: 'parked', holdReason: 'later', id: 'MMR-53', status: 'parked' }),
+    );
+    expect(within(panel).getByRole('region', { name: 'Parked' })).toHaveTextContent('later');
+    cleanup();
+
+    const quiet = await openTask(
+      engineTask({ hold: 'parked', holdReason: null, id: 'MMR-54', status: 'parked' }),
+    );
+    expect(within(quiet.panel).queryByRole('region', { name: BANNER })).toBeNull();
+  });
+
+  it('shows no banner for a park whose reason is only whitespace', async () => {
+    const { panel } = await openTask(
+      engineTask({ hold: 'parked', holdReason: '  \n ', id: 'MMR-55', status: 'parked' }),
+    );
+
+    expect(within(panel).queryByRole('region', { name: BANNER })).toBeNull();
+  });
+
+  it('names a block with no owner just Blocked', async () => {
+    const { panel } = await openTask(
+      engineTask({ blockOwner: null, hold: 'blocked', id: 'MMR-56', status: 'blocked' }),
+    );
+
+    expect(within(panel).getByRole('region', { name: 'Blocked' })).toBeDefined();
+  });
+
+  it('shows Agent at work for a run that only a worker holds', async () => {
+    const { panel } = await openTask(
+      engineTask({
+        id: 'MMR-63',
+        lifecycle: 'in_progress',
+        status: 'in_progress',
+        workerHarness: 'codex',
+        workerSession: 'c41e02b9',
+      }),
+    );
+
+    expect(within(panel).getByRole('region', { name: 'Agent at work' })).toBeDefined();
+  });
+
+  it('labels the worker as Details › Run does: its harness and its session', async () => {
+    const { panel } = await openTask({ ...running, harness: null, session: null });
+
+    const banner = within(panel).getByRole('region', { name: 'Agent at work' });
+    const worker = within(banner).getByText('Worker').nextElementSibling;
+    expect(worker).toHaveTextContent('codex, c41e02b9');
+  });
+
+  it('clamps the latest note at three whole lines, with no fade', async () => {
+    const { panel } = await openTask(running, { notes: [engineNote('Wired the dialect seam.')] });
+
+    const banner = within(panel).getByRole('region', { name: 'Agent at work' });
+    const note = (await within(banner).findByText('Wired the dialect seam.')).closest('article');
+    expect(note).toHaveAttribute('data-clamped', '3');
+    expect(note?.className).not.toMatch(/mask-image/);
+  });
+
+  it('keeps the latest note’s links out of the tab order, so focus never scrolls the clipped preview', async () => {
+    const { panel } = await openTask(running, {
+      notes: [engineNote('One.\n\nTwo.\n\nThree.\n\nSee [the PR](https://a.test/pr).')],
+    });
+
+    const banner = within(panel).getByRole('region', { name: 'Agent at work' });
+    const link = await within(banner).findByRole('link', { name: 'the PR' });
+    expect(link).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('shows the worker on Agent at work when only its session is known', async () => {
+    const { panel } = await openTask(
+      engineTask({
+        id: 'MMR-64',
+        lifecycle: 'in_progress',
+        status: 'in_progress',
+        workerSession: 'c41e02b9',
+      }),
+    );
+
+    const banner = within(panel).getByRole('region', { name: 'Agent at work' });
+    expect(within(banner).getByText('Worker').nextElementSibling).toHaveTextContent(/^c41e02b9$/);
+  });
+
+  it('sets the review summary at the body size, 14 / 23', async () => {
+    const { panel } = await openTask(inReview(null), reviewNotes);
+
+    const banner = within(panel).getByRole('region', { name: 'Submitted for review' });
+    const summary = (await within(banner).findByText('Tests cover all three branches.')).closest(
+      'article',
+    );
+    expect(summary).toHaveClass('text-body', 'leading-[23px]');
+  });
+
+  it('sets the banner prose and the description at the body size, 14 / 23', async () => {
+    const { panel } = await openTask(
+      { ...running, description: 'The dialect seam.' },
+      { notes: [engineNote('Wired the dialect seam.')] },
+    );
+
+    const banner = within(panel).getByRole('region', { name: 'Agent at work' });
+    const note = (await within(banner).findByText('Wired the dialect seam.')).closest('article');
+    const description = within(panel).getByText('The dialect seam.').closest('article');
+    for (const prose of [note, description]) {
+      expect(prose).toHaveClass('text-body', 'leading-[23px]');
+    }
+  });
+
+  it('labels a review ref that is not a pull request External ref, and leaves a non-URL as text', async () => {
+    const { panel } = await openTask(inReview('https://example.com/issues/12'), reviewNotes);
+
+    const banner = within(panel).getByRole('region', { name: 'Submitted for review' });
+    expect(within(banner).getByText('External ref')).toBeDefined();
+    expect(within(banner).queryByText('Pull request')).toBeNull();
+    cleanup();
+
+    const plain = await openTask(inReview('GH-123'), reviewNotes);
+    const plainBanner = within(plain.panel).getByRole('region', { name: 'Submitted for review' });
+    expect(within(plainBanner).getByText('GH-123')).toBeDefined();
+    expect(within(plainBanner).queryByRole('link')).toBeNull();
+  });
+
+  it('leaves the Groom with agent card out while a banner shows, and shows it in its place otherwise', async () => {
+    vi.mocked(groomCard).mockResolvedValue(readyCard());
+    try {
+      const ungroomed = {
+        grooming: 'not_groomed' as const,
+        id: 'MMR-640',
+        status: 'ready' as const,
+      };
+      const free = await openTask(engineTask(ungroomed));
+      await expect(
+        within(free.panel).findByRole('region', { name: 'Groom with agent' }),
+      ).resolves.toBeDefined();
+      cleanup();
+
+      const { panel } = await openTask(
+        engineTask({
+          ...ungroomed,
+          blockOwner: 'you',
+          hold: 'blocked',
+          holdReason: 'Needs an API token',
+          status: 'blocked',
+        }),
+      );
+      expect(within(panel).getByRole('region', { name: 'Blocked on you' })).toBeDefined();
+      // Long enough for the card's read to answer, had it been asked.
+      await expect(
+        within(panel).findByRole('region', { name: 'Groom with agent' }, { timeout: 300 }),
+      ).rejects.toThrow(/Unable to find role="region"/);
+    } finally {
+      vi.mocked(groomCard).mockResolvedValue({ state: 'unconfigured' });
+    }
+  });
+});
+
+describe('task page Details (MMR-728)', () => {
+  // Submit keeps a run's handles; done, abandon, park, block, and unqueue clear them.
+  const ran = engineTask({
+    branch: 'feat/mmr-60-sqlite',
+    externalRef: 'https://github.com/x/mimir/pull/653',
+    harness: 'claude-code',
+    host: 'asgard',
+    id: 'MMR-60',
+    lifecycle: 'under_review',
+    session: '5c2e9f10',
+    status: 'under_review',
+    workerHarness: 'codex',
+    workerSession: 'c41e02b9',
+  });
+
+  it('heads Details with Status, Record, and Run, and keeps the run facts while the task is in review', async () => {
+    const { panel } = await openTask(
+      ran,
+      {
+        scratchpads: [
+          scratchpadRow({ id: 'a', linkedWork: ['MMR-60'], title: 'Push click handler' }),
+          scratchpadRow({ id: 'b', linkedWork: ['MMR-12'], title: 'Unrelated episode' }),
+        ],
+      },
+      'details',
+    );
+
+    expect(
+      within(panel)
+        .getAllByRole('heading', { level: 2 })
+        .map((heading) => heading.textContent?.trim()),
+    ).toStrictEqual(['Status', 'Record', 'Run']);
+    const run = within(panel).getByRole('region', { name: 'Run' });
+    for (const fact of ['claude-code', '5c2e9f10', 'codex', 'c41e02b9', 'asgard']) {
+      expect(within(run).getByText(fact)).toBeDefined();
+    }
+    expect(within(run).getByText('feat/mmr-60-sqlite')).toBeDefined();
+    expect(within(run).getByText('Main session')).toBeDefined();
+    expect(within(run).getByText('Worker')).toBeDefined();
+    await within(run).findByText('Push click handler');
+    expect(within(run).queryByText('Unrelated episode')).toBeNull();
+  });
+
+  it('hides Run for a task that never ran', async () => {
+    const { panel } = await openTask(sqlite, {}, 'details');
+
+    expect(within(panel).getByRole('region', { name: 'Status' })).toBeDefined();
+    expect(within(panel).getByRole('region', { name: 'Record' })).toBeDefined();
+    expect(within(panel).queryByRole('region', { name: 'Run' })).toBeNull();
+  });
+
+  it('keeps the external ref under Record, so a task that never ran shows no Run', async () => {
+    const { panel } = await openTask(
+      { ...sqlite, externalRef: 'https://github.com/x/mimir/pull/653' },
+      {},
+      'details',
+    );
+
+    const record = within(panel).getByRole('region', { name: 'Record' });
+    expect(within(record).getByText('External ref')).toBeDefined();
+    expect(within(record).getByRole('link', { name: /PR #653/ })).toHaveAttribute(
+      'href',
+      'https://github.com/x/mimir/pull/653',
+    );
+    expect(within(panel).queryByRole('region', { name: 'Run' })).toBeNull();
+  });
+
+  it('shows an external ref that is not a URL as text, not a link', async () => {
+    const { panel } = await openTask({ ...sqlite, externalRef: 'GH-123' }, {}, 'details');
+
+    const record = within(panel).getByRole('region', { name: 'Record' });
+    expect(within(record).getByText('GH-123')).toBeDefined();
+    expect(within(record).queryByRole('link', { name: /GH-123/ })).toBeNull();
+  });
+
+  it.each([
+    ['a host', { host: 'asgard' }, {}, 'asgard'],
+    [
+      'an anchored Scratchpad',
+      {},
+      { scratchpads: [scratchpadRow({ id: 'a', linkedWork: ['MMR-62'], title: 'Episode' })] },
+      'Episode',
+    ],
+  ])('shows Run when the only run fact is %s', async (_name, facts, extra, shown) => {
+    const { panel } = await openTask(
+      engineTask({ id: 'MMR-62', status: 'ready', ...facts }),
+      extra,
+      'details',
+    );
+
+    const run = await within(panel).findByRole('region', { name: 'Run' });
+    expect(within(run).getByText(shown)).toBeDefined();
+  });
+
+  it('reads the dates as the timeline does, with the full time in their title', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    // Wednesday 3 June 2026, noon in the suite's zone (America/New_York).
+    vi.setSystemTime(Date.parse('2026-06-03T16:00:00.000Z'));
+    try {
+      const { panel } = await openTask(
+        {
+          ...sqlite,
+          completedAt: new Date('2026-06-02T20:30:00.000Z'),
+          createdAt: new Date('2025-11-23T14:14:00.000Z'),
+          updatedAt: new Date('2026-06-03T13:05:00.000Z'),
+        },
+        {},
+        'details',
+      );
+
+      const record = within(panel).getByRole('region', { name: 'Record' });
+      const created = within(record).getByText('23 November 2025, 09:14');
+      expect(created).toHaveAttribute('dateTime', '2025-11-23T14:14:00.000Z');
+      expect(created.getAttribute('title')).toMatch(/^11\/23\/2025, 9:14:00\sAM EST$/);
+      expect(within(record).getByText('Today, 09:05')).toBeDefined();
+      expect(within(record).getByText('Yesterday, 16:30')).toBeDefined();
+      cleanup();
+
+      const thisYear = await openTask(
+        { ...sqlite, createdAt: new Date('2026-05-23T13:14:00.000Z') },
+        {},
+        'details',
+      );
+      expect(within(thisYear.panel).getByText('23 May, 09:14')).toBeDefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('makes a short link fact at least 44 wide on a phone', async () => {
+    const { panel } = await openTask(sqlite, {}, 'details');
+
+    const parent = await within(panel).findByRole('link', { name: 'SQLite replaces Norn' });
+    expect(parent).toHaveClass('min-w-11');
+  });
+
+  it('shows the status, size, priority, and tags under Status, and the parent and dates under Record', async () => {
+    const { panel } = await openTask(
+      {
+        ...sqlite,
+        priority: 'p1',
+        size: 'medium',
+        tags: [engineTag('web-push')],
+      },
+      {},
+      'details',
+    );
+
+    const status = within(panel).getByRole('region', { name: 'Status' });
+    expect(within(status).getByText('Ready')).toBeDefined();
+    expect(within(status).getByText('Medium')).toBeDefined();
+    expect(within(status).getByText('p1')).toBeDefined();
+    expect(within(status).getByText('web-push')).toBeDefined();
+    const record = within(panel).getByRole('region', { name: 'Record' });
+    await expect(
+      within(record).findByRole('link', { name: 'SQLite replaces Norn' }),
+    ).resolves.toHaveAttribute('href', '/p/MMR/2');
+    expect(within(record).getByText('Created')).toBeDefined();
+    expect(within(record).getByText('Not yet')).toBeDefined();
+  });
+});
+
+/** A timeline that holds only the record's creation, its notes' read `pending` or not. */
+const createdOnly = (pending: boolean) => (
+  <RecordTimeline
+    items={buildFeed(FIXTURE_AT, [], [])}
+    pending={pending}
+    nodeId="MMR-417"
+    offline={false}
+  />
+);
+
+/** The Skeleton primitive's placeholder card. */
+const SKELETON = '.bg-well-850.inset-ring';
+
+describe('task page timeline (MMR-728)', () => {
+  it('folds the timeline by day, newest first, with only the latest day open', async () => {
+    const { panel } = await openTask(sqlite, { notes: THREE_NOTES }, 'timeline');
+
+    await within(panel).findByText('Afternoon note');
+    expect(foldsOf(panel)).toStrictEqual([
+      ['Wednesday, 3 June 2', 'true'],
+      ['Monday, 1 June 2', 'false'],
+    ]);
+    expect(
+      precedes(within(panel).getByText('Afternoon note'), within(panel).getByText('Morning note')),
+    ).toBe(true);
+    expect(within(panel).queryByText('Older day note')).toBeNull();
+
+    fireEvent.click(within(panel).getByRole('button', { name: 'Monday, 1 June 2' }));
+    await within(panel).findByText('Older day note');
+    // The day's creation follows its later note.
+    expect(
+      precedes(within(panel).getByText('Older day note'), within(panel).getByText('Created')),
+    ).toBe(true);
+  });
+
+  it('puts the composer above the days, its Add note quiet until there is text', async () => {
+    const { panel } = await openTask(sqlite, { notes: THREE_NOTES }, 'timeline');
+
+    const box = within(panel).getByRole('textbox', { name: 'Add a note' });
+    const add = within(panel).getByRole('button', { name: 'Add note' });
+    expect(add).toBeDisabled();
+    await within(panel).findByText('Afternoon note');
+    expect(precedes(add, within(panel).getByRole('button', { name: 'Wednesday, 3 June 2' }))).toBe(
+      true,
+    );
+    await userEvent.type(box, 'next steps');
+    expect(add).toBeEnabled();
+    // Never a second solid beside the header's main action.
+    expect(add.className).not.toMatch(/\bbg-action\b/);
+  });
+
+  it('shows the creation and the transitions while the notes load', async () => {
+    const started = {
+      ...sqlite,
+      history: [
+        {
+          at: new Date('2026-06-01T12:00:00.000Z'),
+          from: 'todo',
+          kind: 'lifecycle' as const,
+          reason: null,
+          to: 'in_progress',
+        },
+      ],
+    };
+    serve(started, { notes: [engineNote('Settled the dialect seam', '2026-06-01T13:00:00.000Z')] });
+    const served = vi.mocked(getNode).getMockImplementation();
+    const held = Promise.withResolvers<void>();
+    vi.mocked(getNode).mockImplementation(async (options) => {
+      if (options.data.facets?.[0] === 'annotations') {
+        await held.promise;
+      }
+      return served!(options);
+    });
+    await renderRoute(consoleRoutes, '/p/MMR/417?tab=timeline', quietClient());
+
+    const panel = await screen.findByRole('tabpanel');
+    await within(panel).findByText('Started');
+    expect(within(panel).getByText('Created')).toBeDefined();
+    expect(within(panel).queryByText('Settled the dialect seam')).toBeNull();
+    held.resolve();
+
+    await within(panel).findByText('Settled the dialect seam');
+  });
+
+  it('stands a skeleton above the known entries only while the notes load', async () => {
+    const { rerender } = await renderInRouter(createdOnly(true), quietClient());
+
+    await screen.findByText('Created');
+    expect(document.querySelector(SKELETON)).not.toBeNull();
+    rerender(createdOnly(false));
+    expect(document.querySelector(SKELETON)).toBeNull();
+  });
+
+  it('keys every note apart, even same-instant twins beside a note that reads like a repeat', async () => {
+    const at = '2026-06-03T14:00:00.000Z';
+    const consoleError = vi.spyOn(console, 'error');
+    try {
+      await openTask(
+        sqlite,
+        { notes: [engineNote('Twin', at), engineNote('Twin', at), engineNote('Twin-1', at)] },
+        'timeline',
+      );
+
+      await screen.findByText('Twin-1');
+      expect(screen.getAllByText('Twin')).toHaveLength(2);
+      expect(
+        consoleError.mock.calls.filter((args) => String(args[0]).includes('same key')),
+      ).toHaveLength(0);
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it('shows every entry of a day, with no Show N more', async () => {
+    const eight = Array.from({ length: 8 }, (_, index) =>
+      engineNote(`Note ${String(index + 1)}`, `2026-06-03T1${String(index)}:00:00.000Z`),
+    );
+    const { panel } = await openTask(sqlite, { notes: eight }, 'timeline');
+
+    await within(panel).findByText('Note 8');
+    for (const note of eight) {
+      expect(within(panel).getByText(note.content)).toBeDefined();
+    }
+    expect(within(panel).queryByRole('button', { name: /^Show \d+ more$/ })).toBeNull();
+  });
+
+  it('sets a note at the body size, 14 / 23', async () => {
+    const { panel } = await openTask(sqlite, { notes: THREE_NOTES }, 'timeline');
+
+    const note = (await within(panel).findByText('Afternoon note')).closest('article');
+    expect(note).toHaveClass('text-body', 'leading-[23px]');
   });
 });
 
@@ -906,9 +1621,11 @@ async function openEdit(node: EngineNode) {
 
 /** Open a task page whose only timeline note carries `content`. */
 async function openWithNote(content: string) {
-  await openTask(engineTask({ id: 'MMR-83', status: 'in_progress' }), {
-    notes: [engineNote(content)],
-  });
+  await openTask(
+    engineTask({ id: 'MMR-83', status: 'in_progress' }),
+    { notes: [engineNote(content)] },
+    'timeline',
+  );
 }
 
 describe('task page edit (MMR-453)', () => {
@@ -1136,21 +1853,6 @@ describe('task page verbs (MMR-453)', () => {
     expect(options.data).not.toHaveProperty('reason');
   });
 
-  it('keeps the verdict block neutral: no attention hue on the block or anything in it', async () => {
-    await openTask(
-      engineTask({
-        externalRef: 'https://example.test/pr/41',
-        id: 'MMR-70',
-        status: 'under_review',
-      }),
-    );
-
-    const block = (await screen.findByText('Review')).parentElement!;
-    expect(block).toHaveTextContent('example.test/pr/41');
-    expect(block.className).not.toMatch(/attention/);
-    expect(block.querySelectorAll('[class*="attention"]')).toHaveLength(0);
-  });
-
   it('offline disables Edit, Move…, Set grooming…, and the verbs', async () => {
     const node = engineTask({ grooming: 'groomed', id: 'MMR-51', status: 'ready' });
     serve(node);
@@ -1184,7 +1886,7 @@ describe('task page move (MMR-453)', () => {
 
 describe('task page content (MMR-453)', () => {
   it('renders a dependency in both depends_on and awaiting_on as one row, with the awaiting reading', async () => {
-    const rail = await openTask(
+    const { panel: rail } = await openTask(
       engineTask({
         deps: {
           awaitingOn: [{ id: 'MMR-20', status: 'blocked', title: 'still gating' }],
@@ -1238,20 +1940,30 @@ describe('task page content (MMR-453)', () => {
       }
     });
 
-    it('offers "Show all" with the rendered line count when the note overflows, and toggles the clamp', async () => {
+    it('clamps a long note at 12 lines, offers "Show all" with its rendered line count, and toggles the clamp', async () => {
+      stubHeights(300, 60);
+      await openWithNote('- one\n- two\n- three');
+
+      // 300px of content at a 20px line-height: fifteen rendered lines.
+      const toggle = await screen.findByRole('button', { name: 'Show all 15 lines' });
+      const article = screen.getByText('three').closest('article');
+      expect(article).toHaveAttribute('data-clamped', '12');
+      await userEvent.click(toggle);
+      expect(screen.getByRole('button', { name: 'Show less' })).toBeInTheDocument();
+      expect(article).not.toHaveAttribute('data-clamped');
+      await userEvent.click(screen.getByRole('button', { name: 'Show less' }));
+      expect(screen.getByRole('button', { name: 'Show all 15 lines' })).toBeInTheDocument();
+      expect(article).toHaveAttribute('data-clamped', '12');
+    });
+
+    it('names no line count when the note folds with no more than 12 lines of text', async () => {
+      // A rule or an image can fold a note of few lines; "Show all 10 lines"
+      // would then claim fewer lines than the clamp already shows.
       stubHeights(200, 60);
       await openWithNote('- one\n- two\n- three');
 
-      // 200px of content at a 20px line-height: ten rendered lines.
-      const toggle = await screen.findByRole('button', { name: 'Show all · 10 lines ⌄' });
-      const article = screen.getByText('three').closest('article');
-      expect(article).toHaveAttribute('data-clamped');
-      await userEvent.click(toggle);
-      expect(screen.getByRole('button', { name: 'Show less ⌃' })).toBeInTheDocument();
-      expect(article).not.toHaveAttribute('data-clamped');
-      await userEvent.click(screen.getByRole('button', { name: 'Show less ⌃' }));
-      expect(screen.getByRole('button', { name: 'Show all · 10 lines ⌄' })).toBeInTheDocument();
-      expect(article).toHaveAttribute('data-clamped');
+      await expect(screen.findByRole('button', { name: 'Show all' })).resolves.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Show all \d/ })).toBeNull();
     });
 
     it('offers no toggle when the note fits its clamp', async () => {
@@ -1260,6 +1972,77 @@ describe('task page content (MMR-453)', () => {
 
       await screen.findByText('three');
       expect(screen.queryByRole('button', { name: /show (all|less)/i })).toBeNull();
+    });
+
+    it('lines Show all up with the note text, not 4 left of it', async () => {
+      stubHeights(200, 60);
+      await openWithNote('- one\n- two\n- three');
+
+      const toggle = await screen.findByRole('button', { name: /Show all/ });
+      expect(toggle).toHaveClass('ml-0');
+      expect(toggle).not.toHaveClass('-ml-1');
+    });
+
+    it('opens a folded note when focus reaches a link below its clamp, and not for one above it', async () => {
+      stubHeights(200, 60);
+      await openWithNote('[top](https://a.test/top)\n\nmiddle\n\n[bottom](https://a.test/bottom)');
+
+      await screen.findByRole('button', { name: /Show all/ });
+      const top = screen.getByRole('link', { name: 'top' });
+      const bottom = screen.getByRole('link', { name: 'bottom' });
+      // jsdom lays nothing out: the top link sits on the first line, the bottom one 150 down.
+      vi.spyOn(bottom, 'getBoundingClientRect').mockReturnValue(
+        DOMRect.fromRect({ height: 20, y: 130 }),
+      );
+      const article = top.closest('article');
+
+      act(() => {
+        top.focus();
+      });
+      expect(article).toHaveAttribute('data-clamped', '12');
+      act(() => {
+        bottom.focus();
+      });
+      expect(article).not.toHaveAttribute('data-clamped');
+      expect(screen.getByRole('button', { name: 'Show less' })).toBeInTheDocument();
+    });
+
+    it('keeps a note’s Show all state with that note when an older entry arrives', async () => {
+      stubHeights(200, 60);
+      const notes = [
+        engineNote('Morning note', '2026-06-03T14:00:00.000Z'),
+        engineNote('Afternoon note', '2026-06-03T18:00:00.000Z'),
+      ];
+      const timeline = (history: EngineNode['history']) => (
+        <RecordTimeline
+          items={buildFeed(FIXTURE_AT, history, notes)}
+          pending={false}
+          nodeId="MMR-417"
+          offline={false}
+        />
+      );
+      const { rerender } = await renderInRouter(timeline([]), quietClient());
+      await userEvent.click(
+        within(rowOf('Afternoon note')).getByRole('button', { name: /Show all/ }),
+      );
+
+      rerender(
+        timeline([
+          {
+            at: new Date('2026-06-03T12:00:00.000Z'),
+            from: 'todo',
+            kind: 'lifecycle',
+            reason: null,
+            to: 'in_progress',
+          },
+        ]),
+      );
+
+      await screen.findByText('Started');
+      expect(
+        within(rowOf('Afternoon note')).getByRole('button', { name: 'Show less' }),
+      ).toBeDefined();
+      expect(within(rowOf('Morning note')).getByRole('button', { name: /Show all/ })).toBeDefined();
     });
   });
 });
@@ -1273,7 +2056,7 @@ describe('live refresh (MMR-458)', () => {
     // Real time keeps ticking so findBy can still poll under the fake clock.
     vi.useFakeTimers({ shouldAdvanceTime: true });
     serve(sqlite);
-    await renderRoute(consoleRoutes, '/p/MMR/417', createQueryClient());
+    await renderRoute(consoleRoutes, '/p/MMR/417?tab=timeline', createQueryClient());
     await screen.findByRole('heading', { level: 1, name: 'Add the SQLite dialect' });
 
     serve(sqlite, { notes: [engineNote('Annotated from the CLI', '2026-06-02T10:00:00.000Z')] });
@@ -1296,12 +2079,24 @@ const taskReads = () =>
 
 describe('task page grooming state (MMR-466)', () => {
   it('shows the state in the header and as a Grooming row in Details', async () => {
-    const rail = await openTask(groomed());
+    const { panel } = await openTask(groomed(), {}, 'details');
 
-    const article = screen.getByRole('article');
-    expect(within(article).getByText('groomed')).toBeDefined();
-    expect(within(rail).getByText('grooming')).toBeDefined();
-    expect(within(rail).getByText('groomed')).toBeDefined();
+    expect(within(await header()).getByText('groomed')).toBeDefined();
+    const status = within(panel).getByRole('region', { name: 'Status' });
+    expect(within(status).getByText('Grooming').nextElementSibling).toHaveTextContent(/^Groomed$/);
+  });
+
+  it('sets the grooming in Details as a plain fact value, not the header’s chip', async () => {
+    const { panel } = await openTask(
+      engineTask({ grooming: 'needs_answers', id: 'MMR-52', status: 'ready' }),
+      {},
+      'details',
+    );
+
+    const status = within(panel).getByRole('region', { name: 'Status' });
+    const value = within(status).getByText('Grooming').nextElementSibling as HTMLElement;
+    expect(value).toHaveTextContent(/^Needs answers$/);
+    expect(value.children).toHaveLength(0);
   });
 
   it('still shows the state on a todo task that is blocked', async () => {
@@ -1315,7 +2110,7 @@ describe('task page grooming state (MMR-466)', () => {
       }),
     );
 
-    expect(within(screen.getByRole('article')).getByText('groomed')).toBeDefined();
+    expect(within(await header()).getByText('groomed')).toBeDefined();
   });
 
   it('keeps the dialog open and toasts the error when the request fails', async () => {
@@ -1334,17 +2129,19 @@ describe('task page grooming state (MMR-466)', () => {
   });
 
   it('shows no state once the task has started', async () => {
-    const rail = await openTask(
+    const { panel } = await openTask(
       engineTask({
         grooming: 'groomed',
         id: 'MMR-51',
         lifecycle: 'in_progress',
         status: 'in_progress',
       }),
+      {},
+      'details',
     );
 
     expect(screen.queryByText('groomed')).toBeNull();
-    expect(within(rail).queryByText('grooming')).toBeNull();
+    expect(within(panel).queryByText('Grooming')).toBeNull();
     await expect(moreRows()).resolves.not.toContain('Set grooming…');
   });
 
@@ -1416,67 +2213,6 @@ describe('task page grooming state (MMR-466)', () => {
     );
 
     await expect(screen.findByRole('dialog', { name: 'Grooming state' })).resolves.toBeDefined();
-  });
-});
-
-describe('task page hold callout (MMR-466)', () => {
-  it.each([
-    ['you', 'Blocked on you', 'Needs an API token'],
-    ['others', 'Blocked on others', null],
-  ] as const)(
-    'names who can clear a block owned by %s, with or without a reason',
-    async (owner, label, reason) => {
-      await openTask(
-        engineTask({
-          blockOwner: owner,
-          hold: 'blocked',
-          holdReason: reason,
-          id: 'MMR-51',
-          status: 'blocked',
-        }),
-      );
-
-      const article = screen.getByRole('article');
-      expect(within(article).getByText(label)).toBeDefined();
-      expect(article).toHaveTextContent(reason ?? label);
-    },
-  );
-
-  it('links a URL in the hold reason, opening in a new tab', async () => {
-    await openTask(
-      engineTask({
-        blockOwner: 'you',
-        hold: 'blocked',
-        holdReason: 'Pick a variant from https://example.com/a/b.',
-        id: 'MMR-51',
-        status: 'blocked',
-      }),
-    );
-
-    const link = within(screen.getByRole('article')).getByRole('link', {
-      name: 'https://example.com/a/b',
-    });
-    expect(link.getAttribute('href')).toBe('https://example.com/a/b');
-    expect(link.getAttribute('target')).toBe('_blank');
-    expect(link.getAttribute('rel')).toBe('noopener noreferrer');
-  });
-
-  it('shows no callout for a parked task with no reason', async () => {
-    await openTask(
-      engineTask({ hold: 'parked', holdReason: null, id: 'MMR-51', status: 'parked' }),
-    );
-
-    expect(within(screen.getByRole('article')).queryByText('parked')).toBeNull();
-  });
-
-  it('keeps the plain hold name for a parked task, which has no owner', async () => {
-    await openTask(
-      engineTask({ hold: 'parked', holdReason: 'later', id: 'MMR-51', status: 'parked' }),
-    );
-
-    const article = screen.getByRole('article');
-    expect(within(article).getByText('parked')).toBeDefined();
-    expect(within(article).queryByText(/Blocked on/)).toBeNull();
   });
 });
 

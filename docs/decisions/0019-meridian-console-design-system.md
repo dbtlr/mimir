@@ -2302,8 +2302,10 @@ own heads until MMR-732 brings them onto the pattern.
   beside it. A container's is New task, always. A task's is Start while it
   is ready; Approve and _Send back…_ (an outline) while it is in review; and
   nothing while an agent runs it, while it waits on others, or once it is
-  finished, when More stands alone. The review's text stays in the task's
-  body, without the verdict buttons it used to repeat. On desktop the
+  finished, when More stands alone. ADR 0013's MMR-728 refinement adds
+  _Unblock_ while a task is blocked on the operator, since that block waits
+  on them. The review's text stays in the task's body, without the verdict
+  buttons it used to repeat. On desktop the
   actions sit beside the title while the title keeps at least 440px;
   otherwise, and always on a phone, they drop 16px below the summary.
 - **More groups everything else, in four groups.** Edit, with Move… and
@@ -2726,3 +2728,51 @@ Considered and rejected:
 counts, captions, fold, empty states, and New project;
 `project-list.test.ts` sweeps the order and the words, and
 `feed-blocks.test.tsx` the row group's options.
+
+## Refinement (2026-11-26, MMR-728): the state banner, and the threaded day-folded timeline
+
+A task's page moves onto the record tabs (ADR 0013's MMR-728 refinement),
+and two patterns come with it. The operator picked variant A, "Cards on a
+thread", from three mocks; two members of a design review scored its third
+round 9. `packages/host/DESIGN.md` holds the numbers, under Task page.
+
+- **The state banner says what the task's state asks of the reader.** It is
+  one card at the top of _Work_ (`components/patterns/state-banner.tsx`), on
+  the Card block's surface: the state's dot and title, its age at the right,
+  then the state's prose and facts. _Agent at work_ shows only while a run is
+  live (in progress with a session): the latest note, the harness, worker,
+  and branch, and Open in T3. _Submitted for review_ holds what was written
+  since the submit (`verdictSummary`) and the external ref as its pull
+  request; Approve and _Send back…_ stay in the header (MMR-726). A hold
+  shows its reason: _Blocked on you_ takes the attention violet on its dot
+  and edge, as only what needs the operator may, and _Blocked on others_
+  and _Parked_ stay neutral. A finished task, or one waiting to start, has
+  no banner, and an ungroomed task's Groom with agent card takes its place.
+  It replaces the verdict block and the hold callout.
+- **Facts are one pattern** (`components/patterns/facts.tsx`): the label and
+  value columns the container's _Details_ used, now shared by a task's
+  _Details_ sections and a banner. A fact whose value is a link is one
+  target at least 44 by 44 on a phone, pulled back so the list keeps its
+  rhythm.
+- **A record's timeline hangs on a thread.** The day folds of the MMR-719
+  refinement gain a `thread` option: a day's rows hang on one line through
+  their dots, an event as one line of words with its time, a note as a card
+  (`components/patterns/feed/thread.tsx`). The composer leads the timeline,
+  and its _Add note_ is an outline, quiet while empty, so it never makes a
+  second solid beside the header's main action. A long note is cut at 12
+  whole lines, the last one faded, above _Show all N lines_.
+
+Three parts depart from `packages/host/DESIGN.md` as approved: the stacked
+relation rows on _Work_ (the status dot and title first, the ID and status
+word under them), event rows shorter than the Day fold's finished rows since
+they are not links, and the long note's clamp with its one-line fade. Seed
+MMR-s129 settles them in the design system.
+
+Considered and not picked: plain statements for the state with no card,
+and notes as cards among row groups of events (variant B); and full-width
+bands with a chronological ledger, time first and the composer last
+(variant C).
+
+`packages/host/src/test/node-page.test.tsx` checks the tabs, each banner in
+its state, _Details_, and the timeline's folds, order, clamp, and composer
+on task and container pages.
