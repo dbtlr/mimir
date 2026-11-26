@@ -1249,3 +1249,47 @@ report (MMR-763) keeps them.
 Considered and rejected: the switcher's _All projects_ leading to the new
 page. `/` is the cross-project work page the MMR-503 refinement made it, and
 the operator picked the sidebar's See all as the way in.
+
+## Refinement (2026-11-26, MMR-728): a task's page takes tabs, and every record shares one timeline
+
+The MMR-726 refinement kept a task's body, rail, and Links, Agent, and
+Details chips under the new header until this task, and the MMR-729
+refinement kept its 1200 grid. Both give way here: a task's page is one
+column under its record header and tabs, as a container's is.
+
+- **A task has four tabs: _Work_, _Details_, _Timeline_, and _Artifacts_.**
+  _Work_ leads with one banner for the task's state, when it has one (ADR
+  0019's MMR-728 refinement), then the description at reading width, then
+  what the task depends on and what it blocks, each a link to its page.
+  _Details_ holds the facts in three sections: _Status_ (the status and the
+  signals that rode the rail: size, priority, grooming before the task
+  starts, tags, open-ended, stale), _Record_ (the parent and the dates), and
+  _Run_ (harness, main session, worker, branch, host, external ref, and the
+  Scratchpads anchored to it, with Open in T3). _Run_ shows whenever any of
+  those is set, whatever the status, and is absent for a task that never
+  ran. _Timeline_ is the record timeline below; _Artifacts_ lists what is
+  attached, newest first.
+- **The URL holds the tab, as on a container.** Work, the default, has no
+  parameter; `?tab=` takes `details`, `timeline`, or `artifacts`, and a
+  value the page does not know drops. _Work_, _Details_, and _Timeline_
+  always show; _Artifacts_ shows once one is attached, and a URL that names
+  it while it is hidden opens _Work_ and is replaced, as the MMR-726
+  refinement settles a container's hidden tab. Both kinds of page run the
+  same mechanics.
+- **The rail and the chips retire.** The task page has no right column and
+  no Links, Agent, or Details chip or sheet; it takes the 900 page column.
+  The seed, artifact, and delivery pages keep the rail grid until MMR-732.
+- **One record timeline.** A task's, an initiative's, and a phase's
+  _Timeline_ show the same timeline: the composer first, then the record's
+  creation, transitions, and notes, newest first, folded by the day they
+  happened, with only the latest day open. This replaces the MMR-470
+  refinement's oldest-first feed with the composer last. A project has no
+  timeline of its own, so its page is unchanged.
+- **Blocked on you makes _Unblock_ the main action.** The MMR-726
+  refinement offered nothing while a task waits on others; a block the
+  operator owns waits on them, so the header offers _Unblock_ once they have
+  done what the reason asks. A block on others still offers nothing.
+
+The run facts live in _Details_ at all times; the _Agent at work_ banner
+repeats only the run, branch, latest note, and Open in T3, and only while a
+run is live.
