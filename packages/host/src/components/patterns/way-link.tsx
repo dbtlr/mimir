@@ -13,9 +13,11 @@ export function WayLink({
   children,
   ...anchor
 }: { link: LinkOptions } & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'>) {
-  const linkProps = useLinkProps({ ...link, activeOptions: { exact: true } });
+  // The anchor's attributes go through useLinkProps, which composes a caller's
+  // handlers with the router's, so an onClick never replaces client navigation.
+  const linkProps = useLinkProps({ ...anchor, ...link, activeOptions: { exact: true } });
   return (
-    <a {...linkProps} {...anchor} aria-current={undefined}>
+    <a {...linkProps} aria-current={undefined}>
       {children}
     </a>
   );
