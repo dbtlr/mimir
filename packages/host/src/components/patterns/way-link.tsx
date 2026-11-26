@@ -10,8 +10,13 @@ import type { AnchorHTMLAttributes } from 'react';
  */
 export function WayLink({
   link,
+  children,
   ...anchor
 }: { link: LinkOptions } & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'>) {
   const linkProps = useLinkProps({ ...link, activeOptions: { exact: true } });
-  return <a {...linkProps} {...anchor} aria-current={undefined} />;
+  return (
+    <a {...linkProps} {...anchor} aria-current={undefined}>
+      {children}
+    </a>
+  );
 }
