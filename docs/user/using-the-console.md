@@ -214,7 +214,7 @@ sidebar on the work pages, and Home offers **New project**.
   their violet count, then pinned projects, then the most recently active.
   **See all N projects** opens the Projects list at `/projects`.
 - **The row for the page you are on is highlighted.** A container's row is
-  highlighted on its own page, on any of its tabs. On a page it holds, the row
+  highlighted on its own page, Work or Details. On a page it holds, the row
   is outlined instead: a project's row on its Tasks, Seeds, and Artifacts lists
   and on its seeds, artifacts, and deliveries; a phase's row (or an
   initiative's) on its tasks; and **Home** on every page outside a project but

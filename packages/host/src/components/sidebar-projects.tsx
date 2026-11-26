@@ -115,6 +115,11 @@ export function HomeContainers({ onNavigate }: { onNavigate?: (() => void) | und
         mark={pathname === '/' ? 'page' : 'holds'}
         title="Home"
         tally={listed === undefined ? undefined : listed.length.toLocaleString('en-US')}
+        tallyName={
+          listed === undefined
+            ? undefined
+            : `${listed.length.toLocaleString('en-US')} ${listed.length === 1 ? 'project' : 'projects'}`
+        }
         onNavigate={onNavigate}
       />
       {loaded()}

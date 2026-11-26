@@ -37,6 +37,9 @@ type RowMark = 'page' | 'holds' | undefined;
 /** A child row, and the fold and its rows, sit 16 in from the current row. */
 export const CHILD_INDENT = 'ml-4';
 
+/** A row's tally: 12.5 mono `ink-dim` at its right edge. */
+const TALLY = 'ml-auto shrink-0 font-mono text-mono-id text-ink-dim';
+
 /** What a row shows at its right edge. */
 function tallyText(tally: ContainerTally): string {
   switch (tally.kind) {
@@ -93,7 +96,8 @@ function RowLink({
 /**
  * A container's row: its status dot, a project's key, the title, and the
  * tally, each left out where the row has none. The current row's title is
- * semibold, and a row that holds the page says so in words.
+ * semibold, and a row that holds the page says so in words. `tallyName` is
+ * what a screen reader hears in place of a bare tally ("4 projects").
  */
 export function ContainerRowLink({
   target,
@@ -102,6 +106,7 @@ export function ContainerRowLink({
   projectKey,
   title,
   tally,
+  tallyName,
   indent = false,
   onNavigate,
 }: {
@@ -111,6 +116,7 @@ export function ContainerRowLink({
   projectKey?: string | undefined;
   title?: string | undefined;
   tally?: string | undefined;
+  tallyName?: string | undefined;
   indent?: boolean;
   onNavigate?: (() => void) | undefined;
 }) {
@@ -136,10 +142,19 @@ export function ContainerRowLink({
           </span>
         </>
       )}
-      {tally !== undefined && (
+      {tally !== undefined && tallyName === undefined && (
         <>
           {' '}
-          <span className="ml-auto shrink-0 font-mono text-mono-id text-ink-dim">{tally}</span>
+          <span className={TALLY}>{tally}</span>
+        </>
+      )}
+      {tally !== undefined && tallyName !== undefined && (
+        <>
+          <span aria-hidden="true" className={TALLY}>
+            {' '}
+            {tally}
+          </span>
+          <span className="sr-only">, {tallyName}</span>
         </>
       )}
       {mark === 'holds' && <span className="sr-only">, contains this page</span>}

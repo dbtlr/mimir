@@ -232,7 +232,7 @@ describe('sidebar on Home (MMR-730)', () => {
     serveWorld();
     await renderAt('/');
     const nav = await sidebar();
-    const home = await within(nav).findByRole('link', { name: 'Home 4' });
+    const home = await within(nav).findByRole('link', { name: 'Home, 4 projects' });
     expect(home).toHaveAttribute('href', '/');
     expect(home).toHaveAttribute('aria-current', 'page');
     expect(home.querySelector('[class*="rounded-full"]')).toBeNull();
@@ -243,7 +243,7 @@ describe('sidebar on Home (MMR-730)', () => {
     serveWorld();
     await renderAt('/');
     const nav = await expectRows([
-      'Home 4',
+      'Home 4, 4 projects',
       'FLT FLT title',
       'LOM LOM title',
       'HND HND title',
@@ -324,9 +324,9 @@ describe('sidebar on Home (MMR-730)', () => {
       serveWorld();
       await renderAt(path);
       const nav = await sidebar();
-      const home = await within(nav).findByRole('link', { name: /^Home 4/ });
+      const home = await within(nav).findByRole('link', { name: /^Home, 4 projects/ });
       expect(home).not.toHaveAttribute('aria-current');
-      expect(home).toHaveAccessibleName('Home 4, contains this page');
+      expect(home).toHaveAccessibleName('Home, 4 projects, contains this page');
       expect(home).toHaveAttribute('data-holds', 'true');
     },
   );
@@ -904,7 +904,7 @@ describe('sidebar drawer on a phone', () => {
       'href',
       '/p/MMR',
     );
-    expect(within(nav).getByRole('link', { name: 'Home 2' })).toHaveAttribute(
+    expect(within(nav).getByRole('link', { name: 'Home, 2 projects' })).toHaveAttribute(
       'aria-current',
       'page',
     );
