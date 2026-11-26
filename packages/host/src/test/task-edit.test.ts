@@ -127,6 +127,14 @@ describe('summaryError and saveWaits', () => {
     );
     expect(saveWaits(edit({ summary: 'x'.repeat(257) }))).toBe(true);
   });
+
+  it('counts a run of line breaks as the one space the Engine stores in its place', () => {
+    const lines = `${'x'.repeat(127)}\r\n\r\n${'x'.repeat(128)}`;
+    expect(summaryError(edit({ summary: lines }))).toBeUndefined();
+    expect(summaryError(edit({ summary: `${lines}x` }))).toBe(
+      'Summary must be 256 characters or fewer',
+    );
+  });
 });
 
 describe('settle', () => {

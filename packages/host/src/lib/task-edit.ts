@@ -134,9 +134,9 @@ export function asksQuestions(draft: TaskDraft): boolean {
 /** The longest summary the Engine stores; it refuses a longer one. */
 const SUMMARY_MAX = 256;
 
-/** The Summary's own error: longer than the Engine stores, counted as it trims it. */
+/** The Summary's own error: longer than the Engine stores, counted as it stores it (each run of line breaks one space, trimmed). */
 export function summaryError(draft: TaskDraft): string | undefined {
-  return draft.summary.trim().length > SUMMARY_MAX
+  return draft.summary.replaceAll(/[\r\n]+/g, ' ').trim().length > SUMMARY_MAX
     ? `Summary must be ${String(SUMMARY_MAX)} characters or fewer`
     : undefined;
 }
@@ -161,7 +161,7 @@ export function editWrites(before: TaskDraft, after: TaskDraft): EditWrite[] {
   if (touched.length > 0) {
     writes.push({ fields, kind: 'content', touched });
   }
-  // An unchanged tag sends nothing: re-tagging one would PUT it with no note and drop the one it carries.
+  // Each added or removed tag is its own write, so one that fails is reported and resent alone.
   const kept = new Set(before.tags);
   const next = new Set(after.tags);
   for (const name of after.tags) {
