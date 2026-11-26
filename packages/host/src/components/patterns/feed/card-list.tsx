@@ -69,8 +69,11 @@ export function FeedCardList({
   sections: readonly ListSection[];
   /** A card's preview, by its `previewKey`; the list adds the card's action. */
   preview: (previewKey: string) => Omit<Preview, 'action'> | undefined;
-  /** The quiet line that takes the sections' place when no card remains. */
-  quiet: string;
+  /**
+   * The quiet line that takes the sections' place when no card remains; none
+   * for a list its caller removes once its last card leaves.
+   */
+  quiet?: string;
   /** Offline, a card's writes are `aria-disabled` (ADR 0013 §5). */
   offline?: boolean;
   ref?: Ref<FeedCardListHandle>;
@@ -128,7 +131,7 @@ function ListBody({
 }: {
   sections: readonly ListSection[];
   cards: readonly ListCard[];
-  quiet: string;
+  quiet: string | undefined;
   buttonOf: (card: ListCard) => ReactNode;
   dialogCard: string | null;
   onDialogReturn: (key: string) => void;
@@ -269,7 +272,7 @@ function ListBody({
   return (
     <div ref={root}>
       {cards.length === 0 ? (
-        <Quiet ref={quietLine}>{quiet}</Quiet>
+        quiet !== undefined && <Quiet ref={quietLine}>{quiet}</Quiet>
       ) : (
         sections.map((section) => (
           <FeedSection key={section.key} title={section.title} count={section.count}>

@@ -305,14 +305,9 @@ export function quietSentence({
   if (lastFinished === undefined) {
     return quiet;
   }
+  // A finish in the last seven days ships, so a quiet scope's last one is a week or more ago.
   const days = daysBetween(lastFinished, now, zone);
-  let when = `${String(days)} days ago`;
-  if (days <= 0) {
-    when = 'today';
-  } else if (days === 1) {
-    when = '1 day ago';
-  }
-  return `${quiet} The last task finished ${when}.`;
+  return `${quiet} The last task finished ${days.toLocaleString('en-US')} ${days === 1 ? 'day' : 'days'} ago.`;
 }
 
 /**

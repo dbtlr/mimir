@@ -174,7 +174,6 @@ function UpNextCards({
           const row = byId.get(key);
           return row === undefined ? undefined : upNextPreview(row);
         }}
-        quiet="Nothing can start yet."
         offline={offline}
       />
     </div>
