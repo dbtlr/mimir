@@ -60,8 +60,7 @@ export type RowGroupColumns = {
  * The Projects list's options (MMR-790): a row's count `shows` in words or as
  * the attention pill, and a group with `columns` lays each row's `figures`
  * out under captions from `md` up, where they take the place of the one
- * count. `keyChars` holds the key column to that many characters, so the
- * Archived rows under their fold line up with the list above.
+ * count.
  */
 export function RowGroup({
   label,
@@ -70,7 +69,6 @@ export function RowGroup({
   framed = false,
   keepZero = false,
   columns,
-  keyChars,
 }: {
   /** The list's accessible name ("Shipped by project"). */
   label: string;
@@ -79,11 +77,13 @@ export function RowGroup({
   framed?: boolean;
   /** Keep the rows that count zero. */
   keepZero?: boolean;
+  /**
+   * Lay the rows out in columns. Only linked rows that carry figures and show
+   * a count (not `none`) fit its tracks; a group with columns has no `more`.
+   */
   columns?: RowGroupColumns;
-  /** The key column's width in characters, at least the 48 every key column keeps. */
-  keyChars?: number;
 }) {
-  const layout: Layout = { columns, keyChars };
+  const layout: Layout = { columns };
   const items = (
     <>
       {rows
@@ -100,7 +100,7 @@ export function RowGroup({
           </li>
         ))}
       {more !== undefined && more.count > 0 && (
-        <li className={columns === undefined ? undefined : SUBGRID}>
+        <li>
           <Door row={more} to={more.to} layout={layout} more />
         </li>
       )}
@@ -124,7 +124,7 @@ export function RowGroup({
 }
 
 /** What a group's rows lay out by. */
-type Layout = { columns?: RowGroupColumns; keyChars?: number };
+type Layout = { columns?: RowGroupColumns };
 
 /** A part that spans the group's grid and lays its children on the group's own tracks. */
 const SUBGRID = 'col-span-full grid grid-cols-subgrid';
@@ -195,14 +195,13 @@ function rowKey(row: RowGroupRow): string {
 /** The row's height and spacing, shared by a door and a plain row. */
 const ROW_HEIGHT = 'min-h-11 items-center py-2.5 md:min-h-9 md:py-1.5';
 
-/** A row's box: a flex row, or in a group laid out in columns, a row of the group's grid. */
+/**
+ * A row's box: a flex row, or in a group laid out in columns, a row of the
+ * group's grid. A columns row scrolls into view 36 clear of the pinned
+ * caption band, so the band never covers a row that takes focus.
+ */
 function rowBox(layout: Layout): string {
-  return cn(ROW_HEIGHT, layout.columns === undefined ? 'flex gap-3' : SUBGRID);
-}
-
-/** The key column's width in characters, read by its `min-w` class. */
-function keyWidth(chars: number): CSSProperties & Record<'--row-key-width', string> {
-  return { '--row-key-width': `${String(chars)}ch` };
+  return cn(ROW_HEIGHT, layout.columns === undefined ? 'flex gap-3' : [SUBGRID, 'md:scroll-mt-9']);
 }
 
 /** The violet dot of the attention hue, before a count that needs you. */
@@ -221,8 +220,7 @@ function Count({ row, columns }: { row: RowGroupRow; columns: boolean }) {
   // With columns, the figures take the count's place from md up.
   const phoneOnly = columns && 'md:hidden';
   if (shows?.kind === 'none') {
-    // In columns the count's track stays filled, so the chevron keeps its own.
-    return columns ? <span className="md:hidden" /> : null;
+    return null;
   }
   if (shows?.kind === 'attention') {
     return (
@@ -254,8 +252,8 @@ function Count({ row, columns }: { row: RowGroupRow; columns: boolean }) {
 
 /**
  * The row's figures under the group's columns, from `md` up. A zero is an en
- * dash in ink-dim, hidden from a screen reader, which hears each figure named
- * for its caption ("0 going cold").
+ * dash in ink-dim. A screen reader skips the painted figure and hears each one
+ * once, named for its caption ("0 going cold").
  */
 function Figures({ row, columns }: { row: RowGroupRow; columns: RowGroupColumns }) {
   return columns.figures.map((column, i) => {
@@ -275,9 +273,7 @@ function Figures({ row, columns }: { row: RowGroupRow; columns: RowGroupColumns 
         )}
       >
         {tone === 'attention' && <AttentionDot size="figure" />}
-        <span aria-hidden={value > 0 ? undefined : 'true'}>
-          {value > 0 ? value.toLocaleString('en-US') : '–'}
-        </span>
+        <span aria-hidden="true">{value > 0 ? value.toLocaleString('en-US') : '–'}</span>
         <span className="sr-only">{`, ${value.toLocaleString('en-US')} ${column.caption.toLowerCase()}`}</span>
       </span>
     );
@@ -294,7 +290,7 @@ function RowText({
   layout: Layout;
   more?: boolean;
 }): ReactNode {
-  const { columns, keyChars } = layout;
+  const { columns } = layout;
   let ink = 'text-ink';
   if (more) {
     // The door's underline answers a hover anywhere on its row.
@@ -306,13 +302,7 @@ function RowText({
     <>
       {(row.key !== undefined || columns !== undefined) && (
         <>
-          <span
-            style={keyChars === undefined ? undefined : keyWidth(keyChars)}
-            className={cn(
-              'min-w-12 shrink-0 font-mono text-mono-id text-ink-dim',
-              keyChars !== undefined && 'min-w-[max(3rem,var(--row-key-width))]',
-            )}
-          >
+          <span className="min-w-12 shrink-0 font-mono text-mono-id text-ink-dim">
             {row.key}
           </span>{' '}
         </>
@@ -338,7 +328,6 @@ function PlainRow({ row, layout }: { row: RowGroupRow; layout: Layout }) {
   return (
     <div className={rowBox(layout)}>
       <RowText row={row} layout={layout} />
-      {layout.columns !== undefined && <span />}
     </div>
   );
 }

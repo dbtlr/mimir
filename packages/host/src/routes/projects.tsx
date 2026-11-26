@@ -77,12 +77,8 @@ export function ProjectsPage() {
     shows: { kind: 'none' },
     to: projectLink(project.id),
   }));
-  // The key column fits the longest key, active or archived, so the two line up.
-  const keyChars = Math.max(
-    0,
-    ...(active ?? []).map((project) => project.key.length),
-    ...archivedRows.map((row) => row.key?.length ?? 0),
-  );
+  // With nothing active, the page waits for the archive before it says there are no projects.
+  const loading = review.isPending || (active?.length === 0 && archived.isPending);
   const empty = active?.length === 0 && archived.data?.length === 0;
   // Either read failing with nothing to show says so, once, where its part would be.
   const unreachable =
@@ -113,8 +109,11 @@ export function ProjectsPage() {
               New project
             </ActionButton>
           </header>
-          <ListPage label="Projects" count={active && projectCountLine(active.length)}>
-            {review.isPending && <Skeleton className="h-40" />}
+          <ListPage
+            label="Projects"
+            count={loading ? undefined : active && projectCountLine(active.length)}
+          >
+            {loading && <Skeleton className="h-40" />}
             {empty && <Quiet>No projects yet.</Quiet>}
             {active !== undefined && active.length > 0 && (
               <RowGroup
@@ -122,7 +121,6 @@ export function ProjectsPage() {
                 rows={active.map(activeRow)}
                 keepZero
                 columns={COLUMNS}
-                keyChars={keyChars}
               />
             )}
             {unreachable && (
@@ -134,12 +132,7 @@ export function ProjectsPage() {
               <ListFolds>
                 {/* The archived projects, closed until opened: each row its key and name, set back. */}
                 <ListFold label="Archived" count={archivedRows.length}>
-                  <RowGroup
-                    label="Archived projects"
-                    rows={archivedRows}
-                    keepZero
-                    keyChars={keyChars}
-                  />
+                  <RowGroup label="Archived projects" rows={archivedRows} keepZero />
                 </ListFold>
               </ListFolds>
             )}

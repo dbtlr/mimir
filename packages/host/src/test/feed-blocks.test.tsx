@@ -380,6 +380,8 @@ describe('feed row group options (MMR-790)', () => {
     expect(figures[0]).toHaveAttribute('data-tone', 'attention');
     // The phone's one count stays, for the phone; the figures take its place from md up.
     expect(within(row).getByText('1 needs you')).toHaveClass('md:hidden');
+    // A focused row scrolls clear of the 36 caption band pinned above it (WCAG 2.4.11).
+    expect(row).toHaveClass('md:scroll-mt-9');
     // A zero takes no tone: no dot and no bright ink under Need you, plain under Live.
     const norn = screen.getByRole('link', { name: /^NORN Norn/ });
     const [needYou, live] = [...norn.querySelectorAll('[data-slot="row-figure"]')];
@@ -389,20 +391,6 @@ describe('feed row group options (MMR-790)', () => {
     expect(figures[1]).not.toHaveAttribute('data-tone');
     expect(live).toHaveAttribute('data-tone', 'strong');
     expect(within(norn).getByText('4 live')).toHaveClass('md:hidden');
-  });
-
-  it('holds the key column to a width in characters, so groups set together line up', async () => {
-    await renderInRouter(
-      <RowGroup
-        label="Archived"
-        keepZero
-        keyChars={6}
-        rows={[{ count: 0, key: 'SKL', name: 'Skald', shows: { kind: 'none' }, to: door('SKL') }]}
-      />,
-    );
-    const key = screen.getByText('SKL');
-    expect(key.style.getPropertyValue('--row-key-width')).toBe('6ch');
-    expect(key).toHaveClass('min-w-[max(3rem,var(--row-key-width))]');
   });
 });
 

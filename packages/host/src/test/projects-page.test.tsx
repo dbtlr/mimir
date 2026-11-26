@@ -81,6 +81,8 @@ const quietClient = () =>
 const openPage = async () => renderRoute([projectsRoute], '/projects', quietClient());
 
 const countLine = () => document.querySelector('[data-slot="list-count"]');
+/** The page's loading placeholder, the Skeleton's placeholder-card tone. */
+const skeleton = () => document.querySelector('main .bg-well-850');
 const activeList = () => screen.getByRole('list', { name: 'Active projects' });
 const activeRows = () => within(activeList()).getAllByRole('link');
 
@@ -130,16 +132,20 @@ describe('the Projects list (MMR-790)', () => {
       'KeyProjectNeed youTo triageIn flightLiveGoing cold',
     );
     const [hugi] = activeRows();
-    const figures = [...hugi!.querySelectorAll('[data-slot="row-figure"]')].map(
-      (figure) => figure.textContent,
-    );
-    expect(figures).toStrictEqual([
+    expect(
+      [...hugi!.querySelectorAll('[data-slot="row-figure"]')].map((figure) => figure.textContent),
+    ).toStrictEqual([
       '2, 2 need you',
       '1, 1 to triage',
       '3, 3 in flight',
       '18, 18 live',
       '–, 0 going cold',
     ]);
+    // A screen reader hears each figure once, in its caption's words; the painted
+    // figure is hidden. The phone's pill is here too, as jsdom applies no `md:hidden`.
+    expect(hugi).toHaveAccessibleName(
+      'HUGI Hugi 2 need you, 2 need you, 1 to triage, 3 in flight, 18 live, 0 going cold',
+    );
   });
 
   it('folds the archived projects after the list, closed, each row its key and name opening its page', async () => {
@@ -222,6 +228,28 @@ describe('the Projects list (MMR-790)', () => {
     ).resolves.toBeInTheDocument();
     expect(countLine()).toHaveTextContent('No projects');
     expect(screen.queryByText('No projects yet.')).toBeNull();
+  });
+
+  it('keeps loading, not saying No projects, while the archived read is on its way and nothing is active', async () => {
+    serve({ active: [] });
+    const archivedRead = Promise.withResolvers<typeof ARCHIVED>();
+    const answer = vi.mocked(projects).getMockImplementation();
+    vi.mocked(projects).mockImplementation(async (args) =>
+      args.data.status === 'archived' ? archivedRead.promise : answer!(args),
+    );
+    await openPage();
+    await waitFor(() => {
+      expect(vi.mocked(review)).toHaveBeenCalled();
+    });
+    // The review read has answered with no projects; the archive has not.
+    await waitFor(() => {
+      expect(skeleton()).toBeInTheDocument();
+    });
+    expect(countLine()).toHaveTextContent('');
+    archivedRead.resolve(ARCHIVED);
+    await expect(screen.findByRole('button', { name: 'Archived 2' })).resolves.toBeInTheDocument();
+    expect(countLine()).toHaveTextContent('No projects');
+    expect(skeleton()).toBeNull();
   });
 
   it('keeps the count line while the read is on its way', async () => {
