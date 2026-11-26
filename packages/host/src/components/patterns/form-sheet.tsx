@@ -357,9 +357,10 @@ export function FormTextArea({ className, readOnly, ...props }: ComponentProps<t
 }
 
 /**
- * A text box that starts one line tall and grows with its text to `lines`,
- * then scrolls (the Composer's grow Textarea; a task's Summary grows to
- * three). Unbounded with `lines` left out, as the Description editor grows.
+ * A text box that grows with its text. With `lines`, it starts one line tall
+ * and grows to them, then scrolls (the Composer's grow Textarea; a task's
+ * Summary grows to three). Without, it starts three lines tall and grows with
+ * no cap (the Description editor).
  */
 export function FormGrowTextArea({
   lines,
@@ -373,7 +374,7 @@ export function FormGrowTextArea({
       {...props}
       grow
       readOnly={busy || readOnly}
-      className={cn(lines === 3 ? 'max-h-22' : 'max-h-none', className)}
+      className={cn(lines === 3 ? 'max-h-22' : 'max-h-none min-h-22', className)}
     />
   );
 }
@@ -399,8 +400,7 @@ export type FormProseEditorProps = ComponentProps<typeof Textarea> & {
  * the caller's rendering of it, in the same place. The editor stays mounted on
  * Preview, so the field's label keeps naming it and the draft keeps its caret.
  */
-export function FormProseEditor({ preview, className, readOnly, ...props }: FormProseEditorProps) {
-  const busy = useFormSheetBusy();
+export function FormProseEditor({ preview, className, ...props }: FormProseEditorProps) {
   return (
     <Tabs defaultValue="write" className="flex flex-col">
       <TabsList joined aria-label="Write or preview">
@@ -408,12 +408,7 @@ export function FormProseEditor({ preview, className, readOnly, ...props }: Form
         <TabsTab value="preview">Preview</TabsTab>
       </TabsList>
       <TabsPanel value="write" keepMounted className="pt-0">
-        <Textarea
-          {...props}
-          grow
-          readOnly={busy || readOnly}
-          className={cn('max-h-none min-h-22 rounded-t-none', className)}
-        />
+        <FormGrowTextArea {...props} className={cn('rounded-t-none', className)} />
       </TabsPanel>
       <TabsPanel
         value="preview"
