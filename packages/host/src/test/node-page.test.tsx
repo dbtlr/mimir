@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-libra
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { groomCard } from '../api/fns/agent';
 import {
   annotate,
   done,
@@ -24,14 +25,17 @@ import { t3Origin } from '../api/fns/t3';
 import { nodeWork } from '../api/fns/views';
 import { POLL_MS } from '../api/queries';
 import { createQueryClient } from '../api/query-client';
+import { RecordTimeline } from '../components/node-timeline';
 import { toast } from '../components/patterns/notice';
+import { buildFeed } from '../lib/timeline';
 import { consoleRoutes } from '../router';
+import { readyCard } from './agent-fixtures';
 import { serveBrowse } from './browse-fns';
-import { engineTree } from './engine-fixtures';
+import { FIXTURE_AT, engineTree } from './engine-fixtures';
 import { engineContainer, engineNote, engineTag, engineTask, scratchpadRow } from './node-fixtures';
 import type { ScratchpadRow } from './node-fixtures';
 import { failNotes, serveNodes } from './node-fns';
-import { renderRoute } from './router';
+import { renderInRouter, renderRoute } from './router';
 import { serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
 import { serveViews } from './views-fns';
@@ -819,6 +823,9 @@ const foldsOf = (panel: HTMLElement) =>
     .filter((button) => button.hasAttribute('aria-expanded'))
     .map((button) => [button.textContent, button.getAttribute('aria-expanded')]);
 
+/** The timeline row that holds `text`. */
+const rowOf = (text: string) => screen.getByText(text).closest('li') as HTMLElement;
+
 /** `before` comes before `after` in the document. */
 function precedes(before: Element, after: Element): boolean {
   // oxlint-disable-next-line no-bitwise -- DOM position flags are a bit mask
@@ -897,6 +904,37 @@ describe('task page tabs (MMR-728)', () => {
       screen.findByRole('tab', { name: 'Artifacts 1', selected: true }),
     ).resolves.toBeDefined();
     expect(screen.getByRole('link', { name: /Dialect spec/ })).toHaveAttribute('href', '/p/MMR/a3');
+  });
+
+  it('keeps ?tab=artifacts while its cached record predates the artifact, and opens it once read', async () => {
+    const attached = {
+      ...sqlite,
+      artifacts: [{ createdAt: new Date(), id: 'MMR-a3', tags: [], title: 'Dialect spec' }],
+    };
+    serve(attached, withNote);
+    const served = vi.mocked(getNode).getMockImplementation();
+    const held = Promise.withResolvers<void>();
+    vi.mocked(getNode).mockImplementation(async (options) => {
+      if (options.data.id === 'MMR-417' && options.data.facets?.length !== 1) {
+        await held.promise;
+      }
+      return served!(options);
+    });
+    const client = quietClient();
+    client.setQueryData(['node', 'MMR-417'], sqlite, { updatedAt: Date.now() - 60_000 });
+    const { router: testRouter } = await renderRoute(
+      consoleRoutes,
+      '/p/MMR/417?tab=artifacts',
+      client,
+    );
+
+    // The cached record shows Work at once, and leaves the URL alone.
+    await screen.findByRole('tab', { name: 'Work', selected: true });
+    expect(testRouter.state.location.searchStr).toBe('?tab=artifacts');
+    held.resolve();
+
+    await screen.findByRole('tab', { name: 'Artifacts 1', selected: true });
+    expect(testRouter.state.location.searchStr).toBe('?tab=artifacts');
   });
 });
 
@@ -1068,23 +1106,132 @@ describe('task page state banner (MMR-728)', () => {
     );
     expect(within(quiet.panel).queryByRole('region', { name: BANNER })).toBeNull();
   });
+
+  it('shows no banner for a park whose reason is only whitespace', async () => {
+    const { panel } = await openTask(
+      engineTask({ hold: 'parked', holdReason: '  \n ', id: 'MMR-55', status: 'parked' }),
+    );
+
+    expect(within(panel).queryByRole('region', { name: BANNER })).toBeNull();
+  });
+
+  it('names a block with no owner just Blocked', async () => {
+    const { panel } = await openTask(
+      engineTask({ blockOwner: null, hold: 'blocked', id: 'MMR-56', status: 'blocked' }),
+    );
+
+    expect(within(panel).getByRole('region', { name: 'Blocked' })).toBeDefined();
+  });
+
+  it('shows Agent at work for a run that only a worker holds', async () => {
+    const { panel } = await openTask(
+      engineTask({
+        id: 'MMR-63',
+        lifecycle: 'in_progress',
+        status: 'in_progress',
+        workerHarness: 'codex',
+        workerSession: 'c41e02b9',
+      }),
+    );
+
+    expect(within(panel).getByRole('region', { name: 'Agent at work' })).toBeDefined();
+  });
+
+  it('labels the worker as Details › Run does: its harness and its session', async () => {
+    const { panel } = await openTask({ ...running, harness: null, session: null });
+
+    const banner = within(panel).getByRole('region', { name: 'Agent at work' });
+    const worker = within(banner).getByText('Worker').nextElementSibling;
+    expect(worker).toHaveTextContent('codex, c41e02b9');
+  });
+
+  it('clamps the latest note at three whole lines, with no fade', async () => {
+    const { panel } = await openTask(running, { notes: [engineNote('Wired the dialect seam.')] });
+
+    const banner = within(panel).getByRole('region', { name: 'Agent at work' });
+    const note = (await within(banner).findByText('Wired the dialect seam.')).closest('article');
+    expect(note).toHaveAttribute('data-clamped', '3');
+    expect(note?.className).not.toMatch(/mask-image/);
+  });
+
+  it('sets the banner prose and the description at the body size, 14 / 23', async () => {
+    const { panel } = await openTask(
+      { ...running, description: 'The dialect seam.' },
+      { notes: [engineNote('Wired the dialect seam.')] },
+    );
+
+    const banner = within(panel).getByRole('region', { name: 'Agent at work' });
+    const note = (await within(banner).findByText('Wired the dialect seam.')).closest('article');
+    const description = within(panel).getByText('The dialect seam.').closest('article');
+    for (const prose of [note, description]) {
+      expect(prose).toHaveClass('text-body', 'leading-[23px]');
+    }
+  });
+
+  it('labels a review ref that is not a pull request External ref, and leaves a non-URL as text', async () => {
+    const { panel } = await openTask(inReview('https://example.com/issues/12'), reviewNotes);
+
+    const banner = within(panel).getByRole('region', { name: 'Submitted for review' });
+    expect(within(banner).getByText('External ref')).toBeDefined();
+    expect(within(banner).queryByText('Pull request')).toBeNull();
+    cleanup();
+
+    const plain = await openTask(inReview('GH-123'), reviewNotes);
+    const plainBanner = within(plain.panel).getByRole('region', { name: 'Submitted for review' });
+    expect(within(plainBanner).getByText('GH-123')).toBeDefined();
+    expect(within(plainBanner).queryByRole('link')).toBeNull();
+  });
+
+  it('leaves the Groom with agent card out while a banner shows, and shows it in its place otherwise', async () => {
+    vi.mocked(groomCard).mockResolvedValue(readyCard());
+    try {
+      const ungroomed = {
+        grooming: 'not_groomed' as const,
+        id: 'MMR-640',
+        status: 'ready' as const,
+      };
+      const free = await openTask(engineTask(ungroomed));
+      await expect(
+        within(free.panel).findByRole('region', { name: 'Groom with agent' }),
+      ).resolves.toBeDefined();
+      cleanup();
+
+      const { panel } = await openTask(
+        engineTask({
+          ...ungroomed,
+          blockOwner: 'you',
+          hold: 'blocked',
+          holdReason: 'Needs an API token',
+          status: 'blocked',
+        }),
+      );
+      expect(within(panel).getByRole('region', { name: 'Blocked on you' })).toBeDefined();
+      // Long enough for the card's read to answer, had it been asked.
+      await expect(
+        within(panel).findByRole('region', { name: 'Groom with agent' }, { timeout: 300 }),
+      ).rejects.toThrow(/Unable to find role="region"/);
+    } finally {
+      vi.mocked(groomCard).mockResolvedValue({ state: 'unconfigured' });
+    }
+  });
 });
 
 describe('task page Details (MMR-728)', () => {
+  // Submit keeps a run's handles; done, abandon, park, and block clear them.
   const ran = engineTask({
     branch: 'feat/mmr-60-sqlite',
     externalRef: 'https://github.com/x/mimir/pull/653',
     harness: 'claude-code',
     host: 'asgard',
     id: 'MMR-60',
-    lifecycle: 'done',
+    lifecycle: 'under_review',
     session: '5c2e9f10',
-    status: 'done',
+    status: 'under_review',
     workerHarness: 'codex',
     workerSession: 'c41e02b9',
   });
 
-  it('heads Details with Status, Record, and Run, and keeps the run facts once the task is done', async () => {
+  it('heads Details with Status, Record, and Run, and keeps the run facts while the task is in review', async () => {
     const { panel } = await openTask(
       ran,
       {
@@ -1108,10 +1255,6 @@ describe('task page Details (MMR-728)', () => {
     expect(within(run).getByText('feat/mmr-60-sqlite')).toBeDefined();
     expect(within(run).getByText('Main session')).toBeDefined();
     expect(within(run).getByText('Worker')).toBeDefined();
-    expect(within(run).getByRole('link', { name: /PR #653/ })).toHaveAttribute(
-      'href',
-      'https://github.com/x/mimir/pull/653',
-    );
     await within(run).findByText('Push click handler');
     expect(within(run).queryByText('Unrelated episode')).toBeNull();
   });
@@ -1122,6 +1265,91 @@ describe('task page Details (MMR-728)', () => {
     expect(within(panel).getByRole('region', { name: 'Status' })).toBeDefined();
     expect(within(panel).getByRole('region', { name: 'Record' })).toBeDefined();
     expect(within(panel).queryByRole('region', { name: 'Run' })).toBeNull();
+  });
+
+  it('keeps the external ref under Record, so a task that never ran shows no Run', async () => {
+    const { panel } = await openTask(
+      { ...sqlite, externalRef: 'https://github.com/x/mimir/pull/653' },
+      {},
+      'details',
+    );
+
+    const record = within(panel).getByRole('region', { name: 'Record' });
+    expect(within(record).getByText('External ref')).toBeDefined();
+    expect(within(record).getByRole('link', { name: /PR #653/ })).toHaveAttribute(
+      'href',
+      'https://github.com/x/mimir/pull/653',
+    );
+    expect(within(panel).queryByRole('region', { name: 'Run' })).toBeNull();
+  });
+
+  it('shows an external ref that is not a URL as text, not a link', async () => {
+    const { panel } = await openTask({ ...sqlite, externalRef: 'GH-123' }, {}, 'details');
+
+    const record = within(panel).getByRole('region', { name: 'Record' });
+    expect(within(record).getByText('GH-123')).toBeDefined();
+    expect(within(record).queryByRole('link', { name: /GH-123/ })).toBeNull();
+  });
+
+  it.each([
+    ['a host', { host: 'asgard' }, {}, 'asgard'],
+    [
+      'an anchored Scratchpad',
+      {},
+      { scratchpads: [scratchpadRow({ id: 'a', linkedWork: ['MMR-62'], title: 'Episode' })] },
+      'Episode',
+    ],
+  ])('shows Run when the only run fact is %s', async (_name, facts, extra, shown) => {
+    const { panel } = await openTask(
+      engineTask({ id: 'MMR-62', status: 'ready', ...facts }),
+      extra,
+      'details',
+    );
+
+    const run = await within(panel).findByRole('region', { name: 'Run' });
+    expect(within(run).getByText(shown)).toBeDefined();
+  });
+
+  it('reads the dates as the timeline does, with the full time in their title', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    // Wednesday 3 June 2026, noon in the suite's zone (America/New_York).
+    vi.setSystemTime(Date.parse('2026-06-03T16:00:00.000Z'));
+    try {
+      const { panel } = await openTask(
+        {
+          ...sqlite,
+          completedAt: new Date('2026-06-02T20:30:00.000Z'),
+          createdAt: new Date('2025-11-23T14:14:00.000Z'),
+          updatedAt: new Date('2026-06-03T13:05:00.000Z'),
+        },
+        {},
+        'details',
+      );
+
+      const record = within(panel).getByRole('region', { name: 'Record' });
+      const created = within(record).getByText('23 November 2025, 09:14');
+      expect(created).toHaveAttribute('dateTime', '2025-11-23T14:14:00.000Z');
+      expect(created.getAttribute('title')).toMatch(/^11\/23\/2025, 9:14:00\sAM EST$/);
+      expect(within(record).getByText('Today, 09:05')).toBeDefined();
+      expect(within(record).getByText('Yesterday, 16:30')).toBeDefined();
+      cleanup();
+
+      const thisYear = await openTask(
+        { ...sqlite, createdAt: new Date('2026-05-23T13:14:00.000Z') },
+        {},
+        'details',
+      );
+      expect(within(thisYear.panel).getByText('23 May, 09:14')).toBeDefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('makes a short link fact at least 44 wide on a phone', async () => {
+    const { panel } = await openTask(sqlite, {}, 'details');
+
+    const parent = await within(panel).findByRole('link', { name: 'SQLite replaces Norn' });
+    expect(parent).toHaveClass('min-w-11');
   });
 
   it('shows the status, size, priority, and tags under Status, and the parent and dates under Record', async () => {
@@ -1186,6 +1414,59 @@ describe('task page timeline (MMR-728)', () => {
     expect(add).toBeEnabled();
     // Never a second solid beside the header's main action.
     expect(add.className).not.toMatch(/\bbg-action\b/);
+  });
+
+  it('shows the creation and the transitions while the notes load', async () => {
+    const started = {
+      ...sqlite,
+      history: [
+        {
+          at: new Date('2026-06-01T12:00:00.000Z'),
+          from: 'todo',
+          kind: 'lifecycle' as const,
+          reason: null,
+          to: 'in_progress',
+        },
+      ],
+    };
+    serve(started, { notes: [engineNote('Settled the dialect seam', '2026-06-01T13:00:00.000Z')] });
+    const served = vi.mocked(getNode).getMockImplementation();
+    const held = Promise.withResolvers<void>();
+    vi.mocked(getNode).mockImplementation(async (options) => {
+      if (options.data.facets?.[0] === 'annotations') {
+        await held.promise;
+      }
+      return served!(options);
+    });
+    await renderRoute(consoleRoutes, '/p/MMR/417?tab=timeline', quietClient());
+
+    const panel = await screen.findByRole('tabpanel');
+    await within(panel).findByText('Started');
+    expect(within(panel).getByText('Created')).toBeDefined();
+    expect(within(panel).queryByText('Settled the dialect seam')).toBeNull();
+    held.resolve();
+
+    await within(panel).findByText('Settled the dialect seam');
+  });
+
+  it('shows every entry of a day, with no Show N more', async () => {
+    const eight = Array.from({ length: 8 }, (_, index) =>
+      engineNote(`Note ${String(index + 1)}`, `2026-06-03T1${String(index)}:00:00.000Z`),
+    );
+    const { panel } = await openTask(sqlite, { notes: eight }, 'timeline');
+
+    await within(panel).findByText('Note 8');
+    for (const note of eight) {
+      expect(within(panel).getByText(note.content)).toBeDefined();
+    }
+    expect(within(panel).queryByRole('button', { name: /^Show \d+ more$/ })).toBeNull();
+  });
+
+  it('sets a note at the body size, 14 / 23', async () => {
+    const { panel } = await openTask(sqlite, { notes: THREE_NOTES }, 'timeline');
+
+    const note = (await within(panel).findByText('Afternoon note')).closest('article');
+    expect(note).toHaveClass('text-body', 'leading-[23px]');
   });
 });
 
@@ -1539,6 +1820,77 @@ describe('task page content (MMR-453)', () => {
 
       await screen.findByText('three');
       expect(screen.queryByRole('button', { name: /show (all|less)/i })).toBeNull();
+    });
+
+    it('lines Show all up with the note text, not 4 left of it', async () => {
+      stubHeights(200, 60);
+      await openWithNote('- one\n- two\n- three');
+
+      const toggle = await screen.findByRole('button', { name: /Show all/ });
+      expect(toggle).toHaveClass('ml-0');
+      expect(toggle).not.toHaveClass('-ml-1');
+    });
+
+    it('opens a folded note when focus reaches a link below its clamp, and not for one above it', async () => {
+      stubHeights(200, 60);
+      await openWithNote('[top](https://a.test/top)\n\nmiddle\n\n[bottom](https://a.test/bottom)');
+
+      await screen.findByRole('button', { name: /Show all/ });
+      const top = screen.getByRole('link', { name: 'top' });
+      const bottom = screen.getByRole('link', { name: 'bottom' });
+      // jsdom lays nothing out: the top link sits on the first line, the bottom one 150 down.
+      vi.spyOn(bottom, 'getBoundingClientRect').mockReturnValue(
+        DOMRect.fromRect({ height: 20, y: 130 }),
+      );
+      const article = top.closest('article');
+
+      act(() => {
+        top.focus();
+      });
+      expect(article).toHaveAttribute('data-clamped', '12');
+      act(() => {
+        bottom.focus();
+      });
+      expect(article).not.toHaveAttribute('data-clamped');
+      expect(screen.getByRole('button', { name: 'Show less' })).toBeInTheDocument();
+    });
+
+    it('keeps a note’s Show all state with that note when an older entry arrives', async () => {
+      stubHeights(200, 60);
+      const notes = [
+        engineNote('Morning note', '2026-06-03T14:00:00.000Z'),
+        engineNote('Afternoon note', '2026-06-03T18:00:00.000Z'),
+      ];
+      const timeline = (history: EngineNode['history']) => (
+        <RecordTimeline
+          items={buildFeed(FIXTURE_AT, history, notes)}
+          pending={false}
+          nodeId="MMR-417"
+          offline={false}
+        />
+      );
+      const { rerender } = await renderInRouter(timeline([]), quietClient());
+      await userEvent.click(
+        within(rowOf('Afternoon note')).getByRole('button', { name: /Show all/ }),
+      );
+
+      rerender(
+        timeline([
+          {
+            at: new Date('2026-06-03T12:00:00.000Z'),
+            from: 'todo',
+            kind: 'lifecycle',
+            reason: null,
+            to: 'in_progress',
+          },
+        ]),
+      );
+
+      await screen.findByText('Started');
+      expect(
+        within(rowOf('Afternoon note')).getByRole('button', { name: 'Show less' }),
+      ).toBeDefined();
+      expect(within(rowOf('Morning note')).getByRole('button', { name: /Show all/ })).toBeDefined();
     });
   });
 });

@@ -1263,12 +1263,16 @@ column under its record header and tabs, as a container's is.
   what the task depends on and what it blocks, each a link to its page.
   _Details_ holds the facts in three sections: _Status_ (the status and the
   signals that rode the rail: size, priority, grooming before the task
-  starts, tags, open-ended, stale), _Record_ (the parent and the dates), and
-  _Run_ (harness, main session, worker, branch, host, external ref, and the
-  Scratchpads anchored to it, with Open in T3). _Run_ shows whenever any of
-  those is set, whatever the status, and is absent for a task that never
-  ran. _Timeline_ is the record timeline below; _Artifacts_ lists what is
-  attached, newest first.
+  starts, tags, open-ended, stale), _Record_ (the parent, the dates, and the
+  external ref), and _Run_ (harness, main session, worker, branch, host, and
+  the Scratchpads anchored to it, with Open in T3). _Run_ shows whenever any
+  of those is set, whatever the status, and is absent for a task that never
+  ran; an external ref alone is not a run, so it sits under _Record_. The
+  run's handles survive review (submit, stage, and return keep them), and
+  done, abandon, park, and block clear them, so _Run_ then holds only the
+  Scratchpads; the external ref survives every transition. Whether done
+  should keep the handles is seed MMR-s132. _Timeline_ is the record
+  timeline below; _Artifacts_ lists what is attached, newest first.
 - **The URL holds the tab, as on a container.** Work, the default, has no
   parameter; `?tab=` takes `details`, `timeline`, or `artifacts`, and a
   value the page does not know drops. _Work_, _Details_, and _Timeline_
@@ -1285,11 +1289,18 @@ column under its record header and tabs, as a container's is.
   happened, with only the latest day open. This replaces the MMR-470
   refinement's oldest-first feed with the composer last. A project has no
   timeline of its own, so its page is unchanged.
-- **Blocked on you makes _Unblock_ the main action.** The MMR-726
+- **Blocked on you makes _Unblock_ the main action.** ADR 0019's MMR-726
   refinement offered nothing while a task waits on others; a block the
   operator owns waits on them, so the header offers _Unblock_ once they have
   done what the reason asks. A block on others still offers nothing.
 
-The run facts live in _Details_ at all times; the _Agent at work_ banner
-repeats only the run, branch, latest note, and Open in T3, and only while a
-run is live.
+The run facts live in _Details_ whenever they are set; the _Agent at work_
+banner repeats only the harness, worker, branch, latest note, and Open in
+T3, and only while a run is live.
+
+A state banner takes the Groom with agent card's place, so while one shows
+the card is hidden, its running-groom view and _Stop_ included. A task with
+a banner is in progress, in review, or held, and a groom runs on a task
+waiting to start, so the two rarely meet; the trade-off is that a groom
+still running when a task is blocked or parked has no _Stop_ on the page
+until the hold lifts.

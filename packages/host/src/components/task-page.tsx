@@ -2,8 +2,10 @@ import type { EngineNode, EngineOutput, EngineTree } from '@mimir/contract';
 import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 
+import { browserTimeZone } from '../api/queries';
+import { dayAndTime } from '../lib/day-folds';
 import { visibleGrooming } from '../lib/grooming';
-import { externalRefText, isBareUrl } from '../lib/links';
+import { externalRefText } from '../lib/links';
 import { projectKeyOf } from '../lib/project-key';
 import { absoluteTime, ago } from '../lib/time';
 import type { HistoryEntry, NodeAnnotation } from '../lib/timeline';
@@ -12,7 +14,7 @@ import { GroomWithAgentCard } from './agent-card';
 import { GroomingBadge } from './grooming-chip';
 import { LinkifiedText } from './linkified-text';
 import { MarkdownBody } from './markdown-body';
-import { holdLabel, prerequisiteRows } from './node-record';
+import { ExternalRef, holdLabel, prerequisiteRows } from './node-record';
 import { OpenInT3 } from './open-in-t3';
 import { FACT_LINK_CLASS, Fact, FactMono, Facts } from './patterns/facts';
 import { BannerFacts, BannerLabel, BannerText, StateBanner } from './patterns/state-banner';
@@ -21,7 +23,6 @@ import { OpenEndedBadge, StaleBadge } from './signal-badges';
 import { StatusBadge } from './status-badge';
 import { StatusDot } from './status-dot';
 import { Badge } from './ui/badge';
-import { ExternalIcon } from './ui/icons';
 import { DetailsSection, RelationRow } from './work-page';
 
 /*
@@ -29,7 +30,7 @@ import { DetailsSection, RelationRow } from './work-page';
  * refinements). Work leads with one state banner when the state asks for
  * one, then the description at reading width, then what the task depends on
  * and what it blocks. Details holds the facts in three sections: Status,
- * Record, and Run.
+ * Record, and Run. Their prose is `text-body`, 14 / 23.
  */
 
 /** One active Scratchpad on the task's board, with the work it is anchored to. */
@@ -55,20 +56,20 @@ function runIsLive(node: EngineNode): boolean {
   return node.status === 'in_progress' && (node.session ?? node.workerSession) != null;
 }
 
-/**
- * An external ref as a fact's value: a URL as a link that opens in a new tab,
- * named "PR #653" when it is a pull request's, with the external arrow;
- * anything else as mono text.
- */
-function ExternalRefValue({ value }: { value: string }) {
-  if (!isBareUrl(value)) {
-    return <FactMono>{value}</FactMono>;
+/** The run's worker as a fact, in the banner and in Details › Run alike: its harness, then its session. */
+function WorkerFact({ node }: { node: EngineNode }) {
+  if (node.workerSession == null) {
+    return null;
   }
   return (
-    <a href={value} target="_blank" rel="noopener noreferrer" className={FACT_LINK_CLASS}>
-      {externalRefText(value)}
-      <ExternalIcon className="ml-1 inline-block size-4 align-[-3px] md:size-4" />
-    </a>
+    <Fact label="Worker">
+      {node.workerHarness != null && (
+        <>
+          <FactMono>{node.workerHarness}</FactMono>,{' '}
+        </>
+      )}
+      <FactMono>{node.workerSession}</FactMono>
+    </Fact>
   );
 }
 
@@ -83,7 +84,7 @@ function AgentBanner({
   const note = annotations.at(-1);
   const started = latest(node.history, (e) => e.kind === 'lifecycle' && e.to === 'in_progress');
   const since = note?.createdAt ?? started?.at;
-  const facts = node.harness != null || node.workerHarness != null || node.branch != null;
+  const facts = node.harness != null || node.workerSession != null || node.branch != null;
   return (
     <StateBanner
       title="Agent at work"
@@ -94,7 +95,7 @@ function AgentBanner({
         <>
           <BannerLabel>Latest note</BannerLabel>
           <BannerText>
-            <MarkdownBody breaks clamp={3} className="max-w-[70ch]">
+            <MarkdownBody breaks size="body" clamp={3} className="max-w-[70ch]">
               {note.content}
             </MarkdownBody>
           </BannerText>
@@ -108,11 +109,7 @@ function AgentBanner({
                 <FactMono>{node.harness}</FactMono>
               </Fact>
             )}
-            {node.workerHarness != null && (
-              <Fact label="Worker">
-                <FactMono>{node.workerHarness}</FactMono>
-              </Fact>
-            )}
+            <WorkerFact node={node} />
             {node.branch != null && (
               <Fact label="Branch">
                 <FactMono>{node.branch}</FactMono>
@@ -151,7 +148,7 @@ function ReviewBanner({
     >
       {summary !== undefined && (
         <BannerText>
-          <MarkdownBody breaks className="max-w-[70ch]">
+          <MarkdownBody breaks size="body" className="max-w-[70ch]">
             {summary}
           </MarkdownBody>
         </BannerText>
@@ -160,7 +157,7 @@ function ReviewBanner({
         <BannerFacts>
           <Facts>
             <Fact label={externalRefText(ref) === ref ? 'External ref' : 'Pull request'}>
-              <ExternalRefValue value={ref} />
+              <ExternalRef value={ref} />
             </Fact>
           </Facts>
         </BannerFacts>
@@ -180,14 +177,7 @@ function HoldBanner({ node, hold }: { node: EngineNode; hold: 'blocked' | 'parke
   return (
     <StateBanner
       title={holdLabel(hold, node.blockOwner)}
-      tone={onYou ? 'attention' : 'neutral'}
-      dot={
-        onYou ? (
-          <span aria-hidden className="size-[7px] shrink-0 rounded-full bg-attention" />
-        ) : (
-          <StatusDot status={hold} />
-        )
-      }
+      {...(onYou ? { tone: 'attention' as const } : { dot: <StatusDot status={hold} /> })}
       age={held === undefined ? undefined : ago(held.at)}
     >
       {reason !== '' && (
@@ -264,7 +254,7 @@ export function TaskWork({
       {description === '' ? (
         <p className="text-body leading-[23px] text-ink">No description.</p>
       ) : (
-        <MarkdownBody breaks className="max-w-[70ch]">
+        <MarkdownBody breaks size="body" className="max-w-[70ch]">
           {description}
         </MarkdownBody>
       )}
@@ -286,7 +276,6 @@ function hasRunFacts(node: EngineNode, scratchpads: readonly ScratchpadRow[]): b
     node.workerSession != null ||
     node.branch != null ||
     node.host != null ||
-    node.externalRef != null ||
     scratchpads.length > 0
   );
 }
@@ -327,16 +316,7 @@ function RunSection({
             <FactMono>{node.session}</FactMono>
           </Fact>
         )}
-        {node.workerSession != null && (
-          <Fact label="Worker">
-            {node.workerHarness != null && (
-              <>
-                <FactMono>{node.workerHarness}</FactMono>,{' '}
-              </>
-            )}
-            <FactMono>{node.workerSession}</FactMono>
-          </Fact>
-        )}
+        <WorkerFact node={node} />
         {node.branch != null && (
           <Fact label="Branch">
             <FactMono>{node.branch}</FactMono>
@@ -345,11 +325,6 @@ function RunSection({
         {node.host != null && (
           <Fact label="Host">
             <FactMono>{node.host}</FactMono>
-          </Fact>
-        )}
-        {node.externalRef != null && (
-          <Fact label="External ref">
-            <ExternalRefValue value={node.externalRef} />
           </Fact>
         )}
         {scratchpads.map((s) => (
@@ -369,10 +344,19 @@ function RunSection({
   );
 }
 
+/** An instant as a Record fact: in the timeline's voice, the full zoned time in its title. */
+function FactTime({ at }: { at: Date }) {
+  return (
+    <time dateTime={at.toISOString()} title={absoluteTime(at)}>
+      {dayAndTime(at, browserTimeZone())}
+    </time>
+  );
+}
+
 /**
  * A task's Details tab: Status (the status, its signals, and grooming before
- * it starts), Record (its parent and dates), and Run, which a task that never
- * ran has none of.
+ * it starts), Record (its parent, dates, and external ref), and Run, which a
+ * task that never ran has none of.
  */
 export function TaskDetails({
   node,
@@ -428,16 +412,25 @@ export function TaskDetails({
       <DetailsSection title="Record">
         <Facts>
           <ParentFact node={node} tree={tree} />
-          <Fact label="Created">{absoluteTime(node.createdAt)}</Fact>
-          <Fact label="Updated">{absoluteTime(node.updatedAt)}</Fact>
+          <Fact label="Created">
+            <FactTime at={node.createdAt} />
+          </Fact>
+          <Fact label="Updated">
+            <FactTime at={node.updatedAt} />
+          </Fact>
           <Fact label="Completed">
             {node.completedAt == null ? (
               <span className="text-ink-dim">Not yet</span>
             ) : (
-              absoluteTime(node.completedAt)
+              <FactTime at={node.completedAt} />
             )}
           </Fact>
           {node.target != null && <Fact label="Target">{node.target}</Fact>}
+          {node.externalRef != null && (
+            <Fact label="External ref">
+              <ExternalRef value={node.externalRef} />
+            </Fact>
+          )}
         </Facts>
       </DetailsSection>
       {hasRunFacts(node, scratchpads) && <RunSection node={node} scratchpads={scratchpads} />}

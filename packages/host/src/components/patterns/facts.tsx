@@ -34,10 +34,10 @@ export function FactMono({ children }: { children: ReactNode }) {
 }
 
 /**
- * A fact's value that is a link: one target at least 44 tall on a phone and
- * 36 from `md`, its whole (wrapped) value, pulled back above and below so the
- * row keeps the list's 14 between rows; `accent-foreground`, underlined on
- * hover.
+ * A fact's value that is a link: one target at least 44 by 44 on a phone and
+ * 36 tall from `md`, its whole (wrapped) value, pulled back above and below
+ * so the row keeps the list's 14 between rows; `accent-foreground`,
+ * underlined on hover.
  */
 export const FACT_LINK_CLASS =
-  'block w-fit max-w-full -my-3 py-3 text-accent-foreground hover:underline focus-visible:outline-2 focus-visible:outline-accent md:-my-2 md:py-2';
+  'block w-fit min-w-11 max-w-full -my-3 py-3 text-accent-foreground hover:underline focus-visible:outline-2 focus-visible:outline-accent md:-my-2 md:min-w-0 md:py-2';

@@ -11,40 +11,40 @@ import { cardVariants } from '../ui/card';
  * (10 radius, 12 top, 16 sides and bottom), 24 above what follows. Its head
  * is the state as a 15 / 22 600 `ink-bright` title after its dot, and how
  * long it has held, 13 / 20 `ink-dim`, at the right. A hold that waits on
- * the reader takes the attention tone: the card's edge in the violet, which
- * marks only what needs the operator.
+ * the reader takes the attention tone: its own 7 violet dot and the card's
+ * edge in the violet, which marks only what needs the operator.
  */
 
-/** A banner's tone: neutral, or the attention violet for what waits on the reader. */
-export type StateBannerTone = 'neutral' | 'attention';
+/**
+ * A banner's look: neutral, with the state's dot from the feature (a status
+ * dot), or the attention tone, which draws its own dot.
+ */
+export type StateBannerTone = { tone?: 'neutral'; dot: ReactNode } | { tone: 'attention' };
 
 export function StateBanner({
   title,
-  dot,
   age,
-  tone = 'neutral',
   children,
-}: {
+  ...look
+}: StateBannerTone & {
   title: string;
-  /** The state's dot, from the feature (a status dot, or the attention dot). */
-  dot: ReactNode;
   /** How long the state has held ("12m ago"). */
   age?: string;
-  tone?: StateBannerTone;
   children?: ReactNode;
 }) {
   const id = useId();
+  const attention = look.tone === 'attention';
   return (
     <section
       aria-labelledby={id}
-      className={cn(
-        cardVariants(),
-        'px-4 pt-3 pb-4',
-        tone === 'attention' && 'border-attention/35',
-      )}
+      className={cn(cardVariants(), 'px-4 pt-3 pb-4', attention && 'border-attention/35')}
     >
       <div className="flex items-center gap-2">
-        {dot}
+        {attention ? (
+          <span aria-hidden className="size-[7px] shrink-0 rounded-full bg-attention" />
+        ) : (
+          look.dot
+        )}
         <h2 id={id} className="min-w-0 text-section font-semibold text-ink-bright">
           {title}
         </h2>
@@ -70,9 +70,4 @@ export function BannerLabel({ children }: { children: ReactNode }) {
 /** The banner's facts, under a `line` hairline 16 below the text, the first fact 16 under it. */
 export function BannerFacts({ children }: { children: ReactNode }) {
   return <div className="mt-4 border-t border-line pt-4">{children}</div>;
-}
-
-/** The banner's one action row, 16 below what is above it. */
-export function BannerActions({ children }: { children: ReactNode }) {
-  return <div className="mt-4 flex flex-wrap gap-3">{children}</div>;
 }

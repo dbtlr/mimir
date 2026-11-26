@@ -130,8 +130,8 @@ function focusFirst(root: Element | undefined): boolean {
 
 /**
  * A thread's list: 4 under the trigger, 12 before the next fold, and a
- * `line-bright` line from the first dot's centre to the last, through the
- * middle of the rows' 16 dot column.
+ * `line-bright` line from 14 below the list's top to 14 above its bottom,
+ * through the middle of the rows' 16 dot column.
  */
 const THREAD_CLASS =
   'relative mt-1 mb-3 before:absolute before:top-3.5 before:bottom-3.5 before:left-[7.5px] before:w-px before:bg-line-bright';

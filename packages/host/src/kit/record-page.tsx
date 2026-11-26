@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
 
 import { MarkdownBody } from '../components/markdown-body';
+import { ExternalRef } from '../components/node-record';
 import { Composer } from '../components/patterns/composer';
-import { FACT_LINK_CLASS, Fact, FactMono, Facts } from '../components/patterns/facts';
+import { Fact, FactMono, Facts } from '../components/patterns/facts';
 import { DayFolds } from '../components/patterns/feed/day-fold';
 import type { FoldDay } from '../components/patterns/feed/day-fold';
 import { ThreadDot, ThreadEvent, ThreadNote } from '../components/patterns/feed/thread';
@@ -13,7 +14,6 @@ import {
   StateBanner,
 } from '../components/patterns/state-banner';
 import { StatusDot } from '../components/status-dot';
-import { ExternalIcon } from '../components/ui/icons';
 import { Section } from './section';
 
 /*
@@ -59,7 +59,7 @@ const DAYS: FoldDay[] = [
     label: 'Today',
     rows: [
       <ThreadNote key="n2" time="14:52">
-        <MarkdownBody breaks clamp={12} className="max-w-[70ch]">
+        <MarkdownBody breaks size="body" clamp={12} className="max-w-[70ch]">
           {LONG_NOTE}
         </MarkdownBody>
       </ThreadNote>,
@@ -125,22 +125,14 @@ export function RecordPageKit() {
           <BannerFacts>
             <Facts>
               <Fact label="Pull request">
-                <a href="#pr" className={FACT_LINK_CLASS}>
-                  PR #653
-                  <ExternalIcon className="ml-1 inline-block size-4 align-[-3px] md:size-4" />
-                </a>
+                <ExternalRef value="https://github.com/example/mimir/pull/653" />
               </Fact>
             </Facts>
           </BannerFacts>
         </StateBanner>
       </Sample>
       <Sample label="blocked on you · attention">
-        <StateBanner
-          title="Blocked on you"
-          tone="attention"
-          dot={<span aria-hidden className="size-[7px] shrink-0 rounded-full bg-attention" />}
-          age="1d ago"
-        >
+        <StateBanner title="Blocked on you" tone="attention" age="1d ago">
           <BannerText>
             <p>Needs the VAPID key pair for the production host.</p>
           </BannerText>

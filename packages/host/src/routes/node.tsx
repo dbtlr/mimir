@@ -2,7 +2,6 @@ import type { EngineNode, EngineTree } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
-import type { ReactNode } from 'react';
 
 import { isNotFound } from '../api/errors';
 import { annotationsQuery, nodeQuery, scratchpadsQuery } from '../api/node-queries';
@@ -11,7 +10,6 @@ import { GroomingBadge } from '../components/grooming-chip';
 import { GroomingDialog } from '../components/grooming-dialog';
 import { MoveDialog } from '../components/move-dialog';
 import {
-  ArtifactLinks,
   mainVerbLabel,
   mainVerbs,
   moreVerbs,
@@ -35,8 +33,14 @@ import { TaskForm } from '../components/task-form';
 import { TaskDetails, TaskWork } from '../components/task-page';
 import type { ScratchpadRow } from '../components/task-page';
 import { ActionButton } from '../components/ui/action-button';
-import { ContainerPage, RecordColumn, recordTabs, useShownTab } from '../components/work-page';
-import type { OpenTab, RecordPageTab } from '../components/work-page';
+import {
+  ArtifactsTab,
+  ContainerPage,
+  RecordColumn,
+  recordTabs,
+  useShownTab,
+} from '../components/work-page';
+import type { OpenTab, RecordPageTabs } from '../components/work-page';
 import { connectivity } from '../lib/connectivity';
 import { visibleGrooming } from '../lib/grooming';
 import { projectKeyOf } from '../lib/project-key';
@@ -45,7 +49,6 @@ import { nodeIdOf } from '../lib/record-url';
 import { buildFeed } from '../lib/timeline';
 import type { NodeAnnotation } from '../lib/timeline';
 import type { VerbSpec } from '../lib/transitions';
-import { newestArtifacts } from '../lib/work-page';
 import { nodeRoute } from '../router';
 import { NotFoundPage } from './not-found';
 
@@ -111,19 +114,26 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
 
   const feed = buildFeed(data.createdAt, data.history, annotations.data?.items);
   const offline = conn.offline;
-  const timeline = (
-    <RecordTimeline
-      items={feed}
-      pending={annotations.isPending}
-      nodeId={nodeId}
-      offline={offline}
-    />
-  );
   const onTab: OpenTab = (next, options) => {
     void navigate({
       replace: options?.replace,
       search: { tab: next === 'work' ? undefined : next },
     });
+  };
+  const tabs: RecordPageTabs = {
+    onTab,
+    recordReadAt: node.dataUpdatedAt,
+    since: mountedAt,
+    tab,
+    timeline: (
+      <RecordTimeline
+        items={feed}
+        pending={annotations.isPending}
+        nodeId={nodeId}
+        offline={offline}
+      />
+    ),
+    timelineCount: feed.length,
   };
 
   // An initiative or phase opens as the work page (MMR-467 and MMR-726
@@ -132,19 +142,7 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
     return (
       <>
         <OfflineBanner {...conn} />
-        <ContainerPage
-          record={data}
-          tree={tree.data}
-          offline={offline}
-          container={{
-            onTab,
-            recordReadAt: node.dataUpdatedAt,
-            since: mountedAt,
-            tab,
-            timeline,
-            timelineCount: feed.length,
-          }}
-        />
+        <ContainerPage record={data} tree={tree.data} offline={offline} container={tabs} />
       </>
     );
   }
@@ -158,13 +156,7 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
         annotations={annotations.data?.items ?? []}
         scratchpads={(scratchpadRows.data ?? []).filter((s) => s.linkedWork.includes(nodeId))}
         offline={offline}
-        tabs={{
-          current: node.dataUpdatedAt >= mountedAt,
-          onTab,
-          tab,
-          timeline,
-          timelineCount: feed.length,
-        }}
+        tabs={tabs}
       />
     </>
   );
@@ -190,14 +182,7 @@ function TaskRecord({
   annotations: readonly NodeAnnotation[];
   scratchpads: readonly ScratchpadRow[];
   offline: boolean;
-  tabs: {
-    tab: RecordPageTab | undefined;
-    onTab: OpenTab;
-    /** Whether the record's read is from since the page mounted, so the URL may take the shown tab. */
-    current: boolean;
-    timeline: ReactNode;
-    timelineCount: number;
-  };
+  tabs: RecordPageTabs;
 }) {
   const nodeId = node.id;
   const projectKey = projectKeyOf(nodeId);
@@ -208,7 +193,7 @@ function TaskRecord({
   const launchEligible = canLaunchOnT3(node);
   const groomingState = visibleGrooming(node);
   const tabs = recordTabs(node, page.timelineCount, true);
-  const tab = useShownTab(tabs, page.tab, page.current, page.onTab);
+  const tab = useShownTab(tabs, page.tab, page.recordReadAt >= page.since, page.onTab);
 
   return (
     // Launch in T3's settings form lives above More, so it outlives the menu that opened it.
@@ -249,11 +234,7 @@ function TaskRecord({
             {tab === 'work' && <TaskWork node={node} annotations={annotations} offline={offline} />}
             {tab === 'details' && <TaskDetails node={node} tree={tree} scratchpads={scratchpads} />}
             {tab === 'timeline' && page.timeline}
-            {tab === 'artifacts' && (
-              <ArtifactLinks
-                artifacts={newestArtifacts(node.artifacts ?? [], node.artifacts?.length ?? 0)}
-              />
-            )}
+            {tab === 'artifacts' && <ArtifactsTab record={node} />}
           </RecordTabs>
         ) : (
           <div className="mt-5 md:mt-6">

@@ -441,14 +441,23 @@ export function ContainerDetails({ record }: { record: EngineNode }) {
   );
 }
 
+/** A record page's Artifacts tab: what is attached, newest first. */
+export function ArtifactsTab({ record }: { record: EngineNode }) {
+  return (
+    <ArtifactLinks
+      artifacts={newestArtifacts(record.artifacts ?? [], record.artifacts?.length ?? 0)}
+    />
+  );
+}
+
 /** The tabs of an initiative, a phase, or a task, in their order. */
 export type RecordPageTab = 'work' | 'details' | 'timeline' | 'artifacts';
 
 /** Open `tab`; `replace` swaps the URL's entry rather than pushing one. */
 export type OpenTab = (tab: RecordPageTab, options?: { replace: boolean }) => void;
 
-/** What the page adds to an initiative's or phase's tabs: the selected one, and the Timeline. */
-export type ContainerTabs = {
+/** What the page adds to a record's tabs: the selected one, and the Timeline. */
+export type RecordPageTabs = {
   tab: RecordPageTab | undefined;
   onTab: OpenTab;
   /** The Timeline tab's body — the record's timeline. */
@@ -527,7 +536,7 @@ export function ContainerPage({
   record: EngineNode;
   tree?: EngineTree;
   offline: boolean;
-  container: ContainerTabs;
+  container: RecordPageTabs;
 }) {
   // The read Work's Live deliveries makes, here only while it decides whether
   // a phase with no tasks has Work; until it answers none, Work may hold them.
@@ -558,11 +567,7 @@ export function ContainerPage({
         {tab === 'work' && <WorkTab record={record} tree={tree} offline={offline} />}
         {tab === 'details' && <ContainerDetails record={record} />}
         {tab === 'timeline' && container.timeline}
-        {tab === 'artifacts' && (
-          <ArtifactLinks
-            artifacts={newestArtifacts(record.artifacts ?? [], record.artifacts?.length ?? 0)}
-          />
-        )}
+        {tab === 'artifacts' && <ArtifactsTab record={record} />}
       </RecordTabs>
     </RecordColumn>
   );

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useTag, useTransition, useUntag, useUpdateNode } from '../api/node-mutations';
-import { isBareUrl } from '../lib/links';
+import { externalRefText, isBareUrl } from '../lib/links';
 import { proseEdit } from '../lib/prose';
 import { artifactLink } from '../lib/record-url';
 import type { TaskFormValues } from '../lib/schemas';
@@ -12,10 +12,12 @@ import { availableTransitions, transitionLabel } from '../lib/transitions';
 import type { TransitionVerb, VerbSpec } from '../lib/transitions';
 import type { RecordArtifact } from '../lib/work-page';
 import { MarkdownBody } from './markdown-body';
+import { FACT_LINK_CLASS, FactMono } from './patterns/facts';
 import { Reason } from './patterns/reason';
 import { OpenEndedBadge, PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
 import type { TaskFormSubmit } from './task-form';
 import { Badge } from './ui/badge';
+import { ExternalIcon } from './ui/icons';
 
 /*
  * The pieces of a work node's record page: links to its artifacts, its
@@ -114,23 +116,21 @@ export function SignalBadges({ node }: { node: EngineNode }) {
 }
 
 /**
- * externalRef is free text (e.g. `GH-123`, `PR #41`): a URL renders as a `↗` link,
- * anything else as plain mono text (no dead link).
+ * An external ref, which is free text (`GH-123`, a URL), as a fact's value: a
+ * URL as a link fact that opens in a new tab, named "PR #653" when it is a
+ * pull request's, with the external arrow; anything else as mono text, so no
+ * link goes nowhere.
  */
 export function ExternalRef({ value }: { value: string }) {
-  if (isBareUrl(value)) {
-    return (
-      <a
-        href={value}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="self-start font-mono text-mono-id break-all text-accent-foreground hover:text-accent"
-      >
-        {value} ↗
-      </a>
-    );
+  if (!isBareUrl(value)) {
+    return <FactMono>{value}</FactMono>;
   }
-  return <span className="font-mono text-mono-id text-ink-dim">{value}</span>;
+  return (
+    <a href={value} target="_blank" rel="noopener noreferrer" className={FACT_LINK_CLASS}>
+      {externalRefText(value)}
+      <ExternalIcon className="ml-1 inline-block size-4 align-[-3px]" />
+    </a>
+  );
 }
 
 export function MetaRow({ label, children }: { label: string; children: ReactNode }) {

@@ -185,13 +185,16 @@ const BODY_COMPONENTS = {
 const DOCUMENT_COMPONENTS = { ...BODY_HEADINGS, a: MarkdownLink, table: ScrollingTable };
 
 /**
- * The two text scales a host can ask for. `default` is the reading scale;
- * `compact` is the secondary-text scale (`text-meta`) for dense surfaces — a
- * timeline note — with the block margins tightened to match.
+ * The text scales a host can ask for. `default` is the reading scale;
+ * `body` is `text-body`, 14 / 23 at every width, for the task page's prose
+ * (its description, a state banner's, a timeline note's); `compact` is the
+ * secondary-text scale (`text-meta`) for dense surfaces, with the block
+ * margins tightened to match.
  */
-export type MarkdownSize = 'default' | 'compact';
+export type MarkdownSize = 'default' | 'body' | 'compact';
 
 const SIZE_PROSE: Record<MarkdownSize, string> = {
+  body: 'text-body leading-[23px]',
   compact:
     'text-meta leading-[1.6] prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-pre:my-1.5 prose-hr:my-3 prose-li:my-0 [&_[data-md=table]]:my-2',
   default: 'text-[0.84375rem] leading-[1.75] max-md:text-sm',
@@ -202,18 +205,19 @@ const SIZE_PROSE: Record<MarkdownSize, string> = {
  * line-height, and block children (code, tables) clamp too, which
  * `-webkit-line-clamp` cannot do. Where layout reports line boxes, the clamp
  * moves to the bottom of its last whole line (`--clamp-height`), so block
- * margins never leave a line cut in half (MMR-728). The bottom fade covers
+ * margins never leave a line cut in half (MMR-728). The 12-line fold fades
  * that last line only, and only once the content really overflows, so a
- * short body is never dimmed; it needs no colour token.
+ * short body is never dimmed; the 3-line preview ends on whole lines with no
+ * fade.
  */
-const CLAMP_PROSE: Record<MarkdownClamp, string> = {
-  12: 'max-h-[var(--clamp-height,12lh)] overflow-hidden',
-  3: 'max-h-[var(--clamp-height,3lh)] overflow-hidden',
-};
 const CLAMP_FADE =
   'data-[overflowing]:[mask-image:linear-gradient(to_bottom,black_calc(100%_-_1lh),transparent)]';
+const CLAMP_PROSE: Record<MarkdownClamp, string> = {
+  12: cn('max-h-[var(--clamp-height,12lh)] overflow-hidden', CLAMP_FADE),
+  3: 'max-h-[var(--clamp-height,3lh)] overflow-hidden',
+};
 
-/** What a clamped body measured: whether it overflows, and its approximate rendered line count. */
+/** What a clamped body measured: whether it overflows, and its rendered line count. */
 export type ClampMeasure = { overflowing: boolean; lines: number };
 
 export type MarkdownClamp = 3 | 12;
@@ -230,11 +234,11 @@ function clampStyle(height: number | undefined): CSSProperties | undefined {
 }
 
 /**
- * The distance from `el`'s top to the bottom of its `lines`-th rendered line,
- * read from the text's boxes and `lineHeight`; undefined where layout reports none
- * (jsdom) or the text has fewer lines.
+ * The distance from `el`'s top to the bottom of each rendered line of its
+ * text, in order, read from the text's boxes and `lineHeight`; undefined where
+ * layout reports none (jsdom).
  */
-function wholeLinesHeight(el: HTMLElement, lines: number, lineHeight: number): number | undefined {
+function lineBottoms(el: HTMLElement, lineHeight: number): number[] | undefined {
   const range = el.ownerDocument.createRange();
   // jsdom lays nothing out, and its ranges have no client rects to read.
   if (typeof range.getClientRects !== 'function') {
@@ -271,8 +275,8 @@ function wholeLinesHeight(el: HTMLElement, lines: number, lineHeight: number): n
       bottoms.push(lineBottom);
     }
   }
-  const bottom = bottoms[lines - 1];
-  return bottom === undefined ? undefined : bottom - el.getBoundingClientRect().top;
+  const top = el.getBoundingClientRect().top;
+  return bottoms.map((bottom) => bottom - top);
 }
 
 /**
@@ -284,8 +288,8 @@ function wholeLinesHeight(el: HTMLElement, lines: number, lineHeight: number): n
  * wherever it is opened. `className` carries the host's measure (the reader
  * pins 620px), never a new palette; `size` picks the text scale.
  *
- * `clamp` limits the rendered height to that many whole lines, fading the last line
- * when the content overflows, and reports the measure through
+ * `clamp` limits the rendered height to that many whole lines (the 12-line
+ * fold fading its last line when the content overflows), and reports the measure through
  * `onClampMeasure` (stable callback expected) so the host can offer an expander.
  * Omit `clamp` to show the whole body. `data-clamped` marks the clamped state
  * with its line count.
@@ -328,12 +332,12 @@ export function MarkdownBody({
       // Measured while clamped: scrollHeight is the full content, clientHeight the clamp.
       const over = el.scrollHeight > el.clientHeight + 1;
       const lineHeight = Number.parseFloat(getComputedStyle(el).lineHeight);
+      const bottoms = lineBottoms(el, lineHeight);
       setOverflowing(over);
-      setClampHeight(wholeLinesHeight(el, clamp, lineHeight));
-      onClampMeasure?.({
-        lines: lineHeight > 0 ? Math.ceil(el.scrollHeight / lineHeight) : 0,
-        overflowing: over,
-      });
+      setClampHeight(bottoms?.[clamp - 1]);
+      // Text lines where layout reports them, so block margins count as none.
+      const estimate = lineHeight > 0 ? Math.ceil(el.scrollHeight / lineHeight) : 0;
+      onClampMeasure?.({ lines: bottoms?.length ?? estimate, overflowing: over });
     };
     measure();
     // A width change rewraps the text, so the overflow verdict can flip on resize.
@@ -357,7 +361,7 @@ export function MarkdownBody({
         INK_PROSE,
         INLINE_CODE_PROSE,
         CODE_BLOCK_PROSE,
-        clamp !== undefined && [CLAMP_PROSE[clamp], CLAMP_FADE],
+        clamp !== undefined && CLAMP_PROSE[clamp],
         className,
       )}
       style={clamp === undefined ? undefined : clampStyle(clampHeight)}

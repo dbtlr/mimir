@@ -10,9 +10,9 @@ export type ComposerProps = {
   /** Names the text box for assistive technology; the box has no visible label. */
   label: string;
   placeholder?: string;
-  /** The commit's visible text, such as "Append". */
+  /** The commit's visible text, such as "Add note". */
   commitLabel: string;
-  /** The commit's accessible name when it says more than its label, such as "Append note". */
+  /** The commit's accessible name when it says more than its label, such as "Add note to MMR-728". */
   commitName?: string;
   /**
    * Runs with the trimmed text. A call to the host returns its promise (a

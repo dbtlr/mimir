@@ -2302,8 +2302,10 @@ own heads until MMR-732 brings them onto the pattern.
   beside it. A container's is New task, always. A task's is Start while it
   is ready; Approve and _Send back…_ (an outline) while it is in review; and
   nothing while an agent runs it, while it waits on others, or once it is
-  finished, when More stands alone. The review's text stays in the task's
-  body, without the verdict buttons it used to repeat. On desktop the
+  finished, when More stands alone. ADR 0013's MMR-728 refinement adds
+  _Unblock_ while a task is blocked on the operator, since that block waits
+  on them. The review's text stays in the task's body, without the verdict
+  buttons it used to repeat. On desktop the
   actions sit beside the title while the title keeps at least 440px;
   otherwise, and always on a phone, they drop 16px below the summary.
 - **More groups everything else, in four groups.** Edit, with Move… and
@@ -2750,7 +2752,8 @@ round 9. `packages/host/DESIGN.md` holds the numbers, under Task page.
 - **Facts are one pattern** (`components/patterns/facts.tsx`): the label and
   value columns the container's _Details_ used, now shared by a task's
   _Details_ sections and a banner. A fact whose value is a link is one
-  44-tall target on a phone, pulled back so the list keeps its rhythm.
+  target at least 44 by 44 on a phone, pulled back so the list keeps its
+  rhythm.
 - **A record's timeline hangs on a thread.** The day folds of the MMR-719
   refinement gain a `thread` option: a day's rows hang on one line through
   their dots, an event as one line of words with its time, a note as a card
