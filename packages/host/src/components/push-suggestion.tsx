@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useRef, useState, useSyncExternalStore } from 'react';
 
-import { focusMain } from '../lib/focus-main';
+import { useFocusHandoff } from '../lib/focus-main';
 import { couldSuggestTurningOn, suggestsTurningOn } from '../lib/push-this-device';
 import { usePushBrowser } from '../lib/use-push-browser';
 import { usePushControl } from '../lib/use-push-control';
@@ -51,43 +51,8 @@ function PushSuggestionCard({ offline }: { offline: boolean }) {
     (answer !== 'open' ||
       (!answeredElsewhere && suggestsTurningOn(control.state, browser.snapshot())));
 
-  // Whether focus sits in the card, so its leaving moves only the focus it took with it.
-  const holdsFocus = useRef(false);
-  useEffect(() => {
-    const shown = frame.current;
-    if (!visible || shown === null) {
-      return undefined;
-    }
-    holdsFocus.current = shown.contains(document.activeElement);
-    const enter = () => {
-      holdsFocus.current = true;
-    };
-    const leave = () => {
-      // Read once the move settles. A browser may blur a focused control as the card is
-      // removed; a card that is gone still holds the focus it dropped.
-      queueMicrotask(() => {
-        if (shown.isConnected) {
-          holdsFocus.current = shown.contains(document.activeElement);
-        }
-      });
-    };
-    shown.addEventListener('focusin', enter);
-    shown.addEventListener('focusout', leave);
-    return () => {
-      shown.removeEventListener('focusin', enter);
-      shown.removeEventListener('focusout', leave);
-    };
-  }, [visible]);
-
   // A card that leaves holding focus takes the focused control with it: hand focus to the page.
-  useEffect(() => {
-    if (!visible && holdsFocus.current) {
-      holdsFocus.current = false;
-      if (document.activeElement === document.body) {
-        focusMain();
-      }
-    }
-  }, [visible]);
+  useFocusHandoff({ block: frame, present: visible });
 
   if (!visible) {
     return null;

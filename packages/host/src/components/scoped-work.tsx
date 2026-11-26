@@ -1,12 +1,12 @@
 import type { EngineTree } from '@mimir/contract';
-import { useEffect, useMemo, useRef } from 'react';
-import type { FocusEvent, ReactNode } from 'react';
+import { useMemo, useRef } from 'react';
+import type { ReactNode, RefObject } from 'react';
 
 import { useStartTask } from '../api/node-mutations';
 import { needsYouId } from '../api/view-queries';
 import type { FrontierTask, ReviewReport, ShippedTask, WorkReport } from '../api/view-queries';
 import type { AgentRun } from '../lib/agent-card';
-import { focusMain } from '../lib/focus-main';
+import { useFocusHandoff } from '../lib/focus-main';
 import { lastSevenDays } from '../lib/home';
 import { nodeLink } from '../lib/record-url';
 import {
@@ -96,7 +96,15 @@ function UnlocksRow({ unlocks }: { unlocks: NonNullable<UpNext['unlocks']> }) {
  * next. With nothing startable, that row alone keeps the section, under a
  * head with no count.
  */
-function UpNextSection({ next, offline }: { next: UpNext; offline: boolean }) {
+function UpNextSection({
+  next,
+  offline,
+  quiet,
+}: {
+  next: UpNext;
+  offline: boolean;
+  quiet: RefObject<HTMLParagraphElement | null>;
+}) {
   if (next.total === 0 && next.unlocks === undefined) {
     return null;
   }
@@ -104,55 +112,28 @@ function UpNextSection({ next, offline }: { next: UpNext; offline: boolean }) {
   if (next.cards.length === 0) {
     return <FeedSection title="Up next">{unlocks}</FeedSection>;
   }
-  return <UpNextCards next={next} unlocks={unlocks} offline={offline} />;
+  return <UpNextCards next={next} unlocks={unlocks} offline={offline} quiet={quiet} />;
 }
 
 /**
- * Focus held inside a block that unmounts would fall to the document. While
- * it was inside when the block went, the page's `<main>` takes it, as the
- * other controls that unmount themselves hand it on (`focusMain`).
+ * Up next's cards that can start, then the unlocks row. The last card to
+ * leave hands its focus to the quiet sentence when one replaced the sections,
+ * else to the page.
  */
-function useFocusFallbackOnLeave() {
-  const held = useRef(false);
-  useEffect(
-    () => () => {
-      if (
-        held.current &&
-        (document.activeElement === null || document.activeElement === document.body)
-      ) {
-        focusMain();
-      }
-    },
-    [],
-  );
-  return {
-    onBlur: (event: FocusEvent) => {
-      // A removal blurs with nothing to go to; only a move elsewhere lets go.
-      if (
-        event.relatedTarget instanceof Node &&
-        !event.currentTarget.contains(event.relatedTarget)
-      ) {
-        held.current = false;
-      }
-    },
-    onFocus: () => {
-      held.current = true;
-    },
-  };
-}
-
-/** Up next's cards that can start, then the unlocks row. The last card to leave hands focus to the page. */
 function UpNextCards({
   next,
   unlocks,
   offline,
+  quiet,
 }: {
   next: UpNext;
   unlocks: ReactNode;
   offline: boolean;
+  quiet: RefObject<HTMLParagraphElement | null>;
 }) {
   const { mutateAsync: start } = useStartTask();
-  const keepFocus = useFocusFallbackOnLeave();
+  const block = useRef<HTMLDivElement>(null);
+  useFocusHandoff({ block, to: quiet });
   const byId = new Map(next.cards.map((row) => [row.task.id, row]));
   const cards: ListCard[] = next.cards.map((row) => {
     const action: CardAction = {
@@ -177,7 +158,7 @@ function UpNextCards({
   });
   return (
     // The list draws its own section, the first in the list's box; the 32 between feed sections is set here.
-    <div className="mt-8 first:mt-0" {...keepFocus}>
+    <div ref={block} className="mt-8 first:mt-0">
       <FeedCardList
         sections={[
           {
@@ -335,13 +316,19 @@ export function ScopedWork({
   const parts = partsOf(tree, scope.id);
   const agent: ReactNode =
     agentRun === null ? undefined : <AgentNowRow run={agentRun} stopButton={stop.button} />;
+  // Focus held in a section the quiet sentence replaces goes to that sentence (ADR 0019).
+  const busy = useRef<HTMLDivElement>(null);
+  const quietLine = useRef<HTMLParagraphElement>(null);
+  useFocusHandoff({ block: busy, present: !quiet, to: quietLine });
 
   return (
     <div className="flex flex-col">
       {quiet ? (
-        <Quiet>{quietSentence({ lastFinished: lastFinishedAt(tree, scope.id), zone })}</Quiet>
+        <Quiet ref={quietLine}>
+          {quietSentence({ lastFinished: lastFinishedAt(tree, scope.id), zone })}
+        </Quiet>
       ) : (
-        <>
+        <div ref={busy} className="flex flex-col">
           {review !== undefined && (
             <NeedsYouDeck
               report={review}
@@ -355,14 +342,14 @@ export function ScopedWork({
             seeAll={isProject ? presetLink(projectKey, 'in-flight') : undefined}
             agent={agent}
           />
-          <UpNextSection next={next} offline={offline} />
+          <UpNextSection next={next} offline={offline} quiet={quietLine} />
           <ShippedSection
             days={shipped.days}
             total={shipped.total}
             breakdown={<ShippedBreakdownRows breakdown={shipped.breakdown} zone={zone} />}
             seeAll={isProject ? presetLink(projectKey, 'shipped-week') : undefined}
           />
-        </>
+        </div>
       )}
       <MinuteSection
         rows={scopedMinuteRows({

@@ -1,7 +1,7 @@
 import { MimirError } from '@mimir/contract';
 import type { EngineNode, EngineTree } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HostFaultError } from '../api/errors';
@@ -369,6 +369,54 @@ describe('the scoped Work tab (MMR-727)', () => {
     await section('Now');
     await waitFor(() => {
       expect(screen.getByRole('main')).toHaveFocus();
+    });
+  });
+
+  it('leaves focus where it was when Up next leaves without holding it', async () => {
+    const runnable = frontierRow('MMR-20', 'Add the SQLite dialect');
+    serve(PROJECT_SCOPE);
+    const world = serveViews({
+      projects: {
+        MMR: engineWork({ frontier: { ...engineWork().frontier, runnable: [runnable] } }),
+      },
+    });
+    const client = quietClient();
+    await renderRoute(routes, PROJECT_SCOPE.url, client);
+    await section('Up next');
+
+    world.projects.MMR = engineWork({
+      now: [makeNowRow({ id: 'MMR-20', title: 'Add the SQLite dialect' })],
+    });
+    await act(() => client.invalidateQueries());
+
+    await section('Now');
+    expect(screen.queryByRole('region', { name: /^Up next/ })).toBeNull();
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it('gives the quiet sentence the focus the last card held when the scope goes quiet', async () => {
+    serve(PROJECT_SCOPE);
+    const world = serveViews({
+      projects: { MMR: engineWork({ needsYou: [answersRow] }) },
+      review: reviewOf([question('MMR-14')]),
+    });
+    const client = quietClient();
+    await renderRoute(routes, PROJECT_SCOPE.url, client);
+    const needs = await section('Needs you');
+    const card = await waitFor(() => {
+      const target = needs.querySelector<HTMLElement>('[data-slot="feed-card-target"]');
+      expect(target).not.toBeNull();
+      return target!;
+    });
+    card.focus();
+
+    world.projects.MMR = engineWork();
+    world.review = reviewOf([]);
+    await act(() => client.invalidateQueries());
+
+    const quiet = await screen.findByText(/^Nothing is running, ready to start, or waiting on you/);
+    await waitFor(() => {
+      expect(quiet).toHaveFocus();
     });
   });
 
