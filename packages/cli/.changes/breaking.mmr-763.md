@@ -1,4 +1,4 @@
-- The Engine's `review` report carries Home's counts on each project instead of building rows Home only counts (MMR-763). Each `projects` entry adds `runnable`, `untriaged`, and `findings` beside its existing counts, and the report drops its top-level `runnable`, `goingCold`, `triage`, and `lastFinished`. Home's When you have a minute rows read the per-project counts, so a console poll no longer builds a view of every ready or going-cold task, nor reads the history of recent abandons. The store does not change.
+- Change the Engine's `review` report to carry Home's counts on each project instead of building rows Home only counts (MMR-763). Each `projects` entry adds `runnable`, `untriaged`, and `findings` beside its existing counts, and the report drops its top-level `runnable`, `goingCold`, `triage`, and `lastFinished`. Home's When you have a minute rows read the per-project counts, so a console poll no longer builds a view of every ready or going-cold task, nor reads the history of recent abandons. The store does not change.
 
 ### Migration
 

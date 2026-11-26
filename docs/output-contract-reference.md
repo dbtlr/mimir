@@ -248,10 +248,15 @@ tells a task from a container.
   (`[{ id, title }]`, the active Scratchpads anchored to the task). The agent
   context (`harness`, `session`, optional `worker_harness`/`worker_session`, `branch`, `host`, `external_ref`) is on the
   task object.
-- `needs_you`: blocks owned by `you`, then todo tasks whose grooming is
-  `needs_answers`; newest first within each. A task under review is in `now`,
-  not here. Adds `reason` (`blocked` or `needs_answers`) and `question` (the task's
-  latest note for `needs_answers`, otherwise `null`).
+- `needs_you`: rows of three kinds, told apart by `kind`. A `delivery` row is
+  a stopped delivery. A `decision` row is a provisional decision, with
+  `work_built_on_it`. A `task` row is a block owned by `you` or a todo task
+  whose grooming is `needs_answers`; a task under review is in `now`, not
+  here. A task row adds `reason` (`blocked` or `needs_answers`) and `question`
+  (the task's latest note for `needs_answers`, otherwise `null`). Rows come in
+  five ranks: stopped deliveries, decisions with work built on them, blocks,
+  questions, then the other decisions. Within a rank they run newest first,
+  then lowest sequence, then project.
 - `frontier`: todo, un-held tasks that are ready or await only prerequisites
   that are in progress, under review, or ready, plus the blocked-on-others list.
   - `runnable`: groomed, ready, and ranked, in `next` order. A groomed, ready
@@ -306,8 +311,8 @@ refusal. Field names follow the work page's convention above.
   `now` rows), `live` (the `--status live` group: every status other than
   `done` and `abandoned`, so parked work counts), `runnable` (the work page's
   `frontier.runnable` rows: groomed, ready, and ranked), `triage`
-  (`untriaged` + `going_cold` + `findings`), `untriaged` (seeds in the `new`
-  lane), `going_cold` (tasks past the stale threshold), and `findings`
+  (`untriaged` + `going_cold` + `findings`), `untriaged` (seeds whose
+  lifecycle is `new`, the `untriaged` lane), `going_cold` (tasks past the stale threshold), and `findings`
   (`doctor` findings the project owns). The review report counts these rather
   than listing them (MMR-763).
 

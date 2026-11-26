@@ -889,7 +889,7 @@ export type ReviewProject = ReviewProjectRef & {
   runnable: number;
   /** What to triage: `untriaged + goingCold + findings`. */
   triage: number;
-  /** Seeds in the `new` lane (a parked seed is not untriaged). */
+  /** Seeds whose lifecycle is `new`, the `untriaged` lane (a parked seed is not untriaged). */
   untriaged: number;
   /** Tasks past the stale threshold (the length of the project's work-page `goingCold` rows). */
   goingCold: number;
