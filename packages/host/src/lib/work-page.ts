@@ -3,13 +3,11 @@ import type { EngineNode, EngineTree } from '@mimir/contract';
 import { ancestorsOf, subtreeOf } from './ancestry';
 
 /*
- * The pure derivations behind the work page (ADR 0013, MMR-467 refinement):
- * Shipped's day groups and per-day cap, whether the frontier has any row, and
- * the outline of initiatives and phases the shell's sidebar shows.
+ * The pure derivations the work page's records share (ADR 0013, MMR-467
+ * refinement): the calendar day of an instant in a zone, a finish's time, the
+ * outline of initiatives and phases the shell's sidebar shows, and a record's
+ * newest artifacts. The scoped Work tab's own are in `scoped-work.ts`.
  */
-
-/** Rows a Shipped day shows before its "N more" control. */
-export const SHIPPED_DAY_CAP = 3;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -39,54 +37,9 @@ export function dayOf(at: number, zone: string): string {
   return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
-/** `Mon Oct 12` — the weekday and date of a `YYYY-MM-DD` day. */
-function dayName(day: string): string {
-  // The day is read as a UTC midnight and named in UTC, so no zone can move it.
-  const parts = new Intl.DateTimeFormat('en-US', {
-    day: 'numeric',
-    month: 'short',
-    timeZone: 'UTC',
-    weekday: 'short',
-  }).formatToParts(Date.parse(`${day}T00:00:00.000Z`));
-  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
-  return `${part('weekday')} ${part('month')} ${part('day')}`;
-}
-
 /** The day before a `YYYY-MM-DD` day. */
 export function dayBefore(day: string): string {
   return new Date(Date.parse(`${day}T00:00:00.000Z`) - DAY_MS).toISOString().slice(0, 10);
-}
-
-/** One Shipped day: its `YYYY-MM-DD` key, its label, and its rows newest first. */
-export type ShippedDay<T> = { day: string; label: string; rows: T[] };
-
-/**
- * Shipped rows grouped by the calendar day they finished in `zone`, newest day
- * first. The first two days read "Today · Mon Oct 12" and "Yesterday · Sun Oct
- * 11"; older days carry the date alone. Rows within a day are newest first.
- */
-export function groupShippedByDay<T extends { finishedAt: Date }>(
-  rows: readonly T[],
-  zone: string,
-  now = Date.now(),
-): ShippedDay<T>[] {
-  const today = dayOf(now, zone);
-  const yesterday = dayBefore(today);
-  const days = new Map<string, T[]>();
-  for (const row of rows.toSorted((a, b) => b.finishedAt.getTime() - a.finishedAt.getTime())) {
-    const day = dayOf(row.finishedAt.getTime(), zone);
-    days.set(day, [...(days.get(day) ?? []), row]);
-  }
-  return [...days.entries()].map(([day, dayRows]) => {
-    const name = dayName(day);
-    let label = name;
-    if (day === today) {
-      label = `Today · ${name}`;
-    } else if (day === yesterday) {
-      label = `Yesterday · ${name}`;
-    }
-    return { day, label, rows: dayRows };
-  });
 }
 
 /** The finish time of a Shipped row, 24-hour `HH:MM` in `zone`. */
@@ -97,36 +50,6 @@ export function shippedTime(at: Date, zone: string): string {
     minute: '2-digit',
     timeZone: zone,
   }).format(at);
-}
-
-/**
- * A list's visible rows and how many the cap hides (a Shipped day's by
- * default); `expanded` lifts the cap.
- */
-export function capDay<T>(
-  rows: readonly T[],
-  expanded: boolean,
-  cap = SHIPPED_DAY_CAP,
-): { shown: T[]; hidden: number } {
-  if (expanded || rows.length <= cap) {
-    return { hidden: 0, shown: [...rows] };
-  }
-  return { hidden: rows.length - cap, shown: rows.slice(0, cap) };
-}
-
-/** Does the frontier hold no row at all — not runnable, not one step off, not to groom, not waiting? */
-export function frontierIsEmpty(frontier: {
-  runnable: readonly unknown[];
-  nextToUnlock: readonly { tasks: readonly unknown[] }[];
-  toGroom: readonly unknown[];
-  waitingOnOthers: readonly unknown[];
-}): boolean {
-  return (
-    frontier.runnable.length === 0 &&
-    frontier.toGroom.length === 0 &&
-    frontier.waitingOnOthers.length === 0 &&
-    frontier.nextToUnlock.every((g) => g.tasks.length === 0)
-  );
 }
 
 /** What an outline row shows beside its title. */

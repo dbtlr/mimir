@@ -144,19 +144,14 @@ export function shippedWeek({
   zone: string;
   now?: number;
 }): ShippedWeek {
-  const { days: window, today } = lastSevenDays(zone, now);
-  const perDay = new Map(window.map((day) => [day, 0]));
+  const { days: window } = lastSevenDays(zone, now);
+  const inWindow = new Set(window);
+  const week = rows.filter(
+    (row) => row.task.status === 'done' && inWindow.has(dayOf(row.finishedAt.getTime(), zone)),
+  );
   const perProject = new Map<string, number>();
-  let total = 0;
-  for (const row of rows) {
-    const day = dayOf(row.finishedAt.getTime(), zone);
-    const count = perDay.get(day);
-    if (row.task.status !== 'done' || count === undefined) {
-      continue;
-    }
-    perDay.set(day, count + 1);
+  for (const row of week) {
     perProject.set(row.project, (perProject.get(row.project) ?? 0) + 1);
-    total += 1;
   }
   const order = new Map(projects.map((project, index) => [project.key, index]));
   const names = new Map(projects.map((project) => [project.key, project.name]));
@@ -168,12 +163,38 @@ export function shippedWeek({
         (order.get(a.key) ?? Infinity) - (order.get(b.key) ?? Infinity) ||
         a.key.localeCompare(b.key),
     );
-  const days = window.map((day) =>
+  const days = shippedDays(
+    week.map((row) => row.finishedAt),
+    zone,
+    now,
+  );
+  return { byProject, days, total: week.length };
+}
+
+/**
+ * The Shipped chart's seven days, oldest first and today last, each counting
+ * the instants in `finished` that fall on it in `zone`; an instant outside the
+ * window counts nowhere.
+ */
+export function shippedDays(
+  finished: readonly Date[],
+  zone: string,
+  now = Date.now(),
+): ShippedDay[] {
+  const { days: window, today } = lastSevenDays(zone, now);
+  const perDay = new Map(window.map((day) => [day, 0]));
+  for (const at of finished) {
+    const day = dayOf(at.getTime(), zone);
+    const count = perDay.get(day);
+    if (count !== undefined) {
+      perDay.set(day, count + 1);
+    }
+  }
+  return window.map((day) =>
     day === today
       ? { count: perDay.get(day) ?? 0, name: 'today', short: 'Today' }
       : { count: perDay.get(day) ?? 0, name: weekday(day, 'long'), short: weekday(day, 'short') },
   );
-  return { byProject, days, total };
 }
 
 /**
@@ -188,11 +209,13 @@ export function oneProject(keys: readonly string[]): string | undefined {
 
 /**
  * Where a spare-minute row leads: a Tasks preset or a Seeds view in one
- * project, the lists being per project.
+ * project, the lists being per project, or a project's Record health
+ * (a scoped page's, MMR-727).
  */
 export type MinuteDoor =
   | { list: 'tasks'; project: string; show: TaskPreset }
-  | { list: 'seeds'; project: string; show: SeedShow };
+  | { list: 'seeds'; project: string; show: SeedShow }
+  | { list: 'doctor'; project: string };
 
 /** One spare-minute row: what it counts, how many, and the list it opens when all of it is one project's. */
 export type MinuteRow = {

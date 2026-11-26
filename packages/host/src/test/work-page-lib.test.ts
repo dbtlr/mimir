@@ -1,24 +1,11 @@
 import type { EngineTree } from '@mimir/contract';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  dayOf,
-  SHIPPED_DAY_CAP,
-  buildOutline,
-  capDay,
-  frontierIsEmpty,
-  groupShippedByDay,
-  newestArtifacts,
-  shippedTime,
-} from '../lib/work-page';
+import { dayOf, buildOutline, newestArtifacts, shippedTime } from '../lib/work-page';
 import type { RecordArtifact } from '../lib/work-page';
 import { engineTree } from './engine-fixtures';
 
-// Mon Oct 12 2026, 23:30 in New York (03:30 UTC on the 13th).
-const NOW = Date.parse('2026-10-13T03:30:00.000Z');
 const NY = 'America/New_York';
-
-const shipped = (id: string, at: string) => ({ finishedAt: new Date(at), id });
 
 describe('dayOf', () => {
   const format = Object.getOwnPropertyDescriptor(Intl.DateTimeFormat.prototype, 'format');
@@ -40,99 +27,10 @@ describe('dayOf', () => {
   });
 });
 
-describe('groupShippedByDay', () => {
-  it('groups by calendar day in the given zone, newest day first, labelled Today and Yesterday', () => {
-    const groups = groupShippedByDay(
-      [
-        shipped('MMR-1', '2026-10-13T03:00:00.000Z'), // Oct 12, 23:00 NY
-        shipped('MMR-2', '2026-10-12T14:00:00.000Z'), // Oct 12, 10:00 NY
-        shipped('MMR-3', '2026-10-12T03:00:00.000Z'), // Oct 11, 23:00 NY
-        shipped('MMR-4', '2026-10-10T20:00:00.000Z'), // Oct 10, 16:00 NY
-      ],
-      NY,
-      NOW,
-    );
-
-    expect(groups.map((g) => g.label)).toStrictEqual([
-      'Today · Mon Oct 12',
-      'Yesterday · Sun Oct 11',
-      'Sat Oct 10',
-    ]);
-    expect(groups.map((g) => g.rows.map((r) => r.id))).toStrictEqual([
-      ['MMR-1', 'MMR-2'],
-      ['MMR-3'],
-      ['MMR-4'],
-    ]);
-  });
-
-  it('puts the same instant on a different day in a different zone', () => {
-    const rows = [shipped('MMR-1', '2026-10-13T03:00:00.000Z')];
-
-    expect(groupShippedByDay(rows, 'UTC', NOW).map((g) => g.label)).toStrictEqual([
-      'Today · Tue Oct 13',
-    ]);
-    expect(groupShippedByDay(rows, NY, NOW).map((g) => g.label)).toStrictEqual([
-      'Today · Mon Oct 12',
-    ]);
-  });
-
-  it('orders rows newest first within a day even when served out of order', () => {
-    const [today] = groupShippedByDay(
-      [shipped('MMR-1', '2026-10-12T14:00:00.000Z'), shipped('MMR-2', '2026-10-12T18:00:00.000Z')],
-      NY,
-      NOW,
-    );
-
-    expect(today?.rows.map((r) => r.id)).toStrictEqual(['MMR-2', 'MMR-1']);
-  });
-
-  it('is empty when nothing shipped', () => {
-    expect(groupShippedByDay([], NY, NOW)).toStrictEqual([]);
-  });
-});
-
 describe('shippedTime', () => {
   it('reads the finish as a 24-hour HH:MM in the zone', () => {
     expect(shippedTime(new Date('2026-10-12T14:05:00.000Z'), NY)).toBe('10:05');
     expect(shippedTime(new Date('2026-10-13T04:00:00.000Z'), NY)).toBe('00:00');
-  });
-});
-
-describe('capDay', () => {
-  const rows = [1, 2, 3, 4, 5];
-
-  it('shows the first rows of a day and counts the rest', () => {
-    expect(SHIPPED_DAY_CAP).toBe(3);
-    expect(capDay(rows, false)).toStrictEqual({ hidden: 2, shown: [1, 2, 3] });
-  });
-
-  it('shows every row once the day is expanded', () => {
-    expect(capDay(rows, true)).toStrictEqual({ hidden: 0, shown: rows });
-  });
-
-  it('caps at the width a list asks for', () => {
-    expect(capDay(rows, false, 4)).toStrictEqual({ hidden: 1, shown: [1, 2, 3, 4] });
-  });
-
-  it('hides nothing on a day within the cap', () => {
-    expect(capDay([1, 2, 3], false)).toStrictEqual({ hidden: 0, shown: [1, 2, 3] });
-  });
-});
-
-describe('frontierIsEmpty', () => {
-  const empty = { nextToUnlock: [], runnable: [], toGroom: [], waitingOnOthers: [] };
-
-  it('is true when every list is empty', () => {
-    expect(frontierIsEmpty(empty)).toBe(true);
-  });
-
-  it.each([
-    ['runnable', { runnable: [1] }],
-    ['toGroom', { toGroom: [1] }],
-    ['waitingOnOthers', { waitingOnOthers: [1] }],
-    ['nextToUnlock', { nextToUnlock: [{ tasks: [1] }] }],
-  ])('is false when %s holds a row', (_list, rows) => {
-    expect(frontierIsEmpty({ ...empty, ...rows })).toBe(false);
   });
 });
 

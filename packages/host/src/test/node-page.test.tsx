@@ -470,6 +470,11 @@ describe('task page (MMR-449)', () => {
   });
 });
 
+/** The start of the quiet sentence an empty Work tab reads (MMR-727). */
+const QUIET = /^Nothing is running, ready to start, or waiting on you\./;
+/** The Work tab's quiet sentence, which shows its body has rendered. */
+const workShown = () => screen.findByText(QUIET);
+
 describe('container page (MMR-450)', () => {
   const phase: EngineNode = engineContainer({
     description: 'Swap the **store** under the board.',
@@ -501,7 +506,7 @@ describe('container page (MMR-450)', () => {
     expect(quiet.classList).toContain('text-ink');
   });
 
-  it('opens as the work page, with its path, its sections, and no task actions', async () => {
+  it('opens as the work page, with its path, its scoped Work, and no task actions', async () => {
     serve(phase);
     await renderRoute(consoleRoutes, '/p/MMR/2', quietClient());
 
@@ -513,10 +518,8 @@ describe('container page (MMR-450)', () => {
     expect(
       screen.getByRole('link', { name: /Hosted and external backends/ }).getAttribute('href'),
     ).toBe('/p/MMR/1');
-    for (const name of ['Now', 'Needs you', 'Frontier', 'Shipped', 'Going cold']) {
-      // oxlint-disable-next-line no-await-in-loop -- one section at a time reads clearest
-      await expect(screen.findByRole('region', { name })).resolves.toBeDefined();
-    }
+    // An empty work read leaves the quiet sentence on Work.
+    await expect(workShown()).resolves.toBeDefined();
     expect(screen.queryByRole('region', { name: /contents/i })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
   });
@@ -525,7 +528,7 @@ describe('container page (MMR-450)', () => {
     serve(phase);
     await renderRoute(consoleRoutes, '/p/MMR/2', quietClient());
 
-    await screen.findByRole('region', { name: 'Now' });
+    await workShown();
     expect(nodeWork).toHaveBeenCalledWith({ data: { id: 'MMR-2', timeZone: 'America/New_York' } });
   });
 
@@ -542,7 +545,7 @@ describe('container page (MMR-450)', () => {
     await screen.findByRole('heading', { level: 1 });
     const parent = within(screen.getByRole('main')).getByRole('link', { name: 'Mimir' });
     expect(parent.getAttribute('href')).toBe('/p/MMR');
-    await expect(screen.findByRole('region', { name: 'Frontier' })).resolves.toBeDefined();
+    await expect(workShown()).resolves.toBeDefined();
   });
 
   it('retires the rail and its Direction, About, and Artifacts chips', async () => {
@@ -635,7 +638,7 @@ describe('container page (MMR-450)', () => {
         screen.findByRole('tab', { name: 'Work', selected: true }),
       ).resolves.toBeDefined();
       expect(tabNames()).toStrictEqual(['Work ', 'Details ', 'Timeline 2']);
-      await expect(screen.findByRole('region', { name: 'Now' })).resolves.toBeDefined();
+      await expect(workShown()).resolves.toBeDefined();
       expect(screen.queryByText('Settled the dialect seam')).toBeNull();
     });
 
@@ -671,7 +674,7 @@ describe('container page (MMR-450)', () => {
         'aria-selected',
         'true',
       );
-      expect(screen.queryByRole('region', { name: 'Now' })).toBeNull();
+      expect(screen.queryByText(QUIET)).toBeNull();
     });
 
     it('opens on the tab its URL names, as on a reload, and Work takes the parameter back out', async () => {
@@ -685,7 +688,7 @@ describe('container page (MMR-450)', () => {
       await expect(screen.findByText('Settled the dialect seam')).resolves.toBeDefined();
       fireEvent.click(screen.getByRole('tab', { name: 'Work' }));
 
-      await expect(screen.findByRole('region', { name: 'Now' })).resolves.toBeDefined();
+      await expect(workShown()).resolves.toBeDefined();
       expect(testRouter.state.location.searchStr).toBe('');
     });
 
@@ -697,7 +700,7 @@ describe('container page (MMR-450)', () => {
         quietClient(),
       );
 
-      await expect(screen.findByRole('region', { name: 'Now' })).resolves.toBeDefined();
+      await expect(workShown()).resolves.toBeDefined();
       expect(testRouter.state.location.searchStr).toBe('');
     });
 

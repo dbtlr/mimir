@@ -15,7 +15,6 @@ import {
   deliveryAbandon,
 } from '../api/fns/deliveries';
 import { deliveryPage, phaseDeliveries } from '../api/fns/views';
-import { POLL_MS } from '../api/queries';
 import { createQueryClient } from '../api/query-client';
 import { toast } from '../components/patterns/notice';
 import { consoleRoutes } from '../router';
@@ -323,38 +322,68 @@ test('shows not found for an unknown delivery’s 404', async () => {
   await expect(screen.findByText('No record MMR-d3.')).resolves.toBeInTheDocument();
 });
 
-test('links the phase’s live delivery card to its dossier with time and member distribution', async () => {
+test('lists the phase’s live deliveries on a Deliveries tab after Work, each card its dossier’s link', async () => {
   const page = fixture();
   serveNodes({ nodes: [page.phase] });
   vi.mocked(phaseDeliveries).mockResolvedValue([
     { delivery: page.delivery, members: page.members },
   ]);
-  await renderRoute(consoleRoutes, '/p/MMR/2');
-  const cards = await screen.findByRole('region', { name: 'Live deliveries' });
-  expect(within(cards).getByRole('link', { name: /Deliver the console/ })).toHaveAttribute(
-    'href',
-    '/p/MMR/d3',
-  );
+  const { router } = await renderRoute(consoleRoutes, '/p/MMR/2');
+  const tab = await screen.findByRole('tab', { name: 'Deliveries 1' });
+  expect(screen.getAllByRole('tab').map((each) => each.textContent?.trim())).toStrictEqual([
+    'Work',
+    'Deliveries 1',
+    'Details',
+    expect.stringMatching(/^Timeline/),
+  ]);
+  // Work holds the scoped sections; the deliveries are on their own tab.
+  expect(screen.queryByRole('list', { name: 'Live deliveries' })).toBeNull();
+
+  fireEvent.click(tab);
+
+  const cards = await screen.findByRole('list', { name: 'Live deliveries' });
+  expect(router.state.location.searchStr).toBe('?tab=deliveries');
+  const card = within(cards).getByRole('link', { name: /Deliver the console/ });
+  expect(card).toHaveAttribute('href', '/p/MMR/d3');
+  expect(card).toHaveClass('wrap-anywhere');
   expect(within(cards).getByText('stopped')).toBeInTheDocument();
-  expect(within(cards).getByRole('link', { name: /Deliver the console/ })).toHaveClass(
-    'wrap-anywhere',
-  );
   expect(within(cards).getByRole('img', { name: /1/ })).toBeInTheDocument();
 });
 
+test('opens the Deliveries tab its URL names', async () => {
+  const page = fixture();
+  serveNodes({ nodes: [page.phase] });
+  vi.mocked(phaseDeliveries).mockResolvedValue([{ delivery: page.delivery, members: [] }]);
+  await renderRoute(consoleRoutes, '/p/MMR/2?tab=deliveries');
+  await screen.findByRole('tab', { name: 'Deliveries 1', selected: true });
+  await expect(
+    screen.findByRole('link', { name: /Deliver the console/ }),
+  ).resolves.toBeInTheDocument();
+});
+
 // A delivery may name no tasks, so a phase with none can still have a live one.
-test('a phase with no tasks still shows its live delivery card, on Work', async () => {
+test('a phase with no tasks opens on its Deliveries, with no Work', async () => {
   const page = fixture();
   serveNodes({ nodes: [{ ...page.phase, distribution: {} }] });
   vi.mocked(phaseDeliveries).mockResolvedValue([{ delivery: page.delivery, members: [] }]);
-  await renderRoute(consoleRoutes, '/p/MMR/2');
-  const cards = await screen.findByRole('region', { name: 'Live deliveries' });
-  expect(within(cards).getByRole('link', { name: /Deliver the console/ })).toBeInTheDocument();
-  expect(screen.getByRole('tab', { name: 'Work', selected: true })).toBeInTheDocument();
+  const { router } = await renderRoute(consoleRoutes, '/p/MMR/2');
+  await screen.findByRole('tab', { name: 'Deliveries 1', selected: true });
+  expect(screen.queryByRole('tab', { name: 'Work' })).toBeNull();
+  await waitFor(() => expect(router.state.location.searchStr).toBe('?tab=deliveries'));
 });
 
-// A cached empty list may predate a delivery agreed since; only a current read hides Work for good.
-test('a phase with no tasks keeps Work in its URL until its delivery read is current', async () => {
+test('a URL naming Deliveries on a phase with none falls to Work and is replaced', async () => {
+  const page = fixture();
+  serveNodes({ nodes: [page.phase] });
+  const { router } = await renderRoute(consoleRoutes, '/p/MMR/2?tab=deliveries');
+  await screen.findByRole('tab', { name: 'Work', selected: true });
+  expect(screen.queryByRole('tab', { name: /Deliveries/ })).toBeNull();
+  await waitFor(() => expect(router.state.location.searchStr).toBe(''));
+  expect(router.history).toHaveLength(1);
+});
+
+// A cached empty list may predate a delivery agreed since; only a current read settles the URL.
+test('keeps the URL until the phase’s delivery read is current', async () => {
   const page = fixture();
   serveNodes({ nodes: [{ ...page.phase, distribution: {} }] });
   const answer = Promise.withResolvers<Awaited<ReturnType<typeof phaseDeliveries>>>();
@@ -368,19 +397,8 @@ test('a phase with no tasks keeps Work in its URL until its delivery read is cur
   answer.resolve([
     { delivery: { ...page.delivery, hold: 'none', lifecycle: 'agreed' }, members: [] },
   ]);
-  await screen.findByRole('tab', { name: 'Work', selected: true });
-  expect(router.state.location.searchStr).toBe('');
-});
-
-// Work's own cards read the deliveries; the page reads them only while they decide Work's tab.
-test('a phase with tasks reads no deliveries off its Work tab', async () => {
-  const page = fixture();
-  serveNodes({ nodes: [{ ...page.phase, distribution: { ready: 1 } }] });
-  await renderRoute(consoleRoutes, '/p/MMR/2?tab=timeline', createQueryClient());
-  await screen.findByRole('tab', { name: /Timeline/, selected: true });
-  expect(screen.getByRole('tab', { name: 'Work' })).toBeInTheDocument();
-  await vi.advanceTimersByTimeAsync(POLL_MS + 100);
-  expect(phaseDeliveries).not.toHaveBeenCalled();
+  await screen.findByRole('tab', { name: 'Deliveries 1', selected: true });
+  await waitFor(() => expect(router.state.location.searchStr).toBe('?tab=deliveries'));
 });
 
 test('the delivery’s own Needs you decision omits a delivery self-link', async () => {

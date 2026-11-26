@@ -6,7 +6,12 @@ import { archivedProjectsQuery } from '../api/shell-queries';
 import { reviewQuery } from '../api/view-queries';
 import type { ReviewReport } from '../api/view-queries';
 import { FocusQueue } from '../components/focus-queue';
-import { MinuteSection, NowSection, ShippedSection } from '../components/home-sections';
+import {
+  MinuteSection,
+  NowSection,
+  ShippedByProject,
+  ShippedSection,
+} from '../components/home-sections';
 import { NeedsYouDeck } from '../components/needs-you-deck';
 import { needsYouCards } from '../components/needs-you-deck-model';
 import { NewProjectSheet } from '../components/new-project-sheet';
@@ -16,8 +21,9 @@ import { RecordPending } from '../components/record-layout';
 import { ActionButton } from '../components/ui/action-button';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
-import { homeDay, homeSummary, shippedWeek } from '../lib/home';
+import { homeDay, homeSummary, minuteRows, oneProject, shippedWeek } from '../lib/home';
 import { PAGE_COLUMN } from '../lib/page-column';
+import { presetLink } from '../lib/task-list';
 import { reviewRoute } from '../router';
 
 /*
@@ -106,6 +112,9 @@ export function ReviewPage() {
   const zone = browserTimeZone();
   // One pass over the shipped rows feeds the summary's total and the Shipped section.
   const week = shippedWeek({ projects: report.projects, rows: report.shipped, zone });
+  const names = new Map(report.projects.map((project) => [project.key, project.name]));
+  // Now opens its project's In flight only when every task in it is one project's (MMR-724).
+  const nowProject = oneProject(report.now.map((row) => row.project));
   return (
     <>
       <OfflineBanner {...conn} />
@@ -123,9 +132,17 @@ export function ReviewPage() {
             countItems
             seeAll={{ to: '/needs-you' }}
           />
-          <NowSection report={report} />
-          <ShippedSection week={week} />
-          <MinuteSection report={report} />
+          <NowSection
+            rows={report.now}
+            names={names}
+            seeAll={nowProject === undefined ? undefined : presetLink(nowProject, 'in-flight')}
+          />
+          <ShippedSection
+            days={week.days}
+            total={week.total}
+            breakdown={<ShippedByProject week={week} />}
+          />
+          <MinuteSection rows={minuteRows(report)} />
         </div>
       </main>
     </>

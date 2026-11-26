@@ -123,8 +123,8 @@ export function needsYouPreview(card: NeedsYouCard): Omit<Preview, 'action'> {
   };
 }
 
-/** Reports a write's progress to the surface: in flight until it lands or is refused. */
-async function settle(work: Promise<unknown>, write: CardWrite): Promise<void> {
+/** Reports a write's progress to the surface: in flight until it lands or is refused. Up next's Start reports through it too (MMR-727). */
+export async function settle(work: Promise<unknown>, write: CardWrite): Promise<void> {
   write.start();
   try {
     await work;

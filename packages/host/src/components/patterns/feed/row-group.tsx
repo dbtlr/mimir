@@ -31,6 +31,11 @@ export type RowGroupRow = {
   figures?: readonly number[];
   /** The row's destination; a row without one is a plain row, not a link. */
   to?: FeedLink;
+  /**
+   * A mark before the name in a 16 column, from the feature: a part's status
+   * dot and its status in words for a screen reader (MMR-727).
+   */
+  lead?: ReactNode;
 };
 
 /**
@@ -61,6 +66,10 @@ export type RowGroupColumns = {
  * the attention pill, and a group with `columns` lays each row's `figures`
  * out under captions from `md` up, where they take the place of the one
  * count.
+ *
+ * A scoped page's options (MMR-727): a row may `lead` with a mark (a part's
+ * status dot), and `after` closes the group, inside its frame, with what is
+ * set apart from its rows (a Lane fold of the finished parts).
  */
 export function RowGroup({
   label,
@@ -69,6 +78,7 @@ export function RowGroup({
   framed = false,
   keepZero = false,
   columns,
+  after,
 }: {
   /** The list's accessible name ("Shipped by project"). */
   label: string;
@@ -82,6 +92,8 @@ export function RowGroup({
    * a count (not `none`) fit its tracks; a group with columns has no `more`.
    */
   columns?: RowGroupColumns;
+  /** What closes the group under its last row, inside its frame (not with `columns`). */
+  after?: ReactNode;
 }) {
   const layout: Layout = { columns };
   const items = (
@@ -109,17 +121,29 @@ export function RowGroup({
   if (columns !== undefined) {
     return <ColumnsGroup label={label} columns={columns} items={items} />;
   }
-  const list = (
-    <ul aria-label={label} className="m-0 list-none divide-y divide-line p-0">
-      {items}
-    </ul>
-  );
-  return framed ? (
-    <div data-slot="row-group-frame" className={cn(cardVariants(), 'px-4')}>
-      {list}
-    </div>
-  ) : (
+  // With every row set apart into `after`, an empty list would only draw a stray hairline above it.
+  const empty = more === undefined && !rows.some((row) => keepZero || row.count > 0);
+  const list =
+    empty && after !== undefined ? null : (
+      <ul aria-label={label} className="m-0 list-none divide-y divide-line p-0">
+        {items}
+      </ul>
+    );
+  if (framed) {
+    return (
+      <div data-slot="row-group-frame" className={cn(cardVariants(), 'px-4')}>
+        {list}
+        {after}
+      </div>
+    );
+  }
+  return after === undefined ? (
     list
+  ) : (
+    <div>
+      {list}
+      {after}
+    </div>
   );
 }
 
@@ -300,6 +324,12 @@ function RowText({
   }
   return (
     <>
+      {row.lead !== undefined && (
+        <>
+          {/* Centred on the name's first line, as the Day fold's dot column is. */}
+          <span className="flex w-4 shrink-0 justify-center self-start pt-2">{row.lead}</span>{' '}
+        </>
+      )}
       {(row.key !== undefined || columns !== undefined) && (
         <>
           <span className="min-w-12 shrink-0 font-mono text-mono-id text-ink-dim">

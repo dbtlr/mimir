@@ -57,6 +57,8 @@ export type NeedsYouCard = {
   projectKey: string;
   /** The records in the set the card holds: one, or a bundle's decisions. */
   records: number;
+  /** The IDs of the needs-you records the card holds, as the queue names them: its own, or a bundle's decisions. */
+  members: string[];
   title: string;
   detail?: string;
   /** The instant the card's age counts from. */
@@ -72,8 +74,8 @@ export type NeedsYouCard = {
   };
 };
 
-/** A bundle as the walk gathers it: its set, its decisions' count, and its first decision's instant. */
-type Bundle = { set: EntrySet; count: number; at: Instant };
+/** A bundle as the walk gathers it: its set, its decisions' count and IDs, and its first decision's instant. */
+type Bundle = { set: EntrySet; count: number; ids: string[]; at: Instant };
 
 /** "N things", in the singular for one. */
 function counted(count: number, one: string, many: string): string {
@@ -119,6 +121,7 @@ function deliveryBundle(
     id,
     key: entryName(bundle.set),
     lead: { kind: 'attention', word: 'Decisions' },
+    members: bundle.ids,
     preview: {
       facts: entry === undefined ? taskFacts : [...taskFacts, phaseFact(entry.phase)],
       open: { id, kind: 'delivery' },
@@ -151,6 +154,7 @@ function projectBundle(
     id: key,
     key: entryName(bundle.set),
     lead: { kind: 'attention', word: 'Decisions' },
+    members: bundle.ids,
     preview: {
       facts: taskFacts,
       open: { key, kind: 'project' },
@@ -204,6 +208,7 @@ function stoppedDelivery(
     id: delivery.id,
     key: delivery.id,
     lead: { kind: 'attention', word: 'Stopped' },
+    members: [delivery.id],
     preview: {
       facts: [...decisions, phaseFact(phase)],
       open: { id: delivery.id, kind: 'delivery' },
@@ -255,6 +260,7 @@ function taskCard(
     id: task.id,
     key: task.id,
     lead: asks ? { kind: 'attention', word: 'Question' } : { kind: 'status', status: task.status },
+    members: [task.id],
     preview: {
       facts: factsOfTask(task),
       open: { id: task.id, kind: 'task' },
@@ -329,11 +335,12 @@ export function needsYouCards(report: ReviewReport): NeedsYouCard[] {
     const set = setOf(row);
     const held = bundles.get(entryName(set));
     if (held === undefined) {
-      const bundle = { at: row.decision.created_at, count: 1, set };
+      const bundle = { at: row.decision.created_at, count: 1, ids: [row.decision.id], set };
       bundles.set(entryName(set), bundle);
       placed.push({ bundle, kind: 'bundle', project });
     } else {
       held.count += 1;
+      held.ids.push(row.decision.id);
     }
   }
 

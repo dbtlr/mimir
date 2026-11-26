@@ -128,7 +128,7 @@ describe('Now on the work page', () => {
     await screen.findByRole('heading', { level: 1, name: 'Phase A' });
   }
 
-  it('shows the running agent as a row on its task', async () => {
+  it('shows the running agent as a row on its task, keeping Now shown with no count', async () => {
     await openProject(
       runningActivity({ startedAt: new Date(NOW - 2 * 60_000) }, 'Show each clone’s last sync'),
     );
@@ -138,11 +138,10 @@ describe('Now on the work page', () => {
     expect(row).toHaveTextContent('Agent');
     expect(row).toHaveTextContent('Grooming, started 2m ago');
     expect(row).toHaveTextContent('0.36M of 4M tokens');
-    await expect(nowGroup()).resolves.toHaveTextContent('1');
-    expect(screen.queryByText('Nothing running.')).toBeNull();
+    await expect(nowGroup()).resolves.toHaveTextContent(/^Now$/);
   });
 
-  it('counts the row with the tasks already in Now', async () => {
+  it('leaves the row out of the head’s count of the tasks in Now', async () => {
     serveShell({ trees: { MMR: TREE } });
     serveNodes({ nodes: [PROJECT] });
     serveViews({
@@ -151,12 +150,12 @@ describe('Now on the work page', () => {
     serveAgent({ activity: runningActivity() });
     await renderRoute(consoleRoutes, '/p/MMR', quietClient());
     await rowOf('Show each clone’s last sync time');
-    await expect(nowGroup()).resolves.toHaveTextContent('2');
-    expect(screen.getByRole('link', { name: 'Wire the dialect' })).toBeVisible();
+    await expect(nowGroup()).resolves.toHaveTextContent(/^Now 1$/);
+    expect(screen.getByRole('button', { name: 'Wire the dialect' })).toBeVisible();
   });
 
-  // A task queued while the agent grooms it is in Now on its own: it gets one row, with the agent on it.
-  it('puts the agent on the task’s own row when the task is already in Now', async () => {
+  // A task queued while the agent grooms it is in Now on its own: it keeps its card, and the run its row above.
+  it('sets the row above the cards when its task has a card too', async () => {
     serveShell({ trees: { MMR: TREE } });
     serveNodes({ nodes: [PROJECT] });
     serveViews({
@@ -166,76 +165,26 @@ describe('Now on the work page', () => {
         }),
       },
     });
-    serveAgent({ activity: runningActivity({}, 'Show each clone’s last sync') });
+    serveAgent({ activity: runningActivity({ cancellable: true }, 'Show each clone’s last sync') });
     await renderRoute(consoleRoutes, '/p/MMR', quietClient());
     const { row } = await rowOf('Show each clone’s last sync');
-    expect(screen.getAllByRole('link', { name: 'Show each clone’s last sync' })).toHaveLength(1);
-    expect(row).toHaveTextContent('Queued');
-    expect(row).toHaveTextContent('Agent grooming');
-    await expect(nowGroup()).resolves.toHaveTextContent('1');
-  });
-
-  it.each([
-    ['its own row', [nowRow({ id: 'MMR-11', title: 'Wire the dialect' })]],
-    [
-      'the task’s row',
-      [
-        nowRow({ id: 'MMR-11', title: 'Wire the dialect' }),
-        nowRow({ id: 'MMR-640', status: 'queued', title: 'Show each clone’s last sync' }),
-      ],
-    ],
-  ])('offers Stop only on the row that carries the agent, on %s', async (_where, now) => {
-    serveShell({ trees: { MMR: TREE } });
-    serveNodes({ nodes: [PROJECT] });
-    serveViews({ projects: { MMR: engineWork({ now }) } });
-    serveAgent({
-      activity: runningActivity({ cancellable: true }, 'Show each clone’s last sync'),
-    });
-    await renderRoute(consoleRoutes, '/p/MMR', quietClient());
-    await screen.findByRole('button', { name: 'Stop run on MMR-640' });
+    const card = screen.getByRole('button', { name: 'Show each clone’s last sync' });
+    // oxlint-disable-next-line no-bitwise -- DOM position flags are a bit mask
+    expect(row.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getAllByRole('button', { name: /^Stop run on / })).toHaveLength(1);
-    const { row } = await rowOf('Wire the dialect');
-    expect(within(row).queryByRole('button', { name: /^Stop run on / })).toBeNull();
+    expect(within(row).getByRole('button', { name: 'Stop run on MMR-640' })).toBeDefined();
+    await expect(nowGroup()).resolves.toHaveTextContent(/^Now 1$/);
   });
 
-  it('offers Stop on the task’s own row when the task is already in Now, and marks it stopping after', async () => {
-    serveShell({ trees: { MMR: TREE } });
-    serveNodes({ nodes: [PROJECT] });
-    serveViews({
-      projects: {
-        MMR: engineWork({
-          now: [nowRow({ id: 'MMR-640', status: 'queued', title: 'Show each clone’s last sync' })],
-        }),
-      },
-    });
-    const state = serveAgent({
-      activity: runningActivity({ cancellable: true }, 'Show each clone’s last sync'),
-    });
-    await renderRoute(consoleRoutes, '/p/MMR', quietClient());
-    const { row } = await rowOf('Show each clone’s last sync');
-    await userEvent.click(within(row).getByRole('button', { name: 'Stop run on MMR-640' }));
-    const dialog = await screen.findByRole('alertdialog', { name: 'Stop the agent on MMR-640?' });
-    state.activity = runningActivity({ stopping: true }, 'Show each clone’s last sync');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Stop run' }));
-    await waitFor(() => {
-      expect(cancelGroom).toHaveBeenCalledWith({ data: { runId: 'run-1' } });
-    });
-    await waitFor(() => {
-      expect(within(row).getByText('Stopping')).toBeVisible();
-    });
-    expect(row).toHaveTextContent('Agent stopping after its current step');
-    expect(row).not.toHaveTextContent('Agent grooming');
-    expect(within(row).queryByRole('button')).toBeNull();
-  });
-
-  it('says nothing is running when no agent run is active', async () => {
+  it('has no Now when no agent run is active and nothing is in flight', async () => {
     await openProject({ running: null });
-    await expect(screen.findByText('Nothing running.')).resolves.toBeVisible();
+    await expect(screen.findByText(/^Nothing is running/)).resolves.toBeVisible();
+    expect(screen.queryByRole('heading', { name: /^Now/ })).toBeNull();
   });
 
   it('leaves out a run on another project', async () => {
     await openProject(runningActivity({ project: 'OTH', task: 'OTH-1' }));
-    await expect(screen.findByText('Nothing running.')).resolves.toBeVisible();
+    await expect(screen.findByText(/^Nothing is running/)).resolves.toBeVisible();
   });
 
   it('shows a run whose task is inside the container', async () => {
@@ -245,7 +194,7 @@ describe('Now on the work page', () => {
 
   it('leaves out a run on a task in another container', async () => {
     await openPhase(runningActivity({ task: 'MMR-641' }));
-    await expect(screen.findByText('Nothing running.')).resolves.toBeVisible();
+    await expect(screen.findByText(/^Nothing is running/)).resolves.toBeVisible();
     expect(screen.queryByRole('link', { name: 'Show each clone’s last sync time' })).toBeNull();
   });
 

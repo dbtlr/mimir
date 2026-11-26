@@ -124,14 +124,13 @@ test('focus walks delivery and decision cards with Skip only and the right up-ne
   expect(screen.getByRole('link', { name: 'MMR-d1' })).toHaveAttribute('href', '/p/MMR/d1');
 });
 
-test('a work page preserves the ordered mixed list', async () => {
+test('a work page’s deck keeps the set’s order, a delivery’s decisions bundled', async () => {
   await open('/p/MMR');
-  await screen.findByRole('heading', { name: 'Keep the rail?' });
-  const main = screen.getByRole('main');
-  expect(main.textContent.indexOf('Stopped run')).toBeLessThan(
-    main.textContent.indexOf('Keep the rail?'),
-  );
-  expect(within(main).getByText('Stopped')).toBeInTheDocument();
+  const deck = await screen.findByRole('region', { name: 'Needs you 2' });
+  expect(within(deck).getByText('Stopped')).toBeInTheDocument();
+  expect(within(deck).getByText('Decisions')).toBeInTheDocument();
+  const content = deck.textContent;
+  expect(content.indexOf('Stopped run')).toBeLessThan(content.indexOf('Decisions'));
 });
 
 test('focus lands on a decision card itself after Skip on a task card', async () => {
@@ -161,59 +160,7 @@ test('focus lands on a decision card itself after Skip on a task card', async ()
   expect(screen.getByRole('heading', { name: 'Keep the rail?' }).closest('section')).toHaveFocus();
 });
 
-test('answer hands focus to the next decision row, never a chip or link', async () => {
-  const first = rows()[1]!;
-  if (first.kind !== 'decision') {
-    throw new Error('fixture');
-  }
-  const second: NeedsYouMember = {
-    ...first,
-    decision: { ...first.decision, id: 'MMR-q2', question: 'Second question?', seq: 2 },
-  };
-  const members = [first, second];
-  const world = serveViews({
-    review: engineReview({
-      needsYou: [{ project: { key: 'MMR', name: 'Mimir' }, rows: members }],
-      projects: [stripRow({ key: 'MMR', name: 'Mimir' }, { needsYou: 2 })],
-      queue: [
-        { id: 'MMR-q1', kind: 'decision' },
-        { id: 'MMR-q2', kind: 'decision' },
-      ],
-    }),
-  });
-  world.projects = { MMR: engineWork({ needsYou: members }) };
-  vi.mocked(confirm).mockImplementation(async () => {
-    world.projects = { MMR: engineWork({ needsYou: [second] }) };
-    world.review = engineReview({
-      needsYou: [{ project: { key: 'MMR', name: 'Mimir' }, rows: [second] }],
-      projects: [stripRow({ key: 'MMR', name: 'Mimir' }, { needsYou: 1 })],
-      queue: [{ id: 'MMR-q2', kind: 'decision' }],
-    });
-    return { ...first.decision, history: [] };
-  });
-  await open('/p/MMR');
-  await screen.findByRole('heading', { name: 'Keep the rail?' });
-  const scope = screen.getByRole('main');
-  const chip = await within(scope).findByRole('button', {
-    name: 'Confirm option 1 for MMR-q1: Keep',
-  });
-  chip.focus();
-  fireEvent.click(chip);
-  await waitFor(() => expect(chip).not.toBeInTheDocument());
-  const next = within(scope)
-    .getByRole('heading', { name: 'Second question?' })
-    .closest('[data-row-id]');
-  await waitFor(() => expect(next).toHaveFocus());
-  expect(document.activeElement?.tagName).toBe('DIV');
-  expect(next?.querySelector('[data-row-actions]')).toBeNull();
-  for (const action of next!.querySelectorAll('button, a')) {
-    expect(action).not.toHaveFocus();
-  }
-  fireEvent.keyDown(next!, { key: 'Enter' });
-  expect(confirm).toHaveBeenCalledExactlyOnceWith({ data: { id: 'MMR-q1' } });
-});
-
-test.each(['/p/MMR', '/?mode=focus'])('decision answer chips are wired on %s', async (path) => {
+test('decision answer chips are wired on the focus queue', async () => {
   const first = rows()[1]!;
   if (first.kind !== 'decision') {
     throw new Error('fixture');
@@ -228,7 +175,7 @@ test.each(['/p/MMR', '/?mode=focus'])('decision answer chips are wired on %s', a
     }),
   });
   vi.mocked(confirm).mockResolvedValue({ ...first.decision, history: [] });
-  await open(path);
+  await open('/?mode=focus');
   fireEvent.click(await screen.findByRole('button', { name: 'Confirm option 1 for MMR-q1: Keep' }));
   await waitFor(() => expect(confirm).toHaveBeenCalledExactlyOnceWith({ data: { id: 'MMR-q1' } }));
 });

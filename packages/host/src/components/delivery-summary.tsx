@@ -4,6 +4,7 @@ import { Link } from '@tanstack/react-router';
 
 import { t3OriginQuery } from '../api/t3-queries';
 import { phaseDeliveriesQuery } from '../api/view-queries';
+import { cn } from '../lib/cn';
 import { deliveryLink } from '../lib/record-url';
 import { t3ThreadLink } from '../lib/t3-link';
 import { absoluteTime } from '../lib/time';
@@ -11,7 +12,9 @@ import { PHONE_TOUCH_TARGET } from '../lib/touch-target';
 import { DistributionBar } from './distribution-bar';
 import { ExternalRef } from './node-record';
 import { OpenInT3 } from './open-in-t3';
+import { FEED_FOCUS_RING } from './patterns/feed/link';
 import { RailSection } from './record-layout';
+import { cardVariants } from './ui/card';
 
 /** Members use the same closed task status vocabulary as every work row. */
 export function memberDistribution(members: EngineNode[]): Distribution {
@@ -91,31 +94,41 @@ export function DeliveryFacts({ delivery: d }: { delivery: EngineDelivery }) {
   );
 }
 
-/** Live attempts are cards, with the same member distribution as their dossier. */
+/**
+ * A phase's Deliveries tab (ADR 0013, MMR-727 refinement): its live attempts
+ * as link cards on the Card block's surface, stacked 8 apart, each with its
+ * ID, title, lifecycle and hold, time, and the same member distribution as
+ * its dossier. The tab names them, so the list has no heading of its own.
+ */
 export function PhaseDeliveries({ id }: { id: string }) {
   const query = useQuery(phaseDeliveriesQuery(id));
   if (query.isError) {
-    return <p className="text-xs text-ink-dim">Couldn’t load deliveries.</p>;
+    return <p className="text-body text-ink">Couldn’t load deliveries.</p>;
   }
   if (!query.data?.length) {
     return null;
   }
   return (
-    <section aria-label="Live deliveries" className="mt-4 flex flex-col gap-2">
-      <h2 className="microlabel text-ink-dim">Live deliveries</h2>
+    <ul aria-label="Live deliveries" className="m-0 flex list-none flex-col gap-2 p-0">
       {query.data.map(({ delivery, members }) => (
-        <Link
-          key={delivery.id}
-          {...deliveryLink(delivery.id)}
-          className={`flex flex-col gap-2 rounded-lg border border-line bg-well-950 p-3 wrap-anywhere ${PHONE_TOUCH_TARGET}`}
-        >
-          <span className="font-mono text-mono-id text-ink-dim">{delivery.id}</span>
-          <strong className="text-title font-medium text-ink-bright">{delivery.title}</strong>
-          <DeliveryWords delivery={delivery} />
-          <DeliveryTime delivery={delivery} />
-          <DistributionBar distribution={memberDistribution(members)} />
-        </Link>
+        <li key={delivery.id}>
+          <Link
+            {...deliveryLink(delivery.id)}
+            className={cn(
+              cardVariants(),
+              'flex flex-col gap-2 px-4 pt-3 pb-4 wrap-anywhere no-underline transition-colors hover:border-line-bright',
+              FEED_FOCUS_RING,
+              PHONE_TOUCH_TARGET,
+            )}
+          >
+            <span className="font-mono text-meta text-ink-dim">{delivery.id}</span>
+            <strong className="text-title font-medium text-ink-bright">{delivery.title}</strong>
+            <DeliveryWords delivery={delivery} />
+            <DeliveryTime delivery={delivery} />
+            <DistributionBar distribution={memberDistribution(members)} />
+          </Link>
+        </li>
       ))}
-    </section>
+    </ul>
   );
 }

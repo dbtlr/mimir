@@ -37,6 +37,8 @@ export type ListSection = {
   title: string;
   count?: number | string;
   cards: readonly ListCard[];
+  /** What closes the section under its cards (Up next's unlocks row, MMR-727). */
+  footer?: ReactNode;
 };
 
 /** What a feature asks of the list from outside it. */
@@ -278,6 +280,7 @@ function ListBody({
                 </div>
               ))}
             </CardGrid>
+            {section.footer}
           </FeedSection>
         ))
       )}
