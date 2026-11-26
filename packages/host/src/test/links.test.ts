@@ -158,6 +158,15 @@ describe('externalRefText', () => {
     expect(externalRefText('https://github.com/x/mimir/pull/653/files')).toBe('PR #653');
   });
 
+  it('reads the pull request number from the path alone, never the query or the fragment', () => {
+    const issue = 'https://github.com/x/mimir/issues/9?next=/pull/653';
+    expect(externalRefText(issue)).toBe(issue);
+    expect(externalRefText('https://github.com/x/mimir/issues/9#/pull/653')).toBe(
+      'https://github.com/x/mimir/issues/9#/pull/653',
+    );
+    expect(externalRefText('https://github.com/x/mimir/pull/653?w=1#top')).toBe('PR #653');
+  });
+
   it('keeps any other value whole', () => {
     expect(externalRefText('https://example.test/issues/9')).toBe('https://example.test/issues/9');
     expect(externalRefText('JIRA-123')).toBe('JIRA-123');

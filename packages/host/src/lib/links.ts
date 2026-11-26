@@ -117,11 +117,18 @@ export function isBareUrl(value: string): boolean {
   return rest.length === 0 && only?.kind === 'url' && only.value === value;
 }
 
-/** A pull request's URL path: `/pull/653`, then anything after it. */
-const PULL_PATH = /^https?:\/\/[^/\s]+\/[^\s]*\/pull\/(\d+)(?:[/?#]|$)/i;
+/** A pull request's path: `/pull/653`, ending there or going on to a subpage (`/files`). */
+const PULL_PATH = /\/pull\/(\d+)(?:\/|$)/i;
 
-/** An external ref as a link's words: a pull request URL as "PR #653", anything else as written. */
+/**
+ * An external ref as a link's words: a pull request URL as "PR #653", anything
+ * else as written. Only the URL's path counts, so a query or a fragment that
+ * mentions `/pull/` never relabels an issue.
+ */
 export function externalRefText(value: string): string {
-  const pull = PULL_PATH.exec(value)?.[1];
+  if (!isBareUrl(value)) {
+    return value;
+  }
+  const pull = PULL_PATH.exec(URL.parse(value)?.pathname ?? '')?.[1];
   return pull === undefined ? value : `PR #${pull}`;
 }

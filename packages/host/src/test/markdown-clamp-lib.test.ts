@@ -36,6 +36,25 @@ describe('clampFit', () => {
     ).toEqual({ height: 'none', overflowing: false });
   });
 
+  it('folds twenty rules ahead of one line of text, which put nothing below that line', () => {
+    // Each rule is 2px tall on a 24px pitch; "tail" is the one text line, below them all.
+    const blocks = Array.from({ length: 20 }, (_, i) => ({ bottom: i * 24 + 2, top: i * 24 }));
+    expect(
+      clampFit({ blocks, bottoms: [500], clamp: 3, contentHeight: 500, lineHeight: 20 }),
+    ).toEqual({ height: 50, overflowing: true });
+  });
+
+  it('counts a tall image as the lines it covers, wherever it sits', () => {
+    // One line, a 100px image (five lines), then one more line: seven against a clamp of 12.
+    const blocks = [{ bottom: 130, top: 30 }];
+    expect(
+      clampFit({ blocks, bottoms: [20, 160], clamp: 12, contentHeight: 160, lineHeight: 20 }),
+    ).toEqual({ height: 'none', overflowing: false });
+    expect(
+      clampFit({ blocks, bottoms: [20, 160], clamp: 3, contentHeight: 160, lineHeight: 20 }),
+    ).toEqual({ height: 70, overflowing: true });
+  });
+
   it('shows a text of exactly the clamp’s lines whole when nothing reaches below its last line', () => {
     expect(clampFit({ bottoms: lines(3), clamp: 3, contentHeight: 60, lineHeight: 20 })).toEqual({
       height: 'none',

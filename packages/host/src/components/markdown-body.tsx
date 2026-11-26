@@ -7,6 +7,7 @@ import remarkGfm from 'remark-gfm';
 import { cn } from '../lib/cn';
 import { isExternalHref } from '../lib/links';
 import { clampFit } from '../lib/markdown-clamp';
+import type { ClampBox } from '../lib/markdown-clamp';
 
 /**
  * Two code treatments, one rule (ADR 0019 §7 rule 4 and its MMR-445
@@ -313,6 +314,18 @@ function lineBottoms(el: HTMLElement, lineHeight: number): number[] | undefined 
   return bottoms.map((bottom) => bottom - top);
 }
 
+/** The blocks a body draws without text, which the clamp counts as the lines they cover. */
+const NON_TEXT_BLOCKS = 'hr, img, video, iframe, svg, canvas';
+
+/** Each non-text block's box, from `el`'s top. */
+function nonTextBlocks(el: HTMLElement): ClampBox[] {
+  const top = el.getBoundingClientRect().top;
+  return [...el.querySelectorAll(NON_TEXT_BLOCKS)].map((block) => {
+    const rect = block.getBoundingClientRect();
+    return { bottom: rect.bottom - top, top: rect.top - top };
+  });
+}
+
 /**
  * The distance from `el`'s top to the bottom of its lowest element box. Border
  * boxes leave out margins, so trailing block spacing is not content.
@@ -385,7 +398,13 @@ export function MarkdownBody({
       const fit =
         bottoms === undefined
           ? undefined
-          : clampFit({ bottoms, clamp, contentHeight: contentBottom(el), lineHeight });
+          : clampFit({
+              blocks: nonTextBlocks(el),
+              bottoms,
+              clamp,
+              contentHeight: contentBottom(el),
+              lineHeight,
+            });
       const over = fit?.overflowing ?? el.scrollHeight > el.clientHeight + 1;
       setOverflowing(over);
       setClampHeight(fit?.height);
