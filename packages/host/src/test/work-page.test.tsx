@@ -506,16 +506,19 @@ describe('the scoped Work tab (MMR-727)', () => {
 
   it('tells apart parts and Shipped rows that share a title, naming a phase’s initiative', async () => {
     const errors = vi.spyOn(console, 'error');
-    const twins = engineTree({ id: 'MMR', status: 'in_progress', title: 'Mimir', type: 'project' }, [
-      node('MMR-201', 'initiative', 'in_progress', 'Console', [
-        node('MMR-202', 'phase', 'in_progress', 'Phase 1', [leaf('MMR-203', 'done')]),
-      ]),
-      node('MMR-204', 'initiative', 'in_progress', 'Upkeep', [
-        node('MMR-205', 'phase', 'in_progress', 'Phase 1', [leaf('MMR-206', 'done')]),
-      ]),
-      node('MMR-207', 'initiative', 'ready', 'Ideas'),
-      node('MMR-208', 'initiative', 'ready', 'Ideas'),
-    ]);
+    const twins = engineTree(
+      { id: 'MMR', status: 'in_progress', title: 'Mimir', type: 'project' },
+      [
+        node('MMR-201', 'initiative', 'in_progress', 'Console', [
+          node('MMR-202', 'phase', 'in_progress', 'Phase 1', [leaf('MMR-203', 'done')]),
+        ]),
+        node('MMR-204', 'initiative', 'in_progress', 'Upkeep', [
+          node('MMR-205', 'phase', 'in_progress', 'Phase 1', [leaf('MMR-206', 'done')]),
+        ]),
+        node('MMR-207', 'initiative', 'ready', 'Ideas'),
+        node('MMR-208', 'initiative', 'ready', 'Ideas'),
+      ],
+    );
     await open(
       PROJECT_SCOPE,
       engineWork({
@@ -699,9 +702,10 @@ describe('an initiative’s Work tab (MMR-727)', () => {
       return served!(options);
     });
     const client = quietClient();
-    const before = engineTree({ id: 'MMR', status: 'in_progress', title: 'Mimir', type: 'project' }, [
-      node('MMR-120', 'initiative', 'ready', 'Standing work'),
-    ]);
+    const before = engineTree(
+      { id: 'MMR', status: 'in_progress', title: 'Mimir', type: 'project' },
+      [node('MMR-120', 'initiative', 'ready', 'Standing work')],
+    );
     client.setQueryData(['tree', 'MMR'], before, { updatedAt: Date.now() - 60_000 });
     const { router: testRouter } = await renderRoute(routes, '/p/MMR/120', client);
 

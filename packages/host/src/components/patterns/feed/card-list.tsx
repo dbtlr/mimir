@@ -271,22 +271,20 @@ function ListBody({
 
   return (
     <div ref={root}>
-      {cards.length === 0 ? (
-        quiet !== undefined && <Quiet ref={quietLine}>{quiet}</Quiet>
-      ) : (
-        sections.map((section) => (
-          <FeedSection key={section.key} title={section.title} count={section.count}>
-            <CardGrid>
-              {section.cards.map((card) => (
-                <div key={card.key} data-list-card={card.key} className="grid">
-                  <FeedCard previewKey={card.previewKey} {...card.card} action={buttonOf(card)} />
-                </div>
-              ))}
-            </CardGrid>
-            {section.footer}
-          </FeedSection>
-        ))
-      )}
+      {cards.length === 0
+        ? quiet !== undefined && <Quiet ref={quietLine}>{quiet}</Quiet>
+        : sections.map((section) => (
+            <FeedSection key={section.key} title={section.title} count={section.count}>
+              <CardGrid>
+                {section.cards.map((card) => (
+                  <div key={card.key} data-list-card={card.key} className="grid">
+                    <FeedCard previewKey={card.previewKey} {...card.card} action={buttonOf(card)} />
+                  </div>
+                ))}
+              </CardGrid>
+              {section.footer}
+            </FeedSection>
+          ))}
     </div>
   );
 }

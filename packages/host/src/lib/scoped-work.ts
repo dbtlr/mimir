@@ -110,7 +110,11 @@ function containerOrder(tree: EngineTree | undefined): Map<string, Container> {
  * container that holds each, below the scope ("Phase 1 · Console"), so the
  * rows read apart; a unique name stays bare.
  */
-function partNames(parts: ShippedPart[], order: Map<string, Container>, scope: string): ShippedPart[] {
+function partNames(
+  parts: ShippedPart[],
+  order: Map<string, Container>,
+  scope: string,
+): ShippedPart[] {
   const seen = new Map<string, number>();
   for (const part of parts) {
     seen.set(part.name, (seen.get(part.name) ?? 0) + 1);

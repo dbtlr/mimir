@@ -67,6 +67,7 @@ export function useFocusHandoff({
       shown.removeEventListener('focusout', leave);
       const active = document.activeElement;
       if (held && (active === null || active === document.body)) {
+        // oxlint-disable-next-line react-hooks/exhaustive-deps -- read at cleanup on purpose: the target (the quiet sentence) mounts in the commit that removes the block
         const target = to?.current ?? null;
         if (target === null) {
           focusMain();
