@@ -211,7 +211,7 @@ function submittedAtOf(task: Node, history: readonly HistoryEntry[]): string | n
 }
 
 /** The abandon transition's time and reason; falls back to the row's stamp when the log is silent. */
-export function abandonedOf(
+function abandonedOf(
   task: Node,
   history: readonly HistoryEntry[],
 ): { at: string; reason: string | null } {
@@ -332,7 +332,7 @@ export async function workPageOf(store: Store, id: string, opts: WorkOptions): P
 }
 
 /** A frontier candidate: a todo task or break-down container, and the prerequisites it awaits. */
-export type FrontierEntry = { node: Node; awaitingOn: NodeRef[] };
+type FrontierEntry = { node: Node; awaitingOn: NodeRef[] };
 
 /**
  * A set of tasks sorted into the work page's sections. The one place the
@@ -491,7 +491,7 @@ export const isRunnable = (e: FrontierEntry): boolean =>
   e.node.grooming === 'groomed' && e.awaitingOn.length === 0 && e.node.rank !== null;
 
 /** `frontier.runnable`: the runnable entries, in rank order. */
-export function runnableRowsOf(source: WorkRowSource): Promise<WorkFrontierTask[]> {
+function runnableRowsOf(source: WorkRowSource): Promise<WorkFrontierTask[]> {
   return Promise.all(
     source.buckets.frontier.filter(isRunnable).map((entry) => frontierRowOf(source, entry)),
   );
@@ -539,21 +539,19 @@ export async function shippedRowsOf(
 }
 
 /**
- * The `going_cold` views: every stale task, oldest `updated_at` first. They
+ * The `going_cold` views: every stale task, oldest `updated_at` first, then
+ * lowest seq (one work page reads one project, so the seq is unique). They
  * repeat tasks other sections show; those rows carry `stale` too.
  */
-export function goingColdRowsOf(source: WorkRowSource): Promise<NodeView[]> {
+function goingColdRowsOf(source: WorkRowSource): Promise<NodeView[]> {
   return Promise.all(
     source.buckets.stale
-      .toSorted(
-        (a, b) =>
-          cmpStr(a.updated_at, b.updated_at) || a.seq - b.seq || cmpStr(a.project_id, b.project_id),
-      )
+      .toSorted((a, b) => cmpStr(a.updated_at, b.updated_at) || a.seq - b.seq)
       .map(source.viewOf),
   );
 }
 
-export const seqOf = (id: string): number => Number(id.slice(id.lastIndexOf('-') + 1));
+const seqOf = (id: string): number => Number(id.slice(id.lastIndexOf('-') + 1));
 
 /** The project key of a `KEY-seq` node id. */
 export const projectKeyOf = (id: string): string => id.slice(0, id.lastIndexOf('-'));

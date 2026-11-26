@@ -928,7 +928,7 @@ export type ReviewReport = {
   queue: { kind: WorkNeedsYouRow['kind']; id: string }[];
   /** Every active project: pinned first, then newest activity first, then key. */
   projects: ReviewProject[];
-  /** In-flight tasks, the work page's `now` rows, most recently started first. */
+  /** In-flight tasks, the work page's `now` rows, latest move first (a review's submit, otherwise its start). */
   now: ReviewWorkRow<WorkNowTask>[];
   /**
    * Done or abandoned in the last 7 caller-local days, newest first. Empty when

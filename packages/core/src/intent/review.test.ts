@@ -7,6 +7,7 @@ import {
   archiveProject,
   blockTask,
   completeTask,
+  depend,
   groomTasks,
   parkTask,
   startTask,
@@ -336,12 +337,17 @@ test('untriaged counts the seeds still to triage, never a parked seed', async ()
 
 test("the runnable count is the work page's frontier.runnable rows: groomed, ready, and ranked", async () => {
   await project('MMR');
-  await groomTasks(store, [await task('MMR', 'one'), await task('MMR', 'two')], 'groomed');
-  // Not runnable: an ungroomed task, and a groomed one with no rank.
+  const prerequisite = await task('MMR', 'one');
+  await groomTasks(store, [prerequisite, await task('MMR', 'two')], 'groomed');
+  // Not runnable: an ungroomed task, a groomed one with no rank, and a groomed,
+  // ranked one awaiting an open prerequisite.
   await task('MMR', 'ungroomed');
   const unranked = await task('MMR', 'unranked');
   await groomTasks(store, [unranked], 'groomed');
   await rawPatchNode(store, unranked, { rank: null });
+  const awaiting = await task('MMR', 'awaiting');
+  await groomTasks(store, [awaiting], 'groomed');
+  await depend(store, awaiting, [prerequisite]);
   const page = await workPageOf(store, 'MMR', { timeZone: 'UTC' });
   expect(page.frontier.runnable).toHaveLength(2);
   expect((await review()).projects[0]?.runnable).toBe(page.frontier.runnable.length);
