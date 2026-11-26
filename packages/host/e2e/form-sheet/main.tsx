@@ -2,7 +2,7 @@
 // Needs you deck, Needs you page, and Tasks list in Chromium, for the layout checks a DOM
 // without layout cannot make (form-sheet-focus.test.ts, walkthrough-layer.test.ts,
 // feed-deck.test.ts, needs-you-deck.test.ts, needs-you-page.test.ts,
-// list-page.test.ts, fit-segments.test.ts), the
+// list-page.test.ts, fit-segments.test.ts, record-picker-edge.test.ts), the
 // shell's phone touch targets (touch-targets.test.ts), the drawer's Jump to
 // (drawer-jump.test.ts), and the body and label line heights (type-rhythm.test.ts).
 import { useEffect, useState } from 'react';
@@ -26,7 +26,7 @@ import { ProjectForm } from '../../src/components/project-form';
 import { T3LaunchForm } from '../../src/components/t3-launch-form';
 import { reachableSystem } from '../../src/test/t3-fixtures';
 import { DeckPage } from './deck-page';
-import { FitTracksPage } from './fit-tracks-page';
+import { EditSheetsPage } from './edit-sheets-page';
 import { NeedsYouDeckPage } from './needs-you-deck-page';
 import { NeedsYouPageHarness } from './needs-you-page';
 import { TasksPageHarness } from './tasks-page';
@@ -50,7 +50,7 @@ function Harness() {
     setOpen(false);
   };
   if (form === 'seed-filter' || form === 'task-edit') {
-    return <FitTracksPage sheet={form} />;
+    return <EditSheetsPage sheet={form} />;
   }
   if (form === 'walkthrough') {
     return <WalkthroughPage />;

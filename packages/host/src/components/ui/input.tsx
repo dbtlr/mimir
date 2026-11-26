@@ -12,12 +12,13 @@ import { mergeClassName } from './class-name';
 /**
  * The text-box look Input, Textarea, Token Input, and a Select's trigger share.
  * The edge is what says where to type, so it meets 3:1 (ink-faint) and warms to
- * ink-dim on hover. Focus turns it accent and joins a 1px accent outline at
+ * ink-dim on hover; an invalid control keeps its blocked edge under the
+ * pointer. Focus turns it accent and joins a 1px accent outline at
  * offset 0: one 2px ring at the control's edge (DESIGN.md, Radii). Outside a
  * form a placeholder remains only in a search box, in ink-dim.
  */
 export const CONTROL_EDGE_CLASS =
-  'rounded-md border border-ink-faint bg-well-950 text-[15px] leading-[22px] text-ink-bright outline-none transition-colors not-data-[disabled]:hover:border-ink-dim focus-visible:border-accent focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:outline-solid focus-visible:outline-accent';
+  'rounded-md border border-ink-faint bg-well-950 text-[15px] leading-[22px] text-ink-bright outline-none transition-colors not-data-[disabled]:not-aria-[invalid=true]:hover:border-ink-dim focus-visible:border-accent focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:outline-solid focus-visible:outline-accent';
 
 /**
  * A disabled field is quiet, not faded, as a disabled commit is (DESIGN.md,
