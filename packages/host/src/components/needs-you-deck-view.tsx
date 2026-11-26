@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react';
 
 import type { ReviewReport } from '../api/view-queries';
+import { scopeCards } from '../lib/scoped-work';
 import { useReturnTargetResolver } from '../lib/walkthrough-mark';
 import { needsYouContent, needsYouPreview, useNeedsYouActions } from './needs-you-cards';
 import type { NeedsYouWrites } from './needs-you-cards';
@@ -23,6 +24,8 @@ export function NeedsYouDeckView({
   offline = false,
   seeAll,
   countItems = false,
+  scope,
+  quiet = 'Nothing needs you.',
   className,
 }: {
   report: ReviewReport;
@@ -31,9 +34,19 @@ export function NeedsYouDeckView({
   seeAll?: FeedLink;
   /** The head counts the set's records beside the cards, as the top-bar alert counts them (Home, MMR-722). */
   countItems?: boolean;
+  /**
+   * Keep the cards that hold one of these records, a scoped page's needs-you
+   * set by ID (MMR-727); a bundle shows whole when any of its decisions is here.
+   */
+  scope?: readonly string[];
+  /** The line that takes the deck's place when it has no card. */
+  quiet?: string;
   className?: string;
 }) {
-  const cards = useMemo(() => needsYouCards(report), [report]);
+  const cards = useMemo(
+    () => (scope === undefined ? needsYouCards(report) : scopeCards(needsYouCards(report), scope)),
+    [report, scope],
+  );
   const deck = useRef<FeedDeckHandle>(null);
   const { actionOf, answerDialog } = useNeedsYouActions({
     cards,
@@ -77,7 +90,7 @@ export function NeedsYouDeckView({
           const card = previews.get(key);
           return card === undefined ? undefined : needsYouPreview(card);
         }}
-        quiet="Nothing needs you."
+        quiet={quiet}
         offline={offline}
         className={className}
       />

@@ -1306,3 +1306,114 @@ a banner is in progress, in review, or held, and a groom runs on a task
 waiting to start, so the two rarely meet; the trade-off is that a groom
 still running when a task is blocked or parked has no _Stop_ on the page
 until the hold lifts.
+
+## Refinement (2026-11-26, MMR-727): a project, initiative, or phase is Home's page with a scope
+
+The MMR-726 refinement put containers under the record header and tabs but
+kept their Work tab's sections, the MMR-467 order (Now, Needs you, the
+Frontier, Shipped, Going cold) under a progress bar. A container's Work tab
+now follows Home (the MMR-722 refinement) with the record as its scope
+(MMR-a420's principle 7). This revises the MMR-467 refinement's section
+order and Frontier and the MMR-726 refinement's progress bar. The data is
+the work read the tab already makes (`projectWork` or `nodeWork`), the
+project tree, the review report (its needs-you facts and its per-project
+untriaged count), the agent-activity read, and Record health; no read
+changes.
+
+- **The sections run in this order**, each left out when it has nothing to
+  show:
+  1. _Needs you_, the Needs you deck. It is built from the review report,
+     as Home's is, kept to the cards that hold a record in the work read's
+     `needsYou`; a bundle card shows whole, with its full count and its
+     facts, when any of its decisions is in scope. With no card, the quiet
+     line "Nothing here needs you." takes its place.
+  2. _Now_, title cards for the scope's tasks in flight, as on Home: most
+     recent move first, four on a phone and six from 768, and "6 of 9" in
+     its head when the cap hides cards. A running agent's row and its
+     _Stop_ stay (ADR 0041, MMR-635 refinement), and a task appears once:
+     when the run's task has a card, the run rides on that card, its
+     detail line the run's facts and its one action _Stop_, and the head
+     counts it as any card. Otherwise the run's row sits above the cards
+     while the run is live; the head's count leaves it out, and it keeps
+     Now shown.
+  3. _Up next_, only the tasks that can start now (the Frontier's runnable
+     set), as cards whose one action is _Start_, three at most, its head
+     reading "N can start". One row may follow for what unlocks next: the
+     first of the Frontier's next-to-unlock groups, in board order, that
+     holds a task waiting on that prerequisite alone, reading "Unlocks when
+     ID lands" with the count of such tasks and opening the prerequisite's
+     page. With nothing startable, that row alone keeps Up next, under a
+     head with no count. To groom and Waiting on others leave this
+     section.
+  4. _Shipped this week_, the Shipped summary split one level down: on a
+     project, by phase, with a task directly under an initiative counted
+     under that initiative; on an initiative, by phase, with its direct
+     tasks under the initiative's own title; on a phase, which has nothing
+     below its tasks, its done tasks as rows, most recent first, three
+     at most. As on Home, an abandoned task did not ship.
+  5. _When you have a minute_, count rows in a framed row group: To groom
+     (the Frontier's to-groom set, tasks and the containers to break down
+     alike), Seeds to triage (the project's
+     untriaged seeds, on a project only, since a seed belongs to a project
+     and never to a container), Going cold, Waiting on others (the
+     Frontier's blocked-by-others set), and Record health findings (on a
+     project only). A row at zero is left out.
+  6. The parts, last, headed for what they are: _Initiatives_ on a
+     project or _Phases_ on an initiative, in tree order, in a row
+     group whose rows carry the part's status dot, its title, and its
+     done-over-total progress, each opening the part's page.
+     The finished parts, those whose rollup is done or abandoned, gather in
+     one Lane fold (ADR 0019), closed, "Finished phases N" (or
+     initiatives), that opens in place. An initiative's direct
+     tasks are not parts: they already appear above, and a task appears
+     once on a page. A phase, and an initiative with no phases, has no
+     parts.
+- **One quiet sentence replaces the quiet sections.** When Needs you, Now,
+  Up next, and Shipped this week would all be empty, the quiet sentence
+  (ADR 0019's MMR-719 refinement, with no frame) replaces them, Needs
+  you's quiet line included. It reads "Nothing is running, ready to start,
+  or waiting on you.", adding "The last task finished N days ago." when a task in the scope was ever done (the latest `completedAt` in
+  the tree). When you have a minute and the parts still follow it. The round-5
+  mock drew it as a titled card; ADR 0019 later rejected a framed quiet card
+  because it read as tappable, and the ADR governs.
+- **The progress bar and its legend retire** from the Work tab; the
+  header's status line (the MMR-726 refinement) carries the rollup. The
+  project's Record health row becomes the count row above, and the
+  closing "All tasks in KEY" link goes, since the project's _Tasks_ tab is
+  that list.
+- **A phase's deliveries move to a _Deliveries_ tab,** after _Work_, shown
+  when the phase has a live delivery and hidden otherwise, as the MMR-726
+  refinement hides an empty tab. When the deliveries read has failed with
+  nothing cached, the tab stays, with no count, and says it could not load.
+  The phase's deliveries read lists the live
+  attempts alone, as Work's cards did; a landed or abandoned delivery stays
+  on its own page. `?tab=deliveries` opens it, and a URL that
+  names it while it is hidden falls to the first shown tab and is replaced.
+- **An initiative or phase has _Work_ when a task is under it or it has
+  parts;** the quiet sentence fills a Work whose sections are all empty. A
+  project's _Work_ always shows. This widens the MMR-726 rule (no task
+  under it, no _Work_) only by the parts, which an initiative can have with
+  no task directly under it.
+- **A link appears only where its destination shows the same set.** On a
+  project: Now's _See all_ opens the Tasks list on _In flight_, Shipped's
+  on _Shipped this week_, the Going cold row on _Going cold_, and the Seeds
+  to triage row the Seeds list on _To triage_ (the MMR-724 and MMR-725
+  refinements); Record health findings opens `/doctor?project=KEY`. Needs
+  you has no _See all_ on a scoped page, because the Needs you page spans
+  every project, and neither has Up next, because the
+  _Ready_ preset also lists ready tasks still to groom (the mismatch
+  MMR-792 records on Home). Every other row and head is plain until
+  its destination exists: the Tasks list's filter to an initiative or phase
+  (MMR-801), which also brings the initiative and phase pages' doors, the
+  Shipped split rows' links, and a closing "All N tasks" row; and the To
+  groom (MMR-802) and Waiting on others (MMR-803) presets.
+
+Considered and rejected:
+
+- Keeping the progress bar above the sections. The header's status line
+  already states the rollup, and Home, whose order this page takes, has
+  none.
+- The project's seed count on initiative and phase pages. It would repeat
+  the same number on every container; a project-level attention queue,
+  which might carry it under the project, is its own design pass (MMR-804).
+- A container's direct tasks as parts. They would appear twice on the page.

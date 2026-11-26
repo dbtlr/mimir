@@ -256,6 +256,49 @@ describe('feed row group', () => {
   });
 });
 
+describe('feed row group options (MMR-727)', () => {
+  it('leads a row with the mark it is given, inside the row’s door', async () => {
+    await renderInRouter(
+      <RowGroup
+        label="Parts"
+        rows={[
+          {
+            count: 3,
+            lead: <span data-testid="dot">Ready</span>,
+            name: 'Phase 8',
+            shows: { kind: 'words', text: '3 of 6 done' },
+            to: { to: '/' },
+          },
+        ]}
+      />,
+    );
+    const row = screen.getByRole('link', { name: 'Ready Phase 8 3 of 6 done' });
+    expect(within(row).getByTestId('dot')).toBeDefined();
+  });
+
+  it('closes the group with what follows it, inside its frame', async () => {
+    await renderInRouter(
+      <RowGroup
+        label="Parts"
+        rows={[{ count: 1, name: 'Phase 8', to: { to: '/' } }]}
+        framed
+        after={<p>Finished phases 6</p>}
+      />,
+    );
+    const frame = screen.getByRole('list', { name: 'Parts' }).parentElement!;
+    expect(frame).toHaveAttribute('data-slot', 'row-group-frame');
+    expect(within(frame).getByText('Finished phases 6')).toBeDefined();
+  });
+
+  it('draws no empty list when every row is set apart into what follows', async () => {
+    await renderInRouter(
+      <RowGroup label="Parts" rows={[]} framed after={<p>Finished phases 6</p>} />,
+    );
+    expect(screen.queryByRole('list', { name: 'Parts' })).toBeNull();
+    expect(screen.getByText('Finished phases 6')).toBeDefined();
+  });
+});
+
 const door = (key: string) => ({ params: { key }, to: '/p/$key' }) as const;
 
 describe('feed row group options (MMR-790)', () => {

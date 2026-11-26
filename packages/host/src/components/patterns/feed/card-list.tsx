@@ -37,6 +37,8 @@ export type ListSection = {
   title: string;
   count?: number | string;
   cards: readonly ListCard[];
+  /** What closes the section under its cards (Up next's unlocks row, MMR-727). */
+  footer?: ReactNode;
 };
 
 /** What a feature asks of the list from outside it. */
@@ -67,8 +69,11 @@ export function FeedCardList({
   sections: readonly ListSection[];
   /** A card's preview, by its `previewKey`; the list adds the card's action. */
   preview: (previewKey: string) => Omit<Preview, 'action'> | undefined;
-  /** The quiet line that takes the sections' place when no card remains. */
-  quiet: string;
+  /**
+   * The quiet line that takes the sections' place when no card remains; none
+   * for a list its caller removes once its last card leaves.
+   */
+  quiet?: string;
   /** Offline, a card's writes are `aria-disabled` (ADR 0013 §5). */
   offline?: boolean;
   ref?: Ref<FeedCardListHandle>;
@@ -126,7 +131,7 @@ function ListBody({
 }: {
   sections: readonly ListSection[];
   cards: readonly ListCard[];
-  quiet: string;
+  quiet: string | undefined;
   buttonOf: (card: ListCard) => ReactNode;
   dialogCard: string | null;
   onDialogReturn: (key: string) => void;
@@ -266,21 +271,20 @@ function ListBody({
 
   return (
     <div ref={root}>
-      {cards.length === 0 ? (
-        <Quiet ref={quietLine}>{quiet}</Quiet>
-      ) : (
-        sections.map((section) => (
-          <FeedSection key={section.key} title={section.title} count={section.count}>
-            <CardGrid>
-              {section.cards.map((card) => (
-                <div key={card.key} data-list-card={card.key} className="grid">
-                  <FeedCard previewKey={card.previewKey} {...card.card} action={buttonOf(card)} />
-                </div>
-              ))}
-            </CardGrid>
-          </FeedSection>
-        ))
-      )}
+      {cards.length === 0
+        ? quiet !== undefined && <Quiet ref={quietLine}>{quiet}</Quiet>
+        : sections.map((section) => (
+            <FeedSection key={section.key} title={section.title} count={section.count}>
+              <CardGrid>
+                {section.cards.map((card) => (
+                  <div key={card.key} data-list-card={card.key} className="grid">
+                    <FeedCard previewKey={card.previewKey} {...card.card} action={buttonOf(card)} />
+                  </div>
+                ))}
+              </CardGrid>
+              {section.footer}
+            </FeedSection>
+          ))}
     </div>
   );
 }

@@ -29,8 +29,8 @@ function facet(n: number): RecordHealth {
   });
 }
 
-describe('record-health surfacing (MMR-185, mock 15b)', () => {
-  it('opens the project’s Work tab on a Record health row, linking to the panel', async () => {
+describe('record-health surfacing (MMR-185, MMR-727)', () => {
+  it('counts the findings among the Work tab’s spare-minute rows, linking to the panel', async () => {
     serveShell({
       projects: [engineProject({ id: 'MMR', title: 'Mimir' })],
       trees: {
@@ -43,9 +43,8 @@ describe('record-health surfacing (MMR-185, mock 15b)', () => {
     serveBrowse({ health: facet(2) });
     await renderRoute([projectRoute], '/p/MMR');
 
-    const chip = await screen.findByRole('link', { name: /Record health\s*2/ });
-    expect(chip.getAttribute('href')).toContain('/doctor');
-    expect(chip.getAttribute('href')).toContain('project=MMR');
+    const row = await screen.findByRole('link', { name: 'Record health findings 2' });
+    expect(row).toHaveAttribute('href', '/doctor?project=MMR');
     expect(doctor).toHaveBeenCalledWith({ data: { project: 'MMR' } });
   });
 });

@@ -107,6 +107,19 @@ describe('the sections', () => {
   });
 });
 
+describe('a section’s footer (MMR-727)', () => {
+  it('closes its section under the cards', async () => {
+    const [section] = sections(['Up next', ['MMR-1']]);
+    await renderList([{ ...section!, footer: <p>Unlocks when MMR-7 lands</p> }]);
+    const region = screen.getByRole('region', { name: /Up next/ });
+    const footer = within(region).getByText('Unlocks when MMR-7 lands');
+    // oxlint-disable-next-line no-bitwise -- DOM position flags are a bit mask
+    expect(
+      target('MMR-1').compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+});
+
 describe('cards that leave', () => {
   it('moves focus from a card that left to the next card in the old order, across sections', async () => {
     const { refetch } = await renderList(sections(['Fleet', ['F-1', 'F-2']], ['Mimir', ['M-1']]));

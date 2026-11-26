@@ -103,26 +103,43 @@ its own address: `/p/MMR` for the project, `/p/MMR/417` for `MMR-417`,
 `MMR-a219`. Typing a bare ID such as `/MMR-417`, `/mmr-s41`, `/mmr-a219`, or
 `/mmr` redirects to its page.
 
-- **A project, initiative, or phase opens as its work page.** The main column
-  answers five questions in order: _Now_ (what is queued, running, in
-  review, or staged, with when it started, where, and its latest note), _Needs you_
-  (blocks you can clear and tasks that need answers, each with its reason),
-  _Frontier_ (what is runnable now, what is next to unlock, what is left to
-  groom, and what is waiting on others, folded), _Shipped_ (the last seven
-  days, grouped by day), and _Going cold_ (stale work). Every row opens its
-  record page. Some rows also act in place: Start on a runnable task, and
-  Answer… on a task that needs answers, which saves your answer as a note and
-  sets the task's grooming state. The row then moves to
-  the section it now belongs in. Offline, these buttons are disabled. The rail
-  holds the direction (clamped to a few lines, with Read more for the rest),
-  About (the description and details), and Artifacts (a project's five newest,
-  with a link to all of them when it has more than five). A link to all of the
-  project's tasks closes the five sections. New task is in the page head, and a
-  project's settings sit beside it. An initiative or phase keeps its notes under
-  a Timeline tab, at `?tab=timeline`. Its place in the project is marked in the
-  sidebar, and below 1024px wide a link to its parent stands above its ID.
-- **A task page** shows its description, a timeline with a note field, and a
-  rail with actions, agent context, dependencies, artifacts, and details. The
+- **A project, initiative, or phase opens as its work page.** Its header
+  names it, its status, and New task, with More for the rest; tabs hold
+  everything else. The _Work_ tab is Home's page for that record alone, in
+  this order, each section left out when it has nothing to show:
+  - _Needs you_: the Needs you cards for work in this scope. With none, it
+    reads "Nothing here needs you."
+  - _Now_: what is queued, running, in review, or staged, as cards, most
+    recent move first. A running agent rides on its task's card, with
+    Stop; when its task has no card, the agent's row, with Stop, sits
+    above them.
+  - _Up next_: up to three tasks that can start now, each with Start, and
+    one row for the next task, in board order, whose landing unlocks work
+    waiting on it alone, which opens that task.
+  - _Shipped this week_: the last seven days as a chart, then the count by
+    phase (or by initiative, for tasks directly under one). A phase lists
+    its done tasks instead.
+  - _When you have a minute_: counts of tasks to groom, seeds to triage (on
+    a project), work going cold, work waiting on others, and Record health
+    findings (on a project).
+  - _Initiatives_ on a project, or _Phases_ on an initiative, each with
+    its status and how many of its parts are done. Finished ones fold into
+    one line you can open.
+
+  When nothing is running, ready to start, waiting on you, or shipped this
+  week, one sentence says so, with how long ago the last task finished. On a
+  project, Now's and Shipped's _See all_ open the Tasks list filtered to the
+  same work, and the Seeds to triage, Going cold, and Record health rows open
+  their lists. A phase with a delivery under way shows it on a _Deliveries_
+  tab (`?tab=deliveries`). An initiative or phase keeps its notes under a
+  Timeline tab, at `?tab=timeline`, and its description and direction under
+  Details. Its place in the project is marked in the sidebar, and the trail
+  above its title leads to its parents.
+- **A task page** has four tabs: _Work_ (a banner for its state, its
+  description, and what it depends on and blocks), _Details_ (its status,
+  record, and run facts), _Timeline_ (a note field, then its history, newest
+  first), and _Artifacts_ once one is attached. Its actions are in the
+  header and More. The
   sidebar lists the task under its phase or initiative, and below 1024px wide a link
   to that parent (or to the project) stands above its ID.
 - **A seed page** reads as a request: which board asks which, the description,

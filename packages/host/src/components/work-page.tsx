@@ -8,7 +8,8 @@ import { agentActivityQuery } from '../api/agent-queries';
 import { HostFaultError, isEngineRefusal } from '../api/errors';
 import type { DirectionTarget } from '../api/node-mutations';
 import { browserTimeZone } from '../api/queries';
-import { phaseDeliveriesQuery, workQuery } from '../api/view-queries';
+import { treeQuery } from '../api/shell-queries';
+import { phaseDeliveriesQuery, reviewQuery, workQuery } from '../api/view-queries';
 import { scopedRun } from '../lib/agent-card';
 import { kindName, splitKindTags } from '../lib/artifacts';
 import { cn } from '../lib/cn';
@@ -16,13 +17,13 @@ import { foldByDay } from '../lib/day-folds';
 import { PAGE_COLUMN } from '../lib/page-column';
 import { projectKeyOf } from '../lib/project-key';
 import { artifactLink, nodeLink } from '../lib/record-url';
-import { STATUS_META, STATUS_ORDER } from '../lib/status';
+import { containerHasWork } from '../lib/scoped-work';
+import { STATUS_META } from '../lib/status';
 import { absoluteTime } from '../lib/time';
 import { newestArtifacts, shippedTime } from '../lib/work-page';
 import type { RecordArtifact } from '../lib/work-page';
 import { PhaseDeliveries } from './delivery-summary';
 import { DirectionDialog } from './direction-line';
-import { DistributionBar } from './distribution-bar';
 import { MarkdownBody } from './markdown-body';
 import { NewTaskButton } from './new-task-button';
 import { SignalBadges, hasSignals, prerequisiteRows } from './node-record';
@@ -30,42 +31,26 @@ import type { ActionMenuAction } from './patterns/action-menu';
 import { Fact, Facts } from './patterns/facts';
 import { DayFolds, FinishedRow } from './patterns/feed/day-fold';
 import { FEED_FOCUS_RING } from './patterns/feed/link';
-import { RowGroup } from './patterns/feed/row-group';
 import { RecordHeader } from './patterns/record-header';
 import { RecordTabs } from './patterns/record-tabs';
 import type { RecordTab } from './patterns/record-tabs';
 import { ProjectSettings } from './project-settings';
 import { RECORD_TYPE_LABEL, RecordMore, moreEntries, recordTrail } from './record-head';
+import { ScopedWork } from './scoped-work';
 import { StatusBadge, StatusWord } from './status-badge';
 import { StatusDot } from './status-dot';
 import { Skeleton } from './ui/skeleton';
-import { WorkSections } from './work-sections';
 
 /*
- * The work page (ADR 0013, MMR-467, MMR-492, and MMR-726 refinements): a
- * project, initiative, or phase opens under the record header with its tabs.
- * Work, first, holds the progress bar, a project's Record health, and the five
- * question-ordered sections; Details holds the Direction, the description,
- * what the record depends on and blocks, and its dates. An initiative or phase
- * adds Timeline and Artifacts; a project's other tabs are its browsers. A tab
- * with nothing in it is hidden. The project's structure lives in the shell's
- * sidebar outline.
+ * The work page (ADR 0013, MMR-467, MMR-492, MMR-726, and MMR-727
+ * refinements): a project, initiative, or phase opens under the record header
+ * with its tabs. Work, first, is Home's page with the record as its scope
+ * (scoped-work.tsx); Details holds the Direction, the description, what the
+ * record depends on and blocks, and its dates. An initiative or phase adds
+ * Timeline and Artifacts, and a phase Deliveries; a project's other tabs are
+ * its browsers. A tab with nothing in it is hidden. The project's structure
+ * lives in the shell's sidebar outline.
  */
-
-/** `11 done · 2 parked · 1 in progress` — the rollup's counts, in the status system's order. */
-function distributionLegend(distribution: NonNullable<EngineNode['distribution']>): string {
-  return (
-    STATUS_ORDER.filter((word) => (distribution[word] ?? 0) > 0)
-      // A non-breaking space keeps each count with its word when the legend wraps.
-      .map((word) => `${String(distribution[word])}\u00a0${STATUS_META[word].label.toLowerCase()}`)
-      .join(' · ')
-  );
-}
-
-/** How many tasks the record's rollup counts. */
-export function taskCount(record: EngineNode): number {
-  return Object.values(record.distribution ?? {}).reduce((sum, count) => sum + count, 0);
-}
 
 /** The record's own column: one centred column of at most 900px, no rail (MMR-726). */
 export function RecordColumn({ offline, children }: { offline: boolean; children: ReactNode }) {
@@ -179,25 +164,29 @@ export function ContainerHead({
   );
 }
 
-/** The Work tab's body: the sections, a skeleton while the read is pending, or the failure. */
+/** The Work tab's body: the scoped sections, a skeleton while the work read is pending, or the failure. */
 function WorkBody({
   record,
   projectKey,
   isProject,
   offline,
-  tree,
+  findings,
 }: {
   record: EngineNode;
   projectKey: string;
   isProject: boolean;
   offline: boolean;
-  tree?: EngineTree;
+  findings: number;
 }) {
   const work = useQuery(
     workQuery(
       isProject ? { key: record.id, kind: 'project' } : { id: record.id, kind: 'container' },
     ),
   );
+  // The tree names the parts and the Shipped split's containers; the node page
+  // reads the same entry. It is the whole board, so it is read once, not polled.
+  const tree = useQuery({ ...treeQuery(projectKey), refetchInterval: false });
+  const review = useQuery(reviewQuery());
   const activity = useQuery(agentActivityQuery);
   if (work.data === undefined) {
     return work.isError ? (
@@ -217,76 +206,49 @@ function WorkBody({
     );
   }
   return (
-    <>
-      {record.type === 'phase' && <PhaseDeliveries id={record.id} />}
-      <WorkSections
-        report={work.data}
-        projectKey={projectKey}
-        home={isProject ? undefined : record.id}
-        zone={browserTimeZone()}
-        offline={offline}
-        agentRun={scopedRun(
+    <ScopedWork
+      work={work.data}
+      projectKey={projectKey}
+      zone={browserTimeZone()}
+      offline={offline}
+      reads={{
+        agentRun: scopedRun(
           activity.data,
           projectKey,
-          isProject ? undefined : { id: record.id, tree },
-        )}
-      />
-    </>
+          isProject ? undefined : { id: record.id, tree: tree.data },
+        ),
+        findings,
+        review: review.data,
+        reviewFailed: review.isError,
+        tree: tree.data,
+      }}
+    />
   );
 }
 
 /**
- * The Work tab: the rollup's progress bar and legend, a project's Record
- * health findings as a row to the doctor panel, then the work sections.
+ * The Work tab (ADR 0013, MMR-727 refinement): Home's page with the record as
+ * its scope. A project's Record health findings are one of its spare-minute
+ * rows.
  */
 export function WorkTab({
   record,
-  tree,
   findings = 0,
   offline,
 }: {
   record: EngineNode;
-  tree?: EngineTree;
   findings?: number;
   offline: boolean;
 }) {
   const isProject = record.type === 'project';
-  const projectKey = projectKeyOf(record.id);
-  const legend = record.distribution === undefined ? '' : distributionLegend(record.distribution);
-  const health = isProject && findings > 0;
   return (
-    <div className="flex flex-col">
-      {record.distribution !== undefined && taskCount(record) > 0 && (
-        <div className="mb-3">
-          <DistributionBar distribution={record.distribution} className="h-1.5 w-full" />
-          {legend !== '' && <p className="mt-2 text-meta text-ink-dim">{legend}</p>}
-        </div>
-      )}
-      {health && (
-        <div className="border-y border-line">
-          <RowGroup
-            label="Record health"
-            rows={[
-              {
-                count: findings,
-                name: 'Record health',
-                to: { search: { project: projectKey }, to: '/doctor' },
-              },
-            ]}
-          />
-        </div>
-      )}
-      {/* Each section's own 16 top margin (Live deliveries' too), after the legend's 12, sets the first 28 below it. */}
-      <div className={cn(health && 'mt-8')}>
-        <WorkBody
-          record={record}
-          projectKey={projectKey}
-          isProject={isProject}
-          offline={offline}
-          tree={tree}
-        />
-      </div>
-    </div>
+    <WorkBody
+      record={record}
+      projectKey={projectKeyOf(record.id)}
+      isProject={isProject}
+      offline={offline}
+      findings={isProject ? findings : 0}
+    />
   );
 }
 
@@ -477,8 +439,8 @@ export function ArtifactsTab({ record }: { record: EngineNode }) {
   return <DayFolds days={days} cap={Number.POSITIVE_INFINITY} />;
 }
 
-/** The tabs of an initiative, a phase, or a task, in their order. */
-export type RecordPageTab = 'work' | 'details' | 'timeline' | 'artifacts';
+/** The tabs of an initiative, a phase, or a task, in their order; only a phase has Deliveries. */
+export type RecordPageTab = 'work' | 'deliveries' | 'details' | 'timeline' | 'artifacts';
 
 /** Open `tab`; `replace` swaps the URL's entry rather than pushing one. */
 export type OpenTab = (tab: RecordPageTab, options?: { replace: boolean }) => void;
@@ -496,17 +458,31 @@ export type RecordPageTabs = {
    */
   since: number;
   recordReadAt: number;
+  /** When the project tree was last read, which says whether an initiative or phase has parts. */
+  treeReadAt: number;
 };
 
 /**
  * The tabs a record page shows, in order, hidden when empty: Work when
- * `work` says it holds something, Details and Timeline always (a record
- * always has its dates and its creation), Artifacts once one is attached.
+ * `work` says it holds something, Deliveries when a phase has `deliveries`,
+ * Details and Timeline always (a record always has its dates and its
+ * creation), Artifacts once one is attached.
  */
-export function recordTabs(record: EngineNode, timelineCount: number, work: boolean) {
+export function recordTabs(
+  record: EngineNode,
+  timelineCount: number,
+  work: boolean,
+  // A phase's live deliveries, or 'failed' when the read failed with nothing cached:
+  // the tab then stays, with no count, so it can say the read failed.
+  deliveries: number | 'failed' = 0,
+) {
   const artifacts = record.artifacts?.length ?? 0;
   const tabs: RecordTab<RecordPageTab>[] = [
     ...(work ? [{ label: 'Work', value: 'work' as const }] : []),
+    ...(deliveries === 'failed' ? [{ label: 'Deliveries', value: 'deliveries' as const }] : []),
+    ...(typeof deliveries === 'number' && deliveries > 0
+      ? [{ count: deliveries, label: 'Deliveries', value: 'deliveries' as const }]
+      : []),
     { label: 'Details', value: 'details' },
     { count: timelineCount, label: 'Timeline', value: 'timeline' },
     ...(artifacts > 0
@@ -514,14 +490,6 @@ export function recordTabs(record: EngineNode, timelineCount: number, work: bool
       : []),
   ];
   return tabs;
-}
-
-/**
- * An initiative's or phase's tabs: Work once it holds tasks or
- * `liveDeliveries` (a delivery may name no tasks).
- */
-export function containerTabs(record: EngineNode, timelineCount: number, liveDeliveries: boolean) {
-  return recordTabs(record, timelineCount, taskCount(record) > 0 || liveDeliveries);
 }
 
 /**
@@ -552,7 +520,12 @@ export function useShownTab(
 
 /**
  * An initiative's or phase's page: its header, then its tabs, the shown one
- * as `useShownTab` picks it.
+ * as `useShownTab` picks it. Work shows while a task is under it or it has
+ * parts (ADR 0013, MMR-727 refinement); a phase's Deliveries while it has a
+ * live delivery. The URL settles on a shown tab only once the reads that
+ * decide the tabs are current: the record, a phase's deliveries, and, for a
+ * record whose rollup counts no task, the tree that holds its parts (read
+ * since the page mounted, not a cached tree from before a part was added).
  */
 export function ContainerPage({
   record,
@@ -565,20 +538,25 @@ export function ContainerPage({
   offline: boolean;
   container: RecordPageTabs;
 }) {
-  // The read Work's Live deliveries makes, here only while it decides whether
-  // a phase with no tasks has Work; until it answers none, Work may hold them.
-  const deliveriesDecideWork = record.type === 'phase' && taskCount(record) === 0;
-  const deliveries = useQuery({
-    ...phaseDeliveriesQuery(record.id),
-    enabled: deliveriesDecideWork,
-  });
-  const live = record.type === 'phase' && deliveries.data?.length !== 0;
-  const tabs = containerTabs(record, container.timelineCount, live);
+  const phase = record.type === 'phase';
+  const deliveries = useQuery({ ...phaseDeliveriesQuery(record.id), enabled: phase });
+  const work = containerHasWork(record, tree);
+  const tabs = recordTabs(
+    record,
+    container.timelineCount,
+    work,
+    // errorUpdateCount, not isError: a retry with nothing cached resets the read to
+    // pending, which would hide the tab whose mount started the retry, in a loop.
+    deliveries.data === undefined && deliveries.errorUpdateCount > 0
+      ? 'failed'
+      : (deliveries.data?.length ?? 0),
+  );
   const tab = useShownTab(
     tabs,
     container.tab,
     container.recordReadAt >= container.since &&
-      (!deliveriesDecideWork || deliveries.dataUpdatedAt >= container.since),
+      (!phase || deliveries.dataUpdatedAt >= container.since) &&
+      (work || container.treeReadAt >= container.since),
     container.onTab,
   );
   return (
@@ -591,7 +569,8 @@ export function ContainerPage({
           container.onTab(next);
         }}
       >
-        {tab === 'work' && <WorkTab record={record} tree={tree} offline={offline} />}
+        {tab === 'work' && <WorkTab record={record} offline={offline} />}
+        {tab === 'deliveries' && <PhaseDeliveries id={record.id} />}
         {tab === 'details' && <ContainerDetails record={record} />}
         {tab === 'timeline' && container.timeline}
         {tab === 'artifacts' && <ArtifactsTab record={record} />}

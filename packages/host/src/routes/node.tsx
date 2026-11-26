@@ -127,6 +127,7 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
       />
     ),
     timelineCount: feed.length,
+    treeReadAt: tree.dataUpdatedAt,
   };
 
   // An initiative or phase opens as the work page (MMR-467 and MMR-726

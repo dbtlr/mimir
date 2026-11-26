@@ -3,7 +3,6 @@ import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { useTransition } from '../api/node-mutations';
 import type { NeedsYouMember, NeedsYouTask } from '../api/view-queries';
 import { visibleGrooming } from '../lib/grooming';
 import type { Groomable } from '../lib/grooming';
@@ -20,12 +19,13 @@ import { StatusDot } from './status-dot';
 import { ActionButton } from './ui/action-button';
 
 /*
- * Task rows and their in-place actions, shared by the work page and the review
- * page at `/`, so a task that needs the operator reads and acts the same on
- * both: Start on a runnable task and Answer… on one that needs answers. Each
- * action's write refetches the page, so the row moves to where it now belongs,
- * and keyboard focus moves on to the next row in its list (MMR-474). Offline
- * disables them (ADR 0013 §5).
+ * Rows for what needs the operator and their in-place actions, shared by the
+ * focus queue and the delivery page, so a record reads and acts the same on
+ * both: Answer… on a task that needs answers, and the answer chips on a
+ * provisional decision. The work sections end their rows with `RowTail`. Each
+ * action's write refetches the page, so the row moves to where it now
+ * belongs, and keyboard focus moves on to the next row in its list (MMR-474).
+ * Offline disables them (ADR 0013 §5).
  */
 
 /** The attention violet belongs to the rows that need the operator (ADR 0019). */
@@ -219,28 +219,6 @@ export function DecisionRow({
  * disarmed if the action ends with the row still in place.
  */
 type RowActionProps = { id: string; offline: boolean; handoff: RowFocusHandoff };
-
-/**
- * Each action owns its mutation, so only the rows that can act mount one.
- * Every write invalidates the work reads (useTransition, useGroom).
- */
-export function StartAction({ id, offline, handoff }: RowActionProps) {
-  const { mutate, isPending, submittedAt } = useTransition(id);
-  useDisarmWhenSettled(handoff, id, isPending ? null : submittedAt);
-  return (
-    <ActionButton
-      size="sm"
-      className={PHONE_TOUCH_TARGET}
-      disabled={offline || isPending}
-      onClick={() => {
-        handoff.arm(id);
-        mutate({ verb: 'start' });
-      }}
-    >
-      Start
-    </ActionButton>
-  );
-}
 
 /** Answer… writes the answer as a note and sets the grooming state the operator picks. */
 function AnswerAction({

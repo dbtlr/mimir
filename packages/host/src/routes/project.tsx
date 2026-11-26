@@ -10,11 +10,12 @@ import { useArchivedProject } from '../lib/use-archived-project';
 import { projectRoute } from '../router';
 
 /**
- * `/p/$key` — the project's Work and Details tabs (ADR 0013, MMR-467 and
- * MMR-726 refinements) inside the project's frame, which owns the header, the
- * tab row, and the unavailable and offline states. Work holds the progress
- * bar, Record health, and the work sections; `?tab=details` the Direction,
- * the description, and the dates.
+ * `/p/$key` — the project's Work and Details tabs (ADR 0013, MMR-467,
+ * MMR-726, and MMR-727 refinements) inside the project's frame, which owns
+ * the header, the tab row, and the unavailable and offline states. Work is
+ * Home's page scoped to the project, its Record health findings one of the
+ * spare-minute rows; `?tab=details` the Direction, the description, and the
+ * dates.
  */
 export function ProjectPage() {
   const { key } = projectRoute.useParams();

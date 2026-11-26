@@ -109,7 +109,9 @@ describe('project page (MMR-450, MMR-470, MMR-726)', () => {
     expect(within(header).queryByRole('navigation', { name: 'Ancestors' })).toBeNull();
     expect(within(header).getByText('The **work** tool.')).toBeDefined();
     expect(screen.getByRole('tab', { name: 'Work', selected: true })).toBeDefined();
-    await expect(screen.findByRole('region', { name: 'Now' })).resolves.toBeDefined();
+    await expect(
+      screen.findByText(/^Nothing is running, ready to start, or waiting on you\./),
+    ).resolves.toBeDefined();
     // The server function mocks ignore facets, so the request is checked here.
     expect(getNode).toHaveBeenCalledWith({
       data: expect.objectContaining({ facets: expect.arrayContaining(['children']), id: 'MMR' }),

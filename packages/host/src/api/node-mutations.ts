@@ -75,6 +75,22 @@ export function useTransition(id: string) {
   });
 }
 
+/**
+ * Start a task named at the press rather than at the hook, for a list of
+ * cards that each offer Start (Up next, MMR-727). It stays pending until the
+ * refetches land, so the card leaves before its write reads as landed.
+ */
+export function useStartTask() {
+  const invalidate = useInvalidateOnWrite();
+  return useMutation({
+    mutationFn: (id: string) => start({ data: { id } }),
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+    onSettled: invalidate,
+  });
+}
+
 export type GroomInput = {
   state: Grooming;
   /** The server requires one for `needs_answers` and writes it as an ordinary note. */

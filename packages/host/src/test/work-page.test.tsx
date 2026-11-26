@@ -1,27 +1,33 @@
 import { MimirError } from '@mimir/contract';
 import type { EngineNode, EngineTree } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HostFaultError } from '../api/errors';
-import { groom as setGrooming, start } from '../api/fns/nodes';
-import { nodeWork, projectWork } from '../api/fns/views';
-import type { NeedsYouTask, WorkReport } from '../api/view-queries';
+import { start } from '../api/fns/nodes';
+import { tree as shellTree } from '../api/fns/shell';
+import { nodeWork, projectWork, review } from '../api/fns/views';
+import type { WorkReport } from '../api/view-queries';
 import type { RecordArtifact } from '../lib/work-page';
 import { nodeRoute, projectRoute } from '../router';
+import { recordHealth } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
+import { blocked, question, report as reviewOf } from './needs-you-fixtures';
 import { engineContainer } from './node-fixtures';
 import { failNotes, serveNodes } from './node-fns';
 import { renderRoute } from './router';
 import { serveShell } from './shell-fns';
+import { stubViewport } from './viewport';
 import {
   engineWork,
   frontierRow as makeFrontierRow,
   needsYouRow,
   nowRow as makeNowRow,
   shippedRow as makeShippedRow,
+  stripRow,
   workTask,
 } from './views-fixtures';
 import { serveViews } from './views-fns';
@@ -45,10 +51,15 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
-function leaf(id: string, status: EngineTree['status'], title = `task ${id}`): EngineTree {
-  return engineTree({ id, status, title, type: 'task' });
+function leaf(
+  id: string,
+  status: EngineTree['status'],
+  extra: Partial<EngineTree> = {},
+): EngineTree {
+  return engineTree({ id, status, title: `task ${id}`, type: 'task', ...extra });
 }
 
 function node(
@@ -67,7 +78,8 @@ const TREE = engineTree({ id: 'MMR', status: 'in_progress', title: 'Mimir', type
   node('MMR-101', 'initiative', 'in_progress', 'Console work', [
     node('MMR-102', 'phase', 'done', 'Record pages', [
       leaf('MMR-103', 'done'),
-      leaf('MMR-104', 'done'),
+      // The project's last finish, nine days before the suite's now.
+      leaf('MMR-104', 'done', { completedAt: daysAgo(9) }),
     ]),
     node('MMR-105', 'phase', 'in_progress', 'Work page', [
       leaf('MMR-106', 'done'),
@@ -79,7 +91,7 @@ const TREE = engineTree({ id: 'MMR', status: 'in_progress', title: 'Mimir', type
   node('MMR-111', 'initiative', 'done', 'Old arc', [
     node('MMR-112', 'phase', 'done', 'Old phase', [leaf('MMR-113', 'done')]),
   ]),
-  leaf('MMR-114', 'ready', 'A loose task'),
+  leaf('MMR-114', 'ready', { title: 'A loose task' }),
 ]);
 
 const PROJECT: EngineNode = engineProject({
@@ -143,7 +155,12 @@ const PHASE_SCOPE: Scope = {
   record: PHASE,
   url: '/p/MMR/105',
   work: nodeWork,
-  world: (report) => ({ nodes: { 'MMR-105': report } }),
+  // The work read names the phase as its scope.
+  world: (report) => ({
+    nodes: {
+      'MMR-105': { ...report, scope: { id: 'MMR-105', kind: 'phase', title: 'Work page' } },
+    },
+  }),
 };
 
 const SCOPES = [PROJECT_SCOPE, PHASE_SCOPE];
@@ -160,10 +177,6 @@ function serve(scope: Scope, report: WorkReport | Error = engineWork(), tree = T
   }
 }
 
-/** How many row writes (verbs and grooming) the page has issued. */
-const writeCalls = () =>
-  [start, setGrooming].reduce((sum, fn) => sum + vi.mocked(fn).mock.calls.length, 0);
-
 const routes = [nodeRoute, projectRoute];
 
 const quietClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -176,19 +189,17 @@ async function open(scope: Scope, report?: WorkReport | Error, tree?: EngineTree
   return testRouter;
 }
 
-const section = (name: string) => screen.findByRole('region', { name });
-/** A row's action buttons, grouped and named for the task they act on. */
-const actionsOf = (id: string) => screen.findByRole('group', { name: `Actions for ${id}` });
+/** A feed section, by the start of its head (its name, then its count). */
+const section = (name: string) => screen.findByRole('region', { name: new RegExp(`^${name}`) });
 const hrefOf = (within_: HTMLElement, name: string | RegExp) =>
   within(within_).getByRole('link', { name }).getAttribute('href');
+/** The card titles a section shows, in order. */
+const cardTitles = (region: HTMLElement) =>
+  [...region.querySelectorAll('[data-slot="feed-card-target"]')].map((card) => card.textContent);
 
 const nowRow = makeNowRow(
   { branch: 'feat/dialect', harness: 'claude-code', id: 'MMR-11', title: 'Wire the dialect' },
-  {
-    latestNote: { content: 'Seam extracted', createdAt: minutesAgo(9) },
-    scratchpads: [{ id: 'MMR-p1', title: 'Cutover episode' }],
-    startedAt: minutesAgo(41),
-  },
+  { startedAt: minutesAgo(41) },
 );
 
 /** A task in review is work in flight: it reads in Now, never in Needs you. */
@@ -197,27 +208,15 @@ const reviewRow = makeNowRow(
   { startedAt: minutesAgo(180), submittedAt: minutesAgo(20) },
 );
 
-const blockedRow = needsYouRow(
-  {
-    blockOwner: 'you',
-    hold: 'blocked',
-    holdReason: 'Waiting on your sign-off',
-    id: 'MMR-13',
-    status: 'blocked',
-    title: 'Record health copy',
-  },
-  'blocked',
-);
-
 const answersRow = needsYouRow(
   {
     grooming: 'needs_answers',
     id: 'MMR-14',
     status: 'ready',
-    title: 'Refuse to open unmigrated stores',
+    title: 'Task MMR-14',
   },
   'needs_answers',
-  { question: 'Should it refuse, or warn?' },
+  { question: 'Where does the pin live?' },
 );
 
 const frontierRow = (id: string, title: string, extra: Partial<EngineNode> = {}) =>
@@ -226,357 +225,462 @@ const frontierRow = (id: string, title: string, extra: Partial<EngineNode> = {})
 const shippedRow = (id: string, at: string | Date, extra: Partial<EngineNode> = {}) =>
   makeShippedRow({ id, title: `Shipped ${id}`, ...extra }, new Date(at));
 
+/** Every section of a project's Work tab holding something. */
+const busyWork = () =>
+  engineWork({
+    frontier: {
+      nextToUnlock: [
+        {
+          prerequisite: { id: 'MMR-11', status: 'in_progress', title: 'Wire the dialect' },
+          tasks: [{ ...frontierRow('MMR-24', 'Remove the old backend'), awaitingOn: ['MMR-11'] }],
+        },
+      ],
+      runnable: [
+        frontierRow('MMR-20', 'Add the SQLite dialect'),
+        frontierRow('MMR-21', 'Add the Postgres dialect'),
+        frontierRow('MMR-22', 'Add the MySQL dialect'),
+        frontierRow('MMR-23', 'Add the DuckDB dialect'),
+      ],
+      toGroom: [frontierRow('MMR-25', 'Triage the flaky suite', { grooming: 'not_groomed' })],
+      waitingOnOthers: [
+        {
+          blockReason: 'Vendor has not replied',
+          stale: false,
+          task: workTask({ hold: 'blocked', id: 'MMR-26', status: 'blocked', title: 'Vendor key' }),
+        },
+      ],
+    },
+    goingCold: [workTask({ id: 'MMR-27', status: 'ready', updatedAt: daysAgo(20) })],
+    needsYou: [answersRow],
+    now: [nowRow, reviewRow],
+    shipped: [
+      shippedRow('MMR-31', '2026-10-12T20:30:00.000Z', { parent: 'MMR-105' }),
+      shippedRow('MMR-32', '2026-10-11T15:00:00.000Z', { parent: 'MMR-105' }),
+      shippedRow('MMR-33', '2026-10-12T14:00:00.000Z', { parent: 'MMR-101' }),
+      shippedRow('MMR-34', '2026-10-12T15:00:00.000Z', {
+        parent: 'MMR-105',
+        status: 'abandoned',
+      }),
+    ],
+  });
+
+/** The review report: a question in scope, a block on another project, and Mimir's seeds to triage. */
+const busyReview = () => ({
+  ...reviewOf([question('MMR-14'), blocked('FLT-5')]),
+  projects: [
+    stripRow({ key: 'MMR', name: 'Mimir' }, { untriaged: 5 }),
+    stripRow({ key: 'FLT', name: 'Fleet' }),
+  ],
+});
+
+/** Open the project's Work tab with every section busy and three Record health findings. */
+async function openBusyProject() {
+  serveBrowse({ health: recordHealth({ finding_total: 3 }) });
+  serveShell({ trees: { MMR: TREE } });
+  serveNodes({ nodes: [PROJECT] });
+  serveViews({ projects: { MMR: busyWork() }, review: busyReview() });
+  await renderRoute(routes, '/p/MMR', quietClient());
+  await screen.findByRole('heading', { level: 1, name: 'Mimir' });
+  return screen.findByRole('tabpanel');
+}
+
 describe.each(SCOPES)('work page scope, $name', (scope) => {
   it('asks for its own work read, in the browser’s time zone', async () => {
     await open(scope);
 
     expect(scope.work).toHaveBeenCalledWith(scope.asked);
   });
-
-  it('ends its sections with a link to the project’s tasks, and holds no board or Other views', async () => {
-    await open(scope);
-
-    const link = await screen.findByRole('link', { name: /All tasks in MMR/ });
-    expect(link.getAttribute('href')).toBe('/p/MMR/tasks');
-    expect(screen.queryByRole('navigation', { name: 'Other views' })).toBeNull();
-    expect(screen.queryByRole('link', { name: 'Board' })).toBeNull();
-    // The link comes after the last section.
-    const goingCold = screen.getByRole('region', { name: 'Going cold' });
-    expect(goingCold.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  });
 });
 
-// The section rows read the same for every scope, so they run on the project. A
-// phase differs in its read and project key (above), in where New task files (a
-// head case), in what its agent run covers, and in its rail details: the About
-// description below, and the About and Artifacts cases further down.
-describe('work page sections', () => {
-  const scope = PROJECT_SCOPE;
+describe('the scoped Work tab (MMR-727)', () => {
+  it('runs Needs you, Now, Up next, Shipped this week, When you have a minute, then the parts', async () => {
+    const panel = await openBusyProject();
 
-  it('lists what is running, with when it started, where, and its latest note', async () => {
-    await open(scope, engineWork({ now: [nowRow] }));
-
-    const now = await section('Now · 1');
-    expect(hrefOf(now, 'Wire the dialect')).toBe('/p/MMR/11');
-    expect(now).toHaveTextContent('Started 41m ago');
-    expect(now).toHaveTextContent('claude-code');
-    expect(now).toHaveTextContent('feat/dialect');
-    expect(now).toHaveTextContent('Scratchpad open');
-    expect(now).toHaveTextContent('Latest note, 9m ago: “Seam extracted”');
+    await within(panel).findByRole('region', { name: /^Needs you/ });
+    const heads = within(panel)
+      .getAllByRole('heading', { level: 2 })
+      .map((head) => head.textContent?.replaceAll(/\s+/g, ' ').trim());
+    expect(heads).toStrictEqual([
+      expect.stringMatching(/^Needs you/),
+      'Now 2',
+      'Up next 4 can start',
+      'Shipped this week 3',
+      'When you have a minute',
+      'Initiatives 4',
+    ]);
   });
 
-  it('keeps a staged task in Now, timed from its submit', async () => {
-    await open(
-      scope,
-      engineWork({
-        now: [
-          makeNowRow(
-            { lifecycle: 'staged', status: 'staged', title: 'Reviewed task' },
-            { startedAt: minutesAgo(180), submittedAt: minutesAgo(20) },
-          ),
-        ],
-      }),
-    );
-    const now = await section('Now · 1');
-    expect(now).toHaveTextContent('Reviewed task');
-    expect(now).toHaveTextContent(/Staged\s*·\s*submitted 20m ago/);
-    expect(now).not.toHaveTextContent(/started/i);
+  it('keeps the deck to the cards in the scope’s needs-you set, with no See all', async () => {
+    await openBusyProject();
+
+    const needs = await section('Needs you');
+    expect(cardTitles(needs)).toStrictEqual(['Task MMR-14']);
+    expect(within(needs).queryByRole('link', { name: /See all/ })).toBeNull();
   });
 
-  it('shows a reservation as queued in Now', async () => {
-    await open(
-      scope,
-      engineWork({
-        now: [makeNowRow({ lifecycle: 'queued', status: 'queued', title: 'Reserved task' })],
-      }),
-    );
-    const now = await section('Now · 1');
-    expect(now).toHaveTextContent('Reserved task');
-    expect(now).toHaveTextContent('Queued');
-    expect(now).not.toHaveTextContent('Started');
-    // The status word reads in bright ink; only its dot carries the hue (MMR-718).
-    const word = within(now).getByText('Queued');
-    expect(word).toHaveClass('text-ink-bright');
-    expect(word.className).not.toMatch(/status-/);
+  it('holds Needs you’s place with a skeleton while the review read is pending', async () => {
+    serve(PROJECT_SCOPE, engineWork({ needsYou: [answersRow], now: [nowRow] }));
+    vi.mocked(review).mockReturnValue(Promise.withResolvers<never>().promise);
+    await renderRoute(routes, PROJECT_SCOPE.url, quietClient());
+
+    const needs = await section('Needs you');
+    expect(needs.querySelector('[aria-busy]')).not.toBeNull();
+    await section('Now');
   });
 
-  it('shows a task in review in Now as work in flight, with nothing to approve', async () => {
-    await open(scope, engineWork({ now: [reviewRow] }));
+  it('says so in one line when the review read fails with nothing cached', async () => {
+    serve(PROJECT_SCOPE, engineWork({ needsYou: [answersRow], now: [nowRow] }));
+    vi.mocked(review).mockRejectedValue(new TypeError('fetch failed'));
+    await renderRoute(routes, PROJECT_SCOPE.url, quietClient());
 
-    const now = await section('Now · 1');
-    expect(hrefOf(now, 'Extract the seam')).toBe('/p/MMR/12');
-    expect(now).toHaveTextContent(/Under review\s*·\s*submitted 20m ago/);
-    // The status word reads in bright ink; only its dot carries the hue (MMR-718).
-    const word = within(now).getByText('Under review');
-    expect(word).toHaveClass('text-ink-bright');
-    expect(word.className).not.toMatch(/status-/);
-    expect(now).not.toHaveTextContent(/started/i);
-    expect(within(now).queryByRole('button', { name: 'Approve' })).toBeNull();
-    expect(within(now).queryByRole('button', { name: 'Send back…' })).toBeNull();
-    expect(within(now).queryByRole('group', { name: 'Actions for MMR-12' })).toBeNull();
+    const needs = await section('Needs you');
+    await expect(within(needs).findByText('Couldn’t load what needs you.')).resolves.toBeVisible();
+    expect(needs.querySelector('[aria-busy]')).toBeNull();
   });
 
-  it('identifies each whole-task worker by session, even when they share a harness', async () => {
-    await open(
-      scope,
-      engineWork({
-        now: [
-          makeNowRow({ id: 'MMR-21', workerHarness: 'claude', workerSession: 'worker-alpha' }),
-          makeNowRow({ id: 'MMR-22', workerHarness: 'claude', workerSession: 'worker-beta' }),
-          makeNowRow({ id: 'MMR-23', workerHarness: null, workerSession: 'worker-gamma' }),
-        ],
-      }),
-    );
+  it('goes quiet once the review loads with no deck card for the scope’s needs-you rows', async () => {
+    serve(PROJECT_SCOPE);
+    serveViews({
+      projects: { MMR: engineWork({ needsYou: [answersRow] }) },
+      review: reviewOf([]),
+    });
+    await renderRoute(routes, PROJECT_SCOPE.url, quietClient());
 
-    const now = await section('Now · 3');
-    expect(now).toHaveTextContent('worker claude worker-alpha');
-    expect(now).toHaveTextContent('worker claude worker-beta');
-    expect(now).toHaveTextContent('worker worker-gamma');
+    await expect(
+      screen.findByText(/^Nothing is running, ready to start, or waiting on you/),
+    ).resolves.toBeVisible();
+    expect(screen.queryByRole('region', { name: /^Needs you/ })).toBeNull();
   });
 
-  it('lists what needs you with why, and the question a needs-answers task asks', async () => {
-    await open(scope, engineWork({ needsYou: [blockedRow, answersRow] }));
+  it('says nothing here needs you when the deck has no card and other sections show', async () => {
+    await open(PROJECT_SCOPE, engineWork({ now: [nowRow] }));
 
-    const needs = await section('Needs you · 2');
-    expect(hrefOf(needs, 'Record health copy')).toBe('/p/MMR/13');
-    expect(needs).toHaveTextContent('Blocked · yours');
-    expect(needs).toHaveTextContent('Waiting on your sign-off');
-    expect(hrefOf(needs, 'Refuse to open unmigrated stores')).toBe('/p/MMR/14');
-    expect(within(needs).getByText('needs answers')).toBeDefined();
-    expect(needs).toHaveTextContent('Should it refuse, or warn?');
-    // A block's row offers no action here; the task page clears it.
-    expect(within(needs).queryByRole('group', { name: 'Actions for MMR-13' })).toBeNull();
+    await expect(screen.findByText('Nothing here needs you.')).resolves.toBeVisible();
   });
 
-  it('splits the frontier: runnable, next to unlock under its prerequisite, and to groom', async () => {
-    await open(
-      scope,
-      engineWork({
-        frontier: {
-          nextToUnlock: [
-            {
-              prerequisite: { id: 'MMR-11', status: 'in_progress', title: 'Wire the dialect' },
-              tasks: [
-                {
-                  ...frontierRow('MMR-21', 'Remove the old backend', { size: 'large' }),
-                  awaitingOn: ['MMR-11'],
-                },
-              ],
-            },
-          ],
-          runnable: [frontierRow('MMR-20', 'Add the SQLite dialect')],
-          toGroom: [
-            frontierRow('MMR-22', 'Triage the flaky suite', { grooming: 'not_groomed' }),
-            makeFrontierRow(
-              { id: 'MMR-23', status: 'new', title: 'Hosted backends', type: 'initiative' },
-              { breakDown: true },
-            ),
-          ],
-          waitingOnOthers: [],
+  it('shows Now’s cards most recent move first, and See all opens the project’s In flight', async () => {
+    await openBusyProject();
+
+    const now = await section('Now');
+    expect(cardTitles(now)).toStrictEqual(['Extract the seam', 'Wire the dialect']);
+    expect(hrefOf(now, 'See all in Now')).toBe('/p/MMR/tasks?show=in-flight');
+  });
+
+  it('shows three of the tasks that can start as cards, each starting its task', async () => {
+    await openBusyProject();
+
+    const next = await section('Up next');
+    expect(cardTitles(next)).toStrictEqual([
+      'Add the SQLite dialect',
+      'Add the Postgres dialect',
+      'Add the MySQL dialect',
+    ]);
+    expect(within(next).queryByRole('link', { name: /See all/ })).toBeNull();
+    fireEvent.click(within(next).getByRole('button', { name: 'Start MMR-20' }));
+    await waitFor(() => {
+      expect(start).toHaveBeenCalledWith({ data: { id: 'MMR-20' } });
+    });
+  });
+
+  it('hands focus to the page when the last task that could start leaves Up next', async () => {
+    const runnable = frontierRow('MMR-20', 'Add the SQLite dialect');
+    serve(PROJECT_SCOPE);
+    const world = serveViews({
+      projects: {
+        MMR: engineWork({ frontier: { ...engineWork().frontier, runnable: [runnable] } }),
+      },
+    });
+    const echoed = vi.mocked(start).getMockImplementation();
+    vi.mocked(start).mockImplementation(async (options) => {
+      world.projects.MMR = engineWork({
+        now: [makeNowRow({ id: 'MMR-20', title: 'Add the SQLite dialect' })],
+      });
+      return echoed?.(options) as never;
+    });
+    await renderRoute(routes, PROJECT_SCOPE.url, quietClient());
+
+    const startButton = await screen.findByRole('button', { name: 'Start MMR-20' });
+    startButton.focus();
+    fireEvent.click(startButton);
+
+    await section('Now');
+    await waitFor(() => {
+      expect(screen.getByRole('main')).toHaveFocus();
+    });
+  });
+
+  // The panel renders in place, inside Up next's block, so the block's hand-off counts focus held in it.
+  it.each(['desktop', 'phone'] as const)(
+    'hands the page the focus Start held in the last card’s preview as that card leaves Up next (%s)',
+    async (viewport) => {
+      stubViewport(viewport);
+      const runnable = frontierRow('MMR-20', 'Add the SQLite dialect');
+      serve(PROJECT_SCOPE);
+      const world = serveViews({
+        projects: {
+          MMR: engineWork({ frontier: { ...engineWork().frontier, runnable: [runnable] } }),
         },
-      }),
-    );
+      });
+      const echoed = vi.mocked(start).getMockImplementation();
+      vi.mocked(start).mockImplementation(async (options) => {
+        world.projects.MMR = engineWork({
+          now: [makeNowRow({ id: 'MMR-20', title: 'Add the SQLite dialect' })],
+        });
+        return echoed?.(options) as never;
+      });
+      await renderRoute(routes, PROJECT_SCOPE.url, quietClient());
 
-    const runnable = await section('Runnable now');
-    expect(hrefOf(runnable, 'Add the SQLite dialect')).toBe('/p/MMR/20');
-    expect(within(runnable).getByText('groomed')).toBeDefined();
+      const next = await section('Up next');
+      await userEvent.click(within(next).getByRole('button', { name: 'Add the SQLite dialect' }));
+      const panel = await screen.findByRole('dialog');
+      await userEvent.click(within(panel).getByRole('button', { name: 'Start MMR-20' }));
 
-    const unlock = await section('Next to unlock');
-    expect(hrefOf(unlock, 'MMR-11')).toBe('/p/MMR/11');
-    expect(unlock).toHaveTextContent('After MMR-11');
-    expect(hrefOf(unlock, 'Remove the old backend')).toBe('/p/MMR/21');
-    expect(within(unlock).getByText('L')).toBeDefined();
+      await section('Now');
+      await waitFor(() => {
+        expect(screen.queryByRole('region', { name: /^Up next/ })).toBeNull();
+        expect(screen.getByRole('main')).toHaveFocus();
+      });
+    },
+  );
 
-    const groom = await section('To groom');
-    expect(hrefOf(groom, 'Triage the flaky suite')).toBe('/p/MMR/22');
-    expect(within(groom).getByText('not groomed')).toBeDefined();
-    expect(hrefOf(groom, 'Hosted backends')).toBe('/p/MMR/23');
-    expect(groom).toHaveTextContent('initiative');
-    expect(within(groom).getByText('break down')).toBeDefined();
+  it('leaves focus where it was when Up next leaves without holding it', async () => {
+    const runnable = frontierRow('MMR-20', 'Add the SQLite dialect');
+    serve(PROJECT_SCOPE);
+    const world = serveViews({
+      projects: {
+        MMR: engineWork({ frontier: { ...engineWork().frontier, runnable: [runnable] } }),
+      },
+    });
+    const client = quietClient();
+    await renderRoute(routes, PROJECT_SCOPE.url, client);
+    await section('Up next');
 
-    // Only a runnable row can be started from here.
-    expect(within(runnable).getByRole('button', { name: 'Start' })).toBeDefined();
-    expect(within(unlock).queryByRole('button')).toBeNull();
-    expect(within(groom).queryByRole('button')).toBeNull();
+    world.projects.MMR = engineWork({
+      now: [makeNowRow({ id: 'MMR-20', title: 'Add the SQLite dialect' })],
+    });
+    await act(() => client.invalidateQueries());
+
+    await section('Now');
+    expect(screen.queryByRole('region', { name: /^Up next/ })).toBeNull();
+    expect(document.activeElement).toBe(document.body);
   });
 
-  it('folds what waits on others until opened, each row with its reason', async () => {
-    await open(
-      scope,
+  it('gives the quiet sentence the focus the last card held when the scope goes quiet', async () => {
+    serve(PROJECT_SCOPE);
+    const world = serveViews({
+      projects: { MMR: engineWork({ needsYou: [answersRow] }) },
+      review: reviewOf([question('MMR-14')]),
+    });
+    const client = quietClient();
+    await renderRoute(routes, PROJECT_SCOPE.url, client);
+    const needs = await section('Needs you');
+    const card = await waitFor(() => {
+      const target = needs.querySelector<HTMLElement>('[data-slot="feed-card-target"]');
+      expect(target).not.toBeNull();
+      return target!;
+    });
+    card.focus();
+
+    world.projects.MMR = engineWork();
+    world.review = reviewOf([]);
+    await act(() => client.invalidateQueries());
+
+    const quiet = await screen.findByText(/^Nothing is running, ready to start, or waiting on you/);
+    await waitFor(() => {
+      expect(quiet).toHaveFocus();
+    });
+  });
+
+  it('ends Up next with what unlocks next, opening the prerequisite', async () => {
+    await openBusyProject();
+
+    const next = await section('Up next');
+    expect(hrefOf(next, 'Unlocks when MMR-11 lands 1')).toBe('/p/MMR/11');
+  });
+
+  it('keeps Up next for what unlocks next alone, under a head with no count', async () => {
+    const { frontier } = busyWork();
+    await open(PROJECT_SCOPE, engineWork({ frontier: { ...frontier, runnable: [] } }));
+
+    const next = await section('Up next');
+    expect(within(next).getByRole('heading', { level: 2 })).toHaveTextContent(/^Up next$/);
+    expect(cardTitles(next)).toStrictEqual([]);
+    expect(hrefOf(next, 'Unlocks when MMR-11 lands 1')).toBe('/p/MMR/11');
+  });
+
+  it('holds Start offline, still focusable', async () => {
+    serve(
+      PHASE_SCOPE,
       engineWork({
-        frontier: {
-          nextToUnlock: [],
-          runnable: [],
-          toGroom: [],
-          waitingOnOthers: [
-            {
-              blockReason: 'Vendor has not replied',
-              stale: false,
-              task: workTask({
-                blockOwner: 'others',
-                hold: 'blocked',
-                id: 'MMR-24',
-                status: 'blocked',
-                title: 'Vendor key rotation',
-              }),
-            },
-          ],
-        },
+        frontier: { ...engineWork().frontier, runnable: [frontierRow('MMR-20', 'Runnable')] },
       }),
     );
+    // An errored read over loaded data is the console's offline signal.
+    failNotes();
+    await renderRoute(routes, '/p/MMR/105', quietClient());
 
-    const frontier = await section('Frontier');
-    const waiting = within(frontier).getByText('Waiting on others · 1').closest('details');
-    expect(waiting).not.toBeNull();
-    expect(waiting).not.toHaveAttribute('open');
-    expect(within(frontier).getByText('Vendor has not replied')).not.toBeVisible();
-
-    fireEvent.click(within(frontier).getByText('Waiting on others · 1'));
-
-    expect(within(frontier).getByText('Vendor has not replied')).toBeVisible();
-    expect(hrefOf(frontier, 'Vendor key rotation')).toBe('/p/MMR/24');
+    const startButton = await screen.findByRole('button', { name: 'Start MMR-20' });
+    await waitFor(() => {
+      expect(startButton).toHaveAttribute('aria-disabled', 'true');
+    });
+    fireEvent.click(startButton);
+    expect(start).not.toHaveBeenCalled();
   });
 
-  it('groups what shipped by day, caps a day at three until expanded, and gives an abandoned task its reason', async () => {
+  it('splits a project’s Shipped by phase as plain rows, and See all opens Shipped this week', async () => {
+    await openBusyProject();
+
+    const shipped = await section('Shipped this week');
+    const rows = within(shipped).getByRole('list', { name: 'Shipped by part' });
+    expect(
+      within(rows)
+        .getAllByRole('listitem')
+        .map((row) => row.textContent),
+    ).toStrictEqual(['Work page 2', 'Console work 1']);
+    expect(within(rows).queryByRole('link')).toBeNull();
+    expect(hrefOf(shipped, 'See all in Shipped this week')).toBe('/p/MMR/tasks?show=shipped-week');
+  });
+
+  it('tells apart parts and Shipped rows that share a title, naming a phase’s initiative', async () => {
+    const errors = vi.spyOn(console, 'error');
+    const twins = engineTree(
+      { id: 'MMR', status: 'in_progress', title: 'Mimir', type: 'project' },
+      [
+        node('MMR-201', 'initiative', 'in_progress', 'Console', [
+          node('MMR-202', 'phase', 'in_progress', 'Phase 1', [leaf('MMR-203', 'done')]),
+        ]),
+        node('MMR-204', 'initiative', 'in_progress', 'Upkeep', [
+          node('MMR-205', 'phase', 'in_progress', 'Phase 1', [leaf('MMR-206', 'done')]),
+        ]),
+        node('MMR-207', 'initiative', 'ready', 'Ideas', [leaf('MMR-209', 'done')]),
+        node('MMR-208', 'initiative', 'ready', 'Ideas', [leaf('MMR-210', 'done')]),
+      ],
+    );
     await open(
-      scope,
+      PROJECT_SCOPE,
       engineWork({
         shipped: [
-          shippedRow('MMR-31', '2026-10-12T20:30:00.000Z'),
-          shippedRow('MMR-32', '2026-10-12T19:00:00.000Z'),
-          shippedRow('MMR-33', '2026-10-12T17:00:00.000Z'),
-          shippedRow('MMR-34', '2026-10-12T16:00:00.000Z'),
-          shippedRow('MMR-35', '2026-10-12T14:00:00.000Z'),
-          shippedRow('MMR-36', '2026-10-11T15:00:00.000Z'),
-          {
-            ...shippedRow('MMR-37', '2026-10-10T18:05:00.000Z', {
-              status: 'abandoned',
-              title: 'Converge needs consent',
-            }),
-            abandonReason: 'moot under ADR 0032',
-          },
+          shippedRow('MMR-203', '2026-10-12T20:30:00.000Z', { parent: 'MMR-202' }),
+          shippedRow('MMR-206', '2026-10-12T14:00:00.000Z', { parent: 'MMR-205' }),
+          // Twins with nothing between them and the project: only their ids tell them apart.
+          shippedRow('MMR-209', '2026-10-12T12:00:00.000Z', { parent: 'MMR-207' }),
+          shippedRow('MMR-210', '2026-10-12T11:00:00.000Z', { parent: 'MMR-208' }),
         ],
       }),
+      twins,
     );
 
-    const shipped = await section('Shipped · 7');
-    expect(within(shipped).getByText('Today · Mon Oct 12')).toBeDefined();
-    expect(within(shipped).getByText('Yesterday · Sun Oct 11')).toBeDefined();
-    expect(within(shipped).getByText('Sat Oct 10')).toBeDefined();
-    expect(hrefOf(shipped, 'Shipped MMR-31')).toBe('/p/MMR/31');
-    expect(shipped).toHaveTextContent('16:30');
-    // Today holds five; three show, and the rest sit behind "2 more".
-    expect(within(shipped).queryByText('Shipped MMR-34')).toBeNull();
-    fireEvent.click(
-      within(shipped).getByRole('button', { name: 'Show 2 more shipped on Today · Mon Oct 12' }),
-    );
-    // Focus moves to the first revealed row rather than falling to the page.
-    expect(document.activeElement).toBe(
-      within(shipped).getByRole('link', { name: 'Shipped MMR-34' }),
-    );
-    expect(within(shipped).getByText('Shipped MMR-34')).toBeDefined();
-    expect(within(shipped).getByText('Shipped MMR-35')).toBeDefined();
-    expect(within(shipped).queryByRole('button', { name: /more shipped/ })).toBeNull();
-
-    expect(within(shipped).getByRole('link', { name: 'Converge needs consent' })).toBeDefined();
-    expect(shipped).toHaveTextContent('Abandoned: moot under ADR 0032');
-    expect(shipped).toHaveTextContent('14:05');
-    // An abandoned row's word is the bright status word, and its title is demoted (MMR-718).
-    const abandoned = within(shipped).getByText('Abandoned');
-    expect(abandoned).toHaveClass('text-ink-bright');
-    expect(abandoned.className).not.toMatch(/status-/);
-    expect(within(shipped).getByRole('link', { name: 'Converge needs consent' })).toHaveClass(
-      'text-ink-dim',
-    );
-  });
-
-  // Going cold is a modifier in glyph plus demoted ink, never a status hue
-  // (ADR 0019 §3, MMR-620): on a ready row an amber chip would read as in_progress.
-  it('marks a stale row in its section and again in going cold, in neutral ink', async () => {
-    const stale = { ...frontierRow('MMR-20', 'Add the SQLite dialect'), stale: true };
-    await open(
-      scope,
-      engineWork({
-        frontier: { nextToUnlock: [], runnable: [stale], toGroom: [], waitingOnOthers: [] },
-        goingCold: [{ ...stale.task, updatedAt: daysAgo(20) }],
-      }),
-    );
-
-    const frontier = await section('Frontier');
-    expect(within(frontier).getByText('⧗ stale')).toBeDefined();
-    const cold = await section('Going cold · 1');
-    expect(hrefOf(cold, 'Add the SQLite dialect')).toBe('/p/MMR/20');
-    expect(within(cold).getByText('⧗ stale')).toBeDefined();
-    expect(cold).toHaveTextContent('2w quiet');
-    for (const chip of [within(frontier).getByText('⧗ stale'), within(cold).getByText('⧗ stale')]) {
-      expect(chip.className).toContain('text-ink-dim');
-      expect(chip.className).not.toMatch(/status-/);
-    }
-  });
-
-  it('says what each empty section means', async () => {
-    await open(scope);
-
-    await expect(section('Now')).resolves.toHaveTextContent(/nothing running/i);
-    await expect(section('Needs you')).resolves.toHaveTextContent(/nothing needs you/i);
-    await expect(section('Frontier')).resolves.toHaveTextContent(/frontier is empty/i);
-    const shipped = await section('Shipped');
-    expect(shipped).toHaveTextContent(/nothing shipped/i);
+    const shipped = await section('Shipped this week');
+    const rows = within(shipped).getByRole('list', { name: 'Shipped by part' });
     expect(
-      within(shipped).getByRole('link', { name: 'Finished tasks →' }).getAttribute('href'),
-    ).toBe('/p/MMR/tasks?status=terminal');
-    await expect(section('Going cold')).resolves.toHaveTextContent(/nothing stale/i);
+      within(rows)
+        .getAllByRole('listitem')
+        .map((row) => row.textContent),
+    ).toStrictEqual(['Phase 1 · Console 1', 'Phase 1 · Upkeep 1', 'Ideas 1', 'Ideas 1']);
+    const parts = await section('Initiatives');
+    expect(
+      within(parts)
+        .getAllByRole('link', { name: /Ideas/ })
+        .map((row) => row.getAttribute('href')),
+    ).toStrictEqual(['/p/MMR/207', '/p/MMR/208']);
+    expect(errors.mock.calls.flat().map(String).join('\n')).not.toMatch(/same key/);
   });
 
-  it('offers New task from an empty frontier', async () => {
-    await open(scope);
+  it('lists a phase’s done tasks as its Shipped, each opening its page, with no See all', async () => {
+    await open(PHASE_SCOPE, engineWork({ shipped: busyWork().shipped }));
 
-    const frontier = await section('Frontier');
-    expect(within(frontier).getByRole('button', { name: 'New task' })).toBeDefined();
+    const shipped = await section('Shipped this week');
+    const rows = within(shipped).getByRole('list', { name: 'Shipped tasks' });
+    expect(
+      within(rows)
+        .getAllByRole('link')
+        .map((row) => row.getAttribute('href')),
+    ).toStrictEqual(['/p/MMR/31', '/p/MMR/33', '/p/MMR/32']);
+    expect(within(shipped).queryByRole('link', { name: /See all/ })).toBeNull();
   });
 
-  it('keeps Runnable now, with its hint, when the other frontier groups are empty', async () => {
-    await open(
-      scope,
-      engineWork({
-        frontier: {
-          nextToUnlock: [],
-          runnable: [],
-          toGroom: [],
-          waitingOnOthers: [
-            {
-              blockReason: null,
-              stale: false,
-              task: workTask({
-                hold: 'blocked',
-                id: 'MMR-24',
-                status: 'blocked',
-                title: 'Vendor key',
-              }),
-            },
-          ],
-        },
-      }),
+  it('counts a project’s spare-minute work, opening Seeds, Going cold, and Record health', async () => {
+    await openBusyProject();
+
+    const minute = await section('When you have a minute');
+    expect(hrefOf(minute, 'Seeds to triage 5')).toBe('/p/MMR/seeds?show=to-triage');
+    expect(hrefOf(minute, 'Going cold 1')).toBe('/p/MMR/tasks?show=going-cold');
+    expect(hrefOf(minute, 'Record health findings 3')).toBe('/doctor?project=MMR');
+    // To groom and Waiting on others wait for their presets.
+    expect(within(minute).getByText('To groom')).toBeVisible();
+    expect(within(minute).getByText('Waiting on others')).toBeVisible();
+    expect(within(minute).getAllByRole('link')).toHaveLength(3);
+  });
+
+  it('counts a phase’s spare-minute work with no seeds or Record health, every row plain', async () => {
+    serveBrowse({ health: recordHealth({ finding_total: 3 }) });
+    await open(PHASE_SCOPE, busyWork());
+
+    const minute = await section('When you have a minute');
+    expect(
+      within(minute)
+        .getAllByRole('listitem')
+        .map((row) => row.textContent),
+    ).toStrictEqual(['To groom 1', 'Going cold 1', 'Waiting on others 1']);
+    expect(within(minute).queryByRole('link')).toBeNull();
+  });
+
+  it('lists a project’s initiatives last, in tree order, the finished ones in a closed fold', async () => {
+    await openBusyProject();
+
+    const parts = await section('Initiatives');
+    expect(
+      within(parts)
+        .getAllByRole('link')
+        .map((row) => [row.textContent, row.getAttribute('href')]),
+    ).toStrictEqual([
+      ['In progress: Console work 1 of 2 done', '/p/MMR/101'],
+      ['Ready: Maintenance Empty', '/p/MMR/108'],
+      ['Parked: Post-v1 ideas 0 of 1 done', '/p/MMR/109'],
+    ]);
+    const fold = within(parts).getByRole('button', { name: 'Finished initiatives 1' });
+    expect(fold).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(fold);
+
+    expect(hrefOf(parts, /Old arc/)).toBe('/p/MMR/111');
+  });
+
+  it('gives a phase no parts', async () => {
+    await open(PHASE_SCOPE, busyWork());
+
+    await section('When you have a minute');
+    expect(screen.queryByRole('region', { name: /^(Initiatives|Phases)/ })).toBeNull();
+  });
+
+  it('says once what is quiet, with when the last task finished, above the spare minute and the parts', async () => {
+    await open(PROJECT_SCOPE, engineWork({ goingCold: busyWork().goingCold }));
+
+    const panel = screen.getByRole('tabpanel');
+    const quiet = await within(panel).findByText(
+      'Nothing is running, ready to start, or waiting on you. The last task finished 9 days ago.',
     );
-
-    await expect(section('Runnable now')).resolves.toHaveTextContent('Nothing runnable yet.');
-    expect(screen.queryByRole('region', { name: 'Next to unlock' })).toBeNull();
-    expect(screen.queryByRole('region', { name: 'To groom' })).toBeNull();
-    expect(screen.queryByText(/frontier is empty/)).toBeNull();
+    expect(quiet.tagName).toBe('P');
+    expect(within(panel).queryByText('Nothing here needs you.')).toBeNull();
+    for (const name of ['Needs you', 'Now', 'Up next', 'Shipped this week']) {
+      expect(within(panel).queryByRole('region', { name: new RegExp(`^${name}`) })).toBeNull();
+    }
+    await expect(section('When you have a minute')).resolves.toBeDefined();
+    await expect(section('Initiatives')).resolves.toBeDefined();
   });
 
   it('shows skeletons while the work read is pending', async () => {
-    serve(scope);
-    vi.mocked(scope.work).mockReturnValue(Promise.withResolvers<WorkReport>().promise);
-    await renderRoute(routes, scope.url, quietClient());
+    serve(PROJECT_SCOPE);
+    vi.mocked(projectWork).mockReturnValue(Promise.withResolvers<WorkReport>().promise);
+    await renderRoute(routes, PROJECT_SCOPE.url, quietClient());
 
-    await screen.findByRole('heading', { level: 1, name: scope.record.title });
+    await screen.findByRole('heading', { level: 1, name: PROJECT.title });
     expect(document.querySelector('[aria-busy]')).not.toBeNull();
-    expect(screen.queryByRole('region', { name: 'Now' })).toBeNull();
+    expect(screen.queryByText(/Nothing is running/)).toBeNull();
   });
 
   it('says so when the work read fails with nothing cached, while the header and tabs still render', async () => {
-    await open(scope, new TypeError('fetch failed'));
+    await open(PROJECT_SCOPE, new TypeError('fetch failed'));
 
     await expect(screen.findByText(/couldn’t load the work page/i)).resolves.toHaveTextContent(
       'is the Mimir host running?',
@@ -591,13 +695,67 @@ describe('work page sections', () => {
   ])(
     'does not ask whether the server is running when it answered with %s',
     async (_kind, error) => {
-      await open(scope, error);
+      await open(PROJECT_SCOPE, error);
 
       const message = await screen.findByText(/couldn’t load the work page/i);
       expect(message).toHaveTextContent('Couldn’t load the work page.');
       expect(message).not.toHaveTextContent('host running');
     },
   );
+});
+
+describe('an initiative’s Work tab (MMR-727)', () => {
+  // An idle open-ended phase is out of its initiative's rollup, which then counts no task.
+  const INITIATIVE: EngineNode = engineContainer({
+    distribution: {},
+    id: 'MMR-120',
+    parent: 'MMR',
+    status: 'ready',
+    title: 'Standing work',
+    type: 'initiative',
+  });
+  const tree = engineTree({ id: 'MMR', status: 'in_progress', title: 'Mimir', type: 'project' }, [
+    node('MMR-120', 'initiative', 'ready', 'Standing work', [
+      node('MMR-121', 'phase', 'ready', 'Maintenance', [], { open_ended: true }),
+    ]),
+  ]);
+
+  it('shows Work for an initiative whose only part is an open-ended phase, listing it', async () => {
+    serveShell({ trees: { MMR: tree } });
+    serveNodes({ nodes: [INITIATIVE] });
+    serveViews();
+    await renderRoute(routes, '/p/MMR/120', quietClient());
+
+    await screen.findByRole('tab', { name: 'Work', selected: true });
+    const parts = await section('Phases');
+    expect(hrefOf(parts, /Maintenance/)).toBe('/p/MMR/121');
+  });
+
+  it('keeps the URL on Work while a cached tree from before its first phase refetches', async () => {
+    serveShell({ trees: { MMR: tree } });
+    serveNodes({ nodes: [INITIATIVE] });
+    serveViews();
+    const served = vi.mocked(shellTree).getMockImplementation();
+    const held = Promise.withResolvers<void>();
+    vi.mocked(shellTree).mockImplementation(async (options) => {
+      await held.promise;
+      return served!(options);
+    });
+    const client = quietClient();
+    const before = engineTree(
+      { id: 'MMR', status: 'in_progress', title: 'Mimir', type: 'project' },
+      [node('MMR-120', 'initiative', 'ready', 'Standing work')],
+    );
+    client.setQueryData(['tree', 'MMR'], before, { updatedAt: Date.now() - 60_000 });
+    const { router: testRouter } = await renderRoute(routes, '/p/MMR/120', client);
+
+    // The cached tree holds no phase, so the page shows Details at once.
+    await screen.findByRole('tab', { name: 'Details', selected: true });
+    held.resolve();
+
+    await screen.findByRole('tab', { name: 'Work', selected: true });
+    expect(testRouter.state.location.searchStr).toBe('');
+  });
 });
 
 describe('work page Details tab (MMR-726)', () => {
@@ -642,454 +800,6 @@ describe('work page Details tab (MMR-726)', () => {
   });
 });
 
-/**
- * Serve `before` at the project's work route until a write lands, then `after`,
- * the way the server's next read reflects the action.
- */
-async function openForWrite(before: WorkReport, after: WorkReport) {
-  serve(PROJECT_SCOPE);
-  const views = serveViews({ projects: { MMR: before } });
-  // Any row write lands: the next work read answers `after`.
-  for (const write of [start, setGrooming]) {
-    const echoed = vi.mocked(write).getMockImplementation();
-    vi.mocked(write).mockImplementation(async (options) => {
-      views.projects.MMR = after;
-      return echoed?.(options as never) as never;
-    });
-  }
-  await renderRoute(routes, PROJECT_SCOPE.url, quietClient());
-  await screen.findByRole('heading', { level: 1, name: PROJECT.title });
-}
-
-/** Accept writes, and hold the project's next work read until the test resolves it. */
-function holdRefresh() {
-  const refresh = Promise.withResolvers<WorkReport>();
-  vi.mocked(projectWork).mockReturnValue(refresh.promise);
-  return refresh;
-}
-
-const runningAs = (row: { task: { id: string; title: string } }) =>
-  makeNowRow({ id: row.task.id, title: row.task.title });
-
-describe('work page row actions', () => {
-  it('starts a runnable task, which then shows under Now', async () => {
-    const runnable = frontierRow('MMR-20', 'Add the SQLite dialect');
-    await openForWrite(
-      engineWork({ frontier: { ...engineWork().frontier, runnable: [runnable] } }),
-      engineWork({ now: [runningAs(runnable)] }),
-    );
-
-    fireEvent.click(within(await actionsOf('MMR-20')).getByRole('button', { name: 'Start' }));
-
-    await waitFor(() => {
-      expect(start).toHaveBeenCalledWith({ data: { id: 'MMR-20' } });
-    });
-    const now = await section('Now · 1');
-    expect(hrefOf(now, 'Add the SQLite dialect')).toBe('/p/MMR/20');
-    expect(screen.queryByRole('region', { name: 'Runnable now' })).toBeNull();
-  });
-
-  it('answers a question and sets the grooming state, and the task moves to the frontier', async () => {
-    await openForWrite(
-      engineWork({ needsYou: [answersRow] }),
-      engineWork({
-        frontier: {
-          ...engineWork().frontier,
-          runnable: [frontierRow('MMR-14', 'Refuse to open unmigrated stores')],
-        },
-      }),
-    );
-
-    fireEvent.click(within(await actionsOf('MMR-14')).getByRole('button', { name: 'Answer…' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
-    expect(dialog).toHaveTextContent('Should it refuse, or warn?');
-    fireEvent.change(within(dialog).getByRole('textbox', { name: /answer/i }), {
-      target: { value: 'Refuse, and name the export command.' },
-    });
-    fireEvent.click(within(dialog).getByRole('radio', { name: /^groomed/ }));
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
-
-    await waitFor(() => {
-      expect(setGrooming).toHaveBeenCalledWith({
-        data: {
-          ids: ['MMR-14'],
-          note: 'Refuse, and name the export command.',
-          state: 'groomed',
-        },
-      });
-    });
-    const runnable = await section('Runnable now');
-    expect(hrefOf(runnable, 'Refuse to open unmigrated stores')).toBe('/p/MMR/14');
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Answer' })).toBeNull();
-    });
-    await expect(section('Needs you')).resolves.toHaveTextContent('Nothing needs you.');
-  });
-
-  it('keeps a row’s button off until the sections have refreshed, so one tap writes once', async () => {
-    await open(
-      PROJECT_SCOPE,
-      engineWork({
-        frontier: {
-          ...engineWork().frontier,
-          runnable: [frontierRow('MMR-20', 'Add the SQLite dialect')],
-        },
-      }),
-    );
-    // The write lands, but the refreshed sections are still on their way.
-    const refresh = holdRefresh();
-
-    const startButton = within(await actionsOf('MMR-20')).getByRole('button', { name: 'Start' });
-    fireEvent.click(startButton);
-    await waitFor(() => {
-      expect(writeCalls()).toBe(1);
-    });
-    expect(startButton).toBeDisabled();
-
-    refresh.resolve(
-      engineWork({ now: [runningAs(frontierRow('MMR-20', 'Add the SQLite dialect'))] }),
-    );
-    await section('Now · 1');
-    expect(screen.queryByRole('group', { name: 'Actions for MMR-20' })).toBeNull();
-  });
-
-  it('keeps the answer dialog open until the sections have refreshed', async () => {
-    await open(PROJECT_SCOPE, engineWork({ needsYou: [answersRow] }));
-    const refresh = holdRefresh();
-
-    fireEvent.click(within(await actionsOf('MMR-14')).getByRole('button', { name: 'Answer…' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
-    fireEvent.change(within(dialog).getByRole('textbox', { name: /answer/i }), {
-      target: { value: 'Refuse.' },
-    });
-    fireEvent.click(within(dialog).getByRole('radio', { name: /^groomed/ }));
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
-    await waitFor(() => {
-      expect(writeCalls()).toBe(1);
-    });
-    expect(within(dialog).getByRole('button', { name: 'Answer' })).toBeDisabled();
-
-    refresh.resolve(engineWork());
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Answer' })).toBeNull();
-    });
-  });
-
-  it('asks for what is still open when the answer keeps the task at needs answers', async () => {
-    await open(PROJECT_SCOPE, engineWork({ needsYou: [answersRow] }));
-
-    fireEvent.click(within(await actionsOf('MMR-14')).getByRole('button', { name: 'Answer…' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
-    expect(within(dialog).getByRole('textbox', { name: 'Answer (required)' })).toBeDefined();
-
-    fireEvent.click(within(dialog).getByRole('radio', { name: /^needs answers/ }));
-    expect(
-      within(dialog).getByRole('textbox', { name: 'Answer, and what is still open (required)' }),
-    ).toBeDefined();
-  });
-
-  it('needs both an answer and a chosen state before it answers', async () => {
-    await open(PROJECT_SCOPE, engineWork({ needsYou: [answersRow] }));
-
-    fireEvent.click(within(await actionsOf('MMR-14')).getByRole('button', { name: 'Answer…' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
-    const submit = within(dialog).getByRole('button', { name: 'Answer' });
-    // No state is chosen for the operator: the grooming call is theirs to make.
-    for (const radio of within(dialog).getAllByRole('radio')) {
-      expect(radio).not.toBeChecked();
-    }
-    expect(submit).toBeDisabled();
-
-    fireEvent.click(within(dialog).getByRole('radio', { name: /^needs answers/ }));
-    expect(submit).toBeDisabled();
-    fireEvent.change(within(dialog).getByRole('textbox', { name: /answer/i }), {
-      target: { value: '   ' },
-    });
-    expect(submit).toBeDisabled();
-    fireEvent.change(within(dialog).getByRole('textbox', { name: /answer/i }), {
-      target: { value: 'Partly: refuse. Still open: the flag name.' },
-    });
-    expect(submit).toBeEnabled();
-  });
-});
-
-const secondAnswers = needsYouRow(
-  { grooming: 'needs_answers', id: 'MMR-15', status: 'ready', title: 'Name the seam' },
-  'needs_answers',
-  { question: 'Which name?' },
-);
-/** Press a row's button the way a keyboard does: focused first, then activated. */
-const press = async (id: string, name: string) => {
-  const button = within(await actionsOf(id)).getByRole('button', { name });
-  button.focus();
-  fireEvent.click(button);
-};
-/** Open a needs-answers row's Answer… dialog and fill in an answer and a state. */
-const pressAnswer = async (id: string) => {
-  await press(id, 'Answer…');
-  const dialog = await screen.findByRole('dialog', { name: 'Answer' });
-  fireEvent.change(within(dialog).getByRole('textbox', { name: /answer/i }), {
-    target: { value: 'Refuse.' },
-  });
-  fireEvent.click(within(dialog).getByRole('radio', { name: /^groomed/ }));
-  return dialog;
-};
-/** Answer a needs-answers row: open its dialog, fill it, and submit. */
-const answer = async (id: string) => {
-  const dialog = await pressAnswer(id);
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
-};
-const answerButtonOf = (id: string) =>
-  within(screen.getByRole('group', { name: `Actions for ${id}` })).getByRole('button', {
-    name: 'Answer…',
-  });
-const startButtonOf = (id: string) =>
-  within(screen.getByRole('group', { name: `Actions for ${id}` })).getByRole('button', {
-    name: 'Start',
-  });
-
-describe('work page focus after an acted-on row moves away', () => {
-  it('lands on the next row’s actions after Answer… moves a row out of Needs you', async () => {
-    await openForWrite(
-      engineWork({ needsYou: [answersRow, secondAnswers] }),
-      engineWork({ needsYou: [secondAnswers] }),
-    );
-
-    await answer('MMR-14');
-
-    await waitFor(() => {
-      expect(screen.queryByRole('group', { name: 'Actions for MMR-14' })).toBeNull();
-    });
-    expect(answerButtonOf('MMR-15')).toHaveFocus();
-  });
-
-  it('lands on the section heading when the moved row had no row after it', async () => {
-    await openForWrite(
-      engineWork({ needsYou: [secondAnswers, answersRow] }),
-      engineWork({ needsYou: [secondAnswers] }),
-    );
-
-    await answer('MMR-14');
-
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { level: 2, name: /^Needs you · 1/ })).toHaveFocus();
-    });
-  });
-
-  it('lands on the next runnable row’s Start after Start moves a row to Now', async () => {
-    const first = frontierRow('MMR-20', 'Add the SQLite dialect');
-    const second = frontierRow('MMR-21', 'Add the Postgres dialect');
-    const runnable = (rows: (typeof first)[]) => ({ ...engineWork().frontier, runnable: rows });
-    await openForWrite(
-      engineWork({ frontier: runnable([first, second]) }),
-      engineWork({ frontier: runnable([second]), now: [runningAs(first)] }),
-    );
-
-    await press('MMR-20', 'Start');
-
-    await waitFor(() => {
-      expect(startButtonOf('MMR-21')).toHaveFocus();
-    });
-  });
-
-  it('lands on the next row after the answer dialog closes and the row moves to the frontier', async () => {
-    await openForWrite(
-      engineWork({ needsYou: [answersRow, secondAnswers] }),
-      engineWork({
-        frontier: {
-          ...engineWork().frontier,
-          runnable: [frontierRow('MMR-14', 'Refuse to open unmigrated stores')],
-        },
-        needsYou: [secondAnswers],
-      }),
-    );
-
-    await answer('MMR-14');
-
-    await waitFor(() => {
-      expect(answerButtonOf('MMR-15')).toHaveFocus();
-    });
-    expect(screen.queryByRole('dialog', { name: 'Answer' })).toBeNull();
-  });
-
-  it('lands on the next row’s link when that row offers no action', async () => {
-    await openForWrite(
-      engineWork({ needsYou: [answersRow, blockedRow] }),
-      engineWork({ needsYou: [blockedRow] }),
-    );
-
-    await answer('MMR-14');
-
-    await waitFor(() => {
-      expect(
-        within(screen.getByRole('region', { name: 'Needs you · 1' })).getByRole('link', {
-          name: 'Record health copy',
-        }),
-      ).toHaveFocus();
-    });
-  });
-
-  it('moves nothing for a cancelled answer’s row when it leaves later', async () => {
-    const first = frontierRow('MMR-20', 'Add the SQLite dialect');
-    const second = frontierRow('MMR-21', 'Add the Postgres dialect');
-    const runnable = (rows: (typeof first)[]) => ({ ...engineWork().frontier, runnable: rows });
-    await openForWrite(
-      engineWork({ frontier: runnable([first, second]), needsYou: [answersRow, secondAnswers] }),
-      // MMR-14 was answered elsewhere meanwhile, so Start's refresh drops it too.
-      engineWork({
-        frontier: runnable([second]),
-        needsYou: [secondAnswers],
-        now: [runningAs(first)],
-      }),
-    );
-
-    await press('MMR-14', 'Answer…');
-    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Answer' })).toBeNull();
-    });
-    await press('MMR-20', 'Start');
-
-    await waitFor(() => {
-      expect(startButtonOf('MMR-21')).toHaveFocus();
-    });
-  });
-
-  it('moves nothing for a failed answer’s row when it leaves later', async () => {
-    const first = frontierRow('MMR-20', 'Add the SQLite dialect');
-    const second = frontierRow('MMR-21', 'Add the Postgres dialect');
-    const runnable = (rows: (typeof first)[]) => ({ ...engineWork().frontier, runnable: rows });
-    await open(
-      PROJECT_SCOPE,
-      engineWork({ frontier: runnable([first, second]), needsYou: [answersRow, secondAnswers] }),
-    );
-
-    vi.mocked(setGrooming).mockRejectedValueOnce(new Error('conflict'));
-    const dialog = await pressAnswer('MMR-14');
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
-    await waitFor(() => {
-      expect(setGrooming).toHaveBeenCalledTimes(1);
-    });
-    await waitFor(() => {
-      expect(within(dialog).getByRole('button', { name: 'Answer' })).toBeEnabled();
-    });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Answer' })).toBeNull();
-    });
-
-    const startRefresh = holdRefresh();
-    await press('MMR-20', 'Start');
-    // MMR-14 was answered elsewhere meanwhile, so Start's refresh drops it too.
-    startRefresh.resolve(
-      engineWork({
-        frontier: runnable([second]),
-        needsYou: [secondAnswers],
-        now: [runningAs(first)],
-      }),
-    );
-
-    await waitFor(() => {
-      expect(startButtonOf('MMR-21')).toHaveFocus();
-    });
-  });
-
-  it('moves nothing for a row that lost its action before it leaves', async () => {
-    const first = frontierRow('MMR-20', 'Add the SQLite dialect');
-    const second = frontierRow('MMR-21', 'Add the Postgres dialect');
-    const runnable = (rows: (typeof first)[]) => ({ ...engineWork().frontier, runnable: rows });
-    await open(
-      PROJECT_SCOPE,
-      engineWork({ frontier: runnable([first, second]), needsYou: [answersRow, secondAnswers] }),
-    );
-
-    // MMR-14 is blocked elsewhere as it is answered, so it stays with no action.
-    const blockedRefresh = holdRefresh();
-    await answer('MMR-14');
-    const blockedAs: NeedsYouTask = {
-      ...blockedRow,
-      task: { ...blockedRow.task, id: 'MMR-14', title: answersRow.task.title },
-    };
-    blockedRefresh.resolve(
-      engineWork({ frontier: runnable([first, second]), needsYou: [blockedAs, secondAnswers] }),
-    );
-    await waitFor(() => {
-      expect(screen.queryByRole('group', { name: 'Actions for MMR-14' })).toBeNull();
-    });
-
-    const startRefresh = holdRefresh();
-    await press('MMR-20', 'Start');
-    startRefresh.resolve(
-      engineWork({
-        frontier: runnable([second]),
-        needsYou: [secondAnswers],
-        now: [runningAs(first)],
-      }),
-    );
-
-    await waitFor(() => {
-      expect(startButtonOf('MMR-21')).toHaveFocus();
-    });
-  });
-
-  it('leaves focus alone when the operator has moved on before the row leaves', async () => {
-    const first = frontierRow('MMR-20', 'Add the SQLite dialect');
-    const second = frontierRow('MMR-21', 'Add the Postgres dialect');
-    const runnable = (rows: (typeof first)[]) => ({ ...engineWork().frontier, runnable: rows });
-    await open(PROJECT_SCOPE, engineWork({ frontier: runnable([first, second]) }));
-    const refresh = holdRefresh();
-
-    await press('MMR-20', 'Start');
-    await waitFor(() => {
-      expect(writeCalls()).toBe(1);
-    });
-    const elsewhere = screen.getByRole('button', { name: 'More' });
-    elsewhere?.focus();
-    refresh.resolve(engineWork({ frontier: runnable([second]), now: [runningAs(first)] }));
-
-    await waitFor(() => {
-      expect(screen.queryByRole('group', { name: 'Actions for MMR-20' })).toBeNull();
-    });
-    expect(elsewhere).toHaveFocus();
-  });
-});
-
-describe('work page offline', () => {
-  it('disables New task, including the one in an empty frontier', async () => {
-    serve(PHASE_SCOPE);
-    // An errored read over loaded data is the console's offline signal.
-    failNotes();
-    await renderRoute(routes, '/p/MMR/105', quietClient());
-
-    const frontier = await section('Frontier');
-    await waitFor(() => {
-      expect(within(frontier).getByRole('button', { name: 'New task' })).toBeDisabled();
-    });
-  });
-
-  it('disables every row action', async () => {
-    serve(
-      PHASE_SCOPE,
-      engineWork({
-        frontier: { ...engineWork().frontier, runnable: [frontierRow('MMR-20', 'Runnable')] },
-        needsYou: [answersRow, blockedRow],
-      }),
-    );
-    failNotes();
-    await renderRoute(routes, '/p/MMR/105', quietClient());
-
-    const actions = await Promise.all(['MMR-14', 'MMR-20'].map(actionsOf));
-    await waitFor(() => {
-      for (const group of actions) {
-        for (const button of within(group).getAllByRole('button')) {
-          expect(button).toBeDisabled();
-        }
-      }
-    });
-  });
-});
-
 describe('work page head (MMR-726)', () => {
   it('a project heads its page with no trail, New task, and More, then its tabs', async () => {
     await open(PROJECT_SCOPE);
@@ -1104,14 +814,6 @@ describe('work page head (MMR-726)', () => {
     ).toStrictEqual(['New task', 'More']);
     expect(screen.getByRole('tablist', { name: 'Record views' })).toBeDefined();
     expect(screen.queryByRole('button', { name: 'Project settings' })).toBeNull();
-  });
-
-  it('opens Work on the progress bar and its legend', async () => {
-    await open(PROJECT_SCOPE);
-
-    const panel = screen.getByRole('tabpanel');
-    expect(within(panel).getByRole('img', { name: /In progress 1/ })).toBeDefined();
-    expect(within(panel).getByText('1 in progress · 1 parked · 3 done')).toBeDefined();
   });
 
   it('a phase trails its ancestors, and files new work into itself', async () => {

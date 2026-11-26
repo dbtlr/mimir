@@ -20,6 +20,8 @@ export type RowGroupCount =
 export type RowGroupRow = {
   /** A project key, set in mono in its own column, unique within the group. */
   key?: string;
+  /** The row's identity when its name may repeat (a record ID), unique within the group; never shown. */
+  id?: string;
   /** The row's label; a row without a key needs a name unique within the group. */
   name: string;
   count: number;
@@ -31,6 +33,11 @@ export type RowGroupRow = {
   figures?: readonly number[];
   /** The row's destination; a row without one is a plain row, not a link. */
   to?: FeedLink;
+  /**
+   * A mark before the name in a 16 column, from the feature: a part's status
+   * dot and its status in words for a screen reader (MMR-727).
+   */
+  lead?: ReactNode;
 };
 
 /**
@@ -61,6 +68,10 @@ export type RowGroupColumns = {
  * the attention pill, and a group with `columns` lays each row's `figures`
  * out under captions from `md` up, where they take the place of the one
  * count.
+ *
+ * A scoped page's options (MMR-727): a row may `lead` with a mark (a part's
+ * status dot), and `after` closes the group, inside its frame, with what is
+ * set apart from its rows (a Lane fold of the finished parts).
  */
 export function RowGroup({
   label,
@@ -69,6 +80,7 @@ export function RowGroup({
   framed = false,
   keepZero = false,
   columns,
+  after,
 }: {
   /** The list's accessible name ("Shipped by project"). */
   label: string;
@@ -82,6 +94,8 @@ export function RowGroup({
    * a count (not `none`) fit its tracks; a group with columns has no `more`.
    */
   columns?: RowGroupColumns;
+  /** What closes the group under its last row, inside its frame (not with `columns`). */
+  after?: ReactNode;
 }) {
   const layout: Layout = { columns };
   const items = (
@@ -109,17 +123,29 @@ export function RowGroup({
   if (columns !== undefined) {
     return <ColumnsGroup label={label} columns={columns} items={items} />;
   }
-  const list = (
-    <ul aria-label={label} className="m-0 list-none divide-y divide-line p-0">
-      {items}
-    </ul>
-  );
-  return framed ? (
-    <div data-slot="row-group-frame" className={cn(cardVariants(), 'px-4')}>
-      {list}
-    </div>
-  ) : (
+  // With every row set apart into `after`, an empty list would only draw a stray hairline above it.
+  const empty = more === undefined && !rows.some((row) => keepZero || row.count > 0);
+  const list =
+    empty && after !== undefined ? null : (
+      <ul aria-label={label} className="m-0 list-none divide-y divide-line p-0">
+        {items}
+      </ul>
+    );
+  if (framed) {
+    return (
+      <div data-slot="row-group-frame" className={cn(cardVariants(), 'px-4')}>
+        {list}
+        {after}
+      </div>
+    );
+  }
+  return after === undefined ? (
     list
+  ) : (
+    <div>
+      {list}
+      {after}
+    </div>
   );
 }
 
@@ -184,11 +210,14 @@ function ColumnsGroup({
 }
 
 /**
- * A row's stable React key: its project key, else its name. An unkeyed row's
- * name is a fixed label ("Seeds to triage"), unique within its group. Two
- * namespaces keep a caller's key from ever equalling a name.
+ * A row's stable React key: its identity, else its project key, else its
+ * name. A row with neither has a fixed label ("Seeds to triage"), unique
+ * within its group. Separate namespaces keep one kind from equalling another.
  */
 function rowKey(row: RowGroupRow): string {
+  if (row.id !== undefined) {
+    return `id:${row.id}`;
+  }
   return row.key === undefined ? `name:${row.name}` : `key:${row.key}`;
 }
 
@@ -300,6 +329,12 @@ function RowText({
   }
   return (
     <>
+      {row.lead !== undefined && (
+        <>
+          {/* Centred on the name's first line, as the Day fold's dot column is. */}
+          <span className="flex w-4 shrink-0 justify-center self-start pt-2">{row.lead}</span>{' '}
+        </>
+      )}
       {(row.key !== undefined || columns !== undefined) && (
         <>
           <span className="min-w-12 shrink-0 font-mono text-mono-id text-ink-dim">
