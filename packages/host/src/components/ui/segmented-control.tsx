@@ -60,10 +60,14 @@ export type SegmentedOption<T extends string> = {
 
 /*
  * A field track whose labels run past a word (the Seeds Show, a task's
- * Grooming): each segment sized to its label, 6 of padding a side on a phone
- * and 44 wide at least, the row still spanning the field (DESIGN.md, A form).
+ * Grooming): each segment sized to its label, 6 of padding a side on a phone,
+ * the row still spanning the field (DESIGN.md, A form). When the labels still
+ * do not fit (a 320 phone), a label wraps to two lines inside its 44 tall
+ * segment, and no segment shrinks below its longest word, so nothing clips.
+ * The short labels this takes (p0 to p3) grow to fill the row, which keeps
+ * their 44 width at 320.
  */
-const FIT_SEGMENT_CLASS = 'min-w-11 flex-auto px-1.5 md:px-3';
+const FIT_SEGMENT_CLASS = 'min-w-min flex-auto whitespace-normal py-0 text-balance px-1.5 md:px-3';
 
 const MONO_SEGMENT_CLASS = 'font-mono [font-size-adjust:var(--mono-adjust)]';
 

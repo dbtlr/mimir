@@ -252,12 +252,14 @@ triage, To resolve, Parked, Settled), though two labels run past a word, as
 the picked mock drew it (**adopted (MMR-725)**). Each segment is sized to its
 label with 6 of padding a side on a phone and is 44 wide at least
 (the Segmented Control's `fit`): the row fits at 390, where equal shares cut "To
-resolve", but at 320 every label but All clips by about 10.
+resolve". Where the labels still do not fit (a 320 phone), a `fit` label wraps
+to two 20 lines inside its 44 segment, balanced, rather than clipping
+(**adopted (MMR-731)**: Show's labels clipped by about 10 at 320).
 A fourth: a task's Grooming in the edit sheet takes three segments (Not
 groomed, Needs answers, Groomed), though two labels run past a word, as the
 picked mock drew it (**adopted (MMR-731)**). Its segments are sized to their
 labels on a phone by `fit`, as Show's are: the row fits at 390, and at 320
-the three labels clip by a few pixels each. The sheet's Size and Priority
+"Not groomed" and "Needs answers" wrap to two lines. The sheet's Size and Priority
 take `fit` too, so "Medium" and "None" fit at 320, where equal shares cut
 them; from `md` `fit` segments share the leftover width (`px-3`). Priority's
 values are mono with `--mono-adjust` (the option's `mono`); None stays sans.
@@ -816,7 +818,7 @@ The forms built on these numbers (MMR-743), for checking a build against them:
   (None, Small, Medium, Large), Priority (None, then `p0` to `p3` in mono),
   Grooming (three segments, todo tasks only), Open questions (only after
   choosing Needs answers; required, help "Required for Needs answers. Saved
-  as a note on the task."), and Parent (optional, a Record picker grouped
+  as a note on the task."), and Parent (always set, so no marker: a Record picker grouped
   Initiatives then Phases, reading "`MMR-717` — One feed system…"); then
   Links: Tags (optional, the Token Input field, help "Press Enter or type a
   comma to add a tag.") and External ref (optional). It opens on Title; Save

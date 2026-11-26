@@ -123,12 +123,12 @@ describe('task edit sheet: opening and closing', () => {
     });
   });
 
-  it('marks the optional fields, and not Title or the choices that always hold a value', async () => {
+  it('marks the optional fields, and not Title, Parent, or the choices that always hold a value', async () => {
     const sheet = await openSheet(todo());
     const optional = [...sheet.querySelectorAll('label, span')]
       .filter((el) => el.lastElementChild?.textContent === 'optional')
       .map((el) => el.firstChild?.textContent);
-    expect(optional).toStrictEqual(['Summary', 'Description', 'Parent', 'Tags', 'External ref']);
+    expect(optional).toStrictEqual(['Summary', 'Description', 'Tags', 'External ref']);
   });
 });
 

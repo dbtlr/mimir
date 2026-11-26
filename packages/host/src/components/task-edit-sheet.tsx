@@ -288,7 +288,6 @@ function TaskEditForm({ node, tree, open, onClose, finalFocus }: TaskEditSheetPr
         )}
         <FormRecordPicker
           label="Parent"
-          optional
           records={parentRecords(tree)}
           value={draft.parent}
           onValueChange={(parent) => {
