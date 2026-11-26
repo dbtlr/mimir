@@ -589,6 +589,16 @@ describe('sidebar on an archived or unavailable project (MMR-730)', () => {
     expect(within(nav).queryByText('Couldn’t load the structure.')).toBeNull();
   });
 
+  it('rings the archived project’s row, not marking it the page, on a page it holds', async () => {
+    serveArchived();
+    await renderAt('/p/OLD/s3');
+    const nav = await expectRows(['← Home', 'OLD Old project, contains this page']);
+    const row = within(nav).getByRole('link', { name: /^OLD/ });
+    expect(row).not.toHaveAttribute('aria-current');
+    expect(row).toHaveAttribute('data-holds', 'true');
+    expect(row).toHaveAccessibleName('OLD Old project, contains this page');
+  });
+
   it('shows ← Home and an unavailable project’s key alone', async () => {
     serveArchived();
     await renderAt('/p/GONE');

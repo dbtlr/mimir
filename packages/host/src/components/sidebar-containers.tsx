@@ -123,22 +123,24 @@ export function ContainerRowLink({
     >
       {status !== undefined && <StatusDot status={status} />}
       {projectKey !== undefined && (
-        <>
-          <span className="shrink-0 font-mono text-meta font-bold text-ink-bright">
-            {projectKey}
-          </span>{' '}
-        </>
+        <span className="shrink-0 font-mono text-meta font-bold text-ink-bright">
+          {projectKey}
+        </span>
       )}
       {/* The spaces part the row's accessible name; flex layout drops them visually. */}
       {title !== undefined && (
         <>
+          {' '}
           <span className={cn('min-w-0 flex-1 truncate', mark !== undefined && 'font-semibold')}>
             {title}
-          </span>{' '}
+          </span>
         </>
       )}
       {tally !== undefined && (
-        <span className="ml-auto shrink-0 font-mono text-mono-id text-ink-dim">{tally}</span>
+        <>
+          {' '}
+          <span className="ml-auto shrink-0 font-mono text-mono-id text-ink-dim">{tally}</span>
+        </>
       )}
       {mark === 'holds' && <span className="sr-only">, contains this page</span>}
     </RowLink>
