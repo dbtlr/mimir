@@ -1317,7 +1317,8 @@ now follows Home (the MMR-722 refinement) with the record as its scope
 order and Frontier and the MMR-726 refinement's progress bar. The data is
 the work read the tab already makes (`projectWork` or `nodeWork`), the
 project tree, the review report (its needs-you facts and its per-project
-untriaged count), and Record health; no read changes.
+untriaged count), the agent-activity read, and Record health; no read
+changes.
 
 - **The sections run in this order**, each left out when it has nothing to
   show:
@@ -1329,9 +1330,9 @@ untriaged count), and Record health; no read changes.
   2. _Now_, title cards for the scope's tasks in flight, as on Home: most
      recent move first, four on a phone and six from 768, and "6 of 9" in
      its head when the cap hides cards. A running agent's row and its
-     _Stop_ stay (ADR 0041, MMR-635 refinement): a run whose task has no
-     card gets its own row above the cards, which the head's count leaves
-     out and which keeps Now shown.
+     _Stop_ stay (ADR 0041, MMR-635 refinement): the row sits above the
+     cards while the run is live, whether or not its task has a card; the
+     head's count leaves it out, and it keeps Now shown.
   3. _Up next_, only the tasks that can start now (the Frontier's runnable
      set), as cards whose one action is _Start_, three at most, its head
      reading "N can start". One row may follow for what unlocks next: the
@@ -1345,7 +1346,7 @@ untriaged count), and Record health; no read changes.
      project, by phase, with a task directly under an initiative counted
      under that initiative; on an initiative, by phase, with its direct
      tasks under the initiative's own title; on a phase, which has nothing
-     below its tasks, its finished tasks as rows, most recent first, three
+     below its tasks, its done tasks as rows, most recent first, three
      at most. As on Home, an abandoned task did not ship.
   5. _When you have a minute_, count rows in a framed row group: To groom
      (the Frontier's to-groom set, tasks and the containers to break down
@@ -1358,16 +1359,16 @@ untriaged count), and Record health; no read changes.
      tree order, in a row group whose rows carry the part's status dot, its
      title, and its done-over-total progress, each opening the part's page.
      The finished parts, those whose rollup is done or abandoned, gather in
-     one Lane fold (ADR 0019), closed, "N finished phases" (or
+     one Lane fold (ADR 0019), closed, "Finished phases N" (or
      initiatives), that opens in place. An initiative's direct
      tasks are not parts: they already appear above, and a task appears
      once on a page. A phase, and an initiative with no phases, has no
      parts.
 - **One quiet sentence replaces the quiet sections.** When Needs you, Now,
   Up next, and Shipped this week would all be empty, the quiet sentence
-  (ADR 0019's MMR-719 refinement, with no frame) reads "Nothing is running,
-  ready to start, or waiting on you.", adding "The last task finished N days
-  ago." when a task in the scope was ever done (the latest `completedAt` in
+  (ADR 0019's MMR-719 refinement, with no frame) replaces them, Needs
+  you's quiet line included. It reads "Nothing is running, ready to start,
+  or waiting on you.", adding "The last task finished N days ago." when a task in the scope was ever done (the latest `completedAt` in
   the tree). When you have a minute and Parts still follow it. The round-5
   mock drew it as a titled card; ADR 0019 later rejected a framed quiet card
   because it read as tappable, and the ADR governs.
@@ -1387,11 +1388,11 @@ untriaged count), and Record health; no read changes.
   no task directly under it.
 - **A link appears only where its destination shows the same set.** On a
   project: Now's _See all_ opens the Tasks list on _In flight_, Shipped's
-  on _Shipped this week_, the Going cold row on _Going
-  cold_, and the Seeds to triage row the Seeds list on _To triage_ (the
-  MMR-724 and MMR-725 refinements); Record health findings opens
-  `/doctor`. Needs you has no _See all_ on a scoped page, because the Needs
-  you page spans every project, and neither has Up next, because the
+  on _Shipped this week_, the Going cold row on _Going cold_, and the Seeds
+  to triage row the Seeds list on _To triage_ (the MMR-724 and MMR-725
+  refinements); Record health findings opens `/doctor?project=KEY`. Needs
+  you has no _See all_ on a scoped page, because the Needs you page spans
+  every project, and neither has Up next, because the
   _Ready_ preset also lists ready tasks still to groom (the mismatch
   MMR-792 records on Home). Every other row and head is plain until
   its destination exists: the Tasks list's filter to an initiative or phase
