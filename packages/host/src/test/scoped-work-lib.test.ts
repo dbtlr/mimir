@@ -373,6 +373,17 @@ describe('the quiet sentence', () => {
     );
   });
 
+  it('names no finish when every finished task in the scope was abandoned', () => {
+    const abandonedOnly = projectWith([
+      phase('MMR-2', 'abandoned', [
+        task('MMR-3', 'abandoned'),
+        task('MMR-4', 'abandoned', { completedAt: daysAgo(3) }),
+      ]),
+    ]);
+
+    expect(lastFinishedAt(abandonedOnly, 'MMR')).toBeUndefined();
+  });
+
   it('says only what is quiet when no task in the scope was ever done', () => {
     expect(quietSentence({ lastFinished: undefined, now: NOW, zone: ZONE })).toBe(
       'Nothing is running, ready to start, or waiting on you.',

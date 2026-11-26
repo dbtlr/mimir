@@ -335,6 +335,20 @@ describe('the scoped Work tab (MMR-727)', () => {
     expect(needs.querySelector('[aria-busy]')).toBeNull();
   });
 
+  it('goes quiet once the review loads with no deck card for the scope’s needs-you rows', async () => {
+    serve(PROJECT_SCOPE);
+    serveViews({
+      projects: { MMR: engineWork({ needsYou: [answersRow] }) },
+      review: reviewOf([]),
+    });
+    await renderRoute(routes, PROJECT_SCOPE.url, quietClient());
+
+    await expect(
+      screen.findByText(/^Nothing is running, ready to start, or waiting on you/),
+    ).resolves.toBeVisible();
+    expect(screen.queryByRole('region', { name: /^Needs you/ })).toBeNull();
+  });
+
   it('says nothing here needs you when the deck has no card and other sections show', async () => {
     await open(PROJECT_SCOPE, engineWork({ now: [nowRow] }));
 
