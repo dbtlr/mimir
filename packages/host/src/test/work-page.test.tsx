@@ -2,6 +2,7 @@ import { MimirError } from '@mimir/contract';
 import type { EngineNode, EngineTree } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HostFaultError } from '../api/errors';
@@ -19,6 +20,7 @@ import { engineContainer } from './node-fixtures';
 import { failNotes, serveNodes } from './node-fns';
 import { renderRoute } from './router';
 import { serveShell } from './shell-fns';
+import { stubViewport } from './viewport';
 import {
   engineWork,
   frontierRow as makeFrontierRow,
@@ -49,6 +51,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 function leaf(
@@ -405,6 +408,40 @@ describe('the scoped Work tab (MMR-727)', () => {
       expect(screen.getByRole('main')).toHaveFocus();
     });
   });
+
+  // The panel renders in place, inside Up next's block, so the block's hand-off counts focus held in it.
+  it.each(['desktop', 'phone'] as const)(
+    'hands the page the focus Start held in the last card’s preview as that card leaves Up next (%s)',
+    async (viewport) => {
+      stubViewport(viewport);
+      const runnable = frontierRow('MMR-20', 'Add the SQLite dialect');
+      serve(PROJECT_SCOPE);
+      const world = serveViews({
+        projects: {
+          MMR: engineWork({ frontier: { ...engineWork().frontier, runnable: [runnable] } }),
+        },
+      });
+      const echoed = vi.mocked(start).getMockImplementation();
+      vi.mocked(start).mockImplementation(async (options) => {
+        world.projects.MMR = engineWork({
+          now: [makeNowRow({ id: 'MMR-20', title: 'Add the SQLite dialect' })],
+        });
+        return echoed?.(options) as never;
+      });
+      await renderRoute(routes, PROJECT_SCOPE.url, quietClient());
+
+      const next = await section('Up next');
+      await userEvent.click(within(next).getByRole('button', { name: 'Add the SQLite dialect' }));
+      const panel = await screen.findByRole('dialog');
+      await userEvent.click(within(panel).getByRole('button', { name: 'Start MMR-20' }));
+
+      await section('Now');
+      await waitFor(() => {
+        expect(screen.queryByRole('region', { name: /^Up next/ })).toBeNull();
+        expect(screen.getByRole('main')).toHaveFocus();
+      });
+    },
+  );
 
   it('leaves focus where it was when Up next leaves without holding it', async () => {
     const runnable = frontierRow('MMR-20', 'Add the SQLite dialect');
