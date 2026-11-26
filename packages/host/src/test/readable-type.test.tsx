@@ -158,8 +158,8 @@ const DECORATION: Record<string, { count: number; why: string }> = {
     why: 'the / separators between a record header’s ancestors',
   },
   'components/project-picker.tsx': {
-    count: 2,
-    why: 'the trigger chevron and the search icon beside the input',
+    count: 1,
+    why: 'the search icon beside the input',
   },
   'components/ui/combobox.tsx': {
     count: 2,
