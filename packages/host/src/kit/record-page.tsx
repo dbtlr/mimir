@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { MarkdownBody } from '../components/markdown-body';
 import { ExternalRef } from '../components/node-record';
 import { Composer } from '../components/patterns/composer';
-import { Fact, FactMono, Facts } from '../components/patterns/facts';
+import { FACT_LINK_CLASS, Fact, FactMono, Facts } from '../components/patterns/facts';
 import { DayFolds } from '../components/patterns/feed/day-fold';
 import type { FoldDay } from '../components/patterns/feed/day-fold';
 import { ThreadDot, ThreadEvent, ThreadNote } from '../components/patterns/feed/thread';
@@ -125,7 +125,10 @@ export function RecordPageKit() {
           <BannerFacts>
             <Facts>
               <Fact label="Pull request">
-                <ExternalRef value="https://github.com/example/mimir/pull/653" />
+                <ExternalRef
+                  value="https://github.com/example/mimir/pull/653"
+                  className={FACT_LINK_CLASS}
+                />
               </Fact>
             </Facts>
           </BannerFacts>

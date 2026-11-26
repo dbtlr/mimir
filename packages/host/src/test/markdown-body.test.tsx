@@ -111,6 +111,40 @@ describe('markdownBody', () => {
     vi.restoreAllMocks();
   });
 
+  it('shows a note of fewer than 12 lines whole, even when its block spacing runs past 12 lines’ height', () => {
+    // Eleven one-line bullets, each line box 20 tall and 30 apart: 330 of
+    // content against a 240 clamp, yet only 11 lines of text.
+    const real = globalThis.getComputedStyle.bind(globalThis);
+    vi.spyOn(globalThis, 'getComputedStyle').mockImplementation((el, pseudo) =>
+      el.tagName === 'ARTICLE' ? ({ lineHeight: '20px' } as CSSStyleDeclaration) : real(el, pseudo),
+    );
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(240);
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(330);
+    Object.defineProperty(Range.prototype, 'getClientRects', {
+      configurable: true,
+      value(this: Range) {
+        const line = Number(/\d+/.exec(this.startContainer.textContent ?? '')?.[0]);
+        return [DOMRect.fromRect({ height: 20, width: 40, y: (line - 1) * 30 })];
+      },
+    });
+    const onClampMeasure = vi.fn();
+    try {
+      render(
+        <MarkdownBody breaks clamp={12} onClampMeasure={onClampMeasure}>
+          {Array.from({ length: 11 }, (_, i) => `- item ${String(i + 1)}`).join('\n')}
+        </MarkdownBody>,
+      );
+
+      expect(onClampMeasure).toHaveBeenLastCalledWith({ lines: 11, overflowing: false });
+      const article = screen.getByRole('article');
+      expect(article).not.toHaveAttribute('data-overflowing');
+      expect(article.style.getPropertyValue('--clamp-height')).toBe('none');
+    } finally {
+      Reflect.deleteProperty(Range.prototype, 'getClientRects');
+      vi.restoreAllMocks();
+    }
+  });
+
   it('loads the image when the host opts in with `images`', () => {
     render(<MarkdownBody images>![build graph](https://example.com/graph.png)</MarkdownBody>);
 

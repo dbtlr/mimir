@@ -10,21 +10,25 @@ import type { DirectionTarget } from '../api/node-mutations';
 import { browserTimeZone } from '../api/queries';
 import { phaseDeliveriesQuery, workQuery } from '../api/view-queries';
 import { scopedRun } from '../lib/agent-card';
+import { kindName, splitKindTags } from '../lib/artifacts';
 import { cn } from '../lib/cn';
+import { foldByDay } from '../lib/day-folds';
 import { PAGE_COLUMN } from '../lib/page-column';
 import { projectKeyOf } from '../lib/project-key';
-import { nodeLink } from '../lib/record-url';
+import { artifactLink, nodeLink } from '../lib/record-url';
 import { STATUS_META, STATUS_ORDER } from '../lib/status';
 import { absoluteTime } from '../lib/time';
-import { newestArtifacts } from '../lib/work-page';
+import { newestArtifacts, shippedTime } from '../lib/work-page';
+import type { RecordArtifact } from '../lib/work-page';
 import { PhaseDeliveries } from './delivery-summary';
 import { DirectionDialog } from './direction-line';
 import { DistributionBar } from './distribution-bar';
 import { MarkdownBody } from './markdown-body';
 import { NewTaskButton } from './new-task-button';
-import { ArtifactLinks, SignalBadges, hasSignals, prerequisiteRows } from './node-record';
+import { SignalBadges, hasSignals, prerequisiteRows } from './node-record';
 import type { ActionMenuAction } from './patterns/action-menu';
 import { Fact, Facts } from './patterns/facts';
+import { DayFolds, FinishedRow } from './patterns/feed/day-fold';
 import { FEED_FOCUS_RING } from './patterns/feed/link';
 import { RowGroup } from './patterns/feed/row-group';
 import { RecordHeader } from './patterns/record-header';
@@ -441,13 +445,31 @@ export function ContainerDetails({ record }: { record: EngineNode }) {
   );
 }
 
-/** A record page's Artifacts tab: what is attached, newest first. */
-export function ArtifactsTab({ record }: { record: EngineNode }) {
+/** One attached artifact as the Artifacts list's row; every one is on this record, so its second line names only its kind. */
+function artifactRow(artifact: RecordArtifact, zone: string) {
+  const { kind } = splitKindTags(artifact.tags);
   return (
-    <ArtifactLinks
-      artifacts={newestArtifacts(record.artifacts ?? [], record.artifacts?.length ?? 0)}
+    <FinishedRow
+      key={artifact.id}
+      variant="artifact"
+      to={artifactLink(artifact.id)}
+      title={artifact.title}
+      meta={kind === undefined ? undefined : <span className="text-ink">{kindName(kind)}</span>}
+      time={shippedTime(artifact.createdAt, zone)}
     />
   );
+}
+
+/** A record page's Artifacts tab: what is attached, newest first, folded by the day it was frozen. */
+export function ArtifactsTab({ record }: { record: EngineNode }) {
+  const zone = browserTimeZone();
+  const artifacts = record.artifacts ?? [];
+  const days = foldByDay(newestArtifacts(artifacts, artifacts.length), {
+    at: (artifact) => artifact.createdAt,
+    row: (artifact) => artifactRow(artifact, zone),
+    zone,
+  });
+  return <DayFolds days={days} cap={Number.POSITIVE_INFINITY} />;
 }
 
 /** The tabs of an initiative, a phase, or a task, in their order. */

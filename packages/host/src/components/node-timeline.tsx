@@ -45,7 +45,12 @@ function TransitionLine({ entry }: { entry: HistoryEntry }) {
   return (
     <p>
       <span className="font-medium text-ink-bright">{label}</span>
-      {detail != null && <span className="font-mono text-meta text-ink-dim"> {detail}</span>}
+      {detail != null && (
+        <>
+          {' '}
+          <span className="font-mono text-meta text-ink-dim">{detail}</span>
+        </>
+      )}
       {roles.length > 0 && (
         // A real space, not a margin, so the label and the handles read apart (MMR-718).
         <span className="text-ink-dim">
@@ -181,14 +186,18 @@ function entryIdentity(item: FeedItem): string {
   }
 }
 
-/** Each entry with a key from its identity, so its row keeps its state when an older entry arrives. */
+/**
+ * Each entry with a key from its identity, so its row keeps its state when an
+ * older entry arrives. The repeat count leads, ended by a colon no count holds,
+ * so a twin's key never matches another entry's identity.
+ */
 function keyEntries(items: readonly FeedItem[]): { item: FeedItem; key: string }[] {
   const seen = new Map<string, number>();
   return items.map((item) => {
     const identity = entryIdentity(item);
     const repeats = seen.get(identity) ?? 0;
     seen.set(identity, repeats + 1);
-    return { item, key: repeats === 0 ? identity : `${identity}-${String(repeats)}` };
+    return { item, key: `${String(repeats)}:${identity}` };
   });
 }
 

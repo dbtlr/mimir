@@ -1,4 +1,4 @@
-import type { EngineNode, EngineOutput, EngineTree } from '@mimir/contract';
+import type { EngineNode, EngineOutput, EngineTree, Grooming } from '@mimir/contract';
 import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 
@@ -11,7 +11,6 @@ import { absoluteTime, ago } from '../lib/time';
 import type { HistoryEntry, NodeAnnotation } from '../lib/timeline';
 import { verdictSummary } from '../lib/verdict';
 import { GroomWithAgentCard } from './agent-card';
-import { GroomingBadge } from './grooming-chip';
 import { LinkifiedText } from './linkified-text';
 import { MarkdownBody } from './markdown-body';
 import { ExternalRef, holdLabel, prerequisiteRows } from './node-record';
@@ -41,6 +40,13 @@ const SIZE_WORD: Record<NonNullable<EngineNode['size']>, string> = {
   large: 'Large',
   medium: 'Medium',
   small: 'Small',
+};
+
+/** A grooming state as Details' plain value; the header keeps the chip. */
+const GROOMING_WORD: Record<Grooming, string> = {
+  groomed: 'Groomed',
+  needs_answers: 'Needs answers',
+  not_groomed: 'Not groomed',
 };
 
 /** The latest entry of `history` that `matches`, as when a state began. */
@@ -157,7 +163,7 @@ function ReviewBanner({
         <BannerFacts>
           <Facts>
             <Fact label={externalRefText(ref) === ref ? 'External ref' : 'Pull request'}>
-              <ExternalRef value={ref} />
+              <ExternalRef value={ref} className={FACT_LINK_CLASS} />
             </Fact>
           </Facts>
         </BannerFacts>
@@ -383,11 +389,7 @@ export function TaskDetails({
               <FactMono>{node.priority}</FactMono>
             </Fact>
           )}
-          {grooming !== undefined && (
-            <Fact label="Grooming">
-              <GroomingBadge state={grooming} />
-            </Fact>
-          )}
+          {grooming !== undefined && <Fact label="Grooming">{GROOMING_WORD[grooming]}</Fact>}
           {tags.length > 0 && (
             <Fact label="Tags">
               <span className="flex flex-wrap gap-1">
@@ -428,7 +430,7 @@ export function TaskDetails({
           {node.target != null && <Fact label="Target">{node.target}</Fact>}
           {node.externalRef != null && (
             <Fact label="External ref">
-              <ExternalRef value={node.externalRef} />
+              <ExternalRef value={node.externalRef} className={FACT_LINK_CLASS} />
             </Fact>
           )}
         </Facts>

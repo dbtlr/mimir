@@ -274,6 +274,18 @@ test('closes the phone page with the facts, topping the rail on desktop, and rea
   expect(thread).toHaveTextContent('None');
 });
 
+test('sets the pull request in the rail’s small text, with no fact link’s pull-back reaching into its neighbours', async () => {
+  await open();
+  const rail = await screen.findByRole('complementary', { name: 'Delivery details' });
+
+  const pr = await within(rail).findByRole('link', { name: /PR #1|example\.com/ });
+  expect(pr).toHaveAttribute('href', 'https://example.com/pull/1');
+  for (const pullBack of ['-my-3', 'py-3', 'min-w-11']) {
+    expect(pr).not.toHaveClass(pullBack);
+  }
+  expect(pr.querySelector('svg')).not.toHaveClass('size-4');
+});
+
 test('wraps long unbroken text so the page never outgrows a phone', async () => {
   const long = 'x'.repeat(140);
   const data = fixture();

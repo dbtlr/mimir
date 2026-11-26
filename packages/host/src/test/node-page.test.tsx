@@ -906,6 +906,40 @@ describe('task page tabs (MMR-728)', () => {
     expect(screen.getByRole('link', { name: /Dialect spec/ })).toHaveAttribute('href', '/p/MMR/a3');
   });
 
+  it('lists the artifacts as the Artifacts list does: folded by day, each row its title, kind, and time, a 44 target', async () => {
+    const { panel } = await openTask(
+      {
+        ...sqlite,
+        artifacts: [
+          {
+            createdAt: new Date('2026-06-09T09:05:00.000Z'),
+            id: 'MMR-a2',
+            tags: [],
+            title: 'Seam notes',
+          },
+          {
+            createdAt: new Date('2026-06-10T14:52:00.000Z'),
+            id: 'MMR-a3',
+            tags: ['kind:spec'],
+            title: 'Dialect spec',
+          },
+        ],
+      },
+      {},
+      'artifacts',
+    );
+
+    const row = await within(panel).findByRole('link', { name: /Dialect spec/ });
+    expect(row).toHaveClass('min-h-11', 'md:min-h-9');
+    expect(within(row).getByText('Dialect spec')).toHaveClass('text-title', 'text-ink-bright');
+    expect(within(row).getByText('Spec')).toBeDefined();
+    expect(within(row).getByText('10:52')).toBeDefined();
+    expect(foldsOf(panel)).toStrictEqual([
+      ['Wednesday, 10 June 1', 'true'],
+      ['Tuesday, 9 June 1', 'false'],
+    ]);
+  });
+
   it('keeps ?tab=artifacts while its cached record predates the artifact, and opens it once read', async () => {
     const attached = {
       ...sqlite,
@@ -1154,6 +1188,40 @@ describe('task page state banner (MMR-728)', () => {
     expect(note?.className).not.toMatch(/mask-image/);
   });
 
+  it('keeps the latest note’s links out of the tab order, so focus never scrolls the clipped preview', async () => {
+    const { panel } = await openTask(running, {
+      notes: [engineNote('One.\n\nTwo.\n\nThree.\n\nSee [the PR](https://a.test/pr).')],
+    });
+
+    const banner = within(panel).getByRole('region', { name: 'Agent at work' });
+    const link = await within(banner).findByRole('link', { name: 'the PR' });
+    expect(link).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('shows the worker on Agent at work when only its session is known', async () => {
+    const { panel } = await openTask(
+      engineTask({
+        id: 'MMR-64',
+        lifecycle: 'in_progress',
+        status: 'in_progress',
+        workerSession: 'c41e02b9',
+      }),
+    );
+
+    const banner = within(panel).getByRole('region', { name: 'Agent at work' });
+    expect(within(banner).getByText('Worker').nextElementSibling).toHaveTextContent(/^c41e02b9$/);
+  });
+
+  it('sets the review summary at the body size, 14 / 23', async () => {
+    const { panel } = await openTask(inReview(null), reviewNotes);
+
+    const banner = within(panel).getByRole('region', { name: 'Submitted for review' });
+    const summary = (await within(banner).findByText('Tests cover all three branches.')).closest(
+      'article',
+    );
+    expect(summary).toHaveClass('text-body', 'leading-[23px]');
+  });
+
   it('sets the banner prose and the description at the body size, 14 / 23', async () => {
     const { panel } = await openTask(
       { ...running, description: 'The dialect seam.' },
@@ -1217,7 +1285,7 @@ describe('task page state banner (MMR-728)', () => {
 });
 
 describe('task page Details (MMR-728)', () => {
-  // Submit keeps a run's handles; done, abandon, park, and block clear them.
+  // Submit keeps a run's handles; done, abandon, park, block, and unqueue clear them.
   const ran = engineTask({
     branch: 'feat/mmr-60-sqlite',
     externalRef: 'https://github.com/x/mimir/pull/653',
@@ -1378,6 +1446,19 @@ describe('task page Details (MMR-728)', () => {
   });
 });
 
+/** A timeline that holds only the record's creation, its notes' read `pending` or not. */
+const createdOnly = (pending: boolean) => (
+  <RecordTimeline
+    items={buildFeed(FIXTURE_AT, [], [])}
+    pending={pending}
+    nodeId="MMR-417"
+    offline={false}
+  />
+);
+
+/** The Skeleton primitive's placeholder card. */
+const SKELETON = '.bg-well-850.inset-ring';
+
 describe('task page timeline (MMR-728)', () => {
   it('folds the timeline by day, newest first, with only the latest day open', async () => {
     const { panel } = await openTask(sqlite, { notes: THREE_NOTES }, 'timeline');
@@ -1447,6 +1528,35 @@ describe('task page timeline (MMR-728)', () => {
     held.resolve();
 
     await within(panel).findByText('Settled the dialect seam');
+  });
+
+  it('stands a skeleton above the known entries only while the notes load', async () => {
+    const { rerender } = await renderInRouter(createdOnly(true), quietClient());
+
+    await screen.findByText('Created');
+    expect(document.querySelector(SKELETON)).not.toBeNull();
+    rerender(createdOnly(false));
+    expect(document.querySelector(SKELETON)).toBeNull();
+  });
+
+  it('keys every note apart, even same-instant twins beside a note that reads like a repeat', async () => {
+    const at = '2026-06-03T14:00:00.000Z';
+    const consoleError = vi.spyOn(console, 'error');
+    try {
+      await openTask(
+        sqlite,
+        { notes: [engineNote('Twin', at), engineNote('Twin', at), engineNote('Twin-1', at)] },
+        'timeline',
+      );
+
+      await screen.findByText('Twin-1');
+      expect(screen.getAllByText('Twin')).toHaveLength(2);
+      expect(
+        consoleError.mock.calls.filter((args) => String(args[0]).includes('same key')),
+      ).toHaveLength(0);
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   it('shows every entry of a day, with no Show N more', async () => {
@@ -1931,8 +2041,20 @@ describe('task page grooming state (MMR-466)', () => {
 
     expect(within(await header()).getByText('groomed')).toBeDefined();
     const status = within(panel).getByRole('region', { name: 'Status' });
-    expect(within(status).getByText('Grooming')).toBeDefined();
-    expect(within(status).getByText('groomed')).toBeDefined();
+    expect(within(status).getByText('Grooming').nextElementSibling).toHaveTextContent(/^Groomed$/);
+  });
+
+  it('sets the grooming in Details as a plain fact value, not the header’s chip', async () => {
+    const { panel } = await openTask(
+      engineTask({ grooming: 'needs_answers', id: 'MMR-52', status: 'ready' }),
+      {},
+      'details',
+    );
+
+    const status = within(panel).getByRole('region', { name: 'Status' });
+    const value = within(status).getByText('Grooming').nextElementSibling as HTMLElement;
+    expect(value).toHaveTextContent(/^Needs answers$/);
+    expect(value.children).toHaveLength(0);
   });
 
   it('still shows the state on a todo task that is blocked', async () => {

@@ -1,18 +1,16 @@
 import type { EngineNode, NodeRef } from '@mimir/contract';
-import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useTag, useTransition, useUntag, useUpdateNode } from '../api/node-mutations';
+import { cn } from '../lib/cn';
 import { externalRefText, isBareUrl } from '../lib/links';
 import { proseEdit } from '../lib/prose';
-import { artifactLink } from '../lib/record-url';
 import type { TaskFormValues } from '../lib/schemas';
 import { availableTransitions, transitionLabel } from '../lib/transitions';
 import type { TransitionVerb, VerbSpec } from '../lib/transitions';
-import type { RecordArtifact } from '../lib/work-page';
 import { MarkdownBody } from './markdown-body';
-import { FACT_LINK_CLASS, FactMono } from './patterns/facts';
+import { FactMono } from './patterns/facts';
 import { Reason } from './patterns/reason';
 import { OpenEndedBadge, PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
 import type { TaskFormSubmit } from './task-form';
@@ -20,32 +18,9 @@ import { Badge } from './ui/badge';
 import { ExternalIcon } from './ui/icons';
 
 /*
- * The pieces of a work node's record page: links to its artifacts, its
- * description and signals, detail rows, and the edit and transition wiring.
+ * The pieces of a work node's record page: its description and signals,
+ * detail rows, and the edit and transition wiring.
  */
-
-/** Links to a record's artifacts, each at its own page (MMR-452). */
-export function ArtifactLinks({ artifacts }: { artifacts?: readonly RecordArtifact[] }) {
-  if (artifacts === undefined || artifacts.length === 0) {
-    return <p className="text-xs text-ink-dim">None yet.</p>;
-  }
-  return (
-    <div className="flex flex-col gap-0.5">
-      {artifacts.map((a) => (
-        <Link
-          key={a.id}
-          {...artifactLink(a.id)}
-          className="flex min-w-0 items-center gap-2 rounded-sm px-1 py-0.5 text-xs text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
-        >
-          <span aria-hidden className="text-accent-foreground select-none">
-            ❄
-          </span>
-          <span className="truncate">{a.title}</span>
-        </Link>
-      ))}
-    </div>
-  );
-}
 
 /** A record's description as rendered markdown, or a quiet line when it has none. */
 export function DescriptionSection({ description }: { description?: string | null }) {
@@ -116,19 +91,28 @@ export function SignalBadges({ node }: { node: EngineNode }) {
 }
 
 /**
- * An external ref, which is free text (`GH-123`, a URL), as a fact's value: a
- * URL as a link fact that opens in a new tab, named "PR #653" when it is a
- * pull request's, with the external arrow; anything else as mono text, so no
- * link goes nowhere.
+ * An external ref, which is free text (`GH-123`, a URL): a URL as a link that
+ * opens in a new tab, named "PR #653" when it is a pull request's, with the
+ * external arrow at its text's size; anything else as mono text, so no link
+ * goes nowhere. A fact's value passes `FACT_LINK_CLASS`, which sizes it as a
+ * link fact.
  */
-export function ExternalRef({ value }: { value: string }) {
+export function ExternalRef({ value, className }: { value: string; className?: string }) {
   if (!isBareUrl(value)) {
     return <FactMono>{value}</FactMono>;
   }
   return (
-    <a href={value} target="_blank" rel="noopener noreferrer" className={FACT_LINK_CLASS}>
+    <a
+      href={value}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(
+        'text-accent-foreground hover:underline focus-visible:outline-2 focus-visible:outline-accent',
+        className,
+      )}
+    >
       {externalRefText(value)}
-      <ExternalIcon className="ml-1 inline-block size-4 align-[-3px]" />
+      <ExternalIcon className="ml-1 inline-block size-[1em] align-[-0.125em]" />
     </a>
   );
 }

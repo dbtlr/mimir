@@ -1268,11 +1268,12 @@ column under its record header and tabs, as a container's is.
   the Scratchpads anchored to it, with Open in T3). _Run_ shows whenever any
   of those is set, whatever the status, and is absent for a task that never
   ran; an external ref alone is not a run, so it sits under _Record_. The
-  run's handles survive review (submit, stage, and return keep them), and
-  done, abandon, park, and block clear them, so _Run_ then holds only the
-  Scratchpads; the external ref survives every transition. Whether done
-  should keep the handles is seed MMR-s132. _Timeline_ is the record
-  timeline below; _Artifacts_ lists what is attached, newest first.
+  run's handles survive review (submit, stage, and return keep them);
+  done, abandon, park, block, and unqueue clear them, so _Run_ then holds
+  only the Scratchpads, and queue replaces them with its own. The external
+  ref survives every transition. Whether done should keep the handles is
+  seed MMR-s132. _Timeline_ is the record timeline below; _Artifacts_ lists what is attached, newest first,
+  folded by the day it was frozen in the Artifacts list's rows.
 - **The URL holds the tab, as on a container.** Work, the default, has no
   parameter; `?tab=` takes `details`, `timeline`, or `artifacts`, and a
   value the page does not know drops. _Work_, _Details_, and _Timeline_

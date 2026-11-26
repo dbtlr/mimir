@@ -140,12 +140,13 @@ function ScrollingTable({ node: _node, ...props }: ComponentProps<'table'> & { n
  * An image as a link to it: opening a record never fetches a remote URL, which
  * would hand the viewer's IP and read time to whoever wrote the image in.
  */
-function ImageLink({ src, alt }: ComponentProps<'img'>) {
+function ImageLink({ src, alt, tabIndex }: ComponentProps<'img'>) {
   const href = typeof src === 'string' ? src : undefined;
   const external = isExternalHref(href);
   return (
     <a
       href={href}
+      tabIndex={tabIndex}
       target={external ? '_blank' : undefined}
       rel={external ? 'noopener noreferrer' : undefined}
     >
@@ -185,18 +186,25 @@ const BODY_COMPONENTS = {
 const DOCUMENT_COMPONENTS = { ...BODY_HEADINGS, a: MarkdownLink, table: ScrollingTable };
 
 /**
+ * The 3-line preview has no expander, so a link it clips would still take
+ * focus and scroll it; its links stay out of the tab order, and the whole
+ * text lives where the preview points (a task's Timeline).
+ */
+const PREVIEW_COMPONENTS = {
+  ...BODY_COMPONENTS,
+  a: (props: ComponentProps<typeof MarkdownLink>) => <MarkdownLink {...props} tabIndex={-1} />,
+  img: (props: ComponentProps<'img'>) => <ImageLink {...props} tabIndex={-1} />,
+};
+
+/**
  * The text scales a host can ask for. `default` is the reading scale;
  * `body` is `text-body`, 14 / 23 at every width, for the task page's prose
- * (its description, a state banner's, a timeline note's); `compact` is the
- * secondary-text scale (`text-meta`) for dense surfaces, with the block
- * margins tightened to match.
+ * (its description, a state banner's, a timeline note's).
  */
-export type MarkdownSize = 'default' | 'body' | 'compact';
+export type MarkdownSize = 'default' | 'body';
 
 const SIZE_PROSE: Record<MarkdownSize, string> = {
   body: 'text-body leading-[23px]',
-  compact:
-    'text-meta leading-[1.6] prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-pre:my-1.5 prose-hr:my-3 prose-li:my-0 [&_[data-md=table]]:my-2',
   default: 'text-[0.84375rem] leading-[1.75] max-md:text-sm',
 };
 
@@ -205,7 +213,8 @@ const SIZE_PROSE: Record<MarkdownSize, string> = {
  * line-height, and block children (code, tables) clamp too, which
  * `-webkit-line-clamp` cannot do. Where layout reports line boxes, the clamp
  * moves to the bottom of its last whole line (`--clamp-height`), so block
- * margins never leave a line cut in half (MMR-728). The 12-line fold fades
+ * margins never leave a line cut in half (MMR-728), and a text with no more
+ * lines than the clamp shows whole. The 12-line fold fades
  * that last line only, and only once the content really overflows, so a
  * short body is never dimmed; the 3-line preview ends on whole lines with no
  * fade.
@@ -222,13 +231,16 @@ export type ClampMeasure = { overflowing: boolean; lines: number };
 
 export type MarkdownClamp = 3 | 12;
 
-/** The measured clamp as the `--clamp-height` the clamp class reads; none leaves its `lh` fallback. */
-function clampStyle(height: number | undefined): CSSProperties | undefined {
+/**
+ * The measured clamp as the `--clamp-height` the clamp class reads: a height,
+ * or `none` for a text that fits; undefined leaves its `lh` fallback.
+ */
+function clampStyle(height: number | 'none' | undefined): CSSProperties | undefined {
   if (height === undefined) {
     return undefined;
   }
   const style: CSSProperties & Record<'--clamp-height', string> = {
-    '--clamp-height': `${String(height)}px`,
+    '--clamp-height': height === 'none' ? 'none' : `${String(height)}px`,
   };
   return style;
 }
@@ -292,7 +304,7 @@ function lineBottoms(el: HTMLElement, lineHeight: number): number[] | undefined 
  * fold fading its last line when the content overflows), and reports the measure through
  * `onClampMeasure` (stable callback expected) so the host can offer an expander.
  * Omit `clamp` to show the whole body. `data-clamped` marks the clamped state
- * with its line count.
+ * with its line count. The 3-line preview keeps its links out of the tab order.
  *
  * `breaks` keeps single newlines as line breaks. Comment-like fields
  * (descriptions, notes, seed bodies) pass it so authored line breaks survive,
@@ -321,20 +333,28 @@ export function MarkdownBody({
   onClampMeasure?: (measure: ClampMeasure) => void;
 }) {
   const ref = useRef<HTMLElement>(null);
+  const bodyComponents = clamp === 3 ? PREVIEW_COMPONENTS : BODY_COMPONENTS;
   const [overflowing, setOverflowing] = useState(false);
-  const [clampHeight, setClampHeight] = useState<number | undefined>(undefined);
+  const [clampHeight, setClampHeight] = useState<number | 'none' | undefined>(undefined);
   useLayoutEffect(() => {
     const el = ref.current;
     if (clamp === undefined || el === null) {
       return undefined;
     }
     const measure = (): void => {
-      // Measured while clamped: scrollHeight is the full content, clientHeight the clamp.
-      const over = el.scrollHeight > el.clientHeight + 1;
       const lineHeight = Number.parseFloat(getComputedStyle(el).lineHeight);
       const bottoms = lineBottoms(el, lineHeight);
+      // Where layout reports lines, only more lines than the clamp fold, so
+      // block margins alone never do. Otherwise, measured while clamped:
+      // scrollHeight is the full content, clientHeight the clamp.
+      const over =
+        bottoms === undefined ? el.scrollHeight > el.clientHeight + 1 : bottoms.length > clamp;
       setOverflowing(over);
-      setClampHeight(bottoms?.[clamp - 1]);
+      if (bottoms === undefined) {
+        setClampHeight(undefined);
+      } else {
+        setClampHeight(over ? bottoms[clamp - 1] : 'none');
+      }
       // Text lines where layout reports them, so block margins count as none.
       const estimate = lineHeight > 0 ? Math.ceil(el.scrollHeight / lineHeight) : 0;
       onClampMeasure?.({ lines: bottoms?.length ?? estimate, overflowing: over });
@@ -356,7 +376,6 @@ export function MarkdownBody({
         'prose prose-sm dark:prose-invert',
         HEADING_PROSE,
         BLOCK_PROSE,
-        // After BLOCK_PROSE so the compact margins win the merge.
         SIZE_PROSE[size],
         INK_PROSE,
         INLINE_CODE_PROSE,
@@ -368,7 +387,7 @@ export function MarkdownBody({
     >
       <ReactMarkdown
         remarkPlugins={breaks ? [remarkGfm, remarkBreaks] : [remarkGfm]}
-        components={images ? DOCUMENT_COMPONENTS : BODY_COMPONENTS}
+        components={images ? DOCUMENT_COMPONENTS : bodyComponents}
       >
         {children}
       </ReactMarkdown>
