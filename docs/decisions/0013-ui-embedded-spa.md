@@ -1449,14 +1449,17 @@ are unchanged.
   | A task | ← the parent of the task's container | the task's container | that container's child containers |
 
 - **The current row is washed on its own page and ringed on a page it
-  holds.** The path decides, not `?tab=`: a container's row takes the
-  selection wash and `aria-current="page"` on any of its own tabs. It takes
-  the ring alone, read as ", contains this page", on a page it holds: a task
+  holds.** The path decides: a container's row takes the selection wash and
+  `aria-current="page"` on its own path, whatever `?tab=`. It takes the ring
+  alone, read as ", contains this page", on a page it holds: a task
   in it; and, for a project, its Tasks, Seeds, and Artifacts routes and a
   seed, artifact, or delivery page in it. _Home_ takes the wash on `/` and the
   ring on `/projects`, `/needs-you`, and `/doctor`; on `/projects` _See all N
-  projects_ is the page.
-- **A container row is a link with a status dot, its title, and a tally** at
+  projects_ is the page. Any other page outside a project (the not-found page,
+  the dev-only `/kit`) shows _Home_ ringed, and a project path that names no
+  record in its tree shows the project ringed.
+- **A container row is a link with a status dot, its title (a project's
+  row its key and name, as the switcher row), and a tally** at
   its right, decided in this order: "∞" when open-ended, "parked" when parked,
   "Empty" when no child that is not abandoned sits under it, else done over
   its direct children with abandoned ones left out. That count is the one
@@ -1474,14 +1477,16 @@ are unchanged.
   projects that need the operator, most first, then pinned projects not yet
   listed, then the most recently active, six rows in all, ties in the
   switcher's order; with six or fewer projects, all of them. _See all N
-  projects_ to `/projects` (the MMR-790 refinement) always closes the list
-  and counts the active projects. The switcher's _All projects_ entry still
+  projects_ to `/projects` (the MMR-790 refinement) closes the list once the
+  projects read has landed, counting the active projects; while it loads the
+  list shows a skeleton, and when it fails, "Couldn't load the projects." The switcher's _All projects_ entry still
   leads to `/`, which this list names _Home_.
 - **An archived or unavailable project** shows ← Home and the project's row
   alone: its key, and its name where the archived list has it, with no dot or
   tally; the project page is the one that says so. While a project's tree
   loads, the list shows ← Home and a skeleton; when the read fails, ← Home,
-  the project's row, and "Couldn't load the structure."
+  the project's row with its key and name but no dot or tally, and
+  "Couldn't load the structure."
 - **Rows are 32 tall beside the page and 44 in the drawer.** DESIGN.md's 25
   outline row and 24 fold are the conflict seed MMR-s136 records; this
   design's 32 stands until it is settled.
