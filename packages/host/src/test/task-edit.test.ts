@@ -68,6 +68,12 @@ describe('editWrites', () => {
     expect(editWrites(blank, { ...blank, description: '  ' })).toStrictEqual([]);
   });
 
+  it('sends no summary or external ref when only their outer spaces changed', () => {
+    expect(
+      editWrites(baseline, edit({ externalRef: ' GH-12 ', summary: '  A short lede. ' })),
+    ).toStrictEqual([]);
+  });
+
   it('diffs the tags against the snapshot: adds the new, removes the dropped, never re-tags a kept one', () => {
     expect(editWrites(baseline, edit({ tags: ['ui', 'fresh'] }))).toStrictEqual([
       { kind: 'tag', name: 'fresh' },
@@ -129,6 +135,12 @@ describe('settle', () => {
     const [content, tagged, moved] = editWrites(baseline, draft);
     const next = settle(baseline, draft, [content!, tagged!]);
     expect(editWrites(next, draft)).toStrictEqual([moved]);
+  });
+
+  it('takes a saved untag into the baseline, so only the untag that failed is sent again', () => {
+    const draft = edit({ tags: [] });
+    const [first, second] = editWrites(baseline, draft);
+    expect(editWrites(settle(baseline, draft, [first!]), draft)).toStrictEqual([second]);
   });
 });
 

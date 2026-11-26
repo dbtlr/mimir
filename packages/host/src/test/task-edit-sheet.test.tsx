@@ -319,6 +319,43 @@ describe('task edit sheet: a Save that partly fails', () => {
     expect(update).not.toHaveBeenCalled();
   });
 
+  it('keeps Close after a later Save that saved nothing', async () => {
+    stubViewport('desktop');
+    const sheet = await openSheet(todo({ size: 'small' }));
+    vi.mocked(move)
+      .mockRejectedValueOnce(new Error("the host didn't answer"))
+      .mockRejectedValueOnce(new Error("the host didn't answer"));
+    await userEvent.click(within(sheet).getByRole('radio', { name: 'Medium' }));
+    await userEvent.click(within(sheet).getByRole('button', { name: /^Parent/ }));
+    await userEvent.click(await screen.findByRole('option', { name: /Console/ }));
+    await save(sheet);
+    await within(sheet).findByText("Size saved. The move didn't.");
+
+    await save(sheet);
+    await within(sheet).findByText('Nothing saved.');
+    const footer = sheet.querySelector<HTMLElement>('[data-slot="form-sheet-footer"]')!;
+    expect(within(footer).getByRole('button', { name: 'Close' })).toBeVisible();
+  });
+
+  it('sends a saved Needs answers and its note once, when another write failed beside it', async () => {
+    const sheet = await openSheet(todo());
+    vi.mocked(move).mockRejectedValueOnce(new Error("the host didn't answer"));
+    await userEvent.click(within(sheet).getByRole('radio', { name: 'Needs answers' }));
+    await userEvent.type(within(sheet).getByRole('textbox', { name: /Open questions/ }), 'Which?');
+    await userEvent.click(within(sheet).getByRole('button', { name: /^Parent/ }));
+    await userEvent.click(await screen.findByRole('option', { name: /Console/ }));
+    await save(sheet);
+    await within(sheet).findByText("Grooming saved. The move didn't.");
+    expect(within(sheet).queryByRole('textbox', { name: /Open questions/ })).toBeNull();
+
+    vi.mocked(groom).mockClear();
+    await save(sheet);
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Edit task' })).toBeNull();
+    });
+    expect(groom).not.toHaveBeenCalled();
+  });
+
   it('sends its writes one after another, each after the last settles, and still tries every one', async () => {
     const sheet = await openSheet(todo());
     const pending = Promise.withResolvers<never>();
