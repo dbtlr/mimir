@@ -1422,52 +1422,69 @@ Considered and rejected:
 
 The MMR-492 refinement gave a project's sidebar its sections (_Work_,
 _Tasks_, _Seeds_, _Artifacts_) and the project's whole initiative and phase
-outline; the MMR-503, MMR-562, MMR-567, and MMR-790 refinements gave the All
-projects sidebar _Work_ and a pinned or recent shortlist ending in _See all N
-projects_. The project page's tabs (the MMR-726 refinement) now reach those
-sections, and the page lists the tasks (the MMR-727 refinement). The sidebar
-keeps one job: it navigates containers. This revises those refinements'
-sidebar contents; Jump to (MMR-729), the switcher, Settings' own list
-(MMR-733), and the drawer below `lg` are unchanged.
+outline; the MMR-503, MMR-562, MMR-567, MMR-733, and MMR-790 refinements gave
+the All projects sidebar _Work_ and a pinned or recent shortlist ending in
+_See all N projects_; and the MMR-726 refinement kept the outline to show
+where a record sits. The project page's tabs (the MMR-726 refinement) now
+reach those sections, and the page lists the tasks (the MMR-727 refinement).
+The sidebar keeps one job: it navigates containers. This revises those
+refinements' sidebar contents. Jump to (MMR-729), the switcher, Settings'
+pages and `/pair` with their own list (MMR-733), and the drawer below `lg`
+are unchanged.
 
 - **The sidebar is Jump to, the switcher, then one container list.** No
   ordinary task appears in it. What needs the operator gets its own slot under
-  the switcher (MMR-804); until then the list follows the switcher directly.
+  the switcher, and the switcher its needs-you count, in MMR-804; until then
+  the list follows the switcher directly.
 - **The list is the same at every level:** a link to the parent, reading "←"
   and the parent's title; the current container; then its child containers.
   A level with no child containers ends at the current row.
 
   | Page | Link to the parent | Current row | Children |
   | --- | --- | --- | --- |
-  | Home, and any page outside a project | none | _Home_ | the projects (below) |
-  | A project, and its other pages | ← Home | the project | its initiatives |
-  | An initiative | ← the project | the initiative | its phases |
-  | A phase | ← its initiative | the phase | none |
-  | A task | ← its phase's parent, or the project for a task directly under an initiative | the task's container, ringed | that container's child containers |
+  | Home, `/projects`, `/needs-you`, `/doctor` | none | _Home_ | the projects (below) |
+  | A project's pages | ← Home | the project | its initiatives |
+  | An initiative's pages | ← the project | the initiative | its phases |
+  | A phase's pages | ← its initiative | the phase | none |
+  | A task | ← the parent of the task's container | the task's container | that container's child containers |
 
-  A project's other pages are its Tasks, Seeds, Artifacts, and Details tabs,
-  and a seed, artifact, or delivery page in it. On those, and on a task page,
-  the current row marks the container that holds the page rather than being
-  the page: it takes the ring alone, and the project's other pages mark the
-  project so. On the container's own page the row is the page and takes the
-  selection wash as well.
-- **A row is a link with a status dot, its title, and a tally** at its right:
-  done over its direct children, abandoned ones left out, the one count
-  MMR-727's parts rows show for the same record; "Empty" when nothing is under
-  it, "parked" when it is parked, "∞" when it is open-ended. Children keep the
-  tree's order (rank, then sequence). The finished children, those whose rollup
-  is done or abandoned, gather in one closed fold at the end of the list,
-  "N finished initiatives" (or phases), that opens in place. Initiatives and
-  phases are links; none of them opens or closes.
-- **Home's children are the projects,** each row its key, its name, and its
-  needs-you count in the attention colour where it has one: the projects that
-  need the operator, most first, then pinned projects not yet listed, then the
-  most recently active, six rows in all, then _See all N projects_ to
-  `/projects` (the MMR-790 refinement), marked the page there. The switcher's
-  _All projects_ entry still leads to `/`, which this list names _Home_.
-- **An archived or unavailable project** shows the link to Home and the
-  project's row alone, as the project page is the one that says so.
-- **The drawer shows the same list,** with every row 44 tall below `lg`.
+- **The current row is washed on its own page and ringed on a page it
+  holds.** The path decides, not `?tab=`: a container's row takes the
+  selection wash and `aria-current="page"` on any of its own tabs. It takes
+  the ring alone, read as ", contains this page", on a page it holds: a task
+  in it; and, for a project, its Tasks, Seeds, and Artifacts routes and a
+  seed, artifact, or delivery page in it. _Home_ takes the wash on `/` and the
+  ring on `/projects`, `/needs-you`, and `/doctor`; on `/projects` _See all N
+  projects_ is the page.
+- **A container row is a link with a status dot, its title, and a tally** at
+  its right, decided in this order: "∞" when open-ended, "parked" when parked,
+  "Empty" when no child that is not abandoned sits under it, else done over
+  its direct children with abandoned ones left out. That count is the one
+  MMR-727's parts rows show for the same record; the parts row shows it where
+  the sidebar shows "∞" or "parked". Children keep the tree's order (rank,
+  then sequence). The finished children, those whose rollup is done or
+  abandoned, gather in one closed fold at the end of the list, "N finished
+  initiatives" (or phases; "1 finished phase"), that opens in place and
+  closes again on each navigation. Initiatives and phases are links; none of
+  them opens or closes. The per-initiative disclosure inside the old finished
+  fold retires.
+- **Home's row has no dot; its tally counts the active projects.** Its
+  children are the projects, each row the switcher row's dot, key, and name,
+  with its needs-you count in the attention colour where it has one: the
+  projects that need the operator, most first, then pinned projects not yet
+  listed, then the most recently active, six rows in all, ties in the
+  switcher's order; with six or fewer projects, all of them. _See all N
+  projects_ to `/projects` (the MMR-790 refinement) always closes the list
+  and counts the active projects. The switcher's _All projects_ entry still
+  leads to `/`, which this list names _Home_.
+- **An archived or unavailable project** shows ← Home and the project's row
+  alone: its key, and its name where the archived list has it, with no dot or
+  tally; the project page is the one that says so. While a project's tree
+  loads, the list shows ← Home and a skeleton; when the read fails, ← Home,
+  the project's row, and "Couldn't load the structure."
+- **Rows are 32 tall beside the page and 44 in the drawer.** DESIGN.md's 25
+  outline row and 24 fold are the conflict seed MMR-s136 records; this
+  design's 32 stands until it is settled.
 
 Considered and rejected:
 
@@ -1475,5 +1492,5 @@ Considered and rejected:
   design). Putting tasks in the sidebar made it decide their order, cap, and
   _See all_ destinations, a job the page already does; the operator ruled
   that the sidebar lists containers and, separately, what needs attention.
-- A different tally on the sidebar from the parts rows. One record shows one
-  number wherever it appears.
+- A tally of all tasks at any depth. The sidebar and the parts rows would
+  then show different numbers for the same record.
