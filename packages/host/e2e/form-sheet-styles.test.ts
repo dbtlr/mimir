@@ -245,3 +245,22 @@ test('a task’s Summary grows from one line to three, and its Description from 
   expect(scrolls).toBe(false);
   await context.close();
 });
+
+// oxlint-disable-next-line vitest/prefer-each -- Playwright has no `each`; this is its pattern
+for (const width of [390, 1280]) {
+  test(`a task’s Planning hairline sits 32 below its Description editor at ${width}px`, async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({ viewport: { height: 900, width } });
+    const page = await context.newPage();
+    await openForm(page, 'task-edit');
+    const description = page.getByRole('textbox', { name: /Description/ });
+    const planning = page.getByRole('region', { name: 'Planning' });
+    const editorBottom = await description.evaluate(
+      (element) => element.getBoundingClientRect().bottom,
+    );
+    const hairlineTop = await planning.evaluate((element) => element.getBoundingClientRect().top);
+    expect(hairlineTop - editorBottom).toBe(32);
+    await context.close();
+  });
+}
