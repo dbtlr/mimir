@@ -435,8 +435,9 @@ export function FormProseEditor({ preview, className, ...props }: FormProseEdito
         <TabsTab value="write">Write</TabsTab>
         <TabsTab value="preview">Preview</TabsTab>
       </TabsList>
+      {/* A block textarea: inline, it would sit on the panel's text baseline and add 5 below. */}
       <TabsPanel value="write" keepMounted className="pt-0">
-        <FormGrowTextArea {...props} className={cn('rounded-t-none', className)} />
+        <FormGrowTextArea {...props} className={cn('block rounded-t-none', className)} />
       </TabsPanel>
       <TabsPanel
         value="preview"
