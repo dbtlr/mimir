@@ -221,7 +221,7 @@ function ShippedBreakdownRows({ breakdown, zone }: { breakdown: ShippedBreakdown
   return (
     <RowGroup
       label="Shipped by part"
-      rows={breakdown.rows.map(({ name, count }) => ({ count, name }))}
+      rows={breakdown.rows.map(({ id, name, count }) => ({ count, id, name }))}
     />
   );
 }
@@ -230,6 +230,7 @@ function ShippedBreakdownRows({ breakdown, zone }: { breakdown: ShippedBreakdown
 function partRow(part: Part): RowGroupRow {
   return {
     count: part.total,
+    id: part.id,
     lead: (
       <>
         <StatusDot status={part.status} />

@@ -20,6 +20,8 @@ export type RowGroupCount =
 export type RowGroupRow = {
   /** A project key, set in mono in its own column, unique within the group. */
   key?: string;
+  /** The row's identity when its name may repeat (a record ID), unique within the group; never shown. */
+  id?: string;
   /** The row's label; a row without a key needs a name unique within the group. */
   name: string;
   count: number;
@@ -208,11 +210,14 @@ function ColumnsGroup({
 }
 
 /**
- * A row's stable React key: its project key, else its name. An unkeyed row's
- * name is a fixed label ("Seeds to triage"), unique within its group. Two
- * namespaces keep a caller's key from ever equalling a name.
+ * A row's stable React key: its identity, else its project key, else its
+ * name. A row with neither has a fixed label ("Seeds to triage"), unique
+ * within its group. Separate namespaces keep one kind from equalling another.
  */
 function rowKey(row: RowGroupRow): string {
+  if (row.id !== undefined) {
+    return `id:${row.id}`;
+  }
   return row.key === undefined ? `name:${row.name}` : `key:${row.key}`;
 }
 

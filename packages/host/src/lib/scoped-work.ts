@@ -91,17 +91,18 @@ export type ShippedBreakdown =
 
 export type ShippedSplit = { days: ShippedDay[]; total: number; breakdown: ShippedBreakdown };
 
+/** A container's place in tree order, its title, and the container that holds it. */
+type Container = { index: number; title: string; parent?: string };
+
 /** The containers of `tree` in tree order (each before what it holds), by ID. */
-function containerOrder(
-  tree: EngineTree | undefined,
-): Map<string, { index: number; title: string }> {
-  const order = new Map<string, { index: number; title: string }>();
-  const walk = (node: EngineTree) => {
+function containerOrder(tree: EngineTree | undefined): Map<string, Container> {
+  const order = new Map<string, Container>();
+  const walk = (node: EngineTree, parent?: string) => {
     if (node.type !== 'task') {
-      order.set(node.id, { index: order.size, title: node.title });
+      order.set(node.id, { index: order.size, parent, title: node.title });
     }
     for (const child of node.children) {
-      walk(child);
+      walk(child, node.id);
     }
   };
   if (tree !== undefined) {
@@ -111,12 +112,32 @@ function containerOrder(
 }
 
 /**
+ * The Shipped split's row names. A name two rows share takes the title of the
+ * container that holds each, below the scope ("Phase 1 · Console"), so the
+ * rows read apart; a unique name stays bare.
+ */
+function partNames(parts: ShippedPart[], order: Map<string, Container>, scope: string): ShippedPart[] {
+  const seen = new Map<string, number>();
+  for (const part of parts) {
+    seen.set(part.name, (seen.get(part.name) ?? 0) + 1);
+  }
+  return parts.map((part) => {
+    const parent = order.get(part.id)?.parent;
+    const holder = parent === undefined || parent === scope ? undefined : order.get(parent);
+    return (seen.get(part.name) ?? 0) > 1 && holder !== undefined
+      ? { ...part, name: `${part.name} · ${holder.title}` }
+      : part;
+  });
+}
+
+/**
  * What the scope shipped in the seven days ending today in `zone`, split one
  * level down. A task's parent is a phase or an initiative, so on a project the
  * split is by phase, a task directly under an initiative counted under that
  * initiative; on an initiative it is by phase, its direct tasks under its own
  * title. A phase lists its done tasks, most recent first, three at most. As on
- * Home, an abandoned task did not ship. Ties keep tree order.
+ * Home, an abandoned task did not ship. Ties keep tree order. Two rows that
+ * share a title name what holds each.
  */
 export function shippedSplit({
   rows,
@@ -168,7 +189,11 @@ export function shippedSplit({
         (order.get(a.id)?.index ?? Infinity) - (order.get(b.id)?.index ?? Infinity) ||
         a.id.localeCompare(b.id),
     );
-  return { breakdown: { kind: 'parts', rows: parts }, days, total: shipped.length };
+  return {
+    breakdown: { kind: 'parts', rows: partNames(parts, order, scope.id) },
+    days,
+    total: shipped.length,
+  };
 }
 
 /**

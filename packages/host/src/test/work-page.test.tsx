@@ -490,6 +490,45 @@ describe('the scoped Work tab (MMR-727)', () => {
     expect(hrefOf(shipped, 'See all in Shipped this week')).toBe('/p/MMR/tasks?show=shipped-week');
   });
 
+  it('tells apart parts and Shipped rows that share a title, naming a phase’s initiative', async () => {
+    const errors = vi.spyOn(console, 'error');
+    const twins = engineTree({ id: 'MMR', status: 'in_progress', title: 'Mimir', type: 'project' }, [
+      node('MMR-201', 'initiative', 'in_progress', 'Console', [
+        node('MMR-202', 'phase', 'in_progress', 'Phase 1', [leaf('MMR-203', 'done')]),
+      ]),
+      node('MMR-204', 'initiative', 'in_progress', 'Upkeep', [
+        node('MMR-205', 'phase', 'in_progress', 'Phase 1', [leaf('MMR-206', 'done')]),
+      ]),
+      node('MMR-207', 'initiative', 'ready', 'Ideas'),
+      node('MMR-208', 'initiative', 'ready', 'Ideas'),
+    ]);
+    await open(
+      PROJECT_SCOPE,
+      engineWork({
+        shipped: [
+          shippedRow('MMR-203', '2026-10-12T20:30:00.000Z', { parent: 'MMR-202' }),
+          shippedRow('MMR-206', '2026-10-12T14:00:00.000Z', { parent: 'MMR-205' }),
+        ],
+      }),
+      twins,
+    );
+
+    const shipped = await section('Shipped this week');
+    const rows = within(shipped).getByRole('list', { name: 'Shipped by part' });
+    expect(
+      within(rows)
+        .getAllByRole('listitem')
+        .map((row) => row.textContent),
+    ).toStrictEqual(['Phase 1 · Console 1', 'Phase 1 · Upkeep 1']);
+    const parts = await section('Initiatives');
+    expect(
+      within(parts)
+        .getAllByRole('link', { name: /Ideas/ })
+        .map((row) => row.getAttribute('href')),
+    ).toStrictEqual(['/p/MMR/207', '/p/MMR/208']);
+    expect(errors.mock.calls.flat().map(String).join('\n')).not.toMatch(/same key/);
+  });
+
   it('lists a phase’s done tasks as its Shipped, each opening its page, with no See all', async () => {
     await open(PHASE_SCOPE, engineWork({ shipped: busyWork().shipped }));
 
