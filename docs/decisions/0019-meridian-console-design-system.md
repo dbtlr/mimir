@@ -516,8 +516,9 @@ the status misreading MMR-617, MMR-619, and MMR-620 removed elsewhere.
   neutral fill rather than the accent wash §1 gives selection and the list
   filter chips use; whether form pickers move to the accent is left open.
   The MMR-743 refinement settles it for a form's Segmented Control, the seed
-  form's Kind among them, which selects with the accent; the authoring
-  sheet's pills keep this neutral fill until MMR-731 moves them.
+  form's Kind among them, which selects with the accent. The authoring
+  sheet's pills keep this neutral fill: the MMR-731 edit sheet shares no
+  control with them, so it left them where they were.
 - **Considered and rejected.** Flat neutral chips for every priority: p0
   read the same as p3 at a glance. A ▲ mark on p0 alone: a new glyph to
   learn, and p1 to p3 read the same.
@@ -1458,8 +1459,9 @@ refinements left open, and records two exceptions.
   This replaces the MMR-626 refinement's neutral selected pill for a form,
   and its test clause for the seed capture: the seed form's test fails if a
   selected kind carries a `status-` class or loses the accent wash. The
-  authoring sheet's priority pills keep the neutral `line` fill until
-  MMR-731 moves the authoring sheet onto the Segmented Control.
+  authoring sheet's priority pills keep the neutral `line` fill; they are
+  not yet on the Segmented Control (the MMR-731 edit sheet shares no control
+  with them).
 - **Workspace stays a Segmented Control.** Launch in T3's Workspace offers
   "Project checkout" and "New worktree", labels longer than a word, which the
   MMR-736 refinement's Choice gives to a Radio. It stays a Segmented Control,
@@ -2308,8 +2310,8 @@ own heads until MMR-732 brings them onto the pattern.
   buttons it used to repeat. On desktop the
   actions sit beside the title while the title keeps at least 440px;
   otherwise, and always on a phone, they drop 16px below the summary.
-- **More groups everything else, in four groups.** Edit, with Move… and
-  Set grooming… beside it until the edit sheet folds them in (MMR-731); then
+- **More groups everything else, in four groups.** Edit, which on a task
+  opens the edit sheet that holds the move and the grooming too (MMR-731); then
   the status changes, with the T3 rows after them where Start is offered
   and T3 is configured; then the holds (park, block, and their undoing);
   then _Abandon…_ alone, wearing the MMR-635 red hairline. A separator falls
@@ -2776,3 +2778,73 @@ bands with a chronological ledger, time first and the composer last
 `packages/host/src/test/node-page.test.tsx` checks the tabs, each banner in
 its state, _Details_, and the timeline's folds, order, clamp, and composer
 on task and container pages.
+
+## Refinement (2026-11-26, MMR-731): one edit sheet for a task
+
+Edit in a task's More opens one Form sheet holding everything about the
+task that can change, so _Move…_ and _Set grooming…_ leave More, and the
+inline task form and the move and grooming dialogs retire with their Base UI
+imports. The operator picked variant B, "Content, then planning", from three
+mocks; two members of a design review scored its third round 9.
+`packages/host/DESIGN.md` holds the numbers, under A form and Examples.
+
+- **Content first, then two groups.** The sheet is headed "Edit task" with
+  the context line "`MMR-730` The sidebar lists where you are", the ID and
+  the saved title. Title (focused on open), Summary (one line that grows to
+  three, then scrolls), and Description come first. A Planning group holds
+  Size, Priority, Grooming, and Parent; a Links group holds Tags and External
+  ref. Every field but Title and the choices that always hold a value carries
+  the Form sheet's _optional_ marker, so the conditional Open questions reads
+  as required. Grooming shows only on a todo task (`visibleGrooming`).
+  Choosing Needs answers adds a required Open questions field under it, saved
+  as the grooming note; until it holds text Save is the quiet disabled
+  button. A task that already needs answers opens with no Open questions
+  until grooming changes away and back, since only a choice sends a grooming
+  write. The sheet's fields come from the record (`lib/task-edit.ts`), so
+  initiatives, phases, and projects can take it (MMR-793, MMR-794).
+- **Grooming is three segments, an exception to the Choice rule.** "Not
+  groomed" and "Needs answers" run past a word, which the MMR-736 Choice
+  gives to a Radio; as the Seeds list's Show (MMR-725), the picked mock draws
+  them as a Segmented Control on one row. On a phone each segment is sized to
+  its label (the Segmented Control's `fit` option, 6 of padding a side, 44
+  at least), and Size and Priority take it too, so "Medium" and "None" never
+  clip at 320. Priority's values are mono (the option's `mono`), None in sans.
+- **Write and Preview are tabs joined to the editor.** The Tabs primitive's
+  `joined` option draws its row as the top edge of the control under it:
+  the control's `ink-faint` edge on three sides, the panel's `well-850`, no
+  hairline of its own. Preview renders the description as the task page
+  does, in the editor's place; the editor stays mounted, so its draft and
+  label hold (`FormProseEditor`).
+- **Tags are a Token Input form field.** The Token Input's `field` size
+  draws 32 chips in the control's 14 / 20 and a 32 remove that takes a 44
+  tap area on a phone, with a phone's rows at least 44 apart so the tap areas of
+  wrapped rows never overlap; help reads "Press Enter or type a comma to add
+  a tag." (`FormTokenInput`). The Record picker gains an `optional` marker,
+  grouped records (Initiatives, then Phases), and an error.
+- **One Save, several writes.** Save sends only what changed since the
+  sheet opened, as separate Engine writes through their mutations: the
+  content update, one tag or untag per changed tag (never re-tagging a kept
+  one), the move, and the grooming change. Every write runs to its end, so
+  one's failure never hides another's success. On full success the sheet
+  closes. When some fail, the sheet stays open: what saved joins the
+  snapshot, so a second Save sends only what failed; the field whose write
+  failed turns invalid with its error under it ("Not moved: the host didn't
+  answer. Save again to move it."); the footer note, in the danger ink, names
+  what saved and what didn't ("Size and tags saved. The move didn't."); and
+  the desktop footer's Cancel reads Close, since what saved stays saved (the
+  Form sheet's `cancelLabel` and `noteTone`, FormField's `error`).
+
+One part departs from `packages/host/DESIGN.md` as approved: the common form
+fits above the commit at 1280 × 800 (The Form sheet, assembled), and this
+sheet's Planning group may start below the fold there, as a long description
+pushes it down. The sheet scrolls by the resting rules like any Form sheet.
+
+Considered and not picked: one flat list of every field (variant A); and the
+properties folded under one group whose heading reads their values
+(variant C). Declined in review: capping the phone Description editor with a
+scroll of its own, a scroll inside a scroll on touch.
+
+`packages/host/src/test/task-edit-sheet.test.tsx` checks the sheet through
+the task page's More: the writes each field sends, the tag diff, the
+grooming rule, the partial failure, and focus; `task-edit.test.ts` checks
+the writes a draft plans, the re-baseline, and the footer note.

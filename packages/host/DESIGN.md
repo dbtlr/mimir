@@ -13,7 +13,8 @@ Every value is marked:
   MMR-718 readable type, MMR-719 the feed blocks, MMR-720 the preview
   panel, MMR-721 the Needs you deck, MMR-722 Home, MMR-723 the Needs you
   page, MMR-726 the record header, MMR-724 the list page, MMR-725 the Seeds
-  and Artifacts lists, MMR-790 the Projects list, MMR-728 the task page). The reason given beside one says what the code did
+  and Artifacts lists, MMR-790 the Projects list, MMR-728 the task page,
+  MMR-731 the task edit sheet). The reason given beside one says what the code did
   before.
 - **proposed**: missing from or different in the code. Each carries a one-line
   reason and needs the operator's ruling before a primitive adopts it.
@@ -250,8 +251,16 @@ A third: the Seeds list's Filter sheet takes Show as five segments (All, To
 triage, To resolve, Parked, Settled), though two labels run past a word, as
 the picked mock drew it (**adopted (MMR-725)**). Each segment is sized to its
 label with 6 of padding a side on a phone and is 44 wide at least
-(FilterSegments' `fit`): the row fits at 390, where equal shares cut "To
+(the Segmented Control's `fit`): the row fits at 390, where equal shares cut "To
 resolve", but at 320 every label but All clips by about 10.
+A fourth: a task's Grooming in the edit sheet takes three segments (Not
+groomed, Needs answers, Groomed), though two labels run past a word, as the
+picked mock drew it (**adopted (MMR-731)**). Its segments are sized to their
+labels on a phone by `fit`, as Show's are: the row fits at 390, and at 320
+the three labels clip by a few pixels each. The sheet's Size and Priority
+take `fit` too, so "Medium" and "None" fit at 320, where equal shares cut
+them; from `md` `fit` segments share the leftover width (`px-3`). Priority's
+values are mono with `--mono-adjust` (the option's `mono`); None stays sans.
 A form should not need a stacked choice
 list; where a Radio stacks, it follows these numbers:
 
@@ -663,6 +672,9 @@ them.
 | Segmented track | 50: a 3px inset (the 1px edge, then 2 clear) leaves each segment a 44 tap target; segments share the width | 44, segments 38, full field width, segments share it, so every control in a form ends on one right edge | **adopted (MMR-743)**: today about 28 |
 | Textarea | 3 lines: 88 (22 × 3 + 22 padding); grows by line | same | existing line height; height **adopted (MMR-743)** |
 | Textarea `grow` (Composer, Walkthrough note) | 1 line: 44; grows to 4 lines, 110 (22 × 4 + 22), then scrolls. Both are border-box heights: the 22 is 20 of padding and the 1px top and bottom borders, so `clientHeight` reads 108 at the cap | same | **adopted (MMR-744)**: `max-h-[110px]` |
+| Textarea `grow` in a form (`FormGrowTextArea`) | a task's Summary: 1 line, 44, growing to 3 lines, 88, then scrolling; with no line cap (the Description editor), it starts at 3 lines, 88, and grows with its text, never scrolling inside itself | same | **adopted (MMR-731)** |
+| Joined tabs (`TabsList joined`: Write and Preview on the Description editor) | a row on the editor's top edge: the control's 1px `ink-faint` edge on three sides, 6 top radius, `well-850`, 4 inside its sides, no hairline of its own; each tab 44 tall, its label 12 inside each side, 14 / 20 500 `ink-dim`, selected 600 `ink-bright` over a 2px `accent` underline. The editor under it has square top corners. Preview takes the editor's place: `well-850`, a 1px `line-bright` edge, square top corners, 12 top and bottom, 16 sides, the prose `text-body`, at least 88 tall | each tab 36 tall | **adopted (MMR-731)** |
+| Token Input field (`FormTokenInput`, a form's tags) | the text field's edge and ground; chips 32 tall, full radius, `well-800` with a 1px `line-bright` inset ring, 12 left padding, 14 / 20 `ink-bright`; each chip's remove a 32 square with a 14 glyph in `ink-dim`, taking a 44 tap area; rows at least 44 apart (45 in Chromium, where the chip's middle alignment adds a pixel), so wrapped rows' tap areas never overlap, which makes the field about 47 tall with one row of chips | rows 38 apart, the field 44 with one row; the remove its 32 square | **adopted (MMR-731)** |
 | Segmented segment text | 14 / 20, 500, `text-label`, sentence case (a provider's values keep their own case) | same | **adopted (MMR-743)**: today the 10.5px uppercase microlabel |
 | Choice row (radio, checkbox, switch) | 44 min | 36 min | 44 existing for Switch rows (ADR 0019 MMR-712); 36 **adopted (MMR-743)** |
 | Radio and checkbox box | 16 | 16 | existing (`size-4`) |
@@ -754,6 +766,8 @@ phone, full screen                      desktop, 640 panel
   scrolling body, in DOM order. No CSS `order` rearranges a form.
 - Rarely used settings sit in a collapsed group (Advanced) at the end of the
   body, so the common form fits above the commit at 390 × 844 and 1280 × 800.
+  The task edit sheet departs from this as approved (MMR-731): its Planning
+  group may start below the fold at 1280 × 800, under a long description.
   A field that only matters for one choice (Branch, for New worktree) appears
   only when that choice is made.
 - A Select shows the value alone ("Sonnet 5.5"). When options come in groups,
@@ -762,6 +776,13 @@ phone, full screen                      desktop, 640 panel
   and the commit waits for it.
 - A footer note sits in the footer: on desktop left of Cancel and the commit,
   level with them; on a phone one line above the full-width commit.
+- **A commit that partly failed** (several writes, some refused) keeps the
+  sheet open. The footer note names what saved and what didn't, in the danger
+  ink (`status-blocked-foreground`); the field whose write failed takes the
+  invalid edge with its error 8 under the control, 13 / 20 in the danger ink,
+  in its help's place ("Not moved: the host didn't answer. Save again to move
+  it."); and the desktop footer's Cancel reads Close, since what saved stays
+  saved (**adopted (MMR-731)**).
 
 ### Examples
 
@@ -788,3 +809,16 @@ The forms built on these numbers (MMR-743), for checking a build against them:
   Plan first. The context line is "`MMR-743` Form sheet pattern". It opens on
   System. With Advanced open on a phone, the end of the scroll rests with
   Reasoning effort 24 below the header, adding about 50 of bottom room.
+- **Edit task** (**adopted (MMR-731)**). Opened by Edit in a task's More; the
+  context line is "`MMR-730` The sidebar lists where you are", the saved
+  title. Title, Summary (optional, a `grow` box capped at 3 lines), and
+  Description (optional, the joined Write and Preview), then Planning: Size
+  (None, Small, Medium, Large), Priority (None, then `p0` to `p3` in mono),
+  Grooming (three segments, todo tasks only), Open questions (only after
+  choosing Needs answers; required, help "Required for Needs answers. Saved
+  as a note on the task."), and Parent (optional, a Record picker grouped
+  Initiatives then Phases, reading "`MMR-717` — One feed system…"); then
+  Links: Tags (optional, the Token Input field, help "Press Enter or type a
+  comma to add a tag.") and External ref (optional). It opens on Title; Save
+  waits for a title, and for Open questions after Needs answers; closing
+  returns focus to More.
