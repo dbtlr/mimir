@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useLinkProps, useRouterState } from '@tanstack/react-router';
+import { useRouterState } from '@tanstack/react-router';
 import { useId } from 'react';
 import type { ReactNode } from 'react';
 
@@ -12,6 +12,7 @@ import { openLink } from './needs-you-cards';
 import { needsYouCards } from './needs-you-deck-model';
 import type { NeedsYouCard, NeedsYouLead, NeedsYouOpen } from './needs-you-deck-model';
 import { FEED_LINK_TEXT } from './patterns/feed/link';
+import { WayLink } from './patterns/way-link';
 import { useProjectStructure } from './sidebar-containers';
 import { SIDEBAR_ROW } from './sidebar-selection';
 import { StatusDot } from './status-dot';
@@ -52,7 +53,7 @@ function opensHere(open: NeedsYouOpen, here: Here): boolean {
       return place?.kind === 'node' && place.id === open.id;
     }
     case 'delivery': {
-      return here.pathname.replace(/\/$/u, '') === deliveryPath(open.id);
+      return here.pathname === deliveryPath(open.id);
     }
     case 'project': {
       return here.onWorkTab;
@@ -74,29 +75,6 @@ function useHere(): Here {
     onWorkTab: projectPlaceOf(pathname)?.kind === 'project' && !onDetails,
     pathname,
   };
-}
-
-/**
- * A slot link. The router marks a link to `/p/KEY` active on every page under
- * it; nothing in the slot is current, so its `aria-current` is dropped.
- */
-function SlotLink({
-  to,
-  className,
-  onNavigate,
-  children,
-}: {
-  to: ReturnType<typeof openLink>;
-  className: string;
-  onNavigate?: (() => void) | undefined;
-  children: ReactNode;
-}) {
-  const linkProps = useLinkProps({ ...to, onClick: onNavigate });
-  return (
-    <a {...linkProps} aria-current={undefined} className={className}>
-      {children}
-    </a>
-  );
 }
 
 /** A card's lead: the 7 attention dot or a blocked task's status dot, then its word. */
@@ -139,9 +117,9 @@ function CardRow({
   return opensHere(open, here) ? (
     <div className={PLAIN_ROW}>{content}</div>
   ) : (
-    <SlotLink to={openLink(open)} className={SIDEBAR_ROW} onNavigate={onNavigate}>
+    <WayLink link={openLink(open)} className={SIDEBAR_ROW} onClick={onNavigate}>
       {content}
-    </SlotLink>
+    </WayLink>
   );
 }
 
@@ -170,13 +148,13 @@ function SeeAll({
   return here.onWorkTab ? (
     <div className={cn(PLAIN_ROW, 'font-medium text-ink-bright')}>{content}</div>
   ) : (
-    <SlotLink
-      to={{ params: { key: projectKey }, to: '/p/$key' }}
+    <WayLink
+      link={{ params: { key: projectKey }, to: '/p/$key' }}
       className={cn(SIDEBAR_ROW, FEED_LINK_TEXT, 'font-medium')}
-      onNavigate={onNavigate}
+      onClick={onNavigate}
     >
       {content}
-    </SlotLink>
+    </WayLink>
   );
 }
 

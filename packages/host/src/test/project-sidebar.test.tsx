@@ -9,6 +9,7 @@ import { ApiError } from '../api/errors';
 import { getNode } from '../api/fns/nodes';
 import { projects, tree } from '../api/fns/shell';
 import { review } from '../api/fns/views';
+import { reviewQuery } from '../api/view-queries';
 import type { ReviewReport } from '../api/view-queries';
 import { toast as notice } from '../components/patterns/notice';
 import { subtreeOf } from '../lib/ancestry';
@@ -787,6 +788,68 @@ describe('sidebar’s Needs you (MMR-804)', () => {
       expect(group.querySelectorAll('[aria-current], [data-holds]')).toHaveLength(0);
     },
   );
+
+  it.each(['/p/MMR/d4', '/p/MMR/d4?mode=decisions'])(
+    'keeps a delivery’s row as plain text on its own page (%s)',
+    async (path) => {
+      serveCards(MMR_CARDS);
+      await renderAt(path);
+      const group = await slot();
+      expect(within(group).queryByRole('link', { name: /Delivery MMR-d4/ })).toBeNull();
+      expect(within(group).getByText('Delivery MMR-d4')).toBeInTheDocument();
+      expect(within(group).getByRole('link', { name: 'Question Task MMR-7' })).toBeInTheDocument();
+    },
+  );
+
+  it('shows exactly three cards with no See all', async () => {
+    serveCards(MMR_CARDS.slice(0, 3));
+    await renderAt('/p/MMR/1');
+    const group = await slot();
+    expect(group).toHaveAccessibleName('Needs you 3');
+    expect(within(group).getAllByRole('link')).toHaveLength(3);
+    expect(within(group).queryByText(/See all/)).toBeNull();
+  });
+
+  it('is not on a project whose tree is missing, even before the report answers', async () => {
+    vi.mocked(tree).mockRejectedValue(new ApiError('tree MMR → 404', 404));
+    vi.mocked(review).mockReturnValue(Promise.withResolvers<never>().promise);
+    await renderAt('/p/MMR');
+    const nav = await expectRows(['← Home', 'MMR']);
+    expect(within(nav).queryByRole('group', { name: /^Needs you/ })).toBeNull();
+  });
+
+  it('is not on a node id in the project segment, even before the report answers', async () => {
+    serve([MMR], { 'MMR-5': node('MMR-5', 'initiative', 'done') });
+    vi.mocked(review).mockReturnValue(Promise.withResolvers<never>().promise);
+    await renderAt('/p/MMR-5');
+    const nav = await expectRows(['← Home', 'MMR-5']);
+    expect(within(nav).queryByRole('group', { name: /^Needs you/ })).toBeNull();
+  });
+
+  it('shows once the report lists the project, though its tree is missing', async () => {
+    vi.mocked(tree).mockRejectedValue(new ApiError('tree MMR → 404', 404));
+    serveCards([question('MMR-7')]);
+    await renderAt('/p/MMR');
+    const group = await slot();
+    expect(group).toHaveAccessibleName('Needs you 1');
+    expect(within(group).getByRole('link', { name: 'Question Task MMR-7' })).toBeInTheDocument();
+  });
+
+  it('keeps the rows it has when a later read of the report fails', async () => {
+    serveCards([question('MMR-7')]);
+    const client = new QueryClient({
+      defaultOptions: { queries: { refetchInterval: false, retry: false } },
+    });
+    await renderShell('/p/MMR/1', client);
+    await slot();
+    vi.mocked(review).mockRejectedValue(new Error('offline'));
+    await act(async () => {
+      await client.refetchQueries({ queryKey: reviewQuery().queryKey });
+    });
+    const group = await slot();
+    expect(within(group).getByRole('link', { name: 'Question Task MMR-7' })).toBeInTheDocument();
+    expect(within(group).queryByText('Couldn’t load what needs you.')).toBeNull();
+  });
 });
 
 describe('sidebar on an archived or unavailable project (MMR-730)', () => {
@@ -1136,6 +1199,24 @@ describe('sidebar drawer on a phone', () => {
       'pt-[max(0.75rem,env(safe-area-inset-top))]',
       'pb-[max(0.75rem,env(safe-area-inset-bottom))]',
     );
+  });
+
+  it('closes behind a Needs you pick that keeps the path, as from the Details tab to the Work tab', async () => {
+    serveCards([decision('MMR-q1', { delivery: null }), question('MMR-7')]);
+    const testRouter = await renderAt('/p/MMR?tab=details');
+    await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
+    const drawer = await screen.findByRole('dialog', { name: 'Project' });
+
+    await userEvent.click(
+      await within(drawer).findByRole('link', {
+        name: 'Decisions Mimir decisions without a delivery',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Project' })).toBeNull();
+    });
+    expect(testRouter.state.location.href).toBe('/p/MMR');
   });
 
   it('closes when the page changes some other way, such as Back or the jump palette', async () => {
