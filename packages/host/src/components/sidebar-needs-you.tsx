@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouterState } from '@tanstack/react-router';
-import { useId } from 'react';
+import { useId, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import { reviewQuery } from '../api/view-queries';
@@ -221,6 +221,15 @@ export function ProjectNeedsYou({
   const { archived, unavailable } = useProjectStructure(projectKey);
   const here = useHere();
   const report = review.data;
+  // Built once per report and project, as the Work tab's deck memoises its cards:
+  // the sidebar re-renders on every route change, and the report changes only on a poll.
+  const cards = useMemo(
+    () =>
+      report === undefined
+        ? []
+        : needsYouCards(report).filter((card) => card.projectKey === projectKey),
+    [report, projectKey],
+  );
 
   if (report === undefined) {
     if (archived !== undefined || unavailable) {
@@ -247,7 +256,6 @@ export function ProjectNeedsYou({
   if (project === undefined) {
     return null;
   }
-  const cards = needsYouCards(report).filter((card) => card.projectKey === projectKey);
   if (cards.length === 0) {
     return (
       <div className={SLOT_END}>
