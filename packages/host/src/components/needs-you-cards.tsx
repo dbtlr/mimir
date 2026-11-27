@@ -62,7 +62,8 @@ function leadOf(lead: NeedsYouLead): ReactNode {
   );
 }
 
-function openLink(open: NeedsYouOpen): FeedLink {
+/** Where a card's Open leads: its task's, delivery's, or project's page. */
+export function openLink(open: NeedsYouOpen): FeedLink {
   switch (open.kind) {
     case 'delivery': {
       return deliveryLink(open.id);

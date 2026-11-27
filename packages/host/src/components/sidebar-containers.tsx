@@ -306,11 +306,31 @@ function ContainerLevel({
 }
 
 /**
- * The container list on a project's pages. The tree is the whole board, so it
- * is read once rather than polled, as on the record pages; a console write
- * invalidates it. An archived project's tree 404s (ADR 0015), so it is not
- * asked for once the archived list names the key: the list shows ← Home and
- * the project's row alone, and the project page says why.
+ * A project's structure as the sidebar reads it: the archived project the key
+ * names, the project's tree, and whether that tree reads as missing or as no
+ * project's. The tree is the whole board, so it is read once rather than
+ * polled, as on the record pages; a console write invalidates it. An archived
+ * project's tree 404s (ADR 0015), so it is not asked for once the archived
+ * list names the key. The container list and the Needs you slot share it.
+ */
+export function useProjectStructure(projectKey: string) {
+  const archived = useArchivedProject(projectKey);
+  const tree = useQuery({
+    ...treeQuery(projectKey),
+    enabled: archived === undefined,
+    refetchInterval: false,
+  });
+  // A node id in the project segment (`/p/MMR-5`) reads back a tree that is no project's.
+  const notProject = tree.data !== undefined && tree.data.type !== 'project';
+  // A refetch that 404s (archived in another tab) outranks the tree still cached.
+  const unavailable = notProject || isNotFound(tree.error);
+  return { archived, tree, unavailable };
+}
+
+/**
+ * The container list on a project's pages, from `useProjectStructure`. An
+ * archived project shows ← Home and the project's row alone, and the project
+ * page says why.
  */
 export function ProjectContainers({
   projectKey,
@@ -321,12 +341,7 @@ export function ProjectContainers({
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const place = projectPlaceOf(pathname) ?? { kind: 'project' };
-  const archived = useArchivedProject(projectKey);
-  const tree = useQuery({
-    ...treeQuery(projectKey),
-    enabled: archived === undefined,
-    refetchInterval: false,
-  });
+  const { archived, tree, unavailable } = useProjectStructure(projectKey);
   const projects = useQuery(projectsQuery);
   const home = <ParentLink target={{ to: '/' }} title="Home" onNavigate={onNavigate} />;
   const bare = (title: string | undefined) => (
@@ -346,10 +361,7 @@ export function ProjectContainers({
       </>
     );
   }
-  // A node id in the project segment (`/p/MMR-5`) reads back a tree that is no project's.
-  const notProject = tree.data !== undefined && tree.data.type !== 'project';
-  // A refetch that 404s (archived in another tab) outranks the tree still cached.
-  if (notProject || isNotFound(tree.error)) {
+  if (unavailable) {
     return (
       <>
         {home}
