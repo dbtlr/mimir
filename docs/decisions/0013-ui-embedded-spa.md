@@ -1507,27 +1507,35 @@ operator. The switcher's "N elsewhere" and Home's per-project counts shipped
 with it; this fills the slot. DESIGN.md's _Sidebar's Needs you_ row holds its
 sizes.
 
-- **The slot shows on an active project's pages**, every page whose sidebar
-  is that project's container list (MMR-730's table: the project, its
-  initiatives and phases, its tasks, and its Tasks, Seeds, Artifacts, seed,
-  artifact, and delivery pages), the Work tab included. It sits under the
-  switcher and above the container list, so the sidebar is the same on each of
-  them. Home, `/projects`, `/needs-you`, and `/doctor` have none, since Home's
-  page is the Needs you deck; Settings and an archived or unavailable project
-  have none either.
+- **The slot shows on the pages of a project the review report lists**
+  (archived projects are not in it), every page whose sidebar is that
+  project's container list (MMR-730's table: the project, its initiatives and
+  phases, its tasks, and its Tasks, Seeds, Artifacts, seed, artifact, and
+  delivery pages), the Work tab included. It sits under the switcher and above
+  the container list, so the sidebar is the same on each of them. Home,
+  `/projects`, `/needs-you`, and `/doctor` have none, since Home's page is the
+  Needs you deck; Settings and an archived or unavailable project have none
+  either.
 - **The slot is the project's Needs you deck in brief.** Its rows are the
-  cards of the project's Work tab deck (the MMR-727 refinement), in the deck's
-  order, read from the review report the console already polls, with no read
-  of its own. The head counts those cards, as the deck's head does; a bundle of
-  decisions is one card and one row. A row reads the card's lead word, then
-  its title, and links to where the card's Open leads. It shows three rows;
-  when more cards wait, "See all N" opens the project's Work tab, where the
-  same N cards are. On the Work tab itself, "See all N" is the page, so it is
-  plain text marked as the current page, and the project's row stays the
-  sidebar's selection.
+  cards the review report's deck holds whose project is this one, in the
+  deck's order, read from the review report the console already polls, with no
+  read of its own. Once the work read has settled they are the cards the
+  project's Work tab deck shows (the MMR-727 refinement), which scopes the same
+  cards by that read's IDs. The head counts those cards, as the deck's head
+  does; a bundle of decisions is one card and one row. The switcher's "N
+  elsewhere" and Home's project rows count the records, as the top-bar alert
+  does, so a project with a bundle shows more there than in its slot. A row
+  reads the card's lead word, then its title, and links to where the card's
+  Open leads. It shows three rows; when more cards wait, "See all N" opens the
+  project's Work tab, where the same N cards are.
+- **On the Work tab** (the project's path without `?tab=details`), "See all N"
+  and a row whose Open is that page (a bundle of the project's decisions with
+  no delivery) are plain text, not links and not marked current, so the
+  project's row stays the sidebar's one selection.
 - **With no card,** one quiet line, "Nothing needs you in <project>.", takes
   the slot's place. While the report loads, the head shows over skeleton rows;
-  when it fails with nothing cached, "Couldn't load what needs you."
+  when it fails with nothing cached, "Couldn't load what needs you."; offline,
+  the cached rows stay.
 - **The drawer scrolls the slot with the list;** nothing in it is pinned.
 
 Considered and rejected:
