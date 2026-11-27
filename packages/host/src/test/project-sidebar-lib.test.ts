@@ -1,27 +1,23 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  isSectionPage,
-  openRecordId,
-  sectionOfPath,
-  sidebarContextOf,
-} from '../lib/project-sidebar';
+import { projectPlaceOf, sectionOfPath, sidebarContextOf } from '../lib/project-sidebar';
 
 describe('sectionOfPath', () => {
   it.each([
-    ['/p/MMR', undefined, 'work'],
-    ['/p/MMR/tasks', undefined, 'tasks'],
-    ['/p/MMR/seeds', undefined, 'seeds'],
-    ['/p/MMR/artifacts', undefined, 'artifacts'],
-    ['/p/MMR/s41', undefined, 'seeds'],
-    ['/p/MMR/a219', undefined, 'artifacts'],
-    ['/p/MMR/417', 'task', 'tasks'],
-    ['/p/MMR/417', 'phase', 'work'],
-    ['/p/MMR/417', 'initiative', 'work'],
-    ['/p/MMR/417', undefined, 'work'],
-  ] as const)('%s (%s) is in %s', (path, type, section) => {
-    expect(sectionOfPath(path, type)).toBe(section);
+    ['/p/MMR', 'work'],
+    ['/p/MMR/tasks', 'tasks'],
+    ['/p/MMR/seeds', 'seeds'],
+    ['/p/MMR/artifacts', 'artifacts'],
+  ] as const)("%s is %s's own route", (path, section) => {
+    expect(sectionOfPath(path)).toBe(section);
   });
+
+  it.each(['/p/MMR/417', '/p/MMR/s41', '/p/MMR/a219'])(
+    '%s is a record inside a section, not its route',
+    (path) => {
+      expect(sectionOfPath(path)).toBeUndefined();
+    },
+  );
 
   it.each(['/', '/doctor', '/settings/devices', '/pair', '/nowhere'])('%s is in none', (path) => {
     expect(sectionOfPath(path)).toBeUndefined();
@@ -32,30 +28,30 @@ describe('sectionOfPath', () => {
   });
 });
 
-describe('isSectionPage', () => {
-  it.each(['/p/MMR', '/p/MMR/tasks', '/p/MMR/seeds', '/p/MMR/artifacts'])(
-    "%s is a section's own page",
-    (path) => {
-      expect(isSectionPage(path)).toBe(true);
-    },
-  );
-
-  it.each(['/p/MMR/417', '/p/MMR/s41', '/p/MMR/a219'])('%s is a record inside one', (path) => {
-    expect(isSectionPage(path)).toBe(false);
+describe('projectPlaceOf (MMR-730)', () => {
+  it('reads the project’s own page, whatever its tab', () => {
+    expect(projectPlaceOf('/p/MMR')).toStrictEqual({ kind: 'project' });
+    expect(projectPlaceOf('/p/MMR/')).toStrictEqual({ kind: 'project' });
   });
-});
 
-describe('openRecordId', () => {
   it('names the node a record path opens', () => {
-    expect(openRecordId('/p/MMR/417')).toBe('MMR-417');
+    expect(projectPlaceOf('/p/MMR/417')).toStrictEqual({ id: 'MMR-417', kind: 'node' });
   });
 
-  it.each(['/', '/p/MMR', '/p/MMR/tasks', '/p/MMR/s41', '/p/MMR/a2'])(
-    '%s opens no node',
-    (path) => {
-      expect(openRecordId(path)).toBeUndefined();
-    },
-  );
+  it.each([
+    '/p/MMR/tasks',
+    '/p/MMR/seeds',
+    '/p/MMR/artifacts',
+    '/p/MMR/s41',
+    '/p/MMR/a2',
+    '/p/MMR/d3',
+  ])('%s is a page the project holds', (path) => {
+    expect(projectPlaceOf(path)).toStrictEqual({ kind: 'held' });
+  });
+
+  it.each(['/', '/projects', '/doctor', '/settings'])('%s is in no project', (path) => {
+    expect(projectPlaceOf(path)).toBeUndefined();
+  });
 });
 
 describe('sidebarContextOf (MMR-505)', () => {

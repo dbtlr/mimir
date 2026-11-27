@@ -59,7 +59,7 @@ export const archivedProjectsQuery = queryOptions({
   queryKey: ['projects', 'archived'],
 });
 
-/** The whole project hierarchy, nested, rank-ordered: the sidebar outline and the pickers. */
+/** The whole project hierarchy, nested, rank-ordered: the sidebar's container list and the pickers. */
 export const treeQuery = (key: string) =>
   queryOptions({
     queryFn: () => tree({ data: { id: key } }),

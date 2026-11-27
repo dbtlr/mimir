@@ -49,7 +49,7 @@ import { Skeleton } from './ui/skeleton';
  * record depends on and blocks, and its dates. An initiative or phase adds
  * Timeline and Artifacts, and a phase Deliveries; a project's other tabs are
  * its browsers. A tab with nothing in it is hidden. The project's structure
- * lives in the shell's sidebar outline.
+ * is navigated in the shell's sidebar container list.
  */
 
 /** The record's own column: one centred column of at most 900px, no rail (MMR-726). */

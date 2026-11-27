@@ -1,8 +1,8 @@
-import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 
 import { cn } from '../lib/cn';
 import { PAGE_COLUMN } from '../lib/page-column';
+import { WayLink } from './patterns/way-link';
 
 /**
  * A Settings sub-page's frame (ADR 0013, MMR-733): a "← Settings" link back to
@@ -26,12 +26,12 @@ export function SettingsPage({
   return (
     <main className={cn(PAGE_COLUMN, 'flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto p-5')}>
       {back && (
-        <Link
-          to="/settings"
+        <WayLink
+          link={{ to: '/settings' }}
           className="w-fit rounded text-xs text-ink-dim hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent lg:hidden"
         >
           ← Settings
-        </Link>
+        </WayLink>
       )}
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">{title}</h1>

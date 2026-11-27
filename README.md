@@ -12,7 +12,7 @@ Work state lives in one local SQLite file by default, or in a shared
 PostgreSQL database for agents on several machines. Mimir derives queues, status rollups, blockers, and stale work when queried;
 there is no second cache of project status to keep in sync.
 
-![Mimir root page: the decisions waiting on the operator, then in-flight and shipped work across projects, beside a project health rail](docs/assets/console-overview.png)
+![Mimir Home: the sidebar lists the projects, those that need you first; the page shows the Needs you cards, the work in flight, and what shipped this week](docs/assets/console-overview.png)
 
 ## Why Mimir
 

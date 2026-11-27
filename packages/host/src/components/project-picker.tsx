@@ -110,7 +110,7 @@ export function ProjectPicker({
           <button
             type="button"
             className={cn(
-              'group flex w-full items-center gap-2 rounded-lg bg-well-850 px-2.5 py-2 text-left inset-ring inset-ring-line-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent data-[open]:inset-ring-accent/45',
+              'group flex w-full items-center gap-2 rounded-lg bg-well-850 px-3 py-2 text-left inset-ring inset-ring-ink-dim transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent data-[open]:inset-ring-accent/45',
               DRAWER_TAP_ROW,
             )}
           >
@@ -153,12 +153,12 @@ export function ProjectPicker({
               </>
             )}
             <svg
-              width="11"
-              height="11"
+              width="12"
+              height="12"
               viewBox="0 0 24 24"
               fill="none"
               aria-hidden="true"
-              className="shrink-0 text-ink-faint transition-transform group-data-[open]:rotate-180"
+              className="shrink-0 text-ink-dim transition-transform group-data-[open]:rotate-180"
             >
               <path
                 d="m6 9 6 6 6-6"

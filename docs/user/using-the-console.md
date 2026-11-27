@@ -10,7 +10,7 @@ For access from another device, `tailscale serve` keeps HTTPS and the
 installable PWA, and a
 [reverse proxy](../guides/host.md#use-a-reverse-proxy) does too.
 
-![Mimir project work page with the project sidebar and outline, and a rail of direction, about, and artifacts](../assets/console-project.png)
+![A Mimir project page: the sidebar shows the project under Home with its initiatives; the page has Work, Tasks, Seeds, Artifacts, and Details tabs, opening on Needs you and Now](../assets/console-project.png)
 
 ## Review what needs you
 
@@ -133,15 +133,16 @@ its own address: `/p/MMR` for the project, `/p/MMR/417` for `MMR-417`,
   their lists. A phase with a delivery under way shows it on a _Deliveries_
   tab (`?tab=deliveries`). An initiative or phase keeps its notes under a
   Timeline tab, at `?tab=timeline`, and its description and direction under
-  Details. Its place in the project is marked in the sidebar, and the trail
-  above its title leads to its parents.
+  Details. The sidebar shows it with its phases, and the trail above its title
+  leads to its parents.
 - **A task page** has four tabs: _Work_ (a banner for its state, its
   description, and what it depends on and blocks), _Details_ (its status,
   record, and run facts), _Timeline_ (a note field, then its history, newest
   first), and _Artifacts_ once one is attached. Its actions are in the
   header and More. The
-  sidebar lists the task under its phase or initiative, and below 1024px wide a link
-  to that parent (or to the project) stands above its ID.
+  sidebar shows the task's phase or initiative, ringed as the container that
+  holds the page, and below 1024px wide a link to that parent (or to the
+  project) stands above its ID.
 - **A seed page** reads as a request: which board asks which, the description,
   and what came of it, meaning the tasks promoted from the seed and the tasks
   on any board that name it as upstream. A decision block offers the verbs the
@@ -161,50 +162,69 @@ On a phone, the rail folds into chips that open bottom sheets.
 
 ## Find your way with the sidebar
 
-A sidebar on the left frames every page. On a project's pages it frames that
-project. On `/` and `/doctor`, which belong to no project, it frames All
-projects: the header reads **All projects** with a violet count of the
-decisions waiting across every project, and only **Work** sits under it, which
-is `/`. Choose a project in the switcher to get its outline, Tasks, Seeds, and
-Artifacts back. With no projects, there is no sidebar on the work pages, and
-Home offers **New project**. [Settings](#settings) pages and `/pair`
-have a sidebar either way.
+A sidebar on the left frames every page. It holds **Jump to…**, the project
+switcher, and one list of containers: projects, initiatives, and phases. It
+never lists a task; the page lists those. With no projects, there is no
+sidebar on the work pages, and Home offers **New project**.
+[Settings](#settings) pages and `/pair` have a sidebar either way.
 
-- **The header** names the project by key and title. When other projects have
-  decisions waiting, it adds "N elsewhere" in violet. Choose it to open the
-  project switcher.
-- **The switcher** opens on **All projects**, which leads to `/` and is marked
-  when you are on `/` or `/doctor`. It carries a violet count of the decisions
-  across every project and no pin, and it is hidden while you type a search.
+- **The switcher** names the project you are in by key and title. On `/`,
+  `/projects`, `/needs-you`, `/doctor`, and any other page outside a project
+  it reads **All projects**, with a violet count of the decisions waiting
+  across every project. When other projects have decisions waiting, it adds
+  "N elsewhere" in violet. Choose it to open the switcher's list, which opens
+  on **All projects**, a way back to `/`. It carries a violet count of the
+  decisions across every project and no pin, and it is hidden while you type a
+  search.
   Below it are pinned projects first, then the rest by most recent
   activity. Each row shows the project's key and title, a violet count of its
   decisions when it has any, and a mark on the project you are in. Type to
   filter by key or title, press the up and down arrows to move, and press Enter
-  to switch. Switching keeps your section: from `/p/MMR/tasks` it opens the
-  new project's Tasks, and from a record it opens the new project's work page.
-  Escape closes the switcher and returns focus to the header. Press Alt+P to
+  to switch. Switching keeps your tab: from `/p/MMR/tasks` it opens the
+  new project's Tasks, and from a record it opens the new project's page.
+  Escape closes the switcher and returns focus to it. Press Alt+P to
   pin or unpin the highlighted project, or click the pin icon on its row; either
   works without leaving the page, and a pin is saved with the project, so it
   follows you to other devices. Archived projects are in a folded **Archived**
   section at the bottom; they cannot be pinned, and they open to a page that
   names the project as archived and offers **Unarchive**, which returns you to
-  its work page.
+  its page.
   **New project** ends the list.
-- **Work** opens the project's work page (on All projects, `/`). Under it, an outline lists the
-  project's initiatives and phases, each with its done-over-total count, ∞
-  when open-ended, or _parked_. Finished initiatives fold into one line you can
-  open. Tasks are not in the outline unless you have one open.
-- **Tasks**, **Seeds**, and **Artifacts** open the project's browsers. The
-  section you are in is marked, and a record counts toward its section: a
-  task's page is in Tasks, a seed's in Seeds, an artifact's in Artifacts, and
-  an initiative's or phase's in Work.
-- **The outline marks the open record's place.** The initiatives and phases
-  above it are ringed, an open initiative or phase is highlighted, and an open
-  task appears under its nearest container. A finished initiative opens when
-  the record sits inside it.
+- **The list is the same at every level.** A link marked ← leads up one
+  level. Below it is the container you are in, then the containers inside it,
+  indented:
+
+  | Page | ← leads to | The current row | Below it |
+  | --- | --- | --- | --- |
+  | Home, the Projects list, Needs you, Record health | nothing | **Home** | the projects |
+  | A project's pages | Home | the project | its initiatives |
+  | An initiative | its project | the initiative | its phases |
+  | A phase | its initiative | the phase | nothing |
+  | A task | one level above the task's phase or initiative | that phase or initiative | the phases inside an initiative |
+
+- **Each row shows its status and progress.** A container's row has its status
+  dot, its title (a project's row its key and name), and at the right the
+  tasks and containers directly inside it that are done over those that are
+  not abandoned. It reads ∞ when open-ended, _parked_ when parked, and _Empty_
+  when nothing is inside it or everything inside it was abandoned. Finished
+  initiatives or phases fold into one line at the end, such as "3 finished
+  initiatives", which opens in place and closes again when you move to
+  another page.
+- **Home is the top level.** Its row counts the active projects. Below it are
+  up to six projects: those with decisions waiting first, most first, with
+  their violet count, then pinned projects, then the most recently active.
+  **See all N projects** opens the Projects list at `/projects`.
+- **The row for the page you are on is highlighted.** A container's row is
+  highlighted on its own page, Work or Details. On a page it holds, the row
+  is outlined instead: a project's row on its Tasks, Seeds, and Artifacts lists
+  and on its seeds, artifacts, and deliveries; a phase's row (or an
+  initiative's) on its tasks; and **Home** on every page outside a project but
+  `/`. On `/projects`, **See all N projects** is highlighted.
+- **An archived project** shows ← Home and its key and name alone. Its page
+  says that it is archived.
 
 Below 1024px wide, such as on a phone or a small tablet, the sidebar is a drawer. The button at the left of the top bar
-opens it. Choosing a section or record closes it. Escape or a tap outside
+opens it. Its rows are 44px tall for touch. Choosing a row closes it. Escape or a tap outside
 also closes it and returns focus to the button.
 
 The top bar holds the Mimir brand (a link to Home), the jump
@@ -244,7 +264,7 @@ to work** at the top. The page you are on is marked. On `/pair` it marks
 ## Browse a project's records
 
 Each project has three browsers, at `/p/KEY/tasks`, `/p/KEY/seeds`, and
-`/p/KEY/artifacts`. The sidebar links to the project you are in. The old
+`/p/KEY/artifacts`, and the project page's tabs lead to them. The old
 addresses `/tasks`, `/seeds`, and `/artifacts` still work: with `?project=KEY`
 they open that project's browser, and without it they open the last project
 you visited on this device, else the first in the project switcher. With no

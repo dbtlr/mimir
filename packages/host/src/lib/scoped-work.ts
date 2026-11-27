@@ -239,7 +239,10 @@ export type Part = { id: string; title: string; status: StatusWord; done: number
 /** A scope's parts, the live ones in tree order, the finished ones set apart for their fold. */
 export type Parts = { noun: 'initiatives' | 'phases'; open: Part[]; finished: Part[] };
 
-/** A part with done over total across its direct children, as the sidebar's outline counts them. */
+/**
+ * A part with done over total across its direct children, from `childTally`,
+ * the count the sidebar's `tallyOf` shares.
+ */
 function partOf(node: EngineTree): Part {
   return { id: node.id, status: node.status, title: node.title, ...childTally(node) };
 }
