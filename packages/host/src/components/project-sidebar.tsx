@@ -232,7 +232,7 @@ export function ProjectDrawer({ context }: { context: SidebarContext }) {
         />
         <Dialog.Popup
           aria-label={landmarkLabel(context)}
-          className="fixed inset-y-0 left-0 z-50 w-[300px] max-w-[88vw] overflow-y-auto border-r border-line bg-well-950 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl outline-none transition-transform duration-200 ease-out data-[ending-style]:-translate-x-full data-[starting-style]:-translate-x-full"
+          className="fixed inset-y-0 left-0 z-50 w-[300px] max-w-[88vw] overflow-y-auto border-r border-line bg-well-950 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl outline-none transition-transform duration-200 ease-out data-[ending-style]:-translate-x-full data-[starting-style]:-translate-x-full"
         >
           <SidebarBody
             context={context}

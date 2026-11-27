@@ -920,6 +920,15 @@ describe('sidebar drawer on a phone', () => {
     }
   });
 
+  it('clears the phone’s top inset as it does the bottom one', async () => {
+    await renderAt('/p/MMR');
+    await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
+    expect(await screen.findByRole('dialog', { name: 'Project' })).toHaveClass(
+      'pt-[max(0.75rem,env(safe-area-inset-top))]',
+      'pb-[max(0.75rem,env(safe-area-inset-bottom))]',
+    );
+  });
+
   it('closes when the page changes some other way, such as Back or the jump palette', async () => {
     const testRouter = await renderAt('/p/MMR');
     await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
