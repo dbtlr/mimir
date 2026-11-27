@@ -1219,6 +1219,20 @@ describe('sidebar drawer on a phone', () => {
     expect(testRouter.state.location.href).toBe('/p/MMR');
   });
 
+  it("closes behind the Needs you slot's See all from the Details tab, which keeps the path", async () => {
+    serveCards([question('MMR-7'), question('MMR-8'), question('MMR-9'), question('MMR-10')]);
+    const testRouter = await renderAt('/p/MMR?tab=details');
+    await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
+    const drawer = await screen.findByRole('dialog', { name: 'Project' });
+
+    await userEvent.click(await within(drawer).findByRole('link', { name: 'See all 4' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Project' })).toBeNull();
+    });
+    expect(testRouter.state.location.href).toBe('/p/MMR');
+  });
+
   it('closes when the page changes some other way, such as Back or the jump palette', async () => {
     const testRouter = await renderAt('/p/MMR');
     await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
