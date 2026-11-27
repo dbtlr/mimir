@@ -10,15 +10,17 @@ import { DRAWER_TAP_ROW } from '../lib/touch-target';
 import { SidebarJumpTo, useOpenJumpPalette } from './jump-palette';
 import { ProjectPicker } from './project-picker';
 import { ProjectContainers } from './sidebar-containers';
+import { ProjectNeedsYou } from './sidebar-needs-you';
 import { HomeContainers } from './sidebar-projects';
 import { ROW_CURRENT, ROW_HOLDS } from './sidebar-selection';
 import { iconButtonClass } from './ui/icon-button';
 import { MenuIcon } from './ui/icons';
 
 /*
- * The shell's sidebar (ADR 0013; the MMR-730 refinement): Jump to (MMR-729),
- * the switcher, then one container list, a link to the parent, the current
- * container, and its child containers. Outside a project its context is All
+ * The shell's sidebar (ADR 0013; the MMR-730 and MMR-804 refinements): Jump
+ * to (MMR-729), the switcher, on a project's pages what needs you there, then
+ * one container list, a link to the parent, the current container, and its
+ * child containers. Outside a project its context is All
  * projects (MMR-505), where the list is Home and the projects. On Settings'
  * pages and `/pair` it lists Settings' pages instead (MMR-733). From `lg` up
  * it sits beside the page; below that it folds into a drawer behind a top-bar
@@ -135,8 +137,9 @@ function landmarkLabel(context: SidebarContext): string {
 }
 
 /**
- * The sidebar's content for its context: Jump to, the switcher, then the
- * context's container list (or Settings' pages). In the drawer, `onJump` closes it before the palette
+ * The sidebar's content for its context: Jump to, the switcher, the
+ * project's Needs you slot, then the context's container list (or Settings'
+ * pages). In the drawer, `onJump` closes it before the palette
  * opens.
  */
 function SidebarBody({
@@ -155,6 +158,9 @@ function SidebarBody({
         <div className="mb-3.5">
           <ProjectPicker context={context} onNavigate={onNavigate} />
         </div>
+      )}
+      {context.kind === 'project' && (
+        <ProjectNeedsYou projectKey={context.key} onNavigate={onNavigate} />
       )}
       {context.kind !== 'settings' && (
         <div className="flex flex-col gap-px">
