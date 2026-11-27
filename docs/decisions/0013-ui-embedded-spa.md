@@ -1499,3 +1499,45 @@ Considered and rejected:
   that the sidebar lists containers and, separately, what needs attention.
 - A tally of all tasks at any depth. The sidebar and the parts rows would
   then show different numbers for the same record.
+
+## Refinement (2026-11-27, MMR-804): a project's sidebar shows what needs you there
+
+The MMR-730 refinement left a slot under the switcher for what needs the
+operator. The switcher's "N elsewhere" and Home's per-project counts shipped
+with it; this fills the slot. DESIGN.md's _Sidebar's Needs you_ row holds its
+sizes.
+
+- **The slot shows on an active project's pages**, every page whose sidebar
+  is that project's container list (MMR-730's table: the project, its
+  initiatives and phases, its tasks, and its Tasks, Seeds, Artifacts, seed,
+  artifact, and delivery pages), the Work tab included. It sits under the
+  switcher and above the container list, so the sidebar is the same on each of
+  them. Home, `/projects`, `/needs-you`, and `/doctor` have none, since Home's
+  page is the Needs you deck; Settings and an archived or unavailable project
+  have none either.
+- **The slot is the project's Needs you deck in brief.** Its rows are the
+  cards of the project's Work tab deck (the MMR-727 refinement), in the deck's
+  order, read from the review report the console already polls, with no read
+  of its own. The head counts those cards, as the deck's head does; a bundle of
+  decisions is one card and one row. A row reads the card's lead word, then
+  its title, and links to where the card's Open leads. It shows three rows;
+  when more cards wait, "See all N" opens the project's Work tab, where the
+  same N cards are. On the Work tab itself, "See all N" is the page, so it is
+  plain text marked as the current page, and the project's row stays the
+  sidebar's selection.
+- **With no card,** one quiet line, "Nothing needs you in <project>.", takes
+  the slot's place. While the report loads, the head shows over skeleton rows;
+  when it fails with nothing cached, "Couldn't load what needs you."
+- **The drawer scrolls the slot with the list;** nothing in it is pinned.
+
+Considered and rejected:
+
+- "See all N" to `/needs-you`, filtered to the project by a new search
+  parameter. The count would match, but the page is cross-project, so the
+  sidebar would leave the project for Home's level.
+- "See all N across projects" to `/needs-you` unfiltered. Its count would
+  differ from the head's and repeat the switcher's "N elsewhere".
+- Leaving the slot off the Work tab, whose deck shows the same cards. The
+  container list would then move between the project's tabs.
+- Pinning the slot in the drawer while the list scrolls. On a short phone the
+  list would keep about five rows in a second scroller.
