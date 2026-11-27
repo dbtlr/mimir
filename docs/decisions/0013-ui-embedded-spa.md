@@ -1503,8 +1503,7 @@ Considered and rejected:
 ## Refinement (2026-11-27, MMR-804): a project's sidebar shows what needs you there
 
 The MMR-730 refinement left a slot under the switcher for what needs the
-operator. The switcher's "N elsewhere" and Home's per-project counts shipped
-with it; this fills the slot. DESIGN.md's _Sidebar's Needs you_ row holds its
+operator; this fills it. DESIGN.md's _Sidebar's Needs you_ row holds its
 sizes.
 
 - **The slot shows on the pages of a project the review report lists**
@@ -1515,7 +1514,10 @@ sizes.
   the container list, so the sidebar is the same on each of them. Home,
   `/projects`, `/needs-you`, and `/doctor` have none, since Home's page is the
   Needs you deck; Settings and an archived or unavailable project have none
-  either.
+  either. Until the report has answered, the reads the container list already
+  makes decide: the slot shows unless the archived list names the project or
+  the project's tree reads as missing or not a project; once the report
+  answers, its list decides.
 - **The slot is the project's Needs you deck in brief.** Its rows are the
   cards the review report's deck holds whose project is this one, in the
   deck's order, read from the review report the console already polls, with no
@@ -1528,14 +1530,17 @@ sizes.
   reads the card's lead word, then its title, and links to where the card's
   Open leads. It shows three rows; when more cards wait, "See all N" opens the
   project's Work tab, where the same N cards are.
-- **On the Work tab** (the project's path without `?tab=details`), "See all N"
-  and a row whose Open is that page (a bundle of the project's decisions with
-  no delivery) are plain text, not links and not marked current, so the
-  project's row stays the sidebar's one selection.
+- **Nothing in the slot links to the page you are on or marks it current.**
+  A row, or "See all N", whose target has the page's path, whatever `?tab=`
+  (the path rule MMR-730's selection uses), is plain text: a task's row on that
+  task's page, a delivery's on its page, and on the project's page "See all N"
+  and a bundle of the project's decisions with no delivery. No part of the slot
+  takes `aria-current`, so the container list keeps the sidebar's one
+  selection.
 - **With no card,** one quiet line, "Nothing needs you in <project>.", takes
   the slot's place. While the report loads, the head shows over skeleton rows;
-  when it fails with nothing cached, "Couldn't load what needs you."; offline,
-  the cached rows stay.
+  when it fails with nothing cached, the head over "Couldn't load what needs
+  you."; offline, the cached rows stay.
 - **The drawer scrolls the slot with the list;** nothing in it is pinned.
 
 Considered and rejected:
