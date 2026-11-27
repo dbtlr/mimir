@@ -1531,10 +1531,10 @@ sizes.
   Open leads. It shows three rows; when more cards wait, "See all N" opens the
   project's Work tab, where the same N cards are.
 - **Nothing in the slot links to the page you are on or marks it current.**
-  A row, or "See all N", whose target has the page's path, whatever `?tab=`
-  (the path rule MMR-730's selection uses), is plain text: a task's row on that
-  task's page, a delivery's on its page, and on the project's page "See all N"
-  and a bundle of the project's decisions with no delivery. No part of the slot
+  A task's or delivery's row on that record's page, whatever `?tab=`, is plain
+  text. "See all N", and a bundle of the project's decisions with no delivery,
+  both lead to the Work tab, so they are plain text there and links everywhere
+  else, the project's Details tab included, since its cards are not on it. No part of the slot
   takes `aria-current`, so the container list keeps the sidebar's one
   selection.
 - **With no card,** one quiet line, "Nothing needs you in <project>.", takes
