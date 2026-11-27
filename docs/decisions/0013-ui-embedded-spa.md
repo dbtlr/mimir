@@ -1534,9 +1534,9 @@ sizes.
   A task's or delivery's row on that record's page, whatever `?tab=`, is plain
   text. "See all N", and a bundle of the project's decisions with no delivery,
   both lead to the Work tab, so they are plain text there and links everywhere
-  else, the project's Details tab included, since its cards are not on it. No part of the slot
-  takes `aria-current`, so the container list keeps the sidebar's one
-  selection.
+  else, the project's Details tab included, since its cards are not on it.
+  No part of the slot takes `aria-current`, so the container list keeps the
+  sidebar's one selection.
 - **With no card,** one quiet line, "Nothing needs you in <project>.", takes
   the slot's place. While the report loads, the head shows over skeleton rows;
   when it fails with nothing cached, the head over "Couldn't load what needs
