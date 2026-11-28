@@ -200,11 +200,14 @@ export function ProjectDrawer({ context }: { context: SidebarContext }) {
   const trigger = useRef<HTMLButtonElement>(null);
   const jumpPending = useRef(false);
   const openPalette = useOpenJumpPalette();
-  // A new page, or a step through history (Back between two tabs of one page),
-  // closes it; a page rewriting its own query in place (a replace, which keeps
-  // the history index) leaves it open.
+  // A new page, a new fragment, or a step through history (Back between two
+  // tabs of one page) closes it; a page rewriting its own query in place (a
+  // replace, which keeps the history index) leaves it open. The fragment is in
+  // the key because a browser gives a fragment's entry no state, so Back from
+  // an in-page link keeps the index.
   const place = useRouterState({
-    select: (s) => `${s.location.pathname} ${String(s.location.state.__TSR_index)}`,
+    select: (s) =>
+      `${s.location.pathname}#${s.location.hash} ${String(s.location.state.__TSR_index)}`,
   });
   const [seenPlace, setSeenPlace] = useState(place);
   if (seenPlace !== place) {

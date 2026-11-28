@@ -1341,6 +1341,21 @@ describe('sidebar drawer on a phone', () => {
     expect(screen.getByRole('dialog', { name: 'Project' })).toBeInTheDocument();
   });
 
+  it('closes when the fragment changes, as Back from an in-page link', async () => {
+    const testRouter = await renderAt('/p/MMR#main');
+    await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
+    await screen.findByRole('dialog', { name: 'Project' });
+
+    // A browser gives a fragment's entry no state, so Back from it keeps the history index.
+    await act(async () => {
+      await testRouter.navigate({ params: { key: 'MMR' }, replace: true, to: '/p/$key' });
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Project' })).toBeNull();
+    });
+  });
+
   it('closes on the scrim', async () => {
     await renderAt('/p/MMR');
     await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
