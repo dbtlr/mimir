@@ -38,7 +38,8 @@ function ProjectLink({
       status={project.status}
       projectKey={project.id}
       title={project.title}
-      trailing={<NeedsYouCount count={needsYou} />}
+      // No count, no trailing part: its separating space would otherwise stray into the name.
+      trailing={needsYou > 0 ? <NeedsYouCount count={needsYou} /> : undefined}
       indent
       onNavigate={onNavigate}
     />
