@@ -635,9 +635,10 @@ describe('sidebar rows name their status in words, not by the dot alone (MMR-807
     serveWorld([needsYou('HND', 3)], [dated('BLK', '05', { status: 'blocked' })]);
     await renderAt('/');
     const nav = await sidebar();
-    await expect(within(nav).findByRole('link', { name: /^HND/ })).resolves.toHaveAccessibleName(
-      'HND HND title 3 need you, In progress',
-    );
+    // The needs-you count loads apart from the row, so wait for the whole name.
+    await expect(
+      within(nav).findByRole('link', { name: 'HND HND title 3 need you, In progress' }),
+    ).resolves.toHaveAttribute('href', '/p/HND');
     expect(within(nav).getByRole('link', { name: /^BLK/ })).toHaveAccessibleName(
       'BLK BLK title, Blocked',
     );
@@ -646,9 +647,10 @@ describe('sidebar rows name their status in words, not by the dot alone (MMR-807
   it('gives Home’s row, which has no dot, no status word', async () => {
     serveWorld();
     await renderAt('/');
+    // Home's row shows before its tally loads, so wait for the whole name.
     await expect(
-      within(await sidebar()).findByRole('link', { name: /^Home/ }),
-    ).resolves.toHaveAccessibleName('Home, 4 projects');
+      within(await sidebar()).findByRole('link', { name: 'Home, 4 projects' }),
+    ).resolves.toHaveAttribute('href', '/');
   });
 });
 
