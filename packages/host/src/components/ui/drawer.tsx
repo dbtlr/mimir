@@ -17,7 +17,7 @@ import { OVERLAY_BACKDROP_CLASS, OVERLAY_DESCRIPTION_CLASS, OVERLAY_TITLE_CLASS 
  * MMR-736). Below `md` a sheet rises from the bottom, full screen for a form;
  * from `md` up it is a panel from the right, 440px for content and 640px for
  * a form. A left drawer is the sidebar below `lg`, the Navigation drawer
- * (MMR-799), 300 wide up to 88vw. UI SDK fixes `side` per
+ * (MMR-799), 300 wide up to 88vw on the sidebar's well-950. UI SDK fixes `side` per
  * Drawer, so `Drawer` picks it from the viewport unless the caller passes one;
  * a drawer that crosses `md` while open slides to the new edge. The preview
  * panel (MMR-720) is its own size: a content-sized bottom sheet capped at 88%
@@ -64,7 +64,8 @@ export function DrawerBackdrop({ className, ...props }: ComponentProps<typeof Sd
  * corners per edge. A bottom sheet caps at the visible viewport so the
  * on-screen keyboard never covers a field; a form sheet fills that height.
  * The panel is well-850, so a well-950 control on it reads by its ground as
- * well as its edge (DESIGN.md, Color roles).
+ * well as its edge (DESIGN.md, Color roles); the Navigation drawer keeps the
+ * sidebar's well-950 instead, where the Jump to field is the well-850 one.
  */
 const PANEL_CLASS =
   'group/drawer flex flex-col gap-3 overflow-y-auto border-line bg-well-850 p-4 text-ink shadow-2xl outline-none ' +
@@ -103,9 +104,7 @@ export function DrawerContent({
   className,
   size = 'content',
   ...props
-}: ComponentProps<typeof SdkDrawerContent> & {
-  size?: keyof typeof SIZE_CLASS;
-}) {
+}: ComponentProps<typeof SdkDrawerContent> & { size?: keyof typeof SIZE_CLASS }) {
   return (
     <SdkDrawerContent
       className={mergeClassName(PANEL_CLASS, SIZE_CLASS[size], className)}

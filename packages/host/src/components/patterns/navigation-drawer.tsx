@@ -8,7 +8,7 @@ export type NavigationDrawerProps = {
   open: boolean;
   /** Runs when the drawer asks to open or close: its button, Escape, the scrim, or a drag to the edge. */
   onOpenChange: (open: boolean) => void;
-  /** Runs once a close has finished, after focus has gone back to the menu button. */
+  /** Runs once a close has finished: after the slide out, or at once when nothing animates. */
   onClosed?: () => void;
   /** Names the menu button, such as "Open project menu". */
   triggerLabel: string;
@@ -38,9 +38,7 @@ export function NavigationDrawer({
     <Drawer
       side="left"
       open={open}
-      onOpenChange={(next) => {
-        onOpenChange(next);
-      }}
+      onOpenChange={onOpenChange}
       onOpenChangeComplete={(isOpen) => {
         if (!isOpen) {
           onClosed?.();

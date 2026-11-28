@@ -851,12 +851,25 @@ describe('NavigationDrawer', () => {
     expect(within(drawer).getByRole('link', { name: 'Engine' })).toBeInTheDocument();
   });
 
-  it('closes on Escape, hands focus back to the menu button, then reports the close', async () => {
+  it('closes on Escape, hands focus back to the menu button, and reports the close only', async () => {
     const onClosed = vi.fn();
     render(<NavigationHarness onClosed={onClosed} />);
     const menu = screen.getByRole('button', { name: 'Open project menu' });
     await userEvent.click(menu);
-    await screen.findByRole('dialog', { name: 'Project' });
+    const drawer = await screen.findByRole('dialog', { name: 'Project' });
+    // Let the open finish, so an onClosed fired by the open would show here.
+    await waitFor(() => {
+      expect(drawer).not.toHaveAttribute('data-starting-style');
+    });
+    // Give the open's completion a few frames to (wrongly) report a close.
+    await expect(
+      vi.waitFor(
+        () => {
+          expect(onClosed).toHaveBeenCalled();
+        },
+        { timeout: 100 },
+      ),
+    ).rejects.toThrow(/to be called/);
 
     await userEvent.keyboard('{Escape}');
 
@@ -864,9 +877,7 @@ describe('NavigationDrawer', () => {
       expect(screen.queryByRole('dialog')).toBeNull();
     });
     expect(menu).toHaveFocus();
-    await waitFor(() => {
-      expect(onClosed).toHaveBeenCalledOnce();
-    });
+    expect(onClosed).toHaveBeenCalledOnce();
   });
 
   it('closes on the scrim', async () => {

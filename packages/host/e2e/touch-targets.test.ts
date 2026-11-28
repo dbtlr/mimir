@@ -173,12 +173,24 @@ test.describe('the project sidebar', () => {
         if (context === 'project') {
           await openFolds(drawer);
         }
+        // 300 wide at the left edge, full height (DESIGN.md, Layout widths).
+        await expect(drawer).toHaveCSS('width', '300px');
+        await expect.poll(async () => (await drawer.boundingBox())?.x).toBe(0);
+        expect((await drawer.boundingBox())?.height).toBe(viewport.height);
         const sizes = await controlSizes(drawer);
         expect(sizes).toHaveLength(controls);
         expect(sizes.filter(({ small }) => small).map(({ label }) => label)).toEqual([]);
       });
     }
   }
+
+  test('caps the drawer at 88% of a narrow phone', async ({ page }) => {
+    await open(page, { height: 640, width: 320 });
+    await page.getByRole('button', { name: 'Open project menu' }).click();
+    const box = await page.getByRole('dialog', { name: 'Project' }).boundingBox();
+    // 88% of 320.
+    expect(box?.width).toBeCloseTo(281.6, 1);
+  });
 
   test('keeps its desktop sizes', async ({ page }) => {
     await open(page, DESKTOP);
@@ -189,10 +201,10 @@ test.describe('the project sidebar', () => {
       'MMR Mimir: 231 × 36',
       'Blocked task MMR-52: 231 × 32',
       '← Home: 231 × 32',
-      'MMR project MMR 1/2: 231 × 32',
-      'initiative MMR-1 0/1: 215 × 32',
+      'MMR project MMR 1/2 , In progress: 231 × 32',
+      'initiative MMR-1 0/1 , In progress: 215 × 32',
       '1 finished initiative: 215 × 32',
-      'initiative MMR-5 1/1: 215 × 32',
+      'initiative MMR-5 1/1 , Done: 215 × 32',
     ]);
   });
 });

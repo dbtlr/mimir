@@ -179,7 +179,9 @@ All existing (`styles.css`), except `sheet-seam`, **adopted (MMR-720)**. Rules:
   (nested block). Depth is tone, not shadow, in dark; light adds the
   `shadow-card` / `shadow-menu` / `shadow-overlay` ramp (existing).
 - **Form surfaces: the panel is `well-850` and a control's ground is
-  `well-950`.** The Drawer's panel is `well-850` (**adopted (MMR-743)**).
+  `well-950`.** The Drawer's panel is `well-850` (**adopted (MMR-743)**),
+  except the Navigation drawer's, which keeps the sidebar's `well-950`
+  (**adopted (MMR-799)**; Layout widths).
   **Proposed**: the Dialog panel is `well-900` today, and a `well-950` input
   on `well-900` differs by under 2% luminance, so a control in a Dialog reads
   only by its edge.

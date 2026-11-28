@@ -165,11 +165,11 @@ function DrawerKit() {
           </DrawerContent>
         </Drawer>
       </Sample>
-      <Sample label="drawer · left (the Navigation drawer: the sidebar below lg)">
+      <Sample label="drawer · left (the Navigation drawer pattern draws the sidebar on this side)">
         <Drawer side="left">
           <DrawerTrigger render={<ActionButton variant="outline" />}>Open menu</DrawerTrigger>
           <DrawerBackdrop />
-          <DrawerContent size="navigation">
+          <DrawerContent>
             <DrawerTitle>Mimir</DrawerTitle>
             <DrawerDescription>Jump to a project.</DrawerDescription>
             <nav aria-label="Projects" className="flex flex-col gap-1 text-sm text-ink">

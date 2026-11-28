@@ -132,16 +132,8 @@ function TwoCommitSample() {
         placeholder=""
         required
         commits={[
-          {
-            label: 'Confirm with note',
-            onCommit: () => undefined,
-            variant: 'outline',
-          },
-          {
-            label: 'Answer with note',
-            onCommit: () => undefined,
-            variant: 'outline',
-          },
+          { label: 'Confirm with note', onCommit: () => undefined, variant: 'outline' },
+          { label: 'Answer with note', onCommit: () => undefined, variant: 'outline' },
         ]}
       />
     </Sample>
@@ -176,12 +168,7 @@ function ActionMenuSample() {
             value: theme,
           },
           { key: 'sep2', kind: 'separator' },
-          {
-            destructive: true,
-            key: 'remove',
-            kind: 'action',
-            label: 'Remove this browser',
-          },
+          { destructive: true, key: 'remove', kind: 'action', label: 'Remove this browser' },
         ]}
       />
     </Sample>
@@ -224,9 +211,7 @@ function NoticeSample() {
         <ActionButton
           variant="outline"
           onClick={() => {
-            toast('Archived Mimir', {
-              action: { label: 'Undo', onClick: () => undefined },
-            });
+            toast('Archived Mimir', { action: { label: 'Undo', onClick: () => undefined } });
           }}
         >
           Archived (Undo)
@@ -292,16 +277,8 @@ function FormSheetSample() {
 const KIT_PARENTS = [
   { group: 'Initiatives', id: 'MMR-356', title: 'Console usability' },
   { group: 'Initiatives', id: 'MMR-702', title: 'Web Push' },
-  {
-    group: 'Phases',
-    id: 'MMR-717',
-    title: 'One feed system for phone and desktop',
-  },
-  {
-    group: 'Phases',
-    id: 'MMR-706',
-    title: 'Web Push notifications for the needs-you set',
-  },
+  { group: 'Phases', id: 'MMR-717', title: 'One feed system for phone and desktop' },
+  { group: 'Phases', id: 'MMR-706', title: 'Web Push notifications for the needs-you set' },
 ];
 
 /** The edit sheet's parts: a growing Summary, the joined Write and Preview, a grouped picker, tags, and a Save that partly failed. */

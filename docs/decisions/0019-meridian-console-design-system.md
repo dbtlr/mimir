@@ -2871,9 +2871,10 @@ the writes a draft plans, the re-baseline, and the footer note.
 ## Refinement (2026-11-28, MMR-799): the Navigation drawer
 
 Below `lg` (1024) the sidebar folds into a drawer behind the top bar's menu
-button (MMR-720; ADR 0013's MMR-729 and MMR-730 refinements). It was the
-last feature built on Base UI's Dialog. The Surfaces list and the pattern
-table now name it, so it moves onto UI SDK's Drawer as a pattern
+button (MMR-720; ADR 0013's MMR-729 and MMR-730 refinements). It was built
+on Base UI's Dialog, which only `direction-line.tsx` and the `ui/sheet.tsx`
+primitive still use. The Surfaces list and the pattern table now name it,
+so it moves onto UI SDK's Drawer as a pattern
 (`components/patterns/navigation-drawer.tsx`) instead of a feature that
 builds its own overlay.
 
@@ -2898,9 +2899,10 @@ builds its own overlay.
   palette once the close has finished (`onOpenChangeComplete`), so the
   palette returns focus to the menu button. A drawer reopened before its
   close finishes drops the pending jump.
-- **Motion.** Its slide is §8's sheet slide, no new mover: UI SDK's pointer
-  driver moves it as it moves every Sheet. Under reduced motion it opens and
-  closes in place.
+- **Motion.** Its slide is §8's sheet slide, no new mover. UI SDK's pointer
+  driver moves it, as it moves every side drawer, and every Sheet under
+  reduced motion (a bottom sheet on a touch screen otherwise takes the
+  scroll-snap driver). Under reduced motion it opens and closes in place.
 
 The pattern owns the menu button, the scrim, and the panel; the feature
 (`ProjectDrawer`) passes the label, the sidebar's body, and what closing and
