@@ -247,10 +247,10 @@ describe('sidebar on Home (MMR-730)', () => {
     await renderAt('/');
     const nav = await expectRows([
       'Home 4, 4 projects',
-      'FLT FLT title',
-      'LOM LOM title',
-      'HND HND title',
-      'MUN MUN title',
+      'FLT FLT title, In progress',
+      'LOM LOM title, In progress',
+      'HND HND title, In progress',
+      'MUN MUN title, In progress',
       'See all 4 projects',
     ]);
     expect(within(nav).getByRole('link', { name: /^FLT/ })).toHaveAttribute('href', '/p/FLT');
@@ -416,10 +416,10 @@ describe('sidebar on a project (MMR-730)', () => {
     await renderAt('/p/MMR');
     const nav = await expectRows([
       '← Home',
-      'MMR Mimir 1/5',
-      'initiative MMR-1 0/3',
-      'initiative MMR-8 ∞',
-      'initiative MMR-9 parked',
+      'MMR Mimir 1/5, In progress',
+      'initiative MMR-1 0/3, In progress',
+      'initiative MMR-8 ∞, Ready',
+      'initiative MMR-9 parked, Parked',
     ]);
     expect(within(nav).getByRole('link', { name: '← Home' })).toHaveAttribute('href', '/');
     expect(within(nav).getByRole('link', { name: /^MMR Mimir/ })).toHaveAttribute('href', '/p/MMR');
@@ -427,7 +427,7 @@ describe('sidebar on a project (MMR-730)', () => {
       'href',
       '/p/MMR/1',
     );
-    await expect(pageMarks()).resolves.toStrictEqual(['MMR Mimir 1/5']);
+    await expect(pageMarks()).resolves.toStrictEqual(['MMR Mimir 1/5, In progress']);
   });
 
   it('sets the project’s key in the switcher row’s key column', async () => {
@@ -440,7 +440,7 @@ describe('sidebar on a project (MMR-730)', () => {
   it('keeps the project the page on its Details tab', async () => {
     await renderAt('/p/MMR?tab=details');
     await waitFor(async () => {
-      await expect(pageMarks()).resolves.toStrictEqual(['MMR Mimir 1/5']);
+      await expect(pageMarks()).resolves.toStrictEqual(['MMR Mimir 1/5, In progress']);
     });
   });
 
@@ -448,10 +448,10 @@ describe('sidebar on a project (MMR-730)', () => {
     await renderAt('/p/MMR');
     const nav = await expectRows([
       '← Home',
-      'MMR Mimir 1/5',
-      'initiative MMR-1 0/3',
-      'initiative MMR-8 ∞',
-      'initiative MMR-9 parked',
+      'MMR Mimir 1/5, In progress',
+      'initiative MMR-1 0/3, In progress',
+      'initiative MMR-8 ∞, Ready',
+      'initiative MMR-9 parked, Parked',
     ]);
     for (const name of ['Work', 'Tasks', 'Seeds', 'Artifacts', /task MMR-7/, /phase MMR-2/]) {
       expect(within(nav).queryByRole('link', { name })).toBeNull();
@@ -489,10 +489,10 @@ describe('sidebar on a project (MMR-730)', () => {
       await renderAt(path);
       const nav = await expectRows([
         '← Home',
-        'MMR Mimir 1/5, contains this page',
-        'initiative MMR-1 0/3',
-        'initiative MMR-8 ∞',
-        'initiative MMR-9 parked',
+        'MMR Mimir 1/5, In progress, contains this page',
+        'initiative MMR-1 0/3, In progress',
+        'initiative MMR-8 ∞, Ready',
+        'initiative MMR-9 parked, Parked',
       ]);
       const project = within(nav).getByRole('link', { name: /^MMR Mimir/ });
       expect(project).not.toHaveAttribute('aria-current');
@@ -527,10 +527,10 @@ describe('sidebar on a project (MMR-730)', () => {
     await renderShell('/p/MMR', client);
     await expectRows([
       '← Home',
-      'MMR Mimir 1/5',
-      'initiative MMR-1 0/3',
-      'initiative MMR-8 ∞',
-      'initiative MMR-9 parked',
+      'MMR Mimir 1/5, In progress',
+      'initiative MMR-1 0/3, In progress',
+      'initiative MMR-8 ∞, Ready',
+      'initiative MMR-9 parked, Parked',
     ]);
     vi.mocked(tree).mockRejectedValue(new ApiError('tree MMR → 404', 404));
     await client.invalidateQueries({ queryKey: ['tree', 'MMR'] });
@@ -544,17 +544,17 @@ describe('sidebar on an initiative (MMR-730)', () => {
     await renderAt('/p/MMR/1');
     const nav = await expectRows([
       '← Mimir',
-      'initiative MMR-1 0/3',
-      'phase MMR-2 0/1',
-      'phase MMR-4 Empty',
+      'initiative MMR-1 0/3, In progress',
+      'phase MMR-2 0/1, In progress',
+      'phase MMR-4 Empty, Ready',
     ]);
     expect(within(nav).getByRole('link', { name: '← Mimir' })).toHaveAttribute('href', '/p/MMR');
-    await expect(pageMarks()).resolves.toStrictEqual(['initiative MMR-1 0/3']);
+    await expect(pageMarks()).resolves.toStrictEqual(['initiative MMR-1 0/3, In progress']);
   });
 
   it('folds a finished initiative’s phases into “1 finished phase”', async () => {
     await renderAt('/p/MMR/5');
-    const nav = await expectRows(['← Mimir', 'initiative MMR-5 1/1']);
+    const nav = await expectRows(['← Mimir', 'initiative MMR-5 1/1, Done']);
     await userEvent.click(within(nav).getByText('1 finished phase'));
     expect(within(nav).getByRole('link', { name: /phase MMR-6/ })).toBeVisible();
   });
@@ -563,12 +563,12 @@ describe('sidebar on an initiative (MMR-730)', () => {
 describe('sidebar on a phase (MMR-730)', () => {
   it('leads back to its initiative and ends at the phase, washed as the page', async () => {
     await renderAt('/p/MMR/2');
-    const nav = await expectRows(['← initiative MMR-1', 'phase MMR-2 0/1']);
+    const nav = await expectRows(['← initiative MMR-1', 'phase MMR-2 0/1, In progress']);
     expect(within(nav).getByRole('link', { name: '← initiative MMR-1' })).toHaveAttribute(
       'href',
       '/p/MMR/1',
     );
-    await expect(pageMarks()).resolves.toStrictEqual(['phase MMR-2 0/1']);
+    await expect(pageMarks()).resolves.toStrictEqual(['phase MMR-2 0/1, In progress']);
     expect(within(nav).queryByText(/finished/)).toBeNull();
   });
 });
@@ -576,9 +576,12 @@ describe('sidebar on a phase (MMR-730)', () => {
 describe('sidebar on a task (MMR-730)', () => {
   it('under a phase: rings the phase, with no row for the task', async () => {
     await renderAt('/p/MMR/3');
-    const nav = await expectRows(['← initiative MMR-1', 'phase MMR-2 0/1, contains this page']);
+    const nav = await expectRows([
+      '← initiative MMR-1',
+      'phase MMR-2 0/1, In progress, contains this page',
+    ]);
     const phase = within(nav).getByRole('link', { name: /phase MMR-2/ });
-    expect(phase).toHaveAccessibleName('phase MMR-2 0/1, contains this page');
+    expect(phase).toHaveAccessibleName('phase MMR-2 0/1, In progress, contains this page');
     expect(phase).not.toHaveAttribute('aria-current');
     expect(within(nav).queryByRole('link', { name: /task MMR-3/ })).toBeNull();
     await expect(pageMarks()).resolves.toStrictEqual([]);
@@ -588,11 +591,64 @@ describe('sidebar on a task (MMR-730)', () => {
     await renderAt('/p/MMR/11');
     await expectRows([
       '← Mimir',
-      'initiative MMR-1 0/3, contains this page',
-      'phase MMR-2 0/1',
-      'phase MMR-4 Empty',
+      'initiative MMR-1 0/3, In progress, contains this page',
+      'phase MMR-2 0/1, In progress',
+      'phase MMR-4 Empty, Ready',
     ]);
     await expect(pageMarks()).resolves.toStrictEqual([]);
+  });
+});
+
+describe('sidebar rows name their status in words, not by the dot alone (MMR-807)', () => {
+  it('names the current container’s status, and its children’s', async () => {
+    await renderAt('/p/MMR');
+    const nav = await sidebar();
+    await expect(
+      within(nav).findByRole('link', { name: /^MMR Mimir/ }),
+    ).resolves.toHaveAccessibleName('MMR Mimir 1/5, In progress');
+    expect(within(nav).getByRole('link', { name: /initiative MMR-8/ })).toHaveAccessibleName(
+      'initiative MMR-8 ∞, Ready',
+    );
+    expect(within(nav).getByRole('link', { name: /initiative MMR-9/ })).toHaveAccessibleName(
+      'initiative MMR-9 parked, Parked',
+    );
+  });
+
+  it('names the status before saying the row holds the page', async () => {
+    await renderAt('/p/MMR/3');
+    const nav = await sidebar();
+    await expect(
+      within(nav).findByRole('link', { name: /phase MMR-2/ }),
+    ).resolves.toHaveAccessibleName('phase MMR-2 0/1, In progress, contains this page');
+  });
+
+  it('names a finished row’s status inside the fold', async () => {
+    await renderAt('/p/MMR');
+    const nav = await sidebar();
+    await userEvent.click(await within(nav).findByText('1 finished initiative'));
+    expect(within(nav).getByRole('link', { name: /initiative MMR-5/ })).toHaveAccessibleName(
+      'initiative MMR-5 1/1, Done',
+    );
+  });
+
+  it('names each project’s status on Home, after its needs-you count', async () => {
+    serveWorld([needsYou('HND', 3)], [dated('BLK', '05', { status: 'blocked' })]);
+    await renderAt('/');
+    const nav = await sidebar();
+    await expect(within(nav).findByRole('link', { name: /^HND/ })).resolves.toHaveAccessibleName(
+      'HND HND title 3 need you, In progress',
+    );
+    expect(within(nav).getByRole('link', { name: /^BLK/ })).toHaveAccessibleName(
+      'BLK BLK title, Blocked',
+    );
+  });
+
+  it('gives Home’s row, which has no dot, no status word', async () => {
+    serveWorld();
+    await renderAt('/');
+    await expect(
+      within(await sidebar()).findByRole('link', { name: /^Home/ }),
+    ).resolves.toHaveAccessibleName('Home, 4 projects');
   });
 });
 
@@ -720,7 +776,7 @@ describe('sidebar’s Needs you (MMR-804)', () => {
     });
     serveCards(MMR_CARDS);
     await renderAt('/p/NRN');
-    const nav = await expectRows(['← Home', 'NRN Norn Empty']);
+    const nav = await expectRows(['← Home', 'NRN Norn Empty, Ready']);
     await waitFor(() => {
       expect(within(nav).queryByRole('group', { name: /^Needs you/ })).toBeNull();
     });

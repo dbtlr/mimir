@@ -11,6 +11,7 @@ import { containerListOf } from '../lib/container-list';
 import type { ContainerList, ContainerParent, ContainerRow } from '../lib/container-list';
 import { projectPlaceOf } from '../lib/project-sidebar';
 import { nodeLink } from '../lib/record-url';
+import { STATUS_META } from '../lib/status';
 import { useArchivedProject } from '../lib/use-archived-project';
 import type { ContainerTally } from '../lib/work-page';
 import { ROW_CURRENT, ROW_HOLDS, SIDEBAR_ROW } from './sidebar-selection';
@@ -96,8 +97,8 @@ function RowLink({
 /**
  * A container's row: its status dot, a project's key in the switcher row's
  * key column, the title, and the tally, each left out where the row has none.
- * The current row's title is semibold, and a row that holds the page says so
- * in words. `tallyName` is what a screen reader hears in place of a bare
+ * The current row's title is semibold. A screen reader hears the dot's status
+ * in words, and that a row holds the page. `tallyName` is what a screen reader hears in place of a bare
  * tally ("4 projects"). `trailing` takes the tally's place with a part of its
  * own, as Home's projects do with their needs-you count.
  */
@@ -162,6 +163,8 @@ export function ContainerRowLink({
         </>
       )}
       {trailing !== undefined && <> {trailing}</>}
+      {/* The dot is aria-hidden, so its status is said in words too (MMR-807). */}
+      {status !== undefined && <span className="sr-only">, {STATUS_META[status].label}</span>}
       {mark === 'holds' && <span className="sr-only">, contains this page</span>}
     </RowLink>
   );
