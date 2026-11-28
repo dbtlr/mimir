@@ -1305,12 +1305,66 @@ describe('sidebar drawer on a phone', () => {
     });
   });
 
+  it('closes when only the query changes, as Back between two tabs of one page', async () => {
+    const testRouter = await renderAt('/p/MMR');
+    await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
+    await screen.findByRole('dialog', { name: 'Project' });
+
+    await act(async () => {
+      await testRouter.navigate({
+        params: { key: 'MMR' },
+        search: { tab: 'details' },
+        to: '/p/$key',
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Project' })).toBeNull();
+    });
+  });
+
+  it("stays open while the page rewrites its own query in place, as a list's search does, dropping a fragment", async () => {
+    const testRouter = await renderAt('/p/MMR#main');
+    await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
+    await screen.findByRole('dialog', { name: 'Project' });
+
+    await act(async () => {
+      await testRouter.navigate({
+        params: { key: 'MMR' },
+        replace: true,
+        search: { tab: 'details' },
+        to: '/p/$key',
+      });
+    });
+
+    expect(testRouter.state.location.search).toMatchObject({ tab: 'details' });
+    expect(screen.getByRole('dialog', { name: 'Project' })).toBeInTheDocument();
+  });
+
+  it('closes on Back, even when Back keeps the path and query, as from an in-page link', async () => {
+    const testRouter = await renderAt('/p/MMR');
+    await act(async () => {
+      await testRouter.navigate({ hash: 'main', params: { key: 'MMR' }, to: '/p/$key' });
+    });
+    await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
+    await screen.findByRole('dialog', { name: 'Project' });
+
+    act(() => {
+      testRouter.history.back();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Project' })).toBeNull();
+    });
+    expect(testRouter.state.location.hash).toBe('');
+  });
+
   it('closes on the scrim', async () => {
     await renderAt('/p/MMR');
     await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
     await screen.findByRole('dialog', { name: 'Project' });
 
-    await userEvent.click(screen.getByTestId('project-drawer-scrim'));
+    await userEvent.click(screen.getByTestId('navigation-drawer-scrim'));
 
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Project' })).toBeNull();

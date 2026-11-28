@@ -1,20 +1,18 @@
-import { Dialog } from '@base-ui-components/react/dialog';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useLinkProps, useRouterState } from '@tanstack/react-router';
-import { useRef, useState } from 'react';
+import { Link, useLinkProps, useRouter, useRouterState } from '@tanstack/react-router';
+import { useEffect, useRef, useState } from 'react';
 
 import { pendingPairingsQuery } from '../api/device-queries';
 import { cn } from '../lib/cn';
 import type { SidebarContext } from '../lib/project-sidebar';
 import { DRAWER_TAP_ROW } from '../lib/touch-target';
 import { SidebarJumpTo, useOpenJumpPalette } from './jump-palette';
+import { NavigationDrawer } from './patterns/navigation-drawer';
 import { ProjectPicker } from './project-picker';
 import { ProjectContainers } from './sidebar-containers';
 import { ProjectNeedsYou } from './sidebar-needs-you';
 import { HomeContainers } from './sidebar-projects';
 import { ROW_CURRENT, ROW_HOLDS } from './sidebar-selection';
-import { iconButtonClass } from './ui/icon-button';
-import { MenuIcon } from './ui/icons';
 
 /*
  * The shell's sidebar (ADR 0013; the MMR-730 and MMR-804 refinements): Jump
@@ -190,25 +188,40 @@ export function ProjectSidebar({ context }: { context: SidebarContext }) {
 
 /**
  * The compact sidebar: a button for the top bar that opens the same content as
- * a drawer from the left. Escape or a tap on the scrim closes it and hands
- * focus back to the button; choosing something, or any other move to another
- * page (Back, the jump palette), closes it too. Its Jump to closes the drawer
- * first and opens the palette once the drawer has handed focus back, so the
- * palette returns focus to the menu button when it closes.
+ * a drawer from the left. Escape, a tap on the scrim, or a drag toward the
+ * left edge closes it and hands focus back to the button; choosing something,
+ * or any other move to another page or through history but a replace (Back,
+ * the jump palette, Back between two tabs), closes it too. Its Jump to closes the drawer first and opens the
+ * palette once the close has finished, handing it the menu button, so the
+ * palette returns focus there when it closes.
  */
 export function ProjectDrawer({ context }: { context: SidebarContext }) {
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   const jumpPending = useRef(false);
   const openPalette = useOpenJumpPalette();
+  // A new page closes it, and so does every move through history but a
+  // replace: a push, Back or Forward (between two tabs of one page, or from an
+  // in-page link, which a browser reports as GO). A page rewriting its own
+  // query in place, as a list's search does, replaces, and leaves it open.
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [seenPath, setSeenPath] = useState(pathname);
   if (seenPath !== pathname) {
     setSeenPath(pathname);
     setOpen(false);
   }
+  const history = useRouter().history;
+  useEffect(
+    () =>
+      history.subscribe(({ action }) => {
+        if (action.type !== 'REPLACE') {
+          setOpen(false);
+        }
+      }),
+    [history],
+  );
   return (
-    <Dialog.Root
+    <NavigationDrawer
       open={open}
       onOpenChange={(next) => {
         // Reopened before its close finished: the Jump to it was closing for is dropped.
@@ -217,41 +230,26 @@ export function ProjectDrawer({ context }: { context: SidebarContext }) {
         }
         setOpen(next);
       }}
-      onOpenChangeComplete={(isOpen) => {
-        if (!isOpen && jumpPending.current) {
+      onClosed={() => {
+        if (jumpPending.current) {
           jumpPending.current = false;
           openPalette(trigger.current);
         }
       }}
+      triggerRef={trigger}
+      triggerLabel={context.kind === 'settings' ? 'Open settings menu' : 'Open project menu'}
+      label={landmarkLabel(context)}
     >
-      <Dialog.Trigger
-        ref={trigger}
-        aria-label={context.kind === 'settings' ? 'Open settings menu' : 'Open project menu'}
-        className={iconButtonClass}
-      >
-        <MenuIcon />
-      </Dialog.Trigger>
-      <Dialog.Portal>
-        <Dialog.Backdrop
-          data-testid="project-drawer-scrim"
-          className="fixed inset-0 z-40 bg-well-950/60 transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0"
-        />
-        <Dialog.Popup
-          aria-label={landmarkLabel(context)}
-          className="fixed inset-y-0 left-0 z-50 w-[300px] max-w-[88vw] overflow-y-auto border-r border-line bg-well-950 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl outline-none transition-transform duration-200 ease-out data-[ending-style]:-translate-x-full data-[starting-style]:-translate-x-full"
-        >
-          <SidebarBody
-            context={context}
-            onNavigate={() => {
-              setOpen(false);
-            }}
-            onJump={() => {
-              jumpPending.current = true;
-              setOpen(false);
-            }}
-          />
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
+      <SidebarBody
+        context={context}
+        onNavigate={() => {
+          setOpen(false);
+        }}
+        onJump={() => {
+          jumpPending.current = true;
+          setOpen(false);
+        }}
+      />
+    </NavigationDrawer>
   );
 }

@@ -14,6 +14,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { ContentSheet, ContentSheetClose } from '../components/patterns/content-sheet';
 import { DestructiveConfirm } from '../components/patterns/destructive-confirm';
+import { NavigationDrawer } from '../components/patterns/navigation-drawer';
 import { useFinalFocus } from '../components/patterns/opener';
 import { Reason } from '../components/patterns/reason';
 import type { ReasonCommit } from '../components/patterns/reason';
@@ -818,5 +819,78 @@ describe('ContentSheet', () => {
     expect(onClose).not.toHaveBeenCalled();
     await userEvent.click(within(sheet).getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalledOnce();
+  });
+});
+
+/** The top bar's menu button and the drawer it opens, held open by the harness. */
+function NavigationHarness({ onClosed }: { onClosed?: () => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <NavigationDrawer
+      open={open}
+      onOpenChange={setOpen}
+      onClosed={onClosed}
+      triggerLabel="Open project menu"
+      label="Project"
+    >
+      <nav aria-label="Project">
+        <a href="#engine">Engine</a>
+      </nav>
+    </NavigationDrawer>
+  );
+}
+
+describe('NavigationDrawer', () => {
+  it('opens from the left as a modal dialog named by its label, on the sidebar’s surface', async () => {
+    render(<NavigationHarness />);
+    await userEvent.click(screen.getByRole('button', { name: 'Open project menu' }));
+    const drawer = await screen.findByRole('dialog', { name: 'Project' });
+    expect(drawer).toHaveAttribute('data-side', 'left');
+    expect(drawer).toHaveAttribute('aria-modal', 'true');
+    expect(drawer).toHaveClass('bg-well-950', 'p-3');
+    expect(within(drawer).getByRole('link', { name: 'Engine' })).toBeInTheDocument();
+  });
+
+  it('closes on Escape, hands focus back to the menu button, and reports the close only', async () => {
+    const onClosed = vi.fn();
+    render(<NavigationHarness onClosed={onClosed} />);
+    const menu = screen.getByRole('button', { name: 'Open project menu' });
+    await userEvent.click(menu);
+    const drawer = await screen.findByRole('dialog', { name: 'Project' });
+    // Let the open finish, so an onClosed fired by the open would show here.
+    await waitFor(() => {
+      expect(drawer).not.toHaveAttribute('data-starting-style');
+    });
+    // Give the open's completion a few frames to (wrongly) report a close.
+    await expect(
+      vi.waitFor(
+        () => {
+          expect(onClosed).toHaveBeenCalled();
+        },
+        { timeout: 100 },
+      ),
+    ).rejects.toThrow(/to be called/);
+
+    await userEvent.keyboard('{Escape}');
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(menu).toHaveFocus();
+    expect(onClosed).toHaveBeenCalledOnce();
+  });
+
+  it('closes on the scrim and hands focus back to the menu button', async () => {
+    render(<NavigationHarness />);
+    const menu = screen.getByRole('button', { name: 'Open project menu' });
+    await userEvent.click(menu);
+    await screen.findByRole('dialog', { name: 'Project' });
+
+    await userEvent.click(screen.getByTestId('navigation-drawer-scrim'));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(menu).toHaveFocus();
   });
 });

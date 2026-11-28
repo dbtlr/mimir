@@ -41,7 +41,7 @@ test('a drawer reopened during its close drops the Jump to it was closing for', 
 
   await page.keyboard.press('Escape');
   await expect(drawer).toHaveCount(0);
-  // Past the drawer's 200ms slide, when a pending jump would have fired.
+  // The drawer leaves the page once its close has finished; a pending jump would fire by then.
   await page.waitForTimeout(500);
   await expect(page.getByRole('combobox', { name: PALETTE })).toHaveCount(0);
 });

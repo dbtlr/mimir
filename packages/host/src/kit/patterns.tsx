@@ -15,6 +15,7 @@ import {
   FormTextInput,
   FormTokenInput,
 } from '../components/patterns/form-sheet';
+import { NavigationDrawer } from '../components/patterns/navigation-drawer';
 import { toast } from '../components/patterns/notice';
 import { NoticeBanner } from '../components/patterns/notice-banner';
 import { Reason } from '../components/patterns/reason';
@@ -56,6 +57,7 @@ export function PatternsKit() {
       <RecordPickerSample />
       <ComposerSample />
       <WalkthroughSample />
+      <NavigationDrawerSample />
     </Section>
   );
 }
@@ -169,6 +171,35 @@ function ActionMenuSample() {
           { destructive: true, key: 'remove', kind: 'action', label: 'Remove this browser' },
         ]}
       />
+    </Sample>
+  );
+}
+
+function NavigationDrawerSample() {
+  const [open, setOpen] = useState(false);
+  return (
+    <Sample label="navigation drawer · the sidebar below lg, from the left over the scrim">
+      <NavigationDrawer
+        open={open}
+        onOpenChange={setOpen}
+        triggerLabel="Open project menu"
+        label="Project"
+      >
+        <nav aria-label="Project" className="flex flex-col gap-0.5 text-meta text-ink">
+          {['Console', 'Engine', 'Releases'].map((name) => (
+            <a
+              key={name}
+              className="flex min-h-11 items-center rounded-md px-2 hover:bg-well-800"
+              href="#kit"
+              onClick={() => {
+                setOpen(false);
+              }}
+            >
+              {name}
+            </a>
+          ))}
+        </nav>
+      </NavigationDrawer>
     </Sample>
   );
 }

@@ -27,9 +27,9 @@ const MMR = { key: 'MMR', name: 'Mimir' };
 const BLOCK = needsYouRow({ id: 'MMR-52', status: 'blocked' }, 'blocked');
 
 /**
- * An outline with every kind of row: an open initiative over a phase, and a
- * finished initiative with a phase inside it, so the Finished fold and its
- * disclosure show.
+ * A project with every kind of sidebar row: an open initiative, and a
+ * finished initiative, so the finished fold shows (ADR 0013, MMR-730
+ * refinement). Their phases stay off the project's level.
  */
 const TREE = engineTree({ id: 'MMR', status: 'in_progress', type: 'project' }, [
   engineTree({ id: 'MMR-1', status: 'in_progress', type: 'initiative' }, [

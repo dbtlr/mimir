@@ -165,7 +165,7 @@ function DrawerKit() {
           </DrawerContent>
         </Drawer>
       </Sample>
-      <Sample label="drawer · left (phone sidebar)">
+      <Sample label="drawer · left (the Navigation drawer pattern draws the sidebar on this side)">
         <Drawer side="left">
           <DrawerTrigger render={<ActionButton variant="outline" />}>Open menu</DrawerTrigger>
           <DrawerBackdrop />

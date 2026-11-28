@@ -16,7 +16,8 @@ import { OVERLAY_BACKDROP_CLASS, OVERLAY_DESCRIPTION_CLASS, OVERLAY_TITLE_CLASS 
  * The Drawer primitive (ADR 0046): the surface of the Sheet pattern (ADR 0019,
  * MMR-736). Below `md` a sheet rises from the bottom, full screen for a form;
  * from `md` up it is a panel from the right, 440px for content and 640px for
- * a form. A left drawer is the phone sidebar (MMR-730). UI SDK fixes `side` per
+ * a form. A left drawer is the sidebar below `lg`, the Navigation drawer
+ * (MMR-799), 300 wide up to 88vw on the sidebar's well-950. UI SDK fixes `side` per
  * Drawer, so `Drawer` picks it from the viewport unless the caller passes one;
  * a drawer that crosses `md` while open slides to the new edge. The preview
  * panel (MMR-720) is its own size: a content-sized bottom sheet capped at 88%
@@ -63,17 +64,21 @@ export function DrawerBackdrop({ className, ...props }: ComponentProps<typeof Sd
  * corners per edge. A bottom sheet caps at the visible viewport so the
  * on-screen keyboard never covers a field; a form sheet fills that height.
  * The panel is well-850, so a well-950 control on it reads by its ground as
- * well as its edge (DESIGN.md, Color roles).
+ * well as its edge (DESIGN.md, Color roles); the Navigation drawer keeps the
+ * sidebar's well-950 instead, where the Jump to field is the well-850 one.
  */
 const PANEL_CLASS =
   'group/drawer flex flex-col gap-3 overflow-y-auto border-line bg-well-850 p-4 text-ink shadow-2xl outline-none ' +
   'data-[side=bottom]:max-h-[min(88dvh,var(--visual-viewport-height,100dvh))] data-[side=bottom]:w-full data-[side=bottom]:rounded-t-xl data-[side=bottom]:border-t data-[side=bottom]:pb-[max(1rem,env(safe-area-inset-bottom))] ' +
-  'data-[side=left]:h-dvh data-[side=left]:w-[min(86vw,320px)] data-[side=left]:border-r ' +
+  'data-[side=left]:h-dvh data-[side=left]:w-[300px] data-[side=left]:max-w-[88vw] data-[side=left]:border-r ' +
   'data-[side=right]:h-dvh data-[side=right]:border-l';
 
 const SIZE_CLASS = {
   content: 'data-[side=right]:w-[min(100vw,440px)]',
   form: 'data-[side=bottom]:h-[var(--visual-viewport-height,100dvh)] data-[side=bottom]:max-h-none data-[side=bottom]:rounded-none data-[side=bottom]:border-t-0 data-[side=right]:w-[min(100vw,640px)]',
+  // The sidebar below `lg` (MMR-799): its own well-950 surface and 12 padding, clear of the phone's insets.
+  navigation:
+    'gap-0 bg-well-950 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))]',
   // The panel starts at the top bar's measured bottom, so the bar stays in reach beside it.
   preview:
     'data-[side=bottom]:max-h-[calc(var(--visual-viewport-height,100dvh)*0.88)] data-[side=bottom]:border-sheet-seam light:data-[side=bottom]:elevation-sheet-up ' +
