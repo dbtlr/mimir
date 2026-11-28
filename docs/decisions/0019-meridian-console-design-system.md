@@ -1279,6 +1279,9 @@ What a surface holds decides which one is used:
   up, a Drawer with `modal={false}` and no scrim, and modal below `md`.
 - **Popup**: a short list anchored to its button, either a menu or a
   picker's results.
+- **Navigation drawer** (2026-11-28, MMR-799): the sidebar below `lg`. It is
+  UI SDK's Drawer from the left, modal, over the scrim. The MMR-799
+  refinement holds its rules.
 
 An **Action menu** opens in a Sheet below `md` (rows 44px tall, ending in a
 Cancel row) and as an anchored menu from `md` up. The pattern makes that
@@ -1308,6 +1311,7 @@ which one the console keeps is an open design pass.
 | Suggestion | a one-time offer on a page | card | `ConfirmCard`'s `card` surface |
 | Notice | an outcome whose ask has closed, optionally with Undo or Retry, and one second action; or a standing state | Toast; a banner for a standing state | Toast |
 | Walkthrough | a guided series of answers | Dialog, whole console | Dialog, Radio, Textarea |
+| Navigation drawer | the sidebar below `lg`, opened by the top bar's menu button (MMR-799) | Navigation drawer | Drawer |
 
 Plain parts in `components/ui` that wrap no UI SDK behavior (`ActionButton`,
 `IconButton`, `Badge`, `Card`, the icons, and `Skeleton`) are no pattern.
@@ -1380,7 +1384,7 @@ These building blocks of the readability phase (MMR-717) build on primitives:
 - The preview panel, the Form sheet, and the filter sheet use Drawer.
 - The day fold uses Collapsible.
 - The record header's tabs use Tabs.
-- The sidebar is a left Drawer below 1024 (`DESKTOP` in `routes/shell.tsx`), on a phone and on a narrow desktop alike (MMR-720).
+- The sidebar is a left Drawer below 1024 (`DESKTOP` in `routes/shell.tsx`), on a phone and on a narrow desktop alike (MMR-720): the Navigation drawer pattern (MMR-799).
 - The phone Needs you deck uses `SwipeTrack`, a primitive over UI SDK's
   `bindDrag`, because Carousel did not fit (MMR-721 refinement, Considered
   and rejected).
@@ -2863,3 +2867,41 @@ scroll of its own, a scroll inside a scroll on touch.
 the task page's More: the writes each field sends, the tag diff, the
 grooming rule, the partial failure, and focus; `task-edit.test.ts` checks
 the writes a draft plans, the re-baseline, and the footer note.
+
+## Refinement (2026-11-28, MMR-799): the Navigation drawer
+
+Below `lg` (1024) the sidebar folds into a drawer behind the top bar's menu
+button (MMR-720; ADR 0013's MMR-729 and MMR-730 refinements). It was the
+last feature built on Base UI's Dialog. The Surfaces list and the pattern
+table now name it, so it moves onto UI SDK's Drawer as a pattern
+(`components/patterns/navigation-drawer.tsx`) instead of a feature that
+builds its own overlay.
+
+- **Surface.** A Drawer with `side="left"`, modal, over the overlay scrim
+  that every modal surface shares (DESIGN.md, Color roles: `well-950` at
+  70% with a 2px blur). The panel is 300 wide, up to 88% of the viewport,
+  and full height. It keeps the sidebar's own surface: `well-950`, 12
+  padding, and the phone's top and bottom safe-area insets. This is
+  deliberately not the Sheet's `well-850` panel, because the sidebar's Jump
+  to field is `well-850` and reads by its ground on the sidebar.
+- **Trigger.** The top bar's menu button opens it, named "Open project menu",
+  or "Open settings menu" in Settings. The drawer is named by the sidebar's
+  landmark label (_Project_, _All projects_, or _Settings_).
+- **Closing.** Escape, a tap on the scrim, and a drag or flick toward the left
+  edge close it, and focus returns to the menu button. A drag toward the edge
+  is new with UI SDK (its pointer driver), so the drawer closes the way it
+  slid in. `preventEdgeSwipe` stays off, so a tap at the screen's edge still
+  reaches the row under it.
+- **Navigation closes it.** Choosing a row closes it, and so does any other
+  move to another page (Back, the jump palette).
+- **Jump to.** The drawer's Jump to closes the drawer first, then opens the
+  palette once the close has finished (`onOpenChangeComplete`), so the
+  palette returns focus to the menu button. A drawer reopened before its
+  close finishes drops the pending jump.
+- **Motion.** Its slide is §8's sheet slide, no new mover: UI SDK's pointer
+  driver moves it as it moves every Sheet. Under reduced motion it opens and
+  closes in place.
+
+The pattern owns the menu button, the scrim, and the panel; the feature
+(`ProjectDrawer`) passes the label, the sidebar's body, and what closing and
+the jump do. No other surface opens from the left.

@@ -1310,7 +1310,7 @@ describe('sidebar drawer on a phone', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
     await screen.findByRole('dialog', { name: 'Project' });
 
-    await userEvent.click(screen.getByTestId('project-drawer-scrim'));
+    await userEvent.click(screen.getByTestId('navigation-drawer-scrim'));
 
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Project' })).toBeNull();

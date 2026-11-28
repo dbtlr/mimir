@@ -1,0 +1,1 @@
+- **The sidebar drawer closes with a swipe** (MMR-799). Below 1024 pixels wide, the sidebar's drawer now closes when you drag or flick it toward the left edge, as well as on Escape or a tap outside it. It sits over the same dimmed, blurred backdrop as the console's other sheets. Its rows, its size, and Jump to behave as before.

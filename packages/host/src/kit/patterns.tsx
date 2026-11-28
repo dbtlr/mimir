@@ -15,6 +15,7 @@ import {
   FormTextInput,
   FormTokenInput,
 } from '../components/patterns/form-sheet';
+import { NavigationDrawer } from '../components/patterns/navigation-drawer';
 import { toast } from '../components/patterns/notice';
 import { NoticeBanner } from '../components/patterns/notice-banner';
 import { Reason } from '../components/patterns/reason';
@@ -56,6 +57,7 @@ export function PatternsKit() {
       <RecordPickerSample />
       <ComposerSample />
       <WalkthroughSample />
+      <NavigationDrawerSample />
     </Section>
   );
 }
@@ -130,8 +132,16 @@ function TwoCommitSample() {
         placeholder=""
         required
         commits={[
-          { label: 'Confirm with note', onCommit: () => undefined, variant: 'outline' },
-          { label: 'Answer with note', onCommit: () => undefined, variant: 'outline' },
+          {
+            label: 'Confirm with note',
+            onCommit: () => undefined,
+            variant: 'outline',
+          },
+          {
+            label: 'Answer with note',
+            onCommit: () => undefined,
+            variant: 'outline',
+          },
         ]}
       />
     </Sample>
@@ -166,9 +176,43 @@ function ActionMenuSample() {
             value: theme,
           },
           { key: 'sep2', kind: 'separator' },
-          { destructive: true, key: 'remove', kind: 'action', label: 'Remove this browser' },
+          {
+            destructive: true,
+            key: 'remove',
+            kind: 'action',
+            label: 'Remove this browser',
+          },
         ]}
       />
+    </Sample>
+  );
+}
+
+function NavigationDrawerSample() {
+  const [open, setOpen] = useState(false);
+  return (
+    <Sample label="navigation drawer · the sidebar below lg, from the left over the scrim">
+      <NavigationDrawer
+        open={open}
+        onOpenChange={setOpen}
+        triggerLabel="Open project menu"
+        label="Project"
+      >
+        <nav aria-label="Project" className="flex flex-col gap-0.5 text-meta text-ink">
+          {['Console', 'Engine', 'Releases'].map((name) => (
+            <a
+              key={name}
+              className="flex min-h-11 items-center rounded-md px-2 hover:bg-well-800"
+              href="#kit"
+              onClick={() => {
+                setOpen(false);
+              }}
+            >
+              {name}
+            </a>
+          ))}
+        </nav>
+      </NavigationDrawer>
     </Sample>
   );
 }
@@ -180,7 +224,9 @@ function NoticeSample() {
         <ActionButton
           variant="outline"
           onClick={() => {
-            toast('Archived Mimir', { action: { label: 'Undo', onClick: () => undefined } });
+            toast('Archived Mimir', {
+              action: { label: 'Undo', onClick: () => undefined },
+            });
           }}
         >
           Archived (Undo)
@@ -246,8 +292,16 @@ function FormSheetSample() {
 const KIT_PARENTS = [
   { group: 'Initiatives', id: 'MMR-356', title: 'Console usability' },
   { group: 'Initiatives', id: 'MMR-702', title: 'Web Push' },
-  { group: 'Phases', id: 'MMR-717', title: 'One feed system for phone and desktop' },
-  { group: 'Phases', id: 'MMR-706', title: 'Web Push notifications for the needs-you set' },
+  {
+    group: 'Phases',
+    id: 'MMR-717',
+    title: 'One feed system for phone and desktop',
+  },
+  {
+    group: 'Phases',
+    id: 'MMR-706',
+    title: 'Web Push notifications for the needs-you set',
+  },
 ];
 
 /** The edit sheet's parts: a growing Summary, the joined Write and Preview, a grouped picker, tags, and a Save that partly failed. */

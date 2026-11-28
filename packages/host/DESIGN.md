@@ -751,6 +751,7 @@ card inside a sheet.
 | Sheet, content | bottom sheet below 768; 440 right panel from 768 | existing (`drawer.tsx`) |
 | Sheet, form | full screen below 768; 640 right panel from 768, so 576 of field width | existing (`drawer.tsx`) |
 | Breakpoint where a sheet becomes a panel | 768 (`md`) | existing (`DRAWER_DESKTOP_QUERY`) |
+| Navigation drawer | 300, at most 88vw, full height, from the left, below 1024 (`lg`); the sidebar's `well-950` with 12 padding, not the Sheet's `well-850` panel | **adopted (MMR-799)** (`NavigationDrawer`) |
 | Content column | 900 max, centred, for every page (see Page column under Pages); 560–720 for single-purpose pages. The seed, artifact, and delivery pages' 1200 grid with its 300 rail stands until MMR-732; the task page left it with MMR-728 | **adopted (MMR-729)** (`PAGE_COLUMN` in `lib/page-column.ts`); the rail grid existing (`record-layout.tsx`) |
 | Prose measure | about 70ch, a target rather than a hard limit; 440px for all prose in a form | existing practice (walkthrough uses 62ch); the form measure **adopted (MMR-743)** |
 

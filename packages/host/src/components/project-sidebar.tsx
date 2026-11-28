@@ -1,4 +1,3 @@
-import { Dialog } from '@base-ui-components/react/dialog';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useLinkProps, useRouterState } from '@tanstack/react-router';
 import { useRef, useState } from 'react';
@@ -8,13 +7,12 @@ import { cn } from '../lib/cn';
 import type { SidebarContext } from '../lib/project-sidebar';
 import { DRAWER_TAP_ROW } from '../lib/touch-target';
 import { SidebarJumpTo, useOpenJumpPalette } from './jump-palette';
+import { NavigationDrawer } from './patterns/navigation-drawer';
 import { ProjectPicker } from './project-picker';
 import { ProjectContainers } from './sidebar-containers';
 import { ProjectNeedsYou } from './sidebar-needs-you';
 import { HomeContainers } from './sidebar-projects';
 import { ROW_CURRENT, ROW_HOLDS } from './sidebar-selection';
-import { iconButtonClass } from './ui/icon-button';
-import { MenuIcon } from './ui/icons';
 
 /*
  * The shell's sidebar (ADR 0013; the MMR-730 and MMR-804 refinements): Jump
@@ -208,7 +206,7 @@ export function ProjectDrawer({ context }: { context: SidebarContext }) {
     setOpen(false);
   }
   return (
-    <Dialog.Root
+    <NavigationDrawer
       open={open}
       onOpenChange={(next) => {
         // Reopened before its close finished: the Jump to it was closing for is dropped.
@@ -217,41 +215,26 @@ export function ProjectDrawer({ context }: { context: SidebarContext }) {
         }
         setOpen(next);
       }}
-      onOpenChangeComplete={(isOpen) => {
-        if (!isOpen && jumpPending.current) {
+      onClosed={() => {
+        if (jumpPending.current) {
           jumpPending.current = false;
           openPalette(trigger.current);
         }
       }}
+      triggerRef={trigger}
+      triggerLabel={context.kind === 'settings' ? 'Open settings menu' : 'Open project menu'}
+      label={landmarkLabel(context)}
     >
-      <Dialog.Trigger
-        ref={trigger}
-        aria-label={context.kind === 'settings' ? 'Open settings menu' : 'Open project menu'}
-        className={iconButtonClass}
-      >
-        <MenuIcon />
-      </Dialog.Trigger>
-      <Dialog.Portal>
-        <Dialog.Backdrop
-          data-testid="project-drawer-scrim"
-          className="fixed inset-0 z-40 bg-well-950/60 transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0"
-        />
-        <Dialog.Popup
-          aria-label={landmarkLabel(context)}
-          className="fixed inset-y-0 left-0 z-50 w-[300px] max-w-[88vw] overflow-y-auto border-r border-line bg-well-950 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl outline-none transition-transform duration-200 ease-out data-[ending-style]:-translate-x-full data-[starting-style]:-translate-x-full"
-        >
-          <SidebarBody
-            context={context}
-            onNavigate={() => {
-              setOpen(false);
-            }}
-            onJump={() => {
-              jumpPending.current = true;
-              setOpen(false);
-            }}
-          />
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
+      <SidebarBody
+        context={context}
+        onNavigate={() => {
+          setOpen(false);
+        }}
+        onJump={() => {
+          jumpPending.current = true;
+          setOpen(false);
+        }}
+      />
+    </NavigationDrawer>
   );
 }

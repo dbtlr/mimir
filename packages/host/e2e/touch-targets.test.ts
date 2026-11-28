@@ -83,11 +83,10 @@ async function boxSize(control: Locator): Promise<{ width: number; height: numbe
   return { height: Math.round(box.height), width: Math.round(box.width) };
 }
 
-/** Open the Finished fold and the finished initiative's own disclosure, so every row shows. */
+/** Open the finished fold, so every row shows (ADR 0013, MMR-730 refinement). */
 async function openFolds(sidebar: Locator) {
   await sidebar.getByText('1 finished initiative').click();
-  await sidebar.getByRole('button', { name: /^Contents of / }).click();
-  await expect(sidebar.getByRole('link', { name: /MMR-6/u })).toBeVisible();
+  await expect(sidebar.getByRole('link', { name: /^initiative MMR-5/u })).toBeVisible();
 }
 
 /** Each control in the sidebar, as "its name: width × height", in document order. */
@@ -154,7 +153,7 @@ test.describe('the needs-you alert', () => {
 
 /** Each sidebar context: its page, the drawer's trigger and name, and how many controls it holds. */
 const DRAWERS = [
-  { context: 'project', controls: 12, name: 'Project', trigger: 'Open project menu' },
+  { context: 'project', controls: 8, name: 'Project', trigger: 'Open project menu' },
   { context: 'all', controls: 5, name: 'All projects', trigger: 'Open project menu' },
   { context: 'settings', controls: 7, name: 'Settings', trigger: 'Open settings menu' },
 ];
@@ -173,13 +172,6 @@ test.describe('the project sidebar', () => {
         const drawer = page.getByRole('dialog', { name });
         if (context === 'project') {
           await openFolds(drawer);
-          // The rows inside a finished initiative indent by the disclosure's 44,
-          // plus the outline's own 12 step for their depth.
-          const disclosure = await drawer
-            .getByRole('button', { name: /^Contents of / })
-            .boundingBox();
-          const inside = await drawer.getByRole('link', { name: /MMR-6/u }).boundingBox();
-          expect(Math.round((inside?.x ?? 0) - (disclosure?.x ?? 0))).toBe(TARGET + 12);
         }
         const sizes = await controlSizes(drawer);
         expect(sizes).toHaveLength(controls);
@@ -193,18 +185,14 @@ test.describe('the project sidebar', () => {
     const sidebar = page.getByRole('complementary', { name: 'Project' });
     await openFolds(sidebar);
     expect((await controlSizes(sidebar)).map(({ label }) => label)).toEqual([
-      'Jump to…: 235 × 36',
-      'MMR Mimir: 235 × 36',
-      'Work: 235 × 32',
-      'initiative MMR-1 0/1: 225 × 25',
-      'phase MMR-2 0/0: 213 × 25',
-      '1 finished initiative: 225 × 24',
-      'Contents of initiative MMR-5: 24 × 25',
-      'initiative MMR-5 1/1: 201 × 25',
-      'phase MMR-6 0/0: 189 × 25',
-      'Tasks: 235 × 32',
-      'Seeds: 235 × 32',
-      'Artifacts: 235 × 32',
+      'Jump to…: 231 × 36',
+      'MMR Mimir: 231 × 36',
+      'Blocked task MMR-52: 231 × 32',
+      '← Home: 231 × 32',
+      'MMR project MMR 1/2: 231 × 32',
+      'initiative MMR-1 0/1: 215 × 32',
+      '1 finished initiative: 215 × 32',
+      'initiative MMR-5 1/1: 215 × 32',
     ]);
   });
 });
