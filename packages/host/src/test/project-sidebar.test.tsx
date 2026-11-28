@@ -1323,8 +1323,8 @@ describe('sidebar drawer on a phone', () => {
     });
   });
 
-  it("stays open while the page rewrites its own query in place, as a list's search does", async () => {
-    const testRouter = await renderAt('/p/MMR');
+  it("stays open while the page rewrites its own query in place, as a list's search does, dropping a fragment", async () => {
+    const testRouter = await renderAt('/p/MMR#main');
     await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
     await screen.findByRole('dialog', { name: 'Project' });
 
@@ -1341,19 +1341,22 @@ describe('sidebar drawer on a phone', () => {
     expect(screen.getByRole('dialog', { name: 'Project' })).toBeInTheDocument();
   });
 
-  it('closes when the fragment changes, as Back from an in-page link', async () => {
-    const testRouter = await renderAt('/p/MMR#main');
+  it('closes on Back, even when Back keeps the path and query, as from an in-page link', async () => {
+    const testRouter = await renderAt('/p/MMR');
+    await act(async () => {
+      await testRouter.navigate({ hash: 'main', params: { key: 'MMR' }, to: '/p/$key' });
+    });
     await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
     await screen.findByRole('dialog', { name: 'Project' });
 
-    // A browser gives a fragment's entry no state, so Back from it keeps the history index.
-    await act(async () => {
-      await testRouter.navigate({ params: { key: 'MMR' }, replace: true, to: '/p/$key' });
+    act(() => {
+      testRouter.history.back();
     });
 
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Project' })).toBeNull();
     });
+    expect(testRouter.state.location.hash).toBe('');
   });
 
   it('closes on the scrim', async () => {

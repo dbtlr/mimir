@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link, useLinkProps, useRouterState } from '@tanstack/react-router';
-import { useRef, useState } from 'react';
+import { Link, useLinkProps, useRouter, useRouterState } from '@tanstack/react-router';
+import { useEffect, useRef, useState } from 'react';
 
 import { pendingPairingsQuery } from '../api/device-queries';
 import { cn } from '../lib/cn';
@@ -190,8 +190,8 @@ export function ProjectSidebar({ context }: { context: SidebarContext }) {
  * The compact sidebar: a button for the top bar that opens the same content as
  * a drawer from the left. Escape, a tap on the scrim, or a drag toward the
  * left edge closes it and hands focus back to the button; choosing something,
- * or any other move to another page or through history (Back, the jump
- * palette, Back between two tabs), closes it too. Its Jump to closes the drawer first and opens the
+ * or any other move to another page or through history but a replace (Back,
+ * the jump palette, Back between two tabs), closes it too. Its Jump to closes the drawer first and opens the
  * palette once the close has finished, handing it the menu button, so the
  * palette returns focus there when it closes.
  */
@@ -200,20 +200,26 @@ export function ProjectDrawer({ context }: { context: SidebarContext }) {
   const trigger = useRef<HTMLButtonElement>(null);
   const jumpPending = useRef(false);
   const openPalette = useOpenJumpPalette();
-  // A new page, a new fragment, or a step through history (Back between two
-  // tabs of one page) closes it; a page rewriting its own query in place (a
-  // replace, which keeps the history index) leaves it open. The fragment is in
-  // the key because a browser gives a fragment's entry no state, so Back from
-  // an in-page link keeps the index.
-  const place = useRouterState({
-    select: (s) =>
-      `${s.location.pathname}#${s.location.hash} ${String(s.location.state.__TSR_index)}`,
-  });
-  const [seenPlace, setSeenPlace] = useState(place);
-  if (seenPlace !== place) {
-    setSeenPlace(place);
+  // A new page closes it, and so does every move through history but a
+  // replace: a push, Back or Forward (between two tabs of one page, or from an
+  // in-page link, which a browser reports as GO). A page rewriting its own
+  // query in place, as a list's search does, replaces, and leaves it open.
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [seenPath, setSeenPath] = useState(pathname);
+  if (seenPath !== pathname) {
+    setSeenPath(pathname);
     setOpen(false);
   }
+  const history = useRouter().history;
+  useEffect(
+    () =>
+      history.subscribe(({ action }) => {
+        if (action.type !== 'REPLACE') {
+          setOpen(false);
+        }
+      }),
+    [history],
+  );
   return (
     <NavigationDrawer
       open={open}

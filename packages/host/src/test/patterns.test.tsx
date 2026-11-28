@@ -880,9 +880,10 @@ describe('NavigationDrawer', () => {
     expect(onClosed).toHaveBeenCalledOnce();
   });
 
-  it('closes on the scrim', async () => {
+  it('closes on the scrim and hands focus back to the menu button', async () => {
     render(<NavigationHarness />);
-    await userEvent.click(screen.getByRole('button', { name: 'Open project menu' }));
+    const menu = screen.getByRole('button', { name: 'Open project menu' });
+    await userEvent.click(menu);
     await screen.findByRole('dialog', { name: 'Project' });
 
     await userEvent.click(screen.getByTestId('navigation-drawer-scrim'));
@@ -890,5 +891,6 @@ describe('NavigationDrawer', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
     });
+    expect(menu).toHaveFocus();
   });
 });

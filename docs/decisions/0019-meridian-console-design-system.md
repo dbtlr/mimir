@@ -2893,11 +2893,12 @@ builds its own overlay.
   is new with UI SDK (its pointer driver), so the drawer closes the way it
   slid in. `preventEdgeSwipe` stays off, so a tap at the screen's edge still
   reaches the row under it.
-- **Navigation closes it.** Choosing a row closes it, and so does any other
-  move to another page, to another fragment, or through history (Back, the
-  jump palette, Back between two tabs of one page). A page that rewrites its
-  own query in place (a `replace`, such as a list's debounced search) leaves
-  it open.
+- **Navigation closes it.** Choosing a row closes it, and so does a move to
+  another page or any move through history but a `replace`: a push (the jump
+  palette), Back, or Forward, including Back between two tabs of one page and
+  Back from an in-page link. A page that rewrites its own URL in place (a
+  `replace`, such as a list's debounced search or a record page correcting a
+  hidden tab) leaves it open.
 - **Jump to.** The drawer's Jump to closes the drawer first, then opens the
   palette once the close has finished (`onOpenChangeComplete`), so the
   palette returns focus to the menu button. A drawer reopened before its
