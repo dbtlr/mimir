@@ -1323,6 +1323,24 @@ describe('sidebar drawer on a phone', () => {
     });
   });
 
+  it("stays open while the page rewrites its own query in place, as a list's search does", async () => {
+    const testRouter = await renderAt('/p/MMR');
+    await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
+    await screen.findByRole('dialog', { name: 'Project' });
+
+    await act(async () => {
+      await testRouter.navigate({
+        params: { key: 'MMR' },
+        replace: true,
+        search: { tab: 'details' },
+        to: '/p/$key',
+      });
+    });
+
+    expect(testRouter.state.location.search).toMatchObject({ tab: 'details' });
+    expect(screen.getByRole('dialog', { name: 'Project' })).toBeInTheDocument();
+  });
+
   it('closes on the scrim', async () => {
     await renderAt('/p/MMR');
     await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));

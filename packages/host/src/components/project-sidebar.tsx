@@ -190,8 +190,8 @@ export function ProjectSidebar({ context }: { context: SidebarContext }) {
  * The compact sidebar: a button for the top bar that opens the same content as
  * a drawer from the left. Escape, a tap on the scrim, or a drag toward the
  * left edge closes it and hands focus back to the button; choosing something,
- * or any other move to another page or its query (Back, the jump palette, a
- * tab), closes it too. Its Jump to closes the drawer first and opens the
+ * or any other move to another page or through history (Back, the jump
+ * palette, Back between two tabs), closes it too. Its Jump to closes the drawer first and opens the
  * palette once the close has finished, handing it the menu button, so the
  * palette returns focus there when it closes.
  */
@@ -200,10 +200,15 @@ export function ProjectDrawer({ context }: { context: SidebarContext }) {
   const trigger = useRef<HTMLButtonElement>(null);
   const jumpPending = useRef(false);
   const openPalette = useOpenJumpPalette();
-  const href = useRouterState({ select: (s) => s.location.href });
-  const [seenHref, setSeenHref] = useState(href);
-  if (seenHref !== href) {
-    setSeenHref(href);
+  // A new page, or a step through history (Back between two tabs of one page),
+  // closes it; a page rewriting its own query in place (a replace, which keeps
+  // the history index) leaves it open.
+  const place = useRouterState({
+    select: (s) => `${s.location.pathname} ${String(s.location.state.__TSR_index)}`,
+  });
+  const [seenPlace, setSeenPlace] = useState(place);
+  if (seenPlace !== place) {
+    setSeenPlace(place);
     setOpen(false);
   }
   return (
