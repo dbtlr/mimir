@@ -98,9 +98,10 @@ function RowLink({
  * A container's row: its status dot, a project's key in the switcher row's
  * key column, the title, and the tally, each left out where the row has none.
  * The current row's title is semibold. A screen reader hears the dot's status
- * in words, and that a row holds the page. `tallyName` is what a screen reader hears in place of a bare
- * tally ("4 projects"). `trailing` takes the tally's place with a part of its
- * own, as Home's projects do with their needs-you count.
+ * in words, and that a row holds the page. `tallyName` is what a screen
+ * reader hears in place of a bare tally ("4 projects"). `trailing` takes the
+ * tally's place with a part of its own, as Home's projects do with their
+ * needs-you count.
  */
 export function ContainerRowLink({
   target,
